@@ -1,0 +1,32 @@
+# Local development services. Production hosting is decided later (see docs/architecture/adr/0006-hosting.md).
+name: marktwerk
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: marktwerk
+      POSTGRES_PASSWORD: marktwerk
+      POSTGRES_DB: marktwerk
+      TZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marktwerk -d marktwerk"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Catches all outgoing email in dev. UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  postgres-data:

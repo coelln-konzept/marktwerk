@@ -1,0 +1,30 @@
+{
+  "name": "marktwerk",
+  "private": true,
+  "description": "Operations platform for a flea-market organizer",
+  "packageManager": "pnpm@10.34.7",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @marktwerk/db generate",
+    "db:migrate": "pnpm --filter @marktwerk/db migrate",
+    "db:seed": "pnpm --filter @marktwerk/web seed",
+    "db:studio": "pnpm --filter @marktwerk/db studio"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "turbo": "2.11.9",
+    "typescript": "6.0.3"
+  }
+}

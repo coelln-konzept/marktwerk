@@ -1,0 +1,50 @@
+{
+  "app": {
+    "name": "marktwerk",
+    "tagline": "Operating system for flea markets"
+  },
+  "nav": {
+    "overview": "Overview",
+    "myTasks": "My tasks",
+    "markets": "Markets",
+    "venues": "Venues",
+    "templates": "Templates",
+    "permits": "Permits",
+    "knowledgeBase": "Knowledge base",
+    "notifications": "Notifications",
+    "inbox": "Inbox",
+    "vendors": "Vendors",
+    "bookings": "Bookings",
+    "settings": "Settings",
+    "comingSoon": "Phase 2",
+    "signOut": "Sign out"
+  },
+  "roles": {
+    "owner": "Owner",
+    "manager": "Office manager",
+    "staff": "Staff",
+    "field": "Field crew"
+  },
+  "login": {
+    "title": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in …",
+    "error": "Email or password is incorrect."
+  },
+  "overview": {
+    "title": "Overview",
+    "greeting": "Hello {name}",
+    "placeholder": "The owner overview goes here: traffic light per upcoming market (permits, tasks, occupancy), critical deadlines and overdue tasks. See docs/product/roadmap.md, milestone M1."
+  },
+  "errors": {
+    "forbidden": "You don't have permission to do that.",
+    "back": "Back to overview"
+  },
+  "language": {
+    "label": "Language",
+    "de": "Deutsch",
+    "en": "English"
+  }
+}

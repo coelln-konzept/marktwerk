@@ -1,0 +1,50 @@
+{
+  "app": {
+    "name": "marktwerk",
+    "tagline": "Betriebssystem für Flohmärkte"
+  },
+  "nav": {
+    "overview": "Übersicht",
+    "myTasks": "Meine Aufgaben",
+    "markets": "Märkte",
+    "venues": "Veranstaltungsorte",
+    "templates": "Vorlagen",
+    "permits": "Genehmigungen",
+    "knowledgeBase": "Wissensdatenbank",
+    "notifications": "Benachrichtigungen",
+    "inbox": "Postfach",
+    "vendors": "Händler",
+    "bookings": "Buchungen",
+    "settings": "Einstellungen",
+    "comingSoon": "Phase 2",
+    "signOut": "Abmelden"
+  },
+  "roles": {
+    "owner": "Geschäftsführung",
+    "manager": "Büroleitung",
+    "staff": "Mitarbeiter:in",
+    "field": "Platzteam"
+  },
+  "login": {
+    "title": "Anmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "submitting": "Anmelden …",
+    "error": "E-Mail oder Passwort ist falsch."
+  },
+  "overview": {
+    "title": "Übersicht",
+    "greeting": "Hallo {name}",
+    "placeholder": "Hier entsteht die Chef-Übersicht: Ampel pro anstehendem Markt (Genehmigungen, Aufgaben, Auslastung), kritische Fristen und überfällige Aufgaben. Siehe docs/product/roadmap.md, Meilenstein M1."
+  },
+  "errors": {
+    "forbidden": "Dafür fehlt dir die Berechtigung.",
+    "back": "Zur Übersicht"
+  },
+  "language": {
+    "label": "Sprache",
+    "de": "Deutsch",
+    "en": "English"
+  }
+}
