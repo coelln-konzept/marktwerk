@@ -1,5 +1,5 @@
 import { can } from "@marktwerk/core";
-import { Check } from "lucide-react";
+import { Check, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,9 +9,13 @@ import { addressLine, MailLink, PhoneLink } from "@/components/catalogue/phone";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
 import { EventStatusBadge } from "@/components/events/event-status";
 import { Page, PageHeader } from "@/components/shell/page";
+import { buttonVariants } from "@/components/ui/button";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { Facts } from "@/components/ui/vorschau";
+import { ArchiveVenueButton } from "@/components/venues/archive-button";
+import { RowControls } from "@/components/venues/row-controls";
+import { AddZoneButton, ZoneControls } from "@/components/venues/zone-controls";
 import { formatDateRange, formatLength, todayIn } from "@/lib/format";
 import { rruleText } from "@/lib/rrule-text";
 import { getActor } from "@/server/actor";
@@ -32,8 +36,11 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
   if (!venue) notFound();
   const t = await getTranslations("venues");
   const td = await getTranslations("venues.detail");
+  const tm = await getTranslations("venues.manage");
   const locale = await getLocale();
   const today = todayIn();
+  const canWrite = can(actor.role, "venue", "write");
+  const canDelete = can(actor.role, "venue", "delete");
   const showEvents = can(actor.role, "event", "read");
   const showPresets = can(actor.role, "template", "read");
   const [events, presets] = await Promise.all([
@@ -47,6 +54,22 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
     <Page crumbs={[{ label: t("title"), href: "/orte" }, { label: venue.name }]}>
       <PageHeader
         title={venue.name}
+        actions={
+          canWrite || canDelete ? (
+            <>
+              {canWrite && (
+                <Link
+                  href={`/orte/${venue.id}/bearbeiten` as never}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  <Pencil aria-hidden />
+                  {tm("edit")}
+                </Link>
+              )}
+              {canDelete && <ArchiveVenueButton id={venue.id} name={venue.name} />}
+            </>
+          ) : undefined
+        }
         eyebrow={
           <Link href={"/orte" as never} className="hover:underline">
             {td("back")}
@@ -135,25 +158,38 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
       </div>
 
       <section aria-labelledby="zones-title" className="flex flex-col gap-3">
-        <h2 id="zones-title" className="font-semibold text-[15px]">
-          {td("zones")}
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="zones-title" className="font-semibold text-[15px]">
+            {td("zones")}
+          </h2>
+          {canWrite && <AddZoneButton venueId={venue.id} />}
+        </div>
         {venue.zones.length === 0 ? (
           <Panel>
             <PanelBody className="text-muted-foreground">{td("noZones")}</PanelBody>
           </Panel>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
-            {venue.zones.map((zone) => (
+            {venue.zones.map((zone, index) => (
               <Panel key={zone.id} className="overflow-hidden">
                 <PanelHeader className="py-2.5">
-                  <h3 className="font-semibold">{zone.name}</h3>
-                  <span className="tabular text-muted-foreground text-small">
-                    {td("zoneSummary", {
-                      rows: zone.rows.length,
-                      length: formatLength(zone.lengthCm, locale),
-                    })}
-                  </span>
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
+                    <h3 className="font-semibold">{zone.name}</h3>
+                    <span className="tabular text-muted-foreground text-small">
+                      {td("zoneSummary", {
+                        rows: zone.rows.length,
+                        length: formatLength(zone.lengthCm, locale),
+                      })}
+                    </span>
+                  </div>
+                  {canWrite && (
+                    <ZoneControls
+                      venueId={venue.id}
+                      zone={{ id: zone.id, name: zone.name }}
+                      index={index}
+                      count={venue.zones.length}
+                    />
+                  )}
                 </PanelHeader>
                 <Table>
                   <caption className="sr-only">{td("zoneCaption", { zone: zone.name })}</caption>
@@ -165,9 +201,24 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
                       <TH className="text-right">{td("cars")}</TH>
                       <TH className="text-center">{td("power")}</TH>
                       <TH className="text-center">{td("water")}</TH>
+                      {canWrite && (
+                        <TH>
+                          <span className="sr-only">{tm("row.actions")}</span>
+                        </TH>
+                      )}
                     </tr>
                   </THead>
                   <tbody>
+                    {zone.rows.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={canWrite ? 7 : 6}
+                          className="px-3 py-4 text-muted-foreground text-small"
+                        >
+                          {tm("row.empty")}
+                        </td>
+                      </tr>
+                    )}
                     {zone.rows.map((row) => (
                       <TR key={row.id}>
                         <TD className="font-medium">{row.label}</TD>
@@ -184,27 +235,47 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
                         <TD className="text-center">
                           <Flag on={row.water} yes={td("yes")} no={td("no")} />
                         </TD>
+                        {canWrite && (
+                          <TD className="w-20 text-right">
+                            <RowControls
+                              zone={{ id: zone.id, name: zone.name }}
+                              row={{
+                                id: row.id,
+                                label: row.label,
+                                lengthCm: row.lengthCm,
+                                depthCm: row.depthCm,
+                                carAllowed: row.carAllowed,
+                                carSlots: row.carSlots,
+                                power: row.power,
+                                water: row.water,
+                              }}
+                            />
+                          </TD>
+                        )}
                       </TR>
                     ))}
                   </tbody>
-                  <tfoot>
-                    <tr className="bg-surface-2 font-semibold">
-                      <th scope="row" className="h-row px-3 py-(--cell-y) text-left">
-                        {td("total")}
-                      </th>
-                      <td className="tabular whitespace-nowrap px-3 text-right">
-                        {formatLength(zone.lengthCm, locale)}
-                      </td>
-                      <td />
-                      <td className="tabular px-3 text-right">{zone.carSlots}</td>
-                      <td className="tabular px-3 text-center">
-                        {zone.rows.filter((r) => r.power).length}/{zone.rows.length}
-                      </td>
-                      <td className="tabular px-3 text-center">
-                        {zone.rows.filter((r) => r.water).length}/{zone.rows.length}
-                      </td>
-                    </tr>
-                  </tfoot>
+                  {zone.rows.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-surface-2 font-semibold">
+                        <th scope="row" className="h-row px-3 py-(--cell-y) text-left">
+                          {td("total")}
+                        </th>
+                        <td className="tabular whitespace-nowrap px-3 text-right">
+                          {formatLength(zone.lengthCm, locale)}
+                        </td>
+                        <td />
+                        <td className="tabular px-3 text-right">{zone.carSlots}</td>
+                        <td className="tabular px-3 text-center">
+                          {zone.rows.filter((r) => r.power).length}/{zone.rows.length}
+                        </td>
+                        <td className="tabular px-3 text-center">
+                          {zone.rows.filter((r) => r.water).length}/{zone.rows.length}
+                        </td>
+                        {canWrite && <td />}
+                      </tr>
+                    </tfoot>
+                  )}
                 </Table>
               </Panel>
             ))}
