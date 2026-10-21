@@ -105,3 +105,18 @@ export function taskDueInstant(
   const date = dueDateFor(anchorDate, rule.offsetDays, rule.dayMode, holidays);
   return dueInstantFor(date, defaults.dueTime, defaults.defaultDueTime, defaults.timeZone);
 }
+
+/**
+ * The wall-clock time ("HH:mm") of an instant in a time zone. A task keeps its time of day when its
+ * date moves, whether the time came from the template item or from the company default.
+ */
+export function wallClockTime(instant: Date, timeZone: string = DEFAULT_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  return `${part("hour")}:${part("minute")}`;
+}

@@ -159,7 +159,12 @@ describe("moving an event", () => {
   it("moves dates, anchors and season, keeps the duration and audits old → new", async () => {
     const id = await oneEvent(cat.presets.festival.id, "2026-12-04"); // Fr–So, 3 days
     const result = await moveEvent(owner, id, "2027-01-08", "2026-12-04");
-    expect(result).toEqual({ changed: true, from: "2026-12-04", to: "2027-01-08" });
+    expect(result).toEqual({
+      changed: true,
+      from: "2026-12-04",
+      to: "2027-01-08",
+      tasksShifted: 0,
+    });
     expect(await load(id)).toMatchObject({
       startsOn: "2027-01-08",
       endsOn: "2027-01-10",
@@ -222,6 +227,7 @@ describe("updateEventBasics", () => {
     expect(result).toEqual({
       changed: true,
       previous: { name: "Testflohmarkt", durationDays: 1, venueId: cat.venue.id },
+      tasksShifted: 0,
     });
     expect(await load(id)).toMatchObject({
       name: "Herbstflohmarkt Test",

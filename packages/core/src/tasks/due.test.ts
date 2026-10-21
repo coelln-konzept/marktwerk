@@ -8,6 +8,7 @@ import {
   holidayWindow,
   isBusinessDay,
   taskDueInstant,
+  wallClockTime,
 } from "./due";
 
 const nrw = (from: string, to: string) => holidaysBetween(from, to);
@@ -94,6 +95,15 @@ describe("dueDateFor, business days", () => {
   it("negative and positive offsets are mirror images on a plain week", () => {
     expect(dueDateFor("2026-11-04", 2, "business", none)).toBe("2026-11-06");
     expect(dueDateFor("2026-11-06", -2, "business", none)).toBe("2026-11-04");
+  });
+});
+
+describe("wallClockTime", () => {
+  it("reads the Berlin wall clock in summer and winter", () => {
+    expect(wallClockTime(new Date("2026-07-01T07:00:00.000Z"))).toBe("09:00");
+    expect(wallClockTime(new Date("2026-12-01T08:00:00.000Z"))).toBe("09:00");
+    expect(wallClockTime(new Date("2026-03-29T07:30:00.000Z"))).toBe("09:30");
+    expect(wallClockTime(new Date("2026-10-24T22:15:00.000Z"))).toBe("00:15");
   });
 });
 

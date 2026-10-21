@@ -25,6 +25,7 @@ import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
+import { instantiateTemplatesForEvents } from "./task-instantiation";
 
 /** At most this many events per run (a full season of one preset is ~10). */
 export const MAX_DATES_PER_RUN = 60;
@@ -145,6 +146,12 @@ export async function instantiateEvents(
     if (duties.length > 0) await tx.insert(eventDuty).values(duties);
     created.push({ id: row.id, startsOn });
   }
+  // M2: one checklist per template linked to the preset, with its tasks (one service path, same transaction).
+  await instantiateTemplatesForEvents(
+    tx,
+    actor,
+    created.map((c) => c.id),
+  );
   await audit(
     tx,
     actor.id,
