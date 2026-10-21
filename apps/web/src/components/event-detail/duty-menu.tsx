@@ -62,12 +62,17 @@ export function DutyMenu({
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
-  function message(from: string | null, to: string | null) {
+  function message(from: string | null, to: string | null, tasks: number) {
     const fromName = nameOf(from);
     const toName = nameOf(to);
-    if (toName === null) return t("toast.cleared", { role: roleName, name: fromName ?? "" });
-    if (fromName === null) return t("toast.assigned", { role: roleName, name: toName });
-    return t("toast.changed", { role: roleName, from: fromName, to: toName });
+    const text =
+      toName === null
+        ? t("toast.cleared", { role: roleName, name: fromName ?? "" })
+        : fromName === null
+          ? t("toast.assigned", { role: roleName, name: toName })
+          : t("toast.changed", { role: roleName, from: fromName, to: toName });
+    // Open tasks of this role follow the person (M2).
+    return tasks > 0 ? `${text} · ${t("toast.tasks", { count: tasks })}` : text;
   }
 
   async function run(to: string | null) {
@@ -81,7 +86,7 @@ export function DutyMenu({
       if (!result.data.changed) return;
       const { from } = result.data;
       showToast({
-        message: message(from, to),
+        message: message(from, to, result.data.tasks),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoDuty(eventId, roleId, to, from);

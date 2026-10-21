@@ -642,10 +642,14 @@ export async function moveTemplateItem(
     const items = await itemsOf(tx, version.id);
     const index = items.findIndex((i) => i.stableKey === key);
     if (index < 0) throw new TemplateInputError("item_not_found", undefined, key);
-    const target = direction === "up" ? index - 1 : index + 1;
-    if (target < 0 || target >= items.length) return { moved: false };
+    // The editor shows rows grouped by phase, so "one up" means past the next row of the same phase.
+    const step = direction === "up" ? -1 : 1;
+    let target = index + step;
+    while (items[target] && items[target]?.phase !== items[index]?.phase) target += step;
+    if (!items[target]) return { moved: false };
     const order = items.map((i) => i.id);
-    [order[index], order[target]] = [order[target] as string, order[index] as string];
+    const [moving] = order.splice(index, 1);
+    order.splice(target, 0, moving as string);
     await resequence(tx, version.id, order);
     await audit(tx, actor.id, [
       {

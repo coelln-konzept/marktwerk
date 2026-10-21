@@ -2,6 +2,7 @@ import "server-only";
 import {
   applicableItems,
   type ConditionFacts,
+  clockTime,
   DEFAULT_TIME_ZONE,
   holidaysBetween,
   holidayWindow,
@@ -53,7 +54,7 @@ export async function loadDueDefaults(tx: Pick<typeof db, "select">): Promise<Du
     .from(settings)
     .where(eq(settings.id, 1));
   return {
-    defaultDueTime: row?.defaultDueTime ?? "09:00",
+    defaultDueTime: clockTime(row?.defaultDueTime) ?? "09:00",
     timeZone: row?.timeZone ?? DEFAULT_TIME_ZONE,
   };
 }
