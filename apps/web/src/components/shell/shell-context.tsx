@@ -13,6 +13,8 @@ type Shell = {
   setNavOpen: (open: boolean) => void;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
+  /** May create events: shows "+ Neu" and its shortcut. */
+  canCreateEvents: boolean;
   toast: Toast | null;
   showToast: (toast: Toast) => void;
   /** Clears the toast; with an argument only if that toast is still the one shown. */
@@ -25,7 +27,13 @@ const TOAST_MS = 8000;
 const ShellContext = createContext<Shell | null>(null);
 
 /** Client state of the app shell: mobile navigation and the command palette (Ctrl+K; ⌘K on a Mac). */
-export function ShellProvider({ children }: { children: React.ReactNode }) {
+export function ShellProvider({
+  children,
+  canCreateEvents = false,
+}: {
+  children: React.ReactNode;
+  canCreateEvents?: boolean;
+}) {
   const [navOpen, setNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -55,8 +63,17 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ navOpen, setNavOpen, paletteOpen, setPaletteOpen, toast, showToast, dismissToast }),
-    [navOpen, paletteOpen, toast, showToast, dismissToast],
+    () => ({
+      navOpen,
+      setNavOpen,
+      paletteOpen,
+      setPaletteOpen,
+      canCreateEvents,
+      toast,
+      showToast,
+      dismissToast,
+    }),
+    [navOpen, paletteOpen, canCreateEvents, toast, showToast, dismissToast],
   );
   return <ShellContext value={value}>{children}</ShellContext>;
 }

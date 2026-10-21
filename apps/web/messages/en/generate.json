@@ -67,6 +67,51 @@
       "invalid_date": "A date is invalid.",
       "preset_not_found": "The preset no longer exists or is inactive.",
       "invalid_selection": "Invalid selection."
+    },
+    "single": {
+      "title": "New event without a preset",
+      "subtitle": "A single date with its own times and prices. It starts as a draft, the team is still empty.",
+      "name": "Name",
+      "type": "Type",
+      "venue": "Venue",
+      "venuePlaceholder": "Choose a venue …",
+      "start": "First day",
+      "days": "Number of days",
+      "times": "Times (24-hour)",
+      "time": {
+        "setup": "Setup",
+        "open": "Opens",
+        "close": "Closes",
+        "teardown": "Teardown"
+      },
+      "price": "Pitch price",
+      "perMeter": "€ per m",
+      "fee": "Booking fee",
+      "hints": "Notes on this date",
+      "hintsPending": "Choose venue, first day and number of days and we check holidays, venue bookings and the weekend.",
+      "hintsNote": "Notes never block anything: you decide.",
+      "note": "Prices are pre-filled from the event type and only apply to this date.",
+      "cancel": "Cancel",
+      "create": "Create event",
+      "creating": "Creating …",
+      "created": "{name} created (draft)",
+      "undo": "Undo",
+      "undone": "Event removed again",
+      "undoTooLate": "Can no longer be undone: the event has already been worked on.",
+      "errors": {
+        "invalid_name": "Please enter a name (at most 120 characters).",
+        "invalid_event_type": "Please choose an event type.",
+        "invalid_venue": "Please choose a venue.",
+        "invalid_date": "Please enter the first day.",
+        "no_dates": "Please enter the first day.",
+        "invalid_duration": "The number of days must be between 1 and 14.",
+        "invalid_time": "Please enter all times as HH:MM.",
+        "open_after_close": "The end must be after the start.",
+        "close_after_teardown": "Teardown cannot be before the end.",
+        "setup_after_open": "On single-day markets setup cannot be after the start.",
+        "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most 10,000 €).",
+        "generic": "That didn't work. Please try again."
+      }
     }
   }
 }

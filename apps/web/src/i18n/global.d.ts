@@ -1,3 +1,4 @@
+import type agreements from "../../messages/de/agreements.json";
 import type contacts from "../../messages/de/contacts.json";
 import type eventDetail from "../../messages/de/event-detail.json";
 import type events from "../../messages/de/events.json";
@@ -24,7 +25,8 @@ type Messages = typeof shell &
   typeof team &
   typeof vendors &
   typeof templates &
-  typeof settings;
+  typeof settings &
+  typeof agreements;
 
 declare module "next-intl" {
   interface AppConfig {

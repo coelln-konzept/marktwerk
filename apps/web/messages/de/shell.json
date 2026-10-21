@@ -73,7 +73,10 @@
     "search": "Suchen oder Befehl …",
     "new": "Neu",
     "notifications": "Benachrichtigungen",
-    "shortcut": "Strg K"
+    "shortcut": "Strg K",
+    "newFromPreset": "Aus Vorlage erzeugen",
+    "newSingle": "Einzeltermin",
+    "newKey": "öffnet dieses Menü"
   },
   "palette": {
     "title": "Suchen und Befehle",
@@ -95,7 +98,8 @@
     "actions": {
       "generate": "Veranstaltungen aus Vorlage erzeugen",
       "calendar": "Kalender öffnen",
-      "events": "Alle Veranstaltungen"
+      "events": "Alle Veranstaltungen",
+      "single": "Einzeltermin (Veranstaltung ohne Vorlage) anlegen"
     }
   },
   "vorschau": {

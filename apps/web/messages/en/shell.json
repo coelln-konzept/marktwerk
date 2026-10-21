@@ -73,7 +73,10 @@
     "search": "Search or command …",
     "new": "New",
     "notifications": "Notifications",
-    "shortcut": "Ctrl K"
+    "shortcut": "Ctrl K",
+    "newFromPreset": "Generate from preset",
+    "newSingle": "Single event",
+    "newKey": "opens this menu"
   },
   "palette": {
     "title": "Search and commands",
@@ -95,7 +98,8 @@
     "actions": {
       "generate": "Generate events from a preset",
       "calendar": "Open calendar",
-      "events": "All events"
+      "events": "All events",
+      "single": "Create a single event (without a preset)"
     }
   },
   "vorschau": {

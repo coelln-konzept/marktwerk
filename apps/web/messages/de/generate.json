@@ -67,6 +67,51 @@
       "invalid_date": "Ein Datum ist ungültig.",
       "preset_not_found": "Die Vorlage gibt es nicht mehr oder sie ist inaktiv.",
       "invalid_selection": "Auswahl ungültig."
+    },
+    "single": {
+      "title": "Neue Veranstaltung ohne Vorlage",
+      "subtitle": "Ein einzelner Termin mit eigenen Zeiten und Preisen. Er startet als Entwurf, das Team ist noch leer.",
+      "name": "Name",
+      "type": "Art",
+      "venue": "Ort",
+      "venuePlaceholder": "Ort wählen …",
+      "start": "Erster Tag",
+      "days": "Anzahl Tage",
+      "times": "Zeiten (Uhr)",
+      "time": {
+        "setup": "Aufbau",
+        "open": "Beginn",
+        "close": "Ende",
+        "teardown": "Abbau"
+      },
+      "price": "Standpreis",
+      "perMeter": "€ je m",
+      "fee": "Buchungsgebühr",
+      "hints": "Hinweise zum Termin",
+      "hintsPending": "Wähle Ort, ersten Tag und Anzahl Tage, dann prüfen wir Feiertage, Belegung und Wochenende.",
+      "hintsNote": "Hinweise blockieren nichts: du entscheidest.",
+      "note": "Die Preise sind aus der Veranstaltungsart vorbelegt und gelten nur für diesen Termin.",
+      "cancel": "Abbrechen",
+      "create": "Veranstaltung anlegen",
+      "creating": "Wird angelegt …",
+      "created": "{name} angelegt (Entwurf)",
+      "undo": "Rückgängig",
+      "undone": "Veranstaltung wieder entfernt",
+      "undoTooLate": "Nicht mehr rückgängig zu machen: die Veranstaltung wurde schon bearbeitet.",
+      "errors": {
+        "invalid_name": "Bitte einen Namen angeben (höchstens 120 Zeichen).",
+        "invalid_event_type": "Bitte eine Veranstaltungsart wählen.",
+        "invalid_venue": "Bitte einen Ort wählen.",
+        "invalid_date": "Bitte den ersten Tag angeben.",
+        "no_dates": "Bitte den ersten Tag angeben.",
+        "invalid_duration": "Die Anzahl der Tage muss zwischen 1 und 14 liegen.",
+        "invalid_time": "Bitte alle Zeiten als HH:MM angeben.",
+        "open_after_close": "Das Ende muss nach dem Beginn liegen.",
+        "close_after_teardown": "Der Abbau kann nicht vor dem Ende liegen.",
+        "setup_after_open": "Der Aufbau kann bei eintägigen Märkten nicht nach dem Beginn liegen.",
+        "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      }
     }
   }
 }
