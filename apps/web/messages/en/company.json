@@ -60,7 +60,7 @@
     "interval": {
       "months": "every {months, plural, one {# month} other {# months}}",
       "km": "every {km} km",
-      "both": "every {months, plural, one {# month} other {# months}} or every {km} km, whichever comes first",
+      "both": "every {months, plural, one {# month} other {# months}} or {km} km",
       "none": "one-off"
     },
     "obligations": {
