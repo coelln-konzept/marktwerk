@@ -14,8 +14,10 @@ product owner's machine. Read this file first, then the documents it points to. 
 > green, Vercel deployed `main` → migration 0001 is on Supabase). Local setup on the product owner's Windows PC:
 > no Docker/WSL, so a portable PostgreSQL 17.11 runs from `%LOCALAPPDATA%marktwerk-pg` on **port 5433** (5432 is
 > taken by another Postgres), see [setup.md](./development/setup.md) "Windows without Docker". `.gitattributes`
-> forces LF (Biome failed on CRLF checkouts); `TEST_DATABASE_URL` is now read from `.env`. **Event duties are
-> editable** on the Team tab (`server/services/event-duties.ts`). Supabase still has **no seeded logins**: waiting
+> forces LF (Biome failed on CRLF checkouts); `TEST_DATABASE_URL` is now read from `.env`. **Editable now:** event
+> duties (Team tab, `server/services/event-duties.ts`), Eckdaten (times + prices), booking flags ("Buchung" menu) and
+> **Verschieben** with preview (`server/services/event-details.ts`; decisions in open-questions). Playwright's
+> Chromium isn't installed locally yet (`pnpm --filter @marktwerk/web exec playwright install chromium`); CI runs e2e. Supabase still has **no seeded logins**: waiting
 > for the repo secrets `DATABASE_MIGRATION_URL` + `SEED_OWNER_PASSWORD` (§8), then run *Seed dev database*.
 
 ---
@@ -59,7 +61,7 @@ Research background (only when needed): `docs/research/01–09`.
 | `packages/db` | Migration **`0001_m1_events`**: `legal_parameter`, `event_type`, `contact`, `venue`, `zone`, `row`, `location_agreement`, `staff_member`, `duty_role`, `event_preset`, `event`, `event_anchor`, `event_duty`, `vendor`, `user_preference`; `settings.bundesland` |
 | Seed | `pnpm db:seed` loads the synthetic dataset (148 events 2026–2027, 12 venues, 43 zones, 162 rows, 30 contacts, 14 staff, 7 duty roles, 14 presets, 1,500 vendors) idempotently; logins for staff with a permission role. The public dev password is used **only for a local DB** (elsewhere: `SEED_OWNER_PASSWORD` / `SEED_STAFF_PASSWORD`) |
 | i18n | `apps/web/messages/<locale>/<area>.json`, one namespace per area, loaded by `src/i18n/messages.ts`; `pnpm --filter @marktwerk/web test` fails if de/en keys differ |
-| Tests | `pnpm check` (Biome + typecheck + core 67 + synthetic 46 + message check) · `pnpm test:integration` (29 service tests against `marktwerk_test`: events, event duties) · `pnpm test:e2e` (Playwright smoke, 5 tests, needs a running seeded app). All green at handoff; `pnpm build` passes |
+| Tests | `pnpm check` (Biome + typecheck + core 100 + synthetic 46 + message check) · `pnpm test:integration` (38 service tests against `marktwerk_test`: events, event duties, event details) · `pnpm test:e2e` (Playwright smoke, 5 tests, needs a running seeded app). All green at handoff; `pnpm build` passes |
 | CI | `ci.yml`: lint, typecheck, test, migrate, build, integration tests; new `e2e` job (build + `next start` + Playwright; **first run happens on the PR**). `seed-dev.yml`: manual seeding of the Supabase dev DB. `cron.yml` unchanged |
 
 ## 4. Infrastructure and local setup
@@ -134,7 +136,8 @@ seed workflow.
    the secrets exist (§8); product owner clicks through `marktwerk-ardas-s-projects.vercel.app` (Vercel login).
 2. **Edit master data** (all via services: permission → transaction → audit): ~~event duties on the Team tab~~ (done:
    `setEventDuty`, row menu with preferred people first, same-day clash hint, undo, Verlauf; in M2 it should also
-   reassign the open tasks of that role), event dates/times/prices/booking flags, presets (create/edit,
+   reassign the open tasks of that role), ~~event dates/times/prices/booking flags~~ (done: Eckdaten modal, "Buchung"
+   menu, "Verschieben" with preview; event *name*, duration and venue are not editable yet), presets (create/edit,
    default team, rrule), venues + zones/rows, contacts. Modals for ≤ 8 fields, pages for more (UX concept §4).
 3. **Einzeltermin** (single event without preset) through the same `createEvents` service path, and **location
    agreements** (fixed dates → events; table exists, no UI).
@@ -158,6 +161,9 @@ Then **M2: templates, tasks & kanban** (roadmap) — needs the timeline workshop
    "abgeschlossen"?
 10. Someone who already has a duty at another event on the same days is only flagged ("am selben Tag bei …"), not
     blocked. OK?
+11. Eckdaten and booking flags can be edited on every non-archived event, also closed/cancelled ones (like duties).
+    Lock after "abgeschlossen"?
+12. Should the event name, the duration (multi-day) or the venue be editable on an event, or only via the preset?
 
 **Infrastructure:** production URL is `https://marktwerk-ardas-s-projects.vercel.app` (behind Vercel Authentication;
 `marktwerk.vercel.app` is someone else's app) → record in README + deployment.md and set as `BETTER_AUTH_URL`/`APP_URL`; confirm `BETTER_AUTH_URL`/`APP_URL` in Vercel and
