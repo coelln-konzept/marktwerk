@@ -2,6 +2,7 @@ import "server-only";
 import {
   can,
   isIsoDate,
+  MAX_COST_CENTS,
   OBLIGATION_KINDS,
   type ObligationKind,
   rollForward,
@@ -68,7 +69,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const MAX_NAME_LENGTH = 120;
 export const MAX_TEXT_LENGTH = 2000;
 export const MAX_KM = 5_000_000;
-export const MAX_COST_CENTS = 100_000_000;
 export const MAX_INTERVAL_MONTHS = 600;
 export const MAX_LEAD_DAYS = 365;
 const MIN_DATE = "1950-01-01";
