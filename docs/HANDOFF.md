@@ -132,7 +132,7 @@ reminders, **M6** company tab (vehicles, obligations with roll-forward → payab
 **Not done, needs the product owner:**
 1. **Merge PR #2** after a click-through (Vercel preview; Supabase gets migration 0002 with the deploy), then seed
    Supabase via *Seed dev database* once the secrets `DATABASE_MIGRATION_URL` + `SEED_OWNER_PASSWORD` exist.
-2. ~~Drag and drop on the board~~ **built** (dnd-kit, ADR 0020; click-through still to do): every move also works via menu + keyboard; all moves go
+2. ~~Drag and drop on the board~~ **built** (dnd-kit, ADR 0020; mouse drag between columns, drop on a person and undo checked in the browser): every move also works via menu + keyboard; all moves go
    through `moveCard` → `moveTask`, so a library only has to call that path.
 3. **M6 production hosting + pilot** (Scalingo candidate, ADR 0006/0017), backups, S3 bucket (the S3 storage driver is
    a stub; Vercel's 4.5 MB body limit blocks phone photos → presigned uploads once hosting is decided).
