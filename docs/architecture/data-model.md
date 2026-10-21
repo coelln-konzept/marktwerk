@@ -279,9 +279,17 @@ createEvent(preset | agreement, date):
 ### Kanban columns (derived, overridable)
 `Erledigt` if done; `Heute` if due today or overdue (rolled over); `Diese Woche` if due ≤ 7 days;
 else `Vorbereitung`. A manual move sets `board_column` until the due date passes.
+*(implemented M2b, `boardColumnFor` in `@marktwerk/core`: "this week" is the ISO week (Mon–Sun, Europe/Berlin), not 7 days;
+a task without a due date is `Vorbereitung`; `skipped` shows in `Erledigt` too, `cancelled` is not shown; `Erledigt` lists the
+last 14 days; moving a card into `Erledigt` marks it done, moving a finished card out reopens it; the override is stored only
+when it differs from the derived column and the nightly job clears it once the due date has passed.)*
 
 ### Carry-over (nightly, 00:05)
 Open tasks with `due_at < today` → `rollover_count += 1`; included in tomorrow's digest; at 3 → notify manager.
+*(implemented M2b, `packages/jobs/src/task-rollover.ts`, cron `5 0 * * *` Europe/Berlin: "open" = todo, in progress, waiting,
+blocked; counted at most once per Berlin day (idempotent); sets `last_rolled_at`, clears the manual column override, notifies the
+assignee (`rolled_over`, dedupe `task:<id>:rolled-over:<n>`); exactly when the count reaches 3 the managers (login role
+`manager`) get `escalated` (dedupe `task:<id>:escalated:3`) and an `escalation_log` row; tasks of cancelled/archived events are skipped.)*
 
 ### Deadline sweep & escalation (every 15 min, idempotent)
 Reminders by `dedupe_key` (incl. due date). Overdue → assignee; +1 day → **manager** (decision 2026-10-21;
