@@ -21,7 +21,26 @@ function kindOf(title: string): Kind {
   return "other";
 }
 
+/** [key, months, valid from]: research 07 §D. HU: vans up to 3.5 t every 24 months, heavier every 12. UVV: yearly. */
+const FLEET_PARAMETERS = [
+  ["hu_interval_months_up_to_3500kg", 24, "2026-01-01"],
+  ["hu_interval_months_over_3500kg", 12, "2026-01-01"],
+  ["uvv_interval_months", 12, "2026-01-01"],
+] as const;
+
 export async function seedCompany(tx: Tx, { data }: SeedContext) {
+  // The synthetic dataset carries the HU rows; the UVV interval is added here (data, not code).
+  const have = new Set(data.legalParameters.map((p) => `${p.key}|${p.validFrom}`));
+  const missing = FLEET_PARAMETERS.filter(([key, , from]) => !have.has(`${key}|${from}`));
+  if (missing.length > 0) {
+    await insertAll(
+      tx,
+      schema.legalParameter,
+      missing.map(([key, value, validFrom]) => ({ key, value, validFrom })),
+      "legal parameters (M6 gaps)",
+    );
+  }
+
   await insertAll(
     tx,
     schema.vehicle,
