@@ -16,6 +16,19 @@ pnpm dev                        # web on http://localhost:3000 + worker
 ```
 Log in with `owner@marktwerk.local` / `marktwerk-dev-123` (from `.env`).
 
+### Windows without Docker
+Plain Postgres works as well (no Mailpit then; only mail sending needs it). Without admin rights, e.g. the
+EnterpriseDB "binaries" zip of PostgreSQL 17 extracted to `%LOCALAPPDATA%\marktwerk-pg`:
+```powershell
+$pg = "$env:LOCALAPPDATA\marktwerk-pg"
+& "$pg\pgsql\bin\initdb.exe" -D "$pg\data" -U marktwerk --pwprompt -A scram-sha-256 -E UTF8 --locale=C   # password: marktwerk
+# in $pg\data\postgresql.conf: timezone = 'UTC' (like the Docker image); port = 5433 if 5432 is taken
+& "$pg\pgsql\bin\pg_ctl.exe" -D "$pg\data" -l "$pg\postgres.log" start      # after every reboot
+& "$pg\pgsql\bin\psql.exe" -h localhost -p 5433 -U marktwerk -d postgres -c "create database marktwerk"
+```
+On another port, set `DATABASE_URL` and `TEST_DATABASE_URL` in `.env` accordingly (both are read from there). With
+`core.autocrlf=true`, `.gitattributes` keeps the files on LF so Biome doesn't flag every line.
+
 ## Everyday commands
 | Command | What |
 |---|---|

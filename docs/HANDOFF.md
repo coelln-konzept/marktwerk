@@ -10,6 +10,14 @@ product owner's machine. Read this file first, then the documents it points to. 
 > shell, Übersicht, Kalender, Veranstaltungen (+ "Aus Vorlage erzeugen"), the event page, Orte, Kontakte, Vorlagen,
 > Team, Händler, with unit, integration and e2e tests. What's left of M1 is mostly **editing** master data (§7).
 
+> **Session 3 (local, 2026-10-21), in progress on branch `claude/m1-master-data`:** PR #1 merged into `main` (CI
+> green, Vercel deployed `main` → migration 0001 is on Supabase). Local setup on the product owner's Windows PC:
+> no Docker/WSL, so a portable PostgreSQL 17.11 runs from `%LOCALAPPDATA%marktwerk-pg` on **port 5433** (5432 is
+> taken by another Postgres), see [setup.md](./development/setup.md) "Windows without Docker". `.gitattributes`
+> forces LF (Biome failed on CRLF checkouts); `TEST_DATABASE_URL` is now read from `.env`. **Event duties are
+> editable** on the Team tab (`server/services/event-duties.ts`). Supabase still has **no seeded logins**: waiting
+> for the repo secrets `DATABASE_MIGRATION_URL` + `SEED_OWNER_PASSWORD` (§8), then run *Seed dev database*.
+
 ---
 
 ## 1. What marktwerk is (in 5 lines)
@@ -51,7 +59,7 @@ Research background (only when needed): `docs/research/01–09`.
 | `packages/db` | Migration **`0001_m1_events`**: `legal_parameter`, `event_type`, `contact`, `venue`, `zone`, `row`, `location_agreement`, `staff_member`, `duty_role`, `event_preset`, `event`, `event_anchor`, `event_duty`, `vendor`, `user_preference`; `settings.bundesland` |
 | Seed | `pnpm db:seed` loads the synthetic dataset (148 events 2026–2027, 12 venues, 43 zones, 162 rows, 30 contacts, 14 staff, 7 duty roles, 14 presets, 1,500 vendors) idempotently; logins for staff with a permission role. The public dev password is used **only for a local DB** (elsewhere: `SEED_OWNER_PASSWORD` / `SEED_STAFF_PASSWORD`) |
 | i18n | `apps/web/messages/<locale>/<area>.json`, one namespace per area, loaded by `src/i18n/messages.ts`; `pnpm --filter @marktwerk/web test` fails if de/en keys differ |
-| Tests | `pnpm check` (Biome + typecheck + core 67 + synthetic 46 + message check) · `pnpm test:integration` (22 service tests against `marktwerk_test`) · `pnpm test:e2e` (Playwright smoke, 5 tests, needs a running seeded app). All green at handoff; `pnpm build` passes |
+| Tests | `pnpm check` (Biome + typecheck + core 67 + synthetic 46 + message check) · `pnpm test:integration` (29 service tests against `marktwerk_test`: events, event duties) · `pnpm test:e2e` (Playwright smoke, 5 tests, needs a running seeded app). All green at handoff; `pnpm build` passes |
 | CI | `ci.yml`: lint, typecheck, test, migrate, build, integration tests; new `e2e` job (build + `next start` + Playwright; **first run happens on the PR**). `seed-dev.yml`: manual seeding of the Supabase dev DB. `cron.yml` unchanged |
 
 ## 4. Infrastructure and local setup
@@ -122,9 +130,11 @@ status changes with undo), Orte, Kontakte, Vorlagen, Team, Händler, core rules 
 seed workflow.
 
 **Still open in M1** (suggested order):
-1. Merge the PR; let Vercel deploy (applies 0001), seed Supabase via the workflow; product owner clicks through.
-2. **Edit master data** (all via services: permission → transaction → audit): event duties on the Team tab (reassign;
-   later also reassigns open tasks of that role, M2), event dates/times/prices/booking flags, presets (create/edit,
+1. ~~Merge the PR; let Vercel deploy (applies 0001)~~ (done in session 3). Still: seed Supabase via the workflow once
+   the secrets exist (§8); product owner clicks through `marktwerk-ardas-s-projects.vercel.app` (Vercel login).
+2. **Edit master data** (all via services: permission → transaction → audit): ~~event duties on the Team tab~~ (done:
+   `setEventDuty`, row menu with preferred people first, same-day clash hint, undo, Verlauf; in M2 it should also
+   reassign the open tasks of that role), event dates/times/prices/booking flags, presets (create/edit,
    default team, rrule), venues + zones/rows, contacts. Modals for ≤ 8 fields, pages for more (UX concept §4).
 3. **Einzeltermin** (single event without preset) through the same `createEvents` service path, and **location
    agreements** (fixed dates → events; table exists, no UI).
@@ -144,8 +154,13 @@ Then **M2: templates, tasks & kanban** (roadmap) — needs the timeline workshop
 6. Inactive presets: offer "reactivate" and generation from them?
 7. Händler: newsletter consent label "Soft-Opt-in". Wording OK?
 8. "Veranstaltungen kommend" counts events running today. OK?
+9. Event duties can be changed on every non-archived event, also past, cancelled and closed ones. Lock them after
+   "abgeschlossen"?
+10. Someone who already has a duty at another event on the same days is only flagged ("am selben Tag bei …"), not
+    blocked. OK?
 
-**Infrastructure:** production URL of the Vercel deployment; confirm `BETTER_AUTH_URL`/`APP_URL` in Vercel and
+**Infrastructure:** production URL is `https://marktwerk-ardas-s-projects.vercel.app` (behind Vercel Authentication;
+`marktwerk.vercel.app` is someone else's app) → record in README + deployment.md and set as `BETTER_AUTH_URL`/`APP_URL`; confirm `BETTER_AUTH_URL`/`APP_URL` in Vercel and
 `APP_URL`/`CRON_SECRET` for `cron.yml`; add `DATABASE_MIGRATION_URL` (+ seed password secrets) for `seed-dev.yml`.
 
 **Client discovery** (see open-questions): timeline workshop per event type with time estimates (feeds M2), permit
