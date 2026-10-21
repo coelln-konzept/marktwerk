@@ -1,11 +1,12 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, integer, jsonb, pgTable, text, time } from "drizzle-orm/pg-core";
+import { boolean, check, integer, jsonb, text, time } from "drizzle-orm/pg-core";
 import { timestamps } from "./_columns";
+import { app } from "./_schema";
 
 /**
  * Company-wide settings. Single company → exactly one row (id = 1).
  */
-export const settings = pgTable(
+export const settings = app.table(
   "settings",
   {
     id: integer().primaryKey().default(1),

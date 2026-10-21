@@ -1,4 +1,6 @@
-CREATE TABLE "audit_log" (
+CREATE SCHEMA "app";
+--> statement-breakpoint
+CREATE TABLE "app"."audit_log" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"actor_id" text,
 	"action" text NOT NULL,
@@ -9,7 +11,7 @@ CREATE TABLE "audit_log" (
 	"at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "account" (
+CREATE TABLE "app"."account" (
 	"id" text PRIMARY KEY NOT NULL,
 	"account_id" text NOT NULL,
 	"provider_id" text NOT NULL,
@@ -25,7 +27,7 @@ CREATE TABLE "account" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "session" (
+CREATE TABLE "app"."session" (
 	"id" text PRIMARY KEY NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"token" text NOT NULL,
@@ -38,7 +40,7 @@ CREATE TABLE "session" (
 	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
-CREATE TABLE "user" (
+CREATE TABLE "app"."user" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"email" text NOT NULL,
@@ -55,7 +57,7 @@ CREATE TABLE "user" (
 	CONSTRAINT "user_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-CREATE TABLE "verification" (
+CREATE TABLE "app"."verification" (
 	"id" text PRIMARY KEY NOT NULL,
 	"identifier" text NOT NULL,
 	"value" text NOT NULL,
@@ -64,7 +66,7 @@ CREATE TABLE "verification" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "settings" (
+CREATE TABLE "app"."settings" (
 	"id" integer PRIMARY KEY DEFAULT 1 NOT NULL,
 	"company_name" text DEFAULT '' NOT NULL,
 	"address_line1" text,
@@ -85,15 +87,15 @@ CREATE TABLE "settings" (
 	"daily_digest_enabled" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "settings_singleton" CHECK ("settings"."id" = 1)
+	CONSTRAINT "settings_singleton" CHECK ("app"."settings"."id" = 1)
 );
 --> statement-breakpoint
-ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_actor_id_user_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "audit_log_entity_type_entity_id_index" ON "audit_log" USING btree ("entity_type","entity_id");--> statement-breakpoint
-CREATE INDEX "audit_log_actor_id_index" ON "audit_log" USING btree ("actor_id");--> statement-breakpoint
-CREATE INDEX "audit_log_at_index" ON "audit_log" USING btree ("at");--> statement-breakpoint
-CREATE INDEX "account_user_id_index" ON "account" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "session_user_id_index" ON "session" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "verification_identifier_index" ON "verification" USING btree ("identifier");
+ALTER TABLE "app"."audit_log" ADD CONSTRAINT "audit_log_actor_id_user_id_fk" FOREIGN KEY ("actor_id") REFERENCES "app"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "app"."account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "app"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "app"."session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "app"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "audit_log_entity_type_entity_id_index" ON "app"."audit_log" USING btree ("entity_type","entity_id");--> statement-breakpoint
+CREATE INDEX "audit_log_actor_id_index" ON "app"."audit_log" USING btree ("actor_id");--> statement-breakpoint
+CREATE INDEX "audit_log_at_index" ON "app"."audit_log" USING btree ("at");--> statement-breakpoint
+CREATE INDEX "account_user_id_index" ON "app"."account" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "session_user_id_index" ON "app"."session" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "verification_identifier_index" ON "app"."verification" USING btree ("identifier");

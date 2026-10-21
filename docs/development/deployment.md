@@ -1,6 +1,18 @@
-# Deployment (Scalingo)
+# Deployment
 
-Decision: [ADR 0006](../architecture/adr/0006-hosting.md). Status: **plan, to be verified in the M0.5 spike.**
+## Development (now): Vercel + Supabase, ADR 0017
+| Piece | Where | Notes |
+|---|---|---|
+| Web app | Vercel project `marktwerk` (root `apps/web`, region fra1) | Auto-deploy from `main` on GitHub; previews per branch |
+| Database | Supabase `marktwerk-dev` (eu-central-1, Postgres 17) | Role `marktwerk_app`; schema `app`; pooler 6543 (app) / 5432 (migrations) |
+| Jobs | GitHub Actions `.github/workflows/cron.yml` → `POST /api/cron/<job>` | Needs repo variable `APP_URL` and secret `CRON_SECRET` |
+| Health | `GET /api/health` | `{ ok, db }` |
+
+Vercel environment variables: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
+(the production `*.vercel.app` URL), `APP_URL` (same), `CRON_SECRET`, `APP_TIMEZONE=Europe/Berlin`.
+
+## Production (later): Scalingo candidate, ADR 0006
+Status: **plan, to be verified before the pilot.**
 
 ## Topology
 | Scalingo app | Region | Processes | Addons |
@@ -36,7 +48,7 @@ postdeploy: pnpm db:migrate
 Staging is seeded from `packages/synthetic` ([ADR 0016](../architecture/adr/0016-synthetic-development-data.md)).
 Production starts empty and receives real data during the pilot.
 
-## Spike checklist (M0.5)
+## Scalingo spike checklist (before the pilot)
 - [ ] Create staging app + PostgreSQL 17 addon in osc-fr1
 - [ ] Monorepo build with pnpm succeeds on the Node.js buildpack
 - [ ] `web` serves login; `worker` logs scheduled jobs

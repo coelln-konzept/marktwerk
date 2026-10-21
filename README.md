@@ -7,7 +7,7 @@ staff WhatsApp, bookings, the shared inbox, inventory, market-day field mode and
 > **Status:** Phase 0 complete (foundation). Plan revised after the client meeting
 > ([research 05](docs/research/05-client-meeting-2026-10.md)). Next: **Phase 1, "Digitise the work"**, starting with
 > M0.5 (synthetic data + Scalingo spike), then M1. See the [roadmap](docs/product/roadmap.md).
-> Hosting: Scalingo (EU), see [deployment](docs/development/deployment.md).
+> Dev hosting: Vercel + Supabase (free tiers); production host later. See [deployment](docs/development/deployment.md).
 
 ## Quick start
 ```bash

@@ -18,7 +18,7 @@ gantt
     axisFormat  %b %y
     section Phase 0
     Foundation (M0, done)                    :done, p0, 2026-10-20, 2w
-    Synthetic data + Scalingo spike (M0.5)   :m05, after p0, 1w
+    Synthetic data + dev hosting (M0.5)      :m05, after p0, 1w
     section Phase 1 · Digitise
     M1 Events, presets, locations, vendors   :m1, after m05, 3w
     M2 Templates, tasks & kanban             :m2, after m1, 4w
@@ -48,13 +48,13 @@ gantt
 **M0 Foundation: done.** Monorepo, Next.js 16 web app, pg-boss worker, Postgres + Drizzle, Better Auth with
 roles, DE/EN, app shell, CI, GitHub `coelln-konzept/marktwerk`.
 
-**M0.5 Synthetic data & deployment spike (≈ 1 week)**
+**M0.5 Synthetic data & development hosting (≈ 1 week)**
 - `packages/synthetic`: deterministic, seeded generator for a realistic but fictional dataset (venues in the
   Cologne region, presets, a season of flea/antique/Stadtfest/Food & Wine events, templates, tasks, permits,
   staff & shifts, payables, vehicles, ~1,500 vendors, booking history). **All development uses it** until real
   data is available (ADR 0016). M1's seed script loads it.
-- **Scalingo spike** (ADR 0006): staging app in `osc-fr1` with `web` + `worker` processes and the PostgreSQL addon
-  (v17); verify pnpm-monorepo builds, Next.js standalone start, migrations on deploy, PITR backups.
+- **Development hosting on free tiers** (ADR 0017): Vercel + Supabase (`marktwerk-dev`), scheduled jobs via GitHub
+  Actions. Production host (Scalingo candidate, ADR 0006) is decided before the pilot.
   See [deployment.md](../development/deployment.md).
 
 **Discovery (with the client, ongoing):**
@@ -136,7 +136,7 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 ### M6: Company tab & pilot (≈ 2 weeks)
 - Recurring **obligations** (date and/or km): vehicles (HU 24/12 months, **UVV yearly**, service, insurance, tax),
   insurance renewals, KSK report (31 March); vehicle defect reports with photo
-- **Pilot** on Scalingo with the office team for one block of events (real data entered by them); weekly feedback
+- **Production hosting** set up (Scalingo candidate) and **pilot** with the office team for one block of events (real data entered by them); weekly feedback
 - **Exit:** go/no-go for Phase 2; success metrics measured.
 
 ---

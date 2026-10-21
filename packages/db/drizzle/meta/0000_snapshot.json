@@ -1,12 +1,12 @@
 {
-  "id": "3c15d94d-5f39-4886-a64b-1463ec8ff88e",
+  "id": "44432fce-2b49-4461-891d-07c14aa56f94",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.audit_log": {
+    "app.audit_log": {
       "name": "audit_log",
-      "schema": "",
+      "schema": "app",
       "columns": {
         "id": {
           "name": "id",
@@ -116,6 +116,7 @@
           "name": "audit_log_actor_id_user_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "user",
+          "schemaTo": "app",
           "columnsFrom": [
             "actor_id"
           ],
@@ -132,9 +133,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.account": {
+    "app.account": {
       "name": "account",
-      "schema": "",
+      "schema": "app",
       "columns": {
         "id": {
           "name": "id",
@@ -239,6 +240,7 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
+          "schemaTo": "app",
           "columnsFrom": [
             "user_id"
           ],
@@ -255,9 +257,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.session": {
+    "app.session": {
       "name": "session",
-      "schema": "",
+      "schema": "app",
       "columns": {
         "id": {
           "name": "id",
@@ -338,6 +340,7 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
+          "schemaTo": "app",
           "columnsFrom": [
             "user_id"
           ],
@@ -362,9 +365,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.user": {
+    "app.user": {
       "name": "user",
-      "schema": "",
+      "schema": "app",
       "columns": {
         "id": {
           "name": "id",
@@ -467,9 +470,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.verification": {
+    "app.verification": {
       "name": "verification",
-      "schema": "",
+      "schema": "app",
       "columns": {
         "id": {
           "name": "id",
@@ -534,9 +537,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.settings": {
+    "app.settings": {
       "name": "settings",
-      "schema": "",
+      "schema": "app",
       "columns": {
         "id": {
           "name": "id",
@@ -676,14 +679,16 @@
       "checkConstraints": {
         "settings_singleton": {
           "name": "settings_singleton",
-          "value": "\"settings\".\"id\" = 1"
+          "value": "\"app\".\"settings\".\"id\" = 1"
         }
       },
       "isRLSEnabled": false
     }
   },
   "enums": {},
-  "schemas": {},
+  "schemas": {
+    "app": "app"
+  },
   "sequences": {},
   "roles": {},
   "policies": {},

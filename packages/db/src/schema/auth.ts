@@ -1,11 +1,12 @@
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, text, timestamp } from "drizzle-orm/pg-core";
+import { app } from "./_schema";
 
 /**
  * Tables required by Better Auth (core + admin plugin), in the shape its
  * Drizzle adapter expects. IDs are text because Better Auth generates them.
  * Don't rename columns without updating apps/web/src/server/auth.ts.
  */
-export const user = pgTable("user", {
+export const user = app.table("user", {
   id: text().primaryKey(),
   name: text().notNull(),
   email: text().notNull().unique(),
@@ -26,7 +27,7 @@ export const user = pgTable("user", {
     .$onUpdate(() => new Date()),
 });
 
-export const session = pgTable(
+export const session = app.table(
   "session",
   {
     id: text().primaryKey(),
@@ -47,7 +48,7 @@ export const session = pgTable(
   (t) => [index().on(t.userId)],
 );
 
-export const account = pgTable(
+export const account = app.table(
   "account",
   {
     id: text().primaryKey(),
@@ -72,7 +73,7 @@ export const account = pgTable(
   (t) => [index().on(t.userId)],
 );
 
-export const verification = pgTable(
+export const verification = app.table(
   "verification",
   {
     id: text().primaryKey(),

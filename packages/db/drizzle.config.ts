@@ -9,6 +9,8 @@ try {
 export default defineConfig({
   dialect: "postgresql",
   schema: "./src/schema/index.ts",
+  // Only manage our own schema (Supabase has auth/storage/… schemas we must not touch).
+  schemaFilter: ["app"],
   out: "./drizzle",
   casing: "snake_case",
   dbCredentials: {

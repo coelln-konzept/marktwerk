@@ -1,12 +1,13 @@
-import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, jsonb, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { id } from "./_columns";
+import { app } from "./_schema";
 import { user } from "./auth";
 
 /**
  * Append-only log of changes to business records. Written by the service
  * layer inside the same transaction as the change.
  */
-export const auditLog = pgTable(
+export const auditLog = app.table(
   "audit_log",
   {
     id: id(),

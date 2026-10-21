@@ -1,6 +1,7 @@
 # 0006: Hosting on Scalingo (EU-owned managed PaaS)
 
-**Status:** accepted (2026-10-21, product owner). Supersedes the "stay portable, decide later" draft.
+**Status:** deferred (2026-10-21). Chosen as the production candidate, but for development the product owner chose
+free tiers first (ADR 0017); revisit before the pilot with real data.
 
 ## Context
 The product owner wants a **managed cloud** set up from scratch, and chose an **EU-owned** provider. Constraints:

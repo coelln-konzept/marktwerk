@@ -10,7 +10,7 @@ consequences. Statuses: *proposed*, *accepted*, *superseded by NNNN*, *open* (a 
 | [0003](0003-auth-better-auth.md) | Better Auth with fixed permission roles + duty roles | accepted |
 | [0004](0004-no-cache-components-cookie-locale.md) | Cache Components off; locale from user profile, not URL | accepted |
 | [0005](0005-jobs-pg-boss.md) | Background jobs with pg-boss in a separate worker | accepted |
-| [0006](0006-hosting.md) | Hosting on Scalingo (EU-owned managed PaaS) | accepted |
+| [0006](0006-hosting.md) | Production hosting: Scalingo (EU-owned managed PaaS) as candidate | deferred (see 0017) |
 | [0007](0007-tooling-versions.md) | Tooling: TypeScript 6, pnpm 10, Biome | accepted |
 | [0008](0008-m365-graph.md) | Microsoft 365 via Graph application permissions | proposed |
 | [0009](0009-field-cash-handling.md) | Cash handling on market day (KassenSichV) | open |
@@ -21,3 +21,4 @@ consequences. Statuses: *proposed*, *accepted*, *superseded by NNNN*, *open* (a 
 | [0014](0014-no-ai-in-operations.md) | No AI in operational decisions; human-confirmed drafts only | accepted |
 | [0015](0015-finance-operational-layer.md) | Finance: operational layer; the tax advisor keeps the books | accepted |
 | [0016](0016-synthetic-development-data.md) | Synthetic, deterministic data for development | accepted |
+| [0017](0017-development-hosting.md) | Development hosting on free tiers (Vercel + Supabase) | accepted |
