@@ -23,7 +23,7 @@ The product owner chose **A**. Reasons:
 The research-based improvements don't depend on docking and are kept in full.
 
 ## Decision
-1. **Shell:** labelled sidebar + top bar (breadcrumb, search field with ⌘K command palette, "+ Neu", notifications).
+1. **Shell:** labelled sidebar + top bar (breadcrumb, search field with Strg+K command palette, "+ Neu", notifications).
    Details in [UX concept v2](../../product/ux-concept.md) §3.
 2. **Every view is a route-level page** with its own URL. One implementation per view; no view registry for panes.
 3. **Context is kept by overlays, not panes:**

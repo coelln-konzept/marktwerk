@@ -12,8 +12,8 @@ and this document differ, the prototype wins unless a decision says otherwise.
 ## 1. Design principles
 
 1. **Familiar first, powerful second.** Every screen must work for someone who never changes a setting.
-   Shortcuts, ⌘K, saved filters and *Kompakt* are layers for the people who want them, never a prerequisite.
-2. **Nothing hidden.** Every module is reachable from the labelled sidebar, always in the same place. ⌘K and
+   Shortcuts, Strg+K, saved filters and *Kompakt* are layers for the people who want them, never a prerequisite.
+2. **Nothing hidden.** Every module is reachable from the labelled sidebar, always in the same place. Strg+K and
    keyboard shortcuts are accelerators, not the only path (client: "don't hide existing functions").
 3. **Their words, their mental models.** Vorlage → Termine (like the old PHP admin), calendar weeks (KW),
    Platzkarte, Logbuch, Raten. Excel-like grids where they use Excel today. Printable views where they print today.
@@ -54,7 +54,7 @@ marktwerk
 ## 3. App shell
 
 ```
-┌ Sidebar 232 px ─┬ Top bar: Veranstaltungen › Food & Wine Neuss   [🔍 Suchen oder Befehl … ⌘K]  [+ Neu]  🔔 3 ┐
+┌ Sidebar 232 px ─┬ Top bar: Veranstaltungen › Food & Wine Neuss   [🔍 Suchen oder Befehl … Strg+K]  [+ Neu]  🔔 3 ┐
 │ marktwerk       │─────────────────────────────────────────────────────────────────────────────────────────┤
 │ Übersicht       │                                                                                         │
 │ Kalender        │  Page (own URL)                                         ┌ Vorschau ───────┐             │
@@ -74,7 +74,7 @@ marktwerk
   disabled with the hint "Phase 2". At the bottom the **profile** (name, role, current theme); it opens the profile menu
   with Sprache, Design (System / Hell / Dunkel), Dichte (Standard / Kompakt) and Abmelden.
 - **Top bar:** breadcrumb (e.g. "Veranstaltungen › Food & Wine Neuss"), the visible search field "Suchen oder
-  Befehl …" with ⌘K hint (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board,
+  Befehl …" with Strg+K hint (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board,
   new event in Veranstaltungen…), notification bell with count.
 - **Content:** one page. Vorschau and drawers open over it (§4).
 - **Below 1024 px** the sidebar collapses to icons, then to a hamburger menu; pages go single-column. Staff/shift
@@ -183,7 +183,7 @@ Ort – aus Vorlage anlegen"); filtered-empty ("Keine Treffer – Filter zurück
 **Feedback:** optimistic + undo toast (5–8 s) for assign, move, tick off, mark paid. Money stays visibly
 "wird gespeichert…" until the server confirms.
 
-**Keyboard map (core):** ⌘K search/commands · `/` filter in list · J/K up/down · Space Vorschau · Enter open ·
+**Keyboard map (core):** Strg+K search/commands · `/` filter in list · J/K up/down · Space Vorschau · Enter open ·
 Esc close Vorschau/drawer · `C` create ("+ Neu") · `A` assign · `S` status · `X` done · Ctrl+Z undo last action ·
 `?` shortcut overview. Ctrl/⌘+click (new browser tab) is never overridden.
 
@@ -264,4 +264,4 @@ themes, reduced-motion respected.
 ## 11. Rollout (change management)
 1. Sandbox with synthetic data; the office manager tries Übersicht + board first; the owner starts on Übersicht.
 2. Excel-like grids and printable views (day sheet, hours list) keep paper habits working.
-3. One short first-run hint per concept (Vorschau with Space, ⌘K, Kompakt), shown once, dismissible.
+3. One short first-run hint per concept (Vorschau with Space, Strg+K, Kompakt), shown once, dismissible.

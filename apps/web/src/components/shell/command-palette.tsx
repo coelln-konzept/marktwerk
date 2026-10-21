@@ -19,7 +19,7 @@ const ICONS = {
   action: Zap,
 } as const;
 
-/** ⌘K: search across records plus actions; umlaut-insensitive ("koln" finds Köln). */
+/** Command palette (Ctrl+K): search across records plus actions; umlaut-insensitive ("koln" finds Köln). */
 export function CommandPalette({ actions }: { actions: SearchHit[] }) {
   const t = useTranslations("palette");
   const router = useRouter();

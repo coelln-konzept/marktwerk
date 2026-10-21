@@ -68,7 +68,7 @@ comes to the event (client's explicit rule, research 05).
 | Drawer (Detailansicht) | Detail drawer | `?detail=<type>:<id>` | Panel from the right for real work on one record (task, permit, payable) while the list stays visible. |
 | Dichte: Standard / Kompakt | Density: standard / compact | `user_preference.density` | 40 px vs 32 px rows; per person. |
 | Design: System / Hell / Dunkel | Theme: system / light / dark | `user_preference.theme` | |
-| Befehlspalette (⌘K) | Command palette | — | Search and commands; opened from the search field or ⌘K / Ctrl+K. |
+| Befehlspalette (Strg+K) | Command palette | — | Search and commands; opened from the search field or Strg+K / Ctrl+K. |
 
 ## Work
 | German (UI-DE) | English (UI-EN) | Code | Meaning |

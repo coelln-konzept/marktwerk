@@ -44,7 +44,9 @@
   },
   "errors": {
     "forbidden": "You don't have permission to do that.",
-    "back": "Back to overview"
+    "back": "Back to overview",
+    "notFoundTitle": "Not found",
+    "notFoundHint": "This record doesn't exist (any more), or the link is incomplete."
   },
   "language": {
     "label": "Language",
@@ -70,7 +72,8 @@
     "breadcrumb": "Breadcrumb",
     "search": "Search or command …",
     "new": "New",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "shortcut": "Ctrl K"
   },
   "palette": {
     "title": "Search and commands",

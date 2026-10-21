@@ -15,7 +15,8 @@ type Shell = {
   setPaletteOpen: (open: boolean) => void;
   toast: Toast | null;
   showToast: (toast: Toast) => void;
-  dismissToast: () => void;
+  /** Clears the toast; with an argument only if that toast is still the one shown. */
+  dismissToast: (which?: Toast) => void;
 };
 
 /** Undo toasts stay 8 s (UX concept §6: 5–8 s). */
@@ -23,15 +24,18 @@ const TOAST_MS = 8000;
 
 const ShellContext = createContext<Shell | null>(null);
 
-/** Client state of the app shell: mobile navigation and the command palette (⌘K / Ctrl+K). */
+/** Client state of the app shell: mobile navigation and the command palette (Ctrl+K; ⌘K on a Mac). */
 export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [navOpen, setNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const dismissToast = useCallback(() => {
-    clearTimeout(timer.current);
-    setToast(null);
+  const dismissToast = useCallback((which?: Toast) => {
+    setToast((current) => {
+      if (which && current !== which) return current;
+      clearTimeout(timer.current);
+      return null;
+    });
   }, []);
   const showToast = useCallback((next: Toast) => {
     clearTimeout(timer.current);

@@ -1,1 +1,83 @@
-{}
+{
+  "kalenderPage": {
+    "subtitle": "Events and public holidays in one place · switch layers on and off on the left",
+    "nav": "Period",
+    "prev": "Back",
+    "next": "Forward",
+    "today": "Today",
+    "listTitle": "{from}–{to}",
+    "view": "View",
+    "views": {
+      "monat": "Month",
+      "liste": "List · 6 weeks"
+    },
+    "layers": {
+      "title": "Layers",
+      "visible": "{count} visible",
+      "toggle": "Expand or collapse layers",
+      "presets": "Presets",
+      "preset": {
+        "all": "Everything",
+        "events": "Events only",
+        "deadlines": "Deadlines only",
+        "markets": "Markets + permits"
+      },
+      "events": "Events",
+      "deadlines": "Deadlines",
+      "team": "Team",
+      "background": "Background",
+      "types": {
+        "flea": "Flea markets",
+        "antique": "Antique markets",
+        "city_festival": "City festivals",
+        "food_wine": "Food & Wine"
+      },
+      "future": {
+        "permits": "Permits",
+        "payments": "Instalments & payments",
+        "tasks": "Tasks",
+        "hours": "Working hours & month close",
+        "returns": "Returns (rental)",
+        "vehicles": "Vehicles & obligations",
+        "shifts": "Shifts"
+      },
+      "comesWith": "arrives with {milestone}",
+      "holidays": "Public holidays NRW",
+      "narrow": "Narrow down",
+      "critical": "Only attention and critical",
+      "mine": "Only my responsibilities",
+      "mineNone": "You are not linked to a team member.",
+      "venue": "Venue",
+      "allVenues": "All venues",
+      "saved": "Your selection is saved per person.",
+      "apply": "Apply"
+    },
+    "gridCaption": "Calendar {month}",
+    "listCaption": "Events and public holidays, {from} to {to}",
+    "cols": {
+      "date": "Date",
+      "event": "Event",
+      "venue": "Venue",
+      "status": "Status"
+    },
+    "week": "CW {week} · {from}–{to}",
+    "relative": {
+      "today": "today",
+      "tomorrow": "tomorrow",
+      "future": "in {n} d",
+      "past": "{n} d ago"
+    },
+    "preview": "Preview: {name}",
+    "open": "Open",
+    "emptyList": "Nothing is scheduled in these six weeks.",
+    "emptyListHint": "Change the layers or narrowing on the left, or page forward with ›.",
+    "emptyMonth": "Nothing matches this selection in this month.",
+    "emptyReset": "Reset selection",
+    "legend": {
+      "weekend": "⚑ Weekend with 4+ events",
+      "holiday": "Public holiday NRW",
+      "cancelled": "struck through = cancelled"
+    },
+    "keys": "Click an entry: preview · <k>T</k> today · <k>M</k> month · <k>L</k> list"
+  }
+}

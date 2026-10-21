@@ -11,7 +11,7 @@ pnpm install
 cp .env.example .env            # then set BETTER_AUTH_SECRET: openssl rand -base64 32
 pnpm db:up                      # Postgres 17 on :5432 (= production major), Mailpit on :1025 / UI :8025
 pnpm db:migrate                 # apply migrations
-pnpm db:seed                    # company settings + owner account (see SEED_OWNER_* in .env)
+pnpm db:seed                    # synthetic dataset + logins (owner, manager, 2 staff; dev password only for a local DB)
 pnpm dev                        # web on http://localhost:3000 + worker
 ```
 Log in with `owner@marktwerk.local` / `marktwerk-dev-123` (from `.env`).
@@ -35,10 +35,11 @@ Log in with `owner@marktwerk.local` / `marktwerk-dev-123` (from `.env`).
 ## Adding shadcn/ui components
 The repo has `apps/web/components.json`. From `apps/web`:
 ```bash
-pnpm dlx shadcn@latest add dialog table dropdown-menu
+pnpm dlx shadcn@latest add tooltip
 ```
-`button`, `input`, `label`, `card` are hand-written stand-ins (the registry was unreachable when the
-repo was scaffolded); re-add them with `--overwrite` to get the official versions.
+**Don't overwrite** the existing files in `src/components/ui/`: they are hand-written to match the Claude Design
+tokens (see `docs/design/component-inventory.md`). Restyle anything new to the tokens in `src/app/globals.css`.
+Overlays and menus use Base UI (`@base-ui/react`) directly.
 
 ## Services in dev
 - **Mailpit** catches all outgoing mail: http://localhost:8025

@@ -1,17 +1,66 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { EventVorschau } from "@/components/events/event-vorschau";
+import { DueToday } from "@/components/overview/due-today";
+import { KpiStrip } from "@/components/overview/kpi-strip";
+import { SeasonStrip } from "@/components/overview/season-strip";
+import { WeekendTable } from "@/components/overview/weekend-table";
 import { Page, PageHeader } from "@/components/shell/page";
+import { formatDate, formatWeek, todayIn } from "@/lib/format";
+import { param } from "@/lib/url";
 import { getActor } from "@/server/actor";
+import { getOverview } from "@/server/queries/overview";
 
-export const metadata: Metadata = { title: "Übersicht" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("nav"))("overview") };
+}
 
-// Placeholder until the Übersicht screen lands (season strip, Heute fällig, Nächstes Wochenende).
-export default async function OverviewPage() {
+/** Hour of day in the company's time zone. */
+function berlinHour(timeZone = "Europe/Berlin"): number {
+  const hour = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hourCycle: "h23" })
+    .formatToParts(new Date())
+    .find((p) => p.type === "hour")?.value;
+  return Number(hour ?? 12);
+}
+
+export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   const actor = await getActor();
-  const t = await getTranslations("nav");
+  const sp = await searchParams;
+  const t = await getTranslations("overview");
+  const tNav = await getTranslations("nav");
+  const locale = await getLocale();
+  const today = todayIn();
+  const hour = berlinHour();
+  const part = hour < 11 ? "morning" : hour < 17 ? "day" : "evening";
+  const weekday = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "de-DE", {
+    timeZone: "UTC",
+    weekday: "long",
+  }).format(new Date(`${today}T12:00:00Z`));
+  const overview = await getOverview(actor, today);
+  const vorschauId = param(sp.vorschau);
+
   return (
-    <Page crumbs={[{ label: t("overview") }]}>
-      <PageHeader title={actor.firstName} />
+    <Page crumbs={[{ label: tNav("overview") }]}>
+      <PageHeader
+        eyebrow={
+          <span className="tabular">
+            {weekday}, {formatDate(today, locale)} · {formatWeek(today, locale)}
+          </span>
+        }
+        title={t(`greeting.${part}`, { name: actor.firstName })}
+        actions={<KpiStrip kpis={overview.kpis} />}
+      />
+      <SeasonStrip season={overview.season} nextSeason={overview.nextSeason} />
+      <DueToday />
+      <WeekendTable
+        weekend={overview.weekend}
+        next={overview.nextAfterWeekend}
+        vorschauId={vorschauId}
+      />
+      {overview.weekend.rows.length > 0 && (
+        <p className="text-muted-foreground text-tiny">{t("weekend.keys")}</p>
+      )}
+      {vorschauId && <EventVorschau id={vorschauId} closeHref="/" />}
     </Page>
   );
 }

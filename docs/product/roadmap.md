@@ -77,7 +77,7 @@ tasks, permits, hours, payments due, company duties. Reminders go to **office us
 office tracks field crew tasks and hours on their behalf (staff messaging comes in Phase 2).
 
 ### M1: Events, presets, locations, vendors (≈ 3 weeks)
-- **App shell** (ADR 0019, [UX concept v2](./ux-concept.md)): sidebar, top bar with search/⌘K + Neu + notifications,
+- **App shell** (ADR 0019, [UX concept v2](./ux-concept.md)): sidebar, top bar with search/Strg+K + Neu + notifications,
   pages with Vorschau and detail drawers, event tabs, theme (light/dark/system) and density switch, design tokens +
   base components from the Claude Design output ([`docs/design/claude-design/a-classic/`](../design/claude-design/a-classic/INDEX.md))
 - **Übersicht** (start screen, `/`): KPI strip and Nächstes Wochenende from events; Heute fällig and the season strip
@@ -111,7 +111,7 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
   person to assign (undo toast); swimlanes by person; **load bars** (estimated hours vs. capacity)
 - **Carry-over:** overdue unfinished tasks roll into "Heute" with ↻n; flagged to the manager after 3
 - **Task detail drawer** (description, check items, evidence, comments with @mention, activity, status incl. "Wartet · Amt")
-- My tasks, cross-event board, unassigned queue, keyboard shortcuts, ⌘K; Kalender layer *Aufgaben*
+- My tasks, cross-event board, unassigned queue, keyboard shortcuts, Strg+K; Kalender layer *Aufgaben*
 - **Workload & hiring view:** board "Arbeitslast" toggle (estimated hours per person/week), hours per event and per
   season; the **season strip** on Übersicht with the hiring signal ("≈ x Minijobber/Monat zusätzlich")
 - *Inspiration:* Linear swimlanes, Asana workload, Sunsama rollover, Paperless Pipeline anchors, Process Street versions

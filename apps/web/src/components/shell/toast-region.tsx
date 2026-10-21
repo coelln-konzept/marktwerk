@@ -22,12 +22,14 @@ export function ToastRegion() {
               type="button"
               disabled={busy}
               onClick={async () => {
+                const shown = toast;
                 setBusy(true);
                 try {
-                  await toast.onAction?.();
+                  await shown.onAction?.();
                 } finally {
                   setBusy(false);
-                  dismissToast();
+                  // An action may show its own toast (e.g. "Status zurückgesetzt"); keep that one.
+                  dismissToast(shown);
                 }
               }}
               className="min-h-8 cursor-pointer whitespace-nowrap rounded-md px-2 font-semibold text-toast-action hover:bg-white/15"

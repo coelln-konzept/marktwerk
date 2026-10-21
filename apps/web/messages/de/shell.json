@@ -44,7 +44,9 @@
   },
   "errors": {
     "forbidden": "Dafür fehlt dir die Berechtigung.",
-    "back": "Zur Übersicht"
+    "back": "Zur Übersicht",
+    "notFoundTitle": "Nicht gefunden",
+    "notFoundHint": "Diesen Eintrag gibt es nicht (mehr), oder der Link ist unvollständig."
   },
   "language": {
     "label": "Sprache",
@@ -70,7 +72,8 @@
     "breadcrumb": "Brotkrumen",
     "search": "Suchen oder Befehl …",
     "new": "Neu",
-    "notifications": "Benachrichtigungen"
+    "notifications": "Benachrichtigungen",
+    "shortcut": "Strg K"
   },
   "palette": {
     "title": "Suchen und Befehle",

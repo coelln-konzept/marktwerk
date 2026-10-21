@@ -18,7 +18,7 @@ Legend: `⋯` menu · `👁` Vorschau · `›` breadcrumb · ↻n carried over n
 ## W0 · App shell with the start screen "Übersicht"
 ```
 ┌──────────────────┬──────────────────────────────────────────────────────────────────────────────────────────┐
-│ marktwerk        │ Übersicht                      [🔍 Suchen oder Befehl …  ⌘K]   [+ Neu]          🔔 3     │
+│ marktwerk        │ Übersicht                      [🔍 Suchen oder Befehl …  Strg+K]   [+ Neu]          🔔 3     │
 │                  ├──────────────────────────────────────────────────────────────────────────────────────────┤
 │ ⌂ Übersicht      │ Mittwoch, 13. Mai 2026 · KW 20                                                           │
 │ ▦ Kalender       │ Guten Morgen, Petra                                                                      │
@@ -273,7 +273,7 @@ consequence: "Mai sperren – danach nur mit Begründung änderbar".
 │ Mängel: Transit: Bremse quietscht · 📷 · Dieter · vor 3 T                           │
 ```
 
-## W12 · Command palette (⌘K / search field)
+## W12 · Command palette (Strg+K / search field)
 ```
 ┌──────────────────────────────────────────────────────────┐
 │ 🔍 altstadt                                              │

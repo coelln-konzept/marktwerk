@@ -1,1 +1,83 @@
-{}
+{
+  "kalenderPage": {
+    "subtitle": "Veranstaltungen und Feiertage an einem Ort · Ebenen links ein- und ausblenden",
+    "nav": "Zeitraum",
+    "prev": "Zurück",
+    "next": "Weiter",
+    "today": "Heute",
+    "listTitle": "{from}–{to}",
+    "view": "Ansicht",
+    "views": {
+      "monat": "Monat",
+      "liste": "Liste · 6 Wochen"
+    },
+    "layers": {
+      "title": "Ebenen",
+      "visible": "{count} sichtbar",
+      "toggle": "Ebenen ein- oder ausklappen",
+      "presets": "Voreinstellungen",
+      "preset": {
+        "all": "Alles",
+        "events": "Nur Veranstaltungen",
+        "deadlines": "Nur Fristen",
+        "markets": "Märkte + Genehmigungen"
+      },
+      "events": "Veranstaltungen",
+      "deadlines": "Fristen",
+      "team": "Team",
+      "background": "Hintergrund",
+      "types": {
+        "flea": "Flohmärkte",
+        "antique": "Antikmärkte",
+        "city_festival": "Stadtfeste",
+        "food_wine": "Food & Wine"
+      },
+      "future": {
+        "permits": "Genehmigungen",
+        "payments": "Raten & Zahlungen",
+        "tasks": "Aufgaben",
+        "hours": "Arbeitszeiten & Abschluss",
+        "returns": "Rückgaben (Miete)",
+        "vehicles": "Fahrzeuge & Pflichten",
+        "shifts": "Schichten"
+      },
+      "comesWith": "kommt mit {milestone}",
+      "holidays": "Feiertage NRW",
+      "narrow": "Eingrenzen",
+      "critical": "Nur Achtung und Kritisch",
+      "mine": "Nur meine Zuständigkeit",
+      "mineNone": "Dir ist kein Teammitglied zugeordnet.",
+      "venue": "Ort",
+      "allVenues": "Alle Orte",
+      "saved": "Auswahl bleibt pro Person gespeichert.",
+      "apply": "Übernehmen"
+    },
+    "gridCaption": "Kalender {month}",
+    "listCaption": "Veranstaltungen und Feiertage, {from} bis {to}",
+    "cols": {
+      "date": "Datum",
+      "event": "Veranstaltung",
+      "venue": "Ort",
+      "status": "Status"
+    },
+    "week": "KW {week} · {from}–{to}",
+    "relative": {
+      "today": "heute",
+      "tomorrow": "morgen",
+      "future": "in {n} T",
+      "past": "vor {n} T"
+    },
+    "preview": "Vorschau: {name}",
+    "open": "Öffnen",
+    "emptyList": "In diesen sechs Wochen ist nichts eingetragen.",
+    "emptyListHint": "Ebenen und Eingrenzungen links ändern, oder mit › weiterblättern.",
+    "emptyMonth": "Für diese Auswahl gibt es in diesem Monat keine Einträge.",
+    "emptyReset": "Auswahl zurücksetzen",
+    "legend": {
+      "weekend": "⚑ Wochenende mit 4+ Veranstaltungen",
+      "holiday": "Feiertag NRW",
+      "cancelled": "durchgestrichen = abgesagt"
+    },
+    "keys": "Klick auf einen Eintrag: Vorschau · <k>T</k> heute · <k>M</k> Monat · <k>L</k> Liste"
+  }
+}

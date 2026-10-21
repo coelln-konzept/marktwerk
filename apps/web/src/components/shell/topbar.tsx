@@ -8,7 +8,7 @@ import { useShell } from "./shell-context";
 
 export type Crumb = { label: string; href?: string };
 
-/** Breadcrumb · visible search field (opens ⌘K) · "+ Neu" · notifications. */
+/** Breadcrumb · visible search field (opens the palette, Ctrl+K) · "+ Neu" · notifications. */
 export function Topbar({ crumbs }: { crumbs: Crumb[] }) {
   const t = useTranslations("topbar");
   const { setNavOpen, setPaletteOpen } = useShell();
@@ -58,7 +58,7 @@ export function Topbar({ crumbs }: { crumbs: Crumb[] }) {
       >
         <Search aria-hidden className="size-4" />
         <span className="flex-1 truncate">{t("search")}</span>
-        <Kbd>⌘K</Kbd>
+        <Kbd>{t("shortcut")}</Kbd>
       </button>
       <button
         type="button"

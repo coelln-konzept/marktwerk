@@ -1,1 +1,172 @@
-{}
+{
+  "eventDetail": {
+    "kicker": "Veranstaltung",
+    "header": {
+      "dateLine": "{date} · {open}–{close} Uhr · {week}",
+      "dateLineRange": "{from} – {to} · {open}–{close} Uhr · {week}",
+      "setup": "Aufbau {date} ab {time} Uhr",
+      "preset": "Vorlage {name}",
+      "noPreset": "Ohne Vorlage",
+      "booking": {
+        "open": "buchbar",
+        "closed": "Buchung geschlossen",
+        "full": "ausgebucht",
+        "carsFull": "Autoplätze ausgebucht"
+      }
+    },
+    "tabs": {
+      "label": "Bereiche der Veranstaltung",
+      "overview": "Überblick",
+      "board": "Board",
+      "permits": "Genehmigungen",
+      "team": "Team",
+      "money": "Geld",
+      "documents": "Dokumente",
+      "notes": "Notizen",
+      "history": "Verlauf",
+      "milestone": "ab {milestone}",
+      "milestoneHint": "Kommt mit Meilenstein {milestone}",
+      "later": "später",
+      "laterHint": "Kommt in einem späteren Schritt"
+    },
+    "status": {
+      "menu": "Status ändern",
+      "menuLabel": "Status ändern, aktuell: {status}",
+      "changeTo": "Ändern auf",
+      "none": "Keine weiteren Statuswechsel möglich.",
+      "changed": "Status: {from} → {to}",
+      "reverted": "Status wieder: {to}",
+      "undo": "Rückgängig",
+      "errors": {
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "invalid_status": "Unbekannter Status.",
+        "invalid_transition": "Dieser Wechsel ist von hier aus nicht möglich. Die Seite wurde aktualisiert.",
+        "reason_required": "Bitte einen Grund für die Absage angeben.",
+        "conflict": "Der Status wurde zwischenzeitlich geändert. Nichts zurückgesetzt.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      }
+    },
+    "cancel": {
+      "title": "Veranstaltung absagen",
+      "description": "„{name}“ wird als abgesagt markiert. Der Grund erscheint im Verlauf; du kannst die Absage direkt danach rückgängig machen.",
+      "reason": "Grund der Absage",
+      "placeholder": "z. B. Genehmigung nicht erteilt, Wetterwarnung …",
+      "submit": "Absagen",
+      "cancel": "Abbrechen"
+    },
+    "overview": {
+      "dates": {
+        "title": "Termine & Fristen",
+        "caption": "Termine und Fristen der Veranstaltung",
+        "date": "Datum",
+        "what": "Termin",
+        "relative": "Abstand",
+        "today": "heute",
+        "inDays": "in {n} T",
+        "daysAgo": "vor {n} T",
+        "keys": {
+          "event_day": "Veranstaltungstag",
+          "setup_day": "Aufbautag",
+          "teardown_day": "Abbautag",
+          "booking_cutoff": "Buchungsschluss"
+        },
+        "empty": "Noch keine Termine hinterlegt."
+      },
+      "facts": {
+        "title": "Eckdaten",
+        "venue": "Ort",
+        "times": "Zeiten",
+        "timesValue": "Aufbau {setup} · {open}–{close} Uhr · Abbau {teardown}",
+        "price": "Standpreis",
+        "pricePerM": "{price} je Meter",
+        "fee": "Buchungsgebühr",
+        "rules": "Regeln der Art",
+        "newGoods": "Neuwarenanteil max. {share} %",
+        "bannedGoods": "Verbotene Waren: {goods}",
+        "noBannedGoods": "Keine verbotenen Waren",
+        "onlineBooking": "Online-Buchung: {value}",
+        "yes": "ja",
+        "no": "nein",
+        "cancelledReason": "Grund der Absage"
+      },
+      "team": {
+        "title": "Team",
+        "summary": "{assigned}/{total} Zuständigkeiten besetzt",
+        "open": "Offen: {roles}",
+        "allSet": "Alle Zuständigkeiten sind besetzt.",
+        "link": "Zum Team"
+      },
+      "health": {
+        "title": "Zustand",
+        "permits": "Genehmigungen",
+        "tasks": "Aufgaben",
+        "team": "Team",
+        "money": "Geld",
+        "permitsNote": "ab M3",
+        "tasksNote": "ab M2",
+        "moneyNote": "ab M5",
+        "teamNote": "{assigned}/{total} Zuständigkeiten besetzt"
+      }
+    },
+    "team": {
+      "title": "Zuständigkeiten",
+      "caption": "Zuständigkeiten dieser Veranstaltung",
+      "role": "Zuständigkeit",
+      "person": "Person",
+      "unassigned": "nicht besetzt",
+      "assigned": "besetzt",
+      "summary": "{assigned} von {total} Zuständigkeiten besetzt",
+      "hint": "Nur lesen: Zuständigkeiten werden aus der Vorlage übernommen. Sie hier zu ändern kommt in einem späteren Schritt."
+    },
+    "notes": {
+      "title": "Notizen",
+      "label": "Notizen zur Veranstaltung",
+      "placeholder": "Was sollte das Team zu dieser Veranstaltung wissen?",
+      "empty": "Noch keine Notizen.",
+      "save": "Speichern",
+      "saving": "wird gespeichert…",
+      "saved": "Notizen gespeichert",
+      "unchanged": "Keine Änderungen zu speichern.",
+      "readOnly": "Du kannst die Notizen lesen, aber nicht ändern.",
+      "tooLong": "Die Notizen sind zu lang (höchstens {max} Zeichen).",
+      "failed": "Das Speichern hat nicht geklappt. Bitte noch einmal versuchen.",
+      "chars": "{count} Zeichen"
+    },
+    "history": {
+      "title": "Verlauf",
+      "caption": "Änderungen an dieser Veranstaltung",
+      "when": "Zeitpunkt",
+      "who": "Wer",
+      "what": "Änderung",
+      "empty": "Noch keine Änderungen seit dem Import.",
+      "emptyHint": "Statuswechsel, geänderte Notizen und weitere Änderungen erscheinen hier.",
+      "unknownActor": "System",
+      "created": "Angelegt aus Vorlage",
+      "createdManual": "Angelegt",
+      "statusChanged": "Status geändert: {from} → {to}",
+      "statusUndone": "Status zurückgesetzt: {from} → {to}",
+      "reason": "Grund: {reason}",
+      "notes": "Notizen geändert",
+      "archived": "Archiviert",
+      "other": "Geändert ({action})"
+    },
+    "later": {
+      "board": {
+        "title": "Das Board folgt in M2",
+        "hint": "Aufgaben aus den Ablaufvorlagen als Kanban-Board, daneben die Personenleiste mit Auslastung je Person."
+      },
+      "permits": {
+        "title": "Genehmigungen folgen in M3",
+        "hint": "Welche Genehmigungen für diese Veranstaltung gelten, ihr Stand und die Fristen kommen mit dem Logbuch."
+      },
+      "money": {
+        "title": "Geld folgt in M5",
+        "hint": "Hier stehen später die Posten mit Plan · Zugesagt · Tatsächlich, die Zahlungen mit Raten und die Belege."
+      },
+      "documents": {
+        "title": "Dokumente folgen später",
+        "hint": "Bescheide, Pläne und Verträge dieser Veranstaltung werden später hier abgelegt."
+      }
+    }
+  }
+}
