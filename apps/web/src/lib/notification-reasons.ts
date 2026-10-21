@@ -30,3 +30,7 @@ export const NOTIFICATION_REASON_GROUPS: Record<NotificationGroup, readonly stri
 export function isNotificationGroup(value: string | undefined): value is NotificationGroup {
   return (NOTIFICATION_GROUPS as readonly string[]).includes(value ?? "");
 }
+
+/** "Später" choices; the server turns them into a time (company time zone). */
+export const SNOOZE_CHOICES = ["hour", "tomorrow", "next_week"] as const;
+export type SnoozeChoice = (typeof SNOOZE_CHOICES)[number];

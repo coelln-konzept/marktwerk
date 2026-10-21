@@ -1,0 +1,95 @@
+{
+  "notificationsPage": {
+    "title": "Benachrichtigungen",
+    "subtitle": "{unread, plural, =0 {Alles gelesen} one {# ungelesen} other {# ungelesen}}",
+    "snoozed": "{count, plural, one {# zurückgestellt} other {# zurückgestellt}}",
+    "views": {
+      "label": "Ansicht",
+      "open": "Offen",
+      "saved": "Gemerkt",
+      "done": "Erledigt",
+      "all": "Alle"
+    },
+    "groups": {
+      "label": "Art",
+      "all": "Alle",
+      "assigned": "Mir zugewiesen",
+      "mentioned": "Erwähnt",
+      "deadlines": "Fristen",
+      "escalated": "Eskaliert",
+      "changes": "Änderungen"
+    },
+    "reasons": {
+      "assigned": "Zugewiesen",
+      "mentioned": "Erwähnt",
+      "due_soon": "Bald fällig",
+      "overdue": "Überfällig",
+      "rolled_over": "Übertragen",
+      "dates_shifted": "Fristen verschoben",
+      "permit_apply_by": "Antrag fällig",
+      "permit_decision_due": "Entscheidung offen",
+      "installment_due": "Rate fällig",
+      "rental_return_due": "Rückgabe fällig",
+      "obligation_due": "Pflicht fällig",
+      "shift_request": "Schichtanfrage",
+      "hours_missing": "Zeiten fehlen",
+      "payroll_close": "Monatsabschluss",
+      "escalated": "Eskaliert"
+    },
+    "severity": {
+      "info": "Hinweis",
+      "warning": "Achtung",
+      "critical": "Kritisch"
+    },
+    "markAllRead": "Alle als gelesen markieren",
+    "markedAllRead": "{count, plural, one {# Hinweis} other {# Hinweise}} als gelesen markiert.",
+    "nothingToMark": "Es gibt nichts Ungelesenes.",
+    "undo": "Rückgängig",
+    "list": "Benachrichtigungen",
+    "unread": "ungelesen",
+    "open": "Öffnen",
+    "markRead": "Als gelesen markieren",
+    "markUnread": "Als ungelesen markieren",
+    "done": "Erledigt",
+    "reopen": "Wieder öffnen",
+    "save": "Merken",
+    "unsave": "Nicht mehr merken",
+    "snooze": "Später erinnern",
+    "snoozeChoices": {
+      "hour": "In einer Stunde",
+      "tomorrow": "Morgen früh",
+      "next_week": "Nächste Woche"
+    },
+    "actionsFor": "Aktionen für {title}",
+    "toast": {
+      "done": "Erledigt.",
+      "read": "Als gelesen markiert.",
+      "unread": "Als ungelesen markiert.",
+      "saved": "Gemerkt.",
+      "reopened": "Wieder offen.",
+      "snoozed": "Erinnerung am {when}.",
+      "restored": "Zurückgesetzt."
+    },
+    "empty": "Alles erledigt.",
+    "emptyHint": "Hinweise zu Fristen, Zuweisungen und Eskalationen erscheinen hier.",
+    "emptyFiltered": "Keine Hinweise in dieser Auswahl.",
+    "noStaffTitle": "Dein Login ist keiner Person im Team zugeordnet.",
+    "noStaffHint": "Benachrichtigungen gehen an Personen aus dem Team. Verknüpfe deinen Login mit einer Person, dann erscheinen sie hier.",
+    "more": "Es gibt ältere Hinweise. Erledigte Hinweise verschwinden aus „Offen“.",
+    "errors": {
+      "generic": "Das hat nicht geklappt. Bitte versuche es erneut.",
+      "not_found": "Diesen Hinweis gibt es nicht mehr."
+    }
+  },
+  "bell": {
+    "label": "Benachrichtigungen",
+    "labelUnread": "Benachrichtigungen, {count, plural, one {# ungelesen} other {# ungelesen}}",
+    "title": "Benachrichtigungen",
+    "markAll": "Alle gelesen",
+    "viewAll": "Alle anzeigen",
+    "empty": "Keine neuen Hinweise.",
+    "unread": "ungelesen",
+    "ago": "vor {when}",
+    "now": "gerade eben"
+  }
+}

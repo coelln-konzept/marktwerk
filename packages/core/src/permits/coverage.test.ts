@@ -78,10 +78,10 @@ describe("permitCovers", () => {
 });
 
 describe("seasonFor", () => {
-  it("only season and year permits belong to a season", () => {
+  it("multi-year and standing permits belong to no season", () => {
     expect(seasonFor("per_season", 2027)).toBe(2027);
     expect(seasonFor("per_year", 2027)).toBe(2027);
-    expect(seasonFor("per_event", 2027)).toBeNull();
+    expect(seasonFor("per_event", 2027)).toBe(2027);
     expect(seasonFor("multi_year", 2027)).toBeNull();
     expect(seasonFor("standing", 2027)).toBeNull();
   });

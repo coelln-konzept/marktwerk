@@ -10,6 +10,7 @@ import { formatDateShort, formatDateWithWeekday, formatWeek, todayIn } from "@/l
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import type { EventDetail } from "@/server/queries/events";
+import { listEventPermits } from "@/server/queries/permits";
 import { listVenueOptions } from "@/server/queries/venues";
 import { BasicsDialog } from "./basics-dialog";
 import { BookingMenu } from "./booking-menu";
@@ -29,6 +30,10 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const total = event.duties.length;
   const canWrite = can(actor.role, "event", "write");
   const venues = canWrite ? await listVenueOptions() : [];
+  const tPermits = await getTranslations("eventPermits");
+  const permits = can(actor.role, "permit", "read")
+    ? await listEventPermits(actor, event, todayIn())
+    : null;
   const BookingIcon = event.bookingOpen ? BOOKING_FLAG_ICONS.open : BOOKING_FLAG_ICONS.notOpen;
 
   const dateLine = multiDay
@@ -53,12 +58,23 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const tabs: EventTab[] = [
     { key: "overview", href: base, label: t("tabs.overview") },
     { key: "board", href: `${base}/board`, label: t("tabs.board"), hint: milestone("M2") },
-    {
-      key: "permits",
-      href: `${base}/genehmigungen`,
-      label: t("tabs.permits"),
-      hint: milestone("M3"),
-    },
+    ...(permits
+      ? [
+          {
+            key: "permits",
+            href: `${base}/genehmigungen`,
+            label: t("tabs.permits"),
+            count:
+              permits.rows.length > 0
+                ? {
+                    text: `${permits.held}/${permits.required}`,
+                    level: permits.health ?? "none",
+                    sr: `${tPermits("tabSummary", { held: permits.held, required: permits.required })}, ${tHealth(permits.health ?? "none")}`,
+                  }
+                : undefined,
+          } satisfies EventTab,
+        ]
+      : []),
     {
       key: "team",
       href: `${base}/team`,

@@ -232,8 +232,8 @@ describe("logbook fill on event creation", () => {
     const ids = await generate("2027-05-02", "2027-06-06");
     const permits = await db.select().from(permit).orderBy(asc(permit.applyBy));
     expect(permits.map((p) => [p.title, p.season, p.applyBy])).toEqual([
-      ["Halteverbot – 2027-05-02", null, "2027-04-11"],
-      ["Halteverbot – 2027-06-06", null, "2027-05-16"],
+      ["Halteverbot – 2027-05-02", 2027, "2027-04-11"],
+      ["Halteverbot – 2027-06-06", 2027, "2027-05-16"],
     ]);
     const tasks = await db.select().from(task);
     expect(tasks.map((t) => t.eventId).sort()).toEqual([...ids].sort());

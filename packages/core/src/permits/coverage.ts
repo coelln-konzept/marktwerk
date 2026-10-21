@@ -58,9 +58,9 @@ export function permitCovers(
   }
 }
 
-/** The `permit.season` of a new instance: only season and year permits belong to one season. */
+/** The `permit.season` of a new instance: single-event, season and year permits belong to one season; multi-year and standing ones to none. */
 export function seasonFor(cadence: PermitCadence, eventSeason: number): number | null {
-  return cadence === "per_season" || cadence === "per_year" ? eventSeason : null;
+  return cadence === "multi_year" || cadence === "standing" ? null : eventSeason;
 }
 
 export type SubmissionWindow = { startMd: string | null; endMd: string | null };

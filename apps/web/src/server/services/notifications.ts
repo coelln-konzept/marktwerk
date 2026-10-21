@@ -3,7 +3,12 @@ import { mondayOf, resolveRelativeDue } from "@marktwerk/core";
 import { notification } from "@marktwerk/db/schema";
 import { and, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { todayIn } from "@/lib/format";
-import { NOTIFICATION_REASON_GROUPS, type NotificationGroup } from "@/lib/notification-reasons";
+import {
+  NOTIFICATION_REASON_GROUPS,
+  type NotificationGroup,
+  SNOOZE_CHOICES,
+  type SnoozeChoice,
+} from "@/lib/notification-reasons";
 import type { Actor } from "../actor";
 import { db } from "../db";
 
@@ -89,9 +94,6 @@ export async function restoreNotification(
     })
     .where(ownedBy(actor, id));
 }
-
-export const SNOOZE_CHOICES = ["hour", "tomorrow", "next_week"] as const;
-export type SnoozeChoice = (typeof SNOOZE_CHOICES)[number];
 
 /** Time of day a snoozed notification comes back ("morgen früh"). */
 const SNOOZE_WAKE_TIME = "08:00";
