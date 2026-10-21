@@ -43,7 +43,103 @@
       "nextDatesHint": "next 12 months",
       "noDates": "No dates in the next 12 months.",
       "noRule": "No recurrence recorded; dates are picked by hand.",
-      "generate": "Generate dates"
+      "generate": "Generate dates",
+      "edit": "Edit"
+    },
+    "new": "New preset",
+    "editLabel": "Edit: {name}",
+    "form": {
+      "newTitle": "New preset",
+      "newSubtitle": "Later you generate the dates of a season from a preset.",
+      "editTitle": "Edit preset",
+      "editCrumb": "Edit",
+      "back": "Back to templates",
+      "propagationHint": "Changes to the preset only apply to events you generate afterwards. Events that already exist stay as they are.",
+      "basics": {
+        "title": "Basics",
+        "name": "Name",
+        "type": "Type",
+        "venue": "Venue",
+        "choose": "Please choose",
+        "retired": "(no longer active)",
+        "duration": "Duration (days)",
+        "active": "Active",
+        "activeHint": "Inactive presets do not appear under “Generate from preset”. Tick the box to bring it back."
+      },
+      "public": {
+        "title": "Public details",
+        "publicTitle": "Public title",
+        "publicText": "Public text"
+      },
+      "times": {
+        "title": "Times (24-hour)",
+        "setup": "Setup",
+        "open": "Start",
+        "close": "End",
+        "teardown": "Teardown",
+        "hint": "24-hour format, e.g. 08:00. Entries like 8 or 8.30 are completed for you."
+      },
+      "prices": {
+        "title": "Prices",
+        "price": "Stall price",
+        "perMeter": "€ per m",
+        "fee": "Booking fee",
+        "hint": "Prefilled with the values of the chosen type until you change them."
+      },
+      "rhythm": {
+        "title": "Recurrence",
+        "none": "No recurrence (you pick the dates by hand)",
+        "weekdays": "Weekdays",
+        "position": "Which one in the month",
+        "everyOne": "every",
+        "nth": "{n}.",
+        "last": "last",
+        "months": "Months",
+        "monthsHint": "Nothing selected means every month.",
+        "inWords": "In words",
+        "noRuleText": "No recurrence; dates are picked by hand.",
+        "nextDates": "Next dates",
+        "noDates": "No dates in the next two years."
+      },
+      "team": {
+        "title": "Default team",
+        "hint": "Who is entered per duty on new events. It can be changed on each event.",
+        "nobody": "nobody",
+        "retired": "(no longer active)",
+        "noRoles": "No duties set up yet."
+      },
+      "save": "Save",
+      "create": "Create preset",
+      "cancel": "Cancel",
+      "saved": "Preset saved",
+      "created": "Preset created",
+      "unchanged": "Nothing to save.",
+      "conflict": {
+        "text": "Somebody else changed this preset in the meantime. Your entries stay here.",
+        "overwrite": "Save my changes anyway"
+      },
+      "errors": {
+        "summary": "{count, plural, one {Please check the marked field.} other {Please check the # marked fields.}}",
+        "invalid_name": "Please enter a name (at most 120 characters).",
+        "invalid_duration": "Please enter 1 to 14 days.",
+        "invalid_public_title": "The public title can be at most 200 characters.",
+        "invalid_public_text": "The public text can be at most 5,000 characters.",
+        "invalid_time": "Please enter the time as HH:MM, e.g. 08:00.",
+        "open_after_close": "The end must be after the start.",
+        "close_after_teardown": "Teardown cannot be before the end.",
+        "setup_after_open": "Setup cannot be after the start on single-day markets.",
+        "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most €10,000).",
+        "invalid_fee": "Please enter an amount in euros, e.g. 5 (at most €10,000).",
+        "invalid_rrule": "This recurrence is not valid. Please check weekdays and months.",
+        "rrule_empty": "Select at least one weekday or “No recurrence”.",
+        "invalid_type": "Please choose a type.",
+        "invalid_venue": "Please choose a venue that is not archived.",
+        "invalid_duty_role": "This duty no longer exists.",
+        "invalid_staff": "This person is not (or no longer) active. Please choose somebody else.",
+        "not_found": "This preset no longer exists.",
+        "invalid_input": "The details are incomplete. Please reload the page.",
+        "generic": "That did not work. Please try again."
+      }
     }
   }
 }

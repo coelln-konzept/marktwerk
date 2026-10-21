@@ -1,9 +1,10 @@
 import { addDays, can, expandRRule } from "@marktwerk/core";
 import { dutyRole } from "@marktwerk/db/schema";
 import { asc } from "drizzle-orm";
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, Pencil } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { buttonVariants } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
 import { formatDateRange, formatMoney, formatWeek, todayIn } from "@/lib/format";
@@ -29,9 +30,12 @@ export function nextPresetDates(rule: string | null, today: string, limit = 5): 
 export async function PresetVorschau({
   preset,
   closeHref,
+  canEdit = false,
 }: {
   preset: PresetRow;
   closeHref: string;
+  /** template:write: shows "Bearbeiten". */
+  canEdit?: boolean;
 }) {
   const actor = await getActor();
   const t = await getTranslations("templates");
@@ -139,14 +143,27 @@ export async function PresetVorschau({
         )}
       </section>
 
-      {canGenerate && (
-        <Link
-          href={`/veranstaltungen?erzeugen=1&vorlage=${preset.id}` as never}
-          className="inline-flex min-h-8 items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-3 font-medium text-primary-foreground hover:bg-primary-hover"
-        >
-          <CalendarPlus aria-hidden className="size-4" />
-          {t("vorschau.generate")}
-        </Link>
+      {(canGenerate || canEdit) && (
+        <div className="flex flex-wrap gap-2">
+          {canGenerate && (
+            <Link
+              href={`/veranstaltungen?erzeugen=1&vorlage=${preset.id}` as never}
+              className="inline-flex min-h-8 items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-3 font-medium text-primary-foreground hover:bg-primary-hover"
+            >
+              <CalendarPlus aria-hidden className="size-4" />
+              {t("vorschau.generate")}
+            </Link>
+          )}
+          {canEdit && (
+            <Link
+              href={`/vorlagen/${preset.id}` as never}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Pencil aria-hidden />
+              {t("vorschau.edit")}
+            </Link>
+          )}
+        </div>
       )}
     </Vorschau>
   );
