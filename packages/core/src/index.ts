@@ -6,6 +6,7 @@ export * from "./dates/relative";
 export * from "./dates/weekend";
 export * from "./deadlines/reminders";
 export * from "./events/anchors";
+export * from "./events/details";
 export * from "./events/health";
 export * from "./events/lifecycle";
 export * from "./events/rrule";
