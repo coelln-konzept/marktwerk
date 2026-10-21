@@ -131,21 +131,20 @@ holiday/weekend-cap/venue warnings, one service path, audit, undo), event page (
 status changes with undo), Orte, Kontakte, Vorlagen, Team, Händler, core rules + tests, integration + e2e tests, CI,
 seed workflow.
 
-**Still open in M1** (suggested order):
-1. ~~Merge the PR; let Vercel deploy (applies 0001)~~ (done in session 3). Still: seed Supabase via the workflow once
-   the secrets exist (§8); product owner clicks through `marktwerk-ardas-s-projects.vercel.app` (Vercel login).
-2. **Edit master data** (all via services: permission → transaction → audit): ~~event duties on the Team tab~~ (done:
-   `setEventDuty`, row menu with preferred people first, same-day clash hint, undo, Verlauf; in M2 it should also
-   reassign the open tasks of that role), ~~event dates/times/prices/booking flags~~ (done: Eckdaten modal, "Buchung"
-   menu, "Verschieben" with preview; event *name*, duration and venue are not editable yet), presets (create/edit,
-   default team, rrule), venues + zones/rows, contacts. Modals for ≤ 8 fields, pages for more (UX concept §4).
-3. **Einzeltermin** (single event without preset) through the same `createEvents` service path, and **location
-   agreements** (fixed dates → events; table exists, no UI).
-4. **Einstellungen**: company settings, users & permission roles (Better Auth admin), legal parameters (read-only list).
-5. Field-user check: add a seeded field login (staff member with duties) and verify scoping end-to-end.
-6. Smaller gaps: "+ Neu" context-aware + `C` shortcut; Vorschau focus return; Kompakt label-beside-field;
-   consolidate the two `phone.tsx` helpers (`components/catalogue`, `components/people`); the month grid on phones.
-Then **M2: templates, tasks & kanban** (roadmap) — needs the timeline workshop input and a drag-and-drop decision.
+**M1 finished in session 3** (branch `claude/m1-master-data`, PR #2), built partly by parallel agents and merged
+here: editing of event duties, Eckdaten, booking flags, Verschieben (preview), name/length/venue (confirmed);
+confirmation while an event is happening; **presets** create/edit (`/vorlagen/neu`, `/vorlagen/[id]`, rhythm
+builder, default team, active); **venues** create/edit/archive with **zones and rows** (`/orte/neu`,
+`/orte/[id]/bearbeiten`); **Einzeltermin** (`/veranstaltungen/neu`) and **location agreements** on the venue page
+with "Termine erzeugen", all through the one creation path `instantiateEvents`; context-aware **"+ Neu"** with `C`;
+**contacts** create/edit/archive (`/kontakte/neu`, `/kontakte/[id]/bearbeiten`), one shared phone helper;
+**Einstellungen** (Firma, Benutzer & Rollen with role/ban/staff link and last-owner guard, Rechtliche Werte); seeded
+**field login** `logistik@marktwerk.local` + field-scope tests (fixed a `getEvent` crash for field users).
+Tests: core 147+, integration 246. Still open from M1: Supabase seeding (§8), Vorschau focus return, Kompakt
+label-beside-field, month grid on phones, inviting users (§8).
+
+**Phase 1 continues (session 3):** one migration `0002_phase1_modules` with all M2–M6 tables + seed of the
+synthetic data for them, then M2–M6 by parallel agents (M2 board needs the drag-and-drop decision, §8).
 
 ## 8. Open items for the product owner
 **Product questions raised while building M1** (answers → decisions log):
@@ -157,13 +156,17 @@ Then **M2: templates, tasks & kanban** (roadmap) — needs the timeline workshop
 6. Inactive presets: offer "reactivate" and generation from them?
 7. Händler: newsletter consent label "Soft-Opt-in". Wording OK?
 8. "Veranstaltungen kommend" counts events running today. OK?
-9. Event duties can be changed on every non-archived event, also past, cancelled and closed ones. Lock them after
-   "abgeschlossen"?
-10. Someone who already has a duty at another event on the same days is only flagged ("am selben Tag bei …"), not
-    blocked. OK?
-11. Eckdaten and booking flags can be edited on every non-archived event, also closed/cancelled ones (like duties).
-    Lock after "abgeschlossen"?
-12. Should the event name, the duration (multi-day) or the venue be editable on an event, or only via the preset?
+9. ~~Lock duties after "abgeschlossen"?~~ Decided: editable, confirmation while the event is happening.
+10. ~~Same-day clashes~~ Decided: hint only.
+11. ~~Lock Eckdaten/booking after "abgeschlossen"?~~ Decided like 9.
+12. ~~Name/length/venue editable on the event?~~ Decided: yes, with confirmation (open-questions).
+13. **Inviting users** (Einstellungen → Benutzer): invitation email or initial password? Button is disabled for now.
+14. Defaults the agents guessed: new presets and Einzeltermine start with 06:00 / 08:00 / 16:00 / 18:00; text limits
+    200 (fields) / 4,000–5,000 (notes, public text). OK?
+15. Presets at an archived venue still show in Vorlagen (and can generate). Hide, warn, or keep?
+16. `audit_log.entity_id` is a uuid, but Better Auth user ids and the settings row aren't: user/settings audit entries
+    keep the id in the diff only. Change the column to text in a later migration?
+17. M2 drag and drop for the board: dnd-kit (recommended) or menu/keyboard only first?
 
 **Infrastructure:** production URL is `https://marktwerk-ardas-s-projects.vercel.app` (behind Vercel Authentication;
 `marktwerk.vercel.app` is someone else's app) → record in README + deployment.md and set as `BETTER_AUTH_URL`/`APP_URL`; confirm `BETTER_AUTH_URL`/`APP_URL` in Vercel and
