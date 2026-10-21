@@ -13,5 +13,6 @@ export function createDb(connectionString: string, options: { max?: number } = {
   return drizzle({ client: pool, schema, casing: "snake_case" });
 }
 
+export * from "./notify";
 export * from "./schema";
 export { schema };
