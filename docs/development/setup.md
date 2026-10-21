@@ -22,7 +22,9 @@ Log in with `owner@marktwerk.local` / `marktwerk-dev-123` (from `.env`).
 | `pnpm dev` | web + worker in watch mode (Turborepo) |
 | `pnpm check` | lint + typecheck + tests, run before every commit |
 | `pnpm lint:fix` | Biome lint + format with fixes |
-| `pnpm test` | Vitest in all packages |
+| `pnpm test` | Vitest in all packages + message check (no database needed) |
+| `pnpm test:integration` | service tests against Postgres (`marktwerk_test`), see [testing.md](./testing.md) |
+| `pnpm test:e2e` | Playwright smoke test against a running app, see [testing.md](./testing.md) |
 | `pnpm build` | production build (web standalone + worker bundle) |
 | `pnpm db:generate --name <change>` | create a migration after editing `packages/db/src/schema` |
 | `pnpm db:migrate` | apply migrations |

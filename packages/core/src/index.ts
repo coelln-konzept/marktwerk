@@ -7,5 +7,7 @@ export * from "./deadlines/reminders";
 export * from "./events/anchors";
 export * from "./events/health";
 export * from "./events/rrule";
+export * from "./events/rrule-describe";
 export * from "./events/scheduling";
 export * from "./staff/minijob";
+export * from "./text/fold";

@@ -1,1 +1,49 @@
-{}
+{
+  "templates": {
+    "title": "Templates",
+    "subtitle": "{count, plural, one {# event preset} other {# event presets}} · {active} active",
+    "tabsLabel": "Template type",
+    "tabs": {
+      "events": "Event presets",
+      "timelines": "Timeline templates",
+      "soon": "from M2"
+    },
+    "caption": "Event presets",
+    "empty": "No event presets yet.",
+    "cols": {
+      "name": "Name",
+      "type": "Type",
+      "venue": "Venue",
+      "rhythm": "Recurrence",
+      "duration": "Duration",
+      "price": "Stall price",
+      "fee": "Booking fee",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "duration": "{days, plural, one {# day} other {# days}}",
+    "perMeter": "{price} / m",
+    "active": "active",
+    "inactive": "inactive",
+    "preview": "Preview: {name}",
+    "keys": "Space: preview · J/K: next/previous row",
+    "vorschau": {
+      "kind": "Event preset",
+      "venue": "Venue",
+      "rhythm": "Recurrence",
+      "duration": "Duration",
+      "publicTitle": "Public title",
+      "times": "Times",
+      "timesValue": "Setup {setup} · {open}–{close} · teardown {teardown}",
+      "price": "Stall price",
+      "fee": "Booking fee",
+      "team": "Default team",
+      "noTeam": "No default team recorded.",
+      "nextDates": "Next dates",
+      "nextDatesHint": "next 12 months",
+      "noDates": "No dates in the next 12 months.",
+      "noRule": "No recurrence recorded; dates are picked by hand.",
+      "generate": "Generate dates"
+    }
+  }
+}

@@ -17,9 +17,16 @@ import { eq } from "drizzle-orm";
 const url = process.env.DATABASE_MIGRATION_URL ?? process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set");
 
-const ownerEmail = process.env.SEED_OWNER_EMAIL ?? "owner@marktwerk.local";
-const password = process.env.SEED_OWNER_PASSWORD ?? "marktwerk-dev-123";
-const ownerName = process.env.SEED_OWNER_NAME ?? "Owner";
+const ownerEmail = process.env.SEED_OWNER_EMAIL || "owner@marktwerk.local";
+const ownerName = process.env.SEED_OWNER_NAME || "Owner";
+
+// The default password is public (it's in this repo), so it's only allowed for a local database.
+// Anywhere else (Supabase dev, reachable from the internet) logins need passwords from secrets;
+// without them, no new login is created (existing users are only linked to their staff record).
+const DEV_PASSWORD = "marktwerk-dev-123";
+const isLocal = ["localhost", "127.0.0.1", "::1"].includes(new URL(url).hostname);
+const ownerPassword = process.env.SEED_OWNER_PASSWORD || (isLocal ? DEV_PASSWORD : null);
+const staffPassword = process.env.SEED_STAFF_PASSWORD || (isLocal ? DEV_PASSWORD : null);
 
 const db = createDb(url, { max: 1 });
 const data = generateDataset();
@@ -42,10 +49,20 @@ async function insertAll<T extends object>(
   console.log(`✓ ${label}: ${rows.length}`);
 }
 
-/** Creates a credential login unless the email exists; returns the user id. */
-async function ensureUser(tx: Tx, email: string, name: string, role: string): Promise<string> {
+/** Creates a credential login unless the email exists; returns the user id (null if none and no password). */
+async function ensureUser(
+  tx: Tx,
+  email: string,
+  name: string,
+  role: string,
+  password: string | null,
+): Promise<string | null> {
   const existing = await tx.query.user.findFirst({ where: eq(schema.user.email, email) });
   if (existing) return existing.id;
+  if (!password) {
+    console.log(`– skipped login ${email} (${role}): no password secret for a non-local database`);
+    return null;
+  }
   const userId = randomUUID();
   await tx.insert(schema.user).values({ id: userId, name, email, emailVerified: true, role });
   await tx.insert(schema.account).values({
@@ -55,7 +72,7 @@ async function ensureUser(tx: Tx, email: string, name: string, role: string): Pr
     userId,
     password: await hashPassword(password),
   });
-  console.log(`✓ login ${email} / ${password} (${role})`);
+  console.log(`✓ login ${email} (${role})${isLocal ? ` / ${password}` : ""}`);
   return userId;
 }
 
@@ -136,13 +153,15 @@ await db.transaction(async (tx) => {
   );
 
   // Logins: the configured owner account is linked to the synthetic owner; other people with a
-  // permission role get their own login with the same development password.
+  // permission role get their own login (local: the development password; elsewhere: SEED_STAFF_PASSWORD).
   for (const m of data.staffMembers) {
     if (!m.permissionRole) continue;
     const email = m.permissionRole === "owner" ? ownerEmail : m.email;
     if (!email) continue;
     const name = m.permissionRole === "owner" ? ownerName : m.displayName;
-    const userId = await ensureUser(tx, email, name, m.permissionRole);
+    const password = m.permissionRole === "owner" ? ownerPassword : staffPassword;
+    const userId = await ensureUser(tx, email, name, m.permissionRole, password);
+    if (!userId) continue;
     await tx.update(schema.staffMember).set({ userId }).where(eq(schema.staffMember.id, m.id));
   }
 

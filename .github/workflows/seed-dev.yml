@@ -1,0 +1,43 @@
+name: Seed dev database
+
+# Manual: loads the synthetic development dataset (ADR 0016) into the Supabase dev database.
+# The seed is idempotent (ON CONFLICT DO NOTHING), so running it twice does no harm.
+# Needs the repository secret DATABASE_MIGRATION_URL (Supabase session pooler, port 5432).
+# Migrations are applied by the Vercel build, not here. See docs/development/deployment.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "seed" to confirm writing the synthetic data into the dev database'
+        required: true
+        type: string
+
+concurrency:
+  group: seed-dev
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    if: inputs.confirm == 'seed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Seed
+        run: pnpm db:seed
+        env:
+          # The seed script prefers this over DATABASE_URL (apps/web/scripts/seed.ts).
+          DATABASE_MIGRATION_URL: ${{ secrets.DATABASE_MIGRATION_URL }}
+          # Optional secrets. Without them the seed creates no new logins on a non-local database
+          # (the dev password in the repo is public); existing users are only linked to their staff record.
+          # `||` (not `??`) because an unset secret expands to an empty string.
+          SEED_OWNER_EMAIL: ${{ secrets.SEED_OWNER_EMAIL || 'owner@marktwerk.local' }}
+          SEED_OWNER_PASSWORD: ${{ secrets.SEED_OWNER_PASSWORD }}
+          SEED_STAFF_PASSWORD: ${{ secrets.SEED_STAFF_PASSWORD }}

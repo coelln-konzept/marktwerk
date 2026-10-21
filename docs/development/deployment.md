@@ -11,6 +11,25 @@
 Vercel environment variables: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
 (the production `*.vercel.app` URL), `APP_URL` (same), `CRON_SECRET`, `APP_TIMEZONE=Europe/Berlin`.
 
+### Seeding the dev database (GitHub Actions)
+The sandbox and most laptops cannot reach the Supabase pooler directly, so the synthetic development dataset
+([ADR 0016](../architecture/adr/0016-synthetic-development-data.md): 148 events, 12 venues, 14 presets, 1,500 vendors, …)
+is loaded by the manual workflow `.github/workflows/seed-dev.yml`.
+
+1. Repository secret **`DATABASE_MIGRATION_URL`**: the Supabase *session* pooler URL (port 5432) of the role that owns
+   schema `app`. The seed script prefers it over `DATABASE_URL`.
+2. Optional secrets `SEED_OWNER_EMAIL`, `SEED_OWNER_PASSWORD` and `SEED_STAFF_PASSWORD` (manager/staff logins of the
+   synthetic team). The development password in this repo is public, so the seed uses it **only for a local
+   database**; against Supabase it creates no new login without the matching secret (existing users are never
+   changed, only linked to their staff record).
+3. GitHub → Actions → **Seed dev database** → *Run workflow* → type `seed` in the `confirm` field. Any other value
+   skips the job.
+4. The seed is idempotent (`ON CONFLICT DO NOTHING`, fixed ids), so a second run changes nothing. It does **not**
+   migrate: migrations run in the Vercel build (`vercel.json`), so deploy first when the schema changed.
+
+Locally the same thing is `pnpm db:seed` (reads the root `.env` if there is one; in CI the variables come from the
+environment).
+
 ## Production (later): Scalingo candidate, ADR 0006
 Status: **plan, to be verified before the pilot.**
 

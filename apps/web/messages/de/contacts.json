@@ -1,1 +1,42 @@
-{}
+{
+  "contacts": {
+    "title": "Kontakte",
+    "subtitle": "{count, plural, one {# Kontakt} other {# Kontakte}} · Behörden, Eigentümer, Lieferanten und Dienstleister",
+    "search": "Name, Ansprechpartner oder Ort",
+    "caption": "Kontakte",
+    "all": "Alle",
+    "kindsLabel": "Art des Kontakts",
+    "kinds": {
+      "authority": "Behörde",
+      "landowner": "Eigentümer",
+      "supplier": "Lieferant",
+      "service": "Dienstleister",
+      "other": "Sonstige"
+    },
+    "cols": {
+      "name": "Name",
+      "kind": "Art",
+      "person": "Ansprechpartner:in",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "city": "Ort",
+      "notes": "Notizen",
+      "actions": "Aktionen"
+    },
+    "emptyFiltered": "Keine Kontakte für diese Filter.",
+    "resetFilters": "Filter zurücksetzen",
+    "preview": "Vorschau: {name}",
+    "keys": "Leertaste: Vorschau · J/K: nächste/vorige Zeile",
+    "none": "–",
+    "vorschau": {
+      "kind": "Kontakt",
+      "person": "Ansprechpartner:in",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "address": "Adresse",
+      "notes": "Notizen",
+      "venues": "Orte, bei denen dieser Kontakt Eigentümer ist",
+      "noVenues": "Bei keinem Ort als Eigentümer eingetragen."
+    }
+  }
+}

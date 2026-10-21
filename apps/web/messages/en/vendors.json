@@ -1,1 +1,82 @@
-{}
+{
+  "vendors": {
+    "title": "Vendors",
+    "subtitle": "{count} imported · read only",
+    "banner": "Phase 1: list from the old website, read only. Bookings arrive in phase 2.",
+    "search": "Search name, company, city or email",
+    "categories": "Categories",
+    "filters": "More filters",
+    "all": "All",
+    "regular": "Regular vendors",
+    "withCar": "With car",
+    "category": {
+      "antik": "Antiques",
+      "trödel": "Flea goods",
+      "kleidung": "Clothing",
+      "bücher_medien": "Books & media",
+      "haushalt": "Household",
+      "kinder": "Kids",
+      "design_handmade": "Design & handmade",
+      "food": "Food"
+    },
+    "caption": "Vendor list, page {page} of {pages}",
+    "cols": {
+      "name": "Name",
+      "kind": "Type",
+      "categories": "Categories",
+      "city": "City",
+      "length": "Default length",
+      "car": "Car",
+      "regular": "Regular",
+      "newsletter": "Newsletter",
+      "since": "Since"
+    },
+    "kind": {
+      "private": "private",
+      "commercial": "commercial"
+    },
+    "carYes": "Car, {length}",
+    "carYesNoLength": "Car, length unknown",
+    "carNo": "no car",
+    "regularBadge": "Regular",
+    "regularSpot": "Regular spot {spot}",
+    "consent": {
+      "soft_opt_in": "Soft opt-in",
+      "double_opt_in": "Double opt-in",
+      "none": "no consent"
+    },
+    "noValue": "–",
+    "preview": "Preview {name}",
+    "keys": "J/K: move row · Space: preview",
+    "emptyFiltered": "No vendors match these filters.",
+    "resetFilters": "Reset filters",
+    "pagination": {
+      "label": "Pages",
+      "prev": "Previous",
+      "next": "Next",
+      "status": "Page {page} of {pages}",
+      "range": "{from}–{to} of {total}"
+    },
+    "vorschau": {
+      "kind": "Vendor",
+      "legacyId": "Legacy ID {id}",
+      "type": "Type",
+      "company": "Company",
+      "contact": "Contact",
+      "address": "Address",
+      "phone": "Phone",
+      "email": "Email",
+      "categories": "Categories",
+      "defaultLength": "Default length",
+      "car": "Car",
+      "regular": "Regular vendor",
+      "regularSpot": "Regular spot",
+      "newsletter": "Newsletter",
+      "since": "Vendor since",
+      "imported": "Imported on",
+      "notes": "Notes",
+      "noNotes": "No notes.",
+      "readOnly": "Read only: changes arrive with bookings in phase 2."
+    }
+  }
+}
