@@ -1,0 +1,2 @@
+# Keep LF everywhere (Biome and .editorconfig expect it), also on Windows checkouts with core.autocrlf=true.
+* text=auto eol=lf
