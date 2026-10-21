@@ -1,15 +1,36 @@
 "use server";
 
-import { can } from "@marktwerk/core";
-import { contact, event, staffMember, vendor, venue } from "@marktwerk/db/schema";
-import { and, asc, isNull, type SQL, sql } from "drizzle-orm";
+import { can, OPEN_STATUSES, taskLink } from "@marktwerk/core";
+import {
+  contact,
+  event,
+  payable,
+  permit,
+  staffMember,
+  task,
+  vehicle,
+  vendor,
+  venue,
+} from "@marktwerk/db/schema";
+import { and, asc, inArray, isNull, type SQL, sql } from "drizzle-orm";
 import { getLocale } from "next-intl/server";
 import { formatDateShort, formatWeek } from "@/lib/format";
 import { getActor, visibleEvents } from "./actor";
 import { db } from "./db";
+import { visibleTasks } from "./task-scope";
 
 export type SearchHit = {
-  kind: "event" | "venue" | "contact" | "staff" | "vendor" | "action";
+  kind:
+    | "event"
+    | "task"
+    | "permit"
+    | "payable"
+    | "vehicle"
+    | "venue"
+    | "contact"
+    | "staff"
+    | "vendor"
+    | "action";
   title: string;
   subtitle?: string;
   href: string;
@@ -60,6 +81,100 @@ export async function searchEverything(query: string): Promise<SearchHit[]> {
         title: r.name,
         subtitle: `${r.city} · ${formatDateShort(r.startsOn, locale)} · ${formatWeek(r.startsOn, locale)}`,
         href: `/veranstaltungen/${r.id}`,
+      });
+    }
+  }
+  if (can(actor.role, "task", "read")) {
+    // Same row scope as the board: field users only find tasks of their events (and their own).
+    const rows = await db
+      .select({
+        id: task.id,
+        title: task.title,
+        eventId: task.eventId,
+        status: task.status,
+        eventName: event.name,
+      })
+      .from(task)
+      .leftJoin(event, sql`${event.id} = ${task.eventId}`)
+      .where(and(visibleTasks(actor), sql`${fold(task.title)} like ${like}`))
+      // Open tasks first, then the most recently finished ones.
+      .orderBy(
+        sql`${inArray(task.status, [...OPEN_STATUSES])} desc`,
+        asc(task.dueAt),
+        asc(task.title),
+      )
+      .limit(LIMIT);
+    for (const r of rows) {
+      hits.push({
+        kind: "task",
+        title: r.title,
+        subtitle: r.eventName ?? undefined,
+        href: taskLink(r.id, r.eventId),
+      });
+    }
+  }
+  if (can(actor.role, "permit", "read")) {
+    const rows = await db
+      .select({ id: permit.id, title: permit.title, venueName: venue.name })
+      .from(permit)
+      .leftJoin(venue, sql`${venue.id} = ${permit.venueId}`)
+      .where(
+        and(
+          isNull(permit.archivedAt),
+          sql`(${fold(permit.title)} like ${like} or ${fold(venue.name)} like ${like})`,
+        ),
+      )
+      .orderBy(asc(permit.title))
+      .limit(LIMIT);
+    for (const r of rows) {
+      hits.push({
+        kind: "permit",
+        title: r.title,
+        subtitle: r.venueName ?? undefined,
+        href: `/logbuch?genehmigung=${r.id}`,
+      });
+    }
+  }
+  if (can(actor.role, "finance", "read")) {
+    const rows = await db
+      .select({ id: payable.id, title: payable.title, counterparty: contact.name })
+      .from(payable)
+      .leftJoin(contact, sql`${contact.id} = ${payable.counterpartyContactId}`)
+      .where(
+        and(
+          isNull(payable.archivedAt),
+          sql`(${fold(payable.title)} like ${like} or ${fold(contact.name)} like ${like})`,
+        ),
+      )
+      .orderBy(asc(payable.title))
+      .limit(LIMIT);
+    for (const r of rows) {
+      hits.push({
+        kind: "payable",
+        title: r.title,
+        subtitle: r.counterparty ?? undefined,
+        href: `/finanzen/posten/${r.id}`,
+      });
+    }
+  }
+  if (can(actor.role, "company", "read")) {
+    const rows = await db
+      .select({ id: vehicle.id, name: vehicle.name, plate: vehicle.plate })
+      .from(vehicle)
+      .where(
+        and(
+          isNull(vehicle.archivedAt),
+          sql`(${fold(vehicle.name)} like ${like} or ${fold(vehicle.plate)} like ${like})`,
+        ),
+      )
+      .orderBy(asc(vehicle.name))
+      .limit(LIMIT);
+    for (const r of rows) {
+      hits.push({
+        kind: "vehicle",
+        title: r.name,
+        subtitle: r.plate,
+        href: `/firma/fahrzeuge/${r.id}`,
       });
     }
   }

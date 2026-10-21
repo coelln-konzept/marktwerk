@@ -8,6 +8,7 @@ import { makeTask } from "@/app/(app)/board/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
+import { useOpenOnNew } from "@/components/shell/use-new-param";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -52,6 +53,9 @@ export function NewTaskButton({
   const [assignee, setAssignee] = useState("");
   const [description, setDescription] = useState("");
   const uid = useId();
+
+  // "+ Neu › Aufgabe" in the top bar links here with ?neu=1.
+  useOpenOnNew(() => setOpen(true));
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {

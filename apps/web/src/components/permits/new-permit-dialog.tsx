@@ -7,6 +7,7 @@ import { useId, useState, useTransition } from "react";
 import { archivePermitAction, createPermitAction } from "@/app/(app)/logbuch/actions";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
+import { useOpenOnNew } from "@/components/shell/use-new-param";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,9 @@ export function NewPermitDialog({ venues }: { venues: { id: string; name: string
     setError(null);
     setOpen(true);
   }
+
+  // "+ Neu › Genehmigung" in the top bar links here with ?neu=1.
+  useOpenOnNew(openDialog);
 
   function submit() {
     setError(null);

@@ -133,6 +133,7 @@ export default async function ShiftsPage({ searchParams }: PageProps<"/team/schi
         {(office.length > 0 || env.canManage || eventGroups.length === 0) && (
           <ShiftsPanel
             id="shifts-office"
+            openOnNew
             title={t("office")}
             meta={t("officeHint")}
             shifts={office}

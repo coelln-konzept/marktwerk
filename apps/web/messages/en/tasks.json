@@ -52,10 +52,11 @@
       "check_items": "tick off the whole checklist",
       "missing": "missing",
       "given": "given",
-      "notYet": "required, upload is not possible yet",
       "noteLabel": "Note for completing",
       "noteNeeded": "This task needs a note.",
-      "noteHint": "Saved as a comment when you complete the task."
+      "noteHint": "Saved as a comment when you complete the task.",
+      "addPhoto": "Add photo",
+      "addAttachment": "Add attachment"
     },
     "reason": {
       "waiting_external": {

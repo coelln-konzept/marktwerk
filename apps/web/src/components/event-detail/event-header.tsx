@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateShort, formatDateWithWeekday, formatWeek, todayIn } from "@/lib/format";
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
+import { listLinkedDocuments } from "@/server/queries/documents";
 import type { EventDetail } from "@/server/queries/events";
 import { getEventMoney } from "@/server/queries/finance";
 import { listEventPermits } from "@/server/queries/permits";
@@ -53,6 +54,8 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const permits = can(actor.role, "permit", "read")
     ? await listEventPermits(actor, event, todayIn())
     : null;
+  const documentCount =
+    (await listLinkedDocuments(actor, "eventId", [event.id])).get(event.id)?.length ?? 0;
   const BookingIcon = event.bookingOpen ? BOOKING_FLAG_ICONS.open : BOOKING_FLAG_ICONS.notOpen;
 
   const dateLine = multiDay
@@ -123,7 +126,10 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
       key: "documents",
       href: `${base}/dokumente`,
       label: t("tabs.documents"),
-      hint: { text: t("tabs.later"), sr: t("tabs.laterHint") },
+      count:
+        documentCount > 0
+          ? { text: String(documentCount), sr: t("documents.count", { count: documentCount }) }
+          : undefined,
     },
     { key: "notes", href: `${base}/notizen`, label: t("tabs.notes") },
     ...(can(actor.role, "audit", "read")

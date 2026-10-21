@@ -233,7 +233,10 @@
       "invalid_transition": "This status change is not possible.",
       "invalid_event": "This event cannot be linked.",
       "conflict": "The status has changed in the meantime."
-    }
+    },
+    "documents": "Notice and documents",
+    "documentsEmpty": "Nothing uploaded yet.",
+    "addDocument": "Add notice"
   },
   "requirements": {
     "title": "Permits and consents",

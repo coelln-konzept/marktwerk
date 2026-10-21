@@ -86,6 +86,7 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
                   kind: o.kind,
                   intervalKm: o.intervalKm,
                   onVehicle: o.scope === "vehicle",
+                  createsPayable: o.createsPayable,
                   currentKm: o.currentKm,
                 }}
               />

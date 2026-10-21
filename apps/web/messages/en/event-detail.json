@@ -25,9 +25,7 @@
       "notes": "Notes",
       "history": "History",
       "milestone": "from {milestone}",
-      "milestoneHint": "Arrives with milestone {milestone}",
-      "later": "later",
-      "laterHint": "Arrives in a later step"
+      "milestoneHint": "Arrives with milestone {milestone}"
     },
     "status": {
       "menu": "Change status",
@@ -195,24 +193,6 @@
       "undone": "Undone",
       "createdAgreement": "Created from agreement"
     },
-    "later": {
-      "board": {
-        "title": "The board arrives in M2",
-        "hint": "Tasks from the process templates as a kanban board, with the people rail showing workload per person."
-      },
-      "permits": {
-        "title": "Permits arrive in M3",
-        "hint": "Which permits apply to this event, their status and deadlines come with the logbook."
-      },
-      "money": {
-        "title": "Money arrives in M5",
-        "hint": "Later this shows the items with Plan · Committed · Actual, payments with instalments and receipts."
-      },
-      "documents": {
-        "title": "Documents arrive later",
-        "hint": "Notices, plans and contracts of this event will be filed here later."
-      }
-    },
     "facts": {
       "edit": "Edit",
       "title": "Edit key facts",
@@ -337,6 +317,13 @@
       "tasksShifting": "{count, plural, =0 {No task moves.} one {1 task moves.} other {# tasks move.}}",
       "tasksShiftingNote": "Done tasks and due dates set by hand stay.",
       "movedTasks": "{count, plural, one {1 task moved} other {# tasks moved}}"
+    },
+    "documents": {
+      "title": "Documents",
+      "empty": "Nothing filed yet. Notices, plans and contracts of this event go here.",
+      "add": "Add document",
+      "readOnly": "You can view documents but not add them.",
+      "count": "{count, plural, one {# document} other {# documents}}"
     }
   }
 }

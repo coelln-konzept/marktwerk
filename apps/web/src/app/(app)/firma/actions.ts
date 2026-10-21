@@ -124,9 +124,12 @@ export async function undoCompletionAction(
   completionId: string,
   previous: ObligationSchedule,
   odometer: CompletionResult["odometer"],
+  payableId: string | null = null,
 ) {
   await requirePermission("company", "write");
-  return run((actor) => undoObligationCompletion(actor, completionId, previous, odometer));
+  return run((actor) =>
+    undoObligationCompletion(actor, completionId, previous, odometer, payableId),
+  );
 }
 
 // Issues --------------------------------------------------------------------------------------

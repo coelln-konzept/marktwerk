@@ -22,7 +22,7 @@ import {
   vehicle,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
@@ -267,6 +267,20 @@ export async function createPayable(
   plan: readonly PlanRowInput[],
 ): Promise<{ id: string }> {
   if (!can(actor.role, "finance", "write")) forbidden();
+  return db.transaction((tx) => createPayableIn(tx, actor, input, plan));
+}
+
+/**
+ * The body of `createPayable` inside a transaction the caller owns, so another service can create a payable
+ * as part of its own change (completing an obligation). Checks `finance:write` itself.
+ */
+export async function createPayableIn(
+  tx: Tx,
+  actor: Actor,
+  input: PayableInput,
+  plan: readonly PlanRowInput[],
+): Promise<{ id: string }> {
+  if (!can(actor.role, "finance", "write")) forbidden();
   const fields = parsePayableInput(input);
   const rows = parsePlan(fields.totalGrossCents, plan);
   const ordered = rows
@@ -274,32 +288,76 @@ export async function createPayable(
     .sort((a, b) => a.row.dueOn.localeCompare(b.row.dueOn) || a.index - b.index)
     .map(({ row }) => row);
 
-  return db.transaction(async (tx) => {
-    await assertTargets(tx, fields);
-    const [created] = await tx.insert(payable).values(fields).returning({ id: payable.id });
-    if (!created) throw new Error("payable insert returned no row");
-    await tx.insert(installment).values(
-      ordered.map((row, i) => ({
-        payableId: created.id,
-        sort: i + 1,
-        dueOn: row.dueOn,
-        amountCents: row.amountCents,
-        notes: row.notes,
-      })),
-    );
-    await audit(tx, actor.id, [
-      {
-        action: "payable.create",
-        entityType: "payable",
-        entityId: created.id,
-        diff: {
-          fields,
-          plan: ordered.map((r) => ({ dueOn: r.dueOn, amountCents: r.amountCents })),
-        },
+  await assertTargets(tx, fields);
+  const [created] = await tx.insert(payable).values(fields).returning({ id: payable.id });
+  if (!created) throw new Error("payable insert returned no row");
+  await tx.insert(installment).values(
+    ordered.map((row, i) => ({
+      payableId: created.id,
+      sort: i + 1,
+      dueOn: row.dueOn,
+      amountCents: row.amountCents,
+      notes: row.notes,
+    })),
+  );
+  await audit(tx, actor.id, [
+    {
+      action: "payable.create",
+      entityType: "payable",
+      entityId: created.id,
+      diff: {
+        fields,
+        plan: ordered.map((r) => ({ dueOn: r.dueOn, amountCents: r.amountCents })),
       },
-    ]);
-    return created;
-  });
+    },
+  ]);
+  return created;
+}
+
+/**
+ * Removes a payable that an obligation completion created, when that completion is undone. Only while
+ * nothing happened to it: no rate paid (open or cancelled ones only), no document attached, still linked to
+ * that obligation; otherwise `conflict` and nothing is removed. Audited as `payable.remove`.
+ */
+export async function removeUnpaidPayableIn(
+  tx: Tx,
+  actor: Actor,
+  payableId: string,
+  obligationId: string,
+): Promise<void> {
+  if (!can(actor.role, "finance", "write")) forbidden();
+  if (!UUID.test(payableId)) throw new PayableInputError("not_found");
+  const [row] = await tx.select().from(payable).where(eq(payable.id, payableId)).for("update");
+  if (!row) return; // already gone
+  if (row.obligationId !== obligationId) throw new PayableInputError("conflict");
+  const rates = await tx
+    .select({ id: installment.id, status: installment.status })
+    .from(installment)
+    .where(eq(installment.payableId, payableId))
+    .for("update");
+  if (rates.some((r) => r.status === "paid" || r.status === "partially_paid"))
+    throw new PayableInputError("conflict");
+  const rateIds = rates.map((r) => r.id);
+  const [attached] = await tx
+    .select({ id: document.id })
+    .from(document)
+    .where(
+      rateIds.length > 0
+        ? or(eq(document.payableId, payableId), inArray(document.installmentId, rateIds))
+        : eq(document.payableId, payableId),
+    )
+    .limit(1);
+  if (attached) throw new PayableInputError("conflict");
+  await settleNotifications(tx, rateIds);
+  await tx.delete(payable).where(eq(payable.id, payableId));
+  await audit(tx, actor.id, [
+    {
+      action: "payable.remove",
+      entityType: "payable",
+      entityId: payableId,
+      diff: { title: row.title, totalGrossCents: row.totalGrossCents, obligationId },
+    },
+  ]);
 }
 
 async function lockPayable(tx: Tx, id: string) {

@@ -76,11 +76,16 @@
     "shortcut": "Ctrl K",
     "newFromPreset": "Generate from preset",
     "newSingle": "Single event",
-    "newKey": "opens this menu"
+    "newKey": "opens this menu",
+    "newTask": "Task",
+    "newPayable": "Payment",
+    "newPermit": "Permit",
+    "newShift": "Shift",
+    "newIssue": "Report defect"
   },
   "palette": {
     "title": "Search and commands",
-    "placeholder": "Event, venue, person, vendor or command …",
+    "placeholder": "Event, task, permit, payment, vehicle, venue, person, vendor or command …",
     "hint": "Type at least two characters.",
     "searching": "Searching …",
     "empty": "No results.",
@@ -89,6 +94,10 @@
     "umlauts": "Accents don't matter: “koln” finds Köln",
     "groups": {
       "event": "Events",
+      "task": "Tasks",
+      "permit": "Permits",
+      "payable": "Payments",
+      "vehicle": "Vehicles",
       "venue": "Venues",
       "staff": "People",
       "contact": "Contacts",
@@ -99,7 +108,12 @@
       "generate": "Generate events from a preset",
       "calendar": "Open calendar",
       "events": "All events",
-      "single": "Create a single event (without a preset)"
+      "single": "Create a single event (without a preset)",
+      "task": "Create task",
+      "payable": "Create payment",
+      "permit": "Create permit",
+      "shift": "Record shift",
+      "issue": "Report defect"
     }
   },
   "vorschau": {

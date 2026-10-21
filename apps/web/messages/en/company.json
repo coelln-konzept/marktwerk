@@ -142,7 +142,9 @@
       "savedNoNext": "Marked as done. Nothing further due.",
       "reverted": "Undone.",
       "nextKm": "{km} km",
-      "nextBoth": "{date} or {km} km"
+      "nextBoth": "{date} or {km} km",
+      "payableHint": "With a cost, a payment is created under Finance, due on the completion date (today at the earliest).",
+      "savedWithPayable": "Marked as done. Next due: {next}. Payment created."
     },
     "form": {
       "newTitle": "Add obligation",
@@ -318,7 +320,8 @@
       },
       "actFor": "{action}: {title}",
       "changed": "“{title}”: {status}.",
-      "reverted": "Status reset."
+      "reverted": "Status reset.",
+      "addPhoto": "Add photo"
     },
     "issueDialog": {
       "title": "Report defect",
@@ -331,9 +334,12 @@
       "details": "Details (optional)",
       "reporter": "Reported by",
       "photo": "Photo",
-      "photoPlaceholder": "Photos can't be attached here yet. That arrives with the document storage.",
+      "photoPlaceholder": "You can attach a photo right after reporting.",
       "save": "Report defect",
-      "saved": "Defect reported."
+      "saved": "Defect reported.",
+      "photoStage": "Issue reported. Attach a photo now if you have one.",
+      "photoAdd": "Add photo",
+      "done": "Done"
     },
     "resolveDialog": {
       "title": "Mark defect as fixed",

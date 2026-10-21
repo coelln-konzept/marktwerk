@@ -14,6 +14,8 @@ import {
 import { ReasonDialog } from "@/components/board/reason-dialog";
 import { CategoryTag, DueLine } from "@/components/board/task-bits";
 import { useTaskActions } from "@/components/board/use-task-actions";
+import { ArchiveDocumentButton } from "@/components/documents/archive-document-button";
+import { DocumentUpload } from "@/components/documents/upload";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
@@ -475,17 +477,72 @@ export function TaskDrawer({
                 <li className="flex items-center gap-2">
                   <Camera aria-hidden className="size-4 text-muted-foreground" />
                   {t("evidence.photo")}:{" "}
-                  <span className="text-muted-foreground">{t("evidence.notYet")}</span>
+                  <b
+                    className={cn(
+                      "font-semibold",
+                      task.hasPhoto ? "text-status-ok" : "text-status-warn",
+                    )}
+                  >
+                    {task.hasPhoto ? t("evidence.given") : t("evidence.missing")}
+                  </b>
                 </li>
               )}
               {task.requiresAttachment && (
                 <li className="flex items-center gap-2">
                   <Paperclip aria-hidden className="size-4 text-muted-foreground" />
                   {t("evidence.attachment")}:{" "}
-                  <span className="text-muted-foreground">{t("evidence.notYet")}</span>
+                  <b
+                    className={cn(
+                      "font-semibold",
+                      task.hasAttachment ? "text-status-ok" : "text-status-warn",
+                    )}
+                  >
+                    {task.hasAttachment ? t("evidence.given") : t("evidence.missing")}
+                  </b>
                 </li>
               )}
             </ul>
+            {task.documents.length > 0 && (
+              <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-small">
+                {task.documents.map((d) => (
+                  <li key={d.id} className="flex flex-wrap items-center gap-x-2">
+                    <a
+                      href={`/api/documents/${d.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={d.fileName}
+                      className="max-w-64 truncate font-medium text-accent-soft-foreground hover:underline"
+                    >
+                      {d.fileName}
+                    </a>
+                    <span className="text-muted-foreground text-tiny">
+                      {d.kind === "photo" ? t("evidence.photo") : t("evidence.attachment")}
+                    </span>
+                    {canWrite && <ArchiveDocumentButton id={d.id} fileName={d.fileName} />}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canWrite && (task.requiresPhoto || task.requiresAttachment) && (
+              <div className="flex flex-wrap gap-2">
+                {task.requiresPhoto && (
+                  <DocumentUpload
+                    link={{ taskId: task.id }}
+                    kind="photo"
+                    compact
+                    label={t("evidence.addPhoto")}
+                  />
+                )}
+                {task.requiresAttachment && (
+                  <DocumentUpload
+                    link={{ taskId: task.id }}
+                    kind="other"
+                    compact
+                    label={t("evidence.addAttachment")}
+                  />
+                )}
+              </div>
+            )}
             {noteMissing && canWrite && (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`${uid}-note`}>{t("evidence.noteLabel")}</Label>

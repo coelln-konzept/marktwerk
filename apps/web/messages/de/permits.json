@@ -233,7 +233,10 @@
       "invalid_transition": "Dieser Statuswechsel ist nicht möglich.",
       "invalid_event": "Diese Veranstaltung kann nicht verknüpft werden.",
       "conflict": "Der Status hat sich inzwischen geändert."
-    }
+    },
+    "documents": "Bescheid und Unterlagen",
+    "documentsEmpty": "Noch nichts hochgeladen.",
+    "addDocument": "Bescheid hinzufügen"
   },
   "requirements": {
     "title": "Genehmigungen und Zustimmungen",

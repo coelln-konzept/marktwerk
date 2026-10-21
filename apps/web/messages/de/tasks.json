@@ -52,10 +52,11 @@
       "check_items": "Checkliste vollständig abhaken",
       "missing": "fehlt",
       "given": "vorhanden",
-      "notYet": "erforderlich, Upload ist noch nicht möglich",
       "noteLabel": "Notiz zum Erledigen",
       "noteNeeded": "Für diese Aufgabe ist eine Notiz erforderlich.",
-      "noteHint": "Wird als Kommentar gespeichert, sobald du die Aufgabe erledigst."
+      "noteHint": "Wird als Kommentar gespeichert, sobald du die Aufgabe erledigst.",
+      "addPhoto": "Foto hinzufügen",
+      "addAttachment": "Anhang hinzufügen"
     },
     "reason": {
       "waiting_external": {

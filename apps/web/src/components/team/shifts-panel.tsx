@@ -3,6 +3,7 @@
 import { CalendarClock, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { useOpenOnNew } from "@/components/shell/use-new-param";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
@@ -25,6 +26,7 @@ export function ShiftsPanel({
   defaultPersonId,
   showDates,
   headerExtra,
+  openOnNew = false,
 }: {
   id: string;
   title: string;
@@ -36,10 +38,13 @@ export function ShiftsPanel({
   defaultPersonId?: string;
   showDates: boolean;
   headerExtra?: React.ReactNode;
+  /** Opens "Schicht hinzufügen" when the page is called with ?neu=1 ("+ Neu › Schicht"). */
+  openOnNew?: boolean;
 }) {
   const t = useTranslations("hours.shift");
   const [dialog, setDialog] = useState<{ shift: ShiftView | null; n: number } | null>(null);
   const open = (shift: ShiftView | null) => setDialog((prev) => ({ shift, n: (prev?.n ?? 0) + 1 }));
+  useOpenOnNew(() => open(null), openOnNew && env.canManage);
 
   return (
     <Panel aria-labelledby={id}>

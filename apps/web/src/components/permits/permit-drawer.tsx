@@ -2,12 +2,15 @@ import { can } from "@marktwerk/core";
 import { Building2, FileQuestion, Landmark } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { DocumentList } from "@/components/documents/document-list";
+import { DocumentUpload } from "@/components/documents/upload";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Facts } from "@/components/ui/vorschau";
 import { formatDate, formatMoney, todayIn } from "@/lib/format";
 import { getActor } from "@/server/actor";
 import { listContactOptions } from "@/server/queries/contacts";
+import { listLinkedDocuments } from "@/server/queries/documents";
 import { getPermit, listStaffOptions } from "@/server/queries/permits";
 import { ArchivePermitButton } from "./archive-permit-button";
 import { DrawerFrame } from "./drawer-frame";
@@ -48,6 +51,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
   const [contacts, staff] = canWrite
     ? await Promise.all([listContactOptions(), listStaffOptions()])
     : [[], []];
+  const documents =
+    (await listLinkedDocuments(actor, "permitId", [permit.id])).get(permit.id) ?? [];
   const none = <span className="text-faint-foreground">{t("none")}</span>;
   const date = (value: string | null) => (value ? formatDate(value, locale) : none);
 
@@ -289,6 +294,19 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="documents-title" className="flex flex-col gap-2">
+        <h3 id="documents-title" className="font-semibold text-foreground-2 text-small">
+          {t("documents")}
+        </h3>
+        {documents.length === 0 && (
+          <p className="text-muted-foreground text-small">{t("documentsEmpty")}</p>
+        )}
+        <DocumentList documents={documents} canWrite={canWrite} />
+        {canWrite && (
+          <DocumentUpload link={{ permitId: permit.id }} kind="permit" label={t("addDocument")} />
         )}
       </section>
 

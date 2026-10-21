@@ -1,11 +1,23 @@
 /*
  * Evidence a task needs before it can be marked done (template item: requires_note / requires_photo /
- * requires_attachment / check_items). Photos and attachments need document upload, which arrives in
- * M5: until then they are listed as "not yet possible" but do not block completion.
+ * requires_attachment / check_items). Photos and attachments are documents linked to the task
+ * (`document.task_id`): a live document of kind "photo" is the photo, a live document of any other kind
+ * is the attachment. Since the document upload exists they block completion like the note does.
  */
 
-/** Flip to true with document upload (M5): then photo/attachment evidence blocks completion too. */
-export const FILE_EVIDENCE_ENFORCED = false;
+/** Photo/attachment evidence blocks completion (switched on with the document upload, M5/integration). */
+export const FILE_EVIDENCE_ENFORCED = true;
+
+/** What the live documents on a task prove: a "photo" document is the photo, any other kind the attachment. */
+export function fileEvidenceOf(kinds: readonly string[]): {
+  hasPhoto: boolean;
+  hasAttachment: boolean;
+} {
+  return {
+    hasPhoto: kinds.includes("photo"),
+    hasAttachment: kinds.some((kind) => kind !== "photo"),
+  };
+}
 
 export type EvidenceInput = {
   requiresNote: boolean;
@@ -15,7 +27,7 @@ export type EvidenceInput = {
   hasNote: boolean;
   /** Check items not ticked yet. */
   openCheckItems: number;
-  /** Whether a photo / an attachment exists (always false before M5). */
+  /** Whether a photo / an attachment exists (see {@link fileEvidenceOf}). */
   hasPhoto?: boolean;
   hasAttachment?: boolean;
 };
@@ -34,7 +46,7 @@ export function missingEvidence(input: EvidenceInput): EvidenceKind[] {
   return missing;
 }
 
-/** Required file evidence that cannot be given yet (shown as a hint, not enforced). */
+/** Required file evidence that cannot be given yet (only while {@link FILE_EVIDENCE_ENFORCED} is off). */
 export function pendingFileEvidence(input: EvidenceInput): ("photo" | "attachment")[] {
   if (FILE_EVIDENCE_ENFORCED) return [];
   const pending: ("photo" | "attachment")[] = [];

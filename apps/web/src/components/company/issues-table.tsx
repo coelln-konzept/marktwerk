@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { DocumentList } from "@/components/documents/document-list";
+import { DocumentUpload } from "@/components/documents/upload";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
+import { getActor } from "@/server/actor";
 import type { IssueRow } from "@/server/queries/company";
+import { listLinkedDocuments } from "@/server/queries/documents";
 import { IssueActions } from "./issue-actions";
 import { IssueSeverityBadge, IssueStatusBadge } from "./status";
 
@@ -19,6 +23,12 @@ export async function IssuesTable({
   const t = await getTranslations("company");
   const ti = await getTranslations("company.issues");
   const locale = await getLocale();
+  // Photos of the defects: documents linked to the issue.
+  const photos = await listLinkedDocuments(
+    await getActor(),
+    "vehicleIssueId",
+    rows.map((r) => r.id),
+  );
   // Berlin dates of the instants, so a late-evening report doesn't show the next day.
   const day = (d: Date) =>
     new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(d);
@@ -62,6 +72,16 @@ export async function IssuesTable({
                 <span className="block whitespace-pre-line text-muted-foreground text-small">
                   {i.description}
                 </span>
+              )}
+              <DocumentList documents={photos.get(i.id) ?? []} canWrite={canWrite} compact />
+              {canWrite && (
+                <DocumentUpload
+                  link={{ vehicleIssueId: i.id }}
+                  kind="photo"
+                  compact
+                  label={ti("addPhoto")}
+                  className="mt-1"
+                />
               )}
               {i.status === "resolved" && i.resolvedAt && (
                 <span className="block text-muted-foreground text-small">

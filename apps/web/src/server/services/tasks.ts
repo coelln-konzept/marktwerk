@@ -9,6 +9,7 @@ import {
   compareCards,
   derivedColumn,
   dueAtForDate,
+  fileEvidenceOf,
   findMentions,
   isIsoDate,
   isOpenStatus,
@@ -22,6 +23,7 @@ import {
 import { insertNotifications } from "@marktwerk/db";
 import {
   auditLog,
+  document,
   event,
   eventDuty,
   notification,
@@ -234,7 +236,7 @@ export type StatusInput = {
 
 /**
  * The column changes for a status change, with all rules applied: skipping needs a reason, "done"
- * needs its evidence (note and ticked check items; photo/attachment only from M5), leaving "done"
+ * needs its evidence (note, ticked check items, photo/attachment documents on the task), leaving "done"
  * reopens the task. The optional completion note is returned so the caller can store it.
  */
 async function statusPatch(
@@ -271,12 +273,21 @@ async function statusPatch(
       .select({ comments: count() })
       .from(taskComment)
       .where(and(eq(taskComment.taskId, row.id), isNull(taskComment.archivedAt)));
+    // Photo and attachment are live documents on the task: kind "photo" = photo, any other kind = attachment.
+    const files =
+      row.requiresPhoto || row.requiresAttachment
+        ? await tx
+            .select({ kind: document.kind })
+            .from(document)
+            .where(and(eq(document.taskId, row.id), isNull(document.archivedAt)))
+        : [];
     const missing = missingEvidence({
       requiresNote: row.requiresNote,
       requiresPhoto: row.requiresPhoto,
       requiresAttachment: row.requiresAttachment,
       hasNote: note !== null || comments > 0,
       openCheckItems: openItems,
+      ...fileEvidenceOf(files.map((f) => f.kind)),
     });
     if (missing.length > 0) throw new TaskInputError("evidence_missing", missing);
     patch.completedAt = now.toISOString();

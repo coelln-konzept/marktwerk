@@ -22,6 +22,8 @@ export type CompleteTarget = {
   intervalKm: number | null;
   /** Belongs to a vehicle: a reading can be given (and updates the odometer). */
   onVehicle: boolean;
+  /** Completing with a cost also creates a payable (Zahlung) that is due on the completion date. */
+  createsPayable: boolean;
   currentKm: number | null;
 };
 
@@ -101,7 +103,7 @@ export function CompleteButton({
       });
       if (!result.ok) return fail(result.error);
       setOpen(false);
-      const { next, completionId, previous, odometer } = result.data;
+      const { next, completionId, previous, odometer, payableId } = result.data;
       const nextText =
         next.nextDueOn && next.nextDueKm !== null
           ? tc("nextBoth", {
@@ -114,10 +116,12 @@ export function CompleteButton({
               ? tc("nextKm", { km: formatNumber(next.nextDueKm, locale, 0) })
               : null;
       showToast({
-        message: nextText ? tc("saved", { next: nextText }) : tc("savedNoNext"),
+        message: nextText
+          ? tc(payableId ? "savedWithPayable" : "saved", { next: nextText })
+          : tc("savedNoNext"),
         actionLabel: t("undo"),
         onAction: async () => {
-          const undone = await undoCompletionAction(completionId, previous, odometer);
+          const undone = await undoCompletionAction(completionId, previous, odometer, payableId);
           showToast({ message: undone.ok ? tc("reverted") : errorText(undone.error) });
         },
       });
@@ -220,6 +224,9 @@ export function CompleteButton({
               </div>
             </div>
             {target.onVehicle && <p className="text-faint-foreground text-small">{tc("kmHint")}</p>}
+            {target.createsPayable && (
+              <p className="text-faint-foreground text-small">{tc("payableHint")}</p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={f("notes")}>{tc("notes")}</Label>

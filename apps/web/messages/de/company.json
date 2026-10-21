@@ -142,7 +142,9 @@
       "savedNoNext": "Erledigt eingetragen. Keine weitere Fälligkeit.",
       "reverted": "Rückgängig gemacht.",
       "nextKm": "{km} km",
-      "nextBoth": "{date} oder {km} km"
+      "nextBoth": "{date} oder {km} km",
+      "payableHint": "Mit Kosten wird unter Finanzen eine Zahlung angelegt, fällig am Erledigt-Datum (frühestens heute).",
+      "savedWithPayable": "Erledigt eingetragen. Nächste Fälligkeit: {next}. Zahlung angelegt."
     },
     "form": {
       "newTitle": "Pflicht anlegen",
@@ -318,7 +320,8 @@
       },
       "actFor": "{action}: {title}",
       "changed": "„{title}“: {status}.",
-      "reverted": "Status zurückgesetzt."
+      "reverted": "Status zurückgesetzt.",
+      "addPhoto": "Foto hinzufügen"
     },
     "issueDialog": {
       "title": "Mangel melden",
@@ -331,9 +334,12 @@
       "details": "Details (optional)",
       "reporter": "Gemeldet von",
       "photo": "Foto",
-      "photoPlaceholder": "Fotos können hier noch nicht angehängt werden. Das kommt mit der Dokumentenablage.",
+      "photoPlaceholder": "Ein Foto hängst du gleich nach dem Melden an.",
       "save": "Mangel melden",
-      "saved": "Mangel gemeldet."
+      "saved": "Mangel gemeldet.",
+      "photoStage": "Mangel gemeldet. Hänge jetzt ein Foto an, wenn du eins hast.",
+      "photoAdd": "Foto hinzufügen",
+      "done": "Fertig"
     },
     "resolveDialog": {
       "title": "Mangel als behoben eintragen",

@@ -242,6 +242,7 @@ export default async function VehiclePage({ params }: PageProps<"/firma/fahrzeug
                             kind: o.kind,
                             intervalKm: o.intervalKm,
                             onVehicle: true,
+                            createsPayable: o.createsPayable,
                             currentKm: o.currentKm,
                           }}
                         />

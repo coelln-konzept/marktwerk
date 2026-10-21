@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Creatable } from "@/lib/creatable";
 
 export type Toast = {
   message: string;
@@ -13,8 +14,8 @@ type Shell = {
   setNavOpen: (open: boolean) => void;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
-  /** May create events: shows "+ Neu" and its shortcut. */
-  canCreateEvents: boolean;
+  /** What this person may create ("+ Neu" and its shortcut show when it is not empty). */
+  creatable: readonly Creatable[];
   toast: Toast | null;
   showToast: (toast: Toast) => void;
   /** Clears the toast; with an argument only if that toast is still the one shown. */
@@ -29,10 +30,10 @@ const ShellContext = createContext<Shell | null>(null);
 /** Client state of the app shell: mobile navigation and the command palette (Ctrl+K; ⌘K on a Mac). */
 export function ShellProvider({
   children,
-  canCreateEvents = false,
+  creatable = [],
 }: {
   children: React.ReactNode;
-  canCreateEvents?: boolean;
+  creatable?: readonly Creatable[];
 }) {
   const [navOpen, setNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -68,12 +69,12 @@ export function ShellProvider({
       setNavOpen,
       paletteOpen,
       setPaletteOpen,
-      canCreateEvents,
+      creatable,
       toast,
       showToast,
       dismissToast,
     }),
-    [navOpen, paletteOpen, canCreateEvents, toast, showToast, dismissToast],
+    [navOpen, paletteOpen, creatable, toast, showToast, dismissToast],
   );
   return <ShellContext value={value}>{children}</ShellContext>;
 }

@@ -25,9 +25,7 @@
       "notes": "Notizen",
       "history": "Verlauf",
       "milestone": "ab {milestone}",
-      "milestoneHint": "Kommt mit Meilenstein {milestone}",
-      "later": "später",
-      "laterHint": "Kommt in einem späteren Schritt"
+      "milestoneHint": "Kommt mit Meilenstein {milestone}"
     },
     "status": {
       "menu": "Status ändern",
@@ -195,24 +193,6 @@
       "undone": "Rückgängig gemacht",
       "createdAgreement": "Angelegt aus Vereinbarung"
     },
-    "later": {
-      "board": {
-        "title": "Das Board folgt in M2",
-        "hint": "Aufgaben aus den Ablaufvorlagen als Kanban-Board, daneben die Personenleiste mit Auslastung je Person."
-      },
-      "permits": {
-        "title": "Genehmigungen folgen in M3",
-        "hint": "Welche Genehmigungen für diese Veranstaltung gelten, ihr Stand und die Fristen kommen mit dem Logbuch."
-      },
-      "money": {
-        "title": "Geld folgt in M5",
-        "hint": "Hier stehen später die Posten mit Plan · Zugesagt · Tatsächlich, die Zahlungen mit Raten und die Belege."
-      },
-      "documents": {
-        "title": "Dokumente folgen später",
-        "hint": "Bescheide, Pläne und Verträge dieser Veranstaltung werden später hier abgelegt."
-      }
-    },
     "facts": {
       "edit": "Bearbeiten",
       "title": "Eckdaten bearbeiten",
@@ -337,6 +317,13 @@
       "tasksShifting": "{count, plural, =0 {Keine Aufgabe verschiebt sich.} one {1 Aufgabe verschiebt sich.} other {# Aufgaben verschieben sich.}}",
       "tasksShiftingNote": "Erledigte Aufgaben und von Hand gesetzte Fälligkeiten bleiben.",
       "movedTasks": "{count, plural, one {1 Aufgabe verschoben} other {# Aufgaben verschoben}}"
+    },
+    "documents": {
+      "title": "Dokumente",
+      "empty": "Noch nichts abgelegt. Hier stehen Bescheide, Pläne und Verträge dieser Veranstaltung.",
+      "add": "Dokument hinzufügen",
+      "readOnly": "Du kannst Dokumente ansehen, aber nicht hinzufügen.",
+      "count": "{count, plural, one {# Dokument} other {# Dokumente}}"
     }
   }
 }

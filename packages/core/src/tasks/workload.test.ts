@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { missingEvidence, pendingFileEvidence } from "./evidence";
+import { fileEvidenceOf, missingEvidence, pendingFileEvidence } from "./evidence";
 import { taskHealth } from "./health";
 import { findMentions } from "./mentions";
 import {
@@ -102,10 +102,18 @@ describe("missingEvidence", () => {
       "check_items",
     ]);
   });
-  it("does not block on photos and attachments yet, but reports them as pending", () => {
+  it("blocks on a missing photo or attachment and is satisfied by the matching document", () => {
     const input = { ...base, requiresPhoto: true, requiresAttachment: true };
-    expect(missingEvidence(input)).toEqual([]);
-    expect(pendingFileEvidence(input)).toEqual(["photo", "attachment"]);
+    expect(missingEvidence(input)).toEqual(["photo", "attachment"]);
+    expect(missingEvidence({ ...input, hasPhoto: true })).toEqual(["attachment"]);
+    expect(missingEvidence({ ...input, hasPhoto: true, hasAttachment: true })).toEqual([]);
+    expect(pendingFileEvidence(input)).toEqual([]);
+  });
+  it("reads photo and attachment off the document kinds", () => {
+    expect(fileEvidenceOf([])).toEqual({ hasPhoto: false, hasAttachment: false });
+    expect(fileEvidenceOf(["photo"])).toEqual({ hasPhoto: true, hasAttachment: false });
+    expect(fileEvidenceOf(["photo", "other"])).toEqual({ hasPhoto: true, hasAttachment: true });
+    expect(fileEvidenceOf(["invoice"])).toEqual({ hasPhoto: false, hasAttachment: true });
   });
 });
 

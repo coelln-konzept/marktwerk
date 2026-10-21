@@ -8,6 +8,7 @@ import {
   compareCards,
   DEFAULT_WEEKLY_CAPACITY_HOURS,
   doneVisibleSince,
+  fileEvidenceOf,
   type HealthLevel,
   type HiringSignal,
   hiringSignal,
@@ -54,6 +55,7 @@ import {
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import { visibleTasks } from "../task-scope";
+import { type DocumentRow, listLinkedDocuments } from "./documents";
 import type { CalendarItem, DueItem } from "./due";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -629,6 +631,10 @@ export type TaskDetail = {
   completedAt: string | null;
   completedByName: string | null;
   checkItems: { id: string; title: string; done: boolean }[];
+  /** Files attached to the task (photos and attachments: the evidence), newest first. */
+  documents: DocumentRow[];
+  hasPhoto: boolean;
+  hasAttachment: boolean;
   comments: {
     id: string;
     body: string;
@@ -663,7 +669,7 @@ export async function getTaskDetail(actor: Actor, taskId: string): Promise<TaskD
   if (!row) return null;
   const t = row.t;
 
-  const [items, comments, activity, completedBy] = await Promise.all([
+  const [items, comments, activity, completedBy, documents] = await Promise.all([
     db
       .select({ id: taskCheckItem.id, title: taskCheckItem.title, done: taskCheckItem.done })
       .from(taskCheckItem)
@@ -702,7 +708,10 @@ export async function getTaskDetail(actor: Actor, taskId: string): Promise<TaskD
           .from(staffMember)
           .where(eq(staffMember.id, t.completedByStaffMemberId))
       : Promise.resolve([]),
+    listLinkedDocuments(actor, "taskId", [taskId]),
   ]);
+  const files = documents.get(taskId) ?? [];
+  const evidence = fileEvidenceOf(files.map((f) => f.kind));
 
   // names for @mentions in comments
   const mentionIds = [...new Set(comments.flatMap((c) => c.mentioned))];
@@ -743,6 +752,9 @@ export async function getTaskDetail(actor: Actor, taskId: string): Promise<TaskD
     completedAt: t.completedAt ? t.completedAt.toISOString() : null,
     completedByName: completedBy[0]?.name ?? null,
     checkItems: items,
+    documents: files,
+    hasPhoto: evidence.hasPhoto,
+    hasAttachment: evidence.hasAttachment,
     comments: comments.map((c) => ({
       id: c.id,
       body: c.body,

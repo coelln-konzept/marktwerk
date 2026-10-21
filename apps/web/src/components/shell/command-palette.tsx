@@ -1,7 +1,19 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
-import { CalendarDays, Contact, MapPin, Search, Store, User, Zap } from "lucide-react";
+import {
+  CalendarDays,
+  CircleCheck,
+  Contact,
+  MapPin,
+  Search,
+  ShieldCheck,
+  Store,
+  Truck,
+  User,
+  Wallet,
+  Zap,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useState, useTransition } from "react";
@@ -12,6 +24,10 @@ import { useShell } from "./shell-context";
 
 const ICONS = {
   event: CalendarDays,
+  task: CircleCheck,
+  permit: ShieldCheck,
+  payable: Wallet,
+  vehicle: Truck,
   venue: MapPin,
   contact: Contact,
   staff: User,
@@ -52,7 +68,20 @@ export function CommandPalette({ actions }: { actions: SearchHit[] }) {
     (a) => !query.trim() || fold(a.title).includes(fold(query.trim())),
   );
   const all = [...hits, ...matchingActions];
-  const groups = (["event", "venue", "staff", "contact", "vendor", "action"] as const)
+  const groups = (
+    [
+      "event",
+      "task",
+      "permit",
+      "payable",
+      "vehicle",
+      "venue",
+      "staff",
+      "contact",
+      "vendor",
+      "action",
+    ] as const
+  )
     .map((kind) => ({ kind, items: all.filter((h) => h.kind === kind) }))
     .filter((g) => g.items.length > 0);
 

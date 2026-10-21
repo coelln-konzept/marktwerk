@@ -21,6 +21,7 @@ import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
+import { createPayableIn, PayableInputError, removeUnpaidPayableIn } from "./payables";
 
 /*
  * Firma tab (M6): vehicles, recurring obligations with their completions, vehicle issues.
@@ -632,7 +633,17 @@ export type CompletionResult = {
   next: ObligationSchedule;
   /** Set when the vehicle's odometer was raised by this completion. */
   odometer: { previous: OdometerSnapshot; next: OdometerSnapshot } | null;
+  /** The payable this completion created (obligation with `createsPayable` and a cost), else null. */
+  payableId: string | null;
 };
+
+/** Payable category of an obligation kind (insurance and vehicle tax have their own, the rest by scope). */
+function payableCategoryOf(kind: ObligationKind, scope: "company" | "vehicle" | "venue") {
+  if (kind === "insurance") return "insurance";
+  if (kind === "vehicle_tax") return "tax_fees";
+  if (scope === "vehicle") return "vehicle";
+  return "other";
+}
 
 const scheduleOf = (row: typeof obligation.$inferSelect): ObligationSchedule => ({
   lastDoneOn: row.lastDoneOn,
@@ -646,10 +657,12 @@ const scheduleOf = (row: typeof obligation.$inferSelect): ObligationSchedule => 
  * A completion dated before the last one is recorded for the history but leaves the schedule alone.
  * A km reading above the vehicle's odometer raises the odometer. Audited as "obligation.complete".
  *
- * TODO(M5 payables): when `obligation.createsPayable` is set, create a payable here (inside this transaction,
- * `payable.obligation_id` = this obligation, vehicle/venue from the obligation, amount from `costCents` if
- * given) and return its id so the undo can remove it again. The payables service is being built separately;
- * until it exists, completing does not create one.
+ * When the obligation has `createsPayable` and a cost was given, the payable is created in the same
+ * transaction through the payables service (`createPayableIn`): linked via `payable.obligation_id`, scope and
+ * target from the obligation (vehicle, venue season or company), one rate for the full cost. The rate is due
+ * on the completion date, never in the past (an earlier `doneOn` counts from today), so it shows up as
+ * "Heute fällig" until someone marks it paid. Without a cost there is nothing to pay and no payable is
+ * created. The result carries `payableId` so the undo can remove it again.
  */
 export async function completeObligation(
   actor: Actor,
@@ -731,7 +744,42 @@ export async function completeObligation(
       }
     }
 
-    // TODO(M5 payables): create the payable when `current.createsPayable` (see the function comment).
+    let payableId: string | null = null;
+    if (current.createsPayable && costCents !== null && costCents > 0) {
+      const [plate] = current.vehicleId
+        ? await tx
+            .select({ plate: vehicle.plate })
+            .from(vehicle)
+            .where(eq(vehicle.id, current.vehicleId))
+        : [];
+      try {
+        const created = await createPayableIn(
+          tx,
+          actor,
+          {
+            title: plate ? `${current.title} · ${plate.plate}` : current.title,
+            scope:
+              current.scope === "vehicle"
+                ? "vehicle"
+                : current.scope === "venue"
+                  ? "venue_season"
+                  : "company",
+            category: payableCategoryOf(current.kind, current.scope),
+            vehicleId: current.scope === "vehicle" ? current.vehicleId : null,
+            venueId: current.scope === "venue" ? current.venueId : null,
+            season: current.scope === "venue" ? Number(doneOn.slice(0, 4)) : null,
+            obligationId: current.id,
+            totalGrossCents: costCents,
+            notes,
+          },
+          [{ dueOn: doneOn < today ? today : doneOn, amountCents: costCents }],
+        );
+        payableId = created.id;
+      } catch (error) {
+        if (error instanceof PayableInputError) throw new CompanyInputError("invalid_cost");
+        throw error;
+      }
+    }
 
     await audit(tx, actor.id, [
       {
@@ -747,10 +795,11 @@ export async function completeObligation(
           from: previous,
           to: next,
           odometer,
+          payableId,
         },
       },
     ]);
-    return { completionId: completion.id, previous, next, odometer };
+    return { completionId: completion.id, previous, next, odometer, payableId };
   });
 }
 
@@ -759,13 +808,15 @@ export async function completeObligation(
  * Applies only while nothing changed since (the obligation still has the schedule the completion produced),
  * otherwise `conflict`. Audited as "obligation.complete_undo".
  *
- * TODO(M5 payables): also remove the payable that `completeObligation` created, once that exists.
+ * The payable that `completeObligation` created (`payableId`) is removed in the same transaction, as long as
+ * nothing was paid on it and no document hangs on it; otherwise `conflict` and nothing is undone.
  */
 export async function undoObligationCompletion(
   actor: Actor,
   completionId: string,
   previous: ObligationSchedule,
   odometer: CompletionResult["odometer"],
+  payableId: string | null = null,
 ): Promise<void> {
   if (!can(actor.role, "company", "write")) forbidden();
   if (!UUID.test(completionId)) throw new CompanyInputError("not_found");
@@ -790,6 +841,14 @@ export async function undoObligationCompletion(
     )
       throw new CompanyInputError("conflict");
 
+    if (payableId) {
+      try {
+        await removeUnpaidPayableIn(tx, actor, payableId, current.id);
+      } catch (error) {
+        if (error instanceof PayableInputError) throw new CompanyInputError("conflict");
+        throw error;
+      }
+    }
     await tx.delete(obligationCompletion).where(eq(obligationCompletion.id, completionId));
     if (isNewest) await tx.update(obligation).set(prev).where(eq(obligation.id, current.id));
 
@@ -818,7 +877,12 @@ export async function undoObligationCompletion(
         action: "obligation.complete_undo",
         entityType: "obligation",
         entityId: current.id,
-        diff: { completionId, doneOn: completion.doneOn, restored: isNewest ? prev : null },
+        diff: {
+          completionId,
+          doneOn: completion.doneOn,
+          restored: isNewest ? prev : null,
+          removedPayableId: payableId,
+        },
       },
     ]);
   });
