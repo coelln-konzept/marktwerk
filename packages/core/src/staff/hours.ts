@@ -21,7 +21,7 @@ export function monthEnd(value: string): string {
 }
 
 /** First day of the month `n` months after the one containing `value` (n may be negative). */
-export function addMonths(value: string, n: number): string {
+export function addMonthsToMonth(value: string, n: number): string {
   const [y = 0, m = 1] = value.split("-").map(Number);
   const index = y * 12 + (m - 1) + n;
   return isoDate(Math.floor(index / 12), (index % 12) + 1, 1);
@@ -255,7 +255,7 @@ export function minijobHistory(
   let overrunMonths = 0;
   let earned = 0;
   for (let back = 1; back <= 11; back += 1) {
-    const m = addMonths(month, -back);
+    const m = addMonthsToMonth(month, -back);
     const cents = earnedByMonth.get(m.slice(0, 7)) ?? 0;
     earned += cents;
     if (cents > limitCentsFor(m)) overrunMonths += 1;
@@ -298,12 +298,12 @@ export const PAYROLL_DEADLINE_DAY = 15;
 
 /** The month to close on `today`: the one before the current month. */
 export function payrollMonthToClose(today: string): string {
-  return addMonths(today, -1);
+  return addMonthsToMonth(today, -1);
 }
 
 /** The 15th of the month after `month`: when the books of `month` must be closed. */
 export function payrollDeadline(month: string): string {
-  return `${addMonths(month, 1).slice(0, 8)}${String(PAYROLL_DEADLINE_DAY).padStart(2, "0")}`;
+  return `${addMonthsToMonth(month, 1).slice(0, 8)}${String(PAYROLL_DEADLINE_DAY).padStart(2, "0")}`;
 }
 
 export type PayrollReminderStage = "none" | "remind" | "due" | "overdue";

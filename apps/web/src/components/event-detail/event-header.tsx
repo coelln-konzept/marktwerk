@@ -11,8 +11,8 @@ import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import type { EventDetail } from "@/server/queries/events";
 import { getEventMoney } from "@/server/queries/finance";
-import { eventTaskSummary } from "@/server/queries/tasks";
 import { listEventPermits } from "@/server/queries/permits";
+import { eventTaskSummary } from "@/server/queries/tasks";
 import { listVenueOptions } from "@/server/queries/venues";
 import { BasicsDialog } from "./basics-dialog";
 import { BookingMenu } from "./booking-menu";
@@ -52,6 +52,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const tPermits = await getTranslations("eventPermits");
   const permits = can(actor.role, "permit", "read")
     ? await listEventPermits(actor, event, todayIn())
+    : null;
   const BookingIcon = event.bookingOpen ? BOOKING_FLAG_ICONS.open : BOOKING_FLAG_ICONS.notOpen;
 
   const dateLine = multiDay
@@ -69,10 +70,6 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
         week: formatWeek(event.startsOn, locale),
       });
 
-  const milestone = (m: string) => ({
-    text: t("tabs.milestone", { milestone: m }),
-    sr: t("tabs.milestoneHint", { milestone: m }),
-  });
   const tabs: EventTab[] = [
     { key: "overview", href: base, label: t("tabs.overview") },
     {
@@ -85,13 +82,6 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
         sr: `${tBoard("tab.open", { count: tasks.open })}${tasks.health ? `, ${tHealth(tasks.health)}` : ""}`,
       },
     },
-    {
-      key: "permits",
-      href: `${base}/genehmigungen`,
-      label: t("tabs.permits"),
-      hint: milestone("M3"),
-    },
-    { key: "board", href: `${base}/board`, label: t("tabs.board"), hint: milestone("M2") },
     ...(permits
       ? [
           {

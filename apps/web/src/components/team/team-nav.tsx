@@ -1,4 +1,4 @@
-import { addMonths } from "@marktwerk/core";
+import { addMonthsToMonth } from "@marktwerk/core";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -71,7 +71,7 @@ export async function MonthNav({
   return (
     <div className="flex items-center gap-2">
       <Link
-        href={link(addMonths(month, -1)) as never}
+        href={link(addMonthsToMonth(month, -1)) as never}
         className={button}
         aria-label={t("previous")}
       >
@@ -80,7 +80,11 @@ export async function MonthNav({
       <span className="min-w-32 text-center font-semibold" aria-live="polite">
         {formatMonth(month, locale)}
       </span>
-      <Link href={link(addMonths(month, 1)) as never} className={button} aria-label={t("next")}>
+      <Link
+        href={link(addMonthsToMonth(month, 1)) as never}
+        className={button}
+        aria-label={t("next")}
+      >
         <ChevronRight aria-hidden className="size-4" />
       </Link>
       {month !== current && (

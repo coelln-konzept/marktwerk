@@ -2,7 +2,7 @@ import "server-only";
 import {
   ARBZG_STATUTORY_LIMITS,
   addDays,
-  addMonths,
+  addMonthsToMonth,
   type ContractTerms,
   can,
   checkWorkingTime,
@@ -295,7 +295,7 @@ export async function loadMonthFigures(
 ): Promise<MonthFigures> {
   const month = monthStart(monthInput);
   const to = monthEnd(month);
-  const from12 = addMonths(month, -11);
+  const from12 = addMonthsToMonth(month, -11);
   const legal = legalRows ?? (await loadLegalRows(reader));
   const params = minijobParamsAt(legal, month);
   const limits = workingTimeLimitsAt(legal, month);
@@ -375,7 +375,7 @@ export async function loadMonthFigures(
     if (current.contractType === "minijob" && params) {
       const earned = new Map<string, number>();
       for (let back = 1; back <= 11; back += 1) {
-        const m = addMonths(month, -back);
+        const m = addMonthsToMonth(month, -back);
         earned.set(m.slice(0, 7), personMonth({ month: m, shifts, contracts }).grossCents);
       }
       earned.set(month.slice(0, 7), current.grossCents);

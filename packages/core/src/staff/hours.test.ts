@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addMonths,
+  addMonthsToMonth,
   type ContractTerms,
   checkContractTerms,
   contractOn,
@@ -53,9 +53,9 @@ describe("months", () => {
     expect(monthStart("2026-05-17")).toBe("2026-05-01");
     expect(monthEnd("2026-02-10")).toBe("2026-02-28");
     expect(monthEnd("2028-02-10")).toBe("2028-02-29");
-    expect(addMonths("2026-01-15", -1)).toBe("2025-12-01");
-    expect(addMonths("2026-11-01", 3)).toBe("2027-02-01");
-    expect(addMonths("2026-05-01", -11)).toBe("2025-06-01");
+    expect(addMonthsToMonth("2026-01-15", -1)).toBe("2025-12-01");
+    expect(addMonthsToMonth("2026-11-01", 3)).toBe("2027-02-01");
+    expect(addMonthsToMonth("2026-05-01", -11)).toBe("2025-06-01");
   });
 });
 

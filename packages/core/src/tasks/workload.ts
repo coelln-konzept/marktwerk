@@ -14,7 +14,7 @@ export const DEFAULT_WEEKLY_CAPACITY_HOURS = 20;
  */
 export const MINIJOBBER_HOURS_PER_MONTH = 40;
 
-export type ContractTerms = {
+export type CapacityContract = {
   validFrom: string;
   validUntil: string | null;
   contractedHoursPerWeek: number | null;
@@ -25,7 +25,7 @@ export type ContractTerms = {
  * wins) says `contractedHoursPerWeek`; without a contract or without hours the default applies.
  */
 export function weeklyCapacityHours(
-  contracts: readonly ContractTerms[],
+  contracts: readonly CapacityContract[],
   onDate: string,
   fallback: number = DEFAULT_WEEKLY_CAPACITY_HOURS,
 ): number {

@@ -4,7 +4,7 @@ import {
   type BoardColumn,
   berlinDay,
   boardColumnFor,
-  type ContractTerms,
+  type CapacityContract,
   compareCards,
   DEFAULT_WEEKLY_CAPACITY_HOURS,
   doneVisibleSince,
@@ -235,8 +235,8 @@ export async function listTaskEventOptions(actor: Actor, today: string): Promise
     .limit(80);
 }
 
-async function contractsOf(staffIds: string[]): Promise<Map<string, ContractTerms[]>> {
-  const map = new Map<string, ContractTerms[]>();
+async function contractsOf(staffIds: string[]): Promise<Map<string, CapacityContract[]>> {
+  const map = new Map<string, CapacityContract[]>();
   if (staffIds.length === 0) return map;
   const rows = await db
     .select({

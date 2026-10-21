@@ -4,8 +4,8 @@ import { deadlineSweep } from "./deadline-sweep";
 import { installmentReminders } from "./installment-reminders";
 import { obligationReminders } from "./obligation-reminders";
 import { payrollReminders } from "./payroll-reminders";
-import { taskRollover } from "./task-rollover";
 import { sendQueuedEmails } from "./send-emails";
+import { taskRollover } from "./task-rollover";
 
 /**
  * Every scheduled job, keyed by name. The worker schedules these with pg-boss;
@@ -30,7 +30,14 @@ export function isJobName(value: string): value is JobName {
   return Object.hasOwn(JOBS, value);
 }
 
-export { dailyDigest, deadlineSweep, installmentReminders, obligationReminders, payrollReminders, taskRollover };
 export { sendSmtp } from "./mail/smtp";
 export { createLogTransport, createMailTransport, type MailTransport } from "./mail/transport";
-export { dailyDigest, deadlineSweep, sendQueuedEmails };
+export {
+  dailyDigest,
+  deadlineSweep,
+  installmentReminders,
+  obligationReminders,
+  payrollReminders,
+  sendQueuedEmails,
+  taskRollover,
+};
