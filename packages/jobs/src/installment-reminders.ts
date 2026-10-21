@@ -2,10 +2,10 @@ import {
   addDays,
   businessDate,
   can,
+  type InstallmentReminderStage,
   installmentReminderKey,
   isRole,
   openAmountCents,
-  type ReminderStage,
   reminderStage,
 } from "@marktwerk/core";
 import {
@@ -69,7 +69,7 @@ const TEXT = {
   },
 } as const;
 
-const SEVERITY: Record<ReminderStage, NewNotification["severity"]> = {
+const SEVERITY: Record<InstallmentReminderStage, NewNotification["severity"]> = {
   d14: "info",
   d3: "warning",
   due: "warning",

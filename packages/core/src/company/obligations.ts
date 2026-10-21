@@ -155,11 +155,11 @@ export const OBLIGATION_STATUS_ORDER: readonly ObligationStatus[] = [
 /** Manager is told this many days after the obligation became overdue (data model: "+1 day → manager"). */
 export const OBLIGATION_ESCALATION_AFTER_DAYS = 1;
 
-export type ReminderStage = "soon" | "overdue";
+export type ObligationReminderStage = "soon" | "overdue";
 
 export type ReminderPlan = {
   /** Reminder to the responsible person, if one applies today. */
-  stage: ReminderStage | null;
+  stage: ObligationReminderStage | null;
   /** The manager is told as well. */
   escalate: boolean;
   /** Part of the dedupe key: changes when the due date/km moves, which re-arms the reminders. */
@@ -188,7 +188,7 @@ export function obligationReminderPlan(input: StatusInput): ReminderPlan {
 /** Deterministic key per (obligation, stage, due date/km); `soon` and `overdue` are different notifications. */
 export function obligationDedupeKey(
   obligationId: string,
-  stage: ReminderStage | "escalated",
+  stage: ObligationReminderStage | "escalated",
   dueKey: string,
 ): string {
   return `obligation:${obligationId}:${stage}:${dueKey}`;

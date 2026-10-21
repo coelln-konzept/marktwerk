@@ -135,15 +135,15 @@ export function nextOpenInstallment<T extends InstallmentLike>(
 }
 
 /** Reminder stages for an unpaid instalment (14 days, 3 days, due day, overdue). */
-export type ReminderStage = "d14" | "d3" | "due" | "overdue";
+export type InstallmentReminderStage = "d14" | "d3" | "due" | "overdue";
 
-export const REMINDER_STAGES: readonly ReminderStage[] = ["d14", "d3", "due", "overdue"];
+export const REMINDER_STAGES: readonly InstallmentReminderStage[] = ["d14", "d3", "due", "overdue"];
 
 /**
  * Which reminder applies today: the *closest* stage already reached, so an instalment created 10 days
  * before its due date gets the 14-day reminder right away. Null while it is more than 14 days away.
  */
-export function reminderStage(dueOn: string, today: string): ReminderStage | null {
+export function reminderStage(dueOn: string, today: string): InstallmentReminderStage | null {
   const days = daysBetween(today, dueOn);
   if (days < 0) return "overdue";
   if (days === 0) return "due";
@@ -155,7 +155,7 @@ export function reminderStage(dueOn: string, today: string): ReminderStage | nul
 /** Deterministic key per instalment, stage and due date: moving the due date re-arms the reminders. */
 export function installmentReminderKey(
   installmentId: string,
-  stage: ReminderStage,
+  stage: InstallmentReminderStage,
   dueOn: string,
 ): string {
   return `installment:${installmentId}:${stage}:${dueOn}`;
