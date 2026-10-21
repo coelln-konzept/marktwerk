@@ -3,11 +3,7 @@
  * rates and limits come from the contract rows and `legal_parameter` values passed in.
  */
 import { addDays, daysInMonth, isIsoDate, isoDate } from "../dates/calendar";
-import {
-  type MinijobMonthStatus,
-  type MinijobParameters,
-  minijobEarningsStatus,
-} from "./minijob";
+import { type MinijobMonthStatus, type MinijobParameters, minijobEarningsStatus } from "./minijob";
 import { type ShiftTimesInput, shiftWork } from "./worktime";
 
 // ---------------------------------------------------------------------------------------------
@@ -85,7 +81,10 @@ export type ContractError =
 export function checkContractTerms(terms: ContractTerms): ContractError | null {
   if (!(EMPLOYMENT_TYPES as readonly string[]).includes(terms.type)) return "invalid_type";
   if (!isIsoDate(terms.validFrom)) return "invalid_dates";
-  if (terms.validUntil !== null && (!isIsoDate(terms.validUntil) || terms.validUntil < terms.validFrom))
+  if (
+    terms.validUntil !== null &&
+    (!isIsoDate(terms.validUntil) || terms.validUntil < terms.validFrom)
+  )
     return "invalid_dates";
   const amountOk = (value: number | null) =>
     value === null || (Number.isSafeInteger(value) && value >= 0);
@@ -178,7 +177,9 @@ export function personMonth(input: {
 }): PersonMonth {
   const from = monthStart(input.month);
   const to = monthEnd(input.month);
-  const inMonth = input.contracts.filter((c) => validitiesOverlap(c, { validFrom: from, validUntil: to }));
+  const inMonth = input.contracts.filter((c) =>
+    validitiesOverlap(c, { validFrom: from, validUntil: to }),
+  );
 
   let workedMinutes = 0;
   let plannedMinutes = 0;
@@ -207,7 +208,10 @@ export function personMonth(input: {
   }
 
   const rates = [...rateMinutes].map(([rateCents, minutes]) => ({ rateCents, minutes }));
-  const hourlyPayCents = rates.reduce((sum, r) => sum + Math.round((r.minutes * r.rateCents) / 60), 0);
+  const hourlyPayCents = rates.reduce(
+    (sum, r) => sum + Math.round((r.minutes * r.rateCents) / 60),
+    0,
+  );
   const fixedPayCents = inMonth.reduce((sum, c) => sum + (c.fixedMonthlyPayCents ?? 0), 0);
 
   const atEnd = contractOn(inMonth, to) ?? contractOn(inMonth, from);

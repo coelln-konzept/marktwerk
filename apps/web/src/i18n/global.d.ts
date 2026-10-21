@@ -3,6 +3,7 @@ import type contacts from "../../messages/de/contacts.json";
 import type eventDetail from "../../messages/de/event-detail.json";
 import type events from "../../messages/de/events.json";
 import type generate from "../../messages/de/generate.json";
+import type hours from "../../messages/de/hours.json";
 import type kalender from "../../messages/de/kalender.json";
 import type overview from "../../messages/de/overview.json";
 import type settings from "../../messages/de/settings.json";
@@ -26,7 +27,8 @@ type Messages = typeof shell &
   typeof vendors &
   typeof templates &
   typeof settings &
-  typeof agreements;
+  typeof agreements &
+  typeof hours;
 
 declare module "next-intl" {
   interface AppConfig {

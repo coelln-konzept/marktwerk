@@ -66,13 +66,15 @@ describe("checkContractTerms", () => {
 
   it("requires contracted hours (no §12 TzBfG fiction), except for freelancers", () => {
     expect(checkContractTerms(terms({ contractedHoursPerWeek: null }))).toBe("hours_required");
-    expect(checkContractTerms(terms({ type: "freelance", contractedHoursPerWeek: null }))).toBeNull();
+    expect(
+      checkContractTerms(terms({ type: "freelance", contractedHoursPerWeek: null })),
+    ).toBeNull();
   });
 
   it("requires an hourly rate for a Minijob and some pay for everyone", () => {
-    expect(
-      checkContractTerms(terms({ hourlyRateCents: null, fixedMonthlyPayCents: 60_300 })),
-    ).toBe("rate_required");
+    expect(checkContractTerms(terms({ hourlyRateCents: null, fixedMonthlyPayCents: 60_300 }))).toBe(
+      "rate_required",
+    );
     expect(
       checkContractTerms(
         terms({ type: "full_time", hourlyRateCents: null, fixedMonthlyPayCents: 300_000 }),
@@ -105,9 +107,15 @@ describe("contract periods", () => {
 
   it("finds overlaps, treating an open end as unlimited and touching days as overlap", () => {
     expect(findOverlappingContract({ validFrom: "2026-07-01", validUntil: null }, [a])).toBeNull();
-    expect(findOverlappingContract({ validFrom: "2026-06-30", validUntil: null }, [a])?.id).toBe("a");
-    expect(findOverlappingContract({ validFrom: "2027-01-01", validUntil: null }, [b])?.id).toBe("b");
-    expect(findOverlappingContract({ validFrom: "2025-01-01", validUntil: "2025-12-31" }, [a, b])).toBeNull();
+    expect(findOverlappingContract({ validFrom: "2026-06-30", validUntil: null }, [a])?.id).toBe(
+      "a",
+    );
+    expect(findOverlappingContract({ validFrom: "2027-01-01", validUntil: null }, [b])?.id).toBe(
+      "b",
+    );
+    expect(
+      findOverlappingContract({ validFrom: "2025-01-01", validUntil: "2025-12-31" }, [a, b]),
+    ).toBeNull();
   });
 
   it("ignores the contract being edited", () => {
@@ -285,9 +293,17 @@ describe("Minijob history", () => {
       ),
     }); // 50 h × 13,90 = 695 €
     const params = { limitCents: 60_300, overrunCeilingFactor: 2, maxOverrunMonths: 2 };
-    const first = minijobStatusOf(month, { previousOverrunMonths: 0, previousElevenMonthsCents: 0 }, params);
+    const first = minijobStatusOf(
+      month,
+      { previousOverrunMonths: 0, previousElevenMonthsCents: 0 },
+      params,
+    );
     expect(first.level).toBe("amber");
-    const third = minijobStatusOf(month, { previousOverrunMonths: 2, previousElevenMonthsCents: 0 }, params);
+    const third = minijobStatusOf(
+      month,
+      { previousOverrunMonths: 2, previousElevenMonthsCents: 0 },
+      params,
+    );
     expect(third.level).toBe("red");
     expect(third.reasons).toContain("too_many_overrun_months");
   });
@@ -369,8 +385,6 @@ describe("payrollCsv", () => {
       },
     ]);
     const line = csv.split("\r\n")[1];
-    expect(line).toBe(
-      '"\'=HYPERLINK(""x"")";;0,00;;0,00;"Vertretung; ""kurzfristig""\nkrank"',
-    );
+    expect(line).toBe('"\'=HYPERLINK(""x"")";;0,00;;0,00;"Vertretung; ""kurzfristig""\nkrank"');
   });
 });

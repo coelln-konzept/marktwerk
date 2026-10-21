@@ -1,0 +1,11 @@
+{
+  "hours": {
+    "due": {
+      "missing": "Arbeitszeiten fehlen ({count})",
+      "office": "Büro",
+      "payroll": "Monatsabschluss {month}",
+      "payrollMeta": "Stunden sperren, freigeben, exportieren",
+      "shiftCount": "{count} Schichten"
+    }
+  }
+}

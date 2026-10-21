@@ -1,0 +1,11 @@
+{
+  "hours": {
+    "due": {
+      "missing": "Working times missing ({count})",
+      "office": "Office",
+      "payroll": "Month close {month}",
+      "payrollMeta": "Lock, approve and export hours",
+      "shiftCount": "{count} shifts"
+    }
+  }
+}
