@@ -234,6 +234,16 @@ erDiagram
   notes, next_due_on_after, next_due_km_after)`; the payable a completion creates points back through
   `payable.obligation_id`; `vehicle_issue` has `title`, `description`, `severity` (`minor | major | critical`),
   `status` (`open | in_progress | resolved`), `reported_*`, `resolved_*`; photos are `document`s with `vehicle_issue_id`.)*
+  *(implemented M6: legal intervals come from `legal_parameter` keys `hu_interval_months_up_to_3500kg`,
+  `hu_interval_months_over_3500kg` and `uvv_interval_months` (HU by gross weight, ≤ 3.5 t inclusive; unknown weight takes
+  the shorter one). Status = `ok | soon | due | overdue` by date (`lead_days` before, the day itself, after) and/or km
+  (within 1 000 km, reached, beyond), the worse one counts. Completing (`obligation_completion`) rolls forward: km from
+  the reading at completion; date from `done_on + interval`, except inside the reminder window (done at most `lead_days`
+  before the due date or later) where the old due date stays the anchor, falling back to `done_on` if that is not after
+  it; month ends are clamped (31.01. + 1 month = 28.02.). A completion dated before `last_done_on` is history only.
+  A km reading above the vehicle's odometer raises it. The reminders job `obligation-reminders` notifies the responsible
+  person (`obligation_due`) from `lead_days` before and once overdue, and the manager (`escalated`, plus
+  `escalation_log`) from the second overdue day; dedupe key `obligation:<id>:<soon|overdue|escalated>:<due date>|<due km>`.)*
 
 ### Notifications & messaging
 - **notification**: `recipient_staff_member_id`, reason (`assigned | mentioned | due_soon | overdue |
