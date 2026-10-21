@@ -14,6 +14,7 @@ export * from "./events/rrule";
 export * from "./events/rrule-describe";
 export * from "./events/scheduling";
 export * from "./staff/minijob";
+export * from "./tasks/index";
 export * from "./text/email";
 export * from "./text/fold";
 export * from "./text/phone";
