@@ -1,6 +1,7 @@
 # marktwerk documentation
 
-Start here: **[product/vision.md](product/vision.md)** → **[product/roadmap.md](product/roadmap.md)**.
+Start here: **[HANDOFF.md](HANDOFF.md)** (current state & next steps), then **[product/vision.md](product/vision.md)** → **[product/roadmap.md](product/roadmap.md)**.
+Design output: [design/claude-design/](design/claude-design/).
 
 ## Product
 - [Vision & scope](product/vision.md): goals, non-goals, success metrics

@@ -4,6 +4,8 @@ Internal operations platform for a German event company (mainly flea and antique
 and Food & Wine markets): events, timelines & kanban, permit logbook, staff hours (Minijob), payables, and later
 staff WhatsApp, bookings, the shared inbox, inventory, market-day field mode and stall maps.
 
+> **Next session: start with [docs/HANDOFF.md](docs/HANDOFF.md).**
+>
 > **Status:** Phase 0 complete (foundation). Plan revised after the client meeting
 > ([research 05](docs/research/05-client-meeting-2026-10.md)). Next: **Phase 1, "Digitise the work"**, starting with
 > M0.5 (synthetic data + Scalingo spike), then M1. See the [roadmap](docs/product/roadmap.md).
