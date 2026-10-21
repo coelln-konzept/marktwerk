@@ -6,7 +6,9 @@ import { cache } from "react";
 import { todayIn } from "@/lib/format";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
+import { eventMoneyHealthFor } from "./finance";
 import { permitHealthByEvent } from "./permits";
+import { taskHealthByEvent } from "./tasks";
 
 export type EventStatusKey = (typeof event.status.enumValues)[number];
 
@@ -67,25 +69,63 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
     .innerJoin(venue, eq(venue.id, event.venueId))
     .where(where(actor, filters))
     .orderBy(asc(event.startsOn), asc(event.name));
-  const permitHealth = await permitHealthByEvent(rows, todayIn());
+  const dims = await dimensionHealth(actor, rows, todayIn());
   return rows.map((r) => ({
     ...r,
-    health: healthOf(r.status, r.duties, required, permitHealth.get(r.id) ?? null),
+    health: healthOf(r.status, r.duties, required, dims.get(r.id)),
   }));
 }
 
+type Dimensions = {
+  permits: HealthLevel | null;
+  tasks: HealthLevel | null;
+  money: HealthLevel | null;
+};
+
+/**
+ * Permits, tasks and money health of many events: one query per dimension for all of them (never per
+ * event). Tasks and money honour the actor's scope (no `finance:read` = no money dimension).
+ */
+async function dimensionHealth(
+  actor: Actor,
+  events: { id: string; startsOn: string }[],
+  today: string,
+): Promise<Map<string, Dimensions>> {
+  const ids = events.map((e) => e.id);
+  const [permits, tasks, money] = await Promise.all([
+    permitHealthByEvent(events, today),
+    taskHealthByEvent(actor, ids, today),
+    eventMoneyHealthFor(actor, ids, today),
+  ]);
+  return new Map(
+    ids.map((id) => [
+      id,
+      {
+        permits: permits.get(id) ?? null,
+        tasks: tasks.get(id) ?? null,
+        money: money.get(id) ?? null,
+      },
+    ]),
+  );
+}
+
+/**
+ * The four health dimensions of one event. Finished and cancelled events carry no permits/tasks/team
+ * signal any more; the money dimension stays for finished ones (rates can still be open) and goes for
+ * cancelled ones.
+ */
 function healthOf(
   status: EventStatusKey,
   duties: number,
   required: number,
-  permits: HealthLevel | null = null,
+  dims: Dimensions = { permits: null, tasks: null, money: null },
 ): HealthDimensions {
   const past = status === "completed" || status === "closed" || status === "cancelled";
   return {
-    permits: past ? null : permits,
-    tasks: null,
+    permits: past ? null : dims.permits,
+    tasks: past ? null : dims.tasks,
     team: past ? null : teamHealth(duties, required),
-    money: null,
+    money: status === "cancelled" ? null : dims.money,
   };
 }
 
@@ -172,7 +212,7 @@ export const getEvent = cache(async (actor: Actor, id: string) => {
       found.status,
       assigned,
       required,
-      (await permitHealthByEvent([{ id, startsOn: found.startsOn }], todayIn())).get(id) ?? null,
+      (await dimensionHealth(actor, [{ id, startsOn: found.startsOn }], todayIn())).get(id),
     ),
   };
 });

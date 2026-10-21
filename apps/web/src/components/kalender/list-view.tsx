@@ -1,5 +1,5 @@
 import { addDays, daysBetween, isoWeek, mondayOf } from "@marktwerk/core";
-import { CalendarX } from "lucide-react";
+import { CalendarX, Clock, Minus, OctagonAlert } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment } from "react";
@@ -7,10 +7,13 @@ import { EventStatusBadge } from "@/components/events/event-status";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { EmptyState } from "@/components/ui/states";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
 import { formatDateShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { CalendarItem } from "@/server/queries/due";
 import type { EventRow } from "@/server/queries/events";
+import { LAYER_ICONS } from "./deadline-chip";
 
 /** "Liste · 6 Wochen": the same entries as the month view, grouped by KW with one block per day. */
 export async function CalendarList({
@@ -18,6 +21,7 @@ export async function CalendarList({
   to,
   today,
   rows,
+  deadlines,
   holidays,
   hrefFor,
   vorschauId,
@@ -27,6 +31,8 @@ export async function CalendarList({
   to: string;
   today: string;
   rows: EventRow[];
+  /** Entries of the module layers (Aufgaben, Genehmigungen, …). */
+  deadlines: CalendarItem[];
   holidays: Map<string, string>;
   /** Vorschau link for an event. */
   hrefFor: (id: string) => string;
@@ -46,9 +52,12 @@ export async function CalendarList({
       byDay.set(d, [...(byDay.get(d) ?? []), r]);
     }
   }
+  const itemsByDay = new Map<string, CalendarItem[]>();
+  for (const item of deadlines)
+    itemsByDay.set(item.date, [...(itemsByDay.get(item.date) ?? []), item]);
   const days: string[] = [];
   for (let d = from; d <= to; d = addDays(d, 1)) {
-    if (byDay.has(d) || holidays.has(d)) days.push(d);
+    if (byDay.has(d) || itemsByDay.has(d) || holidays.has(d)) days.push(d);
   }
   if (days.length === 0) {
     return (
@@ -85,7 +94,7 @@ export async function CalendarList({
         <THead>
           <tr>
             <TH className="w-44">{t("cols.date")}</TH>
-            <TH>{t("cols.event")}</TH>
+            <TH>{t("cols.entry")}</TH>
             <TH className="hidden sm:table-cell">{t("cols.venue")}</TH>
             <TH>{t("cols.status")}</TH>
             <TH className="hidden sm:table-cell">
@@ -105,10 +114,12 @@ export async function CalendarList({
               </TGroup>
               {weekDays.map((day) => {
                 const events = byDay.get(day) ?? [];
+                const items = itemsByDay.get(day) ?? [];
                 const holiday = holidays.get(day);
                 const dateCell = (
                   <TD
-                    rowSpan={Math.max(events.length, 1)}
+                    key="date"
+                    rowSpan={Math.max(events.length + items.length, 1)}
                     className={cn(
                       "w-44 whitespace-nowrap align-top",
                       day === today && "bg-selected",
@@ -120,7 +131,7 @@ export async function CalendarList({
                     {holiday && <span className="block font-semibold text-tiny">{holiday}</span>}
                   </TD>
                 );
-                if (events.length === 0) {
+                if (events.length === 0 && items.length === 0) {
                   return (
                     <TR key={day}>
                       {dateCell}
@@ -130,7 +141,7 @@ export async function CalendarList({
                     </TR>
                   );
                 }
-                return events.map((r, i) => {
+                const eventRows = events.map((r, i) => {
                   const href = `/veranstaltungen/${r.id}`;
                   const peek = hrefFor(r.id);
                   return (
@@ -182,6 +193,55 @@ export async function CalendarList({
                     </TR>
                   );
                 });
+                const itemRows = items.map((item, i) => {
+                  const Icon = LAYER_ICONS[item.layer];
+                  const tone = item.tone ?? "neutral";
+                  return (
+                    <TR
+                      key={`${day}-${item.id}`}
+                      tabIndex={0}
+                      data-row
+                      data-href={item.href}
+                      className="cursor-pointer outline-none focus-visible:bg-selected"
+                    >
+                      {events.length + i === 0 && dateCell}
+                      <TD>
+                        <Link
+                          href={item.href as never}
+                          tabIndex={-1}
+                          className="mr-2 inline-flex items-center gap-1.5 font-semibold hover:underline"
+                        >
+                          <Icon aria-hidden className="size-4 shrink-0 text-foreground-2" />
+                          {item.title}
+                        </Link>
+                        <span className="text-muted-foreground text-tiny">
+                          {t(`layers.deadline.${item.layer}`)}
+                        </span>
+                      </TD>
+                      <TD className="hidden sm:table-cell" />
+                      <TD>
+                        <StatusBadge
+                          tone={tone}
+                          icon={
+                            tone === "critical" ? OctagonAlert : tone === "warn" ? Clock : Minus
+                          }
+                        >
+                          {t(`tone.${tone}`)}
+                        </StatusBadge>
+                      </TD>
+                      <TD className="hidden w-20 text-right sm:table-cell">
+                        <Link
+                          href={item.href as never}
+                          tabIndex={-1}
+                          className="inline-flex min-h-8 items-center rounded-lg border border-input px-3 font-medium hover:bg-hover"
+                        >
+                          {t("open")}
+                        </Link>
+                      </TD>
+                    </TR>
+                  );
+                });
+                return [...eventRows, ...itemRows];
               })}
             </Fragment>
           ))}

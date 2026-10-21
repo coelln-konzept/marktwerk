@@ -66,28 +66,7 @@ import {
   type Reader,
   workingTimeLimitsAt,
 } from "../legal-params";
-
-/** Same shapes as every module's `dueItems` / `calendarItems` (the orchestrator unifies them). */
-export type DueItem = {
-  kind: "task" | "permit" | "installment" | "hours" | "obligation";
-  id: string;
-  title: string;
-  dueOn: string;
-  urgency: "overdue" | "today" | "soon";
-  href: string;
-  meta?: string;
-  eventId?: string | null;
-  assigneeName?: string | null;
-};
-
-export type CalendarItem = {
-  layer: "tasks" | "permits" | "shifts" | "installments" | "obligations";
-  id: string;
-  date: string;
-  title: string;
-  href: string;
-  tone?: "ok" | "warn" | "critical" | "neutral";
-};
+import type { CalendarItem, DueItem } from "./due";
 
 const hhmm = (value: string | null): string | null => (value ? value.slice(0, 5) : null);
 

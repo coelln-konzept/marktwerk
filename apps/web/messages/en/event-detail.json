@@ -102,9 +102,9 @@
         "tasks": "Tasks",
         "team": "Team",
         "money": "Money",
-        "permitsNote": "from M3",
-        "tasksNote": "from M2",
-        "moneyNote": "from M5",
+        "permitsNote": "status of the permits needed",
+        "tasksNote": "overdue and blocked tasks",
+        "moneyNote": "overdue and soon-due instalments, plan against committed",
         "teamNote": "{assigned}/{total} duties filled"
       }
     },

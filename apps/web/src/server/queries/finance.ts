@@ -56,30 +56,8 @@ import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import { RECEIPT_KINDS } from "../services/documents";
 import { PAYABLE_CATEGORIES, PAYABLE_SCOPES } from "../services/payables";
+import type { CalendarItem, DueItem } from "./due";
 import { isUuid } from "./venues";
-
-/* ------------------------------------------------------------------ shared shapes (Übersicht, Kalender) */
-
-export type DueItem = {
-  kind: "task" | "permit" | "installment" | "hours" | "obligation";
-  id: string;
-  title: string;
-  dueOn: string; // YYYY-MM-DD
-  urgency: "overdue" | "today" | "soon"; // soon = within 7 days
-  href: string;
-  meta?: string;
-  eventId?: string | null;
-  assigneeName?: string | null;
-};
-
-export type CalendarItem = {
-  layer: "tasks" | "permits" | "shifts" | "installments" | "obligations";
-  id: string;
-  date: string;
-  title: string;
-  href: string;
-  tone?: "ok" | "warn" | "critical" | "neutral";
-};
 
 const canRead = (actor: Actor) => can(actor.role, "finance", "read");
 

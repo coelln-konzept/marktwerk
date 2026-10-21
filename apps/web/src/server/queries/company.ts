@@ -20,6 +20,7 @@ import { and, asc, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
+import type { CalendarItem, DueItem } from "./due";
 
 /*
  * Firma tab reads. Callers check `company:read` (pages) — `dueItems`/`calendarItems` check it themselves,
@@ -426,27 +427,6 @@ export function huFor(grossWeightKg: number | null, legal: LegalIntervals): numb
 
 // ---------------------------------------------------------------------------------------------
 // Übersicht and Kalender
-
-export type DueItem = {
-  kind: "task" | "permit" | "installment" | "hours" | "obligation";
-  id: string;
-  title: string;
-  dueOn: string; // YYYY-MM-DD
-  urgency: "overdue" | "today" | "soon"; // soon = within 7 days
-  href: string;
-  meta?: string;
-  eventId?: string | null;
-  assigneeName?: string | null;
-};
-
-export type CalendarItem = {
-  layer: "tasks" | "permits" | "shifts" | "installments" | "obligations";
-  id: string;
-  date: string;
-  title: string;
-  href: string;
-  tone?: "ok" | "warn" | "critical" | "neutral";
-};
 
 const SOON_DAYS = 7;
 const TONE = { overdue: "critical", due: "warn", soon: "warn", ok: "neutral" } as const;

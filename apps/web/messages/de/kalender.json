@@ -1,6 +1,6 @@
 {
   "kalenderPage": {
-    "subtitle": "Veranstaltungen und Feiertage an einem Ort · Ebenen links ein- und ausblenden",
+    "subtitle": "Veranstaltungen, Fristen und Feiertage an einem Ort · Ebenen links ein- und ausblenden",
     "nav": "Zeitraum",
     "prev": "Zurück",
     "next": "Weiter",
@@ -33,13 +33,7 @@
         "food_wine": "Food & Wine"
       },
       "future": {
-        "permits": "Genehmigungen",
-        "payments": "Raten & Zahlungen",
-        "tasks": "Aufgaben",
-        "hours": "Arbeitszeiten & Abschluss",
-        "returns": "Rückgaben (Miete)",
-        "vehicles": "Fahrzeuge & Pflichten",
-        "shifts": "Schichten"
+        "returns": "Rückgaben (Miete)"
       },
       "comesWith": "kommt mit {milestone}",
       "holidays": "Feiertage NRW",
@@ -50,15 +44,23 @@
       "venue": "Ort",
       "allVenues": "Alle Orte",
       "saved": "Auswahl bleibt pro Person gespeichert.",
-      "apply": "Übernehmen"
+      "apply": "Übernehmen",
+      "deadline": {
+        "permits": "Genehmigungen",
+        "installments": "Raten & Zahlungen",
+        "tasks": "Aufgaben",
+        "obligations": "Fahrzeuge & Pflichten",
+        "shifts": "Schichten"
+      },
+      "narrowHint": "„Nur meine Zuständigkeit“ gilt für Veranstaltungen und Aufgaben, „Achtung und Kritisch“ auch für Fristen."
     },
     "gridCaption": "Kalender {month}",
-    "listCaption": "Veranstaltungen und Feiertage, {from} bis {to}",
+    "listCaption": "Veranstaltungen, Fristen und Feiertage, {from} bis {to}",
     "cols": {
       "date": "Datum",
-      "event": "Veranstaltung",
       "venue": "Ort",
-      "status": "Status"
+      "status": "Status",
+      "entry": "Eintrag"
     },
     "week": "KW {week} · {from}–{to}",
     "relative": {
@@ -78,6 +80,12 @@
       "holiday": "Feiertag NRW",
       "cancelled": "durchgestrichen = abgesagt"
     },
-    "keys": "Klick auf einen Eintrag: Vorschau · <k>T</k> heute · <k>M</k> Monat · <k>L</k> Liste"
+    "keys": "Klick auf einen Eintrag: Vorschau · <k>T</k> heute · <k>M</k> Monat · <k>L</k> Liste",
+    "tone": {
+      "ok": "Im Plan",
+      "warn": "Achtung",
+      "critical": "Überfällig",
+      "neutral": "Geplant"
+    }
   }
 }

@@ -2,10 +2,16 @@ import "server-only";
 import { overallHealth } from "@marktwerk/core";
 import { event, eventDuty, userPreference, venue } from "@marktwerk/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { type Layers, sanitizeLayers } from "@/components/kalender/layers";
+import { availableLayers, type Layers, sanitizeLayers } from "@/components/kalender/layers";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
+import * as company from "./company";
+import type { CalendarItem } from "./due";
 import { type EventRow, listEvents } from "./events";
+import * as finance from "./finance";
+import * as hours from "./hours";
+import * as permits from "./permits";
+import * as tasks from "./tasks";
 
 /**
  * Events in [from, to] with the narrowing applied (Ort, Achtung/Kritisch, meine Zuständigkeit).
@@ -42,6 +48,41 @@ export async function listCalendarEvents(
     rows = rows.filter((r) => ids.has(r.id));
   }
   return rows;
+}
+
+/**
+ * Items of the module layers (Aufgaben, Genehmigungen, Raten, Pflichten, Schichten) in [from, to].
+ * Only layers that are switched on and that the actor may see are fetched; each module also checks its
+ * own permission and field scope. Narrowing: "Nur Achtung und Kritisch" keeps warn/critical items,
+ * "Nur meine Zuständigkeit" limits tasks to the actor's own. Ordered by day, most urgent tone first.
+ */
+export async function listCalendarDeadlines(
+  actor: Actor,
+  range: { from: string; to: string },
+  layers: Pick<Layers, "deadlines" | "critical" | "mine">,
+  today: string,
+): Promise<CalendarItem[]> {
+  const allowed = new Set(availableLayers(actor.role, actor.staffMemberId !== null));
+  const wanted = new Set(layers.deadlines.filter((l) => allowed.has(l)));
+  const { from, to } = range;
+  const feeds = await Promise.all([
+    wanted.has("tasks")
+      ? tasks.calendarItems(actor, from, to, today, layers.mine)
+      : Promise.resolve([]),
+    wanted.has("permits") ? permits.calendarItems(actor, from, to, today) : Promise.resolve([]),
+    wanted.has("shifts") ? hours.calendarItems(actor, from, to) : Promise.resolve([]),
+    wanted.has("installments") ? finance.calendarItems(actor, from, to) : Promise.resolve([]),
+    wanted.has("obligations") ? company.calendarItems(actor, from, to) : Promise.resolve([]),
+  ]);
+  let items = feeds.flat();
+  if (layers.critical) items = items.filter((i) => i.tone === "warn" || i.tone === "critical");
+  const rank = (tone: CalendarItem["tone"]) => (tone === "critical" ? 0 : tone === "warn" ? 1 : 2);
+  return items.sort(
+    (a, b) =>
+      a.date.localeCompare(b.date) ||
+      rank(a.tone) - rank(b.tone) ||
+      a.title.localeCompare(b.title, "de"),
+  );
 }
 
 /** Venues the person can see events at, for the Ort select. */

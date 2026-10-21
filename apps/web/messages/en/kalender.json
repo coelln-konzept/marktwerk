@@ -1,6 +1,6 @@
 {
   "kalenderPage": {
-    "subtitle": "Events and public holidays in one place · switch layers on and off on the left",
+    "subtitle": "Events, deadlines and public holidays in one place · switch layers on and off on the left",
     "nav": "Period",
     "prev": "Back",
     "next": "Forward",
@@ -33,13 +33,7 @@
         "food_wine": "Food & Wine"
       },
       "future": {
-        "permits": "Permits",
-        "payments": "Instalments & payments",
-        "tasks": "Tasks",
-        "hours": "Working hours & month close",
-        "returns": "Returns (rental)",
-        "vehicles": "Vehicles & obligations",
-        "shifts": "Shifts"
+        "returns": "Returns (rental)"
       },
       "comesWith": "arrives with {milestone}",
       "holidays": "Public holidays NRW",
@@ -50,15 +44,23 @@
       "venue": "Venue",
       "allVenues": "All venues",
       "saved": "Your selection is saved per person.",
-      "apply": "Apply"
+      "apply": "Apply",
+      "deadline": {
+        "permits": "Permits",
+        "installments": "Instalments & payments",
+        "tasks": "Tasks",
+        "obligations": "Vehicles & obligations",
+        "shifts": "Shifts"
+      },
+      "narrowHint": "“Only my responsibilities” applies to events and tasks, “Attention and critical” to deadlines too."
     },
     "gridCaption": "Calendar {month}",
-    "listCaption": "Events and public holidays, {from} to {to}",
+    "listCaption": "Events, deadlines and public holidays, {from} to {to}",
     "cols": {
       "date": "Date",
-      "event": "Event",
       "venue": "Venue",
-      "status": "Status"
+      "status": "Status",
+      "entry": "Entry"
     },
     "week": "CW {week} · {from}–{to}",
     "relative": {
@@ -78,6 +80,12 @@
       "holiday": "Public holiday NRW",
       "cancelled": "struck through = cancelled"
     },
-    "keys": "Click an entry: preview · <k>T</k> today · <k>M</k> month · <k>L</k> list"
+    "keys": "Click an entry: preview · <k>T</k> today · <k>M</k> month · <k>L</k> list",
+    "tone": {
+      "ok": "On track",
+      "warn": "Attention",
+      "critical": "Overdue",
+      "neutral": "Planned"
+    }
   }
 }

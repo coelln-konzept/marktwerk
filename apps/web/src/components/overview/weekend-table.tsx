@@ -2,15 +2,17 @@ import { CalendarX } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
-import { Health, HealthShape } from "@/components/ui/health";
+import { Health, type HealthLevel, HealthShape } from "@/components/ui/health";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
-import { formatDateRange, formatDateShort, formatWeek } from "@/lib/format";
+import { formatDateRange, formatDateShort, formatHours, formatWeek } from "@/lib/format";
 import type { Overview } from "@/server/queries/overview";
 
-/** "Nächstes Wochenende": one row per event, Genehmigungen/Aufgaben/Geld/Aufwand join in M2–M5. */
+const BLOCKER_ROWS = 6;
+
+/** "Nächstes Wochenende": one row per event with the four health dimensions and the open effort, plus what holds it up. */
 export async function WeekendTable({
   weekend,
   next,
@@ -28,8 +30,11 @@ export async function WeekendTable({
     to: formatDateShort(weekend.sunday, locale),
     week: formatWeek(weekend.saturday, locale),
   });
-  const open = (label: string) => (
-    <Health level="none" label={<span className="sr-only">{label}</span>} />
+  const cell = (level: HealthLevel | null) => (
+    <Health
+      level={level ?? "none"}
+      label={level ? tHealth(level) : <span className="sr-only">{tHealth("none")}</span>}
+    />
   );
   return (
     <Panel aria-labelledby="weekend-title" className="overflow-hidden">
@@ -115,8 +120,8 @@ export async function WeekendTable({
                         </span>
                       </div>
                     </TD>
-                    <TD className="hidden md:table-cell">{open(tHealth("none"))}</TD>
-                    <TD className="hidden md:table-cell">{open(tHealth("none"))}</TD>
+                    <TD className="hidden md:table-cell">{cell(r.health.permits)}</TD>
+                    <TD className="hidden md:table-cell">{cell(r.health.tasks)}</TD>
                     <TD>
                       {team ? (
                         <span className="inline-flex items-center gap-1.5">
@@ -131,12 +136,14 @@ export async function WeekendTable({
                           />
                         </span>
                       ) : (
-                        open(tHealth("none"))
+                        cell(null)
                       )}
                     </TD>
-                    <TD className="hidden md:table-cell">{open(tHealth("none"))}</TD>
+                    <TD className="hidden md:table-cell">{cell(r.health.money)}</TD>
                     <TD className="tabular hidden text-right text-muted-foreground md:table-cell">
-                      –
+                      {weekend.effortMinutes[r.id]
+                        ? formatHours(weekend.effortMinutes[r.id] as number, locale)
+                        : t("effortNone")}
                     </TD>
                   </TR>
                 );
@@ -144,6 +151,31 @@ export async function WeekendTable({
             </tbody>
           </Table>
         </KeyboardRows>
+      )}
+      {weekend.blockers.length > 0 && (
+        <section
+          aria-labelledby="weekend-blockers"
+          className="border-border-subtle border-t px-4 py-3"
+        >
+          <h3 id="weekend-blockers" className="font-semibold text-small">
+            {t("blockersTitle")}
+          </h3>
+          <p className="m-0 mb-2 text-muted-foreground text-tiny">{t("blockersHint")}</p>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {weekend.blockers.slice(0, BLOCKER_ROWS).map((item) => (
+              <li key={`${item.kind}-${item.id}`} className="flex flex-wrap items-baseline gap-x-2">
+                <HealthShape level={item.urgency === "overdue" ? "critical" : "warn"} />
+                <Link href={item.href as never} className="font-medium hover:underline">
+                  {item.title}
+                </Link>
+                {item.meta && <span className="text-muted-foreground text-small">{item.meta}</span>}
+                <span className="tabular text-muted-foreground text-small">
+                  {formatDateShort(item.dueOn, locale)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {weekend.rows.length > 0 && (
         <PanelFooter className="justify-between text-muted-foreground text-tiny">

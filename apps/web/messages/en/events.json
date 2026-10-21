@@ -31,7 +31,7 @@
       "actions": "Actions"
     },
     "preview": "Preview: {name}",
-    "legend": "Health: permits · tasks · team · money (● on track ▲ attention ■ critical ○ not yet tracked). Permits from M3, tasks and effort from M2, money from M5.",
+    "legend": "Health: permits · tasks · team · money (● on track ▲ attention ■ critical ○ not yet tracked).",
     "keys": "Space: preview · Enter: open · J/K: next/previous row",
     "weekendFlag": "⚑ Weekend with 4+ events",
     "single": "Single event"

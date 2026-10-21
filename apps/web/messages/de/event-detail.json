@@ -102,9 +102,9 @@
         "tasks": "Aufgaben",
         "team": "Team",
         "money": "Geld",
-        "permitsNote": "ab M3",
-        "tasksNote": "ab M2",
-        "moneyNote": "ab M5",
+        "permitsNote": "Stand der benötigten Genehmigungen",
+        "tasksNote": "überfällige und blockierte Aufgaben",
+        "moneyNote": "überfällige und bald fällige Raten, Plan gegen Zugesagtes",
         "teamNote": "{assigned}/{total} Zuständigkeiten besetzt"
       }
     },

@@ -8,6 +8,7 @@ import {
   compareCards,
   DEFAULT_WEEKLY_CAPACITY_HOURS,
   doneVisibleSince,
+  type HealthLevel,
   type HiringSignal,
   hiringSignal,
   type LoadLevel,
@@ -53,6 +54,7 @@ import {
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import { visibleTasks } from "../task-scope";
+import type { CalendarItem, DueItem } from "./due";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const OPEN = [...OPEN_STATUSES];
@@ -570,6 +572,34 @@ export async function eventTaskSummary(
   return { ...row, health: taskHealth(row) };
 }
 
+/**
+ * Task dimension of the event health for several events at once (Veranstaltungen, Kalender, Übersicht):
+ * the same rule as the Board tab (`taskHealth` over the open tasks the actor may see), one query for all
+ * events. Events without open tasks map to null.
+ */
+export async function taskHealthByEvent(
+  actor: Actor,
+  eventIds: string[],
+  today: string,
+): Promise<Map<string, HealthLevel | null>> {
+  const result = new Map<string, HealthLevel | null>(eventIds.map((id) => [id, null]));
+  if (eventIds.length === 0) return result;
+  const todayStart = resolveRelativeDue(today, 0, "00:00");
+  const rows = await db
+    .select({
+      eventId: task.eventId,
+      open: sql<number>`count(*)::int`,
+      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart}))::int`,
+      blocked: sql<number>`(count(*) filter (where ${task.status} = 'blocked'))::int`,
+      maxRollover: sql<number>`coalesce(max(${task.rolloverCount}), 0)::int`,
+    })
+    .from(task)
+    .where(and(visibleTasks(actor), inArray(task.eventId, eventIds), inArray(task.status, OPEN)))
+    .groupBy(task.eventId);
+  for (const row of rows) if (row.eventId) result.set(row.eventId, taskHealth(row));
+  return result;
+}
+
 // ---------------------------------------------------------------------------------------------
 // detail
 
@@ -726,40 +756,52 @@ export async function getTaskDetail(actor: Actor, taskId: string): Promise<TaskD
 }
 
 // ---------------------------------------------------------------------------------------------
-// Übersicht + Kalender (the orchestrator unifies these shapes later)
-
-export type DueItem = {
-  kind: "task" | "permit" | "installment" | "hours" | "obligation";
-  id: string;
-  title: string;
-  dueOn: string; // YYYY-MM-DD
-  urgency: "overdue" | "today" | "soon"; // soon = within 7 days
-  href: string;
-  meta?: string;
-  eventId?: string | null;
-  assigneeName?: string | null;
-};
-
-export type CalendarItem = {
-  layer: "tasks" | "permits" | "shifts" | "installments" | "obligations";
-  id: string;
-  date: string;
-  title: string;
-  href: string;
-  tone?: "ok" | "warn" | "critical" | "neutral";
-};
+// Übersicht + Kalender feeds (shapes in ./due)
 
 /**
  * Whose tasks the Übersicht and the Kalender show: owners and managers see all visible tasks, everybody
  * else their own (the Kalender narrows further with "Nur meine Zuständigkeit").
  */
-function deadlineScope(actor: Actor): SQL {
-  if (actor.role === "owner" || actor.role === "manager") return visibleTasks(actor);
+function deadlineScope(actor: Actor, mineOnly = false): SQL {
+  if (!mineOnly && (actor.role === "owner" || actor.role === "manager")) return visibleTasks(actor);
   if (!actor.staffMemberId) return sql`false`;
   return and(visibleTasks(actor), eq(task.assigneeId, actor.staffMemberId)) as SQL;
 }
 
 const DUE_LIMIT = 300;
+
+/** Open and overdue tasks in the actor's Übersicht scope (KPI "Offene Aufgaben"). */
+export async function openTaskCounts(
+  actor: Actor,
+  today: string,
+): Promise<{ open: number; overdue: number }> {
+  const todayStart = resolveRelativeDue(today, 0, "00:00");
+  const [row] = await db
+    .select({
+      open: sql<number>`count(*)::int`,
+      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart}))::int`,
+    })
+    .from(task)
+    .where(and(deadlineScope(actor), inArray(task.status, OPEN)));
+  return { open: row?.open ?? 0, overdue: row?.overdue ?? 0 };
+}
+
+/** Estimated minutes of the open tasks per event (column "Aufwand" of the weekend table). */
+export async function openEffortByEvent(
+  actor: Actor,
+  eventIds: string[],
+): Promise<Map<string, number>> {
+  if (eventIds.length === 0) return new Map();
+  const rows = await db
+    .select({
+      eventId: task.eventId,
+      minutes: sql<number>`coalesce(sum(${task.estimateMinutes}), 0)::int`,
+    })
+    .from(task)
+    .where(and(visibleTasks(actor), inArray(task.eventId, eventIds), inArray(task.status, OPEN)))
+    .groupBy(task.eventId);
+  return new Map(rows.flatMap((r) => (r.eventId ? [[r.eventId, r.minutes] as const] : [])));
+}
 
 /** Open tasks that are overdue, due today or within the next 7 days (Übersicht "Heute fällig"). */
 export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> {
@@ -815,6 +857,8 @@ export async function calendarItems(
   from: string,
   to: string,
   today: string = berlinDay(new Date()),
+  /** "Nur meine Zuständigkeit": only the actor's own tasks, even for owners and managers. */
+  mineOnly = false,
 ): Promise<CalendarItem[]> {
   const start = resolveRelativeDue(from, 0, "00:00");
   const end = resolveRelativeDue(addDays(to, 1), 0, "00:00");
@@ -823,7 +867,7 @@ export async function calendarItems(
     .from(task)
     .where(
       and(
-        deadlineScope(actor),
+        deadlineScope(actor, mineOnly),
         inArray(task.status, OPEN),
         isNotNull(task.dueAt),
         gte(task.dueAt, start),

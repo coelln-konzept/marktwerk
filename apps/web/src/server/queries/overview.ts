@@ -1,11 +1,17 @@
 import "server-only";
-import { addDays, overallHealth } from "@marktwerk/core";
+import { can, countByDueFilter, type DueFilter, overallHealth, rankDue } from "@marktwerk/core";
 import { upcomingWeekend } from "@marktwerk/core/dates/weekend";
 import { dutyRole } from "@marktwerk/db/schema";
 import { count } from "drizzle-orm";
 import type { Actor } from "../actor";
 import { db } from "../db";
+import * as company from "./company";
+import type { DueItem } from "./due";
 import { type EventRow, listEvents, listEventTypes } from "./events";
+import * as finance from "./finance";
+import * as hours from "./hours";
+import * as permits from "./permits";
+import * as tasks from "./tasks";
 
 export type SeasonSummary = {
   year: number;
@@ -16,17 +22,42 @@ export type SeasonSummary = {
   byType: { key: string; nameDe: string; nameEn: string; n: number }[];
 };
 
+/** "Heute fällig": every module's due items in display order, plus the number behind each chip. */
+export type OverviewDue = {
+  items: DueItem[];
+  counts: Record<DueFilter, number>;
+};
+
 export type Overview = {
   season: SeasonSummary;
+  /** Estimated effort against capacity and the hiring signal. Null for roles that do not plan the team. */
+  workload: tasks.SeasonWorkload | null;
   /** Next season's planned events, only once the current season is (almost) over. */
   nextSeason: { year: number; count: number } | null;
-  weekend: { saturday: string; sunday: string; rows: EventRow[]; duties: number };
+  weekend: {
+    saturday: string;
+    sunday: string;
+    rows: EventRow[];
+    duties: number;
+    /** Estimated minutes of open tasks per event. */
+    effortMinutes: Record<string, number>;
+    /** Due items of the weekend's events ("Was das Wochenende aufhält"), most urgent first. */
+    blockers: DueItem[];
+  };
   nextAfterWeekend: EventRow | null;
+  due: OverviewDue;
   kpis: {
     weekendCount: number;
     weekendInPlan: number;
     weekendTracked: number;
-    next30: number;
+    /** Due items (all modules) that are overdue. */
+    overdue: number;
+    /** Not overdue, but due by the coming Sunday. */
+    dueByWeekend: number;
+    openTasks: number;
+    overdueTasks: number;
+    /** Null for roles without `finance:read`. */
+    moneyOverdue: { count: number; cents: number } | null;
     drafts: number;
   };
 };
@@ -34,15 +65,33 @@ export type Overview = {
 /** The season is "almost over" when at most this share of its events is still ahead. */
 const SEASON_OVER_SHARE = 0.1;
 
-/** Everything the Übersicht needs in M1: events only (tasks M2, permits M3, hours M4, money M5). */
+/** The five module feeds, each of which checks its own permissions and field scope. */
+export async function listDueItems(actor: Actor, today: string): Promise<DueItem[]> {
+  const feeds = await Promise.all([
+    permits.dueItems(actor, today),
+    finance.dueItems(actor, today),
+    tasks.dueItems(actor, today),
+    hours.dueItems(actor, today),
+    company.dueItems(actor, today),
+  ]);
+  return rankDue(feeds.flat());
+}
+
+/** Everything the Übersicht shows. Each part honours the actor's permissions and field scope. */
 export async function getOverview(actor: Actor, today: string): Promise<Overview> {
-  const [all, types, [roles]] = await Promise.all([
+  const year = Number(today.slice(0, 4));
+  const { saturday, sunday } = upcomingWeekend(today);
+  const canMoney = can(actor.role, "finance", "read");
+  const [all, types, [roles], dueItems, taskCounts, money, workload] = await Promise.all([
     listEvents(actor, {}),
     listEventTypes(),
     db.select({ n: count() }).from(dutyRole),
+    listDueItems(actor, today),
+    tasks.openTaskCounts(actor, today),
+    canMoney ? finance.moneyOverdue(actor, today) : Promise.resolve(null),
+    can(actor.role, "team", "read") ? tasks.seasonWorkload(actor, year) : Promise.resolve(null),
   ]);
   const active = all.filter((e) => e.status !== "cancelled");
-  const year = Number(today.slice(0, 4));
 
   const inSeason = active.filter((e) => e.season === year);
   const byType = types
@@ -58,10 +107,10 @@ export async function getOverview(actor: Actor, today: string): Promise<Overview
   const nextCount = active.filter((e) => e.season === year + 1).length;
   const over = inSeason.length === 0 || upcomingInSeason / inSeason.length <= SEASON_OVER_SHARE;
 
-  const { saturday, sunday } = upcomingWeekend(today);
   const weekendRows = active.filter((e) => e.startsOn <= sunday && e.endsOn >= saturday);
   const tracked = weekendRows.filter((e) => overallHealth(e.health) !== null);
-  const limit = addDays(today, 30);
+  const weekendIds = new Set(weekendRows.map((e) => e.id));
+  const effort = await tasks.openEffortByEvent(actor, [...weekendIds]);
 
   return {
     season: {
@@ -71,14 +120,27 @@ export async function getOverview(actor: Actor, today: string): Promise<Overview
       lastMonth: months.length ? Math.max(...months) : null,
       byType,
     },
+    workload,
     nextSeason: over && nextCount > 0 ? { year: year + 1, count: nextCount } : null,
-    weekend: { saturday, sunday, rows: weekendRows, duties: roles?.n ?? 0 },
+    weekend: {
+      saturday,
+      sunday,
+      rows: weekendRows,
+      duties: roles?.n ?? 0,
+      effortMinutes: Object.fromEntries(effort),
+      blockers: dueItems.filter((i) => i.eventId && weekendIds.has(i.eventId)),
+    },
     nextAfterWeekend: active.find((e) => e.startsOn > sunday) ?? null,
+    due: { items: dueItems, counts: countByDueFilter(dueItems) },
     kpis: {
       weekendCount: weekendRows.length,
       weekendTracked: tracked.length,
       weekendInPlan: tracked.filter((e) => overallHealth(e.health) === "ok").length,
-      next30: active.filter((e) => e.endsOn >= today && e.startsOn <= limit).length,
+      overdue: dueItems.filter((i) => i.urgency === "overdue").length,
+      dueByWeekend: dueItems.filter((i) => i.urgency !== "overdue" && i.dueOn <= sunday).length,
+      openTasks: taskCounts.open,
+      overdueTasks: taskCounts.overdue,
+      moneyOverdue: money,
       drafts: all.filter((e) => e.status === "draft" && e.endsOn >= today).length,
     },
   };

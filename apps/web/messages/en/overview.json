@@ -10,10 +10,18 @@
       "weekend": "Next weekend",
       "weekendHint": "{count, plural, one {event} other {events}} · {inPlan} on track",
       "weekendHintNone": "{count, plural, one {event} other {events}}",
-      "next30": "Next 30 days",
-      "next30Hint": "{count, plural, one {event} other {events}}",
       "drafts": "Drafts",
-      "draftsHint": "still to confirm"
+      "draftsHint": "still to confirm",
+      "dueByWeekend": "Due by Sunday",
+      "dueByWeekendHint": "excluding overdue",
+      "overdue": "Overdue",
+      "overdueHint": "across all areas",
+      "moneyOverdue": "Money overdue",
+      "moneyOverdueHint": "{amount} open",
+      "moneyOverdueNone": "no instalment overdue",
+      "openTasks": "Open tasks",
+      "openTasksHint": "{overdue} overdue",
+      "openTasksNone": "nothing overdue"
     },
     "season": {
       "label": "Season",
@@ -21,7 +29,6 @@
       "titleEmpty": "Season {year}",
       "count": "{count, plural, one {# event} other {# events}}",
       "empty": "No events have been created for this season yet.",
-      "later": "Estimated effort, ground-crew demand and the hiring signal arrive with the time estimates (M2).",
       "next": "Season {year}: {count} planned",
       "months": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
       "types": {
@@ -29,7 +36,14 @@
         "antique": "Antique markets",
         "city_festival": "City festivals",
         "food_wine": "Food & Wine"
-      }
+      },
+      "effort": "{hours} h estimated effort",
+      "capacity": "{hours} h capacity",
+      "noEstimates": "No time estimates on tasks yet.",
+      "hiring": "≈ {n} additional Minijobbers/month",
+      "hiringPeak": "peak: {n}",
+      "hiringNone": "Capacity covers the estimated tasks",
+      "hiringHint": "Assumption: one additional Minijob worker delivers {hours} h a month. Demand = the tasks' time estimates, capacity = contracts of active team members."
     },
     "due": {
       "title": "Due today",
@@ -40,11 +54,40 @@
         "money": "Money",
         "permits": "Permits",
         "hours": "Hours",
-        "tasks": "Tasks"
+        "tasks": "Tasks",
+        "company": "Company"
       },
-      "emptyTitle": "Nothing is due here yet.",
-      "emptyHint": "The list fills up with the next milestones: tasks from M2, permits from M3, hours from M4, money from M5.",
-      "soon": "from {milestone}"
+      "emptyTitle": "Nothing is due.",
+      "emptyHint": "Anything overdue, due today or within the next 7 days from permits, instalments, tasks, hours and obligations shows up here.",
+      "groups": {
+        "overdue": "Overdue",
+        "today": "Today",
+        "soon": "This week"
+      },
+      "emptyFilter": "Nothing is due for this filter.",
+      "emptyFilterReset": "Show all",
+      "open": "Open",
+      "openItem": "Open: {title}",
+      "showAll": "Show all {count}",
+      "showLess": "Show less",
+      "assignee": "responsible: {name}",
+      "relative": {
+        "overdue": "{n} d overdue",
+        "today": "today",
+        "soon": "in {n} d"
+      },
+      "kind": {
+        "task": "Task",
+        "permit": "Permit",
+        "installment": "Instalment",
+        "hours": "Hours",
+        "obligation": "Obligation"
+      },
+      "urgencyLabel": {
+        "overdue": "Overdue",
+        "today": "Due today",
+        "soon": "Due soon"
+      }
     },
     "weekend": {
       "title": "Next weekend",
@@ -64,8 +107,11 @@
       "emptyNone": "No further events have been created.",
       "openEvent": "View event",
       "preview": "Preview: {name}",
-      "legendNote": "Permits from M3, tasks and effort from M2, money from M5.",
-      "keys": "Space: preview · Enter: open · J/K: next/previous row"
+      "legendNote": "Effort = estimated time of the open tasks.",
+      "keys": "Space: preview · Enter: open · J/K: next/previous row",
+      "blockersTitle": "What is holding the weekend up",
+      "blockersHint": "Open items of these events, most urgent first.",
+      "effortNone": "–"
     }
   }
 }

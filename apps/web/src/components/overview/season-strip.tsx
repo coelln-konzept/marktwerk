@@ -1,14 +1,18 @@
+import { MINIJOBBER_HOURS_PER_MONTH } from "@marktwerk/core";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EVENT_TYPE_KEYS, type EventTypeKey, EventTypeTag } from "@/components/ui/event-type-tag";
 import { Panel } from "@/components/ui/panel";
+import { formatNumber } from "@/lib/format";
 import type { Overview } from "@/server/queries/overview";
 
 /** The owner's view of the year. Before time estimates (M2) it shows what exists: event counts. */
 export async function SeasonStrip({
   season,
+  workload,
   nextSeason,
 }: {
   season: Overview["season"];
+  workload: Overview["workload"];
   nextSeason: Overview["nextSeason"];
 }) {
   const t = await getTranslations("overview.season");
@@ -57,7 +61,35 @@ export async function SeasonStrip({
           </p>
         )}
       </div>
-      <p className="m-0 text-muted-foreground text-small">{t("later")}</p>
+      {workload && (
+        <p className="m-0 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small">
+          {workload.demandHours > 0 ? (
+            <>
+              <span className="tabular font-medium">
+                {t("effort", { hours: formatNumber(workload.demandHours, locale, 0) })}
+              </span>
+              <span className="tabular text-foreground-2">
+                {t("capacity", { hours: formatNumber(workload.capacityHours, locale, 0) })}
+              </span>
+              <span
+                className="tabular font-semibold"
+                title={t("hiringHint", { hours: MINIJOBBER_HOURS_PER_MONTH })}
+              >
+                {workload.averageMinijobbers >= 0.05
+                  ? t("hiring", { n: formatNumber(workload.averageMinijobbers, locale, 1) })
+                  : t("hiringNone")}
+              </span>
+              {workload.peakMinijobbers >= 0.05 && (
+                <span className="tabular text-muted-foreground">
+                  {t("hiringPeak", { n: formatNumber(workload.peakMinijobbers, locale, 1) })}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-muted-foreground">{t("noEstimates")}</span>
+          )}
+        </p>
+      )}
     </Panel>
   );
 }

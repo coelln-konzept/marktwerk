@@ -41,6 +41,7 @@ import {
 } from "drizzle-orm";
 import type { Actor } from "../actor";
 import { db } from "../db";
+import type { CalendarItem, DueItem } from "./due";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isPermitId = (value: string | undefined): value is string =>
@@ -49,29 +50,6 @@ export const isPermitId = (value: string | undefined): value is string =>
 type Category = (typeof permit.category.enumValues)[number];
 type PermitType = (typeof permit.permitType.enumValues)[number];
 type Cadence = (typeof permitRequirement.cadence.enumValues)[number];
-
-// ---------------------------------------------------------------------------------------------
-// Shapes the Übersicht and the Kalender will unify later (brief addendum; copied as specified)
-
-export type DueItem = {
-  kind: "task" | "permit" | "installment" | "hours" | "obligation";
-  id: string;
-  title: string;
-  dueOn: string; // YYYY-MM-DD
-  urgency: "overdue" | "today" | "soon"; // soon = within 7 days
-  href: string;
-  meta?: string;
-  eventId?: string | null;
-  assigneeName?: string | null;
-};
-export type CalendarItem = {
-  layer: "tasks" | "permits" | "shifts" | "installments" | "obligations";
-  id: string;
-  date: string;
-  title: string;
-  href: string;
-  tone?: "ok" | "warn" | "critical" | "neutral";
-};
 
 // ---------------------------------------------------------------------------------------------
 // The logbook
