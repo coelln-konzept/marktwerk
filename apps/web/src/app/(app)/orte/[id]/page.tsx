@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
+import { AgreementsSection } from "@/components/agreements/agreements-section";
 import { VenueKindBadge } from "@/components/catalogue/kinds";
 import { addressLine, MailLink, PhoneLink } from "@/components/catalogue/phone";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
@@ -266,6 +267,8 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
           </Panel>
         )}
       </div>
+
+      <AgreementsSection venueId={id} />
     </Page>
   );
 }

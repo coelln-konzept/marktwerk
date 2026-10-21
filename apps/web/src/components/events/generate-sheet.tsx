@@ -17,15 +17,7 @@ import {
   weekday,
   weekendsTouched,
 } from "@marktwerk/core";
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Flag,
-  TriangleAlert,
-  X,
-  XCircle,
-} from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -34,6 +26,7 @@ import {
   loadScheduleContext,
   undoCreateEvents,
 } from "@/app/(app)/veranstaltungen/actions";
+import { CandidateNotes, candidateWarningCount } from "@/components/events/candidate-notes";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
@@ -149,12 +142,7 @@ export function GenerateSheet({
       existing,
     );
   }, [selected, existing, preset]);
-  const warnings = (c: CandidateCheck) =>
-    c.holidays.length +
-    c.venueConflicts.length +
-    (c.overlapsCandidate ? 1 : 0) +
-    (c.overWeekendCap ? 1 : 0);
-  const totalWarnings = checks.reduce((sum, c) => sum + warnings(c), 0);
+  const totalWarnings = checks.reduce((sum, c) => sum + candidateWarningCount(c), 0);
 
   const venueBusy = useMemo(() => {
     const days = new Set<string>();
@@ -514,40 +502,7 @@ export function GenerateSheet({
                           {formatWeek(c.startsOn, locale)}
                         </td>
                         <td className="px-3 py-1.5">
-                          <ul className="flex flex-col gap-0.5 text-small">
-                            {c.holidays.map((h) => (
-                              <li key={h.key} className="flex items-center gap-1 text-status-warn">
-                                <TriangleAlert aria-hidden className="size-3.5" />
-                                {t("warn.holiday", { name: locale === "en" ? h.nameEn : h.nameDe })}
-                              </li>
-                            ))}
-                            {c.overWeekendCap && (
-                              <li className="flex items-center gap-1 text-status-warn">
-                                <Flag aria-hidden className="size-3.5" />
-                                {t("warn.weekend", {
-                                  n: Math.max(...c.weekendLoad.map((w) => w.count)),
-                                })}
-                              </li>
-                            )}
-                            {c.venueConflicts.map((v) => (
-                              <li
-                                key={v.id}
-                                className="flex items-center gap-1 text-status-critical"
-                              >
-                                <XCircle aria-hidden className="size-3.5" />
-                                {t("warn.venue", { name: v.name })}
-                              </li>
-                            ))}
-                            {c.overlapsCandidate && (
-                              <li className="flex items-center gap-1 text-status-critical">
-                                <XCircle aria-hidden className="size-3.5" />
-                                {t("warn.overlap")}
-                              </li>
-                            )}
-                            {warnings(c) === 0 && (
-                              <li className="text-status-ok">✓ {t("warn.none")}</li>
-                            )}
-                          </ul>
+                          <CandidateNotes check={c} />
                         </td>
                         <td className="w-10 px-2">
                           <Button
