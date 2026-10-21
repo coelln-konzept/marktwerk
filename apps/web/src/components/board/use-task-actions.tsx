@@ -98,6 +98,25 @@ export function useTaskActions({
     [showToast, t, errorText],
   );
 
+  /** A failed call: evidence that is still missing opens the task, everything else is a message. */
+  const fail = useCallback(
+    (result: Extract<Result, { ok: false }>, task: TaskRef) => {
+      if (result.error === "evidence_missing") {
+        showToast({
+          message: t("errors.evidence_missing", {
+            title: task.title,
+            what: evidenceText(result.detail),
+          }),
+          actionLabel: t("toast.open"),
+          onAction: () => router.push(drawer.open(task.id) as never),
+        });
+        return;
+      }
+      showToast({ message: errorText(result.error) });
+    },
+    [showToast, t, evidenceText, errorText, router, drawer],
+  );
+
   const run = useCallback(
     (
       patch: OptimisticPatch | null,
@@ -112,21 +131,10 @@ export function useTaskActions({
           if (result.data.changed) showUndo(success, result.data.auditId);
           return;
         }
-        if (result.error === "evidence_missing") {
-          showToast({
-            message: t("errors.evidence_missing", {
-              title: task.title,
-              what: evidenceText(result.detail),
-            }),
-            actionLabel: t("toast.open"),
-            onAction: () => router.push(drawer.open(task.id) as never),
-          });
-          return;
-        }
-        showToast({ message: errorText(result.error) });
+        fail(result, task);
       });
     },
-    [apply, showUndo, showToast, t, evidenceText, errorText, router, drawer],
+    [apply, showUndo, fail],
   );
 
   const move = useCallback(
@@ -162,6 +170,60 @@ export function useTaskActions({
     [run, staff, t],
   );
 
+  /**
+   * Drag and drop onto another swimlane in a different column: one gesture, two server calls (move,
+   * then assign), one toast whose "Rückgängig" reverts both.
+   */
+  const moveAndAssign = useCallback(
+    (task: TaskRef, column: BoardColumn, afterId: string | null, staffMemberId: string | null) => {
+      const person = staff.find((s) => s.id === staffMemberId) ?? null;
+      startTransition(async () => {
+        apply?.({ kind: "move", id: task.id, column, afterId });
+        apply?.({
+          kind: "assign",
+          id: task.id,
+          assigneeId: person?.id ?? null,
+          assigneeName: person?.displayName ?? null,
+        });
+        const moved = await moveCard(
+          task.id,
+          column,
+          { after: afterId },
+          { eventId: scopeEventId ?? null },
+        );
+        if (!moved.ok) return fail(moved, task);
+        const assigned = await assignCard(task.id, staffMemberId);
+        if (!assigned.ok) return fail(assigned, task);
+        const audits = [assigned.data.auditId, moved.data.auditId].filter((id) => id !== null);
+        const message = person
+          ? t("toast.assignedMoved", {
+              title: task.title,
+              name: person.displayName,
+              column: t(`columns.${column}`),
+            })
+          : t("toast.unassignedMoved", { title: task.title, column: t(`columns.${column}`) });
+        if (audits.length === 0) return;
+        showToast({
+          message,
+          actionLabel: t("toast.undo"),
+          onAction: async () => {
+            // newest change first, so each undo still finds the state it expects
+            let failure: string | null = null;
+            for (const auditId of audits) {
+              const result = await undoChange(auditId);
+              if (!result.ok) {
+                failure = result.error;
+                break;
+              }
+            }
+            showToast({ message: failure ? errorText(failure) : t("toast.reverted") });
+          },
+        });
+      });
+    },
+    [apply, staff, scopeEventId, fail, showToast, t, errorText],
+  );
+
   const setStatus = useCallback(
     (
       task: TaskRef,
@@ -181,7 +243,7 @@ export function useTaskActions({
     [run, t, tTasks],
   );
 
-  return { pending, move, assign, setStatus, errorText, drawer };
+  return { pending, move, assign, moveAndAssign, setStatus, errorText, drawer };
 }
 
 type Result =

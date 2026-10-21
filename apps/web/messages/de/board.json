@@ -86,12 +86,24 @@
     },
     "card": {
       "actions": "Aktionen für „{title}“",
-      "grip": "„{title}“ verschieben: Leertaste nimmt auf, Pfeiltasten bewegen, Leertaste legt ab",
-      "gripHint": "Mit der Leertaste aufnehmen",
+      "grip": "„{title}“ verschieben",
+      "gripHint": "Ziehen oder mit der Leertaste aufnehmen",
       "reopen": "„{title}“ wieder öffnen",
       "complete": "„{title}“ als erledigt markieren",
       "completeHint": "Als erledigt markieren (E)",
       "unassigned": "Nicht zugewiesen"
+    },
+    "dnd": {
+      "roleDescription": "verschiebbare Karte",
+      "instructions": "Leertaste nimmt die Karte auf, Pfeiltasten bewegen sie, Leertaste legt sie ab, Escape bricht ab. Mit Maus oder Finger ziehst du die Karte direkt an ihren Platz oder auf eine Person.",
+      "start": "„{title}“ aufgenommen.",
+      "moveTo": "„{title}“: Spalte {column}, Position {position} von {total}.",
+      "assignTo": "„{title}“: zuweisen an {name}.",
+      "unassignTo": "„{title}“: Zuweisung entfernen.",
+      "assignMoveTo": "„{title}“: zuweisen an {name}, Spalte {column}, Position {position} von {total}.",
+      "unassignMoveTo": "„{title}“: Zuweisung entfernen, Spalte {column}, Position {position} von {total}.",
+      "noDrop": "„{title}“: hier nicht ablegbar.",
+      "cancelled": "Verschieben abgebrochen."
     },
     "menu": {
       "open": "Öffnen",
@@ -107,6 +119,8 @@
     "toast": {
       "moved": "„{title}“ nach {column} verschoben",
       "assigned": "„{title}“ an {name} zugewiesen",
+      "assignedMoved": "„{title}“ an {name} zugewiesen und nach {column} verschoben",
+      "unassignedMoved": "Zuweisung von „{title}“ entfernt, nach {column} verschoben",
       "unassigned": "Zuweisung von „{title}“ entfernt",
       "done": "„{title}“ erledigt",
       "reopened": "„{title}“ wieder geöffnet",

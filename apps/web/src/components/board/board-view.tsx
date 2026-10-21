@@ -15,11 +15,12 @@ import { COLUMN_ORDER, formatHours } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { BoardTask, PeopleRail, StaffOption } from "@/server/queries/tasks";
 import { BoardProvider, type Lift } from "./board-context";
+import { BoardDnd, useCellDrop, useLaneDrop } from "./board-dnd";
 import { GroupedCards } from "./grouped-cards";
 import { PeopleRailPanel } from "./people-rail";
 import { ReasonDialog } from "./reason-dialog";
 import { LoadBar } from "./task-bits";
-import { TaskCard } from "./task-card";
+import { CardPreview, TaskCard } from "./task-card";
 import { type OptimisticPatch, useTaskActions } from "./use-task-actions";
 
 /** Finished cards shown before "weitere anzeigen" (the column is a collapsed list). */
@@ -91,9 +92,9 @@ type Props = {
 
 /**
  * The kanban board: four columns (Vorbereitung · Diese Woche · Heute · Erledigt) or one swimlane per
- * person, and the people rail. Cards move through the "⋯" menu or the keyboard; both end in
- * `moveCard(taskId, column, position)` so a drag-and-drop library can be added on top later without
- * changing the server path (the columns and cards are components with explicit ids and positions).
+ * person, and the people rail. Cards move through the "⋯" menu, the keyboard (own index-based mode
+ * below) or by dragging with mouse and finger (dnd-kit, `board-dnd.tsx`, ADR 0020); all of them end in
+ * the same `useTaskActions` calls, so the server path is the same for every way of moving a card.
  */
 export function BoardView(props: Props) {
   const t = useTranslations("board");
@@ -248,96 +249,98 @@ export function BoardView(props: Props) {
 
   return (
     <BoardProvider value={value}>
-      <div className="flex flex-col gap-3">
-        {liftedTask && (
-          <div
-            role="status"
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-status-info-bg px-3 py-2 text-small text-status-info"
-          >
-            <span className="font-semibold">{t("keys.banner", { title: liftedTask.title })}</span>
-            <span className="inline-flex items-center gap-1">
-              <Kbd>←</Kbd>
-              <Kbd>→</Kbd> {t("keys.column")}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Kbd>↑</Kbd>
-              <Kbd>↓</Kbd> {t("keys.position")}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Kbd>{t("keys.space")}</Kbd> {t("keys.drop")}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Kbd>Esc</Kbd> {t("keys.cancel")}
-            </span>
+      <BoardDnd tasks={tasks} cardsOf={cardsOf} overlay={(task) => <CardPreview task={task} />}>
+        <div className="flex flex-col gap-3">
+          {liftedTask && (
+            <div
+              role="status"
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-status-info-bg px-3 py-2 text-small text-status-info"
+            >
+              <span className="font-semibold">{t("keys.banner", { title: liftedTask.title })}</span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd>←</Kbd>
+                <Kbd>→</Kbd> {t("keys.column")}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd> {t("keys.position")}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd>{t("keys.space")}</Kbd> {t("keys.drop")}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Kbd>Esc</Kbd> {t("keys.cancel")}
+              </span>
+            </div>
+          )}
+          <div aria-live="assertive" className="sr-only">
+            {live}
           </div>
-        )}
-        <div aria-live="assertive" className="sr-only">
-          {live}
-        </div>
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          <div className="min-w-0 flex-1 overflow-x-auto pb-2">
-            {props.layout === "columns" ? (
-              <div className="grid min-w-[880px] grid-cols-4 items-start gap-3">
-                {COLUMN_ORDER.map((column) => (
-                  <ColumnPanel key={column} column={column} cards={cardsOf(column)} lift={lift} />
-                ))}
-              </div>
-            ) : props.layout === "person" ? (
-              <Swimlanes tasks={tasks} rail={props.rail} lift={lift} cardsOf={cardsOf} />
-            ) : (
-              <GroupedCards tasks={tasks} groupBy={props.groupBy ?? "event"} today={today} />
-            )}
-            {tasks.length === 0 && (
-              <p className="rounded-xl border border-dashed px-4 py-8 text-center text-muted-foreground text-small">
-                {props.filtered ? t("empty.filtered") : t("empty.board")}
-              </p>
-            )}
-            {props.truncated && (
-              <p role="status" className="mt-2 text-muted-foreground text-small">
-                {t("truncated")}
-              </p>
-            )}
-          </div>
-          <PeopleRailPanel
-            rail={props.rail}
-            weekLabel={props.weekLabel}
-            eventBoard={props.scopeEventId !== null}
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 text-small">
-          <span className="tabular">
-            <b className="font-semibold">
-              {t("sum.open", { count: sums.open })} · {formatHours(sums.hours, locale)}
-            </b>
-          </span>
-          <details className="text-muted-foreground">
-            <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 outline-none focus-visible:outline-2 focus-visible:outline-ring">
-              <Keyboard aria-hidden className="size-4" />
-              {t("keys.title")}
-            </summary>
-            <dl className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
-              {(
-                [
-                  ["grip", t("keys.pickUp"), <Kbd key="k1">{t("keys.space")}</Kbd>],
-                  ["arrows", t("keys.moveArrows"), <Kbd key="k2">← → ↑ ↓</Kbd>],
-                  ["drop", t("keys.dropShort"), <Kbd key="k3">{t("keys.space")}</Kbd>],
-                  ["esc", t("keys.cancelShort"), <Kbd key="k4">Esc</Kbd>],
-                  ["e", t("keys.markDone"), <Kbd key="k5">E</Kbd>],
-                  ["a", t("keys.openMenu"), <Kbd key="k6">A</Kbd>],
-                  ["c", t("keys.newTask"), <Kbd key="k7">C</Kbd>],
-                ] as const
-              ).map(([key, label, kbd]) => (
-                <div key={key} className="contents">
-                  <dd className="m-0 text-right">{kbd}</dd>
-                  <dt>{label}</dt>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+            <div className="min-w-0 flex-1 overflow-x-auto pb-2">
+              {props.layout === "columns" ? (
+                <div className="grid min-w-[880px] grid-cols-4 items-start gap-3">
+                  {COLUMN_ORDER.map((column) => (
+                    <ColumnPanel key={column} column={column} cards={cardsOf(column)} lift={lift} />
+                  ))}
                 </div>
-              ))}
-            </dl>
-          </details>
+              ) : props.layout === "person" ? (
+                <Swimlanes tasks={tasks} rail={props.rail} lift={lift} cardsOf={cardsOf} />
+              ) : (
+                <GroupedCards tasks={tasks} groupBy={props.groupBy ?? "event"} today={today} />
+              )}
+              {tasks.length === 0 && (
+                <p className="rounded-xl border border-dashed px-4 py-8 text-center text-muted-foreground text-small">
+                  {props.filtered ? t("empty.filtered") : t("empty.board")}
+                </p>
+              )}
+              {props.truncated && (
+                <p role="status" className="mt-2 text-muted-foreground text-small">
+                  {t("truncated")}
+                </p>
+              )}
+            </div>
+            <PeopleRailPanel
+              rail={props.rail}
+              weekLabel={props.weekLabel}
+              eventBoard={props.scopeEventId !== null}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 text-small">
+            <span className="tabular">
+              <b className="font-semibold">
+                {t("sum.open", { count: sums.open })} · {formatHours(sums.hours, locale)}
+              </b>
+            </span>
+            <details className="text-muted-foreground">
+              <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 outline-none focus-visible:outline-2 focus-visible:outline-ring">
+                <Keyboard aria-hidden className="size-4" />
+                {t("keys.title")}
+              </summary>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
+                {(
+                  [
+                    ["grip", t("keys.pickUp"), <Kbd key="k1">{t("keys.space")}</Kbd>],
+                    ["arrows", t("keys.moveArrows"), <Kbd key="k2">← → ↑ ↓</Kbd>],
+                    ["drop", t("keys.dropShort"), <Kbd key="k3">{t("keys.space")}</Kbd>],
+                    ["esc", t("keys.cancelShort"), <Kbd key="k4">Esc</Kbd>],
+                    ["e", t("keys.markDone"), <Kbd key="k5">E</Kbd>],
+                    ["a", t("keys.openMenu"), <Kbd key="k6">A</Kbd>],
+                    ["c", t("keys.newTask"), <Kbd key="k7">C</Kbd>],
+                  ] as const
+                ).map(([key, label, kbd]) => (
+                  <div key={key} className="contents">
+                    <dd className="m-0 text-right">{kbd}</dd>
+                    <dt>{label}</dt>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          </div>
         </div>
-      </div>
+      </BoardDnd>
       <ReasonDialog
         status={reasonFor?.status ?? null}
         taskTitle={reasonFor?.task.title ?? ""}
@@ -365,10 +368,16 @@ function ColumnPanel({
   const locale = useLocale();
   const hours =
     cards.reduce((n, c) => n + (isFinishedStatus(c.status) ? 0 : c.estimateMinutes), 0) / 60;
+  const drop = useCellDrop(column);
   return (
     <section
+      ref={drop.ref}
+      data-cell={drop.key}
       aria-label={t(`columns.${column}`)}
-      className="flex min-w-0 flex-col gap-2 rounded-xl bg-sunken p-2"
+      className={cn(
+        "flex min-w-0 flex-col gap-2 rounded-xl bg-sunken p-2",
+        drop.marked && "ring-2 ring-primary/60",
+      )}
     >
       <header className="flex items-center justify-between gap-2 px-1.5 pt-1">
         <h3 className="flex items-center gap-2 font-semibold text-small">
@@ -449,6 +458,52 @@ function DropMarker() {
   );
 }
 
+/** The person block of a lane: a card dropped here is assigned to that person (column unchanged). */
+function LaneHeader({ lane, children }: { lane: string | null; children: React.ReactNode }) {
+  const drop = useLaneDrop(lane);
+  return (
+    <div
+      ref={drop.ref}
+      className={cn(
+        "flex flex-col gap-2 rounded-lg p-1",
+        drop.marked && "bg-status-info-bg ring-2 ring-primary/60",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** One column inside a lane: a drop zone for moving and (in another lane) assigning. */
+function LaneCell({
+  column,
+  lane,
+  label,
+  cards,
+  lift,
+}: {
+  column: BoardColumn;
+  lane: string | null;
+  label: string;
+  cards: BoardTask[];
+  lift: Lift | null;
+}) {
+  const drop = useCellDrop(column, lane);
+  return (
+    <section
+      ref={drop.ref}
+      data-cell={drop.key}
+      aria-label={label}
+      className={cn(
+        "flex min-w-0 flex-col gap-2 rounded-lg",
+        drop.marked && "ring-2 ring-primary/60",
+      )}
+    >
+      <CardList column={column} cards={cards} lift={lift} lane={lane} />
+    </section>
+  );
+}
+
 /** "Nach Person": one lane per person (and one for unassigned work), the four columns side by side. */
 function Swimlanes({
   tasks,
@@ -495,7 +550,7 @@ function Swimlanes({
             className="grid gap-2 rounded-xl bg-sunken p-2"
             style={{ gridTemplateColumns: "170px repeat(4, minmax(0, 1fr))" }}
           >
-            <div className={cn("flex flex-col gap-2 p-1")}>
+            <LaneHeader lane={id}>
               <div className="flex items-center gap-2">
                 {name ? (
                   <Avatar name={name} size="lg" />
@@ -514,15 +569,16 @@ function Swimlanes({
                   label={t("rail.load", { name: p.name })}
                 />
               )}
-            </div>
+            </LaneHeader>
             {COLUMN_ORDER.map((column) => (
-              <section
+              <LaneCell
                 key={column}
-                aria-label={`${name ?? t("lanes.unassigned")}: ${t(`columns.${column}`)}`}
-                className="flex min-w-0 flex-col gap-2"
-              >
-                <CardList column={column} cards={cardsOf(column, id)} lift={lift} lane={id} />
-              </section>
+                column={column}
+                lane={id}
+                label={`${name ?? t("lanes.unassigned")}: ${t(`columns.${column}`)}`}
+                cards={cardsOf(column, id)}
+                lift={lift}
+              />
             ))}
           </div>
         );

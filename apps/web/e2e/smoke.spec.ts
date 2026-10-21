@@ -142,6 +142,33 @@ test("command palette: Ctrl+K finds Köln by typing “koln”", async ({ page }
   await expect(input).toBeHidden();
 });
 
+test("Board: a card moves to the next column with the keyboard (grip, Space, →, Space) and back with Rückgängig", async ({
+  page,
+}) => {
+  await page.goto("/board?ansicht=spalten&tab=alle&zeitraum=alle");
+  await expect(page.getByRole("heading", { level: 1, name: "Board" })).toBeVisible();
+
+  const from = page.getByRole("region", { name: "Vorbereitung" });
+  const to = page.getByRole("region", { name: "Diese Woche" });
+  const card = from.locator("[data-card]").first();
+  await expect(card).toBeVisible();
+  const id = await card.getAttribute("data-card");
+  expect(id).toBeTruthy();
+
+  const grip = page.locator(`[data-grip="${id}"]`);
+  await grip.focus();
+  await page.keyboard.press("Space");
+  await expect(page.getByRole("status").filter({ hasText: "aufgenommen" }).first()).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Space");
+
+  // Optimistic: the card shows up in the next column at once; the undo toast offers to revert.
+  await expect(to.locator(`[data-card="${id}"]`)).toBeVisible();
+  await expect(from.locator(`[data-card="${id}"]`)).toHaveCount(0);
+  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await expect(from.locator(`[data-card="${id}"]`)).toBeVisible();
+});
+
 test("command palette finds tasks, permits and vehicles by their titles", async ({ page }) => {
   await page.goto("/");
   await page.keyboard.press("Control+k");

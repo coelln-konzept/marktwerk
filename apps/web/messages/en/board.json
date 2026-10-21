@@ -86,12 +86,24 @@
     },
     "card": {
       "actions": "Actions for “{title}”",
-      "grip": "Move “{title}”: Space picks up, arrow keys move, Space drops",
-      "gripHint": "Pick up with Space",
+      "grip": "Move “{title}”",
+      "gripHint": "Drag, or pick up with Space",
       "reopen": "Reopen “{title}”",
       "complete": "Mark “{title}” as done",
       "completeHint": "Mark as done (E)",
       "unassigned": "Unassigned"
+    },
+    "dnd": {
+      "roleDescription": "movable card",
+      "instructions": "Space picks the card up, arrow keys move it, Space drops it, Escape cancels. With a mouse or finger, drag the card straight to its place or onto a person.",
+      "start": "“{title}” picked up.",
+      "moveTo": "“{title}”: column {column}, position {position} of {total}.",
+      "assignTo": "“{title}”: assign to {name}.",
+      "unassignTo": "“{title}”: remove assignment.",
+      "assignMoveTo": "“{title}”: assign to {name}, column {column}, position {position} of {total}.",
+      "unassignMoveTo": "“{title}”: remove assignment, column {column}, position {position} of {total}.",
+      "noDrop": "“{title}”: cannot be dropped here.",
+      "cancelled": "Move cancelled."
     },
     "menu": {
       "open": "Open",
@@ -107,6 +119,8 @@
     "toast": {
       "moved": "“{title}” moved to {column}",
       "assigned": "“{title}” assigned to {name}",
+      "assignedMoved": "“{title}” assigned to {name} and moved to {column}",
+      "unassignedMoved": "Assignment of “{title}” removed, moved to {column}",
       "unassigned": "Assignment of “{title}” removed",
       "done": "“{title}” done",
       "reopened": "“{title}” reopened",
