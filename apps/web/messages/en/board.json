@@ -1,0 +1,170 @@
+{
+  "board": {
+    "title": "Board",
+    "subtitle": "Tasks across all events",
+    "tab": {
+      "open": "{count, plural, one {# open task} other {# open tasks}}"
+    },
+    "columns": {
+      "preparation": "Preparation",
+      "this_week": "This week",
+      "today": "Today",
+      "done": "Done"
+    },
+    "doneRange": "last 14 days",
+    "emptyColumn": "No tasks",
+    "showMore": "Show {count} more",
+    "showLess": "Show fewer",
+    "view": {
+      "label": "View",
+      "spalten": "Columns",
+      "person": "By person",
+      "gruppen": "Grouped",
+      "arbeitslast": "Workload"
+    },
+    "filter": {
+      "label": "Filter tasks",
+      "all": "All",
+      "mine": "Mine",
+      "unassigned": "Unassigned",
+      "category": "Category",
+      "allCategories": "All categories"
+    },
+    "tabs": {
+      "label": "Tasks",
+      "mine": "My tasks",
+      "all": "All",
+      "unassigned": "Unassigned"
+    },
+    "group": {
+      "label": "Group",
+      "by": {
+        "veranstaltung": "By event",
+        "tag": "By day"
+      },
+      "noEvent": "No event",
+      "noDate": "No date",
+      "overdue": "Overdue",
+      "today": "Today"
+    },
+    "horizon": {
+      "label": "Time frame",
+      "woche": "Until Sunday",
+      "14": "14 days",
+      "alle": "Everything"
+    },
+    "empty": {
+      "board": "No tasks yet. Add one with “Task”, or they come from the event's timeline template.",
+      "filtered": "No matches. Reset the filters to see all tasks.",
+      "noStaff": "Your account is not linked to a team member",
+      "noStaffHint": "So there are no “My tasks”. Choose “All” to see all tasks."
+    },
+    "truncated": "There are more tasks than loaded here. Narrow the time frame or the category.",
+    "sum": {
+      "open": "{count, plural, one {# open task} other {# open tasks}}"
+    },
+    "keys": {
+      "title": "Keyboard",
+      "picked": "“{title}” picked up, column {column}, position {position} of {total}. Arrow keys move, Space drops, Escape cancels.",
+      "moved": "“{title}”: column {column}, position {position} of {total}.",
+      "cancelled": "Move cancelled.",
+      "dropped": "“{title}” moved to {column}.",
+      "banner": "“{title}” picked up",
+      "column": "change column",
+      "position": "position",
+      "space": "Space",
+      "drop": "drop",
+      "cancel": "cancel",
+      "pickUp": "Pick up a card (at the handle)",
+      "moveArrows": "Move the card",
+      "dropShort": "Drop the card",
+      "cancelShort": "Cancel moving",
+      "markDone": "Mark done (on the card)",
+      "openMenu": "Action menu (on the card)",
+      "newTask": "New task",
+      "dropHere": "Drop here"
+    },
+    "card": {
+      "actions": "Actions for “{title}”",
+      "grip": "Move “{title}”: Space picks up, arrow keys move, Space drops",
+      "gripHint": "Pick up with Space",
+      "reopen": "Reopen “{title}”",
+      "complete": "Mark “{title}” as done",
+      "completeHint": "Mark as done (E)",
+      "unassigned": "Unassigned"
+    },
+    "menu": {
+      "open": "Open",
+      "assign": "Assign to…",
+      "assignTo": "Assign to",
+      "current": "Current",
+      "unassign": "Assign to nobody",
+      "move": "Move to…",
+      "status": "Status",
+      "reopen": "Reopen",
+      "done": "Done"
+    },
+    "toast": {
+      "moved": "“{title}” moved to {column}",
+      "assigned": "“{title}” assigned to {name}",
+      "unassigned": "Assignment of “{title}” removed",
+      "done": "“{title}” done",
+      "reopened": "“{title}” reopened",
+      "status": "“{title}”: {status}",
+      "reverted": "Undone",
+      "undo": "Undo",
+      "open": "Open"
+    },
+    "errors": {
+      "generic": "That did not work. Please try again.",
+      "not_found": "The task no longer exists or you cannot see it.",
+      "invalid_input": "The input is not valid.",
+      "invalid_status": "That status is not possible.",
+      "invalid_column": "That column does not exist.",
+      "invalid_staff": "This person cannot be assigned.",
+      "invalid_event": "This event is not available.",
+      "invalid_state": "That is not possible in the task's current state.",
+      "reason_required": "Please give a reason.",
+      "evidence_missing": "“{title}” cannot be marked done yet. Missing: {what}.",
+      "not_undoable": "This can no longer be undone.",
+      "conflict": "The task has changed since. Undo is no longer possible."
+    },
+    "rail": {
+      "title": "Team",
+      "week": "Load this week · {week}",
+      "empty": "Nobody has open tasks yet.",
+      "emptyEvent": "Nobody in the team yet and no assigned tasks.",
+      "tasks": "{count, plural, one {# task} other {# tasks}}",
+      "load": "Load of {name}",
+      "unassigned": "Unassigned",
+      "capacityNote": "Load = estimated open hours this week, overdue work included. Capacity = contract hours per week, otherwise 20 hours."
+    },
+    "load": {
+      "ok": "within capacity",
+      "warn": "near the limit",
+      "critical": "overloaded"
+    },
+    "lanes": {
+      "person": "Person",
+      "unassigned": "Unassigned"
+    },
+    "workload": {
+      "title": "Workload · all events",
+      "subtitle": "Estimated open hours per person and calendar week, next 8 weeks",
+      "person": "Person",
+      "capacity": "Capacity / week",
+      "unassigned": "Unassigned",
+      "footnote": "From open tasks with a due date; overdue work counts in the current week. Capacity = contract hours per week, otherwise 20 hours.",
+      "undated": "{count, plural, one {# task without a date is not included.} other {# tasks without a date are not included.}}"
+    },
+    "drawer": {
+      "label": "Task",
+      "notFound": "Task not found",
+      "notFoundHint": "It no longer exists, or you do not have access to it.",
+      "linkHint": "This view can be shared as a link: the address contains the task."
+    }
+  },
+  "drawer": {
+    "close": "Close"
+  }
+}

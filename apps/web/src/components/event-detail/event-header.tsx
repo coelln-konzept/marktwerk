@@ -11,6 +11,7 @@ import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import type { EventDetail } from "@/server/queries/events";
 import { getEventMoney } from "@/server/queries/finance";
+import { eventTaskSummary } from "@/server/queries/tasks";
 import { listVenueOptions } from "@/server/queries/venues";
 import { BasicsDialog } from "./basics-dialog";
 import { BookingMenu } from "./booking-menu";
@@ -22,6 +23,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const t = await getTranslations("eventDetail");
   const tHealth = await getTranslations("health");
   const tMoney = await getTranslations("eventMoney");
+  const tBoard = await getTranslations("board");
   const locale = await getLocale();
   const base = `/veranstaltungen/${event.id}`;
   const multiDay = event.endsOn !== event.startsOn;
@@ -45,6 +47,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
         sr: `${tMoney("tab.summary", { paid: money.summary.installmentsPaid, total: money.summary.installmentsTotal })}, ${tHealth(money.summary.health)}`,
       }
     : undefined;
+  const tasks = await eventTaskSummary(actor, event.id, todayIn());
   const BookingIcon = event.bookingOpen ? BOOKING_FLAG_ICONS.open : BOOKING_FLAG_ICONS.notOpen;
 
   const dateLine = multiDay
@@ -68,7 +71,16 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   });
   const tabs: EventTab[] = [
     { key: "overview", href: base, label: t("tabs.overview") },
-    { key: "board", href: `${base}/board`, label: t("tabs.board"), hint: milestone("M2") },
+    {
+      key: "board",
+      href: `${base}/board`,
+      label: t("tabs.board"),
+      count: {
+        text: String(tasks.open),
+        level: tasks.health ?? undefined,
+        sr: `${tBoard("tab.open", { count: tasks.open })}${tasks.health ? `, ${tHealth(tasks.health)}` : ""}`,
+      },
+    },
     {
       key: "permits",
       href: `${base}/genehmigungen`,
