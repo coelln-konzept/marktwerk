@@ -142,6 +142,14 @@ export function ShiftRowEditor({
     });
   }
 
+  /** Enter in a time field saves the row (quick entry). */
+  function onEnter(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter" && dirty && !pending) {
+      event.preventDefault();
+      submit();
+    }
+  }
+
   function changeStatus() {
     if (!newStatus) return;
     if (statusReason.trim().length < 3) {
@@ -256,6 +264,7 @@ export function ShiftRowEditor({
                     const v = normalizeClockTime(e.target.value);
                     if (v) setStart(v);
                   }}
+                  onKeyDown={onEnter}
                   className={TIME_INPUT}
                 />
               </Label>
@@ -273,6 +282,7 @@ export function ShiftRowEditor({
                     const v = normalizeClockTime(e.target.value);
                     if (v) setEnd(v);
                   }}
+                  onKeyDown={onEnter}
                   className={TIME_INPUT}
                 />
               </Label>

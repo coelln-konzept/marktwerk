@@ -21,6 +21,7 @@ import {
   listContracts,
   listShiftRows,
   loadMonthFigures,
+  loadShiftList,
 } from "@/server/queries/hours";
 import { type ContractInput, ContractInputError, saveContract } from "@/server/services/contracts";
 import { createEventsFromPreset } from "@/server/services/events";
@@ -143,6 +144,32 @@ describe("contracts", () => {
     const updates = await db.select().from(auditLog).where(eq(auditLog.action, "contract.update"));
     expect(updates).toHaveLength(1);
     expect(updates[0]?.diff).toMatchObject({ before: { contractedHoursPerWeek: 10 } });
+  });
+
+  it("a new contract can end the open one the day before", async () => {
+    const { id } = await saveContract(owner, cat.staff.anna.id, minijob());
+    await expect(
+      saveContract(
+        owner,
+        cat.staff.anna.id,
+        minijob({ validFrom: "2026-07-01", hourlyRateCents: 1450 }),
+      ),
+    ).rejects.toMatchObject({ code: "overlap" });
+    await saveContract(
+      owner,
+      cat.staff.anna.id,
+      minijob({ validFrom: "2026-07-01", hourlyRateCents: 1450 }),
+      undefined,
+      { endPrevious: true },
+    );
+    const [first] = await db.select().from(employmentContract).where(eq(employmentContract.id, id));
+    expect(first?.validUntil).toBe("2026-06-30");
+    expect((await listContracts(cat.staff.anna.id)).map((c) => c.validUntil)).toEqual([
+      null,
+      "2026-06-30",
+    ]);
+    const updates = await db.select().from(auditLog).where(eq(auditLog.action, "contract.update"));
+    expect(updates[0]?.diff).toMatchObject({ after: { validUntil: "2026-06-30" } });
   });
 
   it("allows contracts of different people at the same time", async () => {
@@ -468,6 +495,24 @@ describe("warnings", () => {
     expect(red?.minijob?.history.previousOverrunMonths).toBe(2);
     expect(red?.minijob?.status.level).toBe("red");
     expect(red?.minijob?.status.reasons).toContain("too_many_overrun_months");
+  });
+
+  it("gives the forms a live context, also for people without a shift yet", async () => {
+    await saveContract(owner, cat.staff.ben.id, minijob());
+    await createShift(owner, shiftInput(), { today: TODAY });
+    const list = await loadShiftList(owner, { from: "2026-11-01", to: "2026-11-30" }, TODAY, {
+      people: [cat.staff.ben.id],
+      months: ["2026-11-01"],
+    });
+    expect(list.live.params?.limitCents).toBe(60_300);
+    expect(list.live.limits.maxDailyMinutes).toBe(600);
+    expect(list.live.people[cat.staff.anna.id]?.spans).toHaveLength(1);
+    expect(list.live.people[cat.staff.ben.id]?.spans).toEqual([]);
+    expect(list.live.people[cat.staff.ben.id]?.minijob["2026-11-01"]).toMatchObject({
+      rateCents: 1390,
+      grossCents: 0,
+      hourly: true,
+    });
   });
 
   it("takes the limit from legal_parameter for the month in question", async () => {

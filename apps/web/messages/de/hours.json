@@ -57,6 +57,7 @@
         "person": "Person",
         "hours": "Σ h",
         "earnings": "Verdienst",
+        "ytd": "Seit Jan.",
         "limit": "bis {limit}",
         "limitPlain": "Grenze",
         "overruns": "Überschr.",

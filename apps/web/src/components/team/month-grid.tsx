@@ -90,7 +90,7 @@ export async function MonthGrid({
                       </th>
                     );
                   })}
-                  <th colSpan={5} />
+                  <th colSpan={6} />
                 </tr>
                 <tr className="border-b">
                   <th
@@ -131,6 +131,12 @@ export async function MonthGrid({
                     className="px-3 py-1 text-right font-semibold text-muted-foreground text-tiny"
                   >
                     {t("cols.earnings")}
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-3 py-1 text-right font-semibold text-muted-foreground text-tiny"
+                  >
+                    {t("cols.ytd")}
                   </th>
                   <th
                     scope="col"
@@ -262,6 +268,9 @@ export async function MonthGrid({
                       <td className={cn("tabular px-3 text-right font-semibold", money)}>
                         {formatMoney(row.month.grossCents, locale)}
                       </td>
+                      <td className="tabular px-3 text-right text-muted-foreground">
+                        {mj ? formatMoney(mj.ytdCents, locale) : "–"}
+                      </td>
                       <td className="px-3">
                         {mj ? (
                           <div className="flex flex-col gap-1">
@@ -356,7 +365,7 @@ export async function MonthGrid({
                     {formatNumber(totalMinutes / 60, locale, 2)}
                   </td>
                   <td className="tabular px-3 text-right">{formatMoney(totalCents, locale)}</td>
-                  <td colSpan={3} />
+                  <td colSpan={4} />
                 </tr>
               </tfoot>
             </table>

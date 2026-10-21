@@ -57,6 +57,7 @@
         "person": "Person",
         "hours": "Σ h",
         "earnings": "Earnings",
+        "ytd": "YTD",
         "limit": "up to {limit}",
         "limitPlain": "Limit",
         "overruns": "Overruns",

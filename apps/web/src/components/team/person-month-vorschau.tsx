@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Avatar } from "@/components/ui/avatar";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
-import { formatDateShort, formatHours, formatMoney, formatNumber } from "@/lib/format";
+import { formatDateShort, formatHours, formatMoney, formatMonth, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Actor } from "@/server/actor";
 import type { MonthFigures, ShiftRow } from "@/server/queries/hours";
@@ -45,7 +45,7 @@ export async function PersonMonthVorschau({
 
   return (
     <Vorschau
-      kind={t("kind", { month: month.slice(0, 7) })}
+      kind={t("kind", { month: formatMonth(month, locale) })}
       title={row.displayName}
       closeHref={closeHref}
       badges={<PersonStatusBadge level={level} />}
@@ -210,7 +210,7 @@ export async function PersonMonthVorschau({
 
       <section aria-labelledby="pv-shifts" className="flex flex-col gap-1.5">
         <h3 id="pv-shifts" className="font-semibold text-muted-foreground text-tiny">
-          {t("shifts", { month: month.slice(0, 7) })}
+          {t("shifts", { month: formatMonth(month, locale) })}
         </h3>
         {shifts.length === 0 ? (
           <p className="m-0 text-faint-foreground">{t("noShifts")}</p>
