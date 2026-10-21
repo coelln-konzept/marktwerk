@@ -73,11 +73,11 @@ export function formatNumber(value: number, locale: string, maximumFractionDigit
 }
 
 /** Today's business date in the company's time zone. */
-export function todayIn(timeZone = "Europe/Berlin"): string {
+export function todayIn(timeZone = "Europe/Berlin", now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(now);
 }
