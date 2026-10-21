@@ -217,6 +217,16 @@ erDiagram
   task, employment contract, payroll period; a check requires at least one) instead of a link table: nothing
   references `document`, so no import cycle; links are `restrict` (evidence outlives the record). Extra kind
   `export`; `storage_key` unique; `sha256` checked as 64 hex; soft delete = `archived_at` + `archived_by` + reason.)*
+  *(implemented M5, service rules: a payable's non-cancelled instalments add up to its total (checked in
+  `services/payables.ts`); paying adds up part payments (`paid_amount_cents` is cumulative, never above the rate);
+  cancelling a rate does not change the total. **Event budget:** committed = non-cancelled instalments of the event's
+  payables + its expenses, actual = paid amounts + expenses, variance = plan − committed; `venue_season` payables are
+  not in the category totals but listed with this event's share (total ÷ non-cancelled events at the venue that season).
+  **"Beleg fehlt":** a paid or part-paid rate or an expense with no live document of kind receipt/invoice/e_invoice_xml
+  on it (for a rate: on the rate or on its payable). Files live in the storage driver under
+  `<sha-prefix>/<sha256>-<document id>.<ext>`; uploads are checked by magic numbers (PDF/JPEG/PNG/HEIC, XML only as
+  e-invoice), max 15 MB. Reminders: `installment_due` at 14 d / 3 d / due day / overdue to everyone with `finance:read`
+  and a login (dedupe `installment:<id>:<stage>:<due>`), critical overdue also `escalated` to the manager.)*
 
 ### Company tab: obligations & vehicles (M6)
 - **vehicle**: plate, model, VIN, first registration, `gross_weight_kg` (→ HU interval), odometer, insurer,

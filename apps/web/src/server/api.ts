@@ -13,6 +13,20 @@ export async function apiActor(): Promise<Actor | Response> {
   return getActor();
 }
 
+/**
+ * Writing requests must come from our own pages: when the browser names an Origin, its host has to be
+ * the host the request was sent to (belt and braces on top of the SameSite session cookie).
+ */
+export function isSameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === (request.headers.get("host") ?? new URL(request.url).host);
+  } catch {
+    return false;
+  }
+}
+
 /** `forbidden()` from a service throws this digest. */
 export function isForbiddenError(error: unknown): boolean {
   return (

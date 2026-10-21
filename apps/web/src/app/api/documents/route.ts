@@ -1,5 +1,5 @@
 import { DOCUMENT_MAX_BYTES } from "@marktwerk/core";
-import { apiActor, forbiddenResponse, isForbiddenError } from "@/server/api";
+import { apiActor, forbiddenResponse, isForbiddenError, isSameOrigin } from "@/server/api";
 import { createDocument, DocumentInputError } from "@/server/services/documents";
 
 /** Status per error code; everything else is a plain 400. */
@@ -17,6 +17,7 @@ const STATUS: Record<string, number> = {
  * (Content-Length) and again on the bytes; the type by magic numbers, not by the file name.
  */
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) return forbiddenResponse();
   const actor = await apiActor();
   if (actor instanceof Response) return actor;
 
