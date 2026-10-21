@@ -26,6 +26,7 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { instantiateTemplatesForEvents } from "./task-instantiation";
+import { fillLogbookForEvents } from "./permits";
 
 /** At most this many events per run (a full season of one preset is ~10). */
 export const MAX_DATES_PER_RUN = 60;
@@ -152,6 +153,8 @@ export async function instantiateEvents(
     actor,
     created.map((c) => c.id),
   );
+  await fillLogbookForEvents(
+  ); // M3: permits for the new events
   await audit(
     tx,
     actor.id,

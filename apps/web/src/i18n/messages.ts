@@ -25,6 +25,8 @@ export const MESSAGE_AREAS = [
   "hours",
   "board",
   "tasks",
+  "permits",
+  "notifications",
 ] as const;
 
 export async function loadMessages(locale: Locale): Promise<Record<string, unknown>> {

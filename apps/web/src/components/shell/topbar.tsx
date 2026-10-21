@@ -93,7 +93,7 @@ function NewMenu() {
 }
 
 /** Breadcrumb · visible search field (opens the palette, Ctrl+K) · "+ Neu" · notifications. */
-export function Topbar({ crumbs }: { crumbs: Crumb[] }) {
+export function Topbar({ crumbs, bell }: { crumbs: Crumb[]; bell?: React.ReactNode }) {
   const t = useTranslations("topbar");
   const { setNavOpen, setPaletteOpen, canCreateEvents } = useShell();
   return (
@@ -153,13 +153,15 @@ export function Topbar({ crumbs }: { crumbs: Crumb[] }) {
         <Search className="size-4" />
       </button>
       {canCreateEvents && <NewMenu />}
-      <Link
-        href="/benachrichtigungen"
-        aria-label={t("notifications")}
-        className="relative grid size-8 place-items-center rounded-lg hover:bg-hover"
-      >
-        <Bell className="size-4" />
-      </Link>
+      {bell ?? (
+        <Link
+          href="/benachrichtigungen"
+          aria-label={t("notifications")}
+          className="relative grid size-8 place-items-center rounded-lg hover:bg-hover"
+        >
+          <Bell className="size-4" />
+        </Link>
+      )}
     </header>
   );
 }

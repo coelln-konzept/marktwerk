@@ -8,7 +8,9 @@ import type finance from "../../messages/de/finance.json";
 import type generate from "../../messages/de/generate.json";
 import type hours from "../../messages/de/hours.json";
 import type kalender from "../../messages/de/kalender.json";
+import type notifications from "../../messages/de/notifications.json";
 import type overview from "../../messages/de/overview.json";
+import type permits from "../../messages/de/permits.json";
 import type settings from "../../messages/de/settings.json";
 import type shell from "../../messages/de/shell.json";
 import type tasksTemplates from "../../messages/de/tasks-templates.json";
@@ -39,6 +41,8 @@ type Messages = typeof shell &
   typeof hours;
   typeof board &
   typeof tasks;
+  typeof permits &
+  typeof notifications;
 
 declare module "next-intl" {
   interface AppConfig {

@@ -1,10 +1,12 @@
 import "server-only";
-import { type HealthDimensions, teamHealth } from "@marktwerk/core";
+import { type HealthDimensions, type HealthLevel, teamHealth } from "@marktwerk/core";
 import { dutyRole, event, eventDuty, eventType, staffMember, venue } from "@marktwerk/db/schema";
 import { and, asc, count, eq, gte, lte, ne, type SQL, sql } from "drizzle-orm";
 import { cache } from "react";
+import { todayIn } from "@/lib/format";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
+import { permitHealthByEvent } from "./permits";
 
 export type EventStatusKey = (typeof event.status.enumValues)[number];
 
@@ -65,13 +67,22 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
     .innerJoin(venue, eq(venue.id, event.venueId))
     .where(where(actor, filters))
     .orderBy(asc(event.startsOn), asc(event.name));
-  return rows.map((r) => ({ ...r, health: healthOf(r.status, r.duties, required) }));
+  const permitHealth = await permitHealthByEvent(rows, todayIn());
+  return rows.map((r) => ({
+    ...r,
+    health: healthOf(r.status, r.duties, required, permitHealth.get(r.id) ?? null),
+  }));
 }
 
-function healthOf(status: EventStatusKey, duties: number, required: number): HealthDimensions {
+function healthOf(
+  status: EventStatusKey,
+  duties: number,
+  required: number,
+  permits: HealthLevel | null = null,
+): HealthDimensions {
   const past = status === "completed" || status === "closed" || status === "cancelled";
   return {
-    permits: null,
+    permits: past ? null : permits,
     tasks: null,
     team: past ? null : teamHealth(duties, required),
     money: null,
@@ -157,7 +168,12 @@ export const getEvent = cache(async (actor: Actor, id: string) => {
     anchors,
     duties,
     preset: preset ?? null,
-    health: healthOf(found.status, assigned, required),
+    health: healthOf(
+      found.status,
+      assigned,
+      required,
+      (await permitHealthByEvent([{ id, startsOn: found.startsOn }], todayIn())).get(id) ?? null,
+    ),
   };
 });
 

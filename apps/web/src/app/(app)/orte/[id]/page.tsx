@@ -8,6 +8,7 @@ import { AgreementsSection } from "@/components/agreements/agreements-section";
 import { VenueKindBadge } from "@/components/catalogue/kinds";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
 import { EventStatusBadge } from "@/components/events/event-status";
+import { RequirementsSection } from "@/components/permits/requirements-section";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
@@ -340,6 +341,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
       </div>
 
       <AgreementsSection venueId={id} />
+      <RequirementsSection venueId={id} />
     </Page>
   );
 }
