@@ -814,8 +814,8 @@ export async function calendarItems(
   actor: Actor,
   from: string,
   to: string,
+  today: string = berlinDay(new Date()),
 ): Promise<CalendarItem[]> {
-  const today = berlinDay(new Date());
   const start = resolveRelativeDue(from, 0, "00:00");
   const end = resolveRelativeDue(addDays(to, 1), 0, "00:00");
   const rows = await db
