@@ -48,6 +48,23 @@
    S3 provider? (decided in the M0.5 spike unless you have a preference)
 3. **WhatsApp (Phase 2):** which phone sends? Is there a works council (Betriebsrat)?
 
+## Assumed during the Phase 1 integration (confirm or change)
+1. **"Heute fällig" order:** overdue, then today, then this week; inside a group permits > instalments (money) >
+   tasks > hours > obligations, then oldest date first (`packages/core/src/deadlines/due-ranking.ts`). The list shows
+   20 rows with "Alle anzeigen".
+2. **Event health:** tasks (core `taskHealth`) and money (`eventMoneyHealth`) join permits and team. Finished events keep
+   only the money dimension (rates can still be open); cancelled ones have none.
+3. **Kalender module layers** are all on by default; "Märkte + Genehmigungen" = Flohmarkt + Antikmarkt + permits.
+   "Nur Achtung und Kritisch" also filters the deadline layers; "Nur meine Zuständigkeit" also limits tasks to the
+   person's own. The layer "Arbeitszeiten & Abschluss" is not built (the payroll deadline shows in Heute fällig only).
+4. **Obligation with "Zahlung beim Erledigen":** completing it with a cost creates a payable with one rate, due on the
+   completion date but never in the past (so: today). Without a cost nothing is created. Undo removes it unless a rate
+   was paid or a document is attached.
+5. **Task evidence:** a document of kind "Foto" on the task is the photo, a document of any other kind the attachment;
+   both now block "Erledigt" when the task requires them.
+6. **Season strip workload** (estimated hours, capacity, hiring signal) is shown to roles with `team:read` (owner,
+   manager); staff and field see only the event counts.
+
 ## Open: client (next meeting / workshop)
 **Timeline workshop (top priority, feeds M2)**
 - Per event type: what happens 6 months / 2 months / 2 weeks / 1 week before, on the day, after? Who does it?

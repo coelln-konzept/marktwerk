@@ -6,7 +6,7 @@ import { ToastRegion } from "@/components/shell/toast-region";
 import { type Creatable, creatableFor } from "@/lib/creatable";
 import { getActor } from "@/server/actor";
 import { getDisplayPreferences } from "@/server/preferences";
-import type { SearchHit } from "@/server/search";
+import type { SearchHit } from "@/server/search-core";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const actor = await getActor();

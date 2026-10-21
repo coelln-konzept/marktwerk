@@ -19,7 +19,8 @@ import { useTranslations } from "next-intl";
 import { useEffect, useId, useState, useTransition } from "react";
 import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
-import { type SearchHit, searchEverything } from "@/server/search";
+import { searchEverything } from "@/server/search";
+import type { SearchHit } from "@/server/search-core";
 import { useShell } from "./shell-context";
 
 const ICONS = {
