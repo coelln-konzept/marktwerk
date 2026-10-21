@@ -1,0 +1,42 @@
+{
+  "contacts": {
+    "title": "Contacts",
+    "subtitle": "{count, plural, one {# contact} other {# contacts}} · authorities, landowners, suppliers and service providers",
+    "search": "Name, contact person or city",
+    "caption": "Contacts",
+    "all": "All",
+    "kindsLabel": "Contact type",
+    "kinds": {
+      "authority": "Authority",
+      "landowner": "Landowner",
+      "supplier": "Supplier",
+      "service": "Service provider",
+      "other": "Other"
+    },
+    "cols": {
+      "name": "Name",
+      "kind": "Type",
+      "person": "Contact person",
+      "phone": "Phone",
+      "email": "Email",
+      "city": "City",
+      "notes": "Notes",
+      "actions": "Actions"
+    },
+    "emptyFiltered": "No contacts match these filters.",
+    "resetFilters": "Reset filters",
+    "preview": "Preview: {name}",
+    "keys": "Space: preview · J/K: next/previous row",
+    "none": "–",
+    "vorschau": {
+      "kind": "Contact",
+      "person": "Contact person",
+      "phone": "Phone",
+      "email": "Email",
+      "address": "Address",
+      "notes": "Notes",
+      "venues": "Venues where this contact is the landowner",
+      "noVenues": "Not recorded as landowner of any venue."
+    }
+  }
+}

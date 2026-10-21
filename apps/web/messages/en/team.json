@@ -1,0 +1,52 @@
+{
+  "team": {
+    "title": "Team",
+    "subtitle": "{people, plural, one {# person} other {# people}} · {logins} with login",
+    "tabsLabel": "Team sections",
+    "tabs": {
+      "people": "People",
+      "hours": "Hours",
+      "shifts": "Shifts",
+      "soon": "from M4"
+    },
+    "caption": "People on the team",
+    "cols": {
+      "person": "Name",
+      "duties": "Duties",
+      "login": "Login",
+      "phone": "Phone",
+      "email": "Email",
+      "defaultFor": "Default for",
+      "upcoming": "Upcoming events",
+      "status": "Status"
+    },
+    "noLogin": "no login",
+    "noValue": "–",
+    "active": "active",
+    "inactive": "inactive",
+    "preview": "Preview {name}",
+    "keys": "J/K: move row · Space: preview",
+    "dutiesPanel": {
+      "title": "Duties",
+      "hint": "Default person per duty. Suggested for new events.",
+      "none": "no default person",
+      "caption": "Duties and their default people"
+    },
+    "vorschau": {
+      "kind": "Person",
+      "contact": "Contact",
+      "phone": "Phone",
+      "email": "Email",
+      "notes": "Notes",
+      "duties": "Duties",
+      "defaultFor": "Default for",
+      "login": "Login",
+      "nextEvents": "Next events",
+      "noEvents": "No upcoming events.",
+      "noDuties": "No preferred duties.",
+      "noNotes": "No notes.",
+      "upcomingCount": "{count, plural, =0 {no upcoming events} one {# upcoming event} other {# upcoming events}}"
+    },
+    "empty": "No people yet."
+  }
+}

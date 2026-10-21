@@ -1,0 +1,72 @@
+{
+  "generate": {
+    "title": "Aus Vorlage erzeugen",
+    "close": "Schließen",
+    "steps": "Schritte",
+    "step1": "Vorlage",
+    "step2": "Termine",
+    "step3": "Vorschau",
+    "choosePreset": "Welche Vorlage?",
+    "mode": "Auswahl",
+    "modes": {
+      "click": "Einzeln anklicken",
+      "rule": "Regel"
+    },
+    "prevMonths": "Frühere Monate",
+    "nextMonths": "Spätere Monate",
+    "rule": {
+      "every": "jeden",
+      "position": "Welcher",
+      "last": "letzten",
+      "weekday": "Wochentag",
+      "from": "von",
+      "to": "bis",
+      "fromMonth": "Erster Monat",
+      "toMonth": "Letzter Monat",
+      "year": "Jahr",
+      "apply": "Übernehmen"
+    },
+    "weekShort": "KW",
+    "weekdaysShort": "Mo,Di,Mi,Do,Fr,Sa,So",
+    "weekdaysLong": "Sonntag,Montag,Dienstag,Mittwoch,Donnerstag,Freitag,Samstag",
+    "chosen": "{n} gewählt",
+    "legend": {
+      "selected": "gewählt",
+      "holiday": "Feiertag NRW",
+      "venueBusy": "Ort bereits belegt",
+      "weekendFull": "schon 3+ Veranstaltungen am Wochenende"
+    },
+    "shiftHint": "+ Klick: gleiche Wochentage dazwischen",
+    "summary": "{count, plural, =0 {Noch keine Termine gewählt} one {# Termin gewählt} other {# Termine gewählt}}",
+    "warningsCount": "{count, plural, one {# Hinweis} other {# Hinweise}}",
+    "previewIntro": "{name} · {venue}. Neue Veranstaltungen starten als Entwurf.",
+    "cols": {
+      "date": "Datum",
+      "week": "KW",
+      "notes": "Hinweise",
+      "remove": "Entfernen"
+    },
+    "warn": {
+      "holiday": "{name} (Feiertag)",
+      "weekend": "{n}. Veranstaltung an diesem Wochenende",
+      "venue": "Ort belegt: {name}",
+      "overlap": "überschneidet sich mit einem anderen gewählten Termin",
+      "none": "keine Hinweise"
+    },
+    "remove": "{date} entfernen",
+    "previewNote": "Hinweise blockieren nichts: du entscheidest. Aufgaben aus Ablaufvorlagen kommen mit M2, Genehmigungen mit M3 dazu.",
+    "back": "Zurück",
+    "next": "Weiter",
+    "create": "{count, plural, one {# Veranstaltung anlegen} other {# Veranstaltungen anlegen}}",
+    "creating": "Wird angelegt …",
+    "created": "{count, plural, one {# Veranstaltung angelegt} other {# Veranstaltungen angelegt}}",
+    "undo": "Rückgängig",
+    "errors": {
+      "no_dates": "Bitte mindestens einen Termin wählen.",
+      "too_many_dates": "Zu viele Termine auf einmal (höchstens 60).",
+      "invalid_date": "Ein Datum ist ungültig.",
+      "preset_not_found": "Die Vorlage gibt es nicht mehr oder sie ist inaktiv.",
+      "invalid_selection": "Auswahl ungültig."
+    }
+  }
+}

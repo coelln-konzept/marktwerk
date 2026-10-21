@@ -36,9 +36,10 @@ settled in the docs/ADRs. Log answers in `docs/open-questions.md` (Decided table
 - Legal numbers (minimum wage, Minijob limit, inspection intervals) come from the `legal_parameter` table.
 - No AI features in operational flows (ADR 0014). Payment reminders are sent by a person.
 - Template changes never propagate automatically (deliberate action, nothing pre-selected).
-- UI follows `docs/product/ux-concept.md`: every view is registered once and works as a page (own URL) and as a
-  workspace pane (ADR 0018); status = colour + icon + text; every drag has a menu/keyboard alternative; undo
-  toasts over confirmation dialogs; neutral German wording, "du" where needed; German formats incl. KW.
+- UI follows `docs/product/ux-concept.md`: classic screens (ADR 0019): every view is a page with its own URL;
+  Vorschau and detail drawers keep context and are linkable; status = colour + icon + text; every drag has a
+  menu/keyboard alternative; undo toasts over confirmation dialogs; neutral German wording, "du" where needed;
+  German formats incl. KW.
 - Money in integer cents, lengths in integer centimetres, instants as `timestamptz`, event days and due dates as `date`
   in `Europe/Berlin`.
 - Never edit applied migrations; generate new ones.

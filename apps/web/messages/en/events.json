@@ -1,0 +1,52 @@
+{
+  "events": {
+    "subtitle": "Season {season} · {count} dates · {planned} planned (permit pending)",
+    "generate": "Generate from preset",
+    "search": "Name or venue",
+    "season": "Season",
+    "seasonOption": "Season {season}",
+    "status": "Status",
+    "statusActive": "All except cancelled",
+    "statusAll": "All",
+    "statusOnly": "Only: {status}",
+    "view": "View",
+    "views": {
+      "liste": "List",
+      "kalender": "Calendar"
+    },
+    "types": "Event type",
+    "all": "All",
+    "emptyFiltered": "No events match these filters.",
+    "resetFilters": "Reset filters",
+    "caption": "Events of season {season}",
+    "cols": {
+      "week": "CW",
+      "date": "Date",
+      "event": "Event",
+      "type": "Type",
+      "venue": "Venue",
+      "status": "Status",
+      "health": "Health",
+      "effort": "Effort",
+      "actions": "Actions"
+    },
+    "preview": "Preview: {name}",
+    "legend": "Health: permits · tasks · team · money (● on track ▲ attention ■ critical ○ not yet tracked). Permits from M3, tasks and effort from M2, money from M5.",
+    "keys": "Space: preview · Enter: open · J/K: next/previous row",
+    "weekendFlag": "⚑ Weekend with 4+ events"
+  },
+  "eventPage": {
+    "kind": "Event",
+    "facts": {
+      "date": "Date",
+      "venue": "Venue",
+      "times": "Times",
+      "timesValue": "Setup {setup} · {open}–{close} · teardown {teardown}",
+      "team": "Team",
+      "teamValue": "{assigned} of {total} duties staffed",
+      "price": "Stall price",
+      "cutoff": "Booking cut-off",
+      "health": "Health"
+    }
+  }
+}

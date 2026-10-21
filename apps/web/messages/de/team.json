@@ -1,0 +1,52 @@
+{
+  "team": {
+    "title": "Team",
+    "subtitle": "{people, plural, one {# Person} other {# Personen}} · {logins} mit Login",
+    "tabsLabel": "Team-Bereiche",
+    "tabs": {
+      "people": "Personen",
+      "hours": "Stunden",
+      "shifts": "Schichten",
+      "soon": "ab M4"
+    },
+    "caption": "Personen im Team",
+    "cols": {
+      "person": "Name",
+      "duties": "Zuständigkeiten",
+      "login": "Login",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "defaultFor": "Standard für",
+      "upcoming": "Veranstaltungen kommend",
+      "status": "Status"
+    },
+    "noLogin": "kein Login",
+    "noValue": "–",
+    "active": "aktiv",
+    "inactive": "inaktiv",
+    "preview": "Vorschau für {name}",
+    "keys": "J/K: Zeile wechseln · Leertaste: Vorschau",
+    "dutiesPanel": {
+      "title": "Zuständigkeiten",
+      "hint": "Standardperson je Zuständigkeit. Sie wird bei neuen Veranstaltungen vorgeschlagen.",
+      "none": "keine Standardperson",
+      "caption": "Zuständigkeiten und ihre Standardpersonen"
+    },
+    "vorschau": {
+      "kind": "Person",
+      "contact": "Kontakt",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "notes": "Notizen",
+      "duties": "Zuständigkeiten",
+      "defaultFor": "Standard für",
+      "login": "Login",
+      "nextEvents": "Nächste Veranstaltungen",
+      "noEvents": "Keine kommenden Veranstaltungen.",
+      "noDuties": "Keine bevorzugten Zuständigkeiten.",
+      "noNotes": "Keine Notizen.",
+      "upcomingCount": "{count, plural, =0 {keine kommenden Veranstaltungen} one {# kommende Veranstaltung} other {# kommende Veranstaltungen}}"
+    },
+    "empty": "Noch keine Personen angelegt."
+  }
+}

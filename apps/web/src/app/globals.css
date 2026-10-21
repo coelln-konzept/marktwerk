@@ -1,79 +1,156 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
-/* shadcn/ui neutral theme tokens (base-nova). Adjust brand colours here only. */
-:root {
-  --radius: 0.5rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  /* status colours used across markets, tasks and permits */
-  --status-ok: oklch(0.63 0.17 149);
-  --status-warn: oklch(0.8 0.16 86);
-  --status-critical: oklch(0.6 0.22 27);
-  --status-info: oklch(0.6 0.15 250);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+/*
+ * marktwerk design tokens, extracted from the Claude Design prototype (direction A,
+ * docs/design/claude-design/a-classic/). Change colours here only.
+ *
+ * Theme: <html data-theme="light|dark|system">. Every colour is a light-dark() pair, so the
+ * three modes share one definition; `color-scheme` picks the side.
+ * Density: <html data-density="standard|compact">. 4 px grid throughout.
+ */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) {
+      @slot;
+    }
+  }
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+
+  /* Neutral, slightly warm base */
+  --background: light-dark(#f7f6f3, #141412);
+  --foreground: light-dark(#1c1b19, #edebe6);
+  --foreground-2: light-dark(#55524c, #bab6ae);
+  --muted-foreground: light-dark(#6b675f, #a29d95);
+  --faint-foreground: light-dark(#8e8a82, #7f7a72);
+  --card: light-dark(#ffffff, #1d1c1a);
+  --card-foreground: var(--foreground);
+  --surface-2: light-dark(#fbfaf8, #232220);
+  --sunken: light-dark(#f0eeea, #191817);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --border: light-dark(#e6e3dd, #35332f);
+  --border-subtle: light-dark(#efede8, #2b2a27);
+  --input: light-dark(#d9d5ce, #46433e);
+  --hover: light-dark(#f3f1ec, #272623);
+  --selected: light-dark(#eaf3f3, #1c3437);
+  --scrim: light-dark(rgb(28 27 25 / 0.32), rgb(0 0 0 / 0.55));
+  --shadow-color: light-dark(rgb(28 27 25 / 0.14), rgb(0 0 0 / 0.5));
+
+  /* One accent (teal) */
+  --primary: light-dark(#0e5a62, #5db7be);
+  --primary-hover: light-dark(#0a4a51, #78c7cd);
+  --primary-foreground: light-dark(#ffffff, #0b1f21);
+  --accent: var(--hover);
+  --accent-foreground: var(--foreground);
+  --accent-soft: light-dark(#e6f0f0, #173a3d);
+  --accent-soft-foreground: light-dark(#0e5a62, #7ccbd1);
+  --ring: var(--primary);
+  --secondary: var(--sunken);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--sunken);
+
+  /* Status: text colour (fg), badge surface (bg), dot/bar/icon colour (dot). Always with icon + text. */
+  --status-ok: light-dark(#1b6b36, #86d9a0);
+  --status-ok-bg: light-dark(#e4f3e8, #16301e);
+  --status-ok-dot: light-dark(#2e9b50, #4cc173);
+  --status-warn: light-dark(#8a4b00, #f2c26e);
+  --status-warn-bg: light-dark(#fdf0d9, #382910);
+  --status-warn-dot: light-dark(#e0951a, #e8a93a);
+  --status-critical: light-dark(#a3201a, #ff9c90);
+  --status-critical-bg: light-dark(#fbe5e2, #3c1915);
+  --status-critical-dot: light-dark(#c42a1f, #f0645a);
+  --status-neutral: light-dark(#55524c, #c2bdb4);
+  --status-neutral-bg: light-dark(#eeece8, #2c2b28);
+  --status-neutral-dot: light-dark(#9c978f, #8e8a82);
+  --status-info: light-dark(#1a4f96, #95bef6);
+  --status-info-bg: light-dark(#e3ecf9, #172842);
+  --status-info-dot: light-dark(#2f6fd0, #5e95e6);
+  /* "waiting / applied" (Wartet, Beantragt, geplant) */
+  --status-waiting: light-dark(#5b3a98, #c9aef5);
+  --status-waiting-bg: light-dark(#eee8f8, #2b2140);
+  --status-waiting-dot: light-dark(#7b57c2, #a383e0);
+  --destructive: var(--status-critical-dot);
+
+  /* Event types: muted identity colours, never used for status */
+  --type-flea: light-dark(#8e3a5c, #eba2c1);
+  --type-flea-bg: light-dark(#f6e7ed, #3a2030);
+  --type-antique: light-dark(#6b4c2c, #ddbc92);
+  --type-antique-bg: light-dark(#f1e8dc, #33281b);
+  --type-city-festival: light-dark(#3b4b86, #aebbf0);
+  --type-city-festival-bg: light-dark(#e8ebf5, #232a42);
+  --type-food-wine: light-dark(#56632a, #c8d584);
+  --type-food-wine-bg: light-dark(#edf0dc, #2a2f17);
+
+  /* Shell */
+  --sidebar: var(--sunken);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-accent: var(--hover);
+  --sidebar-border: var(--border);
+  --toast: light-dark(#1c1b19, #edebe6);
+  --toast-foreground: light-dark(#ffffff, #1c1b19);
+  --toast-action: light-dark(#9fd9de, #0e5a62);
+
+  /* Density: Standard */
+  --row-h: 40px;
+  --cell-y: 8px;
+  --fs-body: 14px;
+  --fs-small: 13px;
+  --fs-tiny: 12px;
+  --control-h: 36px;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+[data-theme="system"] {
+  color-scheme: light dark;
+}
+
+[data-density="compact"] {
+  --row-h: 32px;
+  --cell-y: 4px;
+  --fs-body: 13px;
+  --fs-small: 12px;
+  --fs-tiny: 11.5px;
+  --control-h: 30px;
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+  --text-body: var(--fs-body);
+  --text-small: var(--fs-small);
+  --text-tiny: var(--fs-tiny);
+  --spacing-row: var(--row-h);
+  --spacing-control: var(--control-h);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-foreground-2: var(--foreground-2);
+  --color-faint-foreground: var(--faint-foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-surface-2: var(--surface-2);
+  --color-sunken: var(--sunken);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -81,25 +158,83 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-foreground: var(--accent-soft-foreground);
+  --color-hover: var(--hover);
+  --color-selected: var(--selected);
+  --color-scrim: var(--scrim);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-status-ok: var(--status-ok);
+  --color-status-ok-bg: var(--status-ok-bg);
+  --color-status-ok-dot: var(--status-ok-dot);
   --color-status-warn: var(--status-warn);
+  --color-status-warn-bg: var(--status-warn-bg);
+  --color-status-warn-dot: var(--status-warn-dot);
   --color-status-critical: var(--status-critical);
+  --color-status-critical-bg: var(--status-critical-bg);
+  --color-status-critical-dot: var(--status-critical-dot);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+  --color-status-neutral-dot: var(--status-neutral-dot);
   --color-status-info: var(--status-info);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-status-info-dot: var(--status-info-dot);
+  --color-status-waiting: var(--status-waiting);
+  --color-status-waiting-bg: var(--status-waiting-bg);
+  --color-status-waiting-dot: var(--status-waiting-dot);
+  --color-type-flea: var(--type-flea);
+  --color-type-flea-bg: var(--type-flea-bg);
+  --color-type-antique: var(--type-antique);
+  --color-type-antique-bg: var(--type-antique-bg);
+  --color-type-city-festival: var(--type-city-festival);
+  --color-type-city-festival-bg: var(--type-city-festival-bg);
+  --color-type-food-wine: var(--type-food-wine);
+  --color-type-food-wine-bg: var(--type-food-wine-bg);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-border: var(--sidebar-border);
+  --color-toast: var(--toast);
+  --color-toast-foreground: var(--toast-foreground);
+  --color-toast-action: var(--toast-action);
+  --shadow-card: 0 1px 0 var(--shadow-color);
+  --shadow-pop: 0 12px 32px var(--shadow-color);
+  --shadow-overlay: 0 24px 64px var(--shadow-color);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
+  }
+  html {
+    hyphens: auto;
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background font-sans text-foreground antialiased;
+    font-size: var(--fs-body);
+    line-height: 1.45;
+    font-feature-settings: "cv11";
   }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* biome-ignore-start lint/complexity/noImportantStyles: reduced motion must override component transitions */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  /* biome-ignore-end lint/complexity/noImportantStyles: see above */
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
 }

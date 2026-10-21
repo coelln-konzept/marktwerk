@@ -1,8 +1,8 @@
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
+import "@fontsource-variable/inter";
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
+import { getDisplayPreferences } from "@/server/preferences";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,9 +12,10 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
+  const { theme, density } = await getDisplayPreferences();
   return (
-    <html lang={locale} className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="font-sans">
+    <html lang={locale} data-theme={theme} data-density={density}>
+      <body>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>

@@ -14,7 +14,7 @@
       "!**/dist",
       "!**/.turbo",
       "!**/drizzle/meta",
-      "!apps/web/src/components/ui"
+      "!docs/design"
     ]
   },
   "formatter": {

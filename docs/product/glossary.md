@@ -62,13 +62,13 @@ comes to the event (client's explicit rule, research 05).
 ## Interface
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
-| Arbeitsbereich | Workspace | `workspace` | A saved arrangement of panes; "Start" is the default for everyone. |
-| Team-Vorlage (Arbeitsbereich) | Workspace template | `workspace.is_template` | Shared by owner/manager; using it creates a personal copy. |
-| Bereich / Ansicht | Pane / view | view type | One view (e.g. Board, Logbuch) shown in a pane or as a page. |
-| Rechts daneben öffnen | Open to the side | — | Opens a record as a new pane (Shift+click). |
-| Vorschau | Peek | — | Quick preview sheet without changing the layout (Space). |
-| folgt | Follows | `links` | A pane follows the selection of a list pane. |
-| Kompakt / Standard | Compact / standard density | `user_preference.density` | |
+| Übersicht | Overview | route `/` | Start screen, the same for everyone: KPIs, season strip, Heute fällig, Nächstes Wochenende. |
+| Kalender (Ebenen) | Calendar (layers) | route `/kalender`, `user_preference.saved_views` | Company-wide calendar; layers (events by type, deadlines, shifts, holidays) switched on per person. |
+| Vorschau | Preview | `?vorschau=<type>:<id>` | Small read-only card for a list row (👁 or Space); Enter opens the page, Esc closes. |
+| Drawer (Detailansicht) | Detail drawer | `?detail=<type>:<id>` | Panel from the right for real work on one record (task, permit, payable) while the list stays visible. |
+| Dichte: Standard / Kompakt | Density: standard / compact | `user_preference.density` | 40 px vs 32 px rows; per person. |
+| Design: System / Hell / Dunkel | Theme: system / light / dark | `user_preference.theme` | |
+| Befehlspalette (Strg+K) | Command palette | — | Search and commands; opened from the search field or Strg+K / Ctrl+K. |
 
 ## Work
 | German (UI-DE) | English (UI-EN) | Code | Meaning |

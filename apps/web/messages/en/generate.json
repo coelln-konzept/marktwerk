@@ -1,0 +1,72 @@
+{
+  "generate": {
+    "title": "Generate from preset",
+    "close": "Close",
+    "steps": "Steps",
+    "step1": "Preset",
+    "step2": "Dates",
+    "step3": "Preview",
+    "choosePreset": "Which preset?",
+    "mode": "Selection",
+    "modes": {
+      "click": "Click dates",
+      "rule": "Rule"
+    },
+    "prevMonths": "Earlier months",
+    "nextMonths": "Later months",
+    "rule": {
+      "every": "every",
+      "position": "Which",
+      "last": "last",
+      "weekday": "Weekday",
+      "from": "from",
+      "to": "to",
+      "fromMonth": "First month",
+      "toMonth": "Last month",
+      "year": "Year",
+      "apply": "Apply"
+    },
+    "weekShort": "CW",
+    "weekdaysShort": "Mo,Tu,We,Th,Fr,Sa,Su",
+    "weekdaysLong": "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday",
+    "chosen": "{n} selected",
+    "legend": {
+      "selected": "selected",
+      "holiday": "NRW holiday",
+      "venueBusy": "venue already booked",
+      "weekendFull": "already 3+ events that weekend"
+    },
+    "shiftHint": "+ click: same weekday in between",
+    "summary": "{count, plural, =0 {No dates selected yet} one {# date selected} other {# dates selected}}",
+    "warningsCount": "{count, plural, one {# note} other {# notes}}",
+    "previewIntro": "{name} · {venue}. New events start as drafts.",
+    "cols": {
+      "date": "Date",
+      "week": "CW",
+      "notes": "Notes",
+      "remove": "Remove"
+    },
+    "warn": {
+      "holiday": "{name} (holiday)",
+      "weekend": "event no. {n} that weekend",
+      "venue": "Venue booked: {name}",
+      "overlap": "overlaps another selected date",
+      "none": "no notes"
+    },
+    "remove": "Remove {date}",
+    "previewNote": "Notes never block: you decide. Tasks from timeline templates come with M2, permits with M3.",
+    "back": "Back",
+    "next": "Next",
+    "create": "{count, plural, one {Create # event} other {Create # events}}",
+    "creating": "Creating …",
+    "created": "{count, plural, one {# event created} other {# events created}}",
+    "undo": "Undo",
+    "errors": {
+      "no_dates": "Please select at least one date.",
+      "too_many_dates": "Too many dates at once (max. 60).",
+      "invalid_date": "A date is invalid.",
+      "preset_not_found": "The preset no longer exists or is inactive.",
+      "invalid_selection": "Invalid selection."
+    }
+  }
+}

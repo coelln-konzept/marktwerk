@@ -1,0 +1,49 @@
+{
+  "templates": {
+    "title": "Vorlagen",
+    "subtitle": "{count, plural, one {# Veranstaltungs-Vorlage} other {# Veranstaltungs-Vorlagen}} · {active} aktiv",
+    "tabsLabel": "Art der Vorlagen",
+    "tabs": {
+      "events": "Veranstaltungs-Vorlagen",
+      "timelines": "Ablaufvorlagen",
+      "soon": "ab M2"
+    },
+    "caption": "Veranstaltungs-Vorlagen",
+    "empty": "Noch keine Veranstaltungs-Vorlagen.",
+    "cols": {
+      "name": "Name",
+      "type": "Art",
+      "venue": "Ort",
+      "rhythm": "Rhythmus",
+      "duration": "Dauer",
+      "price": "Standpreis",
+      "fee": "Buchungsgebühr",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "duration": "{days, plural, one {# Tag} other {# Tage}}",
+    "perMeter": "{price} / m",
+    "active": "aktiv",
+    "inactive": "inaktiv",
+    "preview": "Vorschau: {name}",
+    "keys": "Leertaste: Vorschau · J/K: nächste/vorige Zeile",
+    "vorschau": {
+      "kind": "Veranstaltungs-Vorlage",
+      "venue": "Ort",
+      "rhythm": "Rhythmus",
+      "duration": "Dauer",
+      "publicTitle": "Öffentlicher Titel",
+      "times": "Zeiten",
+      "timesValue": "Aufbau {setup} · {open}–{close} Uhr · Abbau {teardown}",
+      "price": "Standpreis",
+      "fee": "Buchungsgebühr",
+      "team": "Standard-Team",
+      "noTeam": "Kein Standard-Team hinterlegt.",
+      "nextDates": "Nächste Termine",
+      "nextDatesHint": "nächste 12 Monate",
+      "noDates": "Keine Termine in den nächsten 12 Monaten.",
+      "noRule": "Kein Rhythmus hinterlegt; Termine werden von Hand gewählt.",
+      "generate": "Termine erzeugen"
+    }
+  }
+}

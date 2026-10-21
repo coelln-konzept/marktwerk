@@ -1,0 +1,71 @@
+{
+  "overview": {
+    "greeting": {
+      "morning": "Good morning, {name}",
+      "day": "Hello, {name}",
+      "evening": "Good evening, {name}"
+    },
+    "kpi": {
+      "label": "Key figures",
+      "weekend": "Next weekend",
+      "weekendHint": "{count, plural, one {event} other {events}} · {inPlan} on track",
+      "weekendHintNone": "{count, plural, one {event} other {events}}",
+      "next30": "Next 30 days",
+      "next30Hint": "{count, plural, one {event} other {events}}",
+      "drafts": "Drafts",
+      "draftsHint": "still to confirm"
+    },
+    "season": {
+      "label": "Season",
+      "title": "Season {year} · {from}–{to}",
+      "titleEmpty": "Season {year}",
+      "count": "{count, plural, one {# event} other {# events}}",
+      "empty": "No events have been created for this season yet.",
+      "later": "Estimated effort, ground-crew demand and the hiring signal arrive with the time estimates (M2).",
+      "next": "Season {year}: {count} planned",
+      "months": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
+      "types": {
+        "flea": "Flea markets",
+        "antique": "Antique markets",
+        "city_festival": "City festivals",
+        "food_wine": "Food & Wine"
+      }
+    },
+    "due": {
+      "title": "Due today",
+      "subtitle": "by urgency: Overdue · Today · This week",
+      "filters": "Filter",
+      "filter": {
+        "all": "All",
+        "money": "Money",
+        "permits": "Permits",
+        "hours": "Hours",
+        "tasks": "Tasks"
+      },
+      "emptyTitle": "Nothing is due here yet.",
+      "emptyHint": "The list fills up with the next milestones: tasks from M2, permits from M3, hours from M4, money from M5.",
+      "soon": "from {milestone}"
+    },
+    "weekend": {
+      "title": "Next weekend",
+      "range": "{from}–{to} · {week}",
+      "all": "All events",
+      "caption": "Events next weekend",
+      "cols": {
+        "event": "Event",
+        "permits": "Permits",
+        "tasks": "Tasks",
+        "team": "Team",
+        "money": "Money",
+        "effort": "Effort"
+      },
+      "empty": "Nothing is planned for next weekend.",
+      "emptyNext": "Next event: {name}, {date}.",
+      "emptyNone": "No further events have been created.",
+      "openEvent": "View event",
+      "preview": "Preview: {name}",
+      "legendNote": "Permits from M3, tasks and effort from M2, money from M5.",
+      "keys": "Space: preview · Enter: open · J/K: next/previous row"
+    }
+  }
+}

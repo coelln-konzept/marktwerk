@@ -1,0 +1,71 @@
+{
+  "overview": {
+    "greeting": {
+      "morning": "Guten Morgen, {name}",
+      "day": "Hallo, {name}",
+      "evening": "Guten Abend, {name}"
+    },
+    "kpi": {
+      "label": "Kennzahlen",
+      "weekend": "Nächstes Wochenende",
+      "weekendHint": "{count, plural, one {Veranstaltung} other {Veranstaltungen}} · {inPlan} im Plan",
+      "weekendHintNone": "{count, plural, one {Veranstaltung} other {Veranstaltungen}}",
+      "next30": "Nächste 30 Tage",
+      "next30Hint": "{count, plural, one {Veranstaltung} other {Veranstaltungen}}",
+      "drafts": "Entwürfe",
+      "draftsHint": "noch zu bestätigen"
+    },
+    "season": {
+      "label": "Saison",
+      "title": "Saison {year} · {from}–{to}",
+      "titleEmpty": "Saison {year}",
+      "count": "{count, plural, one {# Veranstaltung} other {# Veranstaltungen}}",
+      "empty": "In dieser Saison sind noch keine Veranstaltungen angelegt.",
+      "later": "Geschätzter Aufwand, Platzteam-Bedarf und Hiring-Signal kommen mit den Zeitschätzungen (M2).",
+      "next": "Saison {year}: {count} geplant",
+      "months": "Jan,Feb,Mär,Apr,Mai,Jun,Jul,Aug,Sep,Okt,Nov,Dez",
+      "types": {
+        "flea": "Flohmärkte",
+        "antique": "Antikmärkte",
+        "city_festival": "Stadtfeste",
+        "food_wine": "Food & Wine"
+      }
+    },
+    "due": {
+      "title": "Heute fällig",
+      "subtitle": "nach Dringlichkeit: Überfällig · Heute · Diese Woche",
+      "filters": "Filter",
+      "filter": {
+        "all": "Alle",
+        "money": "Geld",
+        "permits": "Genehmigungen",
+        "hours": "Stunden",
+        "tasks": "Aufgaben"
+      },
+      "emptyTitle": "Hier ist noch nichts fällig.",
+      "emptyHint": "Die Liste füllt sich mit den nächsten Meilensteinen: Aufgaben ab M2, Genehmigungen ab M3, Stunden ab M4, Geld ab M5.",
+      "soon": "ab {milestone}"
+    },
+    "weekend": {
+      "title": "Nächstes Wochenende",
+      "range": "{from}–{to} · {week}",
+      "all": "Alle Veranstaltungen",
+      "caption": "Veranstaltungen am nächsten Wochenende",
+      "cols": {
+        "event": "Veranstaltung",
+        "permits": "Genehmigungen",
+        "tasks": "Aufgaben",
+        "team": "Team",
+        "money": "Geld",
+        "effort": "Aufwand"
+      },
+      "empty": "Am nächsten Wochenende ist nichts geplant.",
+      "emptyNext": "Nächste Veranstaltung: {name}, {date}.",
+      "emptyNone": "Es sind keine weiteren Veranstaltungen angelegt.",
+      "openEvent": "Veranstaltung ansehen",
+      "preview": "Vorschau: {name}",
+      "legendNote": "Genehmigungen ab M3, Aufgaben und Aufwand ab M2, Geld ab M5.",
+      "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile"
+    }
+  }
+}

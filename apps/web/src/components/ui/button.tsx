@@ -1,29 +1,29 @@
-// Hand-written stand-in for the shadcn/ui button (the registry was unreachable when
-// the repo was scaffolded). Safe to replace with `pnpm dlx shadcn add button --overwrite`.
+// Hand-written in the shadcn/ui shape, styled after the Claude Design prototype (`.btn`).
+// Default variant is the outlined button; `variant="default"` is the teal primary.
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border font-medium leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-45 aria-busy:cursor-progress aria-busy:opacity-80 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-white hover:bg-destructive/90",
-        outline: "border bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "border-primary bg-primary text-primary-foreground hover:bg-primary-hover",
+        outline: "border-input bg-card text-foreground hover:bg-hover",
+        ghost: "border-transparent bg-transparent hover:bg-hover",
+        destructive: "border-destructive bg-destructive text-white hover:opacity-90",
+        link: "border-transparent text-accent-soft-foreground underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 px-3",
-        lg: "h-10 px-6",
-        icon: "size-9",
+        default: "min-h-8 px-3 py-1 in-data-[density=compact]:min-h-7",
+        sm: "min-h-7 gap-1 rounded-md px-2 py-0.5 text-tiny in-data-[density=compact]:min-h-6",
+        lg: "min-h-[52px] rounded-xl px-5 text-base font-semibold",
+        icon: "size-8",
+        "icon-sm": "size-7 rounded-md",
       },
     },
-    defaultVariants: { variant: "default", size: "default" },
+    defaultVariants: { variant: "outline", size: "default" },
   },
 );
 
@@ -33,7 +33,14 @@ function Button({
   size,
   ...props
 }: React.ComponentProps<"button"> & VariantProps<typeof buttonVariants>) {
-  return <button data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />;
+  return (
+    <button
+      type="button"
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  );
 }
 
 export { Button, buttonVariants };

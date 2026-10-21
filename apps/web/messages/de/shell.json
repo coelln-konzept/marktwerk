@@ -1,0 +1,148 @@
+{
+  "app": {
+    "name": "marktwerk",
+    "tagline": "Betriebssystem für Veranstaltungen"
+  },
+  "nav": {
+    "overview": "Übersicht",
+    "board": "Board",
+    "events": "Veranstaltungen",
+    "logbook": "Logbuch",
+    "team": "Team",
+    "finance": "Finanzen",
+    "company": "Firma",
+    "vendors": "Händler",
+    "templates": "Vorlagen",
+    "knowledgeBase": "Wissen",
+    "notifications": "Benachrichtigungen",
+    "settings": "Einstellungen",
+    "bookings": "Buchungen",
+    "inbox": "Postfach",
+    "inventory": "Inventar",
+    "signOut": "Abmelden",
+    "label": "Hauptnavigation",
+    "close": "Navigation schließen",
+    "calendar": "Kalender",
+    "venues": "Orte",
+    "contacts": "Kontakte",
+    "later": "Später",
+    "comingSoon": "Phase 2"
+  },
+  "roles": {
+    "owner": "Geschäftsführung",
+    "manager": "Büroleitung",
+    "staff": "Mitarbeiter:in",
+    "field": "Platzteam"
+  },
+  "login": {
+    "title": "Anmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "submitting": "Anmelden …",
+    "error": "E-Mail oder Passwort ist falsch."
+  },
+  "errors": {
+    "forbidden": "Dafür fehlt dir die Berechtigung.",
+    "back": "Zur Übersicht",
+    "notFoundTitle": "Nicht gefunden",
+    "notFoundHint": "Diesen Eintrag gibt es nicht (mehr), oder der Link ist unvollständig."
+  },
+  "language": {
+    "label": "Sprache",
+    "de": "Deutsch",
+    "en": "English"
+  },
+  "profile": {
+    "design": "Design",
+    "theme": {
+      "system": "System",
+      "light": "Hell",
+      "dark": "Dunkel"
+    },
+    "density": "Dichte",
+    "densities": {
+      "standard": "Standard",
+      "compact": "Kompakt"
+    },
+    "signOut": "Abmelden"
+  },
+  "topbar": {
+    "menu": "Navigation öffnen",
+    "breadcrumb": "Brotkrumen",
+    "search": "Suchen oder Befehl …",
+    "new": "Neu",
+    "notifications": "Benachrichtigungen",
+    "shortcut": "Strg K"
+  },
+  "palette": {
+    "title": "Suchen und Befehle",
+    "placeholder": "Veranstaltung, Ort, Person, Händler oder Befehl …",
+    "hint": "Mindestens zwei Zeichen eingeben.",
+    "searching": "Suche läuft …",
+    "empty": "Keine Treffer.",
+    "select": "auswählen",
+    "open": "öffnen",
+    "umlauts": "Umlaute egal: „koln“ findet Köln",
+    "groups": {
+      "event": "Veranstaltungen",
+      "venue": "Orte",
+      "staff": "Personen",
+      "contact": "Kontakte",
+      "vendor": "Händler",
+      "action": "Aktionen"
+    },
+    "actions": {
+      "generate": "Veranstaltungen aus Vorlage erzeugen",
+      "calendar": "Kalender öffnen",
+      "events": "Alle Veranstaltungen"
+    }
+  },
+  "vorschau": {
+    "label": "Vorschau",
+    "close": "Vorschau schließen",
+    "open": "Öffnen",
+    "keys": "Esc: schließen · Enter: öffnen"
+  },
+  "comingSoon": {
+    "title": "Kommt mit Meilenstein {milestone}",
+    "board": "Das Board mit Aufgaben aus den Ablaufvorlagen, Personenleiste und Arbeitslast entsteht in M2.",
+    "logbook": "Das Logbuch (Genehmigungen je Ort als Matrix und Zeitstrahl) entsteht in M3.",
+    "finance": "Zahlungen mit Raten, Belege und das Geld je Veranstaltung entstehen in M5.",
+    "company": "Pflichten, Fahrzeuge und Versicherungen entstehen in M6.",
+    "knowledgeBase": "Die Wissenssammlung folgt nach den Kernmodulen.",
+    "notifications": "Benachrichtigungen (Fristen, Zuweisungen, Eskalationen) entstehen in M3.",
+    "settings": "Firmendaten, Benutzer:innen, Rollen und gesetzliche Werte werden hier gepflegt (folgt)."
+  },
+  "status": {
+    "event": {
+      "draft": "Entwurf",
+      "planned": "geplant",
+      "confirmed": "bestätigt",
+      "live": "läuft",
+      "completed": "abgeschlossen",
+      "closed": "abgerechnet",
+      "cancelled": "abgesagt"
+    }
+  },
+  "health": {
+    "ok": "Im Plan",
+    "warn": "Achtung",
+    "critical": "Kritisch",
+    "none": "noch offen",
+    "dims": {
+      "permits": "Genehmigungen",
+      "tasks": "Aufgaben",
+      "team": "Team",
+      "money": "Geld"
+    }
+  },
+  "calendar": {
+    "prev": "Vorheriger Monat",
+    "next": "Nächster Monat",
+    "today": "Heute",
+    "week": "KW",
+    "weekdays": "Mo,Di,Mi,Do,Fr,Sa,So",
+    "more": "+ {n} weitere"
+  }
+}

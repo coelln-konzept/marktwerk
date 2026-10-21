@@ -1,25 +1,29 @@
 # UX concept
 
-**Version 1 (2026-10-21).** Designed from scratch on the basis of [research 09](../research/09-ui-ux-workspace.md)
-(standards, references, workspace patterns), the client meeting ([research 05](../research/05-client-meeting-2026-10.md))
-and the product owner's decisions of 2026-10-21 (decisions log in [open-questions.md](../open-questions.md)).
-Architecture: [ADR 0018](../architecture/adr/0018-workspace-architecture.md). Wireframes: [wireframes.md](./wireframes.md).
+**Version 2 (2026-10-21, design direction A: classic screens).** Version 1 described a customisable workspace with
+docking panes; the product owner chose classic screens instead ([ADR 0019](../architecture/adr/0019-classic-screens.md),
+superseding ADR 0018). Based on [research 09](../research/09-ui-ux-workspace.md) (standards, references), the client
+meeting ([research 05](../research/05-client-meeting-2026-10.md)) and the product owner's decisions of 2026-10-21
+(decisions log in [open-questions.md](../open-questions.md)). Wireframes: [wireframes.md](./wireframes.md).
+High-fidelity reference: the Claude Design prototype in
+[`docs/design/claude-design/a-classic/`](../design/claude-design/a-classic/INDEX.md) (53 screens). Where the prototype
+and this document differ, the prototype wins unless a decision says otherwise.
 
 ## 1. Design principles
 
-1. **Familiar first, powerful second.** The default screen must work for someone who never customises
-   anything (most users don't). Customisation is a layer for the people who want it, never a prerequisite.
-2. **Nothing hidden.** Every module is reachable from the labelled sidebar. Workspaces and ⌘K are accelerators,
-   not the only path (client: "don't hide existing functions").
+1. **Familiar first, powerful second.** Every screen must work for someone who never changes a setting.
+   Shortcuts, Strg+K, saved filters and *Kompakt* are layers for the people who want them, never a prerequisite.
+2. **Nothing hidden.** Every module is reachable from the labelled sidebar, always in the same place. Strg+K and
+   keyboard shortcuts are accelerators, not the only path (client: "don't hide existing functions").
 3. **Their words, their mental models.** Vorlage → Termine (like the old PHP admin), calendar weeks (KW),
    Platzkarte, Logbuch, Raten. Excel-like grids where they use Excel today. Printable views where they print today.
-4. **One view, many places.** Every view (board, event, logbook…) is a single implementation that works as a
-   full page with its own link *and* as a pane in a workspace.
+4. **One view, one place.** Every view (board, event, logbook…) is a page with its own URL. Vorschau and detail
+   drawers keep the list in sight while looking at or working on a record, and they are linkable too.
 5. **Undo over "Sind Sie sicher?".** Optimistic actions with an undo toast. Confirm only what can't be undone, and name
    the consequence in the button ("Monat März abschließen").
 6. **Status is colour + icon + text.** Never colour alone. One vocabulary across all modules.
 7. **Warn while typing, not after saving.** Minijob limits, §17 deadlines, double-booked locations show inline.
-8. **Every drag has a click path.** Assigning, moving cards, docking panes: always also via menu and keyboard
+8. **Every drag has a click path.** Assigning, moving cards, reordering rows: always also via menu and keyboard
    (WCAG 2.2 · 2.5.7).
 9. **German-first layout.** Labels are ~30% longer (short labels up to 2×). No fixed-width buttons or tabs;
    hyphenation on; test every screen in German first.
@@ -28,110 +32,150 @@ Architecture: [ADR 0018](../architecture/adr/0018-workspace-architecture.md). Wi
 
 ```
 marktwerk
-├── Start                     ← default workspace ("Heute fällig" + next weekend)
-├── Board                     ← tasks across events (kanban, my tasks, workload)
-├── Veranstaltungen           ← list · calendar · "aus Vorlage erzeugen"
+├── Übersicht                 ← start screen for everyone (KPIs, season, Heute fällig, Nächstes Wochenende)
+├── Kalender                  ← company-wide calendar with layers (events, deadlines, shifts, holidays)
+├── Board                     ← tasks across events (kanban, nach Person, Arbeitslast)
+├── Veranstaltungen           ← list · calendar · "Aus Vorlage erzeugen"
 │   └── Veranstaltung         ← tabs: Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf
-├── Logbuch                   ← permit matrix (locations × permit types) · application timeline
+├── Orte                      ← venues with zones/rows and location agreements (own entry, decision 2026-10-21)
+├── Logbuch                   ← permit matrix (locations × permit types) · Zeitstrahl
 ├── Team                      ← hours month grid · shifts per event · month close
 ├── Finanzen                  ← payables & instalments · receipts · event money overview
 ├── Firma                     ← obligations · vehicles · insurances · company documents
 ├── Händler                   ← vendor list (read-only import in Phase 1)
-├── Vorlagen                  ← event presets · timeline templates · workspace templates
+├── Kontakte                  ← authorities, landowners, suppliers, services (own entry, decision 2026-10-21)
+├── Vorlagen                  ← event presets · timeline templates
 ├── Wissen                    ← knowledge base
-└── (bottom) Benachrichtigungen · Einstellungen · Profil (Sprache, Theme, Dichte)
-   Phase 2 (shown disabled): Buchungen · Postfach · Inventar
+├── Benachrichtigungen · Einstellungen
+├── SPÄTER (disabled, "Phase 2"): Buchungen · Postfach · Inventar
+└── (bottom) Profil: Sprache · Design (System/Hell/Dunkel) · Dichte (Standard/Kompakt) · Abmelden
 ```
 
 ## 3. App shell
 
 ```
-┌ Sidebar ┬ Top bar: [🔍 Suchen… ⌘K]  [Start] [Genehmigungen ×] [Geld ×] [+]   🔔 3   Profil ┐
-│ labelled│────────────────────────────────────────────────────────────────────────────────┤
-│ modules │  Workspace area: 1–3 pane groups, each with tabs                               │
-│ (collap-│                                                                                │
-│ sible)  │                                                                                │
-└─────────┴────────────────────────────────────────────────────────────────────────────────┘
+┌ Sidebar 232 px ─┬ Top bar: Veranstaltungen › Food & Wine Neuss   [🔍 Suchen oder Befehl … Strg+K]  [+ Neu]  🔔 3 ┐
+│ marktwerk       │─────────────────────────────────────────────────────────────────────────────────────────┤
+│ Übersicht       │                                                                                         │
+│ Kalender        │  Page (own URL)                                         ┌ Vorschau ───────┐             │
+│ Board           │                                                         │ card, top right │             │
+│ Veranstaltungen │                                                         └─────────────────┘             │
+│ Logbuch      7  │                                                                  ┌ Drawer (right) ─────┐│
+│ …               │                                                                  │ real work           ││
+│ SPÄTER          │                                                                  │                     ││
+│ Profil ▾        │                                                                  └─────────────────────┘│
+└─────────────────┴─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-- **Sidebar** (240 px, collapsible to 56 px icons): modules with text labels. Below the modules sit **favourites**
-  (pinned views and workspaces), then Phase 2 modules disabled. Clicking a module opens its view in the
-  **focused pane** (Shift+click: to the side).
-- **Top bar:** visible search field (opens ⌘K), the **workspace tabs** (open workspaces, like browser tabs; `+`
-  opens the workspace menu), notification bell, profile menu.
-- **Workspace area:** the docked panes.
+- **Sidebar** (232 px, collapsible to an icon rail; `user_preference.sidebar_collapsed`): logo "marktwerk", then
+  Übersicht · Kalender · Board · Veranstaltungen · **Orte** · Logbuch (badge count) · Team · Finanzen (badge) · Firma ·
+  Händler · **Kontakte** · Vorlagen · Wissen · Benachrichtigungen (count) · Einstellungen. Orte and Kontakte have their
+  own entries (product owner, 2026-10-21; the prototype's sidebar predates this). Entries a role may not read are
+  hidden (`can()`). Group **SPÄTER**: Buchungen · Postfach · Inventar,
+  disabled with the hint "Phase 2". At the bottom the **profile** (name, role, current theme); it opens the profile menu
+  with Sprache, Design (System / Hell / Dunkel), Dichte (Standard / Kompakt) and Abmelden.
+- **Top bar:** breadcrumb (e.g. "Veranstaltungen › Food & Wine Neuss"), the visible search field "Suchen oder
+  Befehl …" with Strg+K hint (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board,
+  new event in Veranstaltungen…), notification bell with count.
+- **Content:** one page. Vorschau and drawers open over it (§4).
+- **Below 1024 px** the sidebar collapses to icons, then to a hamburger menu; pages go single-column. Staff/shift
+  screens have a **390 px mobile variant** (Team · Schichten); field crew get magic-link pages in Phase 2.
 
-## 4. Workspace model (decided)
+## 4. Pages, preview and drawers
 
-| Topic | Decision |
-|---|---|
-| Layout freedom | **Docking**: drag a view's tab into another group or onto an edge to split. **Max 3 visible groups.** Maximise a pane; no floating windows; popout deferred. Second screen = second browser window with its own workspace. |
-| Defaults | **One default workspace for everyone: "Start".** Ready-made **team templates** exist (seeded: Genehmigungen, Geld, Wochenende, Bürotag) for anyone to copy. |
-| Ownership | **Personal workspaces + team templates.** Owner/manager publish templates; using one creates a personal copy. Templates are never live-linked. |
-| Saving | **Autosave + named saves.** The current arrangement is remembered automatically. Explicit actions: *Speichern*, *Als neuen Arbeitsbereich speichern…*, *Auf gespeicherten Stand zurücksetzen*, *Start wiederherstellen*. *Layout sperren* toggle. Layout undo via toast after every docking move. Max ~8 named workspaces per user. |
-| Linking | **"Folgt"**: a pane opened from a list follows that list's selection. Chain icon in the pane header; click to unlink. |
-| Pages vs panes | **Both.** Every view is a page at its own URL and a pane. "Link kopieren" / "Als Seite öffnen" in every pane menu. |
-| Small screens | ≥1440 px: up to 3 groups · 1024–1439 px: up to 2 · <1024 px: one pane with a "Bereiche" switcher. Phones: single-column pages; field crew never see workspaces (they get magic-link pages in Phase 2). |
-
-### The default workspace "Start"
-Two groups: **left (≈60%) "Heute fällig"** (ranked list across tasks, permits, instalments, missing hours, rentals,
-with filter chips), **right (≈40%) "Nächstes Wochenende"** (the coming events with health). Clicking an item on the
-left opens it as a tab in the right group, which follows the list. Everybody starts here; the owner can stay here.
-
-### Seeded team templates (copy to use)
-| Template | Left | Right |
+| Surface | Use for | Behaviour |
 |---|---|---|
-| **Bürotag** | Heute fällig | Board (all events, swimlanes by person) |
-| **Genehmigungen** | Logbuch (matrix) | Veranstaltung · Genehmigungen tab (follows) |
-| **Geld** | Finanzen · Zahlungen | Veranstaltung · Geld tab (follows) |
-| **Wochenende** | Veranstaltungen (next weekend filter) | Veranstaltung · Board (follows) + Team · Schichten tab |
+| **Page** | Modules and records that are work surfaces: event (with tabs), template editor, month close, Logbuch | Own URL, breadcrumb, browser back/forward |
+| **Vorschau** (quick preview) | Looking at a record from any list without leaving it: key facts, health, next deadlines | Small card/sheet top right; 👁 icon on the row or **Space**; **Enter** opens the page, **Esc** closes; read-only apart from one primary action |
+| **Detail drawer** | Real work on one record while the list stays visible: task, permit, payable/instalment, shift | Slides in from the right; full editing, comments, activity; Esc closes |
+| **Modal** | ≤ 8 fields, quick creation (new task, new contact) or confirming something irreversible | Centered; never for a form someone might abandon halfway |
+| **Side sheet (stepper)** | Multi-step flows that need the page behind them: "Aus Vorlage erzeugen" (3 steps), "Auf Veranstaltungen anwenden…" | Wide sheet from the right with steps |
+
+**Event page tabs:** Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf. Each tab label
+shows its count or health (e.g. "Genehmigungen 4/5 ▲", "Team 5/6").
 
 ### Opening things
 | Action | Mouse | Keyboard |
 |---|---|---|
-| Open in focused pane | click | Enter |
-| **Open to the side** | hover icon "Rechts daneben öffnen" / context menu / **Shift+click** | Shift+Enter |
-| **Peek** (quick preview without opening a pane) | peek icon on row | Space (hold = temporary) |
-| New browser tab | Ctrl/⌘+click (browser-native, never overridden) | — |
-| Move pane / split | drag tab onto edge or group | pane menu "Nach rechts verschieben…", Ctrl+M (keyboard docking), F6 cycles groups |
-| Maximise / restore pane | double-click tab | Ctrl+Shift+Enter |
+| Open (page) | click on the row | Enter |
+| **Vorschau** | 👁 icon on the row | Space |
+| Open in a new browser tab | Ctrl/⌘+click (browser-native, never overridden) | — |
+| Open the drawer for a row | row action or the item's primary link (e.g. task title on a board card) | Enter on a card |
+| Close Vorschau / drawer | × or click outside (Vorschau only) | Esc (focus returns to the row) |
 
-### Pane header
-`[icon] Title · context (e.g. "So 07.06. · Altstadt")   [⛓ folgt: Veranstaltungen]   [⤢ maximise] [⋯ menu] [×]`
-Menu: Link kopieren · Als Seite öffnen · Nach rechts/links/unten verschieben · Verknüpfung lösen · Schließen.
+### Linkable overlays (implementation detail, ADR 0019)
+Vorschau and drawers are addressed by search params on the current page. As built in M1: **`?vorschau=<id>`** (the
+list page knows which record kind it shows; Team uses **`?person=<id>`**) and, for the generation sheet,
+**`?erzeugen=1[&vorlage=<presetId>]`** on `/veranstaltungen`. Drawers (from M2) follow the same idea, e.g.
+`?detail=task:<id>`. A copied link reopens the same page with the same overlay; closing a Vorschau replaces the URL
+(it does not pile up history entries). Pages read the param on the server and render the overlay with the page, so a
+hard refresh keeps it.
 
 ## 5. View catalogue (Phase 1)
 
-Each view = one panel type in the registry (ADR 0018). "Min width" drives auto-collapse.
+Every view is a route-level page; drawers are listed where a record usually opens as a drawer instead of a page.
 
-| View | Route | Purpose | Min width | Typical neighbour |
-|---|---|---|---|---|
-| Heute fällig | `/` (Start) | Ranked due items, filter chips, one primary action per row | 420 | Nächstes Wochenende / any record |
-| Nächstes Wochenende | `/wochenende` | Events of the coming weekend with health | 360 | Event |
-| Board | `/board` | Kanban across events, people rail, swimlanes, workload | 640 | Task detail (peek) |
-| Veranstaltungen | `/veranstaltungen` | List / calendar of events, generate from preset | 480 | Event |
-| Veranstaltung | `/veranstaltungen/[id]` | Event with tabs (Überblick, Board, Genehmigungen, Team, Geld, Dokumente, Notizen, Verlauf) | 560 | List / Logbuch |
-| Logbuch | `/logbuch` | Permit matrix + application timeline | 640 | Event · Genehmigungen |
-| Genehmigung | `/genehmigungen/[id]` | One permit (documents, conditions, fees) | 420 | Logbuch |
-| Team · Stunden | `/team` | Month grid hours, remaining allowance, month close | 720 | Person |
-| Person | `/team/[id]` | Contract, hours history, shifts | 420 | Team |
-| Finanzen · Zahlungen | `/finanzen` | Payables with instalments, receipts | 560 | Event · Geld |
-| Firma | `/firma` | Obligations, vehicles | 480 | Vehicle |
-| Händler | `/haendler` | Vendor list (read-only) | 480 | Vendor |
-| Vorlagen | `/vorlagen` | Presets, timeline templates, workspace templates | 560 | Template editor |
-| Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` | Timeline template editor (grid + ruler) | 720 | — (often maximised) |
-| Wissen | `/wissen` | Knowledge base | 480 | Article |
-| Benachrichtigungen | `/benachrichtigungen` | Grouped notifications | 360 | any record |
+| View | Route | Purpose |
+|---|---|---|
+| Übersicht | `/` | Start screen for everyone: KPI strip, season strip, Heute fällig, Nächstes Wochenende (below) |
+| Kalender | `/kalender` | Company-wide calendar with layers (below) |
+| Board | `/board` | Kanban across events, people rail, Nach Person, Arbeitslast toggle |
+| Aufgabe | drawer `?detail=task:<id>` (M2) | Description, check items, evidence, comments with @mention, activity, status incl. "Wartet · Amt" |
+| Veranstaltungen | `/veranstaltungen` | Liste / Kalender toggle (KW column), type filter chips, Vorschau `?vorschau=<id>`, "Aus Vorlage erzeugen" (3-step side sheet) via `?erzeugen=1[&vorlage=<presetId>]` |
+| Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`) |
+| Orte | `/orte` | Venues (list, Vorschau `?vorschau=<id>`) |
+| Ort | `/orte/[id]` | One venue: zones and rows, location agreements |
+| Logbuch | `/logbuch` | Permit matrix (locations × permit types) + Zeitstrahl toggle; cells open the permit drawer (M3) |
+| Genehmigung | drawer `?detail=permit:<id>` (M3); page `/genehmigungen/[id]` planned | One permit (documents, conditions, fees) |
+| Team · Stunden | `/team` | Staff list (M1), Vorschau `?person=<id>`; month grid hours, remaining allowance, month-close stepper and Schichten je Veranstaltung from M4 |
+| Person | `?person=<id>` on `/team`; page `/team/[id]` planned (M4) | Contract, hours history, shifts |
+| Finanzen · Zahlungen | `/finanzen` | Payables with inline instalments, receipts; drawer `?detail=payable:<id>` (M5) |
+| Firma | `/firma` | Obligations, vehicles, insurances, documents (M6) |
+| Händler | `/haendler` | Vendor list (read-only) |
+| Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`) |
+| Vorlagen | `/vorlagen` | Event presets, timeline templates |
+| Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` (planned, M2) | Timeline template editor (Excel-like grid + timeline ruler) |
+| Wissen | `/wissen` | Knowledge base |
+| Benachrichtigungen | `/benachrichtigungen` | Grouped notifications |
+| Einstellungen | `/einstellungen` | Users & roles, legal parameters, company settings |
+
+Modules whose data arrives in a later milestone exist from M1 as routes with a "coming soon" page, so the sidebar never
+leads nowhere.
+
+### Übersicht (start screen, one for everyone)
+Top to bottom, no fixed master-detail layout:
+1. **Date + KW line** and greeting "Guten Morgen, <Vorname>".
+2. **KPI strip:** Fällig bis Sonntag · Überfällig · Geld überfällig · Nächstes Wochenende ("2 von 4 im Plan").
+3. **Season strip** (the owner's view of the year): "Saison 2026 · Mär–Nov · 46 Veranstaltungen" with counts per
+   event type · 3.410 h geschätzter Aufwand · Platzteam 2.380 h Bedarf · 1.170 h Kapazität · hiring signal
+   "≈ 3,1 Minijobber/Monat zusätzlich". Figures come from task estimates (M2) and contracts (M4); before that the strip
+   shows what exists (event counts).
+4. **Heute fällig:** groups Überfällig · Heute · Diese Woche; filter chips Alle · Geld · Genehmigungen · Stunden ·
+   Aufgaben with counts; **one primary action per row** (Bezahlt, Erfassen, Erledigt, Öffnen); Space = Vorschau,
+   row actions open the matching drawer.
+5. **Nächstes Wochenende:** table of the coming events with columns Genehmigungen · Aufgaben · Team · Geld · Aufwand,
+   each with health ● ▲ ■, plus a list **"Was das Wochenende aufhält"** (the blocking items, each linking to its drawer).
+
+### Kalender (module)
+- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**. Veranstaltungen keeps its own Liste/Kalender toggle;
+  the Kalender module is the company-wide view across modules.
+- **Layer panel ("Ebenen"):** *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*:
+  Genehmigungen, Raten & Zahlungen, Aufgaben, Arbeitszeiten & Abschluss, Rückgaben (Miete), Fahrzeuge & Pflichten;
+  *Team*: Schichten; *Hintergrund*: Feiertage NRW.
+- **Presets:** Alles · Nur Veranstaltungen · Nur Fristen · Märkte + Genehmigungen. **Narrowing:** "Nur Achtung und
+  Kritisch", "Nur meine Zuständigkeit", Ort.
+- The layer selection is **saved per person** (`user_preference.saved_views`).
+- Weekend marker **⚑** when a weekend has 4 or more events (the weekend cap).
+- **Rollout:** M1 ships the Veranstaltungen and Feiertage NRW layers; the other layers appear as their modules land
+  (Aufgaben M2, Genehmigungen M3, Arbeitszeiten & Abschluss and Schichten M4, Raten & Zahlungen M5, Fahrzeuge &
+  Pflichten M6; Rückgaben (Miete) with rentals in M12).
 
 ## 6. Interaction patterns
 
-**Overlays (when to use what)**
-- **Modal:** ≤ 8 fields, quick creation (new task, new contact), or confirming something irreversible.
-- **Peek / side sheet:** look at or lightly edit a record while staying in the list.
-- **Pane / page:** records and work surfaces (event, template, month close).
-- Never put a form someone might abandon halfway into a modal.
+**Overlays:** when to use Vorschau, drawer, page or modal is in §4.
 
 **Tables and lists:** resource name + count in the heading; row actions on hover/selection; bulk actions bar;
-sticky header; column chooser; saved filters ("Ansichten") per list; Excel paste into grids (templates, hours).
+sticky header; column chooser; saved filters ("Ansichten") per list and per person (`user_preference.saved_views`);
+Excel paste into grids (templates, hours).
 
 **States:** skeletons shaped like the content; empty states that teach ("Noch keine Genehmigungen für diesen
 Ort – aus Vorlage anlegen"); filtered-empty ("Keine Treffer – Filter zurücksetzen"); errors with retry and no data loss.
@@ -139,9 +183,9 @@ Ort – aus Vorlage anlegen"); filtered-empty ("Keine Treffer – Filter zurück
 **Feedback:** optimistic + undo toast (5–8 s) for assign, move, tick off, mark paid. Money stays visibly
 "wird gespeichert…" until the server confirms.
 
-**Keyboard map (core):** ⌘K search/commands · `/` filter in list · J/K up/down · Space peek · Enter open ·
-Shift+Enter open to the side · `C` create · `A` assign · `S` status · `X` done · F6 next pane · Ctrl+M dock pane ·
-Ctrl+Z undo last action · `?` shortcut overview.
+**Keyboard map (core):** Strg+K search/commands · `/` filter in list · J/K up/down · Space Vorschau · Enter open ·
+Esc close Vorschau/drawer · `C` create ("+ Neu") · `A` assign · `S` status · `X` done · Ctrl+Z undo last action ·
+`?` shortcut overview. Ctrl/⌘+click (new browser tab) is never overridden.
 
 **Drag alternatives (2.5.7):** cards and rows have a focusable handle and a "⋯" menu with *Zuweisen an…*,
 *Verschieben nach…*; keyboard lift with Space, move with arrows, drop with Space, Esc cancels; screen-reader
@@ -157,6 +201,7 @@ announcements in German via `aria-live`.
 | Money | Geplant · Fällig · Teilweise bezahlt · Bezahlt · Überfällig | grey · amber · amber ◐ · green ✓ · red ! |
 | Hours | OK · Grenze nah · Über Grenze (zulässig?) · Unzulässig | green · amber · amber ⚠ · red ⛔ |
 | Health | Im Plan · Achtung · Kritisch | green ● · amber ▲ · red ■ (shape differs, too) |
+| Events (lifecycle) | Entwurf · geplant · bestätigt · läuft · abgeschlossen · abgesagt; from M10 also abgerechnet (`closed`, after financial close-out) | label badge; health shown separately (● ▲ ■) |
 
 ## 8. Content & language
 
@@ -169,25 +214,54 @@ announcements in German via `aria-live`.
 
 ## 9. Visual system
 
-- **Themes:** light (default), dark, "System". Tokens in `apps/web/src/app/globals.css`. A high-contrast light
-  theme for outdoor field use comes in Phase 3.
-- **Density:** *Standard* (default): 40 px table rows, labels above fields, 14 px body. *Kompakt* (per-user switch):
-  32 px rows, labels beside fields, 13 px body. 4 px spacing grid. Running text max ~70 characters per line.
-- **Colour:** neutral base, one accent, status colours from the tokens `status-ok/warn/critical/info` plus violet for
-  "waiting/applied". Event types get muted identity colours (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine).
-- **Typography:** Geist Sans / Geist Mono (tabular figures for money, hours, dates in tables).
-- **Components** (shadcn/ui on Base UI): sidebar, top bar with workspace tabs, dock pane + pane header,
-  data table, kanban card, people rail with load bars, status badge, health dot, filter chips, peek sheet, modal,
-  toast with undo, command palette, calendar multi-select, timeline ruler, matrix cell, stepper (month close),
-  empty state, skeleton.
+Source of truth: [`apps/web/src/app/globals.css`](../../apps/web/src/app/globals.css) (tokens extracted from the Claude
+Design prototype; change colours there only). Component-by-component mapping to code and Base UI primitives:
+[`docs/design/component-inventory.md`](../design/component-inventory.md).
+
+- **Themes:** `<html data-theme="light|dark|system">`, stored in `user_preference` and mirrored in the `mw_theme` cookie so the server renders the right
+  attribute (profile menu → Design: System / Hell / Dunkel; default light). Every colour token is a `light-dark()` pair, so the
+  three modes share one definition and `color-scheme` picks the side; Tailwind's `dark:` variant follows `data-theme`
+  (and `prefers-color-scheme` when `system`). A high-contrast light theme for outdoor field use comes in Phase 3.
+- **Density:** `<html data-density="standard|compact">` (`mw_density` cookie; profile menu → Dichte). *Standard* (default): `--row-h` 40 px
+  table rows, `--cell-y` 8 px, `--control-h` 36 px, body 14 px (`--fs-body`), small 13 px, tiny 12 px, labels above
+  fields. *Kompakt*: 32 px rows, 4 px cell padding, 30 px controls, 13 / 12 / 11.5 px, labels beside fields (the
+  label layout is still to be built; see the inventory). 4 px spacing grid. Running text max ~70 characters per line.
+- **Tokens** (CSS variables in `:root`, exposed to Tailwind through `@theme inline` under the same names):
+  - surfaces: `--background` (`#F7F6F3` light / `#141412` dark, warm neutral), `--card` (white), `--surface-2`,
+    `--sunken`, `--popover`, `--sidebar`; text: `--foreground`, `--foreground-2`, `--muted-foreground`,
+    `--faint-foreground`; lines: `--border`, `--border-subtle`, `--input`; states: `--hover`, `--selected`, `--ring`;
+    overlays: `--scrim`, `--toast`;
+  - **one accent:** teal `--primary` `#0E5A62` (light) / `#5DB7BE` (dark), with `--primary-hover`,
+    `--primary-foreground` and the soft pair `--accent-soft` / `--accent-soft-foreground`;
+  - **status:** `--status-ok`, `-warn`, `-critical`, `-neutral`, `-info`, `-waiting` (violet: Wartet, Beantragt,
+    geplant). Each has three values: text (`--status-ok`), badge surface (`--status-ok-bg`), dot/bar/icon
+    (`--status-ok-dot`). `--destructive` is the critical dot colour. Prototype names: ok/warn/crit/neut/info/vio;
+  - **event types** (muted identity colours, never status): `--type-flea`, `--type-antique`, `--type-city-festival`,
+    `--type-food-wine`, each with a `-bg` surface (prototype: floh/antik/stadt/food);
+  - **radii** 4 / 6 / 8 / 12 / 14 px (`rounded-sm` … `rounded-2xl`: square markers and kbd · small buttons and tags ·
+    buttons and inputs · panels, Vorschau, toast · command palette); **shadows** `--shadow-card`, `--shadow-pop`,
+    `--shadow-overlay`.
+- **Typography:** **Inter** (variable), self-hosted via the `@fontsource-variable/inter` npm package (no request to
+  Google at runtime); `.tabular` (`font-variant-numeric: tabular-nums`) for money, hours, dates and counts; hyphenation
+  on. Monospace: the system `ui-monospace` stack, only for keyboard hints (kbd). Sizes through `text-body`,
+  `text-small`, `text-tiny` so they follow the density; page title 22 px, panel title 15 px.
+- **Motion:** `prefers-reduced-motion` shortens all transitions and animations to ~0.
+- **Components** (hand-written in the shadcn/ui shape, behaviour from Base UI where a primitive exists: `Dialog`
+  for the command palette and side sheet, `Menu` for the profile menu): sidebar, top bar with search field + "+ Neu",
+  breadcrumb, Vorschau card, drawer, tabs with counts/health, KPI strip, season strip, data table, kanban card, people
+  rail with load bars, status badge, health indicator, filter chips with counts, modal, side sheet with stepper, toast
+  with undo, command palette, calendar (month/list) with layer panel, calendar multi-select, timeline ruler, matrix
+  cell, month-close stepper, banner, empty state, skeleton. Inventory with the prototype anchor, implementation file,
+  backing primitive and milestone of each:
+  [`docs/design/component-inventory.md`](../design/component-inventory.md).
 
 ## 10. Accessibility & quality bar
 WCAG 2.2 AA from the start (internal tools are likely outside the EAA/BFSG, but the Phase 4 vendor booking form isn't,
-and components are shared). Focus visible everywhere, logical tab order per pane, F6 between panes, every icon
-button labelled, contrast checked in both themes, reduced-motion respected.
+and components are shared). Focus visible everywhere, logical tab order per page; focus moves into an opened
+Vorschau/drawer and returns to the originating row on close; every icon button labelled, contrast checked in both
+themes, reduced-motion respected.
 
 ## 11. Rollout (change management)
-1. Sandbox with synthetic data; the office manager tries the default "Start" + board first.
-2. Introduce workspaces to the office manager (power user) via the seeded templates; owner stays on "Start".
-3. Excel-like grids and printable views (day sheet, hours list) keep paper habits working.
-4. One short first-run hint per concept (split, peek, ⌘K), shown once, dismissible.
+1. Sandbox with synthetic data; the office manager tries Übersicht + board first; the owner starts on Übersicht.
+2. Excel-like grids and printable views (day sheet, hours list) keep paper habits working.
+3. One short first-run hint per concept (Vorschau with Space, Strg+K, Kompakt), shown once, dismissible.

@@ -1,127 +1,117 @@
-# Wireframes v2 (from scratch)
+# Wireframes v3 (direction A: classic screens)
 
-**2026-10-21.** Based on the [UX concept](./ux-concept.md) and [research 09](../research/09-ui-ux-workspace.md).
-Replaces the earlier screen-by-screen wireframes. Low fidelity: structure, content and interaction, not visual design.
-German UI. Desktop frames ≈ 1440 px wide unless noted.
+**2026-10-21.** Based on the [UX concept v2](./ux-concept.md) and [ADR 0019](../architecture/adr/0019-classic-screens.md).
+v3 replaces the workspace version (v2): the app shell is a sidebar with pages, Vorschau and detail drawers; W1 is now
+the Kalender module (the workspace operations were removed). Low fidelity: structure, content and interaction, not
+visual design. German UI. Desktop frames ≈ 1440 px wide unless noted.
 
-Legend: `▏` pane border · `[Tab ×]` pane tab · `⛓` follows another pane · `⤢` maximise · `⋯` menu ·
-`👁` peek · `⇥` open to the side · ↻n carried over n days · ● ▲ ■ health (ok / attention / critical).
+**High-fidelity reference:** the Claude Design prototype in
+[`docs/design/claude-design/a-classic/`](../design/claude-design/a-classic/INDEX.md) (`index.html`, 53 screens,
+`INDEX.md` maps screens → `index.html#<ScreenId>`). Where the prototype and these wireframes differ, the prototype
+wins unless a decision says otherwise.
+
+Legend: `⋯` menu · `👁` Vorschau · `›` breadcrumb · ↻n carried over n days · ● ▲ ■ health (ok / attention / critical) ·
+⚑ weekend with 4+ events.
 
 ---
 
-## W0 · App shell with the default workspace "Start"
+## W0 · App shell with the start screen "Übersicht"
 ```
-┌──────────────┬───────────────────────────────────────────────────────────────────────────────────────────┐
-│ marktwerk    │ [🔍 Suchen oder Befehl … ⌘K]   [Start] [Genehmigungen ×] [+]                 🔔 3   Jonas ▾│
-│              ├────────────────────────────────────────────────────┬──────────────────────────────────────┤
-│ ⌂ Start      │ [Heute fällig]                          ⤢ ⋯        │ [Nächstes Wochenende ×] ⛓          ⤢ ⋯ │
-│ ▦ Board      │ Alle 12 · Geld 3 · Genehmigungen 2 · Stunden 3 ·   │ KW 23 · Sa 06.06. – So 07.06.        │
-│ ▤ Veranstalt.│ Aufgaben 4                                         │                                      │
-│ ▣ Logbuch    │ ÜBERFÄLLIG                                         │ ■ Flohmarkt Altstadt  So 07.06.     │
-│ ☺ Team       │ ! 💶 Rate 2/3 Standgebühr Altstadt   6.000 € [Bezahlt]│   Genehmigung Wasser fehlt          │
-│ € Finanzen   │ ! ▤ Plakatierung Neuss beantragen     Jonas [Öffnen]│   Aufgaben 14/20 · Team 5/6 · 34 h  │
-│ ⌂ Firma      │ HEUTE                                              │ ▲ Antikmarkt Linz     Sa 06.06.     │
-│ ☷ Händler    │ ⏱ 3 Schichten ohne Zeiten · Tag 5/7      [Erfassen]│   Aufgaben 9/14 · Team 4/5 · 22 h   │
-│ ⎘ Vorlagen   │ ↻2 Toiletten bestellen · Food & Wine      [Erledigt]│ ● Flohmarkt Bonn      So 07.06.     │
-│ ? Wissen     │ DIESE WOCHE                                        │   alles im Plan · 18 h              │
-│              │   Standrohr zurückgeben · Stadtwerke · Fr  [Erledigt]│                                      │
-│ ★ Favoriten  │   Halteverbot aufstellen · Altstadt · Sa   [Öffnen]│ Klick auf eine Zeile links öffnet    │
-│   Geld       │   …                                                │ sie hier als Tab (folgt der Liste).  │
-│ ── Phase 2   │                                                    │                                      │
-│ Buchungen    │                                                    │                                      │
-│ Postfach     │                                                    │                                      │
-│ Inventar     │                                                    │                                      │
-│ 🔔 ⚙ Profil  │                                                    │                                      │
-└──────────────┴────────────────────────────────────────────────────┴──────────────────────────────────────┘
+┌──────────────────┬──────────────────────────────────────────────────────────────────────────────────────────┐
+│ marktwerk        │ Übersicht                      [🔍 Suchen oder Befehl …  Strg+K]   [+ Neu]          🔔 3     │
+│                  ├──────────────────────────────────────────────────────────────────────────────────────────┤
+│ ⌂ Übersicht      │ Mittwoch, 13. Mai 2026 · KW 20                                                           │
+│ ▦ Kalender       │ Guten Morgen, Petra                                                                      │
+│ ▥ Board          │ ┌ Fällig bis So ┐ ┌ Überfällig ┐ ┌ Geld überfällig ┐ ┌ Nächstes Wochenende ┐              │
+│ ▤ Veranstaltungen│ │      12       │ │     2      │ │    6.000 €      │ │  2 von 4 im Plan    │              │
+│ ◎ Orte           │ └───────────────┘ └────────────┘ └─────────────────┘ └─────────────────────┘              │
+│ ▣ Logbuch      7 │ SAISON 2026 · Mär–Nov · 46 Veranstaltungen (Floh 24 · Antik 12 · Stadtfest 4 · F&W 6)    │
+│ ☺ Team           │ 3.410 h geschätzter Aufwand · Platzteam 2.380 h Bedarf · 1.170 h Kapazität               │
+│ € Finanzen     2 │ → ≈ 3,1 Minijobber/Monat zusätzlich                                                      │
+│ ⌂ Firma          │──────────────────────────────────────────────────────────────────────────────────────────│
+│ ☷ Händler        │ HEUTE FÄLLIG   [Alle 12] [Geld 3] [Genehmigungen 2] [Stunden 3] [Aufgaben 4]              │
+│ ☎ Kontakte       │ ÜBERFÄLLIG                                                                               │
+│ ⎘ Vorlagen       │ ! 💶 Rate 2/3 Standgebühr Altstadt            6.000 €  seit 2 T            [Bezahlt]     │
+│ ? Wissen         │ ! ▣ Plakatierung Neuss beantragen             Jonas    seit 1 T            [Öffnen]      │
+│ 🔔 Benachr.    3 │ HEUTE                                                                                    │
+│ ⚙ Einstellungen  │ ⏱ 3 Schichten ohne Zeiten · Tag 5/7                                        [Erfassen]    │
+│                  │ ↻2 Toiletten bestellen · Food & Wine                                       [Erledigt]    │
+│ SPÄTER           │ DIESE WOCHE (7)                                                            alle ▸        │
+│ Buchungen Phase 2│──────────────────────────────────────────────────────────────────────────────────────────│
+│ Postfach  Phase 2│ NÄCHSTES WOCHENENDE · KW 20 · Sa 16.05. – So 17.05.                                      │
+│ Inventar  Phase 2│ Veranstaltung          Genehm.  Aufgaben  Team  Geld  Aufwand                            │
+│                  │ Food & Wine Neuss      ▲ 4/5    ● 31/39   ● 6/6 ● ok  42 h                               │
+│                  │ Flohmarkt Altstadt     ■ 3/5    ▲ 14/20   ▲ 5/6 ● ok  34 h                               │
+│                  │ Antikmarkt Linz        ● 5/5    ● 12/14   ● 4/4 ● ok  22 h                               │
+│                  │ WAS DAS WOCHENENDE AUFHÄLT                                                               │
+│ Petra · Inhaberin│  ■ Genehmigung Wasser fehlt · Altstadt          ▲ Halteverbot aufstellen offen · Lars    │
+│ ◐ System       ▾ │                                                                                          │
+└──────────────────┴──────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-- Everyone starts here (one default for everyone). Each row has **one primary action**; Space = peek; click = open
-  in the right pane; Shift+click = open as a new pane.
-- Workspace tabs in the top bar work like browser tabs; `+` opens the workspace menu (W1c).
+- One start screen for everyone; no fixed master-detail. Each Heute-fällig row has **one primary action**;
+  Space = Vorschau; the row action opens the matching drawer (Rate, Aufgabe, Genehmigung).
+- The season strip uses task estimates (M2) and contracts (M4); until then it shows the event counts only.
+- **Orte** (after Veranstaltungen) and **Kontakte** (after Händler) have their own sidebar entries (product owner,
+  2026-10-21); the prototype's sidebar predates this.
+- Profile at the bottom opens: Sprache · Design System/Hell/Dunkel · Dichte Standard/Kompakt · Abmelden.
 
-## W1 · Workspace operations
+## W1 · Kalender (module)
+```
+┌──────────────────────────────────────────────────────────────────────────────┬─────────────────────────────┐
+│ Kalender   Mai 2026  ‹ ›  [Heute]           (•) Monat ( ) Liste · 6 Wochen    │ EBENEN                      │
+│ [Alles] [Nur Veranstaltungen] [Nur Fristen] [Märkte + Genehmigungen]          │ VERANSTALTUNGEN             │
+│ ☐ Nur Achtung und Kritisch   ☐ Nur meine Zuständigkeit   [Ort ▾]              │ ☑ Flohmarkt  ☑ Antikmarkt   │
+├────┬────────┬────────┬────────┬─────────┬────────┬─────────────┬──────────────┤ ☑ Stadtfest  ☑ Food & Wine  │
+│ KW │ Mo     │ Di     │ Mi     │ Do      │ Fr     │ Sa          │ So           │ FRISTEN                     │
+│ 19 │ 4      │ 5      │ 6      │ 7       │ 8      │ 9           │ 10 Floh Bonn │ ☑ Genehmigungen             │
+│ 20 │ 11     │ 12     │ 13     │ 14      │ 15     │ 16 ⚑        │ 17           │ ☑ Raten & Zahlungen         │
+│    │        │ ! Rate │        │ ! Plakat│        │ F&W Neuss   │ Floh Altstadt│ ☐ Aufgaben                  │
+│    │        │   2/3  │        │   Neuss │        │ Antik Linz  │ Floh Nippes  │ ☐ Arbeitszeiten & Abschluss │
+│ 21 │ 18     │ 19     │ 20     │ 21      │ 22     │ 23          │ 24           │ ☐ Rückgaben (Miete)         │
+│ …  │        │        │        │         │        │             │              │ ☐ Fahrzeuge & Pflichten     │
+│    │        │        │        │         │        │             │              │ TEAM        ☐ Schichten     │
+│    │        │        │        │         │        │             │              │ HINTERGRUND ☑ Feiertage NRW │
+└────┴────────┴────────┴────────┴─────────┴────────┴─────────────┴──────────────┴─────────────────────────────┘
+```
+- "Liste · 6 Wochen": the same entries as a chronological list grouped by KW. Click = open, Space = Vorschau.
+- The layer selection is saved per person. ⚑ marks weekends with 4+ events.
+- M1: Veranstaltungen + Feiertage NRW only; other layers appear with their modules (M2–M6, Rückgaben with M12).
 
-**W1a · Split by dragging a tab** (drop zones appear while dragging; max 3 groups)
-```
-│ [Heute fällig] [Logbuch]  ← dragging "Logbuch" …     ▏                                     │
-│  ┌──────────────┬──────────────┐                      ▏   ┌───────────────────┐            │
-│  │              │   ░░░░░░░░   │  ← drop on right half▏   │  ░ Nach rechts ░  │            │
-│  │   (tabs)     │   ░ rechts ░ │    = new group         ▏   └───────────────────┘            │
-│  └──────────────┴──────────────┘                      ▏                                     │
-│ Toast after drop: "Logbuch nach rechts verschoben  [Rückgängig]"                           │
-```
-Keyboard / click alternative: pane menu `⋯ → Nach rechts verschieben / Nach unten verschieben / In Gruppe …`,
-or Ctrl+M then arrows (live preview). If 3 groups exist, the 4th drop zone is disabled with tooltip
-"Maximal 3 Bereiche – zuerst einen schließen".
-
-**W1b · Pane header & menu**
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ ▤ Flohmarkt Altstadt · So 07.06.   ⛓ folgt: Veranstaltungen   ⤢  ⋯  ×      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  ⋯  Link kopieren                                                          │
-│     Als Seite öffnen                                                       │
-│     Nach links / rechts / unten verschieben                                │
-│     Verknüpfung lösen                                                      │
-│     Schließen                                                              │
-```
-
-**W1c · Workspace menu (`+` or the active workspace tab's ▾)**
-```
-┌──────────────────────────────────────────────┐
-│ ARBEITSBEREICH "Genehmigungen"  (geändert •) │
-│  Speichern                          Ctrl+S   │
-│  Als neuen Arbeitsbereich speichern…         │
-│  Auf gespeicherten Stand zurücksetzen        │
-│  🔒 Layout sperren                           │
-│  Umbenennen · Löschen                        │
-│ ──────────────────────────────────────────── │
-│ MEINE ARBEITSBEREICHE (4 von 8)              │
-│  Start · Genehmigungen · Geld · Montag       │
-│ ──────────────────────────────────────────── │
-│ NEU                                          │
-│  Leerer Arbeitsbereich                       │
-│  Aus Team-Vorlage…  (Bürotag, Genehmigungen, │
-│                      Geld, Wochenende)       │
-│ ──────────────────────────────────────────── │
-│  Start wiederherstellen                      │
-│  (Manager/Inhaber:) Als Team-Vorlage teilen… │
-└──────────────────────────────────────────────┘
-```
-
-**W1d · Team template gallery** (copy on use; never live-linked)
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Team-Vorlagen                                                                │
-│ ┌────────────────────┐ ┌────────────────────┐ ┌────────────────────┐ ┌─────┐ │
-│ │ Bürotag            │ │ Genehmigungen      │ │ Geld               │ │ Wo- │ │
-│ │ ▭▭▭▭ │ ▭▭▭        │ │ ▭▭▭▭▭ │ ▭▭▭       │ │ ▭▭▭▭ │ ▭▭▭        │ │ chen│ │
-│ │ Heute fällig|Board │ │ Logbuch|Veranst.   │ │ Zahlungen|Veranst. │ │ ende│ │
-│ │ von Jonas          │ │ von Jonas          │ │ von Petra          │ │     │ │
-│ │ [Kopie verwenden]  │ │ [Kopie verwenden]  │ │ [Kopie verwenden]  │ │ […] │ │
-│ └────────────────────┘ └────────────────────┘ └────────────────────┘ └─────┘ │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-## W2 · Open to the side & peek (every list)
+## W2 · Vorschau & drawer (every list)
 ```
 │ Veranstaltungen                                           │
 │ Datum      Name                 Ort        Status          │
-│ So 07.06.  Flohmarkt Altstadt   Köln       ▲ geplant   👁 ⇥ ⋯│  ← hover icons: peek · open to the side · menu
+│ So 07.06.  Flohmarkt Altstadt   Köln       ▲ geplant   👁 ⋯│  ← hover icons: Vorschau · menu
 │ Sa 06.06.  Antikmarkt Linz      Linz       ● bestätigt     │
 ```
-**Peek sheet** (Space or 👁; closes with Esc; doesn't change the layout)
+**Vorschau** (Space or 👁; small card top right; Esc closes, Enter opens the page)
 ```
                                    ┌──────────────────────────────────────┐
-                                   │ Flohmarkt Altstadt · So 07.06.  ⇥ × │
+                                   │ Flohmarkt Altstadt · So 07.06.     × │
                                    │ ▲ Achtung: Genehmigung Wasser fehlt │
                                    │ Aufgaben 14/20 · Team 5/6 · 34 h    │
                                    │ Nächste Fristen                     │
                                    │  Fr Halteverbot aufstellen (Lars)   │
-                                   │ [Als Bereich öffnen] [Seite]        │
+                                   │ [Öffnen ↵]                          │
                                    └──────────────────────────────────────┘
 ```
+**Detail drawer** (from the right, for real work; the list stays visible; linkable, e.g. `?detail=task:<id>`)
+```
+                              ┌──────────────────────────────────────────────────────┐
+                              │ Aufgabe · Halteverbot aufstellen                 ⋯ × │
+                              │ Status [◐ In Arbeit ▾]                              │
+                              │ Flohmarkt Altstadt · fällig Fr 05.06. · Lars · 1 h  │
+                              │ Beschreibung …                                      │
+                              │ ☑ Schilder abholen  ☐ Schilder aufstellen  ☐ Foto  │
+                              │ Nachweis: 📷 erforderlich                            │
+                              │ Kommentare: @Jonas Schilder liegen im Lager …       │
+                              │ Verlauf: zugewiesen an Lars · vor 2 T               │
+                              └──────────────────────────────────────────────────────┘
+```
+Status menu: Offen · In Arbeit · Wartet · Amt / Extern · Blockiert · Erledigt · Übersprungen. Esc closes; focus
+returns to the row or card. Permit, payable and shift drawers follow the same layout.
 
-## W3 · View "Heute fällig" (detail)
+## W3 · "Heute fällig" (section of Übersicht, detail)
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────────┐
 │ Heute fällig                        [Alle 12][Geld 3][Genehmigungen 2][Stunden 3][Aufg. 4]│
@@ -140,7 +130,7 @@ or Ctrl+M then arrows (live preview). If 3 groups exist, the 4th drop zone is di
 Empty: "Heute ist nichts fällig. Nächste Frist: Mo 08.06. Halteverbot Bonn." Filtered-empty: "Keine Geld-Themen
 heute – Filter zurücksetzen".
 
-## W4 · View "Board"
+## W4 · Board
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┬──────────────┐
 │ Board  [Alle Veranstaltungen ▾] [Kategorie ▾]  Ansicht: (•) Spalten ( ) Nach Person      │ TEAM  KW 23  │
@@ -157,11 +147,11 @@ heute – Filter zurücksetzen".
 └──────────────────┴──────────────────┴──────────────────┴───────────────┘                 └──────────────┘
  Drop a card on a person → "Zugewiesen an Lars [Rückgängig]". ⠿ = drag handle; ⋯ = Zuweisen an… / Verschieben nach… /
  Status / Schätzung. Key A = assign, S = status. Load bars: estimated hours this week vs capacity (Minijob: remaining
- allowance); amber > 80 %, red > 100 %.
+ allowance); amber > 80 %, red > 100 %. Click on a card opens the task drawer (W2).
 ```
 **Arbeitslast** toggle: people × weeks grid with estimated hours per cell and the "≈ x Minijob-Monate" season total.
 
-## W5 · View "Veranstaltungen" + generate from a preset
+## W5 · Veranstaltungen + generate from a preset
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │ Veranstaltungen 74   (•) Liste ( ) Kalender   [Typ ▾][Ort ▾][Status ▾]  [+ Aus Vorlage erzeugen] │
@@ -190,12 +180,12 @@ heute – Filter zurücksetzen".
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## W6 · View "Veranstaltung" (tab Überblick)
+## W6 · Veranstaltung (tab Überblick)
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────┐
 │ ▤ Flohmarkt Altstadt · So 07.06.2026 · Köln Altstadt (Heumarkt) · Flohmarkt      │
 │ Status: geplant (Genehmigung offen) · buchbar · Autoplätze frei    [Datum ändern…] │
-│ [Überblick] [Board] [Genehmigungen 4/5] [Team 5/6] [Geld] [Dokumente] [Notizen] [Verlauf]│
+│ [Überblick] [Board 14/20] [Genehmigungen 4/5 ▲] [Team 5/6] [Geld ●] [Dokumente 6] [Notizen] [Verlauf]│
 ├───────────────────────────────────────────────────────────────────────────────────┤
 │ GESUNDHEIT ▲ Achtung                      NÄCHSTE FRISTEN                          │
 │  Genehmigungen ▲ Wasser fehlt              Fr 05.06. Halteverbot aufstellen · Lars │
@@ -206,22 +196,24 @@ heute – Filter zurücksetzen".
 └───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## W7 · Workspace "Genehmigungen": Logbuch matrix + linked event
+## W7 · Logbuch matrix + permit drawer
 ```
-┌──────────────────────────────────────────────────────────┬────────────────────────────────────────┐
-│ [Logbuch]                                         ⤢ ⋯    │ [Flohmarkt Altstadt ×] ⛓ folgt: Logbuch │
-│ Saison [2027 ▾]  (•) Matrix ( ) Zeitstrahl   Fehlt 7 · Beantragt 12                              │
-│           │ STADT                                    │ EXTERN        │ Genehmigungen 3/5            │
-│ Ort       │ Markt     Wasser   Plakate   Halteverb.│ Toil.  Eigent.│ ✓ Marktgenehmigung 2027      │
-│ Altstadt  │ ⏳ Antw.Jan ✓ –12/27 ! fehlt   ✓ je T. │ ✓ RV27  –     │   beantragt · Antwort ~Jan   │
-│ Nippes    │ ✓ –12/27  ✓ –12/27 ⏳ beantr. ✓       │ ✓      –      │ ! Wasser 2027 fehlt          │
-│ Linz      │ ! fehlt   ✓        –        –         │ ✓      ✓ MJV  │   Frist KW 48 · [Aufgabe]    │
-│  ⚑ Frist KW 45                                     │               │ ✓ Halteverbot je Termin      │
-└──────────────────────────────────────────────────────────┴────────────────────────────────────────┘
- Cells = icon + short text (never colour alone). Click a cell → the right pane follows (event or permit).
+┌────────────────────────────────────────────────────────────────┬─────────────────────────────────────────┐
+│ Logbuch                                                        │ Genehmigung · Wasser 2027 · Altstadt  × │
+│ Saison [2027 ▾]  (•) Matrix ( ) Zeitstrahl   Fehlt 7 · Beantragt 12│ ! Fehlt · Frist KW 48                 │
+│           │ STADT                                │ EXTERN       │ Behörde: Stadtwerke Köln · Standrohr    │
+│ Ort       │ Markt     Wasser   Plakate   Halteverb.│ Toil. Eigent.│ Deckt ab: 9 Veranstaltungen 2027        │
+│ Altstadt  │ ⏳ Antw.Jan [! fehlt] ! fehlt  ✓ je T. │ ✓ RV27 –     │ Dokumente: –                            │
+│ Nippes    │ ✓ –12/27  ✓ –12/27 ⏳ beantr. ✓       │ ✓      –     │ Gebühr: 120 € → Zahlung anlegen         │
+│ Linz      │ ! fehlt   ✓        –        –         │ ✓      ✓ MJV │ [Aufgabe anlegen]  [Als beantragt …]    │
+│  ⚑ Frist KW 45                                     │              │                                         │
+└────────────────────────────────────────────────────────────────┴─────────────────────────────────────────┘
 ```
+ Cells = icon + short text (never colour alone). Click a cell (or Enter) → the permit drawer opens on the right; the
+ matrix stays visible. "Fehlt → Aufgabe anlegen" creates a task with the deadline. Zeitstrahl = the same permits as
+ application/decision bars per location.
 
-## W8 · View "Vorlage (Ablauf)" editor: usually maximised
+## W8 · Vorlage (Ablauf) editor
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │ Ablauf Flohmarkt · v3 Entwurf (v2 veröffentlicht)      [Verwerfen] [Veröffentlichen]       │
@@ -241,7 +233,7 @@ heute – Filter zurücksetzen".
 "Veröffentlichen" → note "Bestehende Veranstaltungen bleiben unverändert." Separately: **Auf Veranstaltungen
 anwenden…** (dialog, nothing pre-selected, per-event diff: "+2 Aufgaben · 1 geändert · erledigte bleiben").
 
-## W9 · View "Team · Stunden" + month close
+## W9 · Team · Stunden + month close
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Team · Mai 2026   Grenze 603 € · Mindestlohn 13,90 €          [Monat abschließen ▸] (bis 15.06.)│
@@ -256,7 +248,7 @@ anwenden…** (dialog, nothing pre-selected, per-event diff: "+2 Aufgaben · 1 g
 **Monat abschließen** stepper: `Prüfen (3 offen) ▸ Sperren ▸ Freigeben ▸ Exportieren (CSV)`. Confirmation names the
 consequence: "Mai sperren – danach nur mit Begründung änderbar".
 
-## W10 · View "Finanzen · Zahlungen"
+## W10 · Finanzen · Zahlungen
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Zahlungen  [Offen][Fällig ≤ 14 T][Überfällig][Bezahlt]  [Veranstaltung ▾]   [+ Zahlung]      │
@@ -269,10 +261,10 @@ consequence: "Mai sperren – danach nur mit Begründung änderbar".
 │ ▸ Toiletten Rahmenvertrag 2027 · Dixi · 2.700 € (3 Raten)   nächste Rate 01.11.            │
 └────────────────────────────────────────────────────────────────────────────────────────────┘
  [Bezahlt] → "Rate 2/3 als bezahlt markiert [Rückgängig]" → "Beleg hinzufügen" (drop or 📷). Shows
- "wird gespeichert…" until the server confirms. Counter in header: "2 Belege fehlen".
+ "wird gespeichert…" until the server confirms. Counter in header: "2 Belege fehlen". Click on a payable → detail drawer.
 ```
 
-## W11 · View "Firma"
+## W11 · Firma
 ```
 │ Firma  [Pflichttermine] [Fahrzeuge] [Versicherungen] [Dokumente]                     │
 │ ! UVV-Prüfung Transit K-MW 123        seit 12 T fällig                  [Erledigt…] │
@@ -281,25 +273,25 @@ consequence: "Mai sperren – danach nur mit Begründung änderbar".
 │ Mängel: Transit: Bremse quietscht · 📷 · Dieter · vor 3 T                           │
 ```
 
-## W12 · Command palette (⌘K / search field)
+## W12 · Command palette (Strg+K / search field)
 ```
 ┌──────────────────────────────────────────────────────────┐
 │ 🔍 altstadt                                              │
 ├──────────────────────────────────────────────────────────┤
 │ VERANSTALTUNGEN                                          │
-│  ▤ Flohmarkt Altstadt · So 07.06.        ↵ öffnen ⇧↵ daneben│
+│  ▤ Flohmarkt Altstadt · So 07.06.         ↵ öffnen · Space 👁│
 │  ▤ Flohmarkt Altstadt · So 05.07.                         │
 │ GENEHMIGUNGEN                                            │
 │  ▣ Marktgenehmigung Altstadt 2027 · beantragt             │
 │ AKTIONEN                                                 │
 │  + Veranstaltung aus Vorlage erzeugen                     │
-│ ARBEITSBEREICHE                                          │
-│  ⧉ Genehmigungen                                          │
+│ SEITEN                                                   │
+│  ▣ Logbuch · Altstadt                                     │
 └──────────────────────────────────────────────────────────┘
  Umlaut-insensitive (koln = Köln), German synonyms; → previews the selection.
 ```
 
-## W13 · View "Benachrichtigungen"
+## W13 · Benachrichtigungen
 ```
 │ Benachrichtigungen  [Alle][Mir zugewiesen][@Erwähnt][Fristen]                     │
 │ ● ! Überfällig: Toiletten bestellen · Food & Wine           2 T   [✓] [Später]   │
@@ -307,17 +299,20 @@ consequence: "Mai sperren – danach nur mit Begründung änderbar".
 │   📅 6 Fristen verschoben (+7 T) · Flohmarkt Altstadt        3 h   [✓]            │
 ```
 
-## W14 · Tablet (< 1024 px): one pane + switcher
+## W14 · Tablet/phone: collapsed sidebar, single column
 ```
-┌───────────────────────────────────────────────┐
-│ ☰  marktwerk     [Bereich: Heute fällig ▾] 🔔 │
-├───────────────────────────────────────────────┤
-│ Heute fällig                                  │
-│ ! Rate 2/3 Standgebühr …            [Bezahlt] │
-│ …                                             │
-└───────────────────────────────────────────────┘
- "Bereich" switcher lists the workspace's other panes; no docking below 1024 px.
+Tablet (< 1024 px)                                  Phone (390 px, Team · Schichten)
+┌────┬──────────────────────────────────────────┐   ┌──────────────────────────────┐
+│ ⌂  │ Übersicht                 🔍  [+]  🔔 3   │   │ ☰  Schichten · Sa 16.05.  🔔 │
+│ ▦  ├──────────────────────────────────────────┤   ├──────────────────────────────┤
+│ ▥  │ HEUTE FÄLLIG  [Alle 12][Geld 3] …        │   │ Food & Wine Neuss            │
+│ ▤  │ ! Rate 2/3 Standgebühr …       [Bezahlt] │   │ Aufbau 05:00–09:00           │
+│ ▣  │ …                                        │   │  Dieter  ⏱ 05:02 – [Ende]    │
+│ …  │ NÄCHSTES WOCHENENDE (one column)         │   │  Ayşe    ⏱ –        [Start]  │
+└────┴──────────────────────────────────────────┘   └──────────────────────────────┘
 ```
+ Below 1024 px the sidebar collapses to icons (hamburger on phones); pages stack into one column; drawers open full
+ width. Staff/shift screens have the 390 px variant; field crew get magic-link pages in Phase 2.
 
 ## W15 · States
 ```
@@ -325,12 +320,12 @@ Empty:           Noch keine Genehmigungen für diesen Ort.   [Aus Vorlage anlege
 Filtered empty:  Keine Treffer für „Plakate“ in Nippes.     [Filter zurücksetzen]
 Loading:         ▭▭▭▭▭▭▭▭ ▭▭▭▭ ▭▭  (skeleton rows shaped like the table)
 Error:           Konnte nicht geladen werden.  [Erneut versuchen]   (input is kept)
-Pane placeholders: "Diese Ansicht gibt es nicht mehr – entfernen" · "Veranstaltung gelöscht" · "Keine Berechtigung"
+Record placeholders (page, Vorschau or drawer from an old link): "Veranstaltung gelöscht" · "Keine Berechtigung"
 ```
 
 ---
 
 ## Later phases (outlook, same shell)
-- **Phase 2:** *Buchungen* view (per-event queue + rows/slots) and *Postfach* (Outlook-like 3 panes) ship as views;
-  a team template "Buchungstag" = Postfach | Buchungen (follows). Staff magic-link page (mobile, no workspace).
-- **Phase 3:** *Lageplan* view (map) docks next to *Buchungen*; field PWA is separate single-column pages.
+- **Phase 2:** *Buchungen* (per-event queue + rows/slots) and *Postfach* (Outlook-like list + reading area) become
+  sidebar modules (today shown under SPÄTER). Staff magic-link page (mobile, single column).
+- **Phase 3:** *Lageplan* (map) view; the field PWA is separate single-column pages.

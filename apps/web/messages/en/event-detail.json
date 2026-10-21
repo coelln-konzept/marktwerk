@@ -1,0 +1,172 @@
+{
+  "eventDetail": {
+    "kicker": "Event",
+    "header": {
+      "dateLine": "{date} · {open}–{close} · {week}",
+      "dateLineRange": "{from} – {to} · {open}–{close} · {week}",
+      "setup": "Setup {date} from {time}",
+      "preset": "Preset {name}",
+      "noPreset": "No preset",
+      "booking": {
+        "open": "bookable",
+        "closed": "Booking closed",
+        "full": "fully booked",
+        "carsFull": "Car spaces full"
+      }
+    },
+    "tabs": {
+      "label": "Sections of the event",
+      "overview": "Overview",
+      "board": "Board",
+      "permits": "Permits",
+      "team": "Team",
+      "money": "Money",
+      "documents": "Documents",
+      "notes": "Notes",
+      "history": "History",
+      "milestone": "from {milestone}",
+      "milestoneHint": "Arrives with milestone {milestone}",
+      "later": "later",
+      "laterHint": "Arrives in a later step"
+    },
+    "status": {
+      "menu": "Change status",
+      "menuLabel": "Change status, currently: {status}",
+      "changeTo": "Change to",
+      "none": "No further status changes possible.",
+      "changed": "Status: {from} → {to}",
+      "reverted": "Status back to: {to}",
+      "undo": "Undo",
+      "errors": {
+        "not_found": "This event no longer exists.",
+        "invalid_status": "Unknown status.",
+        "invalid_transition": "This change is not possible from the current status. The page was refreshed.",
+        "reason_required": "Please give a reason for the cancellation.",
+        "conflict": "The status was changed in the meantime. Nothing was reverted.",
+        "generic": "That did not work. Please try again."
+      }
+    },
+    "cancel": {
+      "title": "Cancel event",
+      "description": "“{name}” will be marked as cancelled. The reason shows in the history; you can undo the cancellation right afterwards.",
+      "reason": "Reason for cancelling",
+      "placeholder": "e.g. permit refused, weather warning …",
+      "submit": "Cancel event",
+      "cancel": "Back"
+    },
+    "overview": {
+      "dates": {
+        "title": "Dates & deadlines",
+        "caption": "Dates and deadlines of the event",
+        "date": "Date",
+        "what": "Date for",
+        "relative": "Distance",
+        "today": "today",
+        "inDays": "in {n} d",
+        "daysAgo": "{n} d ago",
+        "keys": {
+          "event_day": "Event day",
+          "setup_day": "Setup day",
+          "teardown_day": "Teardown day",
+          "booking_cutoff": "Booking cut-off"
+        },
+        "empty": "No dates yet."
+      },
+      "facts": {
+        "title": "Key facts",
+        "venue": "Venue",
+        "times": "Times",
+        "timesValue": "Setup {setup} · {open}–{close} · teardown {teardown}",
+        "price": "Stall price",
+        "pricePerM": "{price} per metre",
+        "fee": "Booking fee",
+        "rules": "Rules of the type",
+        "newGoods": "New goods max. {share} %",
+        "bannedGoods": "Banned goods: {goods}",
+        "noBannedGoods": "No banned goods",
+        "onlineBooking": "Online booking: {value}",
+        "yes": "yes",
+        "no": "no",
+        "cancelledReason": "Reason for cancelling"
+      },
+      "team": {
+        "title": "Team",
+        "summary": "{assigned}/{total} duties filled",
+        "open": "Open: {roles}",
+        "allSet": "All duties are filled.",
+        "link": "Go to team"
+      },
+      "health": {
+        "title": "Health",
+        "permits": "Permits",
+        "tasks": "Tasks",
+        "team": "Team",
+        "money": "Money",
+        "permitsNote": "from M3",
+        "tasksNote": "from M2",
+        "moneyNote": "from M5",
+        "teamNote": "{assigned}/{total} duties filled"
+      }
+    },
+    "team": {
+      "title": "Duties",
+      "caption": "Duties of this event",
+      "role": "Duty",
+      "person": "Person",
+      "unassigned": "not filled",
+      "assigned": "filled",
+      "summary": "{assigned} of {total} duties filled",
+      "hint": "Read only: duties are taken over from the preset. Changing them here arrives in a later step."
+    },
+    "notes": {
+      "title": "Notes",
+      "label": "Notes on the event",
+      "placeholder": "What should the team know about this event?",
+      "empty": "No notes yet.",
+      "save": "Save",
+      "saving": "saving…",
+      "saved": "Notes saved",
+      "unchanged": "No changes to save.",
+      "readOnly": "You can read the notes but not change them.",
+      "tooLong": "The notes are too long (at most {max} characters).",
+      "failed": "Saving did not work. Please try again.",
+      "chars": "{count} characters"
+    },
+    "history": {
+      "title": "History",
+      "caption": "Changes to this event",
+      "when": "When",
+      "who": "Who",
+      "what": "Change",
+      "empty": "No changes since the import yet.",
+      "emptyHint": "Status changes, edited notes and other changes appear here.",
+      "unknownActor": "System",
+      "created": "Created from preset",
+      "createdManual": "Created",
+      "statusChanged": "Status changed: {from} → {to}",
+      "statusUndone": "Status reverted: {from} → {to}",
+      "reason": "Reason: {reason}",
+      "notes": "Notes changed",
+      "archived": "Archived",
+      "other": "Changed ({action})"
+    },
+    "later": {
+      "board": {
+        "title": "The board arrives in M2",
+        "hint": "Tasks from the process templates as a kanban board, with the people rail showing workload per person."
+      },
+      "permits": {
+        "title": "Permits arrive in M3",
+        "hint": "Which permits apply to this event, their status and deadlines come with the logbook."
+      },
+      "money": {
+        "title": "Money arrives in M5",
+        "hint": "Later this shows the items with Plan · Committed · Actual, payments with instalments and receipts."
+      },
+      "documents": {
+        "title": "Documents arrive later",
+        "hint": "Notices, plans and contracts of this event will be filed here later."
+      }
+    }
+  }
+}

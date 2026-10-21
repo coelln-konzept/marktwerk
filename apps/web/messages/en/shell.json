@@ -1,0 +1,148 @@
+{
+  "app": {
+    "name": "marktwerk",
+    "tagline": "Operating system for events"
+  },
+  "nav": {
+    "overview": "Overview",
+    "board": "Board",
+    "events": "Events",
+    "logbook": "Logbook",
+    "team": "Team",
+    "finance": "Finance",
+    "company": "Company",
+    "vendors": "Vendors",
+    "templates": "Templates",
+    "knowledgeBase": "Knowledge",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "bookings": "Bookings",
+    "inbox": "Inbox",
+    "inventory": "Inventory",
+    "comingSoon": "Phase 2",
+    "signOut": "Sign out",
+    "label": "Main navigation",
+    "close": "Close navigation",
+    "calendar": "Calendar",
+    "venues": "Venues",
+    "contacts": "Contacts",
+    "later": "Later"
+  },
+  "roles": {
+    "owner": "Owner",
+    "manager": "Office manager",
+    "staff": "Staff",
+    "field": "Field crew"
+  },
+  "login": {
+    "title": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in …",
+    "error": "Email or password is incorrect."
+  },
+  "errors": {
+    "forbidden": "You don't have permission to do that.",
+    "back": "Back to overview",
+    "notFoundTitle": "Not found",
+    "notFoundHint": "This record doesn't exist (any more), or the link is incomplete."
+  },
+  "language": {
+    "label": "Language",
+    "de": "Deutsch",
+    "en": "English"
+  },
+  "profile": {
+    "design": "Theme",
+    "theme": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "density": "Density",
+    "densities": {
+      "standard": "Standard",
+      "compact": "Compact"
+    },
+    "signOut": "Sign out"
+  },
+  "topbar": {
+    "menu": "Open navigation",
+    "breadcrumb": "Breadcrumb",
+    "search": "Search or command …",
+    "new": "New",
+    "notifications": "Notifications",
+    "shortcut": "Ctrl K"
+  },
+  "palette": {
+    "title": "Search and commands",
+    "placeholder": "Event, venue, person, vendor or command …",
+    "hint": "Type at least two characters.",
+    "searching": "Searching …",
+    "empty": "No results.",
+    "select": "select",
+    "open": "open",
+    "umlauts": "Accents don't matter: “koln” finds Köln",
+    "groups": {
+      "event": "Events",
+      "venue": "Venues",
+      "staff": "People",
+      "contact": "Contacts",
+      "vendor": "Vendors",
+      "action": "Actions"
+    },
+    "actions": {
+      "generate": "Generate events from a preset",
+      "calendar": "Open calendar",
+      "events": "All events"
+    }
+  },
+  "vorschau": {
+    "label": "Preview",
+    "close": "Close preview",
+    "open": "Open",
+    "keys": "Esc: close · Enter: open"
+  },
+  "comingSoon": {
+    "title": "Coming with milestone {milestone}",
+    "board": "The board with tasks from timeline templates, people rail and workload arrives in M2.",
+    "logbook": "The logbook (permits per venue as matrix and timeline) arrives in M3.",
+    "finance": "Payables with instalments, receipts and money per event arrive in M5.",
+    "company": "Obligations, vehicles and insurances arrive in M6.",
+    "knowledgeBase": "The knowledge base follows after the core modules.",
+    "notifications": "Notifications (deadlines, assignments, escalations) arrive in M3.",
+    "settings": "Company data, users, roles and legal parameters will be maintained here (later)."
+  },
+  "status": {
+    "event": {
+      "draft": "Draft",
+      "planned": "planned",
+      "confirmed": "confirmed",
+      "live": "live",
+      "completed": "completed",
+      "closed": "settled",
+      "cancelled": "cancelled"
+    }
+  },
+  "health": {
+    "ok": "On track",
+    "warn": "Attention",
+    "critical": "Critical",
+    "none": "not yet tracked",
+    "dims": {
+      "permits": "Permits",
+      "tasks": "Tasks",
+      "team": "Team",
+      "money": "Money"
+    }
+  },
+  "calendar": {
+    "prev": "Previous month",
+    "next": "Next month",
+    "today": "Today",
+    "week": "CW",
+    "weekdays": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+    "more": "+ {n} more"
+  }
+}
