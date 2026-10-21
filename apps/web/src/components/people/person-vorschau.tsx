@@ -1,6 +1,8 @@
+import { can } from "@marktwerk/core";
 import { CircleCheck, CircleOff } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { ContractSection } from "@/components/team/contract-section";
 import { Avatar } from "@/components/ui/avatar";
 import { PhoneLink } from "@/components/ui/phone";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -92,6 +94,9 @@ export async function PersonVorschau({
             : []),
         ]}
       />
+      {can(actor.role, "team", "read") && (
+        <ContractSection staffMemberId={person.id} actor={actor} today={today} />
+      )}
       <section aria-labelledby="pv-notes">
         <h3 id="pv-notes" className="mb-1 font-semibold text-muted-foreground text-tiny">
           {t("notes")}

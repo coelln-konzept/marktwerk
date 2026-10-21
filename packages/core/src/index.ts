@@ -25,6 +25,8 @@ export * from "./staff/minijob";
 export * from "./tasks/due";
 export * from "./tasks/propagation";
 export * from "./tasks/template-items";
+export * from "./staff/hours";
+export * from "./staff/worktime";
 export * from "./text/email";
 export * from "./text/fold";
 export * from "./text/phone";
