@@ -170,7 +170,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
             <PanelBody className="text-muted-foreground">{td("noZones")}</PanelBody>
           </Panel>
         ) : (
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4 2xl:grid-cols-2">
             {venue.zones.map((zone, index) => (
               <Panel key={zone.id} className="overflow-hidden">
                 <PanelHeader className="py-2.5">

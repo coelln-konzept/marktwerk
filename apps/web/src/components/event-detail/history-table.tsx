@@ -46,13 +46,17 @@ export async function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
           reason: d.reason ? t("reason", { reason: d.reason }) : undefined,
         };
       }
-      case "event.create":
+      case "event.create": {
+        const source = asObject<CreateDiff>(entry.diff).source;
         return {
           text:
-            asObject<CreateDiff>(entry.diff).source === "preset"
+            source === "preset"
               ? t("created")
-              : t("createdManual"),
+              : source === "agreement"
+                ? t("createdAgreement")
+                : t("createdManual"),
         };
+      }
       case "event.update_notes":
         return { text: t("notes") };
       case "event.duty": {

@@ -191,7 +191,8 @@
       "bookingOn": "{flag}: yes",
       "bookingOff": "{flag}: no",
       "moved": "Moved: {from} → {to}",
-      "undone": "Undone"
+      "undone": "Undone",
+      "createdAgreement": "Created from agreement"
     },
     "later": {
       "board": {

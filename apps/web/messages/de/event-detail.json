@@ -191,7 +191,8 @@
       "bookingOn": "{flag}: ja",
       "bookingOff": "{flag}: nein",
       "moved": "Verschoben: {from} → {to}",
-      "undone": "Rückgängig gemacht"
+      "undone": "Rückgängig gemacht",
+      "createdAgreement": "Angelegt aus Vereinbarung"
     },
     "later": {
       "board": {
