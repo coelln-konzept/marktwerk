@@ -15,6 +15,13 @@
       "when": 1792597848371,
       "tag": "0001_m1_events",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792605741125,
+      "tag": "0002_phase1_modules",
+      "breakpoints": true
     }
   ]
 }
