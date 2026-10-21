@@ -43,7 +43,103 @@
       "nextDatesHint": "nächste 12 Monate",
       "noDates": "Keine Termine in den nächsten 12 Monaten.",
       "noRule": "Kein Rhythmus hinterlegt; Termine werden von Hand gewählt.",
-      "generate": "Termine erzeugen"
+      "generate": "Termine erzeugen",
+      "edit": "Bearbeiten"
+    },
+    "new": "Neue Vorlage",
+    "editLabel": "Bearbeiten: {name}",
+    "form": {
+      "newTitle": "Neue Vorlage",
+      "newSubtitle": "Aus einer Vorlage erzeugst du später die Termine einer Saison.",
+      "editTitle": "Vorlage bearbeiten",
+      "editCrumb": "Bearbeiten",
+      "back": "Zurück zu den Vorlagen",
+      "propagationHint": "Änderungen an der Vorlage gelten nur für Veranstaltungen, die du danach erzeugst. Bereits erzeugte Veranstaltungen bleiben unverändert.",
+      "basics": {
+        "title": "Grunddaten",
+        "name": "Name",
+        "type": "Art",
+        "venue": "Ort",
+        "choose": "Bitte wählen",
+        "retired": "(nicht mehr aktiv)",
+        "duration": "Dauer (Tage)",
+        "active": "Aktiv",
+        "activeHint": "Inaktive Vorlagen erscheinen nicht unter „Aus Vorlage erzeugen“. Mit dem Haken ist sie wieder da."
+      },
+      "public": {
+        "title": "Öffentliche Angaben",
+        "publicTitle": "Öffentlicher Titel",
+        "publicText": "Öffentlicher Text"
+      },
+      "times": {
+        "title": "Zeiten (Uhr)",
+        "setup": "Aufbau",
+        "open": "Beginn",
+        "close": "Ende",
+        "teardown": "Abbau",
+        "hint": "24-Stunden-Format, z. B. 08:00. Eingaben wie 8 oder 8.30 ergänzen wir."
+      },
+      "prices": {
+        "title": "Preise",
+        "price": "Standpreis",
+        "perMeter": "€ je m",
+        "fee": "Buchungsgebühr",
+        "hint": "Vorbelegt mit den Werten der gewählten Art, solange du nichts änderst."
+      },
+      "rhythm": {
+        "title": "Rhythmus",
+        "none": "Kein Rhythmus (Termine wählst du von Hand)",
+        "weekdays": "Wochentage",
+        "position": "Welcher im Monat",
+        "everyOne": "jeder",
+        "nth": "{n}.",
+        "last": "letzter",
+        "months": "Monate",
+        "monthsHint": "Ohne Auswahl gilt jeder Monat.",
+        "inWords": "In Worten",
+        "noRuleText": "Kein Rhythmus; Termine werden von Hand gewählt.",
+        "nextDates": "Nächste Termine",
+        "noDates": "Keine Termine in den nächsten zwei Jahren."
+      },
+      "team": {
+        "title": "Standard-Team",
+        "hint": "Wer pro Aufgabe bei neuen Veranstaltungen eingetragen wird. Bei der einzelnen Veranstaltung lässt sich das ändern.",
+        "nobody": "niemand",
+        "retired": "(nicht mehr aktiv)",
+        "noRoles": "Noch keine Aufgaben angelegt."
+      },
+      "save": "Speichern",
+      "create": "Vorlage anlegen",
+      "cancel": "Abbrechen",
+      "saved": "Vorlage gespeichert",
+      "created": "Vorlage angelegt",
+      "unchanged": "Keine Änderungen zu speichern.",
+      "conflict": {
+        "text": "Diese Vorlage wurde inzwischen von jemand anderem geändert. Deine Eingaben bleiben hier stehen.",
+        "overwrite": "Meine Änderungen trotzdem speichern"
+      },
+      "errors": {
+        "summary": "{count, plural, one {Bitte prüfe das markierte Feld.} other {Bitte prüfe die # markierten Felder.}}",
+        "invalid_name": "Bitte einen Namen angeben (höchstens 120 Zeichen).",
+        "invalid_duration": "Bitte 1 bis 14 Tage angeben.",
+        "invalid_public_title": "Der öffentliche Titel darf höchstens 200 Zeichen lang sein.",
+        "invalid_public_text": "Der öffentliche Text darf höchstens 5.000 Zeichen lang sein.",
+        "invalid_time": "Bitte die Zeit als HH:MM angeben, z. B. 08:00.",
+        "open_after_close": "Das Ende muss nach dem Beginn liegen.",
+        "close_after_teardown": "Der Abbau kann nicht vor dem Ende liegen.",
+        "setup_after_open": "Der Aufbau kann bei eintägigen Märkten nicht nach dem Beginn liegen.",
+        "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
+        "invalid_fee": "Bitte einen Betrag in Euro angeben, z. B. 5 (höchstens 10.000 €).",
+        "invalid_rrule": "Dieser Rhythmus ist nicht gültig. Bitte Wochentage und Monate prüfen.",
+        "rrule_empty": "Wähle mindestens einen Wochentag oder „Kein Rhythmus“.",
+        "invalid_type": "Bitte eine Art wählen.",
+        "invalid_venue": "Bitte einen Ort wählen, der nicht archiviert ist.",
+        "invalid_duty_role": "Diese Aufgabe gibt es nicht mehr.",
+        "invalid_staff": "Diese Person ist nicht (mehr) aktiv. Bitte jemand anderen wählen.",
+        "not_found": "Diese Vorlage gibt es nicht mehr.",
+        "invalid_input": "Die Angaben sind unvollständig. Bitte die Seite neu laden.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      }
     }
   }
 }

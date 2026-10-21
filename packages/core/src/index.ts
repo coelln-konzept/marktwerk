@@ -9,6 +9,7 @@ export * from "./events/anchors";
 export * from "./events/details";
 export * from "./events/health";
 export * from "./events/lifecycle";
+export * from "./events/preset";
 export * from "./events/rrule";
 export * from "./events/rrule-describe";
 export * from "./events/scheduling";
