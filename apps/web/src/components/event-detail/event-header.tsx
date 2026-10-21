@@ -10,6 +10,7 @@ import { formatDateShort, formatDateWithWeekday, formatWeek, todayIn } from "@/l
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import type { EventDetail } from "@/server/queries/events";
+import { eventTaskSummary } from "@/server/queries/tasks";
 import { listVenueOptions } from "@/server/queries/venues";
 import { BasicsDialog } from "./basics-dialog";
 import { BookingMenu } from "./booking-menu";
@@ -20,6 +21,7 @@ import { StatusMenu } from "./status-menu";
 export async function EventHeader({ event, actor }: { event: EventDetail; actor: Actor }) {
   const t = await getTranslations("eventDetail");
   const tHealth = await getTranslations("health");
+  const tBoard = await getTranslations("board");
   const locale = await getLocale();
   const base = `/veranstaltungen/${event.id}`;
   const multiDay = event.endsOn !== event.startsOn;
@@ -29,6 +31,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const total = event.duties.length;
   const canWrite = can(actor.role, "event", "write");
   const venues = canWrite ? await listVenueOptions() : [];
+  const tasks = await eventTaskSummary(actor, event.id, todayIn());
   const BookingIcon = event.bookingOpen ? BOOKING_FLAG_ICONS.open : BOOKING_FLAG_ICONS.notOpen;
 
   const dateLine = multiDay
@@ -52,7 +55,16 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   });
   const tabs: EventTab[] = [
     { key: "overview", href: base, label: t("tabs.overview") },
-    { key: "board", href: `${base}/board`, label: t("tabs.board"), hint: milestone("M2") },
+    {
+      key: "board",
+      href: `${base}/board`,
+      label: t("tabs.board"),
+      count: {
+        text: String(tasks.open),
+        level: tasks.health ?? undefined,
+        sr: `${tBoard("tab.open", { count: tasks.open })}${tasks.health ? `, ${tHealth(tasks.health)}` : ""}`,
+      },
+    },
     {
       key: "permits",
       href: `${base}/genehmigungen`,

@@ -1,4 +1,5 @@
 import type agreements from "../../messages/de/agreements.json";
+import type board from "../../messages/de/board.json";
 import type contacts from "../../messages/de/contacts.json";
 import type eventDetail from "../../messages/de/event-detail.json";
 import type events from "../../messages/de/events.json";
@@ -7,6 +8,7 @@ import type kalender from "../../messages/de/kalender.json";
 import type overview from "../../messages/de/overview.json";
 import type settings from "../../messages/de/settings.json";
 import type shell from "../../messages/de/shell.json";
+import type tasks from "../../messages/de/tasks.json";
 import type team from "../../messages/de/team.json";
 import type templates from "../../messages/de/templates.json";
 import type vendors from "../../messages/de/vendors.json";
@@ -26,7 +28,9 @@ type Messages = typeof shell &
   typeof vendors &
   typeof templates &
   typeof settings &
-  typeof agreements;
+  typeof agreements &
+  typeof board &
+  typeof tasks;
 
 declare module "next-intl" {
   interface AppConfig {
