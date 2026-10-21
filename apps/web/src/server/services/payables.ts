@@ -512,18 +512,15 @@ export type PaymentInput = {
 
 async function lockInstallment(tx: Tx, id: string) {
   if (!UUID.test(id)) throw new PayableInputError("not_found");
-  const [row] = await tx
-    .select({
-      installment,
-      payableTitle: payable.title,
-      payableArchivedAt: payable.archivedAt,
-    })
-    .from(installment)
-    .innerJoin(payable, eq(payable.id, installment.payableId))
-    .where(eq(installment.id, id))
-    .for("update", { of: installment });
-  if (!row || row.payableArchivedAt) throw new PayableInputError("not_found");
-  return { ...row.installment, payableTitle: row.payableTitle };
+  // Lock the rate alone (FOR UPDATE cannot name a schema-qualified table), then read its payable.
+  const [row] = await tx.select().from(installment).where(eq(installment.id, id)).for("update");
+  if (!row) throw new PayableInputError("not_found");
+  const [owner] = await tx
+    .select({ title: payable.title, archivedAt: payable.archivedAt })
+    .from(payable)
+    .where(eq(payable.id, row.payableId));
+  if (!owner || owner.archivedAt) throw new PayableInputError("not_found");
+  return { ...row, payableTitle: owner.title };
 }
 
 const snapshotOf = (row: typeof installment.$inferSelect): InstallmentSnapshot => ({

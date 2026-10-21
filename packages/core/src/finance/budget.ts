@@ -69,6 +69,8 @@ export function aggregateBudget(
     return at === -1 ? Number.MAX_SAFE_INTEGER : at;
   };
   const rows = [...byCategory.entries()]
+    // A category whose only payables were cancelled has nothing to show.
+    .filter(([, e]) => e.hasPlan || e.committed > 0 || e.actual > 0)
     .map(
       ([category, e]): BudgetRow => ({
         category,

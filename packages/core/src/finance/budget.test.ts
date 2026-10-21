@@ -75,6 +75,18 @@ describe("aggregateBudget", () => {
     expect(unplanned.totals.varianceCents).toBeNull();
   });
 
+  it("leaves out a category that has neither a plan nor any cost (cancelled payables)", () => {
+    const { rows } = aggregateBudget(
+      {
+        planned: [],
+        payables: [{ category: "toilets", committedCents: 0, actualCents: 0 }],
+        expenses: [],
+      },
+      ORDER,
+    );
+    expect(rows).toEqual([]);
+  });
+
   it("is empty without data", () => {
     expect(aggregateBudget({ planned: [], payables: [], expenses: [] })).toEqual({
       rows: [],
