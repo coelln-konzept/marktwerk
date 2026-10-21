@@ -178,7 +178,17 @@
       "dutyChanged": "{role}: {from} → {to}",
       "dutyAssigned": "{role} assigned: {name}",
       "dutyCleared": "{role} no longer filled (was {name})",
-      "dutyUndone": "Undone"
+      "dutyUndone": "Undone",
+      "updated": "Key facts changed: {fields}",
+      "fields": {
+        "times": "times",
+        "pricePerMCents": "pitch price",
+        "bookingFeeCents": "booking fee"
+      },
+      "bookingOn": "{flag}: yes",
+      "bookingOff": "{flag}: no",
+      "moved": "Moved: {from} → {to}",
+      "undone": "Undone"
     },
     "later": {
       "board": {
@@ -196,6 +206,83 @@
       "documents": {
         "title": "Documents arrive later",
         "hint": "Notices, plans and contracts of this event will be filed here later."
+      }
+    },
+    "facts": {
+      "edit": "Edit",
+      "title": "Edit key facts",
+      "description": "Times and prices of this event.",
+      "times": "Times",
+      "time": {
+        "setup": "Setup",
+        "open": "Opens",
+        "close": "Closes",
+        "teardown": "Teardown"
+      },
+      "price": "Pitch price",
+      "perMeter": "€ per m",
+      "fee": "Booking fee",
+      "presetHint": "Applies to this event only; the preset stays as it is.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Key facts saved",
+      "unchanged": "Nothing to save.",
+      "undo": "Undo",
+      "reverted": "Key facts reverted",
+      "errors": {
+        "invalid_time": "Please enter all times as HH:MM.",
+        "open_after_close": "Closing must be after opening.",
+        "close_after_teardown": "Teardown can't be before closing.",
+        "setup_after_open": "For single-day markets, setup can't be after opening.",
+        "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most €10,000).",
+        "not_found": "This event no longer exists.",
+        "conflict": "The key facts were changed in the meantime. Nothing was reverted.",
+        "generic": "That didn't work. Please try again."
+      }
+    },
+    "booking": {
+      "menu": "Booking",
+      "flag": {
+        "bookingOpen": "Bookable",
+        "fullyBooked": "Fully booked",
+        "carSpacesFull": "Car spaces full"
+      },
+      "on": {
+        "bookingOpen": "Booking opened",
+        "fullyBooked": "Marked as fully booked",
+        "carSpacesFull": "Car spaces marked as full"
+      },
+      "off": {
+        "bookingOpen": "Booking closed",
+        "fullyBooked": "No longer fully booked",
+        "carSpacesFull": "Car spaces available again"
+      },
+      "undo": "Undo",
+      "failed": "That didn't work. Please try again."
+    },
+    "move": {
+      "open": "Move",
+      "title": "Move event",
+      "description": "New first day; the duration stays. Setup, teardown and booking cut-off are recalculated.",
+      "newDate": "New first day",
+      "loading": "Loading preview …",
+      "caption": "Dates before and after",
+      "what": "Date",
+      "before": "Before",
+      "after": "New",
+      "announced": "This event is already announced: vendors and the website need to learn the new date.",
+      "note": "Hints never block: you decide.",
+      "submit": "Move",
+      "cancel": "Cancel",
+      "moved": "Moved to {date}",
+      "undo": "Undo",
+      "reverted": "Back on {date}",
+      "errors": {
+        "invalid_date": "Please pick a valid date.",
+        "not_movable": "This event is running or over and can no longer be moved.",
+        "conflict": "The event was moved in the meantime. The page was refreshed.",
+        "not_found": "This event no longer exists.",
+        "generic": "That didn't work. Please try again."
       }
     }
   }

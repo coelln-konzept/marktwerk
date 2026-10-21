@@ -178,7 +178,17 @@
       "dutyChanged": "{role}: {from} → {to}",
       "dutyAssigned": "{role} besetzt: {name}",
       "dutyCleared": "{role} nicht mehr besetzt (war {name})",
-      "dutyUndone": "Rückgängig gemacht"
+      "dutyUndone": "Rückgängig gemacht",
+      "updated": "Eckdaten geändert: {fields}",
+      "fields": {
+        "times": "Zeiten",
+        "pricePerMCents": "Standpreis",
+        "bookingFeeCents": "Buchungsgebühr"
+      },
+      "bookingOn": "{flag}: ja",
+      "bookingOff": "{flag}: nein",
+      "moved": "Verschoben: {from} → {to}",
+      "undone": "Rückgängig gemacht"
     },
     "later": {
       "board": {
@@ -196,6 +206,83 @@
       "documents": {
         "title": "Dokumente folgen später",
         "hint": "Bescheide, Pläne und Verträge dieser Veranstaltung werden später hier abgelegt."
+      }
+    },
+    "facts": {
+      "edit": "Bearbeiten",
+      "title": "Eckdaten bearbeiten",
+      "description": "Zeiten und Preise dieser Veranstaltung.",
+      "times": "Zeiten (Uhr)",
+      "time": {
+        "setup": "Aufbau",
+        "open": "Beginn",
+        "close": "Ende",
+        "teardown": "Abbau"
+      },
+      "price": "Standpreis",
+      "perMeter": "€ je m",
+      "fee": "Buchungsgebühr",
+      "presetHint": "Gilt nur für diese Veranstaltung; die Vorlage bleibt unverändert.",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "saved": "Eckdaten gespeichert",
+      "unchanged": "Keine Änderungen zu speichern.",
+      "undo": "Rückgängig",
+      "reverted": "Eckdaten zurückgesetzt",
+      "errors": {
+        "invalid_time": "Bitte alle Zeiten als HH:MM angeben.",
+        "open_after_close": "Das Ende muss nach dem Beginn liegen.",
+        "close_after_teardown": "Der Abbau kann nicht vor dem Ende liegen.",
+        "setup_after_open": "Der Aufbau kann bei eintägigen Märkten nicht nach dem Beginn liegen.",
+        "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "conflict": "Die Eckdaten wurden zwischenzeitlich geändert. Nichts zurückgesetzt.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      }
+    },
+    "booking": {
+      "menu": "Buchung",
+      "flag": {
+        "bookingOpen": "Buchbar",
+        "fullyBooked": "Ausgebucht",
+        "carSpacesFull": "Autoplätze ausgebucht"
+      },
+      "on": {
+        "bookingOpen": "Buchung geöffnet",
+        "fullyBooked": "Als ausgebucht markiert",
+        "carSpacesFull": "Autoplätze als ausgebucht markiert"
+      },
+      "off": {
+        "bookingOpen": "Buchung geschlossen",
+        "fullyBooked": "Nicht mehr ausgebucht",
+        "carSpacesFull": "Autoplätze wieder frei"
+      },
+      "undo": "Rückgängig",
+      "failed": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+    },
+    "move": {
+      "open": "Verschieben",
+      "title": "Veranstaltung verschieben",
+      "description": "Neuer erster Tag; die Dauer bleibt. Aufbau, Abbau und Buchungsschluss werden neu berechnet.",
+      "newDate": "Neuer erster Tag",
+      "loading": "Vorschau wird geladen …",
+      "caption": "Termine vorher und nachher",
+      "what": "Termin",
+      "before": "Bisher",
+      "after": "Neu",
+      "announced": "Die Veranstaltung ist schon angekündigt: Händler und Website müssen den neuen Termin erfahren.",
+      "note": "Hinweise blockieren nichts: du entscheidest.",
+      "submit": "Verschieben",
+      "cancel": "Abbrechen",
+      "moved": "Verschoben auf {date}",
+      "undo": "Rückgängig",
+      "reverted": "Wieder am {date}",
+      "errors": {
+        "invalid_date": "Bitte ein gültiges Datum wählen.",
+        "not_movable": "Diese Veranstaltung läuft schon oder ist vorbei und kann nicht mehr verschoben werden.",
+        "conflict": "Die Veranstaltung wurde zwischenzeitlich verschoben. Die Seite wurde aktualisiert.",
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
       }
     }
   }

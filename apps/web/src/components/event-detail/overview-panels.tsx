@@ -1,4 +1,4 @@
-import { daysBetween } from "@marktwerk/core";
+import { canMoveEvent, daysBetween } from "@marktwerk/core";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -7,12 +7,22 @@ import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDateWithWeekday, formatMoney, formatNumber } from "@/lib/format";
 import type { EventDetail } from "@/server/queries/events";
+import { FactsDialog } from "./facts-dialog";
+import { MoveDialog } from "./move-dialog";
 import { roleName } from "./role-name";
 
 const ANCHOR_ORDER = ["event_day", "setup_day", "teardown_day", "booking_cutoff"] as const;
 
 /** "Termine & Fristen": every anchor of the event with weekday, date and the distance from today. */
-export async function DatesPanel({ event, today }: { event: EventDetail; today: string }) {
+export async function DatesPanel({
+  event,
+  today,
+  canWrite,
+}: {
+  event: EventDetail;
+  today: string;
+  canWrite: boolean;
+}) {
   const t = await getTranslations("eventDetail.overview.dates");
   const locale = await getLocale();
   const byKey = new Map(event.anchors.map((a) => [a.key, a.date]));
@@ -35,6 +45,9 @@ export async function DatesPanel({ event, today }: { event: EventDetail; today: 
     <Panel aria-labelledby="dates-title">
       <PanelHeader>
         <PanelTitle id="dates-title">{t("title")}</PanelTitle>
+        {canWrite && canMoveEvent(event.status) && (
+          <MoveDialog eventId={event.id} startsOn={event.startsOn} />
+        )}
       </PanelHeader>
       {rows.length === 0 ? (
         <PanelBody className="text-muted-foreground text-small">{t("empty")}</PanelBody>
@@ -75,7 +88,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 }
 
 /** "Eckdaten": venue, times, prices and the rules of the event type. */
-export async function FactsPanel({ event }: { event: EventDetail }) {
+export async function FactsPanel({ event, canWrite }: { event: EventDetail; canWrite: boolean }) {
   const t = await getTranslations("eventDetail.overview.facts");
   const locale = await getLocale();
   const { venue, type, times } = event;
@@ -88,6 +101,17 @@ export async function FactsPanel({ event }: { event: EventDetail }) {
     <Panel aria-labelledby="facts-title">
       <PanelHeader>
         <PanelTitle id="facts-title">{t("title")}</PanelTitle>
+        {canWrite && (
+          <FactsDialog
+            eventId={event.id}
+            multiDay={event.endsOn !== event.startsOn}
+            facts={{
+              times: event.times,
+              pricePerMCents: event.pricePerMCents,
+              bookingFeeCents: event.bookingFeeCents,
+            }}
+          />
+        )}
       </PanelHeader>
       <PanelBody>
         <dl>

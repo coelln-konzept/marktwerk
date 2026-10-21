@@ -10,6 +10,7 @@ import { formatDateShort, formatDateWithWeekday, formatWeek } from "@/lib/format
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import type { EventDetail } from "@/server/queries/events";
+import { BookingMenu } from "./booking-menu";
 import { type EventTab, EventTabs } from "./event-tabs";
 import { StatusMenu } from "./status-menu";
 
@@ -87,7 +88,17 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
           <HealthSummary health={event.health} compact />
         </div>
         {can(actor.role, "event", "write") && (
-          <StatusMenu eventId={event.id} eventName={event.name} status={event.status} />
+          <div className="flex items-center gap-2">
+            <BookingMenu
+              eventId={event.id}
+              flags={{
+                bookingOpen: event.bookingOpen,
+                fullyBooked: event.fullyBooked,
+                carSpacesFull: event.carSpacesFull,
+              }}
+            />
+            <StatusMenu eventId={event.id} eventName={event.name} status={event.status} />
+          </div>
         )}
       </div>
 

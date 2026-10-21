@@ -1,7 +1,16 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { getActor } from "@/server/actor";
+import { type Actor, getActor } from "@/server/actor";
+import {
+  EventDetailsInputError,
+  type EventFacts,
+  type EventMovePreview,
+  moveEvent,
+  previewEventMove,
+  setEventBookingFlag,
+  updateEventFacts,
+} from "@/server/services/event-details";
 import { EventDutyInputError, setEventDuty } from "@/server/services/event-duties";
 import {
   changeEventStatus,
@@ -114,4 +123,57 @@ export async function undoDuty(
     }
     throw error;
   }
+}
+
+/** Runs an event-details mutation; input errors become a result code, the page is refreshed. */
+async function detailsAction<T>(
+  run: (actor: Actor) => Promise<T>,
+  refreshAfter = true,
+): Promise<ActionResult<T>> {
+  await requirePermission("event", "write");
+  const actor = await getActor();
+  try {
+    const data = await run(actor);
+    if (refreshAfter) refresh();
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof EventDetailsInputError) {
+      if (error.code === "conflict" || error.code === "not_movable") refresh();
+      return { ok: false, error: error.code };
+    }
+    throw error;
+  }
+}
+
+/** "Eckdaten bearbeiten": times and prices of this event. */
+export async function saveFacts(eventId: string, facts: EventFacts) {
+  return detailsAction((actor) => updateEventFacts(actor, eventId, facts));
+}
+
+/** Undo toast of saveFacts. */
+export async function undoFacts(eventId: string, previous: EventFacts, saved: EventFacts) {
+  return detailsAction((actor) => updateEventFacts(actor, eventId, previous, saved));
+}
+
+/** "Buchung": one booking flag on or off. */
+export async function setBookingFlag(eventId: string, flag: string, value: boolean) {
+  return detailsAction((actor) => setEventBookingFlag(actor, eventId, flag, value));
+}
+
+/** "Verschieben": the preview for a picked date (read only). */
+export async function previewMove(
+  eventId: string,
+  startsOn: string,
+): Promise<ActionResult<EventMovePreview>> {
+  return detailsAction((actor) => previewEventMove(actor, eventId, startsOn), false);
+}
+
+/** "Verschieben": moves the event; `expectedStartsOn` is the date the dialog was opened with. */
+export async function moveToDate(eventId: string, startsOn: string, expectedStartsOn: string) {
+  return detailsAction((actor) => moveEvent(actor, eventId, startsOn, expectedStartsOn));
+}
+
+/** Undo toast of moveToDate. */
+export async function undoMove(eventId: string, movedTo: string, back: string) {
+  return detailsAction((actor) => moveEvent(actor, eventId, back, movedTo, { undo: true }));
 }
