@@ -1,6 +1,6 @@
 import "server-only";
 import { foldIncludes } from "@marktwerk/core/text/fold";
-import { contact, venue } from "@marktwerk/db/schema";
+import { contact, locationAgreement, venue } from "@marktwerk/db/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { isUuid } from "./venues";
@@ -47,11 +47,14 @@ export async function listContacts(q?: string, kind?: ContactKind) {
   };
 }
 
-/** One contact with the venues it owns ("Eigentümer"). */
+/**
+ * One contact with where it is used: venues it owns ("Eigentümer") and location agreements it is the
+ * counterparty of. `updatedAt` (ISO) is the version the edit form sends back for the concurrency check.
+ */
 export async function getContact(id: string) {
   if (!isUuid(id)) return null;
   const [row] = await db
-    .select(columns)
+    .select({ ...columns, updatedAt: contact.updatedAt })
     .from(contact)
     .where(and(eq(contact.id, id), isNull(contact.archivedAt)));
   if (!row) return null;
@@ -60,5 +63,22 @@ export async function getContact(id: string) {
     .from(venue)
     .where(and(eq(venue.landownerContactId, id), isNull(venue.archivedAt)))
     .orderBy(asc(venue.name));
-  return { ...row, venues };
+  const agreements = await db
+    .select({ id: locationAgreement.id, venueId: venue.id, venueName: venue.name })
+    .from(locationAgreement)
+    .innerJoin(venue, eq(venue.id, locationAgreement.venueId))
+    .where(
+      and(eq(locationAgreement.counterpartyContactId, id), isNull(locationAgreement.archivedAt)),
+    )
+    .orderBy(asc(venue.name));
+  return { ...row, updatedAt: row.updatedAt.toISOString(), venues, agreements };
+}
+
+/** Active contacts for pickers (e.g. the landowner of a venue); archived ones never show up here. */
+export async function listContactOptions(kind?: ContactKind) {
+  return db
+    .select({ id: contact.id, name: contact.name, kind: contact.kind, city: contact.city })
+    .from(contact)
+    .where(and(isNull(contact.archivedAt), kind ? eq(contact.kind, kind) : undefined))
+    .orderBy(asc(contact.name));
 }

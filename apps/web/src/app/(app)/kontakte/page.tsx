@@ -1,17 +1,20 @@
-import { Eye, SearchX } from "lucide-react";
+import { can } from "@marktwerk/core";
+import { Eye, Pencil, Plus, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ContactVorschau } from "@/components/catalogue/contact-vorschau";
 import { ContactKindBadge } from "@/components/catalogue/kinds";
-import { MailLink, PhoneLink } from "@/components/catalogue/phone";
 import { Page, PageHeader } from "@/components/shell/page";
+import { buttonVariants } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/chip";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
+import { MailLink, PhoneLink } from "@/components/ui/phone";
 import { EmptyState } from "@/components/ui/states";
 import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { hrefWith, param } from "@/lib/url";
+import { getActor } from "@/server/actor";
 import { CONTACT_KINDS, isContactKind, listContacts } from "@/server/queries/contacts";
 import { requirePermission } from "@/server/session";
 
@@ -23,6 +26,8 @@ const PATH = "/kontakte";
 
 export default async function ContactsPage({ searchParams }: PageProps<"/kontakte">) {
   await requirePermission("contact", "read");
+  const actor = await getActor();
+  const canWrite = can(actor.role, "contact", "write");
   const sp = await searchParams;
   const t = await getTranslations("contacts");
   const q = param(sp.q)?.slice(0, 100);
@@ -33,7 +38,21 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
 
   return (
     <Page crumbs={[{ label: t("title") }]}>
-      <PageHeader title={t("title")} subtitle={t("subtitle", { count: total })} />
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle", { count: total })}
+        actions={
+          canWrite && (
+            <Link
+              href={"/kontakte/neu" as never}
+              className={buttonVariants({ variant: "default" })}
+            >
+              <Plus aria-hidden />
+              {t("new")}
+            </Link>
+          )
+        }
+      />
 
       <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
         {kind && <input type="hidden" name="art" value={kind} />}
@@ -72,7 +91,9 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
       </div>
 
       <Panel className="overflow-hidden">
-        {rows.length === 0 ? (
+        {rows.length === 0 && total === 0 && !q ? (
+          <EmptyState icon={SearchX} title={t("empty")} hint={t("emptyHint")} />
+        ) : rows.length === 0 ? (
           <EmptyState icon={SearchX} title={t("emptyFiltered")}>
             <Link
               href={PATH}
@@ -131,7 +152,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                       </TD>
                       <TD>
                         {r.phone ? (
-                          <PhoneLink e164={r.phone} />
+                          <PhoneLink phone={r.phone} />
                         ) : (
                           <span className="text-faint-foreground">{t("none")}</span>
                         )}
@@ -152,7 +173,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                       >
                         {r.notes ?? ""}
                       </TD>
-                      <TD className="w-12">
+                      <TD className="w-20">
                         <RowActions>
                           <Link
                             href={peek as never}
@@ -163,6 +184,16 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                           >
                             <Eye className="size-4" />
                           </Link>
+                          {canWrite && (
+                            <Link
+                              href={`/kontakte/${r.id}/bearbeiten` as never}
+                              tabIndex={-1}
+                              aria-label={t("editRow", { name: r.name })}
+                              className="grid size-7 place-items-center rounded-md hover:bg-hover"
+                            >
+                              <Pencil className="size-4" />
+                            </Link>
+                          )}
                         </RowActions>
                       </TD>
                     </TR>
