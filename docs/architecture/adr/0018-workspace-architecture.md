@@ -1,6 +1,8 @@
 # 0018: Customisable workspace: docking shell, view registry, server-side layouts
 
-**Status:** accepted (2026-10-21, product owner decisions; research 09)
+> **Superseded by [ADR 0019](0019-classic-screens.md) (2026-10-21):** the product owner chose classic screens (design direction A). The body below is kept for history.
+
+**Status:** superseded by 0019 (2026-10-21). Originally accepted 2026-10-21 (product owner decisions; research 09).
 
 ## Context
 The product owner wants a customisable UI: move views around, split view, save workspaces for later. Research 09

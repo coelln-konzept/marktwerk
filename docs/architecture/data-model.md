@@ -1,7 +1,8 @@
 # Data model
 
-Status: **draft v0.3 (2026-10-21)**, revised after the client meeting (research 05) and follow-up research
-06–08. Changes from v0.2: **`event` replaces `market`** (ADR 0010), **event presets** (the old website's
+Status: **draft v0.4 (2026-10-21)**. Change in v0.4: `workspace` removed; `user_preference` keeps theme, density,
+sidebar and `saved_views` (ADR 0019, classic screens). v0.3 was revised after the client meeting (research 05) and
+follow-up research 06–08. Changes from v0.2: **`event` replaces `market`** (ADR 0010), **event presets** (the old website's
 "presets") replace market series, **staff members** separate from login users (ADR 0012), time estimates,
 permit categories and logbook, staff hours/Minijob, payables & instalments, obligations/vehicles,
 inventory & rentals. Once the Drizzle schema exists in `packages/db/src/schema/`, it is the source of
@@ -197,14 +198,11 @@ erDiagram
   external id. For `whatsapp_link`, "sent" is set when the office clicks the wa.me button.
 - **escalation_log**; **notification_preference**.
 
-### Workspaces (UI layouts, ADR 0018)
-- **workspace**: `owner_user_id?` (null = team template), `name`, `is_template` (bool), `is_default` (the user's
-  "Start"), `layout` jsonb (our own schema: groups → tabs → `{ view, params }`, sizes, links), `schema_version` int,
-  `locked` (bool), `last_used_at`, `source_template_id?` (copied from), timestamps.
-  The current, autosaved state is stored on the workspace row (`layout`), and the last explicit save in
-  `saved_layout` jsonb, so "Auf gespeicherten Stand zurücksetzen" works. Max ~8 per user (enforced in the service).
+### UI preferences (ADR 0019)
 - **user_preference**: `user_id`, `theme` (`system | light | dark`), `density` (`standard | compact`),
-  `sidebar_collapsed`, `favourites` (jsonb: pinned views/workspaces).
+  `sidebar_collapsed`, `saved_views` (jsonb: per-user saved list filters and calendar layer selections, keyed by
+  view). Writes are preferences (server action with `requireUser()`, no `audit_log`). There is no `workspace` table
+  (classic screens, ADR 0019).
 
 ### Files, KB, audit
 **file / file_link** (as before), **kb_article** (+ revisions), **audit_log** *(exists)*.

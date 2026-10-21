@@ -99,7 +99,7 @@ flowchart TD
     E1 -->|yes| MG[Escalate → office manager]
     N[Nightly 00:05] --> RO[Overdue tasks roll into 'Heute' ↻n]
     RO -->|n ≥ 3| MG
-    R & O & MG --> DG[07:00 digest · dashboard 'Heute fällig']
+    R & O & MG --> DG[07:00 digest · Übersicht 'Heute fällig']
 ```
 
 ## 7. Staff hours & Minijob month (P1)
