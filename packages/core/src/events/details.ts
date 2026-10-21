@@ -71,3 +71,16 @@ export function canMoveEvent(status: EventStatus): boolean {
 export function isAnnounced(status: EventStatus): boolean {
   return status === "planned" || status === "confirmed";
 }
+
+/**
+ * The event is happening: it runs ("läuft") or today is one of its days (and it isn't a draft or cancelled).
+ * Changes are still allowed then, but the UI asks for confirmation first (decided 2026-10-21).
+ */
+export function isHappening(
+  event: { status: EventStatus; startsOn: string; endsOn: string },
+  today: string,
+): boolean {
+  if (event.status === "live") return true;
+  if (event.status === "draft" || event.status === "cancelled") return false;
+  return event.startsOn <= today && today <= event.endsOn;
+}

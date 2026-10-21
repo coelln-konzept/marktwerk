@@ -4,6 +4,7 @@ import {
   checkEventTimes,
   isAnnounced,
   isClockTime,
+  isHappening,
   normalizeClockTime,
   parseEuroCents,
 } from "./details";
@@ -81,5 +82,21 @@ describe("moving events", () => {
     );
     expect(isAnnounced("draft")).toBe(false);
     expect(isAnnounced("confirmed")).toBe(true);
+  });
+});
+
+describe("isHappening", () => {
+  const day = { startsOn: "2026-12-04", endsOn: "2026-12-06" };
+  it("is true while it runs or on one of its days", () => {
+    expect(isHappening({ ...day, status: "live" }, "2026-11-01")).toBe(true);
+    expect(isHappening({ ...day, status: "confirmed" }, "2026-12-04")).toBe(true);
+    expect(isHappening({ ...day, status: "planned" }, "2026-12-06")).toBe(true);
+    expect(isHappening({ ...day, status: "completed" }, "2026-12-05")).toBe(true);
+  });
+  it("is false before and after, and for drafts and cancelled events", () => {
+    expect(isHappening({ ...day, status: "confirmed" }, "2026-12-03")).toBe(false);
+    expect(isHappening({ ...day, status: "completed" }, "2026-12-07")).toBe(false);
+    expect(isHappening({ ...day, status: "draft" }, "2026-12-05")).toBe(false);
+    expect(isHappening({ ...day, status: "cancelled" }, "2026-12-05")).toBe(false);
   });
 });
