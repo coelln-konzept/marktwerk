@@ -423,7 +423,7 @@ export function GenerateSheet({
                   </div>
                 )}
 
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-x-3 gap-y-4 sm:grid-cols-3">
                   {months.map((month) => (
                     <MonthPicker
                       key={month}
@@ -674,15 +674,15 @@ function MonthPicker({
     weeks.push(Array.from({ length: 7 }, (_, i) => addDays(d, i)));
   const chosen = selected.filter((d) => d.startsWith(month)).length;
   return (
-    <div>
+    <div className="min-w-0">
       <h3 className="mb-1 font-semibold">
         {formatMonth(first, locale)}{" "}
         <span className="font-normal text-muted-foreground text-tiny">· {chosenLabel(chosen)}</span>
       </h3>
-      <table className="w-full border-collapse text-center">
+      <table className="w-full table-fixed border-collapse text-center">
         <thead>
           <tr className="text-muted-foreground text-[11px]">
-            <th scope="col" className="font-semibold">
+            <th scope="col" className="w-6 font-semibold text-[10px]">
               {weekLabel}
             </th>
             {weekdayNames.map((n) => (
@@ -695,7 +695,7 @@ function MonthPicker({
         <tbody>
           {weeks.map((week) => (
             <tr key={week[0]}>
-              <th scope="row" className="font-normal text-[11px] text-faint-foreground">
+              <th scope="row" className="w-6 font-normal text-[10px] text-faint-foreground">
                 {isoWeek(week[0] as string).week}
               </th>
               {week.map((day) => {
@@ -713,7 +713,7 @@ function MonthPicker({
                     : holiday.nameDe
                   : undefined;
                 return (
-                  <td key={day} className="p-0.5">
+                  <td key={day} className="p-0">
                     <button
                       type="button"
                       disabled={past}
@@ -722,7 +722,7 @@ function MonthPicker({
                       aria-label={`${formatDateWithWeekday(day, locale)}${name ? `, ${name}` : ""}${busy ? " ⚠" : ""}`}
                       onClick={(e) => onToggle(day, e.shiftKey)}
                       className={cn(
-                        "tabular relative mx-auto grid size-8 cursor-pointer place-items-center rounded-lg text-small hover:bg-hover disabled:cursor-not-allowed disabled:opacity-35",
+                        "tabular relative mx-auto grid size-7 cursor-pointer place-items-center rounded-lg text-small hover:bg-hover disabled:cursor-not-allowed disabled:opacity-35",
                         (dow === 6 || dow === 0) && "font-semibold",
                         holiday && "text-status-critical",
                         busy && "rounded-full border-2 border-status-critical-dot",

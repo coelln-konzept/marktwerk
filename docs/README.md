@@ -1,14 +1,14 @@
 # marktwerk documentation
 
 Start here: **[HANDOFF.md](HANDOFF.md)** (current state & next steps), then **[product/vision.md](product/vision.md)** → **[product/roadmap.md](product/roadmap.md)**.
-Design output: [design/claude-design/a-classic/](design/claude-design/a-classic/INDEX.md) (clickable prototype, direction A, ADR 0019).
+Design output: [design/claude-design/a-classic/](design/claude-design/a-classic/INDEX.md) (clickable prototype, direction A, ADR 0019) · [design/component-inventory.md](design/component-inventory.md) (components → code, tokens).
 
 ## Product
 - [Vision & scope](product/vision.md): goals, non-goals, success metrics
 - [Roadmap](product/roadmap.md): phases and milestones from MVP to full platform, with inspiration per feature
 - [Roles & personas](product/roles-and-personas.md)
 - [User flows](product/user-flows.md): Mermaid diagrams of the core lifecycles
-- **[UX concept](product/ux-concept.md)** (v2): principles, IA, app shell, pages/Vorschau/drawers, patterns, status vocabulary, visual system
+- **[UX concept](product/ux-concept.md)** (v2): principles, IA, app shell, pages/Vorschau/drawers, patterns, status vocabulary, visual system (§9 = tokens in `globals.css`)
 - [Wireframes v3](product/wireframes.md): low-fidelity wireframes for the classic-screens UI (direction A)
 - [Glossary DE ⇄ EN ⇄ code](product/glossary.md)
 - [Claude Design prompt for Phase 1 wireframes](product/claude-design-prompt.md) · [follow-up for the v1 design session (research-based improvements, no workspace)](product/claude-design-prompt-v1-update.md)

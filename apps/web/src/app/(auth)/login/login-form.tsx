@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LOCALE_COOKIE } from "@/i18n/config";
 import { authClient } from "@/lib/auth-client";
+import { restoreDisplayPreferences } from "./actions";
 
 export function LoginForm({ next }: { next: string }) {
   const t = useTranslations("login");
@@ -33,6 +34,7 @@ export function LoginForm({ next }: { next: string }) {
     const locale = (data.user as { locale?: string }).locale ?? "de";
     // biome-ignore lint/suspicious/noDocumentCookie: simple client-side preference cookie
     document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=31536000; samesite=lax`;
+    await restoreDisplayPreferences();
     router.replace(next as never);
     router.refresh();
   }

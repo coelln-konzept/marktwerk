@@ -1,14 +1,17 @@
 # Handoff: session 1 → session 2
 
-**Written 2026-10-21, updated at the end of session 1.** The next session starts with this document plus the
-**Claude Design output** (placed in [`docs/design/claude-design/`](./design/claude-design/)).
+**Written 2026-10-21 at the end of session 1; being updated in session 2** (2026-10-21, branch
+`claude/kind-ramanujan-80fns3`). Sections 3-5 still describe the state at the end of session 1; §6 is current for the
+design work; the M1 section (§7) is updated at the end of session 2. The Claude Design output is in
+[`docs/design/claude-design/`](./design/claude-design/).
 
 > ✅ **Design direction decided (session 2, 2026-10-21):** **A, classic screens** (sidebar, pages, Vorschau, detail
 > drawers), no customisable workspace ([ADR 0019](./architecture/adr/0019-classic-screens.md), superseding ADR 0018).
 > The docs are updated (§6, step 0).
 
-Read this file first, then the documents it points to. Everything below is committed on `main` of
-[`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk).
+Read this file first, then the documents it points to. The repository is
+[`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk): `main` holds the state at the end of session 1
+(§3 describes it); session 2 works on branch `claude/kind-ramanujan-80fns3` (M1 build and design integration).
 
 ---
 
@@ -33,7 +36,8 @@ with the research-based improvements (ADR 0019). German UI first, English second
 6. [`docs/architecture/data-model.md`](./architecture/data-model.md) (v0.4) and
    [`overview.md`](./architecture/overview.md).
 7. [`docs/open-questions.md`](./open-questions.md): **decisions log** and what's still open.
-8. The Claude Design output in `docs/design/claude-design/a-classic/` (see §6).
+8. The Claude Design output in `docs/design/claude-design/a-classic/` and the
+   [component inventory](./design/component-inventory.md) (see §6).
 
 Research background (only when needed): `docs/research/01–09`.
 
@@ -117,19 +121,24 @@ The product owner chose **direction A** in session 2 (2026-10-21). The prototype
      `CLAUDE.md` (UI line), `glossary.md` (Interface section) and the decisions log; added the Kalender module,
      the start screen "Übersicht" and the font Inter;
    - restored the **task detail drawer** and the owner's **season strip / hiring signal** on Übersicht.
-1. Put the exported designs into `docs/design/claude-design/a-classic/` (images/PDF/HTML/code export and the design notes).
-   Keep file names stable and add a short `INDEX.md` listing screens → files.
-2. Compare them against `ux-concept.md` and `wireframes.md`. Where the design **contradicts a recorded decision**
-   (e.g. role-specific defaults, "Sie"), raise it with the product owner instead of silently
-   following either side. Record the outcome in the decisions log.
-3. Extract a **design token set** (colours incl. status and event-type colours, radii, spacing, typography, density
-   values, dark theme) into `apps/web/src/app/globals.css` (`:root` / `.dark` + `@theme inline`); keep token names
-   (`status-ok/warn/critical/info`, `sidebar*`, …) or update usages consistently.
-4. Build a small component inventory from the design (sidebar, top bar, breadcrumb, Vorschau card, drawer, tabs
-   with counts, KPI strip, season strip, calendar layer panel, data table, kanban card, people rail + load bar, status
-   badge, health indicator, filter chips, modal, undo toast, command palette, calendar multi-select, matrix cell,
-   stepper, empty state, skeleton) and note which shadcn/Base UI primitives back each one.
-5. Update `ux-concept.md` §9 (visual system) and, if needed, the wireframes, so docs and design stay in sync.
+Steps 1-5 (session 2, 2026-10-21):
+
+1. ✅ **Done.** Design placed in [`docs/design/claude-design/a-classic/`](./design/claude-design/a-classic/)
+   (`index.html`, 53 screens) with [`INDEX.md`](./design/claude-design/a-classic/INDEX.md) (screens → anchors).
+2. ✅ **Done.** Compared with `ux-concept.md` and `wireframes.md`. Outcomes in the decisions log
+   ([open-questions.md](./open-questions.md)): Kalender is its own module; Inter replaces Geist; start screen
+   "Übersicht" without master-detail; **Orte and Kontakte get their own sidebar entries** (not in the prototype). Where the
+   prototype and the docs differ, the prototype wins unless a decision says otherwise.
+3. ✅ **Done.** Tokens extracted into [`apps/web/src/app/globals.css`](../apps/web/src/app/globals.css): `light-dark()`
+   colour pairs switched by `html[data-theme]`, density by `html[data-density]`, status fg/bg/dot, event-type colours,
+   radii 4/6/8/12/14, Inter + tabular figures (no `.dark` class; token names `status-*`, `type-*`, `sidebar*`).
+4. ✅ **Done.** [`design/component-inventory.md`](./design/component-inventory.md): every prototype component with its
+   anchor, implementation file, backing Base UI primitive, milestone and a11y notes, plus a token summary and the gaps
+   (label-beside-field in Kompakt, sidebar icon rail, focus return after Vorschau, drag-and-drop library for M2).
+5. ✅ **Done.** [`ux-concept.md`](./product/ux-concept.md) §9 matches `globals.css` and links the inventory; §2/§3 list Orte
+   and Kontakte; §5 lists the routes as implemented (`?vorschau=<id>`, Team `?person=<id>`,
+   `/veranstaltungen?erzeugen=1[&vorlage=<presetId>]`, event tabs as sub-paths). `wireframes.md` W0 shows the new
+   sidebar entries.
 
 ## 7. Next milestone: M1 "Events, presets, locations, vendors" (+ app shell)
 Detailed scope in the roadmap; suggested build order:

@@ -37,11 +37,13 @@ marktwerk
 ├── Board                     ← tasks across events (kanban, nach Person, Arbeitslast)
 ├── Veranstaltungen           ← list · calendar · "Aus Vorlage erzeugen"
 │   └── Veranstaltung         ← tabs: Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf
+├── Orte                      ← venues with zones/rows and location agreements (own entry, decision 2026-10-21)
 ├── Logbuch                   ← permit matrix (locations × permit types) · Zeitstrahl
 ├── Team                      ← hours month grid · shifts per event · month close
 ├── Finanzen                  ← payables & instalments · receipts · event money overview
 ├── Firma                     ← obligations · vehicles · insurances · company documents
 ├── Händler                   ← vendor list (read-only import in Phase 1)
+├── Kontakte                  ← authorities, landowners, suppliers, services (own entry, decision 2026-10-21)
 ├── Vorlagen                  ← event presets · timeline templates
 ├── Wissen                    ← knowledge base
 ├── Benachrichtigungen · Einstellungen
@@ -65,8 +67,10 @@ marktwerk
 └─────────────────┴─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 - **Sidebar** (232 px, collapsible to an icon rail; `user_preference.sidebar_collapsed`): logo "marktwerk", then
-  Übersicht · Kalender · Board · Veranstaltungen · Logbuch (badge count) · Team · Finanzen (badge) · Firma · Händler ·
-  Vorlagen · Wissen · Benachrichtigungen (count) · Einstellungen. Group **SPÄTER**: Buchungen · Postfach · Inventar,
+  Übersicht · Kalender · Board · Veranstaltungen · **Orte** · Logbuch (badge count) · Team · Finanzen (badge) · Firma ·
+  Händler · **Kontakte** · Vorlagen · Wissen · Benachrichtigungen (count) · Einstellungen. Orte and Kontakte have their
+  own entries (product owner, 2026-10-21; the prototype's sidebar predates this). Entries a role may not read are
+  hidden (`can()`). Group **SPÄTER**: Buchungen · Postfach · Inventar,
   disabled with the hint "Phase 2". At the bottom the **profile** (name, role, current theme); it opens the profile menu
   with Sprache, Design (System / Hell / Dunkel), Dichte (Standard / Kompakt) and Abmelden.
 - **Top bar:** breadcrumb (e.g. "Veranstaltungen › Food & Wine Neuss"), the visible search field "Suchen oder
@@ -99,10 +103,12 @@ shows its count or health (e.g. "Genehmigungen 4/5 ▲", "Team 5/6").
 | Close Vorschau / drawer | × or click outside (Vorschau only) | Esc (focus returns to the row) |
 
 ### Linkable overlays (implementation detail, ADR 0019)
-Vorschau and drawers are addressed by search params on the current page, e.g. `?vorschau=event:<id>` or
-`?detail=task:<id>`. A copied link reopens the same page with the same overlay; browser back closes it. Pages read the
-param on the server and render the overlay with the page, so a hard refresh keeps it. Param names are settled
-when the shell is built.
+Vorschau and drawers are addressed by search params on the current page. As built in M1: **`?vorschau=<id>`** (the
+list page knows which record kind it shows; Team uses **`?person=<id>`**) and, for the generation sheet,
+**`?erzeugen=1[&vorlage=<presetId>]`** on `/veranstaltungen`. Drawers (from M2) follow the same idea, e.g.
+`?detail=task:<id>`. A copied link reopens the same page with the same overlay; closing a Vorschau replaces the URL
+(it does not pile up history entries). Pages read the param on the server and render the overlay with the page, so a
+hard refresh keeps it.
 
 ## 5. View catalogue (Phase 1)
 
@@ -113,21 +119,27 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Übersicht | `/` | Start screen for everyone: KPI strip, season strip, Heute fällig, Nächstes Wochenende (below) |
 | Kalender | `/kalender` | Company-wide calendar with layers (below) |
 | Board | `/board` | Kanban across events, people rail, Nach Person, Arbeitslast toggle |
-| Aufgabe | drawer `?detail=task:<id>` | Description, check items, evidence, comments with @mention, activity, status incl. "Wartet · Amt" |
-| Veranstaltungen | `/veranstaltungen` | Liste / Kalender toggle (KW column), filters, "Aus Vorlage erzeugen" (3-step side sheet) |
-| Veranstaltung | `/veranstaltungen/[id]` | Event with tabs (Überblick, Board, Genehmigungen, Team, Geld, Dokumente, Notizen, Verlauf); tabs as sub-paths (proposed, e.g. `…/[id]/board`) |
-| Logbuch | `/logbuch` | Permit matrix (locations × permit types) + Zeitstrahl toggle; cells open the permit drawer |
-| Genehmigung | `/genehmigungen/[id]`, drawer `?detail=permit:<id>` | One permit (documents, conditions, fees) |
-| Team · Stunden | `/team` | Month grid hours, remaining allowance, month-close stepper; Schichten je Veranstaltung |
-| Person | `/team/[id]` | Contract, hours history, shifts |
-| Finanzen · Zahlungen | `/finanzen` | Payables with inline instalments, receipts; drawer `?detail=payable:<id>` |
-| Firma | `/firma` | Obligations, vehicles, insurances, documents |
+| Aufgabe | drawer `?detail=task:<id>` (M2) | Description, check items, evidence, comments with @mention, activity, status incl. "Wartet · Amt" |
+| Veranstaltungen | `/veranstaltungen` | Liste / Kalender toggle (KW column), type filter chips, Vorschau `?vorschau=<id>`, "Aus Vorlage erzeugen" (3-step side sheet) via `?erzeugen=1[&vorlage=<presetId>]` |
+| Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`) |
+| Orte | `/orte` | Venues (list, Vorschau `?vorschau=<id>`) |
+| Ort | `/orte/[id]` | One venue: zones and rows, location agreements |
+| Logbuch | `/logbuch` | Permit matrix (locations × permit types) + Zeitstrahl toggle; cells open the permit drawer (M3) |
+| Genehmigung | drawer `?detail=permit:<id>` (M3); page `/genehmigungen/[id]` planned | One permit (documents, conditions, fees) |
+| Team · Stunden | `/team` | Staff list (M1), Vorschau `?person=<id>`; month grid hours, remaining allowance, month-close stepper and Schichten je Veranstaltung from M4 |
+| Person | `?person=<id>` on `/team`; page `/team/[id]` planned (M4) | Contract, hours history, shifts |
+| Finanzen · Zahlungen | `/finanzen` | Payables with inline instalments, receipts; drawer `?detail=payable:<id>` (M5) |
+| Firma | `/firma` | Obligations, vehicles, insurances, documents (M6) |
 | Händler | `/haendler` | Vendor list (read-only) |
+| Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`) |
 | Vorlagen | `/vorlagen` | Event presets, timeline templates |
-| Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` | Timeline template editor (Excel-like grid + timeline ruler) |
+| Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` (planned, M2) | Timeline template editor (Excel-like grid + timeline ruler) |
 | Wissen | `/wissen` | Knowledge base |
 | Benachrichtigungen | `/benachrichtigungen` | Grouped notifications |
 | Einstellungen | `/einstellungen` | Users & roles, legal parameters, company settings |
+
+Modules whose data arrives in a later milestone exist from M1 as routes with a "coming soon" page, so the sidebar never
+leads nowhere.
 
 ### Übersicht (start screen, one for everyone)
 Top to bottom, no fixed master-detail layout:
@@ -202,26 +214,45 @@ announcements in German via `aria-live`.
 
 ## 9. Visual system
 
-- **Themes:** light (default), dark, "System" (profile menu → Design). A high-contrast light theme for outdoor field
-  use comes in Phase 3.
-- **Density:** *Standard* (default): 40 px table rows, labels above fields, 14 px body. *Kompakt* (per-user switch):
-  32 px rows, labels beside fields, 13 px body. 4 px spacing grid. Running text max ~70 characters per line.
-- **Tokens** (in `apps/web/src/app/globals.css`, extracted from the Claude Design prototype):
-  - neutral warm base (background `#F7F6F3` light), white cards; dark theme with its own values for every token;
-  - **one accent:** teal `#0E5A62` (light) / `#5DB7BE` (dark);
-  - **status** ok · warn · critical · neutral · info · waiting/violet (prototype: ok/warn/crit/neut/info/vio), each with
-    a foreground, a background and a dot colour;
-  - **event-type** identity colours, muted: Flohmarkt · Antikmarkt · Stadtfest · Food & Wine (prototype:
-    floh/antik/stadt/food);
-  - radii 6 / 8 / 12 px; 4 px spacing grid; density values as above.
+Source of truth: [`apps/web/src/app/globals.css`](../../apps/web/src/app/globals.css) (tokens extracted from the Claude
+Design prototype; change colours there only). Component-by-component mapping to code and Base UI primitives:
+[`docs/design/component-inventory.md`](../design/component-inventory.md).
+
+- **Themes:** `<html data-theme="light|dark|system">`, stored in `user_preference` and mirrored in the `mw_theme` cookie so the server renders the right
+  attribute (profile menu → Design: System / Hell / Dunkel; default light). Every colour token is a `light-dark()` pair, so the
+  three modes share one definition and `color-scheme` picks the side; Tailwind's `dark:` variant follows `data-theme`
+  (and `prefers-color-scheme` when `system`). A high-contrast light theme for outdoor field use comes in Phase 3.
+- **Density:** `<html data-density="standard|compact">` (`mw_density` cookie; profile menu → Dichte). *Standard* (default): `--row-h` 40 px
+  table rows, `--cell-y` 8 px, `--control-h` 36 px, body 14 px (`--fs-body`), small 13 px, tiny 12 px, labels above
+  fields. *Kompakt*: 32 px rows, 4 px cell padding, 30 px controls, 13 / 12 / 11.5 px, labels beside fields (the
+  label layout is still to be built; see the inventory). 4 px spacing grid. Running text max ~70 characters per line.
+- **Tokens** (CSS variables in `:root`, exposed to Tailwind through `@theme inline` under the same names):
+  - surfaces: `--background` (`#F7F6F3` light / `#141412` dark, warm neutral), `--card` (white), `--surface-2`,
+    `--sunken`, `--popover`, `--sidebar`; text: `--foreground`, `--foreground-2`, `--muted-foreground`,
+    `--faint-foreground`; lines: `--border`, `--border-subtle`, `--input`; states: `--hover`, `--selected`, `--ring`;
+    overlays: `--scrim`, `--toast`;
+  - **one accent:** teal `--primary` `#0E5A62` (light) / `#5DB7BE` (dark), with `--primary-hover`,
+    `--primary-foreground` and the soft pair `--accent-soft` / `--accent-soft-foreground`;
+  - **status:** `--status-ok`, `-warn`, `-critical`, `-neutral`, `-info`, `-waiting` (violet: Wartet, Beantragt,
+    geplant). Each has three values: text (`--status-ok`), badge surface (`--status-ok-bg`), dot/bar/icon
+    (`--status-ok-dot`). `--destructive` is the critical dot colour. Prototype names: ok/warn/crit/neut/info/vio;
+  - **event types** (muted identity colours, never status): `--type-flea`, `--type-antique`, `--type-city-festival`,
+    `--type-food-wine`, each with a `-bg` surface (prototype: floh/antik/stadt/food);
+  - **radii** 4 / 6 / 8 / 12 / 14 px (`rounded-sm` … `rounded-2xl`: square markers and kbd · small buttons and tags ·
+    buttons and inputs · panels, Vorschau, toast · command palette); **shadows** `--shadow-card`, `--shadow-pop`,
+    `--shadow-overlay`.
 - **Typography:** **Inter** (variable), self-hosted via the `@fontsource-variable/inter` npm package (no request to
-  Google at runtime); tabular figures for money, hours and dates. Monospace: the system `ui-monospace` stack, only for
-  keyboard hints (kbd).
-- **Components** (shadcn/ui on Base UI): sidebar, top bar with search field + "+ Neu", breadcrumb, Vorschau card,
-  drawer, tabs with counts/health, KPI strip, season strip, data table, kanban card, people rail with load bars,
-  status badge, health indicator, filter chips with counts, modal, side sheet with stepper, toast with undo, command
-  palette, calendar (month/list) with layer panel, calendar multi-select, timeline ruler, matrix cell, month-close
-  stepper, empty state, skeleton. Inventory with the backing primitives:
+  Google at runtime); `.tabular` (`font-variant-numeric: tabular-nums`) for money, hours, dates and counts; hyphenation
+  on. Monospace: the system `ui-monospace` stack, only for keyboard hints (kbd). Sizes through `text-body`,
+  `text-small`, `text-tiny` so they follow the density; page title 22 px, panel title 15 px.
+- **Motion:** `prefers-reduced-motion` shortens all transitions and animations to ~0.
+- **Components** (hand-written in the shadcn/ui shape, behaviour from Base UI where a primitive exists: `Dialog`
+  for the command palette and side sheet, `Menu` for the profile menu): sidebar, top bar with search field + "+ Neu",
+  breadcrumb, Vorschau card, drawer, tabs with counts/health, KPI strip, season strip, data table, kanban card, people
+  rail with load bars, status badge, health indicator, filter chips with counts, modal, side sheet with stepper, toast
+  with undo, command palette, calendar (month/list) with layer panel, calendar multi-select, timeline ruler, matrix
+  cell, month-close stepper, banner, empty state, skeleton. Inventory with the prototype anchor, implementation file,
+  backing primitive and milestone of each:
   [`docs/design/component-inventory.md`](../design/component-inventory.md).
 
 ## 10. Accessibility & quality bar

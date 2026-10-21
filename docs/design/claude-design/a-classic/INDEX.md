@@ -16,6 +16,11 @@ decisions log says otherwise. Sample data in the prototype is illustrative (week
 
 ## 1 · Übersicht (Geschäftsführung) · Kalender rechts
 
+> **Note:** this group title is the prototype's own. In marktwerk the Kalender (screens 1i-1k) is **its own module**
+> (`/kalender`, sidebar entry after Übersicht), not a panel on the right of Übersicht (decision 2026-10-21, see
+> [open-questions.md](../../../open-questions.md)). Likewise the prototype's sidebar (`#Sidebar`) lacks **Orte** and
+> **Kontakte**, which have their own entries (same date).
+
 | # | Screen / state | Anchor |
 |---|---|---|
 | 1 | Übersicht | [`#Main`](./index.html#Main) |

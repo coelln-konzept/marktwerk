@@ -24,22 +24,22 @@ Legend: `⋯` menu · `👁` Vorschau · `›` breadcrumb · ↻n carried over n
 │ ▦ Kalender       │ Guten Morgen, Petra                                                                      │
 │ ▥ Board          │ ┌ Fällig bis So ┐ ┌ Überfällig ┐ ┌ Geld überfällig ┐ ┌ Nächstes Wochenende ┐              │
 │ ▤ Veranstaltungen│ │      12       │ │     2      │ │    6.000 €      │ │  2 von 4 im Plan    │              │
-│ ▣ Logbuch      7 │ └───────────────┘ └────────────┘ └─────────────────┘ └─────────────────────┘              │
-│ ☺ Team           │ SAISON 2026 · Mär–Nov · 46 Veranstaltungen (Floh 24 · Antik 12 · Stadtfest 4 · F&W 6)    │
-│ € Finanzen     2 │ 3.410 h geschätzter Aufwand · Platzteam 2.380 h Bedarf · 1.170 h Kapazität               │
-│ ⌂ Firma          │ → ≈ 3,1 Minijobber/Monat zusätzlich                                                      │
-│ ☷ Händler        │──────────────────────────────────────────────────────────────────────────────────────────│
-│ ⎘ Vorlagen       │ HEUTE FÄLLIG   [Alle 12] [Geld 3] [Genehmigungen 2] [Stunden 3] [Aufgaben 4]              │
-│ ? Wissen         │ ÜBERFÄLLIG                                                                               │
-│ 🔔 Benachr.     3 │ ! 💶 Rate 2/3 Standgebühr Altstadt            6.000 €  seit 2 T            [Bezahlt]     │
-│ ⚙ Einstellungen  │ ! ▣ Plakatierung Neuss beantragen             Jonas    seit 1 T            [Öffnen]      │
-│                  │ HEUTE                                                                                    │
-│ SPÄTER           │ ⏱ 3 Schichten ohne Zeiten · Tag 5/7                                        [Erfassen]    │
-│ Buchungen Phase 2│ ↻2 Toiletten bestellen · Food & Wine                                       [Erledigt]    │
-│ Postfach  Phase 2│ DIESE WOCHE (7)                                                            alle ▸        │
-│ Inventar  Phase 2│──────────────────────────────────────────────────────────────────────────────────────────│
-│                  │ NÄCHSTES WOCHENENDE · KW 20 · Sa 16.05. – So 17.05.                                      │
-│                  │ Veranstaltung          Genehm.  Aufgaben  Team  Geld  Aufwand                            │
+│ ◎ Orte           │ └───────────────┘ └────────────┘ └─────────────────┘ └─────────────────────┘              │
+│ ▣ Logbuch      7 │ SAISON 2026 · Mär–Nov · 46 Veranstaltungen (Floh 24 · Antik 12 · Stadtfest 4 · F&W 6)    │
+│ ☺ Team           │ 3.410 h geschätzter Aufwand · Platzteam 2.380 h Bedarf · 1.170 h Kapazität               │
+│ € Finanzen     2 │ → ≈ 3,1 Minijobber/Monat zusätzlich                                                      │
+│ ⌂ Firma          │──────────────────────────────────────────────────────────────────────────────────────────│
+│ ☷ Händler        │ HEUTE FÄLLIG   [Alle 12] [Geld 3] [Genehmigungen 2] [Stunden 3] [Aufgaben 4]              │
+│ ☎ Kontakte       │ ÜBERFÄLLIG                                                                               │
+│ ⎘ Vorlagen       │ ! 💶 Rate 2/3 Standgebühr Altstadt            6.000 €  seit 2 T            [Bezahlt]     │
+│ ? Wissen         │ ! ▣ Plakatierung Neuss beantragen             Jonas    seit 1 T            [Öffnen]      │
+│ 🔔 Benachr.    3 │ HEUTE                                                                                    │
+│ ⚙ Einstellungen  │ ⏱ 3 Schichten ohne Zeiten · Tag 5/7                                        [Erfassen]    │
+│                  │ ↻2 Toiletten bestellen · Food & Wine                                       [Erledigt]    │
+│ SPÄTER           │ DIESE WOCHE (7)                                                            alle ▸        │
+│ Buchungen Phase 2│──────────────────────────────────────────────────────────────────────────────────────────│
+│ Postfach  Phase 2│ NÄCHSTES WOCHENENDE · KW 20 · Sa 16.05. – So 17.05.                                      │
+│ Inventar  Phase 2│ Veranstaltung          Genehm.  Aufgaben  Team  Geld  Aufwand                            │
 │                  │ Food & Wine Neuss      ▲ 4/5    ● 31/39   ● 6/6 ● ok  42 h                               │
 │                  │ Flohmarkt Altstadt     ■ 3/5    ▲ 14/20   ▲ 5/6 ● ok  34 h                               │
 │                  │ Antikmarkt Linz        ● 5/5    ● 12/14   ● 4/4 ● ok  22 h                               │
@@ -51,6 +51,8 @@ Legend: `⋯` menu · `👁` Vorschau · `›` breadcrumb · ↻n carried over n
 - One start screen for everyone; no fixed master-detail. Each Heute-fällig row has **one primary action**;
   Space = Vorschau; the row action opens the matching drawer (Rate, Aufgabe, Genehmigung).
 - The season strip uses task estimates (M2) and contracts (M4); until then it shows the event counts only.
+- **Orte** (after Veranstaltungen) and **Kontakte** (after Händler) have their own sidebar entries (product owner,
+  2026-10-21); the prototype's sidebar predates this.
 - Profile at the bottom opens: Sprache · Design System/Hell/Dunkel · Dichte Standard/Kompakt · Abmelden.
 
 ## W1 · Kalender (module)
