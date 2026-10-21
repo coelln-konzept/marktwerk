@@ -197,6 +197,15 @@ erDiagram
   external id. For `whatsapp_link`, "sent" is set when the office clicks the wa.me button.
 - **escalation_log**; **notification_preference**.
 
+### Workspaces (UI layouts, ADR 0018)
+- **workspace**: `owner_user_id?` (null = team template), `name`, `is_template` (bool), `is_default` (the user's
+  "Start"), `layout` jsonb (our own schema: groups → tabs → `{ view, params }`, sizes, links), `schema_version` int,
+  `locked` (bool), `last_used_at`, `source_template_id?` (copied from), timestamps.
+  The current, autosaved state is stored on the workspace row (`layout`), and the last explicit save in
+  `saved_layout` jsonb, so "Auf gespeicherten Stand zurücksetzen" works. Max ~8 per user (enforced in the service).
+- **user_preference**: `user_id`, `theme` (`system | light | dark`), `density` (`standard | compact`),
+  `sidebar_collapsed`, `favourites` (jsonb: pinned views/workspaces).
+
 ### Files, KB, audit
 **file / file_link** (as before), **kb_article** (+ revisions), **audit_log** *(exists)*.
 

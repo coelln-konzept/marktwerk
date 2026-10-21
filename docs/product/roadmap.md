@@ -75,6 +75,9 @@ tasks, permits, hours, payments due, company duties. Reminders go to **office us
 office tracks field crew tasks and hours on their behalf (staff messaging comes in Phase 2).
 
 ### M1: Events, presets, locations, vendors (≈ 3 weeks)
+- **App shell & workspace foundation** (ADR 0018, [UX concept](./ux-concept.md)): sidebar, top bar with workspace tabs,
+  docking panes (max 3), view registry (every view = page + pane), default workspace "Start", autosave + named saves,
+  peek, open to the side, ⌘K, theme (light/dark) and density switch. Team templates follow in M2.
 - **Event types** (data, extensible): **Flohmarkt, Antikmarkt, Stadtfest, Food & Wine**, with rules (new-goods
   share, banned goods, online booking allowed, default price/m, booking fee)
 - **Event presets** (the old website's "presets", extended): type + location + public texts + price + templates

@@ -59,6 +59,17 @@ comes to the event (client's explicit rule, research 05).
 | Auflagen | Conditions | `permit.conditions` | Turned into tasks. |
 | Frist / Vorlaufzeit | Deadline / lead time | `due_at` / `lead_time_days` | |
 
+## Interface
+| German (UI-DE) | English (UI-EN) | Code | Meaning |
+|---|---|---|---|
+| Arbeitsbereich | Workspace | `workspace` | A saved arrangement of panes; "Start" is the default for everyone. |
+| Team-Vorlage (Arbeitsbereich) | Workspace template | `workspace.is_template` | Shared by owner/manager; using it creates a personal copy. |
+| Bereich / Ansicht | Pane / view | view type | One view (e.g. Board, Logbuch) shown in a pane or as a page. |
+| Rechts daneben öffnen | Open to the side | — | Opens a record as a new pane (Shift+click). |
+| Vorschau | Peek | — | Quick preview sheet without changing the layout (Space). |
+| folgt | Follows | `links` | A pane follows the selection of a list pane. |
+| Kompakt / Standard | Compact / standard density | `user_preference.density` | |
+
 ## Work
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|

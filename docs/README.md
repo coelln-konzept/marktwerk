@@ -7,7 +7,8 @@ Start here: **[product/vision.md](product/vision.md)** → **[product/roadmap.md
 - [Roadmap](product/roadmap.md): phases and milestones from MVP to full platform, with inspiration per feature
 - [Roles & personas](product/roles-and-personas.md)
 - [User flows](product/user-flows.md): Mermaid diagrams of the core lifecycles
-- [Wireframes](product/wireframes.md): low-fidelity screens for P1–P3
+- **[UX concept](product/ux-concept.md)**: principles, IA, workspace model, patterns, status vocabulary, visual system
+- [Wireframes v2](product/wireframes.md): from-scratch wireframes for the workspace UI
 - [Glossary DE ⇄ EN ⇄ code](product/glossary.md)
 - [Claude Design prompt for Phase 1 wireframes](product/claude-design-prompt.md)
 
@@ -20,6 +21,7 @@ Start here: **[product/vision.md](product/vision.md)** → **[product/roadmap.md
 - [06 Staff: WhatsApp notifications, shifts & Minijob hours, kanban](research/06-staff-whatsapp-shifts-kanban.md)
 - [07 Inventory & rentals, payables & receipts, event P&L, vehicles](research/07-inventory-finance-fleet.md)
 - [08 Booking intake, confirmations/invoices, payment checks, newsletter, marketing](research/08-bookings-comms-newsletter.md)
+- [09 UI/UX: standards, references, customisable workspace](research/09-ui-ux-workspace.md)
 
 ## Architecture
 - [Overview](architecture/overview.md): system context, code layout, cross-cutting concerns, M365 integration, hosting options

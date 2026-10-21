@@ -22,3 +22,4 @@ consequences. Statuses: *proposed*, *accepted*, *superseded by NNNN*, *open* (a 
 | [0015](0015-finance-operational-layer.md) | Finance: operational layer; the tax advisor keeps the books | accepted |
 | [0016](0016-synthetic-development-data.md) | Synthetic, deterministic data for development | accepted |
 | [0017](0017-development-hosting.md) | Development hosting on free tiers (Vercel + Supabase) | accepted |
+| [0018](0018-workspace-architecture.md) | Customisable workspace: docking shell, view registry, server-side layouts | accepted |
