@@ -77,14 +77,14 @@ erDiagram
 ### Access & people
 - **user / session / account / verification**: Better Auth *(exists)*. `user.role` = permission role.
 - **settings** *(exists)*: company data, IBAN, time zone, Bundesland (`NW`), default due time, reminder policy.
-- **staff_member**: `display_name`, `first_name`, `last_name`, `phone_e164`, `whatsapp_opt_in_at`,
-  `whatsapp_opt_in_method`, `email?`, `user_id?` (unique), `preferred_duty_role_ids`, `active`,
-  `magic_link_version` (bump to revoke all links), notes.
+- **staff_member**: `display_name`, `first_name`, `last_name`, `phone_e164`, `email?`, `user_id?` (unique),
+  `preferred_duty_role_ids`, `active`, notes. Phase 2 (M7) adds `whatsapp_opt_in_at`, `whatsapp_opt_in_method`,
+  `magic_link_version` (bump to revoke all links).
 - **duty_role**: `key`, `name_de`, `name_en`, `default_staff_member_id?`, `sort`.
 
 ### Event catalogue
-- **event_type**: `key` (`flea`, `antique_design`, `design`, `food_wine`, `city_festival`, `theme`, `workshop`,
-  `tournament`, `other`), names, colour, rules jsonb: `new_goods_max_share` (e.g. 0.3), `banned_goods`
+- **event_type**: `key`: seeded **`flea`, `antique`, `city_festival`, `food_wine`** (current business); future
+  types (design, workshop, tournament) are added as data later. Names, colour, rules jsonb: `new_goods_max_share` (e.g. 0.3), `banned_goods`
   (e.g. batteries, phone cases), `online_booking_allowed` (false for food), `default_price_per_m_cents`
   (1500), `default_booking_fee_cents` (250).
 - **venue** (location): name, address, lat/lng, city, `kind`, `bundesland`, capacity, access info,
@@ -145,7 +145,7 @@ erDiagram
 - **Logbook** = a view over permits + agreements + (M11) equipment + documents, grouped by location and category,
   showing *held / pending / missing* for upcoming events.
 
-### Staff hours & Minijob (M4)
+### Staff hours & Minijob (M4; times entered by the office in Phase 1, by staff via magic link from M7)
 - **legal_parameter**: `key` (`minimum_wage_cents_per_hour`, `minijob_limit_cents_per_month`,
   `minijob_overrun_ceiling_factor` (2), `minijob_max_overrun_months_12` (2), …), `value`, `valid_from`.
   Seed: 2026-01-01 → 1390 / 60300; 2027-01-01 → 1460 / 63300.
@@ -190,7 +190,7 @@ erDiagram
   rolled_over | dates_shifted | permit_apply_by | permit_decision_due | installment_due | rental_return_due |
   obligation_due | shift_request | hours_missing | payroll_close | escalated`), subject, title, body, link,
   severity, `dedupe_key`, state (`unread | read | done | saved`), `snoozed_until?`.
-- **outbound_message**: channel (`in_app | email | whatsapp_link | whatsapp_api`), recipient, template key,
+- **outbound_message**: channel (`in_app | email` in Phase 1; `whatsapp_link | whatsapp_api` from M7), recipient, template key,
   rendered text, `status` (`queued | ready | sent | delivered | read | failed`), `send_after` (debounce/quiet hours),
   external id. For `whatsapp_link`, "sent" is set when the office clicks the wa.me button.
 - **escalation_log**; **notification_preference**.

@@ -9,7 +9,7 @@
 ```bash
 pnpm install
 cp .env.example .env            # then set BETTER_AUTH_SECRET: openssl rand -base64 32
-pnpm db:up                      # Postgres 18 on :5432, Mailpit on :1025 / UI :8025
+pnpm db:up                      # Postgres 17 on :5432 (= production major), Mailpit on :1025 / UI :8025
 pnpm db:migrate                 # apply migrations
 pnpm db:seed                    # company settings + owner account (see SEED_OWNER_* in .env)
 pnpm dev                        # web on http://localhost:3000 + worker

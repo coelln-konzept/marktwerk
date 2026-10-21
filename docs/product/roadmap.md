@@ -1,13 +1,15 @@
 # Roadmap: MVP to full platform
 
-**Revision 2 (2026-10-21)**, rebuilt after the client meeting ([research 05](../research/05-client-meeting-2026-10.md))
-and the follow-up research ([06](../research/06-staff-whatsapp-shifts-kanban.md), [07](../research/07-inventory-finance-fleet.md),
-[08](../research/08-bookings-comms-newsletter.md)).
+**Revision 3 (2026-10-21)**, rebuilt after the client meeting ([research 05](../research/05-client-meeting-2026-10.md)),
+the follow-up research ([06](../research/06-staff-whatsapp-shifts-kanban.md), [07](../research/07-inventory-finance-fleet.md),
+[08](../research/08-bookings-comms-newsletter.md)) and the product owner's decisions of 2026-10-21.
 
-Guiding order from the client: **digitise → optimise → automate**, **internal before external**.
-Within Phase 1 the product owner set the order: core (events, templates, kanban, permits) → **staff hours &
-Minijob** → **payables & instalments** → WhatsApp & shifts. Durations assume one developer + Claude and are rough;
-re-plan after every milestone.
+**Order: digitise → optimise → automate.** Phase 1 only *digitises* how the company works today: it records,
+shows and reminds. It doesn't change processes or message staff. **Scope: the current business**, i.e. flea markets
+and antique markets, plus Stadtfeste and Food & Wine markets. New formats (design markets, workshops,
+tournaments) come much later. Within Phase 1 the product owner set the order: core (events, templates, kanban,
+permits) → **staff hours & Minijob** → **payables & instalments**. Durations assume one developer + Claude and are
+rough; re-plan after every milestone.
 
 ```mermaid
 gantt
@@ -15,153 +17,152 @@ gantt
     dateFormat  YYYY-MM-DD
     axisFormat  %b %y
     section Phase 0
-    Discovery + foundation (M0, done)        :done, p0, 2026-10-20, 3w
-    section Phase 1 · Digitise the work
-    M1 Events, presets, locations            :m1, after p0, 3w
+    Foundation (M0, done)                    :done, p0, 2026-10-20, 2w
+    Synthetic data + Scalingo spike (M0.5)   :m05, after p0, 1w
+    section Phase 1 · Digitise
+    M1 Events, presets, locations, vendors   :m1, after m05, 3w
     M2 Templates, tasks & kanban             :m2, after m1, 4w
-    M3 Permit logbook & notifications        :m3, after m2, 3w
+    M3 Permit logbook & reminders            :m3, after m2, 3w
     M4 Staff hours & Minijob                 :m4, after m3, 3w
     M5 Payables, instalments, dashboard      :m5, after m4, 3w
-    M6 WhatsApp, shifts, company tab, pilot  :m6, after m5, 3w
-    section Phase 2 · Bookings inside
-    M7 Legacy website bridge                 :m7, after m6, 3w
-    M8 Booking processing & allocation       :m8, after m7, 4w
-    M9 Confirmations, receipts, payments     :m9, after m8, 3w
-    M10 Microsoft 365 inbox                  :m10, after m9, 3w
-    M11 Inventory & rentals                  :m11, after m10, 2w
+    M6 Company tab & pilot                   :m6, after m5, 2w
+    section Phase 2 · Optimise
+    M7 Staff WhatsApp, magic links, shifts   :m7, after m6, 3w
+    M8 Legacy website bridge                 :m8, after m7, 3w
+    M9 Booking processing & allocation       :m9, after m8, 4w
+    M10 Confirmations, receipts, payments    :m10, after m9, 3w
+    M11 Microsoft 365 inbox                  :m11, after m10, 3w
+    M12 Inventory & rentals                  :m12, after m11, 2w
     section Phase 3 · Market day, maps, communication
-    M12 Field mode (offline)                 :m12, after m11, 4w
-    M13 Stall maps                           :m13, after m12, 5w
-    M14 Communication & media                :m14, after m13, 3w
-    section Phase 4 · Open up & automate
-    M15+ Website/booking form, portal, AI drafts, bank feed, e-invoice :m15, after m14, 14w
+    M13 Field mode (offline)                 :m13, after m12, 4w
+    M14 Stall maps                           :m14, after m13, 5w
+    M15 Communication & media                :m15, after m14, 3w
+    section Phase 4 · Automate & open up
+    M16+ Website/booking form, portal, AI drafts, bank feed, e-invoice, new formats :m16, after m15, 14w
 ```
 
 ---
 
-## Phase 0: Discovery & foundation
+## Phase 0: Foundation, synthetic data, discovery
 
 **M0 Foundation: done.** Monorepo, Next.js 16 web app, pg-boss worker, Postgres + Drizzle, Better Auth with
-roles, DE/EN, app shell, CI.
+roles, DE/EN, app shell, CI, GitHub `coelln-konzept/marktwerk`.
 
-**Discovery (with the client, next weeks):**
+**M0.5 Synthetic data & deployment spike (≈ 1 week)**
+- `packages/synthetic`: deterministic, seeded generator for a realistic but fictional dataset (venues in the
+  Cologne region, presets, a season of flea/antique/Stadtfest/Food & Wine events, templates, tasks, permits,
+  staff & shifts, payables, vehicles, ~1,500 vendors, booking history). **All development uses it** until real
+  data is available (ADR 0016). M1's seed script loads it.
+- **Scalingo spike** (ADR 0006): staging app in `osc-fr1` with `web` + `worker` processes and the PostgreSQL addon
+  (v17); verify pnpm-monorepo builds, Next.js standalone start, migrations on deploy, PITR backups.
+  See [deployment.md](../development/deployment.md).
+
+**Discovery (with the client, ongoing):**
 1. **Timeline workshop:** "the market is on the 1st; what happens 1 week, 2 weeks, 2 months, 6 months before,
-   and after?" One session per event type (flea, antique/design, food & wine). Capture **time estimates**.
-   This becomes the first templates.
-2. **Permit inventory:** every permit/OK per location (city vs. external), lead times, application windows
-   (e.g. the contested riverside location: city decides in January), fees and instalments, stickers.
-3. **Old website:** get admin + server/DB access, **copy it into a sandbox, never touch production**;
-   extract presets, dates, bookings, vendor/newsletter lists.
-4. **Staff list:** contract types, hourly rates, contracted hours (§12 TzBfG trap), WhatsApp opt-in; ask the
-   payroll office/tax advisor what exactly is due on the 15th and in which format.
-5. **Payables list:** location fees, instalment plans, recurring company costs; vehicles (weights, HU dates).
-6. Shadow one market day (incl. the vendor talks) and one office day; collect stall maps.
+   and after?" One session each for flea, antique, Stadtfest, Food & Wine. Capture **time estimates**.
+2. **Permit inventory** per location (city vs. external), lead times, application windows, fees/instalments, stickers.
+3. **Old website access** (later; until then synthetic data): copy into a sandbox, never touch production.
+4. **Staff list** (contract types, rates, contracted hours) and what the payroll office needs by the 15th.
+5. **Payables list** (location fees, instalments), recurring company costs, vehicles.
+6. Shadow one market day and one office day; collect the paper stall maps.
 
 ---
 
-## Phase 1: Digitise the work (MVP, ≈ 4.5 months)
+## Phase 1: Digitise (MVP, ≈ 4.5 months)
 
-Goal: every recurring piece of work, permit, hour and payment obligation is in marktwerk, assigned and
-reminded. Replaces task lists in heads, the permit folder, the hours document and forgotten instalments.
+Goal: everything the office keeps in heads, documents and paper today lives in marktwerk: events, timelines,
+tasks, permits, hours, payments due, company duties. Reminders go to **office users in-app and by email**; the
+office tracks field crew tasks and hours on their behalf (staff messaging comes in Phase 2).
 
-### M1: Events, presets, locations (≈ 3 weeks)
-- **Event types** with rules (new-goods share, banned goods, online booking allowed, default price/m)
+### M1: Events, presets, locations, vendors (≈ 3 weeks)
+- **Event types** (data, extensible): **Flohmarkt, Antikmarkt, Stadtfest, Food & Wine**, with rules (new-goods
+  share, banned goods, online booking allowed, default price/m, booking fee)
 - **Event presets** (the old website's "presets", extended): type + location + public texts + price + templates
   + permit needs + default team + optional recurrence. **Generate events from a preset** (pick dates → preview → create)
 - **Events** with lifecycle `draft → planned (announced, permit pending) → confirmed → live → completed → closed`
-  and separate booking flags (bookable, fully booked, car spaces sold out); multi-day events
-- **Locations** (venues) with zones/rows (metres), access info, custom fields; **contacts** (authorities,
-  landowners, suppliers incl. the stall supplier)
-- **Multi-year location agreements** (fixed dates for N years → generate events)
+  and separate booking flags (bookable, fully booked, car spaces sold out); multi-day events (Stadtfest)
+- **Locations** with zones/rows (metres), access info, custom fields; **contacts** (authorities, landowners,
+  suppliers incl. the stall supplier); **multi-year location agreements** (fixed dates → events)
 - **Staff members** (with or without login), duty roles, default people per preset; users & permission roles
+- **Vendor list (read-only import)** from the synthetic dataset now, real export later (decision 2026-10-21)
 - Event page with tabs: Overview · Board · Permits · Team · Money · Documents · Notes
 - *Inspiration:* their own PHP admin (preset → date), Crescat event types, VOIS|MARKT (dates from rhythm)
-- **Exit:** next season's events for all locations exist with correct dates, types and teams.
+- **Exit:** a full season of (synthetic, later real) events exists with correct dates, types and teams.
 
 ### M2: Templates, tasks & kanban (≈ 4 weeks)
 - **Timeline templates** per event type/preset: phase, anchor + signed offset (T-180 … T+7), business/calendar
-  days (NRW holidays), duty role, priority, **time estimate**, evidence, dependencies, conditions;
-  categories incl. **communication** (website listing, posters, flyers, social, newsletter)
-- Versioned templates; **publishing never touches existing events**. Applying a new version to events is a
-  separate, **deliberate action by the editor**, with nothing pre-selected and a preview (decision 2026-10-21)
+  days (NRW holidays), duty role, priority, **time estimate**, evidence, dependencies, categories incl.
+  **communication** (website listing, posters & stickers, flyers, social, newsletter)
+- Versioned templates; **publishing never touches existing events**. Applying a version to events is a separate,
+  **deliberate editor action** with nothing pre-selected and a preview (decision 2026-10-21)
 - Instantiation on event creation (one service path); anchor change → preview → recalc → grouped notice
 - **Kanban board per event** (Vorbereitung · Diese Woche · Heute · Erledigt) + **people rail**: drop a card on a
-  person to assign (undo toast); optional swimlanes by person; **load bars** (estimated hours vs. capacity)
-- **Carry-over:** overdue unfinished tasks roll into "Heute" with a ↻ counter; flagged to the manager after 3 rollovers
-- My tasks (Overdue / Today / 7 days / Later), cross-event board, unassigned queue, keyboard shortcuts, ⌘K
-- **Workload & hiring view:** estimated hours per event, per person/week, per season; "≈ x Minijob-months"
-- Quick feedback on completion (as planned / longer / shorter) to calibrate estimates; no timers
-- *Inspiration:* Linear swimlanes & keyboard UX, Asana workload, Sunsama rollover, Paperless Pipeline anchors, Process Street versions
+  person to assign (undo toast); swimlanes by person; **load bars** (estimated hours vs. capacity)
+- **Carry-over:** overdue unfinished tasks roll into "Heute" with ↻n; flagged to the manager after 3
+- My tasks, cross-event board, unassigned queue, keyboard shortcuts, ⌘K
+- **Workload & hiring view:** estimated hours per event, per person/week, per season ("≈ x Minijob-months")
+- *Inspiration:* Linear swimlanes, Asana workload, Sunsama rollover, Paperless Pipeline anchors, Process Street versions
 - **Exit:** the workshop timelines run for every upcoming event; the boss sees hours per event.
 
-### M3: Permit logbook & notifications (≈ 3 weeks)
+### M3: Permit logbook & reminders (≈ 3 weeks)
 - **Company logbook ("Status quo"):** all permits/OKs by location and category (**city**: market permit, water,
-  signage/posters with stickers, no-parking; **external**: toilets, landowner OK, …), validity, documents, fees
-- Permit requirements per location/preset with lead times (2–6 months), **application windows** and **expected
-  decision dates**; coverage (one permit → many events)
-- **Creating an event auto-fills the logbook:** covered items are ticked with links to the documents; missing ones
-  become tasks prioritised by lead time
-- Conditions (Auflagen) → tasks; physical deliverables (sticker count received/used)
-- **Deadline sweep** + escalation **to the manager** (only, for now); notification center (grouped, snooze, done);
-  email for office users; daily digest 07:00
-- *Inspiration:* SafetyCulture/Connecteam expiry reminders (+ manager escalation), Odoo escalation log
+  signage/posters with stickers, no-parking; **external**: toilets, landowner OK…), validity, documents, fees
+- Requirements per location/type with lead times (2–6 months), **application windows**, **expected decision dates**
+  (e.g. Altstadt: city decides in January); coverage (one permit → many events)
+- **Creating an event auto-fills the logbook:** covered items ticked with document links; missing ones become
+  tasks by urgency; conditions (Auflagen) → tasks; sticker counts
+- **Deadline sweep** + escalation **to the manager**; notification center; email + daily digest (office users)
 - **Exit:** every permit for next season is in the logbook with owner and deadline.
 
 ### M4: Staff hours & Minijob (≈ 3 weeks)
-- Staff contracts: type (Minijob/Midijob/Werkstudent/full-time), hourly rate (dated), **contracted hours**,
-  fixed monthly pay / working-time account, preferred duty roles, declared other Minijobs
-- **Legal parameters table** (dated): minimum wage, Minijob limit (2026: €13.90 / €603; 2027: €14.60 / €633)
-- **Shift records** per event (planned/actual start, end, break), entered by the lead or by the staff member
-  via magic link; **§17 MiLoG**: alert on day 5, deadline day 7, versioned changes with reason, keep ≥ 2 years
-- **Team page:** hours & pay this month (worked + planned), **remaining allowance in hours**, year-to-date vs.
-  €7,236, overrun months in rolling 12; amber/red warnings (incl. €1,206 ceiling, 3rd overrun month)
-- ArbZG warnings (10 h/day, 11 h rest, breaks, 15 free Sundays) for heavy weekends
-- **Month close:** lock ~10th → approve → **CSV export** (+ DATEV LODAS ASCII once wage types are agreed with
-  the tax advisor) → reminder 12th, deadline 15th
-- *Inspiration:* Shiftbase Minijob contract type, Papershift, Crewmeister DATEV import
+- Contracts (type, dated hourly rate, **contracted hours**, fixed pay/working-time account, declared other Minijobs)
+- **Legal parameters table** (2026: €13.90 / €603; 2027: €14.60 / €633)
+- **Shift records** per event entered **by the office** (from today's paper/WhatsApp info): planned/actual times,
+  breaks; **§17 MiLoG** day-5 alert / day-7 deadline; versioned changes with reason; kept ≥ 2 years
+- **Team page:** hours & pay this month, **remaining allowance**, YTD, overrun months; amber/red warnings
+  (`minijobMonthStatus` in `@marktwerk/core`); ArbZG warnings for heavy weekends
+- **Month close:** lock → approve → **CSV export** (DATEV LODAS once agreed) → reminder 12th, deadline 15th
 - **Exit:** the monthly hours document is retired.
 
 ### M5: Payables, instalments & the priority dashboard (≈ 3 weeks)
-- **Payables** (location fees, permit fees, rentals, company costs) with **instalment plans** (generator: total ÷ n
-  every m months, or free rows), due-date reminders (14 d / 3 d / due / overdue), mark paid (= the expense)
-- Linked from tasks/permits (a "pay permit fee" task links to its payable; single entry)
-- **Receipts:** photo/PDF upload on a payable or ad-hoc expense; "missing receipt" counter; monthly export bundle
-  for the tax advisor (PDFs named by date/supplier/amount/event, CSV index; DATEV Upload Mail if they use DUo)
-- **Event money tab:** costs by category, **plan → committed → actual**; revenue side comes with bookings (M9)
-- **Owner dashboard:** ranked **"Heute fällig"** list (tasks, permits, instalments, rentals) with priority and a
-  **finance filter**; event health (permits · tasks · team · money); upcoming weekend overview
-- *Inspiration:* Lexware "Offene Posten" (+ instalments, which none of the tools have), Rentman financial tab, Eventtia "committed" column
+- **Payables** with **instalment plans**, reminders (14 d / 3 d / due / overdue), mark paid (= the expense),
+  linked from tasks/permits (single entry)
+- **Receipts** (photo/PDF) on payables/expenses; "missing receipt" counter; monthly bundle for the tax advisor
+- **Event money tab:** costs by category, plan → committed → actual (revenue from bookings in Phase 2)
+- **Owner dashboard:** ranked **"Heute fällig"** (tasks, permits, instalments, missing hours) with a **finance
+  filter**; event health; next weekend overview
 - **Exit:** no instalment is paid late; the owner opens the dashboard instead of asking.
 
-### M6: WhatsApp, shifts, company tab, pilot (≈ 3 weeks)
-- **Staff page via magic link** (no login): my tasks (Zusagen / Erledigt / Kann nicht), my shifts, my hours this month
-- **WhatsApp step 1:** assigning (drag) or shift requests create a ready message; **"Per WhatsApp senden"** opens
-  wa.me with prefilled text + magic link from the office phone (€0, no Meta setup); debounced; quiet hours
-- **Shift planning per event:** roles → people (defaults: same people, same roles), suggestions ranked by
-  remaining Minijob allowance; request/confirm by deadline (Deputy pattern)
-- **Company tab:** recurring **obligations** engine (date and/or km): vehicles (HU 24/12 months, **UVV yearly**,
-  service, insurance, tax), insurance renewals, KSK report (31 March), driver issue reports with photo
-- **Pilot:** whole team on marktwerk for one block of events; weekly feedback
-- *Inspiration:* Deputy confirm-by-deadline, Fleetio due-soon thresholds
-- **Exit:** go/no-go for Phase 2; measure the success metrics.
-
-*WhatsApp step 2 (Cloud API with templates, quick-reply buttons, delivery ticks) is scheduled for M14, or earlier
-if the wa.me step proves too manual. See ADR 0011.*
+### M6: Company tab & pilot (≈ 2 weeks)
+- Recurring **obligations** (date and/or km): vehicles (HU 24/12 months, **UVV yearly**, service, insurance, tax),
+  insurance renewals, KSK report (31 March); vehicle defect reports with photo
+- **Pilot** on Scalingo with the office team for one block of events (real data entered by them); weekly feedback
+- **Exit:** go/no-go for Phase 2; success metrics measured.
 
 ---
 
-## Phase 2: Bookings inside (≈ 3.5 months), external side unchanged
+## Phase 2: Optimise (≈ 4 months)
 
-Vendors keep using the old website, email and phone. marktwerk takes over the **internal** processing.
+With everything digital, improve the processes: reach field staff directly, and process bookings inside
+marktwerk while vendors still see the old website, email and phone.
 
-### M7: Legacy website bridge (≈ 3 weeks)
+### M7: Staff WhatsApp, magic links, shift planning (≈ 3 weeks)
+- **Staff page via magic link** (no login): my tasks (Zusagen / Erledigt / Kann nicht), my shifts, my hours,
+  entering own actual times
+- **WhatsApp step 1:** assignments and shift requests create ready messages; **"Per WhatsApp senden"** opens
+  wa.me with text + magic link from the office phone (€0); debounced; quiet hours; opt-in records.
+  Step 2 (Cloud API, quick-reply buttons) in M15 or earlier if needed (ADR 0011)
+- **Shift planning per event:** roles → people (same people, same roles), suggestions ranked by remaining
+  Minijob allowance; request/confirm by deadline (Deputy pattern)
+
+### M8: Legacy website bridge (≈ 3 weeks)
 - Preferred: read-only access to (a copy of) the PHP site's database, syncing bookings, presets, dates, vendors.
   Fallback: **deterministic parsing of the website's booking emails** (fixed rules, Message-ID idempotency, alert
   on parse failure); Graph subscription on the booking mailbox (ADR 0008/0013)
 - Import vendors + newsletter list (with consent status), past bookings for history
 - Keep website dates in sync manually at first; marktwerk becomes the source of truth in Phase 4
 
-### M8: Booking processing & allocation (≈ 4 weeks)
+### M9: Booking processing & allocation (≈ 4 weeks)
 - **Per-event booking queue**: multi-date requests **split into one request per event**
 - Vendor CRM (history, regular flag, notes incl. **vendor talks**, documents, "first event free" incentive),
   new vs. returning + diff vs. last booking
@@ -172,7 +173,7 @@ Vendors keep using the old website, email and phone. marktwerk takes over the **
 - Status layers: booking · per-date · placement · payment · attendance (research 02)
 - *Inspiration:* Marketspread scheduler, Eventeny per-date approval, Ebersberg car-length rule
 
-### M9: Confirmations, receipts & payments (≈ 3 weeks)
+### M10: Confirmations, receipts & payments (≈ 3 weeks)
 - **Confirmation email + Platzkarte PDF** from per-event templates (replacing Outlook signatures), sent via
   Graph from the shared mailbox; **states per date whether a car space is granted**
 - Platzkarte designed as a valid **Kleinbetragsrechnung** (≤ €250, "steuerfrei gem. §4 Nr. 12a UStG");
@@ -183,13 +184,13 @@ Vendors keep using the old website, email and phone. marktwerk takes over the **
 - Event P&L gets the revenue side; close-out wizard
 - ⚖️ Confirm with the tax advisor: VAT status of food/festival stalls, the €2.50 fee, §9 option
 
-### M10: Microsoft 365 inbox (≈ 3 weeks)
+### M11: Microsoft 365 inbox (≈ 3 weeks)
 - Graph app permissions scoped to the booking mailbox; webhooks + delta; mail stays in Outlook
 - Thread → per-event queue; link to vendor/booking/task; convert to booking draft or task; reply templates
   with event variables; assign, snooze, reopen on reply
 - Free-text requests stay human; AI drafting is Phase 4
 
-### M11: Inventory & rentals (≈ 2 weeks)
+### M12: Inventory & rentals (≈ 2 weeks)
 - Bulk item types (cables, power boxes, tables, standpipes…), quantities, out-of-service count
 - Requirements per preset → per event; availability over setup/teardown windows; **shortage list per weekend**
 - **"Solve shortage → rent"**: rentals with supplier, return-by date, deposit, late fee, meter readings;
@@ -200,18 +201,18 @@ Vendors keep using the old website, email and phone. marktwerk takes over the **
 
 ## Phase 3: Market day, maps, communication (≈ 3 months)
 
-### M12: Field mode, offline (≈ 4 weeks)
+### M13: Field mode, offline (≈ 4 weeks)
 - PWA for field leads (staff without login keep WhatsApp + magic link): day sheet (address, gate, contacts,
   timeline, stall list, permit PDFs, packing list) cached offline; checklist with photo evidence; outbox sync
 - Check-in, no-show release, walk-ups; **vendor talk notes** (quick capture → CRM); incident log
 - On-site payments per ADR 0009 (⚖️ cash/KassenSichV decision first)
 
-### M13: Stall maps (≈ 5 weeks)
+### M14: Stall maps (≈ 5 weeks)
 - Today's paper maps become venue layouts: background image, rows/slots with metres, layers
   (stalls, car spaces, water/power, escape routes); drag bookings onto the map; copy layout to next date
 - Exports: printable map for the crew, Lageplan for authorities (view-only link)
 
-### M14: Communication & media (≈ 3 weeks)
+### M15: Communication & media (≈ 3 weeks)
 - Per-event communication checklist (from templates) with channel status: website, newsletter, social posts
   (T-4w, T-1w, T-1d, day), flyers/posters (print deadlines, poster permits with stickers; Cologne: commercial placement)
 - **Photo library**: per-event upload link for staff phones (no app), tagged by event/date, consent flag
@@ -222,7 +223,7 @@ Vendors keep using the old website, email and phone. marktwerk takes over the **
 
 ---
 
-## Phase 4: Open up & automate (2027+)
+## Phase 4: Automate & open up (2027+)
 - **New website + booking form** (with the corporate-design project), fed by marktwerk (event status planned/
   bookable/full, texts from presets); per-date metres + low-key car option ("auf Anfrage") + "copy previous date";
   invoice-recipient fields; soft opt-in notice
@@ -231,7 +232,7 @@ Vendors keep using the old website, email and phone. marktwerk takes over the **
   side by side, found/guessed/missing fields, code validation, human confirms, corrections logged
 - Bank feed (finAPI/Enable Banking/FinTS; not GoCardless), e-invoice issuing (ZUGFeRD/XRechnung) before 2028,
   accounting integration if the tax advisor wants it
-- New formats: team registration & fees (e.g. volleyball tournament), workshops with tickets
+- **New formats** (only now): design markets as their own type, workshops, tournaments with team registration & fees
 - Analytics: vendor mix per event (antique vs. design), revenue/cost per event type, hours per event, retention
 - Sister-company listings on the website
 

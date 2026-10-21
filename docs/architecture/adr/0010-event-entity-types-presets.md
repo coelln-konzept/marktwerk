@@ -16,6 +16,11 @@ text, price) and **dates** (Termine) assigned to presets.
 - The UI may still say "Märkte" where natural; code and data say `event`.
 - Replaces `market` / `market_series` from data model v0.2 (nothing was built yet).
 
+## Scope (product owner, 2026-10-21)
+The company is today mainly a **flea market and antique market** organiser, with some **Stadtfeste** and
+**Food & Wine** markets. Only these four types are seeded and designed for in Phases 1–3. Design markets,
+workshops and tournaments are future formats (Phase 4+); the model just doesn't block them.
+
 ## Consequences
 - New formats need no new tables. Type-specific features (e.g. team registration for tournaments) hang off
   `event_type` later.

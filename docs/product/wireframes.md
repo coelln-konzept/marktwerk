@@ -2,7 +2,7 @@
 
 Revised 2026-10-21 after the client meeting. Rules:
 - **Office = dense, keyboard-friendly, side drawers** (Linear/Notion-like); **one event page with tabs**.
-- **Field crew = WhatsApp + one mobile page via magic link.** No app, no login.
+- **Field crew = WhatsApp + one mobile page via magic link (Phase 2).** In Phase 1 the office tracks their tasks and hours.
 - Consistent status colours: 🟢 ok · 🟡 attention · 🔴 critical · ⚪ not started · 🔵 info · ↻ carried over.
 - German UI by default.
 
@@ -23,7 +23,7 @@ Revised 2026-10-21 after the client meeting. Rules:
 │ Vorlagen   │ NÄCHSTES WOCHENENDE (4 Veranstaltungen)                                 │
 │ Wissen     │            Genehm.  Aufgaben    Team     Geld      Aufwand              │
 │ ── Phase 2 │ Flohmarkt Altstadt  🟢      🟢 18/20    🟢 6/6   🟢        34 h         │
-│ Buchungen  │ Antik/Design Linz   🟡 Wasser 🟡 9/14   🟡 4/5   🟢        22 h         │
+│ Buchungen  │ Antikmarkt Linz     🟡 Wasser 🟡 9/14   🟡 4/5   🟢        22 h         │
 │ Postfach   │ Food & Wine Neuss   🔴 Plakat 🟢 12/15   🟢 5/5   🟡 Rate   41 h         │
 │ Inventar   │ Flohmarkt Bonn      🟢      🟢 16/16    🔴 2/4   🟢        18 h         │
 │            │                                                                         │
@@ -50,10 +50,10 @@ Revised 2026-10-21 after the client meeting. Rules:
 │ │Logistik·30min│                                                     │ ███░░░ 6/43h  │
 │ └──────────────┘                                                     │               │
 ├──────────────────────────────────────────────────────────────────────┴───────────────┤
-│ Σ geschätzt 41 h · erledigt 18 h · 📨 2 WhatsApp-Nachrichten bereit [Senden]          │
+│ Σ geschätzt 41 h · erledigt 18 h                    (P2: 📨 WhatsApp-Nachrichten bereit) │
 └──────────────────────────────────────────────────────────────────────────────────────┘
  Load bars: estimated hours this week vs. capacity (for Minijobbers: remaining allowance).
- Drop → undo toast → message queued (debounced). Swimlane toggle: [Spalten] [Nach Person].
+ Drop → undo toast → assigned (in-app/email for office users; WhatsApp from Phase 2). Swimlane toggle: [Spalten] [Nach Person].
 ```
 
 ## P1-3 Template editor (timeline with estimates)
@@ -129,7 +129,7 @@ Revised 2026-10-21 after the client meeting. Rules:
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## P1-7 Staff page via magic link (mobile, no login)
+## P2-0 Staff page via magic link (mobile, no login): Phase 2, M7
 ```
 ┌─────────────────────────────┐
 │ Hallo Dieter 👋              │

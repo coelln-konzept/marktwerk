@@ -1,9 +1,9 @@
-# Local development services. Production hosting is decided later (see docs/architecture/adr/0006-hosting.md).
+# Local development services. Postgres major version matches production (Scalingo, ADR 0006).
 name: marktwerk
 
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: marktwerk
@@ -13,7 +13,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U marktwerk -d marktwerk"]
       interval: 5s

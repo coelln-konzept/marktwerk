@@ -43,7 +43,7 @@ flowchart LR
 |---|---|---|
 | `apps/web` | Next.js 16 (App Router, React 19, Server Actions), Better Auth, next-intl, Tailwind 4 + shadcn/ui (Base UI) | Back office UI, staff magic-link pages, field PWA (P3), webhooks (Graph, WhatsApp), new public booking form (P4) |
 | `apps/worker` | Node 22+/24, pg-boss 12 | Cron jobs (deadline sweep, nightly carry-over, digests, payroll reminders), async jobs (event generation, messages, PDFs, legacy-site/mailbox sync, bank import) |
-| PostgreSQL | v18 in dev (Docker), managed or self-hosted in prod | Single source of truth incl. job queue (`pgboss` schema) |
+| PostgreSQL | v17 (Scalingo addon in prod, Docker in dev) | Single source of truth incl. job queue (`pgboss` schema) |
 
 Both units import the same internal packages, so domain rules exist exactly once.
 
@@ -115,11 +115,17 @@ Decisions from research 03, recorded as ADR 0008 (proposed):
 
 | Env | Where | Notes |
 |---|---|---|
-| local | Docker Compose: Postgres 18, Mailpit | `pnpm dev` runs web + worker |
-| staging | Decided in ADR 0006 before M4 pilot | Seeded demo data, production-like |
+| local | Docker Compose: Postgres 17 (= production major), Mailpit | `pnpm dev` runs web + worker; data from `packages/synthetic` |
+| staging | Scalingo `marktwerk-staging` (osc-fr1) | Synthetic data (ADR 0016) |
 | production | EU only | Backups (PITR) + **nightly encrypted copy to the company server**, restore test, monitoring, separate secrets |
 
-## Hosting options (decision deferred, ADR 0006)
+## Hosting: Scalingo (ADR 0006, decided 2026-10-21)
+
+One Scalingo app per environment in `osc-fr1` (Paris) with `web` and `worker` processes and the PostgreSQL 17
+addon; nightly backup copy to the company's server. Details: [deployment.md](../development/deployment.md).
+
+<details><summary>Options that were considered</summary>
+
 
 | Option | Pros | Cons |
 |---|---|---|
@@ -127,4 +133,6 @@ Decisions from research 03, recorded as ADR 0008 (proposed):
 | **B. Hetzner (DE) + Coolify/Docker Compose: web + worker + Postgres** | Cheapest, all in German jurisdiction, one place | We run backups, patching and monitoring ourselves |
 | **C. Hetzner app servers + managed Postgres (e.g. Hetzner/Ionos/Neon EU)** | Middle ground | Two providers |
 
-The app is built with `output: "standalone"` and a stateless web tier, so moving between options is cheap.
+</details>
+
+The app is built with `output: "standalone"` and a stateless web tier, so moving providers later stays cheap.

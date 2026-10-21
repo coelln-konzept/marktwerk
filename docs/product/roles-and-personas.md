@@ -34,14 +34,15 @@ Kommunikation (website, posters, social), Kasse (cash), Wasser/Strom.
 
 ## Personas (fictional, based on the meeting)
 - **Petra, owner** wants the money and risk picture in seconds: what's due today, which permit is late,
-  is the new design market on track, do we need to hire? Thinks in event types and strategy (more food &
+  is the Stadtfest on track, do we need to hire? Thinks in event types and strategy (more food &
   wine, younger vendors).
 - **Jonas, office manager** is the person who holds everything together today: files next year's permits
   in autumn, maintains the website dates, answers booking emails with per-market Outlook signatures, checks
   the bank Mon/Wed/Fri, calculates Minijob hours by hand before the 15th. Overloaded; needs things off his
   head and onto a board.
 - **Frank, office staff** takes bookings by phone after the Monday cut-off. Needs a 30-second entry screen.
-- **Dieter, set-up crew (Minijob)** has no app, no email, only WhatsApp. Gets a message when a task is
-  dragged onto him, taps "Erledigt". Forgets to return the rented standpipes unless reminded.
+- **Dieter, set-up crew (Minijob)** has no app, no email, only WhatsApp. Phase 1: the office assigns and
+  tracks his tasks and enters his hours. Phase 2: he gets a WhatsApp message when a task is dragged onto him and
+  taps "Erledigt". Forgets to return the rented standpipes unless reminded.
 - **Maria, regular vendor** books by email in free text ("my usual 4 m, with the van"). Values the personal
   contact. Must not be pushed into a robot flow.

@@ -1,26 +1,31 @@
-# 0006: Hosting stays portable; decided before the pilot
+# 0006: Hosting on Scalingo (EU-owned managed PaaS)
 
-**Status:** open, leaning towards *cloud + local backup*. **Decide before the M6 pilot.**
+**Status:** accepted (2026-10-21, product owner). Supersedes the "stay portable, decide later" draft.
 
 ## Context
-The product owner chose to keep hosting open. Constraints: EU/GDPR, a long-running worker (ADR 0005),
-Postgres, file storage, small team without dedicated ops.
+The product owner wants a **managed cloud** set up from scratch, and chose an **EU-owned** provider. Constraints:
+GDPR/EU jurisdiction, a long-running worker (ADR 0005), managed Postgres with backups, small team without ops.
+The client asked in the meeting: *"If the cloud breaks, do they have backups?"*, and wants a local copy.
 
-## Options
-See [overview.md → Hosting options](../overview.md#hosting-options-decision-deferred-adr-0006):
-A) Vercel fra1 + managed Postgres (Neon/Supabase FRA) + worker container;
-B) everything on Hetzner with Coolify/Docker Compose;
-C) Hetzner app servers + managed EU Postgres.
+## Decision
+- **Scalingo** (French, no US parent), region **`osc-fr1`** (3DS Outscale, Paris).
+- **One Scalingo app per environment** (`marktwerk-staging`, `marktwerk-prod`) with two process types from a
+  `Procfile`: `web` (Next.js standalone server) and `worker` (pg-boss, `apps/worker/dist/index.mjs`).
+- **Scalingo for PostgreSQL** addon. **Postgres 17** (the newest major Scalingo offers as of Oct 2026, so local dev
+  and CI use 17 too). Point-in-time recovery (7 days on shared plans; longer on dedicated plans).
+- **Backups beyond the provider:** a nightly worker job exports an encrypted `pg_dump` (+ uploaded files) to the
+  company's own server/NAS; quarterly restore test documented.
+- File storage: an S3-compatible EU bucket (e.g. Outscale OOS or Scaleway, decided in the spike) behind our storage adapter.
+- Secrets via Scalingo environment variables; deploy from GitHub (`main` → staging; tagged releases → prod).
 
-## Until decided
-- Build with `output: "standalone"`; keep the web tier stateless; config via env only.
-- No provider-specific APIs in code (storage behind an S3 adapter, email behind SMTP).
+## To verify in the M0.5 spike (sources were thin; see docs/development/deployment.md)
+- pnpm workspace support in the Scalingo Node.js buildpack (fallback: build step with `corepack enable`, or a
+  custom/multi buildpack).
+- Next.js standalone output started from the monorepo root (copy `.next/static` and `public`).
+- Running `pnpm db:migrate` in the `postdeploy` hook.
+- PITR retention on the chosen plan; pricing for web + worker + Postgres at our size.
 
-## Input from the client meeting (2026-10-21)
-- Worry: *"If the cloud breaks, do they have backups?"* and *"you can't reach it immediately sometimes"*.
-- Recommendation given in the meeting: **cloud hosting for the first year** (low cost) **plus a local copy**
-  on the company's own server.
-- Implication: whichever option, add a **nightly encrypted database dump + file sync to the company server**
-  (and a documented restore test). Option B (Hetzner, German jurisdiction) fits this well.
-- They also want a shared drive (Nextcloud was mentioned): out of scope for marktwerk, but documents could be
-  linked from there.
+## Consequences
+- Full EU jurisdiction (no CLOUD Act exposure via a US parent).
+- No preview deployments per branch out of the box (Scalingo review apps exist; evaluate in the spike).
+- Smaller ecosystem than US platforms; the app stays a plain Node app, so moving later stays cheap.

@@ -6,9 +6,9 @@ Source documents: `roadmap.md` (Phase 1, M1–M6), `wireframes.md`, `research/05
 ---
 
 Design the Phase 1 screens of **marktwerk**, an internal operations web app for one German event company
-in the Cologne area. They run recurring **flea markets, antique/design markets, design markets, food & wine
-markets** and want to add new formats (workshops, a volleyball tournament). About 20+ events per season across
-several locations and cities, up to 4 on one weekend. Build a **clickable mid-fidelity prototype** (wireframe
+in the Cologne area. They mainly run recurring **flea markets (Flohmärkte) and antique markets (Antikmärkte)**,
+plus a few **Stadtfeste** (city festivals) and **Food & Wine** markets, at several locations and cities, with up to
+4 events on one weekend. Phase 1 is about **digitising** their current work (no automation, no messaging to staff yet). Build a **clickable mid-fidelity prototype** (wireframe
 style with real layout, real content and status colours; no final branding yet).
 
 ## Who uses it
@@ -18,8 +18,8 @@ style with real layout, real content and status colours; no final branding yet).
   dates, assigns work, calculates mini-jobbers' hours before the 15th of each month, pays instalments. Desktop,
   two screens, keyboard power user.
 - **Office staff:** enters phone requests, works through assigned tasks.
-- **Field crew (mostly Minijob):** use **only WhatsApp**: no app, no login. They receive a WhatsApp message
-  with a personal link that opens one small mobile page.
+- **Field crew (mostly Minijob):** use only WhatsApp, no app, no login. **In Phase 1 they don't use marktwerk
+  at all:** the office assigns their tasks on the board and enters their working hours for them.
 
 ## Product principles (they come from the client and must be visible in the design)
 1. Digitise first: the app mirrors how they work today (presets → dates, timelines, paper stall maps), with
@@ -78,9 +78,8 @@ style with real layout, real content and status colours; no final branding yet).
   avatar, rollover badge.
 - **Right rail "Team":** people with avatars and a load bar (estimated hours this week vs. capacity; for
   mini-jobbers capacity = remaining allowed hours this month).
-- **Show the drag interaction:** a card dropped onto a person → toast "Zugewiesen an Dieter · Rückgängig" →
-  bottom bar "📨 2 WhatsApp-Nachrichten bereit · [Senden]". Clicking Senden opens a small panel listing the
-  messages with a "In WhatsApp öffnen" button each.
+- **Show the drag interaction:** a card dropped onto a person → toast "Zugewiesen an Dieter · Rückgängig";
+  the card now shows Dieter's avatar and his load bar grows.
 - Toggle "Nach Person" (swimlanes by person).
 - Footer: Σ estimated 41 h · done 18 h.
 - Task drawer: description, check items, photo evidence required, comments with @mention, activity,
@@ -111,8 +110,7 @@ style with real layout, real content and status colours; no final branding yet).
 - Banner "3 Schichten ohne Arbeitszeiten · gesetzliche Frist 17.05." and a working-time warning
   ("11,5 h am 16.05., max. 10 h").
 - Button "Monat abschließen" (deadline 15th) → steps: prüfen → sperren → exportieren (CSV).
-- Second view: shift plan per event (roles × people, suggested people ranked by remaining allowance,
-  request status angefragt / zugesagt / abgesagt).
+- Second view: shifts per event (who worked which role, planned vs. actual times), entered by the office.
 
 **7. Finanzen (payables & instalments)**
 - List: due date, what, to whom, instalment "2/3", amount, receipt clip, priority. Filters: Offen /
@@ -127,27 +125,20 @@ style with real layout, real content and status colours; no final branding yet).
   insurance renewal.
 - Vehicles with open defect reports (photo, reported by Dieter).
 
-**9. Staff page (mobile, opened from a WhatsApp link, no login)**
-- "Hallo Dieter 👋 · Mai: 29 h · Rest ca. 2 h".
-- My tasks with big buttons [Zusagen] [✓ Erledigt] [Kann nicht].
-- My shifts with [Zusagen] / [Absagen], and actual times entry for a past shift (start, end, break).
-- Also show the WhatsApp message itself as context: "Neue Aufgabe: Standrohr abholen (Food & Wine Neuss, bis
-  Fr 15.05.). Details: marktwerk.de/t/…"
-
-**10. Benachrichtigungen** (secondary)
+**9. Benachrichtigungen** (secondary)
 - Grouped notifications with Done / Merken / Später actions, and filters (Mir zugewiesen, @Erwähnt, Fristen).
 
 ## Key flows to make clickable
 1. Dashboard → red instalment → drawer → mark paid → add receipt.
-2. Event board → drag task onto a person → toast → "WhatsApp senden" panel.
+2. Event board → drag task onto a person → toast with undo → load bar updates.
 3. Logbuch → missing permit → drawer → "Aufgabe erstellen".
 4. Team → amber person → enter justification → month close.
 5. Create events from a preset with the date picker preview.
 
 ## Sample data
-- **Events:** Flohmarkt Altstadt (Köln, Rheinufer) So 07.06. · Antik & Design Linz Sa 13.06. · Food & Wine Neuss
-  Sa 16.05. · Flohmarkt Bonn So 10.05. · Designmarkt Ehrenfeld Sa 20.06. · Volleyball-Turnier (new format,
-  status Entwurf).
+- **Events:** Flohmarkt Altstadt (Köln, Rheinufer) So 07.06. · Antikmarkt Linz Sa 13.06. · Food & Wine Neuss
+  Sa 16.05. · Flohmarkt Bonn So 10.05. · Flohmarkt Nippes Sa 20.06. · Stadtfest Brühl Fr–So 21.–23.08.
+  (status geplant).
 - **People:** Petra (Geschäftsführung), Jonas (Büroleitung), Frank (Büro), Lars (Logistik), Dieter, Ayşe,
   Kemal (Platzteam, Minijob).
 - **Prices:** 15 €/m, Buchungsgebühr 2,50 €.
@@ -156,7 +147,9 @@ style with real layout, real content and status colours; no final branding yet).
   (Standrohr von den Stadtwerken), Plakatierung Neuss (100 Aufkleber), Halteverbot, Toiletten (Rahmenvertrag).
 
 ## Don'ts
-- No vendor booking screens, maps, inbox or inventory yet (Phase 2+): only the disabled menu entries.
+- No vendor booking screens, maps, inbox, inventory, WhatsApp features or staff mobile pages yet (Phase 2+):
+  only the disabled menu entries.
+- No new formats (design markets, workshops, tournaments).
 - No AI assistants, chatbots or "smart suggestions" copy.
 - No customer/Kunde wording.
 - No dashboards full of charts: lists with clear priorities beat graphs here.

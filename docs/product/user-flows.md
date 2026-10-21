@@ -38,7 +38,10 @@ flowchart TD
     T & NP --> B[Event board]
 ```
 
-## 3. Kanban: assign by drag, notify via WhatsApp (P1)
+## 3. Kanban: assign by drag (P1); WhatsApp notification (P2, M7)
+
+In Phase 1 the drop assigns the task and notifies office users in-app/by email; field crew tasks are
+tracked by the office. The WhatsApp part below starts in Phase 2.
 
 ```mermaid
 sequenceDiagram
@@ -107,6 +110,8 @@ flowchart TD
     W --> T[Actual times entered<br/>by lead or via magic link]
     T -->|missing on day 5| AL[Reminder staff + manager<br/>legal deadline day 7 §17 MiLoG]
     T --> TP[Team page: hours, pay, remaining allowance,<br/>YTD, overrun months]
+    note1[P1: office enters times · P2: staff via magic link]:::n
+    classDef n fill:none,stroke-dasharray: 3 3
     TP -->|> €603 planned| AM[Amber: only if unforeseeable / annual avg OK]
     TP -->|> €1,206 or 3rd overrun| RD[Red: needs documented reason]
     TP --> MC[Month close ~10th: lock → approve]

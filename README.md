@@ -1,12 +1,13 @@
 # marktwerk
 
-Internal operations platform for a German event company (flea, antique/design, design, food & wine markets
-and new formats): events, timelines & kanban, permit logbook, staff hours (Minijob), payables, and later
-bookings, the shared inbox, inventory, market-day field mode and stall maps.
+Internal operations platform for a German event company (mainly flea and antique markets, plus Stadtfeste
+and Food & Wine markets): events, timelines & kanban, permit logbook, staff hours (Minijob), payables, and later
+staff WhatsApp, bookings, the shared inbox, inventory, market-day field mode and stall maps.
 
 > **Status:** Phase 0 complete (foundation). Plan revised after the client meeting
 > ([research 05](docs/research/05-client-meeting-2026-10.md)). Next: **Phase 1, "Digitise the work"**, starting with
-> M1 events, presets & locations. See the [roadmap](docs/product/roadmap.md).
+> M0.5 (synthetic data + Scalingo spike), then M1. See the [roadmap](docs/product/roadmap.md).
+> Hosting: Scalingo (EU), see [deployment](docs/development/deployment.md).
 
 ## Quick start
 ```bash
@@ -28,4 +29,4 @@ Details: [docs/development/setup.md](docs/development/setup.md)
 
 ## Stack
 Next.js 16 · React 19 · TypeScript 6 · Tailwind 4 + shadcn/ui · Better Auth · next-intl (DE/EN) ·
-PostgreSQL 18 · Drizzle ORM · pg-boss · Vitest · Biome · pnpm + Turborepo. Rationale: [ADRs](docs/architecture/adr/README.md).
+PostgreSQL 17 · Drizzle ORM · pg-boss · Vitest · Biome · pnpm + Turborepo. Rationale: [ADRs](docs/architecture/adr/README.md).

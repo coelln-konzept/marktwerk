@@ -3,8 +3,8 @@
 Guidance for Claude (and humans) working in this repo.
 
 ## What this is
-marktwerk: an internal operations platform for **one** German event company (single tenant): flea,
-antique/design, food & wine markets and new formats. The current phase and next milestone are in
+marktwerk: an internal operations platform for **one** German event company (single tenant): mainly flea
+and antique markets, plus Stadtfeste and Food & Wine markets (other formats only much later). The current phase and next milestone are in
 `docs/product/roadmap.md`. Read `docs/product/vision.md` (incl. the product principles),
 `docs/research/05-client-meeting-2026-10.md` (what the users actually said), `docs/architecture/overview.md`
 and `docs/architecture/data-model.md` before building a feature.

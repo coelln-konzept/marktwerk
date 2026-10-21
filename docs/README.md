@@ -29,5 +29,6 @@ Start here: **[product/vision.md](product/vision.md)** → **[product/roadmap.md
 ## Development
 - [Setup](development/setup.md)
 - [Conventions](development/conventions.md)
+- [Deployment (Scalingo)](development/deployment.md)
 
 ## [Open questions & decisions log](open-questions.md)

@@ -6,9 +6,9 @@ food & wine markets and new event formats). Every event, task, deadline, permit,
 booking lives in one place, so nothing slips and the team can take on more events without more stress.
 
 ## Context
-- **Client:** one company (single tenant), Cologne area. About 20+ events per season across several locations
-  and cities, up to **4 on one weekend**, growing. Event mix shifting from antique towards **design, food &
-  wine and new formats** (workshops, tournaments) to attract younger vendors and visitors.
+- **Client:** one company (single tenant), Cologne area. Today mainly a **flea market and antique market**
+  organiser, with some **Stadtfeste** and **Food & Wine** markets. Several locations and cities, up to **4 events on
+  one weekend**, growing. New formats (design markets, workshops, tournaments) are future plans, not current scope.
 - **Team:** a small office (one person carries permits, website, bookings, payments, wages) plus field crew,
   mostly **Minijobber**, who **only use WhatsApp**.
 - **Today:** an old PHP website with presets, dates and the booking form; Outlook (Microsoft 365) with one
@@ -27,7 +27,8 @@ booking lives in one place, so nothing slips and the team can take on more event
    We automate labour, not relationships. Payment reminders are sent by a person.
 5. **No AI running the business.** AI may prepare drafts later (e.g. parse a free-text booking email); a person
    always confirms and can see the original.
-6. **Meet staff where they are: WhatsApp.** No app install required for field crew.
+6. **Meet staff where they are: WhatsApp** (Phase 2). No app install required for field crew. In Phase 1 the
+   office tracks field crew tasks and hours on their behalf.
 7. **Everything that happens has a counterpart in the system.** If something got forgotten, there should be a
    place where it would have been visible.
 
@@ -46,6 +47,7 @@ booking lives in one place, so nothing slips and the team can take on more event
 - Bookkeeping: the tax advisor keeps the books; marktwerk is the operational layer and exports to them.
 - A native app; staff get WhatsApp + magic links, office uses the browser.
 - Barcode/RFID inventory, automatic payment reminders, autonomous AI.
+- New event formats (design markets, workshops, tournaments) before Phase 4.
 
 ## Success metrics (baseline in discovery, measured after 3 months)
 | Metric | Target |
