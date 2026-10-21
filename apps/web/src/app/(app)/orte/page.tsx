@@ -1,10 +1,12 @@
-import { Eye, SearchX } from "lucide-react";
+import { can } from "@marktwerk/core";
+import { Eye, Plus, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { VenueKindBadge } from "@/components/catalogue/kinds";
 import { VenueVorschau } from "@/components/catalogue/venue-vorschau";
 import { Page, PageHeader } from "@/components/shell/page";
+import { buttonVariants } from "@/components/ui/button";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
@@ -27,6 +29,7 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
   const actor = await getActor();
   const sp = await searchParams;
   const t = await getTranslations("venues");
+  const tm = await getTranslations("venues.manage");
   const locale = await getLocale();
   const q = param(sp.q)?.slice(0, 100);
   const vorschauId = param(sp.vorschau);
@@ -35,7 +38,18 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
 
   return (
     <Page crumbs={[{ label: t("title") }]}>
-      <PageHeader title={t("title")} subtitle={t("subtitle", { count: rows.length })} />
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle", { count: rows.length })}
+        actions={
+          can(actor.role, "venue", "write") ? (
+            <Link href={"/orte/neu" as never} className={buttonVariants({ variant: "default" })}>
+              <Plus aria-hidden />
+              {tm("new")}
+            </Link>
+          ) : undefined
+        }
+      />
 
       <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
         <label className="sr-only" htmlFor="q">

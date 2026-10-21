@@ -2,7 +2,7 @@ import "server-only";
 import { can } from "@marktwerk/core";
 import { foldIncludes } from "@marktwerk/core/text/fold";
 import { contact, event, eventType, venue, venueRow, zone } from "@marktwerk/db/schema";
-import { and, asc, count, desc, eq, gte, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 
@@ -101,7 +101,7 @@ export async function getVenue(id: string) {
       .select({ id: zone.id, name: zone.name })
       .from(zone)
       .where(eq(zone.venueId, id))
-      .orderBy(asc(zone.sort), asc(zone.name)),
+      .orderBy(asc(zone.sort), asc(zone.name), asc(zone.id)),
     db
       .select({
         id: venueRow.id,
@@ -109,6 +109,7 @@ export async function getVenue(id: string) {
         label: venueRow.label,
         lengthCm: venueRow.lengthCm,
         depthCm: venueRow.depthCm,
+        carAllowed: venueRow.carAllowed,
         carSlots: venueRow.carSlots,
         power: venueRow.power,
         water: venueRow.water,
@@ -175,4 +176,45 @@ export async function listVenueOptions(): Promise<VenueOption[]> {
     .from(venue)
     .where(isNull(venue.archivedAt))
     .orderBy(asc(venue.city), asc(venue.name));
+}
+
+/** All stored fields of a venue for the edit form (capacity as stored, not the sum of the rows). */
+export async function getVenueForEdit(id: string) {
+  if (!isUuid(id)) return null;
+  const [row] = await db
+    .select({
+      id: venue.id,
+      name: venue.name,
+      kind: venue.kind,
+      street: venue.street,
+      postalCode: venue.postalCode,
+      city: venue.city,
+      bundesland: venue.bundesland,
+      lat: venue.lat,
+      lng: venue.lng,
+      capacityCm: venue.capacityCm,
+      accessInfo: venue.accessInfo,
+      landownerContactId: venue.landownerContactId,
+    })
+    .from(venue)
+    .where(and(eq(venue.id, id), isNull(venue.archivedAt)));
+  if (!row) return null;
+  const [rows] = await db
+    .select({ lengthCm: sql<number>`coalesce(sum(${venueRow.lengthCm}), 0)::int` })
+    .from(venueRow)
+    .innerJoin(zone, eq(zone.id, venueRow.zoneId))
+    .where(eq(zone.venueId, id));
+  return { ...row, rowLengthCm: rows?.lengthCm ?? 0 };
+}
+
+export type LandownerOption = { id: string; name: string; city: string | null };
+
+/** Landowner contacts to pick from; the venue's current one is always included. */
+export async function listLandownerOptions(currentId?: string | null): Promise<LandownerOption[]> {
+  const live = and(eq(contact.kind, "landowner"), isNull(contact.archivedAt));
+  return db
+    .select({ id: contact.id, name: contact.name, city: contact.city })
+    .from(contact)
+    .where(currentId && isUuid(currentId) ? or(live, eq(contact.id, currentId)) : live)
+    .orderBy(asc(contact.name));
 }

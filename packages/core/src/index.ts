@@ -17,3 +17,4 @@ export * from "./staff/minijob";
 export * from "./text/email";
 export * from "./text/fold";
 export * from "./text/phone";
+export * from "./venues/measure";
