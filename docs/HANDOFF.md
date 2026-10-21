@@ -1,7 +1,11 @@
 # Handoff: session 1 → session 2
 
-**Written 2026-10-21** at the end of the planning/setup session. The next session starts with this document plus the
-**Claude Design output** (placed in [`docs/design/claude-design/`](./design/claude-design/)). Read this file first,
+**Written 2026-10-21, updated at the end of session 1.** The next session starts with this document plus the
+**Claude Design output** (placed in [`docs/design/claude-design/`](./design/claude-design/)).
+
+> ⚠️ **Open decision first:** the product owner is considering **dropping the customisable workspace** (docking panes,
+> saved layouts) while keeping the research-based UI improvements. Two design directions exist (see §6). Ask which one
+> wins **before** building the M1 shell, and update the docs accordingly (§6, step 0). Read this file first,
 then the documents it points to. Everything below is committed on `main` of
 [`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk).
 
@@ -12,7 +16,8 @@ An internal operations platform for **one** German company (Cologne area) that r
 antique markets**, plus a few **Stadtfeste** and **Food & Wine** markets (other formats much later). Phase 1
 **digitises** their work: events generated from presets, timeline templates → tasks on a kanban board, a company-wide
 permit logbook, staff hours with the Minijob limit, payables with instalments, a "due today" start screen. The UI is a
-**customisable workspace** (docking panes, saved layouts). German UI first, English second.
+**customisable workspace** (docking panes, saved layouts), **which may be dropped** in favour of classic screens with
+the same research-based improvements (§6). German UI first, English second.
 
 ## 2. Read in this order
 1. [`CLAUDE.md`](../CLAUDE.md): non-negotiable conventions (also loaded automatically).
@@ -22,7 +27,8 @@ permit logbook, staff hours with the Minijob limit, payables with instalments, a
    This outranks desk research.
 4. [`docs/product/roadmap.md`](./product/roadmap.md): phases and milestones (rev. 3).
 5. [`docs/product/ux-concept.md`](./product/ux-concept.md) + [`wireframes.md`](./product/wireframes.md) (v2) +
-   [ADR 0018](./architecture/adr/0018-workspace-architecture.md): the UI to build.
+   [ADR 0018](./architecture/adr/0018-workspace-architecture.md): the UI as currently documented (workspace version).
+   The non-workspace parts (principles, IA, status vocabulary, patterns, language, visual system) apply in either direction.
 6. [`docs/architecture/data-model.md`](./architecture/data-model.md) (v0.3) and
    [`overview.md`](./architecture/overview.md).
 7. [`docs/open-questions.md`](./open-questions.md): **decisions log** and what's still open.
@@ -44,7 +50,8 @@ Research background (only when needed): `docs/research/01–09`.
 | CI | `.github/workflows/ci.yml` (lint, typecheck, test, migrate, build on Postgres 17); `cron.yml` (calls `/api/cron/<job>`) |
 
 Commit history: `e36c6ce` setup → `fd3444b` meeting revision → `a241381` scope/hosting → `4465f5f` synthetic data →
-`a1c3966` serverless → `ca94604` app schema + dev hosting → `1ca328e` UX concept.
+`a1c3966` serverless → `ca94604` app schema + dev hosting → `1ca328e` UX concept → `71882a3` handoff →
+`116708d` Claude Design follow-up prompt for the v1 design.
 
 ## 4. Infrastructure (development)
 | Piece | Details |
@@ -83,13 +90,31 @@ Full log with dates: [`docs/open-questions.md`](./open-questions.md). Highlights
   manager only. Field users see only their events. Vendor list imported read-only in Phase 1.
 - No AI in operational flows (ADR 0014). Payment reminders are sent by people. Finance = operational layer; the tax
   advisor keeps the books (ADR 0015).
-- **UI (ADR 0018, UX concept):** docking with max 3 panes (dockview 8.6.1, pinned, lazy); **one default workspace
+- **UI (ADR 0018, UX concept)**, *under review, see §6*: docking with max 3 panes (dockview 8.6.1, pinned, lazy); **one default workspace
   "Start" for everyone** (Heute fällig | Nächstes Wochenende); personal workspaces + team templates (copied, never
   live-linked); autosave + named saves; sidebar + workspace tabs + ⌘K; "folgt" linking; every view = page + pane;
   single pane < 1024 px; neutral German wording with "du"; light default + dark option; Standard density + "Kompakt".
 - Dev hosting Vercel + Supabase free tiers with synthetic data (ADR 0017); production host later.
 
 ## 6. Integrating the Claude Design output (first job of session 2)
+
+**Two design directions were produced in Claude Design** (both prompts are in the repo):
+| Direction | Prompts | What it is |
+|---|---|---|
+| **A: classic screens** | `git show a241381:docs/product/claude-design-prompt.md` (v1), then the follow-up [`claude-design-prompt-v1-update.md`](./product/claude-design-prompt-v1-update.md) | Sidebar + pages + detail drawers, upgraded with all research-based improvements (status colour+icon+text, density modes, dark theme, German formats/KW, undo toasts, drag alternatives, preview sheet, Heute-fällig grouping, 3-step preset generation, Logbuch matrix, grid template editor, hours month grid, inline instalments, workload view, ⌘K). Optional: one fixed list+detail screen (Fiori master-detail) for comparison. |
+| **B: customisable workspace** | [`claude-design-prompt.md`](./product/claude-design-prompt.md) (v2) | Same improvements **plus** docking panes (max 3), workspace tabs, saved/named workspaces, team templates, "folgt" linking, page = pane. |
+
+The product owner leaned towards **dropping the workspace (direction A)** but hadn't decided at handoff.
+
+0. **Ask which direction wins.** If **A** (no workspace):
+   - mark [ADR 0018](./architecture/adr/0018-workspace-architecture.md) *superseded* by a new ADR (classic screens +
+     preview sheet + optional fixed master-detail; no dockview, no `workspace` table; `user_preference` stays);
+   - update `ux-concept.md` §3–5 (app shell without workspace tabs; view catalogue as pages), `wireframes.md` (drop W1,
+     W14 switcher; keep the rest), `data-model.md` (remove `workspace`), roadmap M1 (shell without docking),
+     `CLAUDE.md` (UI line), `glossary.md` (Interface section) and the decisions log;
+   - restore two things v2 had dropped but direction A already has: the **task detail panel** and the owner's
+     **season strip / hiring signal** on the start screen.
+   If **B**: keep the docs as they are.
 1. Put the exported designs into `docs/design/claude-design/` (images/PDF/HTML/code export and the design notes).
    Keep file names stable and add a short `INDEX.md` listing screens → files.
 2. Compare them against `ux-concept.md` and `wireframes.md`. Where the design **contradicts a recorded decision**
@@ -115,7 +140,8 @@ Detailed scope in the roadmap; suggested build order:
 3. **Seed from `packages/synthetic`**: extend `apps/web/scripts/seed.ts` to load the M1 entities in dependency order
    (manifest lists the order), create Better Auth users for staff members with a `permissionRole`, idempotent. Add the
    GitHub Actions `seed-dev` workflow for Supabase (see §4).
-4. **Workspace shell (ADR 0018):** view registry in `packages/core` (types, params schema, permission, min width,
+4. **App shell.** Direction A: sidebar, top bar with search/⌘K, pages with preview sheet and detail drawers (or fixed
+   master-detail where chosen), theme + density switch. Direction B (only if kept), **workspace shell (ADR 0018):** view registry in `packages/core` (types, params schema, permission, min width,
    route), layout schema + `schemaVersion` migrations with Vitest tests, dockview adapter (pin `dockview-react@8.6.1`,
    lazy-load, max 3 groups, keyboard navigation, German `aria-live` strings), `workspace`/`user_preference` services +
    server actions (`requireUser()`), autosave (debounced) + named saves + "Start wiederherstellen", peek sheet, "open
@@ -137,6 +163,7 @@ Exit criterion (roadmap): a full season of (synthetic) events exists with correc
 in the workspace UI.
 
 ## 8. Open items for the product owner
+- **Design direction:** A (classic screens + research improvements) or B (customisable workspace)?
 - Production URL of the Vercel deployment; confirm `BETTER_AUTH_URL`/`APP_URL` are set; confirm GitHub
   `APP_URL`/`CRON_SECRET` for scheduled jobs.
 - Client discovery (see open-questions): **timeline workshop** per event type (with time estimates), permit inventory
@@ -145,5 +172,6 @@ in the workspace UI.
   stall fees, receipts procedure).
 
 ## 9. Suggested first message for session 2
-> Read `docs/HANDOFF.md` and the files it lists. The Claude Design output is in `docs/design/claude-design/`.
-> First integrate the design (handoff §6), flag any conflicts with recorded decisions, then plan and start M1 (§7).
+> Read `docs/HANDOFF.md` and the files it lists. The Claude Design output (direction A and/or B) is in
+> `docs/design/claude-design/`. First settle the design direction with me (handoff §6, step 0), update the docs if the
+> workspace is dropped, integrate the design, flag any conflicts with recorded decisions, then plan and start M1 (§7).
