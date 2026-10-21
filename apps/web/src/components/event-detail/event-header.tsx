@@ -10,6 +10,7 @@ import { formatDateShort, formatDateWithWeekday, formatWeek, todayIn } from "@/l
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import type { EventDetail } from "@/server/queries/events";
+import { getEventMoney } from "@/server/queries/finance";
 import { listVenueOptions } from "@/server/queries/venues";
 import { BasicsDialog } from "./basics-dialog";
 import { BookingMenu } from "./booking-menu";
@@ -20,6 +21,7 @@ import { StatusMenu } from "./status-menu";
 export async function EventHeader({ event, actor }: { event: EventDetail; actor: Actor }) {
   const t = await getTranslations("eventDetail");
   const tHealth = await getTranslations("health");
+  const tMoney = await getTranslations("eventMoney");
   const locale = await getLocale();
   const base = `/veranstaltungen/${event.id}`;
   const multiDay = event.endsOn !== event.startsOn;
@@ -29,6 +31,20 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const total = event.duties.length;
   const canWrite = can(actor.role, "event", "write");
   const venues = canWrite ? await listVenueOptions() : [];
+  // Tab "Geld": rates paid of all rates, with the money health (only for roles that may read finance).
+  const money = can(actor.role, "finance", "read")
+    ? await getEventMoney(actor, event.id, todayIn())
+    : null;
+  const moneyCount = money?.summary.health
+    ? {
+        text:
+          money.summary.installmentsTotal > 0
+            ? `${money.summary.installmentsPaid}/${money.summary.installmentsTotal}`
+            : "–",
+        level: money.summary.health,
+        sr: `${tMoney("tab.summary", { paid: money.summary.installmentsPaid, total: money.summary.installmentsTotal })}, ${tHealth(money.summary.health)}`,
+      }
+    : undefined;
   const BookingIcon = event.bookingOpen ? BOOKING_FLAG_ICONS.open : BOOKING_FLAG_ICONS.notOpen;
 
   const dateLine = multiDay
@@ -69,7 +85,16 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
         sr: `${t("overview.team.summary", { assigned, total })}, ${tHealth(event.health.team ?? "none")}`,
       },
     },
-    { key: "money", href: `${base}/geld`, label: t("tabs.money"), hint: milestone("M5") },
+    ...(money
+      ? [
+          {
+            key: "money",
+            href: `${base}/geld`,
+            label: t("tabs.money"),
+            count: moneyCount,
+          },
+        ]
+      : []),
     {
       key: "documents",
       href: `${base}/dokumente`,
