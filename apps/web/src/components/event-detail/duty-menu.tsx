@@ -71,7 +71,9 @@ export function DutyMenu({
         onAction: async () => {
           const undone = await undoDuty(eventId, roleId, to, from);
           showToast({
-            message: undone.ok ? t("toast.reverted", { role: roleName }) : errorText(undone.error),
+            message: undone.ok
+              ? t("toast.reverted", { role: roleName, name: nameOf(from) ?? t("unassigned") })
+              : errorText(undone.error),
           });
         },
       });
@@ -82,7 +84,9 @@ export function DutyMenu({
     const selected = s.id === current?.id;
     return (
       <Menu.Item key={s.id} className={item} disabled={selected} onClick={() => run(s.id)}>
-        <Avatar name={s.displayName} />
+        <span aria-hidden>
+          <Avatar name={s.displayName} />
+        </span>
         <span className="flex min-w-0 flex-col">
           <span className="truncate">{s.displayName}</span>
           {s.busyAt && (

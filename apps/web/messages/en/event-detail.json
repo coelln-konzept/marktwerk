@@ -134,7 +134,7 @@
         "changed": "{role}: {from} → {to}",
         "assigned": "{role}: {name}",
         "cleared": "{role}: no longer filled ({name})",
-        "reverted": "{role} restored"
+        "reverted": "{role} back to {name}"
       },
       "errors": {
         "not_found": "This event no longer exists.",

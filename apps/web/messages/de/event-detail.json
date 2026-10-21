@@ -134,7 +134,7 @@
         "changed": "{role}: {from} → {to}",
         "assigned": "{role}: {name}",
         "cleared": "{role}: nicht mehr besetzt ({name})",
-        "reverted": "{role} wiederhergestellt"
+        "reverted": "{role} wieder: {name}"
       },
       "errors": {
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
