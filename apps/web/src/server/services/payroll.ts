@@ -1,5 +1,5 @@
 import "server-only";
-import { can, isMonthStart, monthEnd, type PayrollCsvRow, payrollCsv } from "@marktwerk/core";
+import { can, isMonthStart, monthEnd, payrollCsv } from "@marktwerk/core";
 import { overrunJustification, payrollPeriod, shift } from "@marktwerk/db/schema";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { forbidden } from "next/navigation";
@@ -11,6 +11,7 @@ import {
   closeChecksOf,
   loadMonthFigures,
   type PeriodStatus,
+  payrollRowsOf,
 } from "../queries/hours";
 import { audit } from "./audit";
 
@@ -203,16 +204,7 @@ export async function exportPeriod(actor: Actor, month: string): Promise<Payroll
     if (period.status !== "approved" && period.status !== "exported")
       throw new PayrollInputError("invalid_status");
     const figures = await loadMonthFigures(tx, month, berlinToday(), await loadLegalRows(tx));
-    const rows: PayrollCsvRow[] = figures.rows
-      .filter((r) => r.month.workedMinutes > 0 || r.month.grossCents > 0)
-      .map((r) => ({
-        name: r.displayName,
-        contractType: r.contractType,
-        workedMinutes: r.month.workedMinutes,
-        hourlyRateCents: r.month.fixedPayCents > 0 ? null : r.month.lastRateCents,
-        grossCents: r.month.grossCents,
-        justification: r.justification?.reason ?? null,
-      }));
+    const rows = payrollRowsOf(figures);
     const first = period.status === "approved";
     if (first) {
       await tx

@@ -81,3 +81,8 @@ export function todayIn(timeZone = "Europe/Berlin"): string {
     day: "2-digit",
   }).format(new Date());
 }
+
+/** 7,5 h (minutes in). */
+export function formatHours(minutes: number, locale: string): string {
+  return `${formatNumber(minutes / 60, locale, 2)} h`;
+}

@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  ARBZG_STATUTORY_LIMITS,
   addDays,
   addMonths,
   type ContractTerms,
@@ -8,12 +9,14 @@ import {
   type EmploymentType,
   effectiveSpan,
   holidaysBetween,
+  type MinijobHistory,
   type MinijobMonthStatus,
   type MinijobParameters,
   minijobHistory,
   minijobStatusOf,
   monthEnd,
   monthStart,
+  type PayrollCsvRow,
   type PersonMonth,
   payrollDeadline,
   payrollMonthToClose,
@@ -59,6 +62,7 @@ import {
   type LegalRow,
   loadLegalRows,
   minijobParamsAt,
+  minimumWageAt,
   type Reader,
   workingTimeLimitsAt,
 } from "../legal-params";
@@ -120,6 +124,11 @@ export async function listContracts(
     .from(employmentContract)
     .where(eq(employmentContract.staffMemberId, staffMemberId))
     .orderBy(desc(employmentContract.validFrom));
+}
+
+/** Statutory minimum wage (cents per hour) valid on a day, from `legal_parameter`. */
+export async function minimumWageOn(date: string, reader: Reader = db): Promise<number | null> {
+  return minimumWageAt(await loadLegalRows(reader), date);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -219,6 +228,8 @@ export type MonthFigures = {
   /** Minijob rules of the month; null when the legal values are missing. */
   params: MinijobParameters | null;
   limits: WorkingTimeLimits;
+  /** Statutory minimum wage of the month in cents per hour, null when not in legal_parameter. */
+  minimumWageCents: number | null;
   rows: PersonMonthRow[];
 };
 
@@ -404,7 +415,12 @@ export async function loadMonthFigures(
       missingDeadline: deadlines[0] ?? null,
     });
   }
-  return { month, period, params, limits, rows };
+  return { month, period, params, limits, minimumWageCents: minimumWageAt(legal, month), rows };
+}
+
+/** Month figures for the pages (the services call `loadMonthFigures` with their transaction). */
+export function getMonthFigures(month: string, today: string): Promise<MonthFigures> {
+  return loadMonthFigures(db, month, today);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -531,23 +547,63 @@ export type ShiftFilter = {
   staffMemberId?: string;
 };
 
+export type LiveSpan = {
+  id: string;
+  workDate: string;
+  start: string;
+  end: string;
+  breakMinutes: number;
+};
+
+export type LiveMinijobMonth = {
+  rateCents: number | null;
+  /** Everything the person earns in that month so far (worked + planned). */
+  grossCents: number;
+  /** Paid by the hour; with a fixed monthly pay more hours do not change the earnings. */
+  hourly: boolean;
+  history: MinijobHistory;
+};
+
 /**
- * Shifts with their length, §17 MiLoG state and warnings. Field users only see their own shifts;
- * everyone else needs `team:read` (callers check that).
+ * What the shift forms need to warn while typing: the person's other shifts around the listed days
+ * (rest periods), the ArbZG limits and the Minijob figures per person and month. Plain data, so it can
+ * be passed to client components.
  */
-export async function listShiftRows(
+export type LiveContext = {
+  today: string;
+  limits: WorkingTimeLimits;
+  params: MinijobParameters | null;
+  people: Record<string, { spans: LiveSpan[]; minijob: Record<string, LiveMinijobMonth> }>;
+};
+
+export type ShiftList = { rows: ShiftRow[]; live: LiveContext };
+
+/**
+ * Shifts with their length, §17 MiLoG state and warnings, plus the context for live warnings. Field
+ * users only see their own shifts; everyone else needs `team:read` (callers check that).
+ * `opts.people` / `opts.months` widen the live context beyond the listed shifts (so a form can warn
+ * about people and months that have no shift in the list yet).
+ */
+export async function loadShiftList(
   actor: Actor,
   filter: ShiftFilter,
   today: string,
-): Promise<ShiftRow[]> {
+  opts: { people?: string[]; months?: string[] } = {},
+): Promise<ShiftList> {
   const conditions: (SQL | undefined)[] = [];
   if (filter.from) conditions.push(gte(shift.workDate, filter.from));
   if (filter.to) conditions.push(lte(shift.workDate, filter.to));
   if (filter.eventId) conditions.push(eq(shift.eventId, filter.eventId));
   if (filter.officeOnly) conditions.push(isNull(shift.eventId));
   if (filter.staffMemberId) conditions.push(eq(shift.staffMemberId, filter.staffMemberId));
-  if (!can(actor.role, "team", "read")) {
-    if (!actor.staffMemberId) return [];
+  const readsAll = can(actor.role, "team", "read");
+  if (!readsAll) {
+    if (!actor.staffMemberId) {
+      return {
+        rows: [],
+        live: { today, limits: ARBZG_STATUTORY_LIMITS, params: null, people: {} },
+      };
+    }
     conditions.push(eq(shift.staffMemberId, actor.staffMemberId));
   }
 
@@ -578,46 +634,82 @@ export async function listShiftRows(
     .leftJoin(dutyRole, eq(dutyRole.id, shift.dutyRoleId))
     .where(and(...conditions))
     .orderBy(asc(shift.workDate), asc(staffMember.displayName), asc(shift.plannedStart));
-  if (rows.length === 0) return [];
 
-  const months = [...new Set(rows.map((r) => monthStart(r.workDate)))];
+  const months = [
+    ...new Set([
+      ...rows.map((r) => monthStart(r.workDate)),
+      ...(opts.months ?? []).map(monthStart),
+      ...(filter.from ? [monthStart(filter.from)] : []),
+    ]),
+  ].sort();
+  const people = [...new Set([...rows.map((r) => r.staffMemberId), ...(opts.people ?? [])])];
   const legal = await loadLegalRows(db);
   const figures = new Map<string, MonthFigures>();
   for (const m of months) figures.set(m, await loadMonthFigures(db, m, today, legal));
   const periodOf = new Map([...figures].map(([m, f]) => [m, f.period?.status ?? "open"] as const));
 
   // ArbZG: neighbouring days of the same people are needed to see rest periods.
-  const people = [...new Set(rows.map((r) => r.staffMemberId))];
-  const first = rows.reduce((min, r) => (r.workDate < min ? r.workDate : min), "9999-12-31");
-  const last = rows.reduce((max, r) => (r.workDate > max ? r.workDate : max), "0000-01-01");
-  const around = await db
-    .select(shiftFactColumns)
-    .from(shift)
-    .where(
-      and(
-        inArray(shift.staffMemberId, people),
-        gte(shift.workDate, addDays(first, -1)),
-        lte(shift.workDate, addDays(last, 1)),
-      ),
-    );
-  const spansByPerson = new Map<string, ReturnType<typeof effectiveSpan>[]>();
+  const dates = [...rows.map((r) => r.workDate), ...months, ...months.map(monthEnd)].sort();
+  const first = dates[0] ?? today;
+  const last = dates.at(-1) ?? today;
+  const around =
+    people.length === 0
+      ? []
+      : await db
+          .select(shiftFactColumns)
+          .from(shift)
+          .where(
+            and(
+              inArray(shift.staffMemberId, people),
+              gte(shift.workDate, addDays(first, -1)),
+              lte(shift.workDate, addDays(last, 1)),
+            ),
+          );
+  const spansByPerson = new Map<string, LiveSpan[]>();
   for (const s of around) {
     const facts = toFacts(s);
     if (!shiftCounts(facts.status)) continue;
     const span = effectiveSpan(facts);
     if (!span) continue;
     const list = spansByPerson.get(s.staffMemberId) ?? [];
-    list.push(span);
+    list.push({
+      id: s.id,
+      workDate: span.workDate,
+      start: span.start,
+      end: span.end,
+      breakMinutes: span.breakMinutes,
+    });
     spansByPerson.set(s.staffMemberId, list);
   }
   const limits = workingTimeLimitsAt(legal, last);
   const arbzgByPerson = new Map<string, WorkingTimeWarning[]>();
   for (const person of people) {
-    const spans = (spansByPerson.get(person) ?? []).flatMap((s) => (s ? [s] : []));
-    arbzgByPerson.set(person, checkWorkingTime(spans, limits));
+    arbzgByPerson.set(person, checkWorkingTime(spansByPerson.get(person) ?? [], limits));
   }
 
-  return rows.map((r) => {
+  const live: LiveContext = {
+    today,
+    limits,
+    params: minijobParamsAt(legal, last),
+    people: {},
+  };
+  for (const person of people) {
+    const minijob: Record<string, LiveMinijobMonth> = {};
+    for (const [m, f] of figures) {
+      const row = f.rows.find((p) => p.staffMemberId === person);
+      if (row?.minijob) {
+        minijob[m] = {
+          rateCents: row.month.lastRateCents,
+          grossCents: row.month.grossCents,
+          hourly: row.month.fixedPayCents === 0,
+          history: row.minijob.history,
+        };
+      }
+    }
+    live.people[person] = { spans: spansByPerson.get(person) ?? [], minijob };
+  }
+
+  const shiftRows = rows.map((r) => {
     const facts: ShiftTimesInput = {
       workDate: r.workDate,
       status: r.status,
@@ -654,12 +746,22 @@ export async function listShiftRows(
             hasActualTimes: Boolean(facts.actualStart && facts.actualEnd),
             today,
           })
-        : "recorded",
+        : ("recorded" as const),
       recordingDeadline: recordingDeadline(r.workDate),
       locked: (periodOf.get(month) ?? "open") !== "open",
       warnings,
     };
   });
+  return { rows: shiftRows, live };
+}
+
+/** Shifts with their length, §17 MiLoG state and warnings (see `loadShiftList`). */
+export async function listShiftRows(
+  actor: Actor,
+  filter: ShiftFilter,
+  today: string,
+): Promise<ShiftRow[]> {
+  return (await loadShiftList(actor, filter, today)).rows;
 }
 
 /** Weekday/holiday info for a month grid header. */
@@ -852,4 +954,18 @@ export async function listEventOptions(
       ),
     )
     .orderBy(asc(event.startsOn), asc(event.name));
+}
+
+/** One CSV row per person with hours or pay in the month (shared by the export and its preview). */
+export function payrollRowsOf(figures: MonthFigures): PayrollCsvRow[] {
+  return figures.rows
+    .filter((r) => r.month.workedMinutes > 0 || r.month.grossCents > 0)
+    .map((r) => ({
+      name: r.displayName,
+      contractType: r.contractType,
+      workedMinutes: r.month.workedMinutes,
+      hourlyRateCents: r.month.fixedPayCents > 0 ? null : r.month.lastRateCents,
+      grossCents: r.month.grossCents,
+      justification: r.justification?.reason ?? null,
+    }));
 }

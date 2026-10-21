@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  addDays,
   type ContractTerms,
   can,
   checkContractTerms,
@@ -82,6 +83,7 @@ export async function saveContract(
   staffMemberId: string,
   input: ContractInput,
   contractId?: string,
+  opts: { endPrevious?: boolean } = {},
 ): Promise<{ id: string }> {
   if (!can(actor.role, "team", "manage")) forbidden();
   if (!UUID.test(staffMemberId)) throw new ContractInputError("invalid_person");
@@ -109,12 +111,39 @@ export async function saveContract(
       .for("update");
     if (!person) throw new ContractInputError("invalid_person");
 
-    const existing = await tx
-      .select()
-      .from(employmentContract)
-      .where(eq(employmentContract.staffMemberId, staffMemberId));
+    const existing = (
+      await tx
+        .select()
+        .from(employmentContract)
+        .where(eq(employmentContract.staffMemberId, staffMemberId))
+    ).map((c) => ({ ...c }));
     const previous = contractId ? existing.find((c) => c.id === contractId) : undefined;
     if (contractId && !previous) throw new ContractInputError("not_found");
+
+    // "Neuer Vertrag": the open-ended contract before it ends the day before the new one starts.
+    if (opts.endPrevious && !contractId) {
+      const open = existing.find((c) => c.validUntil === null && c.validFrom < terms.validFrom);
+      if (open) {
+        const endsOn = addDays(terms.validFrom, -1);
+        await tx
+          .update(employmentContract)
+          .set({ validUntil: endsOn })
+          .where(eq(employmentContract.id, open.id));
+        await audit(tx, actor.id, [
+          {
+            action: "contract.update",
+            entityType: "staff_member",
+            entityId: staffMemberId,
+            diff: {
+              contractId: open.id,
+              before: { validUntil: null },
+              after: { validUntil: endsOn },
+            },
+          },
+        ]);
+        open.validUntil = endsOn;
+      }
+    }
 
     const clash = findOverlappingContract({ ...terms, id: contractId }, existing);
     if (clash) throw new ContractInputError("overlap", clash.validFrom);
