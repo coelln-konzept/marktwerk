@@ -115,9 +115,13 @@ export async function listSeasons(actor: Actor): Promise<number[]> {
 /** One event with everything the header and the Überblick tab need. Null if not visible. */
 export const getEvent = cache(async (actor: Actor, id: string) => {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  const found = await db.query.event.findFirst({
-    where: and(eq(event.id, id), visibleEvents(actor)),
-  });
+  // Not `db.query.event.findFirst`: the relational API aliases the table as "event", and the
+  // `exists (…)` of visibleEvents() for field users references "app"."event", which then fails to resolve.
+  const [found] = await db
+    .select()
+    .from(event)
+    .where(and(eq(event.id, id), visibleEvents(actor)))
+    .limit(1);
   if (!found) return null;
   const [type, place, anchors, duties, preset, required] = await Promise.all([
     db.query.eventType.findFirst({ where: (t, { eq }) => eq(t.id, found.eventTypeId) }),

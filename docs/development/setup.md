@@ -11,10 +11,14 @@ pnpm install
 cp .env.example .env            # then set BETTER_AUTH_SECRET: openssl rand -base64 32
 pnpm db:up                      # Postgres 17 on :5432 (= production major), Mailpit on :1025 / UI :8025
 pnpm db:migrate                 # apply migrations
-pnpm db:seed                    # synthetic dataset + logins (owner, manager, 2 staff; dev password only for a local DB)
+pnpm db:seed                    # synthetic dataset + logins (owner, manager, 2 staff, 1 field; dev password only for a local DB)
 pnpm dev                        # web on http://localhost:3000 + worker
 ```
-Log in with `owner@marktwerk.local` / `marktwerk-dev-123` (from `.env`).
+Log in with `owner@marktwerk.local` / `marktwerk-dev-123` (from `.env`). The field login for checking the
+restricted view (only the events they have a duty at, no write access) is `logistik@marktwerk.local` with the same
+password (the logistics lead of the synthetic data); other seeded logins: `burak.lax@example.com` (manager),
+`natalia.schulze@example.com` and `annabel.green@example.com` (staff). On a non-local database no login is created
+without `SEED_OWNER_PASSWORD` / `SEED_STAFF_PASSWORD`.
 
 ## Everyday commands
 | Command | What |
