@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expandRRule, parseRRule } from "./rrule";
+import { expandRRule, parseRRule, partsToRRule, rruleToParts } from "./rrule";
 
 describe("expandRRule", () => {
   it("expands monthly first-Sunday rules within a season", () => {
@@ -42,5 +42,38 @@ describe("expandRRule", () => {
     expect(() => parseRRule("FREQ=MONTHLY;BYDAY=SU;BYMONTH=13")).toThrow();
     expect(() => parseRRule("FREQ=MONTHLY;BYDAY=SU;BYSETPOS=0")).toThrow();
     expect(() => parseRRule("FREQ=YEARLY;BYDAY=SU")).toThrow();
+  });
+});
+
+describe("rrule form parts", () => {
+  it("round-trips the usual presets", () => {
+    for (const rule of [
+      "FREQ=MONTHLY;BYMONTH=4,5,6,7,8,9,10;BYDAY=SU;BYSETPOS=1",
+      "FREQ=MONTHLY;BYDAY=SA,SU",
+      "FREQ=MONTHLY;BYMONTH=12;BYDAY=SA;BYSETPOS=-1",
+    ]) {
+      expect(partsToRRule(rruleToParts(rule))).toBe(rule);
+    }
+  });
+
+  it("reads YEARLY rules as the equivalent MONTHLY ones (same dates)", () => {
+    const yearly = "FREQ=YEARLY;BYMONTH=9,6;BYDAY=SA;BYSETPOS=1";
+    const parts = rruleToParts(yearly);
+    expect(parts).toEqual({ weekdays: [6], setPos: 1, months: [6, 9] });
+    const monthly = partsToRRule(parts) as string;
+    expect(expandRRule(monthly, "2026-01-01", "2027-12-31")).toEqual(
+      expandRRule(yearly, "2026-01-01", "2027-12-31"),
+    );
+  });
+
+  it("orders weekdays Monday first, drops all-12-months, returns null without weekdays", () => {
+    expect(partsToRRule({ weekdays: [0, 6], setPos: null, months: null })).toBe(
+      "FREQ=MONTHLY;BYDAY=SA,SU",
+    );
+    expect(
+      partsToRRule({ weekdays: [6], setPos: 2, months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] }),
+    ).toBe("FREQ=MONTHLY;BYDAY=SA;BYSETPOS=2");
+    expect(partsToRRule({ weekdays: [], setPos: 1, months: [5] })).toBeNull();
+    expect(() => partsToRRule({ weekdays: [6], setPos: 7, months: null })).toThrow();
   });
 });
