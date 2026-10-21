@@ -27,6 +27,7 @@ Log in with `owner@marktwerk.local` / `marktwerk-dev-123` (from `.env`).
 | `pnpm db:generate --name <change>` | create a migration after editing `packages/db/src/schema` |
 | `pnpm db:migrate` | apply migrations |
 | `pnpm db:studio` | Drizzle Studio (DB browser) |
+| `pnpm synth` | generate the synthetic development dataset into `packages/synthetic/out/` (ADR 0016) |
 | `pnpm --filter @marktwerk/web <script>` | run a script in one package |
 
 ## Adding shadcn/ui components

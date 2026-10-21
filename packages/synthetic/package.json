@@ -1,0 +1,24 @@
+{
+  "name": "@marktwerk/synthetic",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic, seeded synthetic development data for marktwerk (not for production).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "tsx src/generate.ts",
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@faker-js/faker": "10.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

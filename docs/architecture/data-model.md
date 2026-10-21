@@ -78,7 +78,8 @@ erDiagram
 - **user / session / account / verification**: Better Auth *(exists)*. `user.role` = permission role.
 - **settings** *(exists)*: company data, IBAN, time zone, Bundesland (`NW`), default due time, reminder policy.
 - **staff_member**: `display_name`, `first_name`, `last_name`, `phone_e164`, `email?`, `user_id?` (unique),
-  `preferred_duty_role_ids`, `active`, notes. Phase 2 (M7) adds `whatsapp_opt_in_at`, `whatsapp_opt_in_method`,
+  `preferred_duty_role_ids`, `active`, notes. (The synthetic dataset marks future login users with
+  `permissionRole`; the seed creates their Better Auth users.) Phase 2 (M7) adds `whatsapp_opt_in_at`, `whatsapp_opt_in_method`,
   `magic_link_version` (bump to revoke all links).
 - **duty_role**: `key`, `name_de`, `name_en`, `default_staff_member_id?`, `sort`.
 
@@ -161,7 +162,8 @@ erDiagram
 - **overrun_justification**: staff member, month, reason (needed for the "unforeseeable" exception).
 
 ### Payables, receipts, event P&L (M5)
-- **payable**: `counterparty_contact_id?`, title, `scope` (`event | company | vehicle`), `event_id?`,
+- **payable**: `counterparty_contact_id?`, title, `scope` (`event | company | vehicle | venue_season`), `event_id?`,
+  `venue_id?` + `season?` (e.g. a location fee for one venue and season, covering several events),
   `vehicle_id?`, `permit_id?`, `rental_id?`, `category` (`location | permit | water_power | equipment_rental |
   staff_external | security | cleaning_waste | toilets | marketing | gema | transport_fuel | vehicle | insurance |
   tax_fees | other`), `total_gross_cents`, `vat_rate_bp?`, `critical` (bool: landlord/permit/penalty), status

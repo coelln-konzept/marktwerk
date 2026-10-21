@@ -20,7 +20,8 @@
     "db:generate": "pnpm --filter @marktwerk/db generate",
     "db:migrate": "pnpm --filter @marktwerk/db migrate",
     "db:seed": "pnpm --filter @marktwerk/web seed",
-    "db:studio": "pnpm --filter @marktwerk/db studio"
+    "db:studio": "pnpm --filter @marktwerk/db studio",
+    "synth": "pnpm --filter @marktwerk/synthetic generate"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
