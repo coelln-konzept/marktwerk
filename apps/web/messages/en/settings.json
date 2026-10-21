@@ -1,0 +1,177 @@
+{
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Company data, logins with roles and the legal values marktwerk calculates with.",
+    "tabsLabel": "Settings sections",
+    "tabs": {
+      "company": "Company",
+      "users": "Users & roles",
+      "legal": "Legal values"
+    },
+    "noValue": "–",
+    "company": {
+      "title": "Company",
+      "readOnly": "Only the owner can change the company data. You can read it here.",
+      "notCreated": "No company data saved yet. \"Save\" creates it.",
+      "sections": {
+        "identity": "Company",
+        "address": "Address",
+        "contact": "Contact",
+        "bank": "Tax and bank",
+        "operations": "Operations"
+      },
+      "fields": {
+        "companyName": "Company name",
+        "addressLine1": "Street and number",
+        "addressLine2": "Address line 2",
+        "postalCode": "Postcode",
+        "city": "City",
+        "country": "Country (code)",
+        "email": "Email",
+        "phone": "Phone",
+        "taxNumber": "Tax number",
+        "vatId": "VAT ID",
+        "iban": "IBAN",
+        "bic": "BIC",
+        "timeZone": "Time zone",
+        "bundesland": "Federal state",
+        "defaultLocale": "Default language",
+        "defaultDueTime": "Default due time",
+        "dailyDigestEnabled": "Daily digest"
+      },
+      "hints": {
+        "country": "Two letters, for example DE.",
+        "iban": "Spaces don't matter.",
+        "timeZone": "Fixed: event days and deadlines always use this time zone.",
+        "bundesland": "Public holidays are currently only available for North Rhine-Westphalia.",
+        "defaultLocale": "Language intended for new logins.",
+        "defaultDueTime": "Time of day for template tasks without their own due time.",
+        "dailyDigestEnabled": "Send a daily email summarising what is due."
+      },
+      "bundeslaender": {
+        "NW": "North Rhine-Westphalia"
+      },
+      "locales": {
+        "de": "Deutsch",
+        "en": "English"
+      },
+      "digestOn": "on",
+      "digestOff": "off",
+      "time": "{time}",
+      "errors": {
+        "required": "Please fill this in.",
+        "too_long": "That is too long (at most {max} characters).",
+        "invalid": "Please check the entry.",
+        "unsupported": "This value is not possible."
+      },
+      "fieldInvalid": {
+        "iban": "That is not a valid IBAN.",
+        "bic": "That is not a valid BIC (8 or 11 characters).",
+        "vatId": "That is not a valid VAT ID (for example DE123456789).",
+        "email": "That is not a valid email address.",
+        "postalCode": "A German postcode has 5 digits.",
+        "phone": "That is not a valid phone number.",
+        "country": "Two letters, for example DE.",
+        "defaultDueTime": "Please enter a time, for example 09:00."
+      },
+      "save": "Save",
+      "saving": "Saving …",
+      "saved": "Company data saved.",
+      "unchanged": "No changes.",
+      "failed": "Saving didn't work. Please try again.",
+      "errorSummary": "Please check the highlighted fields."
+    },
+    "users": {
+      "title": "Users & roles",
+      "subtitle": "{count, plural, one {# login} other {# logins}} · Roles decide what someone can see and change.",
+      "readOnly": "Only the owner can change roles and deactivate logins.",
+      "invite": "Invite user",
+      "inviteSoon": "Coming later: how new logins get created has not been decided yet.",
+      "caption": "Logins with role, linked person and status",
+      "empty": "No logins yet.",
+      "cols": {
+        "user": "Login",
+        "role": "Role",
+        "staff": "Linked person",
+        "lastSignIn": "Last signed in",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "you": "you",
+      "never": "never",
+      "noStaff": "Not linked",
+      "chooseStaff": "Choose person …",
+      "unlink": "Remove link",
+      "roleFor": "Role for {name}",
+      "staffFor": "Linked person for {name}",
+      "active": "Active",
+      "deactivated": "Deactivated",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "deactivateFor": "Deactivate {name}",
+      "reactivateFor": "Reactivate {name}",
+      "lastOwner": "Last active owner: role and status are locked until someone else has this role.",
+      "lastOwnerShort": "Last owner",
+      "fieldNoStaff": "Without a linked person, this field login sees no events.",
+      "roleHints": {
+        "owner": "Everything, including users and company data",
+        "manager": "Everything except users and company data",
+        "staff": "Read, tasks, permits, contacts",
+        "field": "Only their own events"
+      },
+      "undo": "Undo",
+      "toasts": {
+        "role": "{name}: role is now {role}.",
+        "roleReverted": "{name}: role is {role} again.",
+        "deactivated": "{name} is deactivated and can no longer sign in.",
+        "reactivated": "{name} is active again.",
+        "linked": "{name} is linked to {staff}.",
+        "unlinked": "The link of {name} was removed.",
+        "relinkReverted": "Link of {name} restored."
+      },
+      "errors": {
+        "not_found": "This login no longer exists.",
+        "invalid_role": "This role does not exist.",
+        "last_owner": "At least one active owner has to remain.",
+        "staff_not_found": "This person no longer exists.",
+        "staff_taken": "This person already belongs to another login.",
+        "generic": "That didn't work. Please try again."
+      }
+    },
+    "legal": {
+      "title": "Legal values",
+      "subtitle": "Minimum wage, Minijob limit and inspection intervals. Read-only: values are kept with dates so past payroll stays correct.",
+      "caption": "Legal values with validity period",
+      "empty": "No legal values stored yet.",
+      "cols": {
+        "value": "Value",
+        "validFrom": "Valid from",
+        "validUntil": "Valid until",
+        "status": "Status",
+        "source": "Source / note"
+      },
+      "openEnded": "open-ended",
+      "states": {
+        "current": "In force",
+        "past": "Superseded",
+        "future": "From {date}"
+      },
+      "units": {
+        "money_hour": "{amount} per hour",
+        "money_month": "{amount} per month",
+        "money": "{amount}",
+        "months": "{amount} months",
+        "factor": "{amount}×",
+        "plain": "{amount}"
+      },
+      "keyLabels": {
+        "minimum_wage_cents_per_hour": "Statutory minimum wage",
+        "minijob_limit_cents_per_month": "Minijob earnings limit",
+        "minijob_overrun_ceiling_factor": "Minijob: ceiling when exceeded (multiple of the limit)",
+        "minijob_max_overrun_months_12": "Minijob: months over the limit within 12 months",
+        "hu_interval_months_up_to_3500kg": "Vehicle inspection up to 3.5 t",
+        "hu_interval_months_over_3500kg": "Vehicle inspection over 3.5 t"
+      }
+    }
+  }
+}

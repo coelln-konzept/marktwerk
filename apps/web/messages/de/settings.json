@@ -1,0 +1,177 @@
+{
+  "settings": {
+    "title": "Einstellungen",
+    "subtitle": "Firmendaten, Logins mit Rollen und die gesetzlichen Werte, mit denen marktwerk rechnet.",
+    "tabsLabel": "Bereiche der Einstellungen",
+    "tabs": {
+      "company": "Firma",
+      "users": "Benutzer & Rollen",
+      "legal": "Rechtliche Werte"
+    },
+    "noValue": "–",
+    "company": {
+      "title": "Firma",
+      "readOnly": "Nur die Geschäftsführung kann die Firmendaten ändern. Du siehst sie hier zum Nachlesen.",
+      "notCreated": "Es sind noch keine Firmendaten gespeichert. Mit „Speichern“ legst du sie an.",
+      "sections": {
+        "identity": "Firma",
+        "address": "Anschrift",
+        "contact": "Kontakt",
+        "bank": "Steuern und Bank",
+        "operations": "Betrieb"
+      },
+      "fields": {
+        "companyName": "Firmenname",
+        "addressLine1": "Straße und Hausnummer",
+        "addressLine2": "Adresszusatz",
+        "postalCode": "PLZ",
+        "city": "Ort",
+        "country": "Land (Kürzel)",
+        "email": "E-Mail",
+        "phone": "Telefon",
+        "taxNumber": "Steuernummer",
+        "vatId": "USt-IdNr.",
+        "iban": "IBAN",
+        "bic": "BIC",
+        "timeZone": "Zeitzone",
+        "bundesland": "Bundesland",
+        "defaultLocale": "Standardsprache",
+        "defaultDueTime": "Standard-Fälligkeitszeit",
+        "dailyDigestEnabled": "Tägliche Übersicht"
+      },
+      "hints": {
+        "country": "Zweistellig, zum Beispiel DE.",
+        "iban": "Leerzeichen sind egal.",
+        "timeZone": "Fest eingestellt: Veranstaltungstage und Fristen gelten immer in dieser Zeitzone.",
+        "bundesland": "Feiertage sind derzeit nur für Nordrhein-Westfalen hinterlegt.",
+        "defaultLocale": "Sprache, die für neue Logins vorgesehen ist.",
+        "defaultDueTime": "Uhrzeit für Aufgaben aus Vorlagen ohne eigene Fälligkeitszeit.",
+        "dailyDigestEnabled": "Täglich eine Zusammenfassung dessen, was fällig ist, per E-Mail versenden."
+      },
+      "bundeslaender": {
+        "NW": "Nordrhein-Westfalen"
+      },
+      "locales": {
+        "de": "Deutsch",
+        "en": "English"
+      },
+      "digestOn": "an",
+      "digestOff": "aus",
+      "time": "{time} Uhr",
+      "errors": {
+        "required": "Bitte ausfüllen.",
+        "too_long": "Das ist zu lang (höchstens {max} Zeichen).",
+        "invalid": "Bitte prüfe die Eingabe.",
+        "unsupported": "Dieser Wert ist nicht möglich."
+      },
+      "fieldInvalid": {
+        "iban": "Das ist keine gültige IBAN.",
+        "bic": "Das ist kein gültiger BIC (8 oder 11 Zeichen).",
+        "vatId": "Das ist keine gültige USt-IdNr. (zum Beispiel DE123456789).",
+        "email": "Das ist keine gültige E-Mail-Adresse.",
+        "postalCode": "Eine deutsche PLZ hat 5 Ziffern.",
+        "phone": "Das ist keine gültige Telefonnummer.",
+        "country": "Zwei Buchstaben, zum Beispiel DE.",
+        "defaultDueTime": "Bitte als Uhrzeit angeben, zum Beispiel 09:00."
+      },
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "saved": "Firmendaten gespeichert.",
+      "unchanged": "Keine Änderungen.",
+      "failed": "Das Speichern hat nicht geklappt. Bitte versuche es noch einmal.",
+      "errorSummary": "Bitte prüfe die markierten Felder."
+    },
+    "users": {
+      "title": "Benutzer & Rollen",
+      "subtitle": "{count, plural, one {# Login} other {# Logins}} · Rollen bestimmen, was jemand sehen und ändern darf.",
+      "readOnly": "Nur die Geschäftsführung kann Rollen ändern und Logins deaktivieren.",
+      "invite": "Benutzer einladen",
+      "inviteSoon": "Kommt später: Wie neue Logins angelegt werden, ist noch nicht entschieden.",
+      "caption": "Logins mit Rolle, verknüpfter Person und Status",
+      "empty": "Noch keine Logins vorhanden.",
+      "cols": {
+        "user": "Login",
+        "role": "Rolle",
+        "staff": "Verknüpfte Person",
+        "lastSignIn": "Zuletzt angemeldet",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "you": "du",
+      "never": "noch nie",
+      "noStaff": "Nicht verknüpft",
+      "chooseStaff": "Person wählen …",
+      "unlink": "Verknüpfung lösen",
+      "roleFor": "Rolle für {name}",
+      "staffFor": "Verknüpfte Person für {name}",
+      "active": "Aktiv",
+      "deactivated": "Deaktiviert",
+      "deactivate": "Deaktivieren",
+      "reactivate": "Reaktivieren",
+      "deactivateFor": "{name} deaktivieren",
+      "reactivateFor": "{name} reaktivieren",
+      "lastOwner": "Letzte aktive Geschäftsführung: Rolle und Status sind gesperrt, bis jemand anderes diese Rolle hat.",
+      "lastOwnerShort": "Letzte Geschäftsführung",
+      "fieldNoStaff": "Ohne verknüpfte Person sieht dieses Platzteam-Login keine Veranstaltungen.",
+      "roleHints": {
+        "owner": "Alles, auch Benutzer und Firmendaten",
+        "manager": "Alles außer Benutzer und Firmendaten",
+        "staff": "Lesen, Aufgaben, Genehmigungen, Kontakte",
+        "field": "Nur die eigenen Veranstaltungen"
+      },
+      "undo": "Rückgängig",
+      "toasts": {
+        "role": "{name}: Rolle ist jetzt {role}.",
+        "roleReverted": "{name}: Rolle ist wieder {role}.",
+        "deactivated": "{name} ist deaktiviert und kann sich nicht mehr anmelden.",
+        "reactivated": "{name} ist wieder aktiv.",
+        "linked": "{name} ist mit {staff} verknüpft.",
+        "unlinked": "Die Verknüpfung von {name} ist gelöst.",
+        "relinkReverted": "Verknüpfung von {name} zurückgesetzt."
+      },
+      "errors": {
+        "not_found": "Dieses Login gibt es nicht mehr.",
+        "invalid_role": "Diese Rolle gibt es nicht.",
+        "last_owner": "Es muss mindestens eine aktive Geschäftsführung bleiben.",
+        "staff_not_found": "Diese Person gibt es nicht mehr.",
+        "staff_taken": "Diese Person gehört schon zu einem anderen Login.",
+        "generic": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+      }
+    },
+    "legal": {
+      "title": "Rechtliche Werte",
+      "subtitle": "Mindestlohn, Minijob-Grenze und Prüfintervalle. Nur zum Nachlesen: Die Werte werden mit Datum gepflegt, damit alte Abrechnungen stimmen.",
+      "caption": "Gesetzliche Werte mit Gültigkeitszeitraum",
+      "empty": "Noch keine rechtlichen Werte hinterlegt.",
+      "cols": {
+        "value": "Wert",
+        "validFrom": "Gilt ab",
+        "validUntil": "Gilt bis",
+        "status": "Status",
+        "source": "Quelle / Hinweis"
+      },
+      "openEnded": "unbefristet",
+      "states": {
+        "current": "Gilt aktuell",
+        "past": "Abgelöst",
+        "future": "Gilt ab {date}"
+      },
+      "units": {
+        "money_hour": "{amount} pro Stunde",
+        "money_month": "{amount} pro Monat",
+        "money": "{amount}",
+        "months": "{amount} Monate",
+        "factor": "{amount}-fach",
+        "plain": "{amount}"
+      },
+      "keyLabels": {
+        "minimum_wage_cents_per_hour": "Gesetzlicher Mindestlohn",
+        "minijob_limit_cents_per_month": "Minijob-Verdienstgrenze",
+        "minijob_overrun_ceiling_factor": "Minijob: Obergrenze bei Überschreitung (Vielfaches der Grenze)",
+        "minijob_max_overrun_months_12": "Minijob: Monate mit Überschreitung in 12 Monaten",
+        "hu_interval_months_up_to_3500kg": "Hauptuntersuchung bis 3,5 t",
+        "hu_interval_months_over_3500kg": "Hauptuntersuchung über 3,5 t"
+      }
+    }
+  }
+}
