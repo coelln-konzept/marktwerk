@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventStatusBadge } from "@/components/events/event-status";
+import { addressLine } from "@/components/ui/phone";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
 import { formatDateRange, formatLength, todayIn } from "@/lib/format";
 import { getActor } from "@/server/actor";
 import { getVenue, listVenueEvents } from "@/server/queries/venues";
 import { VenueKindBadge } from "./kinds";
-import { addressLine } from "./phone";
 
 /** Vorschau of one venue: address, access, zones summary, next three events. */
 export async function VenueVorschau({ id, closeHref }: { id: string; closeHref: string }) {

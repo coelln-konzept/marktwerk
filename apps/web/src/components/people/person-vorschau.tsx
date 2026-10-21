@@ -2,13 +2,13 @@ import { CircleCheck, CircleOff } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Avatar } from "@/components/ui/avatar";
+import { PhoneLink } from "@/components/ui/phone";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
 import { formatDateRange } from "@/lib/format";
 import { getActor } from "@/server/actor";
 import { type DutyRoleRow, listStaff, nextEventsOf } from "@/server/queries/team";
 import { TagList } from "./duty-tags";
-import { PhoneLink } from "./phone";
 
 /** Vorschau of one staff member: contact, notes, duties, next events. */
 export async function PersonVorschau({

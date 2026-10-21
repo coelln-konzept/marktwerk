@@ -5,11 +5,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { VenueKindBadge } from "@/components/catalogue/kinds";
-import { addressLine, MailLink, PhoneLink } from "@/components/catalogue/phone";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
 import { EventStatusBadge } from "@/components/events/event-status";
 import { Page, PageHeader } from "@/components/shell/page";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { addressLine, MailLink, PhoneLink } from "@/components/ui/phone";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { Facts } from "@/components/ui/vorschau";
 import { formatDateRange, formatLength, todayIn } from "@/lib/format";
@@ -112,7 +112,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
                   {
                     label: td("phoneLabel"),
                     value: venue.landownerPhone ? (
-                      <PhoneLink e164={venue.landownerPhone} />
+                      <PhoneLink phone={venue.landownerPhone} />
                     ) : (
                       t("none")
                     ),
