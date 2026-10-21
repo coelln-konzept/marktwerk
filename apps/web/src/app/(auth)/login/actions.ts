@@ -10,7 +10,9 @@ import { requireUser } from "@/server/session";
 /** After signing in on a new device: restore the theme and density cookies from the user's preferences. */
 export async function restoreDisplayPreferences() {
   const user = await requireUser();
-  const pref = await db.query.userPreference.findFirst({ where: eq(userPreference.userId, user.id) });
+  const pref = await db.query.userPreference.findFirst({
+    where: eq(userPreference.userId, user.id),
+  });
   if (!pref) return;
   const jar = await cookies();
   const options = { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" } as const;
