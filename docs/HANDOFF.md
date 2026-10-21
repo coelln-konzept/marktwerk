@@ -132,7 +132,7 @@ reminders, **M6** company tab (vehicles, obligations with roll-forward → payab
 **Not done, needs the product owner:**
 1. **Merge PR #2** after a click-through (Vercel preview; Supabase gets migration 0002 with the deploy), then seed
    Supabase via *Seed dev database* once the secrets `DATABASE_MIGRATION_URL` + `SEED_OWNER_PASSWORD` exist.
-2. **Drag and drop on the board** (decision pending, §8 17): every move works via menu + keyboard; all moves go
+2. ~~Drag and drop on the board~~ **built** (dnd-kit, ADR 0020; click-through still to do): every move also works via menu + keyboard; all moves go
    through `moveCard` → `moveTask`, so a library only has to call that path.
 3. **M6 production hosting + pilot** (Scalingo candidate, ADR 0006/0017), backups, S3 bucket (the S3 storage driver is
    a stub; Vercel's 4.5 MB body limit blocks phone photos → presigned uploads once hosting is decided).
@@ -163,7 +163,7 @@ on phones; Vorschau/peek on Firma lists; `/wissen`. Then **Phase 2** (M7 staff W
 15. Presets at an archived venue still show in Vorlagen (and can generate). Hide, warn, or keep?
 16. `audit_log.entity_id` is a uuid, but Better Auth user ids and the settings row aren't: user/settings audit entries
     keep the id in the diff only. Change the column to text in a later migration?
-17. M2 drag and drop for the board: dnd-kit (recommended) or menu/keyboard only first?
+17. ~~M2 drag and drop for the board~~ decided 2026-10-21: dnd-kit (ADR 0020).
 18. **Heute fällig order:** overdue items rank oldest first, so tasks overdue for 300 days (synthetic past events) sit
     on top. Newest-overdue first, or hide items overdue > 30 days (like the sweep's backlog guard)?
 19. Escalation: if no staff member has the manager login, the owner gets escalations. OK? Escalate 1 day after the
