@@ -14,3 +14,4 @@ export * from "./events/rrule-describe";
 export * from "./events/scheduling";
 export * from "./staff/minijob";
 export * from "./text/fold";
+export * from "./venues/measure";
