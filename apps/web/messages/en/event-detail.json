@@ -134,7 +134,8 @@
         "changed": "{role}: {from} → {to}",
         "assigned": "{role}: {name}",
         "cleared": "{role}: no longer filled ({name})",
-        "reverted": "{role} back to {name}"
+        "reverted": "{role} back to {name}",
+        "tasks": "{count, plural, one {1 task follows} other {# tasks follow}}"
       },
       "errors": {
         "not_found": "This event no longer exists.",
@@ -287,7 +288,10 @@
         "conflict": "The event was moved in the meantime. The page was refreshed.",
         "not_found": "This event no longer exists.",
         "generic": "That didn't work. Please try again."
-      }
+      },
+      "tasksShifting": "{count, plural, =0 {No task moves.} one {1 task moves.} other {# tasks move.}}",
+      "tasksShiftingNote": "Done tasks and due dates set by hand stay.",
+      "movedTasks": "{count, plural, one {1 task moved} other {# tasks moved}}"
     },
     "happening": {
       "title": "This event is happening now",
@@ -329,7 +333,10 @@
         "not_found": "This event no longer exists.",
         "generic": "That didn't work. Please try again."
       },
-      "openLabel": "Edit name, length and venue"
+      "openLabel": "Edit name, length and venue",
+      "tasksShifting": "{count, plural, =0 {No task moves.} one {1 task moves.} other {# tasks move.}}",
+      "tasksShiftingNote": "Done tasks and due dates set by hand stay.",
+      "movedTasks": "{count, plural, one {1 task moved} other {# tasks moved}}"
     }
   }
 }

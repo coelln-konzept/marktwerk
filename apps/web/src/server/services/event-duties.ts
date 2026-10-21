@@ -1,7 +1,7 @@
 import "server-only";
-import { can } from "@marktwerk/core";
-import { dutyRole, event, eventDuty, staffMember } from "@marktwerk/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { CLOSED_TASK_STATUSES, can } from "@marktwerk/core";
+import { dutyRole, event, eventDuty, staffMember, task } from "@marktwerk/db/schema";
+import { and, eq, isNull, notInArray } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
@@ -20,6 +20,7 @@ const UUID = /^[0-9a-f-]{36}$/i;
 /**
  * Who fills a duty role at one event (Team tab). `staffMemberId = null` leaves the role unassigned.
  * Only this event changes; the preset's default team stays as it is (templates never propagate).
+ * Open tasks of that role that nobody assigned by hand follow the change (M2); `tasks` says how many.
  * `expected` (undo toast) makes the change apply only while the role still has that person, so a newer
  * change by someone else is not overwritten. Audited as "event.duty" with role and names as they were.
  */
@@ -29,7 +30,7 @@ export async function setEventDuty(
   dutyRoleId: string,
   staffMemberId: string | null,
   expected?: string | null,
-): Promise<{ changed: boolean; from: string | null; to: string | null }> {
+): Promise<{ changed: boolean; from: string | null; to: string | null; tasks: number }> {
   if (!can(actor.role, "event", "write")) forbidden();
   if (!UUID.test(eventId)) throw new EventDutyInputError("not_found");
   if (!UUID.test(dutyRoleId)) throw new EventDutyInputError("invalid_role");
@@ -78,13 +79,27 @@ export async function setEventDuty(
       .where(and(eq(eventDuty.eventId, eventId), eq(eventDuty.dutyRoleId, dutyRoleId)));
     const from = current?.staffMemberId ?? null;
     if (expected !== undefined && from !== expected) throw new EventDutyInputError("conflict");
-    if (from === staffMemberId) return { changed: false, from, to: staffMemberId };
+    if (from === staffMemberId) return { changed: false, from, to: staffMemberId, tasks: 0 };
 
     const where = and(eq(eventDuty.eventId, eventId), eq(eventDuty.dutyRoleId, dutyRoleId));
     if (staffMemberId === null) await tx.delete(eventDuty).where(where);
     else if (from === null)
       await tx.insert(eventDuty).values({ eventId, dutyRoleId, staffMemberId });
     else await tx.update(eventDuty).set({ staffMemberId }).where(where);
+
+    // M2: the open tasks of this role follow the person, except those somebody assigned by hand.
+    const moved = await tx
+      .update(task)
+      .set({ assigneeId: staffMemberId })
+      .where(
+        and(
+          eq(task.eventId, eventId),
+          eq(task.dutyRoleId, dutyRoleId),
+          eq(task.assigneeOverridden, false),
+          notInArray(task.status, [...CLOSED_TASK_STATUSES]),
+        ),
+      )
+      .returning({ id: task.id });
 
     await audit(tx, actor.id, [
       {
@@ -99,10 +114,11 @@ export async function setEventDuty(
           fromName: current?.name ?? null,
           to: staffMemberId,
           toName,
+          ...(moved.length > 0 ? { tasks: moved.length } : {}),
           ...(expected !== undefined ? { undo: true } : {}),
         },
       },
     ]);
-    return { changed: true, from, to: staffMemberId };
+    return { changed: true, from, to: staffMemberId, tasks: moved.length };
   });
 }

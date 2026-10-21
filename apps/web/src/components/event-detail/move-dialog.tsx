@@ -64,7 +64,11 @@ export function MoveDialog({ eventId, startsOn }: { eventId: string; startsOn: s
       }
       setOpen(false);
       showToast({
-        message: t("moved", { date: formatDateShort(to, locale) }),
+        message:
+          t("moved", { date: formatDateShort(to, locale) }) +
+          (result.data.tasksShifted > 0
+            ? ` · ${t("movedTasks", { count: result.data.tasksShifted })}`
+            : ""),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoMove(eventId, to, startsOn);
@@ -172,6 +176,12 @@ export function MoveDialog({ eventId, startsOn }: { eventId: string; startsOn: s
                     ))}
                   </tbody>
                 </table>
+                <p className="text-small">
+                  <span className="font-semibold">
+                    {t("tasksShifting", { count: preview.tasksShifting })}
+                  </span>{" "}
+                  <span className="text-muted-foreground">{t("tasksShiftingNote")}</span>
+                </p>
                 <ul className="flex flex-col gap-1 text-small">
                   {preview.announced && (
                     <li className="flex items-start gap-1.5 text-status-warn">

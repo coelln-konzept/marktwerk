@@ -108,7 +108,11 @@ export function BasicsDialog({
       setOpen(false);
       const { previous } = result.data;
       showToast({
-        message: t("saved"),
+        message:
+          t("saved") +
+          (result.data.tasksShifted > 0
+            ? ` · ${t("movedTasks", { count: result.data.tasksShifted })}`
+            : ""),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoBasics(eventId, previous, next);
@@ -208,6 +212,12 @@ export function BasicsDialog({
                   from: formatDateWithWeekday(startsOn, locale),
                   to: formatDateWithWeekday(preview.to.endsOn, locale),
                 })}
+              </p>
+              <p>
+                <span className="font-semibold">
+                  {t("tasksShifting", { count: preview.tasksShifting })}
+                </span>{" "}
+                <span className="text-muted-foreground">{t("tasksShiftingNote")}</span>
               </p>
               <ul className="flex flex-col gap-1">
                 {check?.holidays.map((h) => (

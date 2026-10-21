@@ -41,7 +41,12 @@ const dutyAudits = () =>
 describe("setEventDuty", () => {
   it("reassigns a role and audits role and names", async () => {
     const result = await setEventDuty(owner, eventId, cat.roles.lead.id, cat.staff.ben.id);
-    expect(result).toEqual({ changed: true, from: cat.staff.anna.id, to: cat.staff.ben.id });
+    expect(result).toEqual({
+      changed: true,
+      from: cat.staff.anna.id,
+      to: cat.staff.ben.id,
+      tasks: 0,
+    });
     expect(await dutyOf(cat.roles.lead.id)).toBe(cat.staff.ben.id);
 
     const [entry] = await dutyAudits();
@@ -69,7 +74,12 @@ describe("setEventDuty", () => {
 
   it("does nothing (and audits nothing) when the person is already assigned", async () => {
     const result = await setEventDuty(owner, eventId, cat.roles.lead.id, cat.staff.anna.id);
-    expect(result).toEqual({ changed: false, from: cat.staff.anna.id, to: cat.staff.anna.id });
+    expect(result).toEqual({
+      changed: false,
+      from: cat.staff.anna.id,
+      to: cat.staff.anna.id,
+      tasks: 0,
+    });
     expect(await dutyAudits()).toHaveLength(0);
   });
 

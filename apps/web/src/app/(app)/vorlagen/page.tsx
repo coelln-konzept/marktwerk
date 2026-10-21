@@ -6,6 +6,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
 import { PresetVorschau } from "@/components/catalogue/preset-vorschau";
 import { Page, PageHeader } from "@/components/shell/page";
+import { TemplateTabs } from "@/components/templates/template-tabs";
 import { buttonVariants } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
@@ -54,24 +55,7 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/vorlag
         }
       />
 
-      <nav aria-label={t("tabsLabel")} className="-mb-2 flex gap-1 border-b">
-        <Link
-          href={PATH as never}
-          aria-current="page"
-          className="-mb-px inline-flex min-h-9 items-center border-primary border-b-2 px-3 font-semibold text-foreground"
-        >
-          {t("tabs.events")}
-        </Link>
-        <span
-          aria-disabled="true"
-          className="-mb-px inline-flex min-h-9 cursor-not-allowed items-center gap-2 border-transparent border-b-2 px-3 font-medium text-faint-foreground"
-        >
-          {t("tabs.timelines")}
-          <span className="rounded-full bg-status-neutral-bg px-2 py-0.5 font-semibold text-status-neutral text-tiny">
-            {t("tabs.soon")}
-          </span>
-        </span>
-      </nav>
+      <TemplateTabs current="events" />
 
       <Panel className="overflow-hidden">
         {presets.length === 0 ? (

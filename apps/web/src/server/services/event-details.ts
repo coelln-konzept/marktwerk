@@ -22,6 +22,7 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { scheduledEventsBetween } from "./events";
+import { notifyDatesShifted, planTaskShift, type ShiftedTask, shiftTasks } from "./task-schedule";
 
 export type EventDetailsError =
   | "not_found"
@@ -204,6 +205,8 @@ export type EventSchedulePreview = {
   anchors: { key: AnchorKey; from: string | null; to: string }[];
   /** Holidays, venue already booked, weekend cap, for the new days/venue (the event itself excluded). */
   check: CandidateCheck | null;
+  /** Open tasks (not done, due date not set by hand) whose due date moves with the named dates. */
+  tasksShifting: number;
 };
 
 type EventRow = typeof event.$inferSelect;
@@ -279,6 +282,9 @@ export async function previewEventSchedule(
     to: { startsOn: next.startsOn, endsOn: next.endsOn },
     anchors: MOVED_ANCHORS.map((key) => ({ key, from: old.get(key) ?? null, to: anchors[key] })),
     check: check ?? null,
+    tasksShifting: unchanged
+      ? 0
+      : (await planTaskShift(db, id, new Map([...old, ...Object.entries(anchors)]))).length,
   };
 }
 
@@ -291,14 +297,17 @@ export async function previewEventMove(actor: Actor, id: string, startsOn: strin
 /**
  * The one place that changes the days of an event (CLAUDE.md: anchor shifts): first/last day, season and
  * the four named dates (booking cut-off = Monday before). Other anchors (custom ones, later the permit
- * decision) stay. Returns the anchor diff for the audit entry. M2 extends this: open, non-overridden
- * tasks follow their anchors, with a preview (roadmap).
+ * decision) stay. Open tasks that follow their anchor (not done, due date not set by hand) get their
+ * new due date here too (M2). Returns the anchor diff for the audit entry and the tasks that moved.
  */
 async function applySchedule(
   tx: Tx,
   current: EventRow,
   next: { startsOn: string; endsOn: string; durationDays: number },
-) {
+): Promise<{
+  anchors: Record<string, { from: string | null; to: string }>;
+  shifted: ShiftedTask[];
+}> {
   await tx
     .update(event)
     .set({
@@ -324,7 +333,8 @@ async function applySchedule(
         set: { date: anchors[key] },
       });
   }
-  return diff;
+  const shifted = await shiftTasks(tx, current.id, new Map([...old, ...Object.entries(anchors)]));
+  return { anchors: diff, shifted };
 }
 
 /**
@@ -337,7 +347,7 @@ export async function moveEvent(
   startsOn: string,
   expectedStartsOn: string,
   options: { undo?: boolean } = {},
-): Promise<{ changed: boolean; from: string; to: string }> {
+): Promise<{ changed: boolean; from: string; to: string; tasksShifted: number }> {
   if (!can(actor.role, "event", "write")) forbidden();
   if (!isIsoDate(startsOn)) throw new EventDetailsInputError("invalid_date");
 
@@ -346,10 +356,11 @@ export async function moveEvent(
     if (current.startsOn !== expectedStartsOn) throw new EventDetailsInputError("conflict");
     if (!canMoveEvent(current.status)) throw new EventDetailsInputError("not_movable");
     if (startsOn === current.startsOn)
-      return { changed: false, from: current.startsOn, to: startsOn };
+      return { changed: false, from: current.startsOn, to: startsOn, tasksShifted: 0 };
 
     const next = target(current, { startsOn });
-    const anchors = await applySchedule(tx, current, next);
+    const { anchors, shifted } = await applySchedule(tx, current, next);
+    await notifyDatesShifted(tx, actor, current, next, shifted);
     await audit(tx, actor.id, [
       {
         action: "event.move",
@@ -359,11 +370,17 @@ export async function moveEvent(
           from: { startsOn: current.startsOn, endsOn: current.endsOn },
           to: { startsOn: next.startsOn, endsOn: next.endsOn },
           anchors,
+          ...(shifted.length > 0 ? { tasksShifted: shifted.length } : {}),
           ...(options.undo ? { undo: true } : {}),
         },
       },
     ]);
-    return { changed: true, from: current.startsOn, to: next.startsOn };
+    return {
+      changed: true,
+      from: current.startsOn,
+      to: next.startsOn,
+      tasksShifted: shifted.length,
+    };
   });
 }
 
@@ -385,7 +402,7 @@ export async function updateEventBasics(
   id: string,
   next: EventBasics,
   expected?: EventBasics,
-): Promise<{ changed: boolean; previous: EventBasics }> {
+): Promise<{ changed: boolean; previous: EventBasics; tasksShifted: number }> {
   if (!can(actor.role, "event", "write")) forbidden();
   const name = next.name.trim().replace(/\s+/g, " ");
   if (name === "" || name.length > MAX_NAME_LENGTH)
@@ -428,18 +445,26 @@ export async function updateEventBasics(
         fromName: venues.find((v) => v.id === current.venueId)?.name ?? null,
         toName: newVenue.name,
       };
-    if (Object.keys(changes).length === 0) return { changed: false, previous };
+    if (Object.keys(changes).length === 0) return { changed: false, previous, tasksShifted: 0 };
 
     await tx.update(event).set({ name, venueId: schedule.venueId }).where(eq(event.id, id));
-    const anchors = changes.durationDays ? await applySchedule(tx, current, schedule) : undefined;
+    const applied = changes.durationDays ? await applySchedule(tx, current, schedule) : undefined;
+    const anchors = applied?.anchors;
+    const shifted = applied?.shifted ?? [];
+    if (applied) await notifyDatesShifted(tx, actor, current, schedule, shifted);
     await audit(tx, actor.id, [
       {
         action: "event.update",
         entityType: "event",
         entityId: id,
-        diff: { changes, ...(anchors ? { anchors } : {}), ...(expected ? { undo: true } : {}) },
+        diff: {
+          changes,
+          ...(anchors ? { anchors } : {}),
+          ...(shifted.length > 0 ? { tasksShifted: shifted.length } : {}),
+          ...(expected ? { undo: true } : {}),
+        },
       },
     ]);
-    return { changed: true, previous };
+    return { changed: true, previous, tasksShifted: shifted.length };
   });
 }

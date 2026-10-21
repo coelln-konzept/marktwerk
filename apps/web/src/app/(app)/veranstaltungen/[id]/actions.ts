@@ -90,7 +90,9 @@ export async function assignDuty(
   eventId: string,
   dutyRoleId: string,
   staffMemberId: string | null,
-): Promise<ActionResult<{ changed: boolean; from: string | null; to: string | null }>> {
+): Promise<
+  ActionResult<{ changed: boolean; from: string | null; to: string | null; tasks: number }>
+> {
   await requirePermission("event", "write");
   const actor = await getActor();
   try {

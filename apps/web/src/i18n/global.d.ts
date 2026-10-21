@@ -8,6 +8,7 @@ import type kalender from "../../messages/de/kalender.json";
 import type overview from "../../messages/de/overview.json";
 import type settings from "../../messages/de/settings.json";
 import type shell from "../../messages/de/shell.json";
+import type tasksTemplates from "../../messages/de/tasks-templates.json";
 import type team from "../../messages/de/team.json";
 import type templates from "../../messages/de/templates.json";
 import type vendors from "../../messages/de/vendors.json";
@@ -26,6 +27,7 @@ type Messages = typeof shell &
   typeof team &
   typeof vendors &
   typeof templates &
+  typeof tasksTemplates &
   typeof settings &
   typeof agreements &
   typeof company;

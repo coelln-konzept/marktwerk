@@ -17,6 +17,7 @@ export const MESSAGE_AREAS = [
   "team",
   "vendors",
   "templates",
+  "tasks-templates",
   "settings",
   "agreements",
   "company",
