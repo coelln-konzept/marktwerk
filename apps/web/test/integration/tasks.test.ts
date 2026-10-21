@@ -343,15 +343,20 @@ describe("setTaskStatus", () => {
     expect((await getTask(t.id)).status).toBe("done");
   });
 
-  it("does not block on photo or attachment evidence until uploads exist (M5)", async () => {
+  it("blocks on required photo and attachment evidence (documents on the task: see integration-links.test.ts)", async () => {
     const t = await insertTask({
       title: "A",
       eventId,
       requiresPhoto: true,
       requiresAttachment: true,
     });
-    await setTaskStatus(owner, t.id, "done", {}, clock);
-    expect((await getTask(t.id)).status).toBe("done");
+    try {
+      await setTaskStatus(owner, t.id, "done", {}, clock);
+      expect.unreachable();
+    } catch (error) {
+      expect((error as TaskInputError).detail).toEqual(["photo", "attachment"]);
+    }
+    expect((await getTask(t.id)).status).toBe("todo");
   });
 
   it("rejects cancelled and unknown statuses, and finished-then-cancelled tasks", async () => {

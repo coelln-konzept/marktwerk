@@ -1,10 +1,13 @@
 import {
   auditLog,
+  document,
   escalationLog,
+  installment,
   legalParameter,
   notification,
   obligation,
   obligationCompletion,
+  payable,
   staffMember,
   vehicle,
   vehicleIssue,
@@ -43,6 +46,7 @@ import {
   updateVehicle,
   type VehicleInput,
 } from "@/server/services/company";
+import { markInstallmentPaid } from "@/server/services/payables";
 import { createActor, resetDatabase } from "../helpers/fixtures";
 
 const TODAY = "2026-10-21";
@@ -947,5 +951,155 @@ describe("obligation reminders job", () => {
     await archiveVehicle(owner, vehicleId);
     await db.delete(notification);
     expect(await obligationReminders(db, at(TODAY))).toEqual({ reminded: 0, escalated: 0 });
+  });
+});
+
+describe("completing an obligation that creates a payable", () => {
+  const done = (over: Partial<Parameters<typeof completeObligation>[2]> = {}) => ({
+    doneOn: "2026-10-20",
+    doneKm: null,
+    costCents: 25_000,
+    checkerName: null,
+    notes: null,
+    ...over,
+  });
+  const payables = () => db.select().from(payable);
+  const rates = () => db.select().from(installment);
+
+  it("creates the payable with one rate, in the same step, linked to the obligation", async () => {
+    const vehicleId = await newVehicle();
+    const id = await newObligation({
+      kind: "hu",
+      title: "Hauptuntersuchung",
+      scope: "vehicle",
+      vehicleId,
+      createsPayable: true,
+    });
+    const result = await completeObligation(owner, id, done());
+    expect(result.payableId).not.toBeNull();
+
+    const [created] = await payables();
+    expect(created).toMatchObject({
+      id: result.payableId,
+      title: "Hauptuntersuchung · K-MW 123",
+      scope: "vehicle",
+      category: "vehicle",
+      vehicleId,
+      obligationId: id,
+      totalGrossCents: 25_000,
+    });
+    // Due on the completion date, but never in the past: the completion was dated yesterday, so it is due today.
+    expect(await rates()).toEqual([
+      expect.objectContaining({
+        payableId: created?.id,
+        sort: 1,
+        dueOn: TODAY,
+        amountCents: 25_000,
+        status: "open",
+      }),
+    ]);
+    // Both changes are audited, the payable through the payables service.
+    expect(await auditsOf("payable.create")).toHaveLength(1);
+    const [entry] = await auditsOf("obligation.complete");
+    expect(entry?.diff).toMatchObject({ payableId: result.payableId });
+  });
+
+  it("uses insurance and tax categories, and the company scope without a vehicle", async () => {
+    const id = await newObligation({
+      kind: "insurance",
+      title: "Haftpflicht",
+      createsPayable: true,
+    });
+    await completeObligation(owner, id, done({ doneOn: TODAY }));
+    expect(await payables()).toEqual([
+      expect.objectContaining({ category: "insurance", scope: "company", vehicleId: null }),
+    ]);
+  });
+
+  it("creates nothing without a cost, or when the obligation does not create payables", async () => {
+    const withFlag = await newObligation({ createsPayable: true });
+    expect(
+      (await completeObligation(owner, withFlag, done({ costCents: null }))).payableId,
+    ).toBeNull();
+    const without = await newObligation({ title: "Andere", createsPayable: false });
+    expect((await completeObligation(owner, without, done())).payableId).toBeNull();
+    expect(await payables()).toHaveLength(0);
+  });
+
+  it("undo removes the payable together with the completion", async () => {
+    const id = await newObligation({ createsPayable: true });
+    const result = await completeObligation(owner, id, done());
+    await undoObligationCompletion(
+      owner,
+      result.completionId,
+      result.previous,
+      null,
+      result.payableId,
+    );
+    expect(await payables()).toHaveLength(0);
+    expect(await rates()).toHaveLength(0);
+    expect(await completionsOf(id)).toHaveLength(0);
+    const [entry] = await auditsOf("payable.remove");
+    expect(entry).toMatchObject({ entityId: result.payableId });
+  });
+
+  it("undo is refused once a rate was paid, and nothing is undone", async () => {
+    const id = await newObligation({ createsPayable: true });
+    const result = await completeObligation(owner, id, done());
+    const [rate] = await rates();
+    await markInstallmentPaid(owner, rate?.id as string, {
+      paidOn: TODAY,
+      amountCents: 25_000,
+      method: "cash",
+    });
+    expect(
+      await codeOf(
+        undoObligationCompletion(
+          owner,
+          result.completionId,
+          result.previous,
+          null,
+          result.payableId,
+        ),
+      ),
+    ).toBe("conflict");
+    expect(await payables()).toHaveLength(1);
+    expect(await completionsOf(id)).toHaveLength(1);
+  });
+
+  it("undo is refused once a document hangs on the payable", async () => {
+    const id = await newObligation({ createsPayable: true });
+    const result = await completeObligation(owner, id, done());
+    await db.insert(document).values({
+      fileName: "rechnung.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 10,
+      sha256: "a".repeat(64),
+      storageKey: "test/rechnung.pdf",
+      payableId: result.payableId,
+    });
+    expect(
+      await codeOf(
+        undoObligationCompletion(
+          owner,
+          result.completionId,
+          result.previous,
+          null,
+          result.payableId,
+        ),
+      ),
+    ).toBe("conflict");
+    expect(await payables()).toHaveLength(1);
+  });
+
+  it("undo does not touch a payable of another obligation", async () => {
+    const mine = await newObligation({ createsPayable: true });
+    const other = await newObligation({ title: "Andere", createsPayable: true });
+    const a = await completeObligation(owner, mine, done());
+    const b = await completeObligation(owner, other, done({ doneOn: TODAY }));
+    expect(
+      await codeOf(undoObligationCompletion(owner, a.completionId, a.previous, null, b.payableId)),
+    ).toBe("conflict");
+    expect(await payables()).toHaveLength(2);
   });
 });

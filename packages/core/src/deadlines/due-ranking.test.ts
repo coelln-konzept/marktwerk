@@ -5,7 +5,7 @@ const item = (
   kind: Rankable["kind"],
   urgency: Rankable["urgency"],
   dueOn: string,
-  title = kind,
+  title: string = kind,
 ): Rankable => ({ kind, urgency, dueOn, title });
 
 describe("rankDue", () => {
