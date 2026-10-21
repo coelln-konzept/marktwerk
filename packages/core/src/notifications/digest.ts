@@ -34,6 +34,9 @@ const germanDate = (date: string) => `${date.slice(8, 10)}.${date.slice(5, 7)}.$
 
 const absolute = (baseUrl: string, href: string) => `${baseUrl.replace(/\/+$/, "")}${href}`;
 
+/** More than this many lines per section are cut off with "… und n weitere" (the mail stays readable). */
+export const DIGEST_MAX_PER_SECTION = 15;
+
 const ORDER: DigestUrgency[] = ["overdue", "today", "soon"];
 
 const HEADINGS: Record<DigestUrgency, string> = {
@@ -71,13 +74,15 @@ export function renderDigest(input: {
       .sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.title.localeCompare(b.title, "de"));
     if (group.length === 0) continue;
     lines.push(`${HEADINGS[urgency]} (${group.length})`);
-    for (const item of group) {
+    for (const item of group.slice(0, DIGEST_MAX_PER_SECTION)) {
       const context = item.context ? ` · ${item.context}` : "";
       lines.push(
         `- ${KIND[item.kind]}: ${item.title}${context} (fällig ${germanDate(item.dueOn)})`,
         `  ${absolute(baseUrl, item.href)}`,
       );
     }
+    if (group.length > DIGEST_MAX_PER_SECTION)
+      lines.push(`- … und ${group.length - DIGEST_MAX_PER_SECTION} weitere in marktwerk`);
     lines.push("");
   }
   lines.push("Du bekommst diese Übersicht jeden Morgen, solange etwas offen ist.");

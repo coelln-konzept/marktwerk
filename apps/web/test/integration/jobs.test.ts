@@ -229,6 +229,29 @@ describe("deadline sweep: tasks", () => {
     expect(result.emails).toBe(1);
   });
 
+  it("leaves old backlog (overdue for over 30 days) to the digest instead of flooding people", async () => {
+    await addTask({
+      title: "Uralt",
+      assigneeId: annaId,
+      priority: "high",
+      dueAt: daysFromNow(-40),
+    });
+    await addPermit({
+      status: "not_started",
+      applyBy: "2026-08-01",
+      responsibleStaffMemberId: annaId,
+    });
+    expect(await deadlineSweep(db, NOW)).toEqual({ created: 0, escalated: 0, emails: 0 });
+    expect(await db.select().from(notification)).toHaveLength(0);
+    await dailyDigest(db, NOW);
+    const [mail] = await db
+      .select()
+      .from(outboundMessage)
+      .where(eq(outboundMessage.recipientAddress, "anna@test.local"));
+    expect(mail?.renderedText).toContain("Uralt");
+    expect(mail?.renderedText).toContain("Wasser 2027");
+  });
+
   it("falls back to the owner when there is no manager", async () => {
     await db.update(staffMember).set({ userId: null }).where(eq(staffMember.id, benId));
     await addTask({

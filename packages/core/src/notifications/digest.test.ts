@@ -64,6 +64,29 @@ describe("renderDigest", () => {
   });
 });
 
+describe("renderDigest with many items", () => {
+  it("cuts a long section off and says how many are left", () => {
+    const many: DigestItem[] = Array.from({ length: 20 }, (_, i) => ({
+      kind: "task" as const,
+      title: `Aufgabe ${String(i).padStart(2, "0")}`,
+      dueOn: "2026-10-01",
+      urgency: "overdue" as const,
+      href: `/board?detail=task:${i}`,
+    }));
+    const mail = renderDigest({
+      firstName: "Anna",
+      today: "2026-10-21",
+      items: many,
+      baseUrl: "http://x",
+    });
+    expect(mail?.subject).toContain("20 überfällig");
+    expect(mail?.text).toContain("Überfällig (20)");
+    expect(mail?.text).toContain("Aufgabe 14");
+    expect(mail?.text).not.toContain("Aufgabe 15");
+    expect(mail?.text).toContain("… und 5 weitere in marktwerk");
+  });
+});
+
 describe("renderImmediate", () => {
   it("has title, body and an absolute link", () => {
     const mail = renderImmediate({

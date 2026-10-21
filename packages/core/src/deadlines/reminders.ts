@@ -23,6 +23,12 @@ export const DEFAULT_PERMIT_DECISION_REMINDER_DAYS = [7] as const;
 /** An overdue critical item also reaches the manager after this many days (decision 2026-10-21). */
 export const ESCALATION_AFTER_DAYS = 1;
 
+/**
+ * Overdue longer than this is backlog: the daily digest lists it, but the sweep stays quiet, so switching the
+ * system on does not flood people (and the manager) with a notification per old item.
+ */
+export const BACKLOG_AFTER_DAYS = 30;
+
 export type DueState =
   | { kind: "none" }
   | { kind: "due_soon"; daysBefore: number }

@@ -1,4 +1,5 @@
 import {
+  BACKLOG_AFTER_DAYS,
   DEFAULT_PERMIT_APPLY_REMINDER_DAYS,
   DEFAULT_PERMIT_DECISION_REMINDER_DAYS,
   DEFAULT_PERMIT_EXPIRY_REMINDER_DAYS,
@@ -123,6 +124,7 @@ async function stageTasks(db: Database, now: Date, today: string, out: Staged[])
     const state = dueState(t.dueAt, now, DEFAULT_TASK_REMINDER_DAYS[t.priority]);
     if (state.kind === "none") continue;
     const dueOn = berlinDate(t.dueAt);
+    if (state.kind === "overdue" && daysBetween(dueOn, today) > BACKLOG_AFTER_DAYS) continue;
     const context = t.eventName ? ` · ${t.eventName}` : "";
     const overdue = state.kind === "overdue";
     out.push({
@@ -186,6 +188,11 @@ async function relevantPermits(db: Database, today: string): Promise<OpenPermit[
     );
 }
 
+/** Overdue for so long that it is left to the digest. */
+function isBacklog(state: DueState, dueOn: string, today: string): boolean {
+  return state.kind === "overdue" && daysBetween(dueOn, today) > BACKLOG_AFTER_DAYS;
+}
+
 const endOfDay = (day: string) => resolveRelativeDue(day, 0, DEADLINE_TIME);
 
 function severityFor(state: Exclude<DueState, { kind: "none" }>, critical: boolean) {
@@ -210,7 +217,7 @@ async function stagePermits(
     if ((p.status === "not_started" || p.status === "preparing") && p.applyBy) {
       const dueAt = endOfDay(p.applyBy);
       const state = dueState(dueAt, now, DEFAULT_PERMIT_APPLY_REMINDER_DAYS);
-      if (state.kind !== "none") {
+      if (state.kind !== "none" && !isBacklog(state, p.applyBy, today)) {
         for (const recipient of recipients) {
           out.push({
             recipientStaffMemberId: recipient,
@@ -234,7 +241,7 @@ async function stagePermits(
     if (p.status === "applied" && p.expectedDecisionOn) {
       const dueAt = endOfDay(p.expectedDecisionOn);
       const state = dueState(dueAt, now, DEFAULT_PERMIT_DECISION_REMINDER_DAYS);
-      if (state.kind !== "none") {
+      if (state.kind !== "none" && !isBacklog(state, p.expectedDecisionOn, today)) {
         for (const recipient of recipients) {
           out.push({
             recipientStaffMemberId: recipient,
@@ -345,6 +352,7 @@ async function escalate(
     const overdueMs = now.getTime() - target.dueAt.getTime();
     if (overdueMs < ESCALATION_AFTER_DAYS * 24 * 60 * 60 * 1000) continue;
     const days = daysBetween(berlinDate(target.dueAt), today);
+    if (days > BACKLOG_AFTER_DAYS) continue;
     for (const manager of managers) {
       const key = `escalation:${target.type}:${target.id}:${target.dueAt.toISOString()}`;
       // The notification's dedupe key keeps the sweep idempotent; the log only records who was told.

@@ -634,9 +634,11 @@ export async function calendarItems(
   actor: Actor,
   from: string,
   to: string,
+  today: string = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(
+    new Date(),
+  ),
 ): Promise<CalendarItem[]> {
   if (!can(actor.role, "permit", "read")) return [];
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date());
   const rows = await db
     .select({
       id: permit.id,
