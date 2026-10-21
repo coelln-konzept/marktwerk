@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
 import { DEFAULT_LOCALE, isLocale, LOCALE_COOKIE } from "./config";
+import { loadMessages } from "./messages";
 
 /**
  * Locale comes from a cookie (set from the user's profile on login and by the
@@ -15,6 +16,6 @@ export default getRequestConfig(async () => {
   return {
     locale,
     timeZone: "Europe/Berlin",
-    messages: (await import(`../../messages/${locale}.json`)).default,
+    messages: await loadMessages(locale),
   };
 });

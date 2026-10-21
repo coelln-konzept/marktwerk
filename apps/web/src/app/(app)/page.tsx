@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { requireUser } from "@/server/session";
+import { Page, PageHeader } from "@/components/shell/page";
+import { getActor } from "@/server/actor";
 
 export const metadata: Metadata = { title: "Übersicht" };
 
+// Placeholder until the Übersicht screen lands (season strip, Heute fällig, Nächstes Wochenende).
 export default async function OverviewPage() {
-  const user = await requireUser();
-  const t = await getTranslations("overview");
+  const actor = await getActor();
+  const t = await getTranslations("nav");
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-6">
-      <h1 className="text-2xl font-semibold tracking-tight">
-        {t("greeting", { name: user.name })}
-      </h1>
-      <p className="max-w-prose text-muted-foreground">{t("placeholder")}</p>
-    </div>
+    <Page crumbs={[{ label: t("overview") }]}>
+      <PageHeader title={actor.firstName} />
+    </Page>
   );
 }

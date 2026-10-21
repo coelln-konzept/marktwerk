@@ -1,0 +1,52 @@
+{
+  "events": {
+    "subtitle": "Saison {season} · {count} Termine · {planned} geplant (Genehmigung offen)",
+    "generate": "Aus Vorlage erzeugen",
+    "search": "Name oder Ort",
+    "season": "Saison",
+    "seasonOption": "Saison {season}",
+    "status": "Status",
+    "statusActive": "Alle außer abgesagt",
+    "statusAll": "Alle",
+    "statusOnly": "Nur: {status}",
+    "view": "Ansicht",
+    "views": {
+      "liste": "Liste",
+      "kalender": "Kalender"
+    },
+    "types": "Veranstaltungsart",
+    "all": "Alle",
+    "emptyFiltered": "Keine Veranstaltungen für diese Filter.",
+    "resetFilters": "Filter zurücksetzen",
+    "caption": "Veranstaltungen der Saison {season}",
+    "cols": {
+      "week": "KW",
+      "date": "Datum",
+      "event": "Veranstaltung",
+      "type": "Art",
+      "venue": "Ort",
+      "status": "Status",
+      "health": "Zustand",
+      "effort": "Aufwand",
+      "actions": "Aktionen"
+    },
+    "preview": "Vorschau: {name}",
+    "legend": "Zustand: Genehmigungen · Aufgaben · Team · Geld (● Im Plan ▲ Achtung ■ Kritisch ○ noch offen). Genehmigungen ab M3, Aufgaben und Aufwand ab M2, Geld ab M5.",
+    "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
+    "weekendFlag": "⚑ Wochenende mit 4+ Veranstaltungen"
+  },
+  "eventPage": {
+    "kind": "Veranstaltung",
+    "facts": {
+      "date": "Datum",
+      "venue": "Ort",
+      "times": "Zeiten",
+      "timesValue": "Aufbau {setup} · {open}–{close} Uhr · Abbau {teardown}",
+      "team": "Team",
+      "teamValue": "{assigned} von {total} Zuständigkeiten besetzt",
+      "price": "Standpreis",
+      "cutoff": "Buchungsschluss",
+      "health": "Zustand"
+    }
+  }
+}

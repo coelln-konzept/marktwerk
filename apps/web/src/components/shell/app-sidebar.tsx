@@ -4,135 +4,114 @@ import {
   BookOpen,
   Building2,
   CalendarDays,
-  ClipboardList,
+  CalendarRange,
+  Contact,
+  Copy,
   Euro,
   FileCheck2,
+  Home,
   Inbox,
   KanbanSquare,
-  LayoutDashboard,
+  MapPin,
   Package,
-  Settings,
+  SlidersHorizontal,
   Store,
   Ticket,
   Users,
 } from "lucide-react";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { CurrentUser } from "@/server/session";
-import { LanguageSwitcher } from "./language-switcher";
-import { SignOutButton } from "./sign-out-button";
+import { ProfileMenu } from "./profile-menu";
+import { type NavEntry, SidebarNav } from "./sidebar-nav";
 
-type NavKey =
-  | "overview"
-  | "board"
-  | "events"
-  | "logbook"
-  | "team"
-  | "finance"
-  | "company"
-  | "vendors"
-  | "templates"
-  | "knowledgeBase"
-  | "notifications"
-  | "settings";
-
-type NavItem = {
-  href: string;
-  key: NavKey;
-  icon: React.ComponentType<{ className?: string }>;
-  visible: boolean;
-};
-
-export async function AppSidebar({ user }: { user: CurrentUser }) {
-  const t = await getTranslations();
-  // Order follows the Phase 1 roadmap (docs/product/roadmap.md).
-  const items: NavItem[] = [
-    { href: "/", key: "overview", icon: LayoutDashboard, visible: true },
-    { href: "/board", key: "board", icon: KanbanSquare, visible: can(user.role, "task", "read") },
+/** Module order follows the design (docs/design/claude-design/a-classic, screen "Sidebar"). */
+export async function AppSidebar({
+  user,
+  displayName,
+  theme,
+  density,
+}: {
+  user: CurrentUser;
+  displayName: string;
+  theme: string;
+  density: string;
+}) {
+  const t = await getTranslations("nav");
+  const tRoles = await getTranslations("roles");
+  const r = user.role;
+  const items: (NavEntry & { visible: boolean })[] = [
+    { href: "/", label: t("overview"), icon: <Home />, visible: true },
     {
-      href: "/events",
-      key: "events",
-      icon: CalendarDays,
-      visible: can(user.role, "event", "read"),
+      href: "/kalender",
+      label: t("calendar"),
+      icon: <CalendarRange />,
+      visible: can(r, "event", "read"),
+    },
+    { href: "/board", label: t("board"), icon: <KanbanSquare />, visible: can(r, "task", "read") },
+    {
+      href: "/veranstaltungen",
+      label: t("events"),
+      icon: <CalendarDays />,
+      visible: can(r, "event", "read"),
+    },
+    { href: "/orte", label: t("venues"), icon: <MapPin />, visible: can(r, "venue", "read") },
+    {
+      href: "/logbuch",
+      label: t("logbook"),
+      icon: <FileCheck2 />,
+      visible: can(r, "permit", "read"),
+    },
+    { href: "/team", label: t("team"), icon: <Users />, visible: can(r, "team", "read") },
+    { href: "/finanzen", label: t("finance"), icon: <Euro />, visible: can(r, "finance", "read") },
+    {
+      href: "/firma",
+      label: t("company"),
+      icon: <Building2 />,
+      visible: can(r, "company", "read"),
+    },
+    { href: "/haendler", label: t("vendors"), icon: <Store />, visible: can(r, "vendor", "read") },
+    {
+      href: "/kontakte",
+      label: t("contacts"),
+      icon: <Contact />,
+      visible: can(r, "contact", "read"),
     },
     {
-      href: "/logbook",
-      key: "logbook",
-      icon: FileCheck2,
-      visible: can(user.role, "permit", "read"),
+      href: "/vorlagen",
+      label: t("templates"),
+      icon: <Copy />,
+      visible: can(r, "template", "read"),
     },
-    { href: "/team", key: "team", icon: Users, visible: can(user.role, "team", "read") },
-    { href: "/finance", key: "finance", icon: Euro, visible: can(user.role, "finance", "read") },
     {
-      href: "/company",
-      key: "company",
-      icon: Building2,
-      visible: can(user.role, "company", "read"),
+      href: "/wissen",
+      label: t("knowledgeBase"),
+      icon: <BookOpen />,
+      visible: can(r, "kb", "read"),
     },
-    { href: "/vendors", key: "vendors", icon: Store, visible: can(user.role, "vendor", "read") },
+    { href: "/benachrichtigungen", label: t("notifications"), icon: <Bell />, visible: true },
     {
-      href: "/templates",
-      key: "templates",
-      icon: ClipboardList,
-      visible: can(user.role, "template", "read"),
-    },
-    { href: "/kb", key: "knowledgeBase", icon: BookOpen, visible: can(user.role, "kb", "read") },
-    { href: "/notifications", key: "notifications", icon: Bell, visible: true },
-    {
-      href: "/settings",
-      key: "settings",
-      icon: Settings,
-      visible: can(user.role, "settings", "read"),
+      href: "/einstellungen",
+      label: t("settings"),
+      icon: <SlidersHorizontal />,
+      visible: can(r, "settings", "read"),
     },
   ];
-  // Phase 2 modules, shown disabled so the team sees what's coming.
-  const upcoming = [
-    { key: "bookings", icon: Ticket },
-    { key: "inbox", icon: Inbox },
-    { key: "inventory", icon: Package },
-  ] as const;
-
   return (
-    <aside className="sticky top-0 flex h-svh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="px-4 py-4 text-lg font-semibold tracking-tight">{t("app.name")}</div>
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2">
-        {items
-          .filter((item) => item.visible)
-          .map(({ href, key, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href as never}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-sidebar-accent"
-            >
-              <Icon className="size-4 text-muted-foreground" />
-              {t(`nav.${key}`)}
-            </Link>
-          ))}
-        <div className="pt-4">
-          {upcoming.map(({ key, icon: Icon }) => (
-            <span
-              key={key}
-              className="flex cursor-not-allowed items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground/60"
-            >
-              <Icon className="size-4" />
-              {t(`nav.${key}`)}
-              <span className="ml-auto text-[10px] uppercase tracking-wide">
-                {t("nav.comingSoon")}
-              </span>
-            </span>
-          ))}
-        </div>
-      </nav>
-      <div className="space-y-2 border-t border-sidebar-border p-3 text-sm">
-        <div>
-          <div className="font-medium">{user.name}</div>
-          <div className="text-xs text-muted-foreground">{t(`roles.${user.role}`)}</div>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <LanguageSwitcher />
-          <SignOutButton label={t("nav.signOut")} />
-        </div>
-      </div>
-    </aside>
+    <SidebarNav
+      brand="marktwerk"
+      navLabel={t("label")}
+      closeLabel={t("close")}
+      items={items.filter((i) => i.visible).map(({ visible: _v, ...i }) => i)}
+      upcomingTitle={t("later")}
+      phaseLabel={t("comingSoon")}
+      upcoming={[
+        { key: "bookings", label: t("bookings"), icon: <Ticket /> },
+        { key: "inbox", label: t("inbox"), icon: <Inbox /> },
+        { key: "inventory", label: t("inventory"), icon: <Package /> },
+      ]}
+      footer={
+        <ProfileMenu name={displayName} role={tRoles(user.role)} theme={theme} density={density} />
+      }
+    />
   );
 }

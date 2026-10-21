@@ -1,0 +1,130 @@
+"use client";
+
+import { Menu } from "@base-ui/react/menu";
+import { Check, ChevronDown, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { useTransition } from "react";
+import { setDisplayPreference, setLocale } from "@/app/(app)/actions";
+import { Avatar } from "@/components/ui/avatar";
+import { LOCALES } from "@/i18n/config";
+import { authClient } from "@/lib/auth-client";
+
+const item =
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
+const label =
+  "px-2 pt-2 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider";
+
+/** Profile menu at the bottom of the sidebar: language, theme (System/Hell/Dunkel), density, sign out. */
+export function ProfileMenu({
+  name,
+  role,
+  theme,
+  density,
+}: {
+  name: string;
+  role: string;
+  theme: string;
+  density: string;
+}) {
+  const t = useTranslations("profile");
+  const tLang = useTranslations("language");
+  const locale = useLocale();
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+
+  const themeLabel = (value: string) => t(`theme.${value as "system" | "light" | "dark"}`);
+
+  return (
+    <Menu.Root>
+      <Menu.Trigger className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left hover:bg-hover">
+        <Avatar name={name} size="lg" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-semibold">{name}</span>
+          <span className="block truncate text-muted-foreground text-tiny">{role}</span>
+        </span>
+        <ChevronDown aria-hidden className="size-4 text-muted-foreground" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner side="top" align="start" sideOffset={6} className="z-50">
+          <Menu.Popup className="flex min-w-[220px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+            <Menu.Group>
+              <Menu.GroupLabel className={label}>{t("design")}</Menu.GroupLabel>
+              <Menu.RadioGroup
+                defaultValue={theme}
+                onValueChange={(value) => {
+                  document.documentElement.dataset.theme = String(value);
+                  startTransition(() => setDisplayPreference({ theme: String(value) }));
+                }}
+              >
+                {(["system", "light", "dark"] as const).map((value) => (
+                  <Menu.RadioItem key={value} value={value} closeOnClick={false} className={item}>
+                    <span className="w-4">
+                      <Menu.RadioItemIndicator>
+                        <Check className="size-4" />
+                      </Menu.RadioItemIndicator>
+                    </span>
+                    {themeLabel(value)}
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioGroup>
+            </Menu.Group>
+            <Menu.Separator className="my-1 border-border-subtle border-t" />
+            <Menu.Group>
+              <Menu.GroupLabel className={label}>{t("density")}</Menu.GroupLabel>
+              <Menu.RadioGroup
+                defaultValue={density}
+                onValueChange={(value) => {
+                  document.documentElement.dataset.density = String(value);
+                  startTransition(() => setDisplayPreference({ density: String(value) }));
+                }}
+              >
+                {(["standard", "compact"] as const).map((value) => (
+                  <Menu.RadioItem key={value} value={value} closeOnClick={false} className={item}>
+                    <span className="w-4">
+                      <Menu.RadioItemIndicator>
+                        <Check className="size-4" />
+                      </Menu.RadioItemIndicator>
+                    </span>
+                    {t(`densities.${value}`)}
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioGroup>
+            </Menu.Group>
+            <Menu.Separator className="my-1 border-border-subtle border-t" />
+            <Menu.Group>
+              <Menu.GroupLabel className={label}>{tLang("label")}</Menu.GroupLabel>
+              <Menu.RadioGroup
+                value={locale}
+                onValueChange={(value) => startTransition(() => setLocale(String(value)))}
+              >
+                {LOCALES.map((value) => (
+                  <Menu.RadioItem key={value} value={value} className={item}>
+                    <span className="w-4">
+                      <Menu.RadioItemIndicator>
+                        <Check className="size-4" />
+                      </Menu.RadioItemIndicator>
+                    </span>
+                    {tLang(value)}
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioGroup>
+            </Menu.Group>
+            <Menu.Separator className="my-1 border-border-subtle border-t" />
+            <Menu.Item
+              className={item}
+              onClick={async () => {
+                await authClient.signOut();
+                router.replace("/login");
+                router.refresh();
+              }}
+            >
+              <LogOut className="size-4" />
+              {t("signOut")}
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}

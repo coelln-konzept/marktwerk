@@ -23,6 +23,8 @@ export const settings = app.table(
     iban: text(),
     bic: text(),
     timeZone: text().notNull().default("Europe/Berlin"),
+    /** Federal state for public holidays (NRW = "NW"). */
+    bundesland: text().notNull().default("NW"),
     defaultLocale: text().notNull().default("de"),
     /** Default wall-clock time for template tasks without their own due time. */
     defaultDueTime: time().notNull().default("09:00"),
