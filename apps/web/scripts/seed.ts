@@ -1,7 +1,7 @@
 /**
  * Development seed: company settings, the owner account and the M1 entities from the synthetic
  * dataset (ADR 0016): legal parameters, event types, contacts, venues with zones and rows, staff
- * members (+ logins for those with a permission role), duty roles, presets, events with anchors and
+ * members (+ logins for those with a permission role, and one field login for the logistics lead), duty roles, presets, events with anchors and
  * duties, vendors (read-only import).
  *
  * Idempotent: synthetic rows keep their ids and are inserted with ON CONFLICT DO NOTHING, so the
@@ -163,6 +163,28 @@ await db.transaction(async (tx) => {
     const userId = await ensureUser(tx, email, name, m.permissionRole, password);
     if (!userId) continue;
     await tx.update(schema.staffMember).set({ userId }).where(eq(schema.staffMember.id, m.id));
+  }
+
+  // One field login (HANDOFF §7.5) to check the row-level scoping end to end: the logistics lead is the
+  // default holder of "setup_crew" and so has duties at the events generated from the presets. Same rules
+  // as the other logins: the public dev password only for a local database, otherwise SEED_STAFF_PASSWORD
+  // (without it no login is created).
+  const fieldStaffId = data.dutyRoles.find((r) => r.key === "setup_crew")?.defaultStaffMemberId;
+  if (fieldStaffId) {
+    const member = data.staffMembers.find((m) => m.id === fieldStaffId);
+    const userId = await ensureUser(
+      tx,
+      process.env.SEED_FIELD_EMAIL || "logistik@marktwerk.local",
+      member?.displayName ?? "Platzteam",
+      "field",
+      staffPassword,
+    );
+    if (userId) {
+      await tx
+        .update(schema.staffMember)
+        .set({ userId })
+        .where(eq(schema.staffMember.id, fieldStaffId));
+    }
   }
 
   await insertAll(
