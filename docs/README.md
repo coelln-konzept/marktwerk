@@ -11,7 +11,7 @@ Design output: [design/claude-design/](design/claude-design/).
 - **[UX concept](product/ux-concept.md)**: principles, IA, workspace model, patterns, status vocabulary, visual system
 - [Wireframes v2](product/wireframes.md): from-scratch wireframes for the workspace UI
 - [Glossary DE ⇄ EN ⇄ code](product/glossary.md)
-- [Claude Design prompt for Phase 1 wireframes](product/claude-design-prompt.md)
+- [Claude Design prompt for Phase 1 wireframes](product/claude-design-prompt.md) · [follow-up for the v1 design session (research-based improvements, no workspace)](product/claude-design-prompt-v1-update.md)
 
 ## Research
 - [01 Market landscape, German domain rules, payments](research/01-market-and-domain.md)
