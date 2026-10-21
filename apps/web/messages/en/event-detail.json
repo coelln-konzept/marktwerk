@@ -116,7 +116,33 @@
       "unassigned": "not filled",
       "assigned": "filled",
       "summary": "{assigned} of {total} duties filled",
-      "hint": "Read only: duties are taken over from the preset. Changing them here arrives in a later step."
+      "hint": "Applies to this event only. The preset's default team stays as it is.",
+      "hintReadOnly": "Read only: owners and office managers can change duties.",
+      "actions": "Actions",
+      "change": "Change",
+      "assign": "Assign",
+      "changeLabel": "Change person for {role}",
+      "assignLabel": "Assign {role}",
+      "preferred": "Preferred for {role}",
+      "others": "Others",
+      "everyone": "Everyone",
+      "busyAt": "same day at {event}",
+      "current": "currently assigned",
+      "clear": "Leave unassigned",
+      "undo": "Undo",
+      "toast": {
+        "changed": "{role}: {from} → {to}",
+        "assigned": "{role}: {name}",
+        "cleared": "{role}: no longer filled ({name})",
+        "reverted": "{role} restored"
+      },
+      "errors": {
+        "not_found": "This event no longer exists.",
+        "invalid_role": "This duty no longer exists. The page was refreshed.",
+        "invalid_staff": "This person is no longer active. The page was refreshed.",
+        "conflict": "The duty was changed in the meantime. Nothing was reverted.",
+        "generic": "That didn't work. Please try again."
+      }
     },
     "notes": {
       "title": "Notes",
@@ -139,7 +165,7 @@
       "who": "Who",
       "what": "Change",
       "empty": "No changes since the import yet.",
-      "emptyHint": "Status changes, edited notes and other changes appear here.",
+      "emptyHint": "Status changes, edited notes, duties and other changes appear here.",
       "unknownActor": "System",
       "created": "Created from preset",
       "createdManual": "Created",
@@ -148,7 +174,11 @@
       "reason": "Reason: {reason}",
       "notes": "Notes changed",
       "archived": "Archived",
-      "other": "Changed ({action})"
+      "other": "Changed ({action})",
+      "dutyChanged": "{role}: {from} → {to}",
+      "dutyAssigned": "{role} assigned: {name}",
+      "dutyCleared": "{role} no longer filled (was {name})",
+      "dutyUndone": "Undone"
     },
     "later": {
       "board": {

@@ -116,7 +116,33 @@
       "unassigned": "nicht besetzt",
       "assigned": "besetzt",
       "summary": "{assigned} von {total} Zuständigkeiten besetzt",
-      "hint": "Nur lesen: Zuständigkeiten werden aus der Vorlage übernommen. Sie hier zu ändern kommt in einem späteren Schritt."
+      "hint": "Gilt nur für diese Veranstaltung. Das Standard-Team der Vorlage bleibt unverändert.",
+      "hintReadOnly": "Nur lesen: Zuständigkeiten ändern können Geschäftsführung und Büroleitung.",
+      "actions": "Aktionen",
+      "change": "Ändern",
+      "assign": "Besetzen",
+      "changeLabel": "Person für {role} ändern",
+      "assignLabel": "{role} besetzen",
+      "preferred": "Bevorzugt für {role}",
+      "others": "Weitere",
+      "everyone": "Alle Personen",
+      "busyAt": "am selben Tag bei {event}",
+      "current": "aktuell zuständig",
+      "clear": "Nicht besetzen",
+      "undo": "Rückgängig",
+      "toast": {
+        "changed": "{role}: {from} → {to}",
+        "assigned": "{role}: {name}",
+        "cleared": "{role}: nicht mehr besetzt ({name})",
+        "reverted": "{role} wiederhergestellt"
+      },
+      "errors": {
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "invalid_role": "Diese Zuständigkeit gibt es nicht mehr. Die Seite wurde aktualisiert.",
+        "invalid_staff": "Diese Person ist nicht mehr aktiv. Die Seite wurde aktualisiert.",
+        "conflict": "Die Zuständigkeit wurde zwischenzeitlich geändert. Nichts zurückgesetzt.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      }
     },
     "notes": {
       "title": "Notizen",
@@ -139,7 +165,7 @@
       "who": "Wer",
       "what": "Änderung",
       "empty": "Noch keine Änderungen seit dem Import.",
-      "emptyHint": "Statuswechsel, geänderte Notizen und weitere Änderungen erscheinen hier.",
+      "emptyHint": "Statuswechsel, geänderte Notizen, Zuständigkeiten und weitere Änderungen erscheinen hier.",
       "unknownActor": "System",
       "created": "Angelegt aus Vorlage",
       "createdManual": "Angelegt",
@@ -148,7 +174,11 @@
       "reason": "Grund: {reason}",
       "notes": "Notizen geändert",
       "archived": "Archiviert",
-      "other": "Geändert ({action})"
+      "other": "Geändert ({action})",
+      "dutyChanged": "{role}: {from} → {to}",
+      "dutyAssigned": "{role} besetzt: {name}",
+      "dutyCleared": "{role} nicht mehr besetzt (war {name})",
+      "dutyUndone": "Rückgängig gemacht"
     },
     "later": {
       "board": {

@@ -8,6 +8,13 @@ import { formatInstant } from "./format-instant";
 
 type StatusDiff = { from?: string; to?: string; reason?: string; undo?: boolean };
 type CreateDiff = { source?: string };
+type DutyDiff = {
+  roleDe?: string;
+  roleEn?: string;
+  fromName?: string | null;
+  toName?: string | null;
+  undo?: boolean;
+};
 
 function asObject<T>(value: unknown): T {
   return (value && typeof value === "object" ? value : {}) as T;
@@ -43,6 +50,16 @@ export async function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
         };
       case "event.update_notes":
         return { text: t("notes") };
+      case "event.duty": {
+        const d = asObject<DutyDiff>(entry.diff);
+        const role = (locale === "en" ? d.roleEn : d.roleDe) ?? "?";
+        const text = !d.toName
+          ? t("dutyCleared", { role, name: d.fromName ?? "?" })
+          : !d.fromName
+            ? t("dutyAssigned", { role, name: d.toName })
+            : t("dutyChanged", { role, from: d.fromName, to: d.toName });
+        return { text, reason: d.undo ? t("dutyUndone") : undefined };
+      }
       case "event.archive":
         return { text: t("archived") };
       default:

@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import { getActor } from "@/server/actor";
+import { EventDutyInputError, setEventDuty } from "@/server/services/event-duties";
 import {
   changeEventStatus,
   EventLifecycleInputError,
@@ -68,6 +69,49 @@ export async function saveNotes(
     return { ok: true, data };
   } catch (error) {
     if (error instanceof EventLifecycleInputError) return { ok: false, error: error.code };
+    throw error;
+  }
+}
+
+/** Team tab: who fills a duty role at this event (null = nobody). Only this event changes. */
+export async function assignDuty(
+  eventId: string,
+  dutyRoleId: string,
+  staffMemberId: string | null,
+): Promise<ActionResult<{ changed: boolean; from: string | null; to: string | null }>> {
+  await requirePermission("event", "write");
+  const actor = await getActor();
+  try {
+    const data = await setEventDuty(actor, eventId, dutyRoleId, staffMemberId);
+    refresh();
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof EventDutyInputError) {
+      refresh();
+      return { ok: false, error: error.code };
+    }
+    throw error;
+  }
+}
+
+/** Undo toast of assignDuty: back to `previous` while the role still has `expected`. */
+export async function undoDuty(
+  eventId: string,
+  dutyRoleId: string,
+  expected: string | null,
+  previous: string | null,
+): Promise<ActionResult<{ changed: boolean }>> {
+  await requirePermission("event", "write");
+  const actor = await getActor();
+  try {
+    const data = await setEventDuty(actor, eventId, dutyRoleId, previous, expected);
+    refresh();
+    return { ok: true, data: { changed: data.changed } };
+  } catch (error) {
+    if (error instanceof EventDutyInputError) {
+      refresh();
+      return { ok: false, error: error.code };
+    }
     throw error;
   }
 }

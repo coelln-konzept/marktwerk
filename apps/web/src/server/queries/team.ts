@@ -1,6 +1,6 @@
 import "server-only";
 import { dutyRole, event, eventDuty, staffMember, user, venue } from "@marktwerk/db/schema";
-import { and, asc, eq, gte, ne, type SQL, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, ne, type SQL, sql } from "drizzle-orm";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 
@@ -111,4 +111,48 @@ export async function nextEventsOf(
     .where(and(eq(eventDuty.staffMemberId, staffMemberId), upcomingEvents(actor, today)))
     .orderBy(asc(event.startsOn), asc(dutyRole.sort))
     .limit(limit);
+}
+
+export type AssignableStaff = {
+  id: string;
+  displayName: string;
+  preferredDutyRoleIds: string[];
+  /** Another event on overlapping days where this person already has a duty (first one by date). */
+  busyAt: string | null;
+};
+
+/** Active staff for the Team tab's "Person ändern" menu, with clashes on the event's days. */
+export async function listAssignableStaff(
+  eventId: string,
+  startsOn: string,
+  endsOn: string,
+): Promise<AssignableStaff[]> {
+  const [people, clashes] = await Promise.all([
+    db
+      .select({
+        id: staffMember.id,
+        displayName: staffMember.displayName,
+        preferredDutyRoleIds: staffMember.preferredDutyRoleIds,
+      })
+      .from(staffMember)
+      .where(and(eq(staffMember.active, true), isNull(staffMember.archivedAt)))
+      .orderBy(asc(staffMember.displayName)),
+    db
+      .select({ staffMemberId: eventDuty.staffMemberId, name: event.name })
+      .from(eventDuty)
+      .innerJoin(event, eq(event.id, eventDuty.eventId))
+      .where(
+        and(
+          ne(event.id, eventId),
+          ne(event.status, "cancelled"),
+          isNull(event.archivedAt),
+          lte(event.startsOn, endsOn),
+          gte(event.endsOn, startsOn),
+        ),
+      )
+      .orderBy(asc(event.startsOn)),
+  ]);
+  const busy = new Map<string, string>();
+  for (const c of clashes) if (!busy.has(c.staffMemberId)) busy.set(c.staffMemberId, c.name);
+  return people.map((p) => ({ ...p, busyAt: busy.get(p.id) ?? null }));
 }
