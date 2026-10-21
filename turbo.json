@@ -6,7 +6,16 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "BETTER_AUTH_*", "APP_URL", "SMTP_*", "S3_*"],
+      "env": [
+        "DATABASE_URL",
+        "DATABASE_MIGRATION_URL",
+        "BETTER_AUTH_*",
+        "CRON_SECRET",
+        "APP_URL",
+        "SMTP_*",
+        "S3_*",
+        "VERCEL_URL"
+      ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "dev": {

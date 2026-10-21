@@ -13,6 +13,7 @@
   "dependencies": {
     "@marktwerk/core": "workspace:*",
     "@marktwerk/db": "workspace:*",
+    "@marktwerk/jobs": "workspace:*",
     "pg-boss": "12.38.0"
   },
   "devDependencies": {

@@ -1,0 +1,34 @@
+name: Scheduled jobs
+
+# Serverless hosting has no long-running worker, so GitHub Actions triggers the
+# job endpoints instead (ADR 0017). GitHub's scheduler is best effort (delays of
+# several minutes are normal), which the idempotent jobs tolerate.
+# Configure: repository variable APP_URL and secret CRON_SECRET. Without them, this workflow does nothing.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # deadline sweep
+    - cron: "0 5 * * *" # daily digest (07:00 Berlin summer time / 06:00 winter time)
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job to run
+        required: true
+        default: deadline-sweep
+        type: choice
+        options: [deadline-sweep, daily-digest]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    if: ${{ vars.APP_URL != '' }}
+    steps:
+      - name: Call job endpoint
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          JOB: ${{ inputs.job || (github.event.schedule == '0 5 * * *' && 'daily-digest' || 'deadline-sweep') }}
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL}/api/cron/${JOB}"

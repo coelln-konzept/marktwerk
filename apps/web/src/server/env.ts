@@ -11,7 +11,18 @@ const schema = z.object({
   APP_URL: z.url().default("http://localhost:3000"),
   APP_TIMEZONE: z.string().default("Europe/Berlin"),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
-  BETTER_AUTH_URL: z.url().default("http://localhost:3000"),
+  /** Optional on Vercel: falls back to the deployment URL (preview deployments). */
+  BETTER_AUTH_URL: z.url().optional(),
+  /** Bearer token the external scheduler sends to /api/cron/* (ADR 0017). */
+  CRON_SECRET: z.string().min(32).optional(),
+  VERCEL_URL: z.string().optional(),
 });
 
-export const env = schema.parse(process.env);
+const parsed = schema.parse(process.env);
+
+export const env = {
+  ...parsed,
+  BETTER_AUTH_URL:
+    parsed.BETTER_AUTH_URL ??
+    (parsed.VERCEL_URL ? `https://${parsed.VERCEL_URL}` : "http://localhost:3000"),
+};

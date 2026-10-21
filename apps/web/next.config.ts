@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   // Self-contained server build so we can deploy to Vercel or a Docker host (ADR 0006).
   output: "standalone",
   // Internal workspace packages ship TypeScript source.
-  transpilePackages: ["@marktwerk/core", "@marktwerk/db"],
+  transpilePackages: ["@marktwerk/core", "@marktwerk/db", "@marktwerk/jobs"],
   // Cache Components is off on purpose: almost every screen is per-user and
   // behind login, so the static-shell model adds friction without benefit (ADR 0004).
   typedRoutes: true,

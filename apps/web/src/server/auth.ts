@@ -27,6 +27,7 @@ const roles = {
 export const auth = betterAuth({
   appName: "marktwerk",
   baseURL: env.BETTER_AUTH_URL,
+  trustedOrigins: [env.BETTER_AUTH_URL, env.APP_URL],
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "pg",

@@ -1,0 +1,21 @@
+{
+  "name": "@marktwerk/jobs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Background job handlers, shared by the worker (pg-boss) and the cron HTTP endpoint (serverless hosting).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@marktwerk/core": "workspace:*",
+    "@marktwerk/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "6.0.3"
+  }
+}
