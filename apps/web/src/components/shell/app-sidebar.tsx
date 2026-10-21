@@ -2,16 +2,19 @@ import { can } from "@marktwerk/core";
 import {
   Bell,
   BookOpen,
+  Building2,
   CalendarDays,
   ClipboardList,
+  Euro,
   FileCheck2,
   Inbox,
+  KanbanSquare,
   LayoutDashboard,
-  ListChecks,
-  MapPin,
+  Package,
   Settings,
   Store,
   Ticket,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -19,45 +22,59 @@ import type { CurrentUser } from "@/server/session";
 import { LanguageSwitcher } from "./language-switcher";
 import { SignOutButton } from "./sign-out-button";
 
+type NavKey =
+  | "overview"
+  | "board"
+  | "events"
+  | "logbook"
+  | "team"
+  | "finance"
+  | "company"
+  | "vendors"
+  | "templates"
+  | "knowledgeBase"
+  | "notifications"
+  | "settings";
+
 type NavItem = {
   href: string;
-  key:
-    | "overview"
-    | "myTasks"
-    | "markets"
-    | "venues"
-    | "templates"
-    | "permits"
-    | "knowledgeBase"
-    | "notifications"
-    | "settings";
+  key: NavKey;
   icon: React.ComponentType<{ className?: string }>;
   visible: boolean;
 };
 
 export async function AppSidebar({ user }: { user: CurrentUser }) {
   const t = await getTranslations();
+  // Order follows the Phase 1 roadmap (docs/product/roadmap.md).
   const items: NavItem[] = [
     { href: "/", key: "overview", icon: LayoutDashboard, visible: true },
-    { href: "/tasks", key: "myTasks", icon: ListChecks, visible: can(user.role, "task", "read") },
+    { href: "/board", key: "board", icon: KanbanSquare, visible: can(user.role, "task", "read") },
     {
-      href: "/markets",
-      key: "markets",
+      href: "/events",
+      key: "events",
       icon: CalendarDays,
-      visible: can(user.role, "market", "read"),
+      visible: can(user.role, "event", "read"),
     },
-    { href: "/venues", key: "venues", icon: MapPin, visible: can(user.role, "venue", "read") },
+    {
+      href: "/logbook",
+      key: "logbook",
+      icon: FileCheck2,
+      visible: can(user.role, "permit", "read"),
+    },
+    { href: "/team", key: "team", icon: Users, visible: can(user.role, "team", "read") },
+    { href: "/finance", key: "finance", icon: Euro, visible: can(user.role, "finance", "read") },
+    {
+      href: "/company",
+      key: "company",
+      icon: Building2,
+      visible: can(user.role, "company", "read"),
+    },
+    { href: "/vendors", key: "vendors", icon: Store, visible: can(user.role, "vendor", "read") },
     {
       href: "/templates",
       key: "templates",
       icon: ClipboardList,
       visible: can(user.role, "template", "read"),
-    },
-    {
-      href: "/permits",
-      key: "permits",
-      icon: FileCheck2,
-      visible: can(user.role, "permit", "read"),
     },
     { href: "/kb", key: "knowledgeBase", icon: BookOpen, visible: can(user.role, "kb", "read") },
     { href: "/notifications", key: "notifications", icon: Bell, visible: true },
@@ -70,9 +87,9 @@ export async function AppSidebar({ user }: { user: CurrentUser }) {
   ];
   // Phase 2 modules, shown disabled so the team sees what's coming.
   const upcoming = [
-    { key: "inbox", icon: Inbox },
-    { key: "vendors", icon: Store },
     { key: "bookings", icon: Ticket },
+    { key: "inbox", icon: Inbox },
+    { key: "inventory", icon: Package },
   ] as const;
 
   return (

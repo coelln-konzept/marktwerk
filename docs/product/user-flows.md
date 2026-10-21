@@ -1,178 +1,184 @@
 # User flows
 
-Mermaid diagrams render on GitHub and in most Markdown viewers. Phase markers: **P1** MVP,
-**P2** bookings & inbox, **P3** market day & map.
+Mermaid diagrams (render on GitHub). Phase markers: **P1** MVP, **P2** bookings inside, **P3** market day,
+maps, communication, **P4** open up. Revised 2026-10-21 after the client meeting.
 
-## 1. Market lifecycle (P1)
+## 1. Event lifecycle (P1)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> draft: create / generate from series
-    draft --> planned: dates, team & templates confirmed
-    planned --> confirmed: required permits granted
-    confirmed --> live: market day starts (field mode)
-    live --> completed: day close-out done + post tasks finished
-    planned --> cancelled
+    [*] --> draft: create / generate from preset or agreement
+    draft --> planned: announced (website "geplant"), permit pending
+    planned --> confirmed: market permit granted
+    confirmed --> live: event day
+    live --> completed: event over, post tasks running
+    completed --> closed: close-out (money, rentals, receipts, lessons)
+    draft --> cancelled
+    planned --> cancelled: permit refused / given up
     confirmed --> cancelled
-    completed --> [*]
-    cancelled --> [*]
+    closed --> [*]
+    note right of confirmed
+      Booking flags are separate:
+      booking_open · fully_booked · car_spaces_full
+    end note
 ```
 
-## 2. From blueprint to tasks (P1)
+## 2. Creating an event: the logbook fills itself (P1)
 
 ```mermaid
 flowchart TD
-    V[Venue<br/>zones, access, permit requirements] --> S[Market series<br/>RRULE, default team, templates]
-    T[Checklist template<br/>published version n] --> S
-    S -->|"pick dates → preview → generate"| M[Market instances]
-    M --> A[Anchors<br/>market day, setup day, booking close…]
-    M --> D[Duty assignment<br/>Marktleitung → Jonas, Aufbau → Dieter]
-    A & D & T --> I{{instantiateMarket<br/>single service path}}
-    I --> K[Checklists + tasks<br/>due dates resolved, assignees set]
-    I --> P[Per-market permits<br/>apply-by date + prep tasks]
-    K --> N[Grouped 'assigned' notification<br/>per person]
+    P[Event preset<br/>type · location · texts · price · templates · team] -->|pick dates → preview| E[Events]
+    A[Multi-year agreement<br/>fixed dates] --> E
+    E --> AN[Anchors<br/>event day · setup · booking cut-off = Monday before]
+    E --> T[Timeline tasks<br/>with estimates, duty roles → people]
+    E --> L{Logbook check per permit requirement}
+    L -->|valid permit held| OK[✔ ticked, linked to document]
+    L -->|missing| NP[New permit · apply-by from lead time / window<br/>+ prep tasks, sorted by urgency]
+    NP --> PAY[Fee → payable with instalments]
+    T & NP --> B[Event board]
 ```
 
-## 3. Moving a market date (P1)
+## 3. Kanban: assign by drag, notify via WhatsApp (P1)
+
+```mermaid
+sequenceDiagram
+    actor M as Office manager
+    participant B as Event board
+    participant S as marktwerk
+    participant P as Office phone (WhatsApp)
+    actor D as Dieter (field crew)
+    M->>B: drag "Standrohr abholen" onto Dieter
+    B->>S: assign (undo toast 10 s)
+    S->>S: queue message (debounce 3 min, quiet hours)
+    S-->>M: "1 Nachricht bereit · Per WhatsApp senden"
+    M->>P: click → wa.me opens with text + Dieter's magic link
+    P->>D: WhatsApp message
+    D->>S: opens magic link → "Zusagen" / "Erledigt"
+    S-->>B: card shows ✓ / moves to Erledigt
+    Note over S: Step 2 (Cloud API): sent automatically,<br/>quick-reply buttons "Erledigt" / "Übernehme ich"
+```
+
+## 4. Moving an event date (P1)
 
 ```mermaid
 sequenceDiagram
     actor M as Manager
     participant App as marktwerk
-    participant DB as Database
-    participant W as Worker
-    M->>App: change market date 08.11 → 15.11
-    App->>DB: find open, non-overridden tasks on this anchor
-    App-->>M: preview "14 tasks +7 days · 2 overridden stay · 1 permit apply-by moves"
+    M->>App: change date 01.05 → 08.05
+    App-->>M: preview "14 tasks +7 d · 2 overridden stay · booking cut-off → Mo 03.05 · 1 permit apply-by moves"
     M->>App: confirm
-    App->>DB: tx: update anchor, recompute due_at/apply_by, audit
-    App->>DB: one grouped 'dates_shifted' notification per assignee (no push)
-    W->>DB: next sweep: old reminders don't fire (dedupe key contains due_at), new ones arm
+    App->>App: tx: anchors, due dates, apply-by, audit
+    App->>App: one grouped "dates shifted" message per person (no push)
 ```
 
-## 4. Template change propagation (P1)
+## 5. Template change (P1): always deliberate
 
 ```mermaid
 flowchart LR
     E[Edit template] --> DR[Draft version n+1]
     DR --> PUB[Publish]
-    PUB --> Q{Apply to markets?}
-    Q -->|none| END[Only new markets use n+1]
-    Q -->|all future / selected| PV[Preview per market<br/>+3 added · 2 changed · 1 removed]
-    PV --> AP[Apply with merge rules<br/>done tasks, comments, evidence untouched]
-    AP --> LOG[Migration log on each market]
-    MK[Market with custom tasks] -->|"update template from this market"| DR
+    PUB --> NEW[New events use n+1]
+    PUB -.->|optional, separate action| AP["Apply to events…"<br/>nothing pre-selected]
+    AP --> PV[Preview per event]
+    PV --> GO[Apply: done tasks, comments, evidence untouched]
+    EV[Event with learned extra tasks] -->|"update template from this event"| DR
 ```
 
-## 5. Task lifecycle (P1)
-
-```mermaid
-stateDiagram-v2
-    [*] --> todo
-    todo --> in_progress
-    todo --> blocked: dependency open
-    blocked --> todo: blocker done (notify assignee)
-    in_progress --> waiting_external: waiting for authority/supplier
-    waiting_external --> in_progress
-    in_progress --> done: evidence complete
-    in_progress --> pending_approval: needs approval
-    pending_approval --> done: approved
-    pending_approval --> in_progress: rejected (with reason)
-    todo --> skipped: not applicable (reason)
-    todo --> cancelled: removed from template / market cancelled
-    done --> [*]
-```
-(`pending_approval` is stored as `status = done` + `approval_status = pending`.)
-
-## 6. Deadline sweep & escalation (P1)
+## 6. Deadlines, carry-over, escalation (P1)
 
 ```mermaid
 flowchart TD
-    C[Worker every 15 min] --> Q[Open tasks & permits with deadlines]
-    Q --> S{dueState}
-    S -->|none| X[skip]
-    S -->|due soon 7/3/1 d| R[Reminder → assignee<br/>or all holders of duty role]
-    S -->|overdue| O[Overdue → assignee]
+    C[Worker every 15 min] --> Q[Open tasks · permits · instalments · rentals · obligations · missing time records]
+    Q --> S{due state}
+    S -->|due soon| R[Reminder → responsible person<br/>office: in-app/email · field: WhatsApp]
+    S -->|overdue| O[Overdue → responsible person]
     O --> E1{"+1 day still open?"}
-    E1 -->|yes| E2[Escalate → managers]
-    E2 --> E3{"+3 days?"}
-    E3 -->|yes| B[Shown red on boss view]
-    R & O & E2 --> DK[(notification<br/>unique dedupe_key)]
-    DK --> DG[07:00 daily digest email]
+    E1 -->|yes| MG[Escalate → office manager]
+    N[Nightly 00:05] --> RO[Overdue tasks roll into 'Heute' ↻n]
+    RO -->|n ≥ 3| MG
+    R & O & MG --> DG[07:00 digest · dashboard 'Heute fällig']
 ```
 
-## 7. Permit lifecycle (P1)
-
-```mermaid
-stateDiagram-v2
-    [*] --> not_started: generated from venue requirement
-    not_started --> preparing: prep tasks started
-    preparing --> applied: submitted to authority
-    applied --> granted
-    applied --> rejected
-    rejected --> preparing: resubmit
-    granted --> superseded: renewed (new version links to old)
-    not_started --> not_required
-    granted --> [*]
-    note right of granted
-      expiring / expired are derived from valid_until
-      conditions (Auflagen) → tasks
-    end note
-```
-
-## 8. Booking pipeline (P2)
+## 7. Staff hours & Minijob month (P1)
 
 ```mermaid
 flowchart TD
-    F[Public booking form] --> IN[booking: submitted]
-    EM[Email in shared inbox] -->|convert to booking| INQ[booking: inquiry]
-    PH[Phone / walk-in] --> INQ
-    INQ --> IN
-    IN --> RV{Review<br/>caps · documents · history}
-    RV -->|missing info| NI[needs_info → vendor fixes]
-    NI --> RV
-    RV -->|over cap / full| WL[waitlisted]
-    RV -->|no| DC[declined + reason]
-    RV -->|yes| AP[approved]
-    AP --> PL[Placement: proposed → held → assigned<br/>row + metre interval]
-    PL --> INV[Invoice draft → released<br/>GiroCode + reference]
-    INV -->|payment matched (CAMT)| PD[paid]
-    INV -->|overdue| DUN[reminder → release hold]
-    PD --> AR[Arrival info mail T-3]
-    AR --> DAY[Market day: checked_in / no_show]
+    SH[Shift planned per event<br/>suggested by role + remaining allowance] --> W[Event day]
+    W --> T[Actual times entered<br/>by lead or via magic link]
+    T -->|missing on day 5| AL[Reminder staff + manager<br/>legal deadline day 7 §17 MiLoG]
+    T --> TP[Team page: hours, pay, remaining allowance,<br/>YTD, overrun months]
+    TP -->|> €603 planned| AM[Amber: only if unforeseeable / annual avg OK]
+    TP -->|> €1,206 or 3rd overrun| RD[Red: needs documented reason]
+    TP --> MC[Month close ~10th: lock → approve]
+    MC --> EX[CSV / DATEV LODAS export → payroll office by 15th]
 ```
 
-## 9. Email triage (P2)
+## 8. Payables with instalments (P1)
+
+```mermaid
+flowchart LR
+    S[Location fee €15,000] --> G[Instalment plan<br/>e.g. 6,000 + 6,000 + 3,000]
+    G --> R1[Reminders 14 d · 3 d · due day → finance role]
+    R1 --> PD{Paid?}
+    PD -->|mark paid + receipt photo| AC[Actual cost on event P&L]
+    PD -->|overdue| ES[Escalate → manager · top of 'Heute fällig']
+    AC --> EXP[Monthly bundle → tax advisor]
+```
+
+## 9. Booking intake while the old website stays (P2)
+
+```mermaid
+flowchart TD
+    W[Old website booking form] -->|system email / DB sync| IN[Intake]
+    EM[Free-text email] --> TRI[Inbox triage]
+    PH[Phone after Monday cut-off] --> QE[Phone entry screen]
+    IN --> SPLIT[Split multi-date request<br/>→ one request per event]
+    TRI -->|human converts · P4: AI draft, human confirms| SPLIT
+    QE --> SPLIT
+    SPLIT --> Q1[Event A queue] & Q2[Event B queue]
+    Q1 --> AL[Drag onto slot · Autoplatz yes/no per date]
+    AL --> CF[Confirmation email + Platzkarte<br/>states car space per date · invoice if requested]
+    CF --> PC[Payment check session Mon/Wed/Fri]
+    PC -->|matched| PAID[paid · optional 'Zahlung erhalten']
+    PC -->|after deadline| RM[Reminder draft → a person sends]
+    RM -->|still unpaid| CX[Cancel with notice]
+```
+
+## 10. Payment check session (P2)
 
 ```mermaid
 sequenceDiagram
-    participant EX as Exchange Online<br/>(shared mailbox)
-    participant API as marktwerk webhook
-    participant W as Worker
-    participant UI as Triage view
-    EX->>API: change notification (new message)
-    API->>W: enqueue mailbox-sync
-    W->>EX: delta query → fetch message
-    W->>W: thread by conversationId, match sender → vendor
-    W->>UI: new open thread (assigned by rule / inbox duty)
-    UI->>UI: staff reads, writes internal note @Anna
-    UI->>W: "convert to booking draft" (prefilled) or "create task"
-    UI->>EX: reply via Graph sendMail (as shared mailbox)
-    EX->>API: vendor replies → thread reopens
+    actor O as Office
+    participant App as marktwerk
+    O->>App: upload bank export (CSV / CAMT.053)
+    App->>App: match by reference → amount + name
+    App-->>O: 23 suggested matches · 4 unclear · 2 partial
+    O->>App: confirm batch, resolve unclear by search
+    App-->>O: unpaid after deadline: 6 → reminder drafts
+    O->>App: review & send (logged who/when)
 ```
 
-## 10. Market day in the field (P3)
+## 11. Rentals & shortages (P2)
+
+```mermaid
+flowchart LR
+    R[Event requirements<br/>from preset: 3 standpipes, 12 cables…] --> AV{Availability over<br/>setup→teardown, all events that weekend}
+    AV -->|ok| PK[Packing list]
+    AV -->|shortage| SO["Solve shortage → rent"]
+    SO --> RT[Rental: supplier · return by · deposit · meter readings]
+    RT --> RR[Return reminders → responsible + manager]
+    RR --> RET[Returned · deposit back · cost on event P&L]
+```
+
+## 12. Market day in the field (P3)
 
 ```mermaid
 flowchart TD
-    O[Open field app the evening before] --> C[Day sheet + stall list + checklist cached offline]
-    C --> A[05:30 set-up checklist<br/>photo: fire lane clear]
-    A --> G[06:00 vendor arrival: search / QR → check in]
-    G --> NS{07:30 no-show?}
-    NS -->|yes| RL[Release stall → walk-up]
-    RL --> WU[Walk-up registration + payment<br/>method depends on M10 decision]
-    G --> L[Live: incidents log, Ordnungsamt visit]
-    L --> T[Teardown checklist + cleaning photos]
-    T --> CL[Day close-out: attendance explicit, cash/card totals]
-    CL --> SY[Sync when online → post-event tasks start]
+    O[Evening before: day sheet cached offline] --> A[Set-up checklist with photos]
+    A --> G[Vendor arrival: check-in, Autoplatz as confirmed]
+    G --> NS{No-show?} -->|yes| RL[Release stall → walk-up]
+    G --> VT[Vendor talks → quick notes to CRM]
+    G --> L[Incidents, authority visits]
+    L --> T[Tear-down, returns, cleaning photos]
+    T --> CL[Day close-out → shifts actual times]
 ```

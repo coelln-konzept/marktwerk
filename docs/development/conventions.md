@@ -11,7 +11,7 @@
 - Business mutations go through a service that (1) checks permission, (2) runs in a transaction,
   (3) writes `audit_log`, (4) enqueues follow-up jobs/notifications.
 - Pure logic (dates, pricing, health, permissions) goes in `packages/core` with unit tests. No I/O there.
-- Market instantiation, anchor shifts and template propagation each have **one** service function used by
+- Event instantiation, anchor shifts and template propagation each have **one** service function used by
   all callers (UI, bulk jobs, imports).
 
 ## Database
@@ -22,7 +22,7 @@
 - Business tables get `archivedAt` instead of hard deletes.
 
 ## Dates & time
-- Store instants as `timestamptz`. Market days are `date`. Convert with `@marktwerk/core` helpers in
+- Store instants as `timestamptz`. Event days and due dates are `date`. Convert with `@marktwerk/core` helpers in
   `Europe/Berlin`. Never use `new Date(y, m, d)` for business dates.
 
 ## UI
@@ -34,7 +34,7 @@
 ## Testing
 - `packages/core`: unit tests for every rule (Vitest). Test DST and edge dates for anything date-related.
 - Services: integration tests against a real Postgres (test database, from M1).
-- E2E (Playwright, from M2): login, create market from series, complete a task, permit reminder.
+- E2E (Playwright, from M2): login, create event from preset, complete a task, permit reminder.
 
 ## Git
 - Branches: `feat/…`, `fix/…`, `chore/…`, `docs/…`. Small PRs. Conventional commit messages

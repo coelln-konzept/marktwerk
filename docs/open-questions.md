@@ -1,58 +1,71 @@
 # Open questions & decisions log
 
-## Decided (2026-10-20, product owner)
-| Topic | Decision |
-|---|---|
-| Tenancy | Single company only (ADR 0002) |
-| Country / languages | Germany; UI in German + English |
-| Stack | Next.js + PostgreSQL + Drizzle monorepo (ADR 0001) |
-| Team | Product owner + Claude; GitHub repo `marktwerk` |
-| Email provider | Microsoft 365 (ADR 0008) |
-| Payments | Bank transfer (Überweisung) + cash on market day |
-| Hosting | Keep portable, decide before pilot (ADR 0006) |
-| Scale | Medium: 30–150 markets/year, 5–20 staff, 1,000–5,000 vendors |
-| MVP focus | Tasks, checklists, deadlines (→ Phase 1 = "Nothing slips") |
-| Accounting | Decide later; MVP exports CSV/DATEV |
-| Product name | marktwerk |
+## Decided
+| Date | Topic | Decision |
+|---|---|---|
+| 2026-10-20 | Tenancy | Single company only (ADR 0002) |
+| 2026-10-20 | Country / languages | Germany; UI German + English |
+| 2026-10-20 | Stack | Next.js + PostgreSQL + Drizzle monorepo (ADR 0001) |
+| 2026-10-20 | Team / repo | Product owner + Claude; GitHub `coelln-konzept/marktwerk` |
+| 2026-10-20 | Email | Microsoft 365 (ADR 0008) |
+| 2026-10-20 | Payments | Bank transfer + cash on market day |
+| 2026-10-20 | Scale | Medium; up to 4 events per weekend |
+| 2026-10-20 | MVP focus | Tasks, checklists, deadlines |
+| 2026-10-21 | Template propagation | **Never automatic, nothing pre-selected.** Applying a new version to events is a deliberate editor action with preview |
+| 2026-10-21 | Escalation | Overdue items escalate **only to the office manager** for now |
+| 2026-10-21 | Field access | Field users see **only events they work at** (shift/duty) |
+| 2026-10-21 | Vendor data in MVP | **Yes**: import the existing vendor list (read-only) in Phase 1 |
+| 2026-10-21 | Core entity | **"Veranstaltung" (event) with a type** (ADR 0010) |
+| 2026-10-21 | Phase 1 order after the core | **Staff hours & Minijob**, then **payables & instalments**; WhatsApp & shifts after that |
+| 2026-10-21 | Terminology | **Vendor + Visitor** only; never "customer" |
+| 2026-10-21 | From the client meeting | Internal first (old website stays); no AI in operations; manual payment reminders; WhatsApp for staff; time estimates per task (ADRs 0011–0015) |
 
 ## Open: product owner
-1. **Template propagation default:** when a template is published, should "apply to all future
-   markets" be pre-selected, or "none"? (Proposal: pre-select *all future*, always with preview.)
-2. **Escalation ladder:** who gets escalations at +1 day: all managers, or a named person per duty role?
-3. **Field crew access:** can field crew see only markets they're rostered on, or all markets?
-4. **Hosting** (ADR 0006): preference between managed (Vercel + Neon) and self-hosted (Hetzner)?
-5. **Vendor data in Phase 1?** Should the MVP already import the existing vendor list (read-only),
-   even though booking features come in Phase 2?
+1. **Hosting** (ADR 0006): the meeting favoured cloud for year 1 + local backup. Managed (Vercel + Neon) or
+   Hetzner (German jurisdiction, one place)? What is the company's own server (NAS model?), so we can plan the backup copy?
+2. **Vendor import in Phase 1** (decided "yes"): source = the old website's database. Do we get read access
+   soon, or start from an Excel export?
+3. **WhatsApp:** which phone sends? (the office's existing WhatsApp number via Coexistence, or a new number).
+   Is there a works council (Betriebsrat)? (Affects step 2 of ADR 0011 only.)
 
-## Open: client discovery (ask the flea-market company)
-**Operations**
-- List of venues, markets per year, which are recurring series vs one-offs, typical market-day timeline.
-- Current checklists (paper/Excel) per venue. Who does what? Which duty roles exist in reality?
-- Which tasks are most often forgotten or late? Last 3 near-misses?
-- How does the team communicate today (WhatsApp groups, phone)? What must stay on WhatsApp?
+## Open: client (next meeting / workshop)
+**Timeline workshop (top priority, feeds M2)**
+- Per event type: what happens 6 months / 2 months / 2 weeks / 1 week before, on the day, after? Who does it?
+  **How long does each take?**
+- Which tasks get forgotten most? Which belong to Lars (logistics), Bruno, the office?
 
-**Permits**
-- Full list of permits per venue: type, authority, lead time, validity, cost, typical conditions (Auflagen).
-- Which markets are Sunday/holiday markets? Any "no new goods / no commercial vendors" conditions?
-- Do they hold a §69 GewO Festsetzung? Per year, per date?
+**Permits (M3)**
+- Complete list per location: city (market, water, signage + stickers, no-parking) / external (toilets, landowner…).
+  "23 market permits depending on location": what exactly does that mean?
+- Which locations have application windows or allocation by the city (river promenade: decision in January)?
+- Multi-year agreement (Linz?): which dates, what does it include?
+- Poster permits per city (Cologne itself grants none for event posters; which cities issue stickers?).
 
-**Bookings & money (for Phase 2)**
-- Price list (per metre, categories, car/van, corner, power), cancellation policy, reservation fees.
-- Share of regulars; how Stammplätze are handled today; waiting lists?
-- How bookings arrive (form/email/phone/WhatsApp) and the volume per market.
-- Invoice samples; VAT situation (§4 Nr. 12 exempt? Kleinunternehmer?); who is the tax advisor; which software (DATEV?).
-- Cash on market day: volume, how it's counted and recorded today (→ ADR 0009, ask the Steuerberater).
-- Bank: can they export CAMT.053 statements (most German banks can)?
+**Staff & payroll (M4)**
+- List of staff: contract type, hourly rate, contracted weekly hours (§12 TzBfG), other Minijobs?
+- What exactly goes to whom by the 15th (hours of the previous month? forecast?), in which format (DATEV?)
+- Do staff already record start/end times (§17 MiLoG, 7-day deadline)?
 
-**Microsoft 365**
-- Which mailboxes (shared `buchung@`, `info@`…)? Who is the M365 admin (needed for the app registration)?
-- Licence type (Business Basic/Standard/Premium)?
+**Money (M5)**
+- All payables with instalment plans (location fees!), recurring company costs, insurances.
+- Does the tax advisor use DATEV Unternehmen online (→ Upload Mail for receipts)?
+- VAT: are stall fees treated as exempt (§4 Nr. 12a)? Food/festival stalls? The €2.50 fee? Any §9 option? (for M9)
 
-**Field**
-- Phones used by field crew (Android/iOS, age), mobile reception at venues, gloves/rain constraints.
+**Company (M6)**
+- Vehicles: plates, gross weight, HU dates; is the yearly UVV inspection being done?
+- Lars's stall company: how is renting stalls from it handled (contract, invoices per event)?
 
-## Research gaps to close (hands-on)
-Our web research couldn't open vendor pages directly and hit search limits, so some findings are
-from snippets or background knowledge (marked [K] in research 04). Worth trialling hands-on:
-**Crescat**, **Connecteam** (free plan), **Marketspread**, **OnePlan** (demo), and one German tool
-(**Marktmeister Pro** or **VOIS|MARKT**).
+**Bookings (Phase 2)**
+- Access to the old website (admin + server/DB) → copy into a sandbox.
+- Price rules per event type (€15/m, booking fee €2.50, car rules, food yearly contracts, first event free).
+- Stall maps per location (paper/PDF): can we have them?
+- Newsletter: was an opt-out notice ever shown at booking (§7(3) UWG soft opt-in)? Size of the list?
+
+**Field (Phase 3)**
+- Cash on market day: how much, how recorded today? → tax advisor (ADR 0009, KassenSichV).
+
+## Research gaps to close hands-on
+Our web research couldn't open vendor pages directly; some points rest on snippets ([K]/(verify) markers).
+Worth trialling: **Crescat**, **Connecteam** (free), **Marketspread**, **Rentman** (equipment & crew),
+**Shiftbase** or **Papershift** (Minijob tracking), **OnePlan** (maps). Before quoting WhatsApp costs, check
+Meta's current German rate card.

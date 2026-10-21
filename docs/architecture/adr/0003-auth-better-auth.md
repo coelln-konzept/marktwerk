@@ -11,7 +11,8 @@ projects to Better Auth. Supabase Auth would tie us to Supabase.
   lets the owner create users, set roles and deactivate (ban) them.
 - **Permission roles** are fixed: `owner | manager | staff | field`. Domain permissions are checked with
   `can()` from `@marktwerk/core`. Better Auth's own access control only guards user-management endpoints.
-- **Duty roles** (Marktleitung, Aufbau…) are data, mapped per market. They drive task assignment, not permissions.
+- **Duty roles** (Marktleitung, Aufbau…) are data, mapped per event. They drive task assignment, not permissions.
+- Assignable people are **staff members**, who may have no login (ADR 0012). Staff without login use signed magic links.
 - Vendors (Phase 4 portal) authenticate with magic links. They're stored separately from staff users or with a
   `vendor` role excluded from the back office (decide in Phase 4).
 

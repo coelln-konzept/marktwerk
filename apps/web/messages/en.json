@@ -1,21 +1,24 @@
 {
   "app": {
     "name": "marktwerk",
-    "tagline": "Operating system for flea markets"
+    "tagline": "Operating system for events"
   },
   "nav": {
     "overview": "Overview",
-    "myTasks": "My tasks",
-    "markets": "Markets",
-    "venues": "Venues",
+    "board": "Board",
+    "events": "Events",
+    "logbook": "Logbook",
+    "team": "Team",
+    "finance": "Finance",
+    "company": "Company",
+    "vendors": "Vendors",
     "templates": "Templates",
-    "permits": "Permits",
     "knowledgeBase": "Knowledge base",
     "notifications": "Notifications",
-    "inbox": "Inbox",
-    "vendors": "Vendors",
-    "bookings": "Bookings",
     "settings": "Settings",
+    "bookings": "Bookings",
+    "inbox": "Inbox",
+    "inventory": "Inventory",
     "comingSoon": "Phase 2",
     "signOut": "Sign out"
   },
@@ -36,7 +39,7 @@
   "overview": {
     "title": "Overview",
     "greeting": "Hello {name}",
-    "placeholder": "The owner overview goes here: traffic light per upcoming market (permits, tasks, occupancy), critical deadlines and overdue tasks. See docs/product/roadmap.md, milestone M1."
+    "placeholder": "The overview goes here: \"due today\" ranked by priority (tasks, permits, instalments, returns), a finance filter and next weekend at a glance. See docs/product/roadmap.md, milestone M5."
   },
   "errors": {
     "forbidden": "You don't have permission to do that.",

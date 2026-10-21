@@ -1,279 +1,264 @@
 # Data model
 
-Status: **draft v0.2**, revised after the product teardowns ([research 02–04](../research/)).
-Phase-1 tables are designed in detail. Later phases are sketched so Phase 1 doesn't paint us
-into a corner. Once the Drizzle schema exists, `packages/db/src/schema/` is the source of truth
-and this document is kept in sync with it.
+Status: **draft v0.3 (2026-10-21)**, revised after the client meeting (research 05) and follow-up research
+06–08. Changes from v0.2: **`event` replaces `market`** (ADR 0010), **event presets** (the old website's
+"presets") replace market series, **staff members** separate from login users (ADR 0012), time estimates,
+permit categories and logbook, staff hours/Minijob, payables & instalments, obligations/vehicles,
+inventory & rentals. Once the Drizzle schema exists in `packages/db/src/schema/`, it is the source of
+truth and this document is kept in sync with it.
 
 ## Principles
+1. **Blueprint → instance.** Event types, presets, locations and templates are blueprints. Events, checklists,
+   tasks, permits-per-event, shifts and requirements are instances that record their blueprint and version.
+2. **Relative dates are stored as rules and as results** (anchor + signed offset + computed `due_at`). Open,
+   non-overridden tasks follow anchor changes; done tasks never move.
+3. **Several named anchors per event** (event day, setup day, booking cut-off, permit decision, custom).
+4. **Templates reference duty roles, not people.** Events map duty roles → staff members (defaults per preset).
+5. **Template changes reach existing events only through a deliberate, previewed action** with nothing pre-selected.
+6. **Separate status layers** instead of one overloaded status (events: lifecycle vs. booking flags; bookings:
+   booking / date / placement / payment / attendance).
+7. **Health is computed**; overrides need a reason.
+8. **Single entry for money:** a permit fee *is* a payable; marking an instalment paid *is* the expense;
+   receipts are evidence attached to it, never summed separately.
+9. Single company, no tenant column. **Money in integer cents, lengths in integer centimetres.** Instants are
+   `timestamptz`; business dates (event days, due dates of instalments, shift days) are `date` in `Europe/Berlin`.
+10. UUID v7 IDs (Better Auth tables keep text IDs). Soft delete via `archived_at`. Issued invoices, time
+    records and receipts are never edited silently (versioned or immutable).
+11. **Audit log** for every business mutation, in the same transaction.
+12. **Legal numbers are data**, never constants (minimum wage, Minijob limit, HU intervals…), with valid-from dates.
 
-1. **Blueprint → instance.** Venues, series and templates are long-lived blueprints. Markets,
-   checklists, tasks and permits are instances created from them. An instance records which
-   blueprint *version* it came from, so changes can be pushed to *future* instances on purpose
-   without rewriting history. (Crescat event types; Process Street versioned runs.)
-2. **Relative dates are stored as rules and as results.** A task stores its anchor + offset
-   *and* the computed `due_at`. When an anchor date changes, open tasks that weren't edited by
-   hand are recalculated. Done tasks never move. (Paperless Pipeline trigger dates; ClickUp
-   "don't move closed items".)
-3. **Several named anchors per market**, not one. T-30 *before* and T+2 *after*
-   both work. (The Asana single-anchor pain point.)
-4. **People are not hard-coded in templates.** Templates reference *duty roles*. Each market maps
-   duty roles to people, with defaults per series. (Asana/Manifestly role placeholders.)
-5. **Separate status layers instead of one overloaded status** (decisive for bookings in Phase 2,
-   see research 02).
-6. **Health is computed, not hand-set**; an override needs a written reason. (Asana portfolio drift.)
-7. **Single company, no tenant column.** Company-wide settings live in one `settings` row.
-8. **Money in integer cents** (`*_cents`, EUR). **Lengths in centimetres** (`*_cm`).
-9. **Time:** `timestamptz` (UTC) for instants. Market days are `date` + local `time` in the company
-   time zone (`Europe/Berlin`). Relative deadlines keep their wall-clock time across DST
-   (`resolveRelativeDue` in `@marktwerk/core`).
-10. **IDs:** UUID v7 generated in the app (auth tables use Better Auth's text IDs).
-11. **Soft delete** (`archived_at`) for business records. Issued invoices are immutable (GoBD).
-12. **Audit everything that matters** in `audit_log`, in the same transaction as the change.
-13. **Custom fields** (`custom_fields jsonb`) on venue and market, with definitions in settings,
-    so new facts like gate codes or landlord references don't each need a migration. (Crescat metadata.)
-
-## Two kinds of roles
-
-| | Permission role | Duty role |
+## Who's who
+| Concept | Table | Notes |
 |---|---|---|
-| What | What a user may *do* in the system | What a person *is responsible for* at a market |
-| Values | `owner`, `manager`, `staff`, `field` (fixed, `@marktwerk/core`) | Configurable: Marktleitung, Aufbau-Team, Büro/Buchung, Genehmigungen, Kasse… |
-| Where | `user.role` | `duty_role` table; mapped per series and per market |
-| Used by | `can()` checks | Template items, task assignment, filters |
+| Person working for the company | `staff_member` | Assignable to tasks/shifts; hours tracked; may have **no login**; WhatsApp number + opt-in; magic-link token |
+| Login | `user` (Better Auth) | Optional 1:1 link `staff_member.user_id`; has the permission role |
+| Responsibility at an event | `duty_role` | Template placeholder (Marktleitung, Aufbau, Büro, Genehmigungen, Kommunikation, Kasse, Wasser/Strom) |
+| Outside organisation/person | `contact` | `kind`: authority, landowner, supplier, service, other |
+| Vendor (Phase 2) | `vendor` | Never called "customer" |
 
-## Phase 1 entity-relationship diagram
+## Phase 1 ERD (simplified)
 
 ```mermaid
 erDiagram
-    USER ||--o{ TASK : "assignee"
-    USER ||--o{ NOTIFICATION : receives
-    DUTY_ROLE ||--o{ MARKET_DUTY_ASSIGNMENT : ""
-    USER ||--o{ MARKET_DUTY_ASSIGNMENT : ""
+    EVENT_TYPE ||--o{ EVENT_PRESET : ""
+    VENUE ||--o{ EVENT_PRESET : ""
     VENUE ||--o{ ZONE : has
-    VENUE ||--o{ MARKET_SERIES : hosts
-    VENUE ||--o{ MARKET : hosts
-    VENUE ||--o{ PERMIT_REQUIREMENT : needs
-    MARKET_SERIES ||--o{ MARKET : generates
-    MARKET_SERIES ||--o{ SERIES_TEMPLATE : "applies"
-    MARKET ||--o{ MARKET_ANCHOR : "named dates"
-    MARKET ||--o{ MARKET_DUTY_ASSIGNMENT : "who does what"
-    CHECKLIST_TEMPLATE ||--o{ TEMPLATE_VERSION : "published versions"
-    TEMPLATE_VERSION ||--o{ TEMPLATE_ITEM : contains
-    CHECKLIST_TEMPLATE ||--o{ SERIES_TEMPLATE : ""
-    MARKET ||--o{ CHECKLIST : has
-    TEMPLATE_VERSION ||--o{ CHECKLIST : "instantiated as"
+    VENUE ||--o{ LOCATION_AGREEMENT : "multi-year"
+    EVENT_PRESET ||--o{ EVENT : generates
+    LOCATION_AGREEMENT ||--o{ EVENT : "fixed dates"
+    EVENT ||--o{ EVENT_ANCHOR : "named dates"
+    EVENT ||--o{ EVENT_DUTY : "who does what"
+    STAFF_MEMBER ||--o{ EVENT_DUTY : ""
+    DUTY_ROLE ||--o{ EVENT_DUTY : ""
+    USER |o--o| STAFF_MEMBER : "login"
+    CHECKLIST_TEMPLATE ||--o{ TEMPLATE_VERSION : versions
+    TEMPLATE_VERSION ||--o{ TEMPLATE_ITEM : items
+    EVENT_PRESET }o--o{ CHECKLIST_TEMPLATE : "applies"
+    EVENT ||--o{ CHECKLIST : has
     CHECKLIST ||--o{ TASK : contains
-    TEMPLATE_ITEM ||--o{ TASK : "origin"
-    TASK ||--o{ TASK_DEPENDENCY : "blocked by"
-    TASK ||--o{ TASK_CHECK_ITEM : "sub-items"
-    TASK ||--o{ TASK_COMMENT : has
-    CONTACT ||--o{ PERMIT : "issued by (authority)"
-    PERMIT_REQUIREMENT ||--o{ PERMIT : "instantiated as"
-    MARKET }o--o{ PERMIT : "covered by (market_permit)"
-    PERMIT ||--o{ TASK : "generates (incl. Auflagen)"
-    PERMIT ||--o| PERMIT : "supersedes"
-    FILE ||--o{ FILE_LINK : "attached via"
+    TEMPLATE_ITEM ||--o{ TASK : origin
+    STAFF_MEMBER ||--o{ TASK : assignee
+    PERMIT_REQUIREMENT ||--o{ PERMIT : instantiates
+    EVENT }o--o{ PERMIT : "covered by"
+    PERMIT ||--o{ TASK : "prep & Auflagen"
+    PERMIT ||--o{ PAYABLE : "fee"
+    EVENT ||--o{ PAYABLE : "event costs"
+    PAYABLE ||--o{ INSTALLMENT : "rates"
+    PAYABLE ||--o{ DOCUMENT : receipts
+    EVENT ||--o{ SHIFT : staffing
+    STAFF_MEMBER ||--o{ SHIFT : works
+    STAFF_MEMBER ||--o{ EMPLOYMENT_CONTRACT : "dated terms"
+    VEHICLE ||--o{ OBLIGATION : "HU, UVV, service"
+    STAFF_MEMBER ||--o{ NOTIFICATION : receives
 ```
 
 ## Phase 1 tables
 
-### People & access
-- **user / session / account / verification**: Better Auth (exists, see `schema/auth.ts`). Extra
-  columns: `role` (permission role), `locale`, `phone`. Deactivation uses the admin plugin's `banned`.
-- **settings** (single row): company master data, IBAN, time zone, default due time, reminder
-  policy, `bundesland` (for public holidays), custom field definitions. *(exists)*
-- **duty_role**: `key` (`market_lead`, `setup_crew`, `office`, `permits`, `cash`…), `name_de`, `name_en`,
-  `default_user_id?`, `sort`.
+### Access & people
+- **user / session / account / verification**: Better Auth *(exists)*. `user.role` = permission role.
+- **settings** *(exists)*: company data, IBAN, time zone, Bundesland (`NW`), default due time, reminder policy.
+- **staff_member**: `display_name`, `first_name`, `last_name`, `phone_e164`, `whatsapp_opt_in_at`,
+  `whatsapp_opt_in_method`, `email?`, `user_id?` (unique), `preferred_duty_role_ids`, `active`,
+  `magic_link_version` (bump to revoke all links), notes.
+- **duty_role**: `key`, `name_de`, `name_en`, `default_staff_member_id?`, `sort`.
 
-### Venues, contacts
-- **venue**: name, slug, address, lat/lng, `kind` (`outdoor_public | outdoor_private | indoor`),
-  `bundesland`, `capacity_cm`, access notes (gate code etc. in `custom_fields`), default times
-  (setup/open/close/teardown), `landowner_contact_id`, `custom_fields`, `archived_at`.
-- **zone**: `venue_id`, `name`, `code`, `kind` (`rows | fixed_slots | free_area`), `capacity_cm`,
-  `sort`. **row** comes in Phase 2: length, depth, car allowed, power, corner ends.
-- **contact**: external person/organisation. `kind` (`authority | landowner | supplier | service | other`),
-  organisation, name, email, phone, address, notes. Authorities are contacts of `kind = authority`.
+### Event catalogue
+- **event_type**: `key` (`flea`, `antique_design`, `design`, `food_wine`, `city_festival`, `theme`, `workshop`,
+  `tournament`, `other`), names, colour, rules jsonb: `new_goods_max_share` (e.g. 0.3), `banned_goods`
+  (e.g. batteries, phone cases), `online_booking_allowed` (false for food), `default_price_per_m_cents`
+  (1500), `default_booking_fee_cents` (250).
+- **venue** (location): name, address, lat/lng, city, `kind`, `bundesland`, capacity, access info,
+  `landowner_contact_id?`, `custom_fields`, archived_at.
+- **zone / row**: zones with rows (`length_cm`, `depth_cm`, `car_allowed`, `car_slots`, `power`, `water`).
+  Phase 1 needs zones + capacity; rows matter from M8.
+- **event_preset** ("Vorlage", the old website's preset): `event_type_id`, `venue_id`, `name`,
+  `public_title`, `public_text` (rich text, for the website later), `price_per_m_cents`, `booking_fee_cents`,
+  `default_times` (setup/open/close/teardown), `rrule?`, `default_duties` (duty_role → staff_member),
+  `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M11), active.
+- **location_agreement**: `venue_id`, counterparty contact, `valid_from`, `valid_until`, `fixed_dates` (date[]),
+  terms, documents. Generates events. Doesn't replace permits.
 
-### Markets
-- **market_series**: `venue_id`, name, `rrule` (RFC 5545), season start/end, default times,
-  `default_duty_assignments` (jsonb: duty_role → user), active.
-  Generating markets is an explicit, previewable action ("pick dates in a calendar → generate N").
-- **market**: `venue_id`, `series_id?`, name, `market_date`, `end_date?`, local times,
-  `status` (`draft | planned | confirmed | live | completed | cancelled`), `capacity_cm_override`,
-  `target_revenue_cents`, flags (`is_sunday_or_holiday` computed, `commercial_allowed`, `new_goods_allowed`),
-  `health_override` + `health_override_reason`, `custom_fields`, notes.
-- **market_anchor**: `(market_id, key)` → `date`. Keys: `market_day` (always = `market_date`),
-  `setup_day`, `booking_open`, `booking_close`, `season_start`, plus custom keys. A template item
-  whose anchor is missing gets **no due date** until the anchor is set.
-- **market_duty_assignment**: `(market_id, duty_role_id)` → `user_id`. Pre-filled from the series.
-  Changing it reassigns all open tasks for that duty role that weren't individually reassigned.
+### Events
+- **event**: `preset_id?`, `event_type_id`, `venue_id`, `name`, `starts_on` (date), `ends_on` (date),
+  local times, **`status`** (`draft | planned | confirmed | live | completed | closed | cancelled`)
+  where *planned* = announced/public but permit not confirmed (not bookable),
+  **booking flags**: `booking_open` (bool), `fully_booked` (bool), `car_spaces_full` (bool);
+  `price_per_m_cents` (copied from preset, overridable), `booking_fee_cents`, `target_revenue_cents?`,
+  `health_override?` + reason, `custom_fields`, notes, `cancelled_reason?`.
+- **event_anchor**: `(event_id, key)` → `date`. Keys: `event_day` (= starts_on), `setup_day`, `teardown_day`,
+  `booking_cutoff` (default: **Monday before** the event), `permit_decision`, custom. Missing anchor → task has no due date yet.
+- **event_duty**: `(event_id, duty_role_id)` → `staff_member_id`. Reassigning reassigns open, not individually
+  reassigned tasks of that duty role.
 
-### Templates (versioned)
-- **checklist_template**: name, description, `scope` (`market | permit | general`),
-  `current_version_id`, active.
-- **template_version**: `template_id`, `version` (int), `status` (`draft | published | retired`),
-  `published_at`, `published_by`, `changelog`. Published versions are immutable; editing creates a
-  new draft.
-- **template_item**: `version_id`, `stable_key` (uuid kept across versions, used for propagation),
-  title, description (rich text), `phase` (`pre | live | post`),
-  `anchor_key` (default `market_day`), `offset_days` (signed), `day_mode` (`calendar | business`),
-  `due_time?`, `duty_role_id?`, `priority` (`low | normal | high | critical`),
-  **evidence**: `requires_photo`, `min_photos`, `requires_note`, `requires_attachment`,
-  `check_items` (jsonb list of sub-items), `requires_approval_by` (duty role or permission role),
-  `depends_on_keys` (stable keys), `condition` (jsonb on market attributes, e.g. `{ "venue.kind": "indoor" }`),
-  `sort`.
-- **series_template**: `(series_id, template_id)` lists the templates auto-applied to markets of the
-  series. **venue_template** does the same for one-off markets at a venue.
+### Templates, tasks, kanban
+- **checklist_template**, **template_version** (`draft | published | retired`, immutable when published),
+  **template_item** (`stable_key`, title, description, `phase`, `category` (`general | permits | logistics |
+  communication | finance | staff`), `anchor_key`, `offset_days`, `day_mode` (`calendar | business`), `due_time?`,
+  `duty_role_id?`, `priority`, **`estimate_minutes`**, evidence (`requires_photo`, `requires_note`,
+  `requires_attachment`, `check_items`), `requires_approval_by?`, `depends_on_keys`, `condition` (on event
+  type/venue attributes), sort).
+- **checklist**: `event_id?`, `permit_id?`, `template_version_id?`, name.
+- **task**: origin (`event_id?`, `checklist_id?`, `template_item_id?`, `template_stable_key?`, `permit_id?`,
+  `payable_id?`, `parent_task_id?`, `source` (`template | manual | permit | permit_condition | obligation |
+  rental | email | system`)), title, description, `phase?`, `category`, `priority`, labels;
+  assignment (`duty_role_id?`, `assignee_id → staff_member`, `assignee_overridden`); timing (`anchor_key?`,
+  `offset_days?`, `day_mode`, `due_at?`, `due_overridden`); **effort** (`estimate_minutes`, `effort_feedback`
+  `as_planned | longer | shorter`); state (`status` `todo | in_progress | waiting_external | blocked | done |
+  skipped | cancelled`, `waiting_reason?`, `completed_at?`, `completed_by?`, `approval_status?`);
+  **kanban** (`board_column?` override, `board_sort`); **carry-over** (`rollover_count`, `last_rolled_at`);
+  template tracking (`customized`, `removed_from_template`).
+- **task_check_item**, **task_dependency** (doesn't move dates), **task_comment**, **task_watcher**.
 
-### Checklists & tasks
-- **checklist**: `market_id?`, `permit_id?`, `template_version_id?`, name.
-- **task**:
-  - origin: `market_id?`, `checklist_id?`, `template_item_id?`, `template_stable_key?`, `permit_id?`,
-    `parent_task_id?`, `source` (`template | manual | permit | permit_condition | email | system`), `source_ref?`
-  - content: title, description, `phase?`, `priority`, `labels`
-  - assignment: `duty_role_id?`, `assignee_id?`, `assignee_overridden` (bool)
-  - timing: `anchor_key?`, `offset_days?`, `day_mode`, `due_at?`, `due_overridden` (bool)
-  - state: `status` (`todo | in_progress | waiting_external | blocked | done | skipped | cancelled`),
-    `waiting_reason?`, `completed_at?`, `completed_by?`, `completion_note?`,
-    `approval_status?` (`pending | approved | rejected`), `approved_by?`
-  - template tracking: `customized` (bool, set on manual edit of content), `removed_from_template` (bool)
-  - sort, timestamps, created_by
-- **task_check_item**: `task_id`, label, `done`, `done_by`, `done_at`, sort.
-- **task_dependency**: `(task_id, depends_on_task_id)`. Dependencies **don't move dates**. They
-  block status and notify the next assignee when the blocker completes.
-- **task_comment**: task_id, author_id, body, timestamps. Mentions create notifications.
-- **task_watcher**: `(task_id, user_id)`.
+### Permits & logbook
+- **permit_requirement** (blueprint per venue, optionally narrowed by event type): `category` (`city | external`),
+  `permit_type` (`market_permit | water | signage | no_parking | toilets | landowner_ok | gema | safety_concept |
+  traffic_order | catering | insurance | other`), title, `authority_contact_id?`, `cadence` (`per_event |
+  per_season | per_year | multi_year | standing`), `lead_time_days`, `submission_window_start_md?` /
+  `submission_window_end_md?` (month-day, e.g. collected until autumn), `expected_decision_md?` (e.g. January),
+  `typical_fee_cents?`, `deliverables` (e.g. `{ stickers: true }`), `prep_template_id?`, notes.
+- **permit** (instance): requirement link, `category`, `permit_type`, title, authority, `reference_no`,
+  `status` (`not_started | preparing | applied | granted | rejected | not_required | superseded`), `apply_by`,
+  `applied_at?`, `expected_decision_on?`, `granted_at?`, `valid_from?`, `valid_until?`, `conditions`,
+  `deliverables_received` (e.g. stickers: 100), `responsible_staff_member_id?`, `supersedes_id?`, notes.
+  Fees → `payable` (with instalments). Derived flags: `expiring`, `expired`.
+- **event_permit**: `(event_id, permit_id, required)`.
+- **Logbook** = a view over permits + agreements + (M11) equipment + documents, grouped by location and category,
+  showing *held / pending / missing* for upcoming events.
 
-### Permits
-- **permit_requirement** (blueprint per venue): `venue_id`, `permit_type`, title, `authority_id?`,
-  `cadence` (`per_market | per_season | per_year | standing`), `lead_time_days`, `processing_days`,
-  `renewal_reminder_days` (int[]), `checklist_template_id?` (preparation steps), notes.
-- **permit** (instance): `requirement_id?`, `venue_id?`, `permit_type`, title, `authority_id?`,
-  `reference_no`, `status` (`not_started | preparing | applied | granted | rejected | not_required | superseded`),
-  `apply_by` (date), `applied_at?`, `granted_at?`, `valid_from?`, `valid_until?`, `fee_cents?`,
-  `conditions` (rich text, Auflagen), `responsible_user_id?`, `supersedes_id?`, notes.
-  `expiring` and `expired` are **derived** from `valid_until`, not stored.
-- **market_permit**: `(market_id, permit_id, required)`. One annual §69 designation covers many
-  dates; a per-market Sondernutzung covers one.
-- `permit_type` enum (seeded from research 01): `market_designation` (§69 GewO), `special_use`
-  (Sondernutzung), `traffic_order`, `sunday_exemption`, `temporary_catering` (GastG §12), `gema`,
-  `safety_concept`, `fire_safety`, `landowner_contract`, `insurance`, `waste`, `other`.
+### Staff hours & Minijob (M4)
+- **legal_parameter**: `key` (`minimum_wage_cents_per_hour`, `minijob_limit_cents_per_month`,
+  `minijob_overrun_ceiling_factor` (2), `minijob_max_overrun_months_12` (2), …), `value`, `valid_from`.
+  Seed: 2026-01-01 → 1390 / 60300; 2027-01-01 → 1460 / 63300.
+- **employment_contract**: `staff_member_id`, `type` (`minijob | midijob | student | part_time | full_time |
+  freelance`), `hourly_rate_cents`, **`contracted_hours_per_week`** (avoid the §12 TzBfG 20-hour fiction),
+  `fixed_monthly_pay_cents?` + `working_time_account` (bool), `other_minijob_declared` (bool), `valid_from`, `valid_until?`.
+- **shift**: `event_id?`, `staff_member_id`, `duty_role_id?`, `work_date` (date), `planned_start/end`,
+  `actual_start/end?`, `break_minutes`, `status` (`requested | confirmed | declined | worked | no_show |
+  cancelled`), `recorded_by`, `recorded_at`, `approved_by?`, `approved_at?`, `version` (changes versioned with
+  reason in `shift_revision`). Non-event work (office hours) = shift without event.
+- **payroll_period**: `month`, `status` (`open | locked | approved | exported`), `locked_at`, `exported_at`,
+  export files. Computed per person: hours, gross, remaining allowance, YTD, overrun months.
+- **overrun_justification**: staff member, month, reason (needed for the "unforeseeable" exception).
 
-### Files
-- **file** (storage key, filename, mime, size, sha256, uploaded_by) + **file_link** (`entity_type`,
-  `entity_id`, `label?`, `kind`: `document | photo_evidence | attachment`). Polymorphic on purpose;
-  integrity is checked in the service layer, plus an orphan cleanup job. Storage goes through an
-  S3-compatible adapter (local disk in dev).
+### Payables, receipts, event P&L (M5)
+- **payable**: `counterparty_contact_id?`, title, `scope` (`event | company | vehicle`), `event_id?`,
+  `vehicle_id?`, `permit_id?`, `rental_id?`, `category` (`location | permit | water_power | equipment_rental |
+  staff_external | security | cleaning_waste | toilets | marketing | gema | transport_fuel | vehicle | insurance |
+  tax_fees | other`), `total_gross_cents`, `vat_rate_bp?`, `critical` (bool: landlord/permit/penalty), status
+  (derived from instalments), notes.
+- **installment**: `payable_id`, `due_on` (date), `amount_cents`, `status` (`open | partially_paid | paid |
+  cancelled`), `paid_on?`, `paid_amount_cents?`, `paid_by?`, `method?`, `reference?`.
+- **expense**: ad-hoc purchase already paid (fuel, cable ties): date, amount, category, event/vehicle, paid_by.
+- **document**: file + `sha256`, `kind` (`receipt | invoice | e_invoice_xml | contract | permit | photo | other`),
+  links (payable/installment/expense/permit/event/vehicle), uploaded_by. Immutable; soft delete with audit;
+  e-invoice XML stored byte-identical.
+- **event budget** = view: per category **plan** (`event_budget_line`), **committed** (payables), **actual**
+  (paid instalments + expenses); revenue lines from bookings (M9) and other income (`event_income`).
 
-### Notifications
-- **notification**: one row per **(user, subject, reason)**. New activity *updates and bumps* it
-  rather than adding duplicates (GitHub-style). Fields: `user_id`, `reason` (`assigned | mentioned |
-  due_soon | overdue | blocker_cleared | dates_shifted | permit_apply_by | permit_expiring |
-  approval_requested | escalated`), `subject_type`, `subject_id`, title, body, link, `severity`,
-  `dedupe_key` (unique per user), `state` (`unread | read | done | saved`), `snoozed_until?`
-  (cleared early by new activity), `emailed_at?`, timestamps.
-- **notification_preference**: per user × reason: `in_app`, `email` (`off | instant | digest`).
-- **escalation_log**: every reminder/escalation step (who, what, when), for traceability.
+### Company tab: obligations & vehicles (M6)
+- **vehicle**: plate, model, VIN, first registration, `gross_weight_kg` (→ HU interval), odometer, insurer,
+  policy, notes.
+- **obligation**: title, `scope` (`company | vehicle | venue`), `vehicle_id?`, `interval_months?`, `interval_km?`,
+  `next_due_on?`, `next_due_km?`, `lead_days`, `responsible_staff_member_id`, `creates_payable` (bool),
+  `last_done_on?`. Completing records date/cost/document and rolls forward. Seeds: HU, UVV (DGUV 70) yearly,
+  service, tyres, insurances, vehicle tax, licence check (6-monthly practice; store date + checker only), KSK
+  report 31 March.
+- **vehicle_issue**: vehicle, reported_by, photo, severity, status.
 
-### Knowledge base & audit
-- **kb_article** (+ `kb_article_revision`): title, slug, TipTap JSON, plain text for search, category,
-  tags, `venue_id?`, pinned.
-- **audit_log** *(exists)*.
+### Notifications & messaging
+- **notification**: `recipient_staff_member_id`, reason (`assigned | mentioned | due_soon | overdue |
+  rolled_over | dates_shifted | permit_apply_by | permit_decision_due | installment_due | rental_return_due |
+  obligation_due | shift_request | hours_missing | payroll_close | escalated`), subject, title, body, link,
+  severity, `dedupe_key`, state (`unread | read | done | saved`), `snoozed_until?`.
+- **outbound_message**: channel (`in_app | email | whatsapp_link | whatsapp_api`), recipient, template key,
+  rendered text, `status` (`queued | ready | sent | delivered | read | failed`), `send_after` (debounce/quiet hours),
+  external id. For `whatsapp_link`, "sent" is set when the office clicks the wa.me button.
+- **escalation_log**; **notification_preference**.
+
+### Files, KB, audit
+**file / file_link** (as before), **kb_article** (+ revisions), **audit_log** *(exists)*.
 
 ## Key algorithms (Phase 1)
 
-### Instantiating a market (single code path for UI, bulk generation and API)
+### Generating events from a preset or agreement (one service path)
 ```
-instantiateMarket(market):
-  tx:
-    anchors = { market_day: market.market_date, ...series/venue defaults }
-    duties  = series.default_duty_assignments
-    for template in series.templates ∪ venue.templates:
-      version = template.current published version
-      checklist = insert checklist(version)
-      for item in version.items where condition(item, market):
-        insert task(from item,
-          due_at = anchors[item.anchor_key] ? resolve(anchors[...], item.offset_days, item.day_mode, item.due_time) : null,
-          duty_role = item.duty_role, assignee = duties[item.duty_role])
-      wire task_dependency from item.depends_on_keys
-    for req in venue.permit_requirements:
-      per_market → new permit(apply_by = market_date − lead_time) + its preparation tasks
-      per_season/per_year/standing → link existing valid permit via market_permit, or create one
-    audit + one grouped "assigned" notification per assignee
+createEvent(preset | agreement, date):
+  tx: insert event (copy price/times/type), anchors (event_day, booking_cutoff = previous Monday, …)
+      duties ← preset.default_duties
+      for template in preset.templates (current published version): checklist + tasks
+          (due_at from anchor/offset/day_mode; assignee from duty; estimate from item)
+      logbook fill: for each permit requirement of venue/type:
+          valid covering permit exists → link (ticked, with document link)
+          else → new permit (apply_by = event_day − lead_time, or window end) + prep tasks
+      (M11) equipment requirements ← preset
+      audit; grouped "assigned" notifications (debounced)
 ```
-Bulk generation from a series calls this once per selected date inside one job, with a preview first.
 
-### Changing an anchor (e.g. moving a market date)
-Recompute `due_at` for tasks with that `anchor_key`, `status` open and `due_overridden = false`.
-Recompute `apply_by` for per-market permits not yet applied for. **Show a preview** ("14 tasks
-move +7 days, 2 overridden tasks stay"), apply, and send **one grouped `dates_shifted`
-notification per assignee**. No push notification for automated shifts.
+### Kanban columns (derived, overridable)
+`Erledigt` if done; `Heute` if due today or overdue (rolled over); `Diese Woche` if due ≤ 7 days;
+else `Vorbereitung`. A manual move sets `board_column` until the due date passes.
 
-### Business days
-`day_mode = business` skips weekends and public holidays of the venue's Bundesland. "Before" tasks
-roll **earlier**, "after" tasks roll **later**. Holidays come from a small holiday module in
-`@marktwerk/core` (computed Easter-based rules, no external API).
+### Carry-over (nightly, 00:05)
+Open tasks with `due_at < today` → `rollover_count += 1`; included in tomorrow's digest; at 3 → notify manager.
 
-### Propagating a template change (explicit, previewed)
-Publishing version n+1 never changes existing markets by itself. "Apply to markets…" offers
-**all future markets / selected markets / none**, with a per-market preview. Merge rules, matched by `stable_key`:
-- new item → add task (flag `late_added` if its due date already passed)
-- changed item → update tasks that are open and not `customized` (offset/role only if not overridden)
-- removed item → cancel if not started, otherwise keep and set `removed_from_template`
-- done tasks, comments, evidence: **never touched**
+### Deadline sweep & escalation (every 15 min, idempotent)
+Reminders by `dedupe_key` (incl. due date). Overdue → assignee; +1 day → **manager** (decision 2026-10-21;
+duty-role-specific escalation later). Covers tasks, permit apply-by/decision dates, instalments, rentals,
+obligations, missing time records (day 5 → staff + manager, day 7 = legal deadline).
 
-Also supported the other way: **"update template from this market"** (lessons learned) opens a
-new draft version prefilled with the market's custom tasks.
-
-### Deadline sweep and escalation (the "nothing slips" engine)
-Every 15 min, idempotent (deterministic `dedupe_key` that includes `due_at`, so moved deadlines re-arm):
+### Minijob allowance (pure function in `@marktwerk/core`)
 ```
-for open tasks with due_at:
-  dueState(due_at, now, reminderDays(priority)) → due_soon(n) | overdue
-  notify assignee (or all holders of the duty role if unassigned)
-  escalation ladder: overdue → assignee; +1 d → + managers; +3 d → shows on boss view (no push)
-for permits: apply_by reminders (30/14/7 d), valid_until reminders (90/30/7/0 d)
-  → responsible user AND managers (never only the holder)
+limit = legal_parameter(minijob_limit, month)
+earned_month = Σ (worked + planned hours × rate)            → amber if > limit
+red if earned_month > limit × 2, or overrun months in rolling 12 ≥ 2 already, or YTD forecast > 12 × limit
+remaining_hours = max(0, limit − earned_month) / rate
 ```
-Unassigned open tasks (duty role not mapped) appear in an **"unassigned" queue** and count on the
-boss view. They're never silently dropped.
 
-### Market health (computed)
-Per market, each area is green/yellow/red:
-- **Permits:** red if a required permit isn't granted by its `apply_by` + processing days, or not granted by T-7.
-- **Tasks:** red if any critical task is overdue; yellow if any task is overdue or > 20% of due tasks are open.
-- **Assignments:** yellow if any duty role is unmapped.
-- (Phase 2) **Occupancy:** booked metres vs capacity/target.
+### Template propagation (deliberate)
+Publishing creates version n+1 and changes nothing else. "Apply to events…" opens a picker with **no events
+pre-selected**, a per-event preview and the merge rules (add / update non-customized open tasks / cancel
+untouched removed tasks; done tasks, comments, evidence never touched).
 
-Overall = worst area, unless `health_override` (with a mandatory reason).
+## Phase 2 sketch: bookings (M7–M10)
+- **vendor**: kind (private/commercial), name, contact, categories (antique, design, handmade, food…), default
+  length, car + car length, documents, `is_regular`, notes incl. vendor talks, `legacy_id`, newsletter consent
+  (`consent_basis`: `soft_opt_in | double_opt_in`, `unsubscribed_at`).
+- **booking_request** (one per event, after splitting multi-date requests): `source` (`legacy_web | email |
+  phone | walk_in`), `legacy_ref` / `message_id` (idempotency), raw payload, `status` (`new | in_review |
+  accepted | waitlisted | declined | withdrawn`).
+- **booking_date** (vendor × event): `length_cm`, **`car_requested`, `car_granted`**, `car_length_cm?`,
+  `price_snapshot`, discounts (e.g. first event free), placement (`row_id`, `start_cm`, `end_cm`, status
+  `unplaced | proposed | assigned`), payment (`not_due | open | partially_paid | paid | overdue`), attendance.
+- **stall_ticket** (Platzkarte PDF), **invoice / invoice_line / invoice_recipient / number_sequence**,
+  **payment_check_session** + `bank_line` (imported CSV/CAMT) + `payment_match`.
+- **reminder** (manual, logged: who/when/template).
+- **mailbox / email_thread / email_message / thread_link / reply_template** (M10).
 
-## Phase 2 sketch: bookings, vendors, invoices, inbox
-
-Status layers per research 02:
-
-| Layer | Values |
-|---|---|
-| **booking** (vendor × series or market) | `inquiry → submitted → needs_info → approved / waitlisted / declined / withdrawn` |
-| **booking_date** (per market day) | `requested → accepted / waitlisted / rejected`, later `cancelled_by_vendor` (`in_time`/`late`) / `cancelled_by_organizer` |
-| **placement** | `unplaced → proposed → held (expires_at) → assigned` |
-| **invoice** | `draft → issued (open) → partially_paid → paid` (+ `overdue` derived, `voided` via Storno, `credited`) |
-| **attendance** | `expected → checked_in / approved_absence / unapproved_absence / no_show` (explicit day close-out) |
-
-- **vendor**: kind (private/commercial), contact data, categories, default length/depth, car + car length,
-  power need, documents with type + expiry, `is_regular`, priority score, GDPR consent and retention date.
-- **row** (zone child): `length_cm`, `depth_cm`, `car_allowed`, `power_points`, `corner_ends`.
-- **placement** = metre interval on a row (`start_cm`, `end_cm`); fixed slots are pre-cut intervals.
-- **regular_spot** (Stammplatz, a *preference*): vendor, row, `start_cm`, `length_cm`, priority.
-  "Apply regulars" creates `proposed` placements + a conflict list.
-- **price_rule**: per venue/zone/category: €/m, min/max length, flat-up-to-X, volume breaks; add-ons
-  (car, van, corner, power) with min-length conditions; tax code per line (§4 Nr. 12 exempt / 19%).
-- **invoice / invoice_line / payment / number_sequence** (gap-free per year), draft → release.
-- **mailbox / email_thread / email_message / email_attachment / thread_link / reply_template**
-  (see [overview.md](./overview.md#microsoft-365-mailbox-integration-phase-2)).
-- **category_cap**: per market: category → max vendors; "same product" cap; exemptions.
-
-## Phase 3 sketch
-**cash_session / cash_entry** (shape depends on the KassenSichV decision, see open questions),
-**check_in**, **incident** (append-only), **venue_layout** (background image, row geometry jsonb),
-**market_layout** (snapshot per date), **day_sheet** (generated snapshot), **qr_pass**.
+## Phase 2–3 sketch: inventory (M11), field, maps, communication
+- **item_type** (bulk; `tracking` column reserved), **preset_requirement / event_requirement** (qty),
+  availability = owned − out_of_service − overlapping requirements (setup→teardown window) + active rentals;
+  **rental** (supplier, item, qty, events, pickup, `due_return_on`, returned_at, deposit, late fee terms,
+  meter readings, responsible).
+- **day_sheet**, **check_in**, **incident**, **vendor_note** (talks), **venue_layout / event_layout** (maps),
+  **comm_item** (per event & channel: website, newsletter, social, flyer, poster: status, dates, sticker count),
+  **media_asset** (photos per event, consent flag).

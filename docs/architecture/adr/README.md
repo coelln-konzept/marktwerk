@@ -10,7 +10,13 @@ consequences. Statuses: *proposed*, *accepted*, *superseded by NNNN*, *open* (a 
 | [0003](0003-auth-better-auth.md) | Better Auth with fixed permission roles + duty roles | accepted |
 | [0004](0004-no-cache-components-cookie-locale.md) | Cache Components off; locale from user profile, not URL | accepted |
 | [0005](0005-jobs-pg-boss.md) | Background jobs with pg-boss in a separate worker | accepted |
-| [0006](0006-hosting.md) | Hosting stays portable; decided before the pilot | open |
+| [0006](0006-hosting.md) | Hosting stays portable; cloud + local backup favoured | open |
 | [0007](0007-tooling-versions.md) | Tooling: TypeScript 6, pnpm 10, Biome | accepted |
 | [0008](0008-m365-graph.md) | Microsoft 365 via Graph application permissions | proposed |
 | [0009](0009-field-cash-handling.md) | Cash handling on market day (KassenSichV) | open |
+| [0010](0010-event-entity-types-presets.md) | "Event" (Veranstaltung) is the core entity, with types and presets | accepted |
+| [0011](0011-staff-notifications-whatsapp.md) | Staff notifications via WhatsApp: wa.me links first, Cloud API later | accepted |
+| [0012](0012-staff-members-vs-users.md) | Staff members are separate from login users | accepted |
+| [0013](0013-legacy-website-bridge.md) | The old website stays; marktwerk ingests its bookings | proposed |
+| [0014](0014-no-ai-in-operations.md) | No AI in operational decisions; human-confirmed drafts only | accepted |
+| [0015](0015-finance-operational-layer.md) | Finance: operational layer; the tax advisor keeps the books | accepted |

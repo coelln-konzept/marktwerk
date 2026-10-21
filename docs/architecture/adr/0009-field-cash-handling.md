@@ -1,6 +1,6 @@
 # 0009: Cash handling on market day (KassenSichV)
 
-**Status:** open. **Decide with the client's Steuerberater before M10.**
+**Status:** open. **Decide with the client's Steuerberater before M12 (field mode).**
 
 ## Context
 The client collects cash from walk-up vendors on market day. Research 01: an *open cash box*

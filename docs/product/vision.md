@@ -1,45 +1,64 @@
 # Vision & scope
 
 ## One sentence
-marktwerk is the operating system for one German flea-market company. It holds every market
-date, task, deadline, permit, vendor, booking, email and euro, so nothing slips and nobody has
-to ask "where is that?".
+marktwerk is the internal operating system of one German event company (flea, antique/design, design,
+food & wine markets and new event formats). Every event, task, deadline, permit, shift, payment and
+booking lives in one place, so nothing slips and the team can take on more events without more stress.
 
 ## Context
-- **Client:** one company (single tenant), Germany, running **30–150 markets per year** across
-  several venues, with a 5–20 person team (office + market-day crew) and roughly 1,000–5,000 vendors.
-- **Today:** spreadsheets, a Microsoft 365 mailbox, WhatsApp, paper checklists, PDF permits in
-  folders, bank transfers matched by hand, and a cash box on the day.
-- **Biggest pain (client's choice for MVP):** *tasks, checklists and deadlines.* Things get
-  forgotten, nobody sees who is doing what, and permit deadlines slip.
+- **Client:** one company (single tenant), Cologne area. About 20+ events per season across several locations
+  and cities, up to **4 on one weekend**, growing. Event mix shifting from antique towards **design, food &
+  wine and new formats** (workshops, tournaments) to attract younger vendors and visitors.
+- **Team:** a small office (one person carries permits, website, bookings, payments, wages) plus field crew,
+  mostly **Minijobber**, who **only use WhatsApp**.
+- **Today:** an old PHP website with presets, dates and the booking form; Outlook (Microsoft 365) with one
+  signature per market as booking confirmation; bank portal checked by hand; paper and Word documents;
+  stall maps as the central organising tool; paper archive kept one year.
+- **Biggest pain (client's choice):** tasks, checklists and deadlines. Plus, from the meeting: forgotten
+  instalment payments, the monthly Minijob-hours calculation, permit status nobody can see at a glance.
+
+## Product principles (from the client meeting)
+1. **Digitise → optimise → automate.** First get everything into the system as it is, then improve
+   the process, then automate.
+2. **Internal first.** Vendors see no change until the internal side works. The old website and booking
+   form stay; marktwerk processes what comes in.
+3. **Step by step, sandbox first, nothing hidden.** Introduce features gradually; don't remove familiar paths early.
+4. **Human touch stays.** Phone calls, personal emails and talking to vendors on market day are strengths.
+   We automate labour, not relationships. Payment reminders are sent by a person.
+5. **No AI running the business.** AI may prepare drafts later (e.g. parse a free-text booking email); a person
+   always confirms and can see the original.
+6. **Meet staff where they are: WhatsApp.** No app install required for field crew.
+7. **Everything that happens has a counterpart in the system.** If something got forgotten, there should be a
+   place where it would have been visible.
 
 ## Goals (in priority order)
-1. **Nothing slips.** Every recurring piece of work and every permit deadline is generated
-   automatically per market, assigned to someone, and escalated before it's late.
-2. **One place to look.** Venues, permits, documents, know-how, vendors, bookings and email
-   live in one system with links between them.
-3. **The boss sees everything in 10 seconds.** Traffic-light overview per upcoming market.
-4. **Less retyping.** Bookings and emails become structured data once and flow into allocation,
-   invoices and market-day lists.
-5. **Market day works in the rain.** Phone-first, offline-tolerant field mode.
+1. **Nothing slips:** tasks, permits, instalments, rentals and obligations are generated, assigned and escalated.
+2. **One place to look:** company-wide logbook (permits held, equipment, contracts) plus one page per event.
+3. **The boss sees today's priorities in seconds:** ranked "due today" list, finance filter, event health.
+4. **Admin work shrinks:** Minijob hours, payroll prep, confirmations and invoices take minutes, not evenings.
+5. **Know the cost of an event:** estimated work hours (hiring signal) and money in/out per event.
+6. **Bookings flow internally** without retyping (Phase 2), and later to the outside world (Phase 4).
 
 ## Non-goals (for now)
-- Multi-tenant SaaS, self-signup, white-labelling (single company, by decision).
-- A full accounting system: we issue invoices and export; bookkeeping stays with the tax advisor.
-- A native app-store app: the field app is a PWA unless Phase 3 proves that insufficient.
-- A general-purpose email client: we handle the company's business mailboxes, not personal mail.
-- Ticketing for visitors.
+- Multi-tenant SaaS.
+- Replacing the public website or booking form before the internal system works (Phase 4, together with the
+  corporate-design and website project).
+- Bookkeeping: the tax advisor keeps the books; marktwerk is the operational layer and exports to them.
+- A native app; staff get WhatsApp + magic links, office uses the browser.
+- Barcode/RFID inventory, automatic payment reminders, autonomous AI.
 
-## Success metrics (measured against a baseline taken in discovery)
-| Metric | Target after 3 months of use |
+## Success metrics (baseline in discovery, measured after 3 months)
+| Metric | Target |
 |---|---|
-| Market-related tasks tracked in marktwerk (vs. elsewhere) | > 90% |
-| Overdue critical tasks at T-7 | ≈ 0 |
-| Permits missed or applied late | 0 |
-| Time for the owner to answer "are we ready for Sunday?" | < 1 minute |
-| (Phase 2) Booking emails answered within 24 h | > 90% |
-| (Phase 2) Manual retyping of booking data | eliminated for web-form bookings |
+| Event-related tasks tracked in marktwerk | > 90% |
+| Permits applied late / missed | 0 |
+| Instalments paid late (reminded by the payee) | 0 |
+| Rented items returned late | 0 |
+| Time to prepare monthly Minijob hours for payroll | < 30 min (from "most of the admin work") |
+| §17 MiLoG records completed within 7 days | 100% |
+| Owner can answer "what's due today and is next weekend OK?" | < 1 minute |
+| (P2) Booking confirmations sent same day | > 90% |
 
 ## Languages
-UI in **German (primary) and English**, chosen per user. Domain terms follow
-[`glossary.md`](./glossary.md). Vendor-facing pages and emails default to German.
+UI in **German (primary) and English**, per user. Vendor-facing documents default to German.
+Domain terms follow [`glossary.md`](./glossary.md).

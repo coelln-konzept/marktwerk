@@ -3,9 +3,11 @@
 Guidance for Claude (and humans) working in this repo.
 
 ## What this is
-marktwerk: an internal operations platform for **one** German flea-market company (single tenant).
-The current phase and next milestone are in `docs/product/roadmap.md`. Read `docs/product/vision.md`,
-`docs/architecture/overview.md` and `docs/architecture/data-model.md` before building a feature.
+marktwerk: an internal operations platform for **one** German event company (single tenant): flea,
+antique/design, food & wine markets and new formats. The current phase and next milestone are in
+`docs/product/roadmap.md`. Read `docs/product/vision.md` (incl. the product principles),
+`docs/research/05-client-meeting-2026-10.md` (what the users actually said), `docs/architecture/overview.md`
+and `docs/architecture/data-model.md` before building a feature.
 
 ## Ask before deciding
 The product owner wants to be asked whenever a product or architecture decision isn't already
@@ -26,10 +28,15 @@ settled in the docs/ADRs. Log answers in `docs/open-questions.md` (Decided table
   `packages/core/src/auth/permissions.ts`.
 - Business mutations go through services: permission check → transaction → `audit_log` → jobs/notifications.
 - Pure domain rules live in `packages/core` with Vitest tests (dates: test DST + edge cases).
-- Market instantiation, anchor shifts and template propagation each have exactly **one** service path.
+- Event instantiation, anchor shifts and template propagation each have exactly **one** service path.
 - No inline UI strings: add keys to **both** `apps/web/messages/de.json` and `en.json`.
 - Use the [glossary](docs/product/glossary.md) for domain naming (code in English, UI German-first).
-- Money in integer cents, lengths in integer centimetres, instants as `timestamptz`, market days as `date`
+  The core record is `event` (Veranstaltung), never `market` in new code. Say vendor/visitor, never customer.
+- Assignees are `staff_member`s (may have no login), not `user`s (ADR 0012).
+- Legal numbers (minimum wage, Minijob limit, inspection intervals) come from the `legal_parameter` table.
+- No AI features in operational flows (ADR 0014). Payment reminders are sent by a person.
+- Template changes never propagate automatically (deliberate action, nothing pre-selected).
+- Money in integer cents, lengths in integer centimetres, instants as `timestamptz`, event days and due dates as `date`
   in `Europe/Berlin`.
 - Never edit applied migrations; generate new ones.
 - Biome is the only linter/formatter (`pnpm lint:fix`). TypeScript 6 (not 7, ADR 0007).

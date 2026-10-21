@@ -1,21 +1,24 @@
 {
   "app": {
     "name": "marktwerk",
-    "tagline": "Betriebssystem für Flohmärkte"
+    "tagline": "Betriebssystem für Veranstaltungen"
   },
   "nav": {
     "overview": "Übersicht",
-    "myTasks": "Meine Aufgaben",
-    "markets": "Märkte",
-    "venues": "Veranstaltungsorte",
+    "board": "Board",
+    "events": "Veranstaltungen",
+    "logbook": "Logbuch",
+    "team": "Team",
+    "finance": "Finanzen",
+    "company": "Firma",
+    "vendors": "Händler",
     "templates": "Vorlagen",
-    "permits": "Genehmigungen",
     "knowledgeBase": "Wissensdatenbank",
     "notifications": "Benachrichtigungen",
-    "inbox": "Postfach",
-    "vendors": "Händler",
-    "bookings": "Buchungen",
     "settings": "Einstellungen",
+    "bookings": "Buchungen",
+    "inbox": "Postfach",
+    "inventory": "Inventar",
     "comingSoon": "Phase 2",
     "signOut": "Abmelden"
   },
@@ -36,7 +39,7 @@
   "overview": {
     "title": "Übersicht",
     "greeting": "Hallo {name}",
-    "placeholder": "Hier entsteht die Chef-Übersicht: Ampel pro anstehendem Markt (Genehmigungen, Aufgaben, Auslastung), kritische Fristen und überfällige Aufgaben. Siehe docs/product/roadmap.md, Meilenstein M1."
+    "placeholder": "Hier entsteht die Übersicht: „Heute fällig“ nach Priorität (Aufgaben, Genehmigungen, Raten, Rückgaben), Finanzfilter und das nächste Wochenende auf einen Blick. Siehe docs/product/roadmap.md, Meilenstein M5."
   },
   "errors": {
     "forbidden": "Dafür fehlt dir die Berechtigung.",

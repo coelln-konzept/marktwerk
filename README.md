@@ -1,10 +1,12 @@
 # marktwerk
 
-Operations platform for a German flea-market company: markets, checklists, deadlines, permits,
-and later vendors, bookings, the shared inbox, invoices, market-day field mode and stall maps.
+Internal operations platform for a German event company (flea, antique/design, design, food & wine markets
+and new formats): events, timelines & kanban, permit logbook, staff hours (Minijob), payables, and later
+bookings, the shared inbox, inventory, market-day field mode and stall maps.
 
-> **Status:** Phase 0 complete (foundation). Next: **Phase 1, "Nothing slips"**: tasks, checklists,
-> deadlines, permits, notifications, boss view. See the [roadmap](docs/product/roadmap.md).
+> **Status:** Phase 0 complete (foundation). Plan revised after the client meeting
+> ([research 05](docs/research/05-client-meeting-2026-10.md)). Next: **Phase 1, "Digitise the work"**, starting with
+> M1 events, presets & locations. See the [roadmap](docs/product/roadmap.md).
 
 ## Quick start
 ```bash

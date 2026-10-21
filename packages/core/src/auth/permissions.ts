@@ -12,11 +12,19 @@ export const PERMISSIONS = {
   user: ["read", "manage"],
   settings: ["read", "manage"],
   venue: ["read", "write", "delete"],
-  market: ["read", "write", "delete"],
+  event: ["read", "write", "delete"],
   template: ["read", "write", "delete"],
   task: ["read", "write", "assign", "delete"],
   permit: ["read", "write", "delete"],
   contact: ["read", "write", "delete"],
+  /** Staff members, contracts, shifts, hours and payroll export. */
+  team: ["read", "manage"],
+  /** Payables, instalments, receipts, event budgets. */
+  finance: ["read", "write"],
+  /** Company tab: obligations, vehicles, insurances. */
+  company: ["read", "write"],
+  /** Vendor records (imported read-only in Phase 1, bookings in Phase 2). */
+  vendor: ["read", "write"],
   kb: ["read", "write", "delete"],
   audit: ["read"],
 } as const;
@@ -41,17 +49,19 @@ const GRANTS: Record<Role, Grants> = {
     user: ["read"],
     settings: ["read"],
     venue: ["read"],
-    market: ["read"],
+    event: ["read"],
     template: ["read"],
     task: ["read", "write", "assign"],
     permit: ["read", "write"],
     contact: ["read", "write"],
+    company: ["read"],
+    vendor: ["read", "write"],
     kb: ["read", "write"],
   },
-  // Field crew: market-day app only. Row-level scoping to rostered markets
-  // happens in the query layer, not here.
+  // Field users: only events they work at (shift or duty). That row-level
+  // scoping happens in the query layer, not here (decision 2026-10-21).
   field: {
-    market: ["read"],
+    event: ["read"],
     task: ["read", "write"],
     kb: ["read"],
   },
