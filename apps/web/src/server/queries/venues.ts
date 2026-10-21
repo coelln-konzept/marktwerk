@@ -165,3 +165,14 @@ export async function listVenueEvents(actor: Actor, venueId: string, today: stri
   ]);
   return { upcoming, recent };
 }
+
+export type VenueOption = { id: string; name: string; city: string };
+
+/** Venues to pick from (not archived), e.g. when an event changes its venue. */
+export async function listVenueOptions(): Promise<VenueOption[]> {
+  return db
+    .select({ id: venue.id, name: venue.name, city: venue.city })
+    .from(venue)
+    .where(isNull(venue.archivedAt))
+    .orderBy(asc(venue.city), asc(venue.name));
+}

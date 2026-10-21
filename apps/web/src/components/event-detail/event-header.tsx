@@ -1,4 +1,4 @@
-import { can } from "@marktwerk/core";
+import { can, daysBetween, isHappening } from "@marktwerk/core";
 import { CalendarDays, MapPin, Truck } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -6,10 +6,12 @@ import { EventStatusBadge } from "@/components/events/event-status";
 import { HealthSummary } from "@/components/events/health-summary";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateShort, formatDateWithWeekday, formatWeek } from "@/lib/format";
+import { formatDateShort, formatDateWithWeekday, formatWeek, todayIn } from "@/lib/format";
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import type { EventDetail } from "@/server/queries/events";
+import { listVenueOptions } from "@/server/queries/venues";
+import { BasicsDialog } from "./basics-dialog";
 import { BookingMenu } from "./booking-menu";
 import { type EventTab, EventTabs } from "./event-tabs";
 import { StatusMenu } from "./status-menu";
@@ -25,6 +27,8 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const typeName = locale === "en" ? event.type.nameEn : event.type.nameDe;
   const assigned = event.duties.filter((d) => d.staffMemberId).length;
   const total = event.duties.length;
+  const canWrite = can(actor.role, "event", "write");
+  const venues = canWrite ? await listVenueOptions() : [];
   const BookingIcon = event.bookingOpen ? BOOKING_FLAG_ICONS.open : BOOKING_FLAG_ICONS.notOpen;
 
   const dateLine = multiDay
@@ -87,8 +91,18 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
           <EventStatusBadge status={event.status} />
           <HealthSummary health={event.health} compact />
         </div>
-        {can(actor.role, "event", "write") && (
-          <div className="flex items-center gap-2">
+        {canWrite && (
+          <div className="flex flex-wrap items-center gap-2">
+            <BasicsDialog
+              eventId={event.id}
+              startsOn={event.startsOn}
+              venues={venues}
+              basics={{
+                name: event.name,
+                durationDays: daysBetween(event.startsOn, event.endsOn) + 1,
+                venueId: event.venueId,
+              }}
+            />
             <BookingMenu
               eventId={event.id}
               flags={{
@@ -96,6 +110,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
                 fullyBooked: event.fullyBooked,
                 carSpacesFull: event.carSpacesFull,
               }}
+              happening={isHappening(event, todayIn())}
             />
             <StatusMenu eventId={event.id} eventName={event.name} status={event.status} />
           </div>

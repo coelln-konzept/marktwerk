@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { saveFacts, undoFacts } from "@/app/(app)/veranstaltungen/[id]/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
@@ -28,14 +29,27 @@ export function FactsDialog({
   eventId,
   facts,
   multiDay,
+  happening,
 }: {
   eventId: string;
   facts: EventFacts;
   multiDay: boolean;
+  happening: boolean;
 }) {
   const t = useTranslations("eventDetail.facts");
   const locale = useLocale();
   const { showToast } = useShell();
+  const tHappening = useTranslations("eventDetail.happening");
+  const { confirm, dialog } = useConfirm();
+  /** While the event is happening, every change is confirmed first (decided 2026-10-21). */
+  const confirmed = async () =>
+    !happening ||
+    confirm({
+      title: tHappening("title"),
+      description: tHappening("description"),
+      confirmLabel: tHappening("confirm"),
+      cancelLabel: tHappening("cancel"),
+    });
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [times, setTimes] = useState(facts.times);
@@ -64,7 +78,7 @@ export function FactsDialog({
     setOpen(true);
   }
 
-  function submit() {
+  async function submit() {
     const pricePerMCents = parseEuroCents(price);
     if (pricePerMCents === null)
       return setError({ field: "price", text: t("errors.invalid_price") });
@@ -83,6 +97,7 @@ export function FactsDialog({
 
     const next: EventFacts = { times: normalized, pricePerMCents, bookingFeeCents };
     setError(null);
+    if (!(await confirmed())) return;
     startTransition(async () => {
       const result = await saveFacts(eventId, next);
       if (!result.ok) {
@@ -113,7 +128,7 @@ export function FactsDialog({
 
   return (
     <>
-      <Button size="sm" variant="ghost" onClick={openDialog}>
+      <Button size="sm" variant="ghost" aria-label={t("title")} onClick={openDialog}>
         <Pencil aria-hidden />
         {t("edit")}
       </Button>
@@ -210,6 +225,7 @@ export function FactsDialog({
           </div>
         </form>
       </Modal>
+      {dialog}
     </>
   );
 }

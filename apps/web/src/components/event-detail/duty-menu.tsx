@@ -8,6 +8,7 @@ import { assignDuty, undoDuty } from "@/app/(app)/veranstaltungen/[id]/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm";
 import type { AssignableStaff } from "@/server/queries/team";
 
 const item =
@@ -26,15 +27,28 @@ export function DutyMenu({
   roleName,
   current,
   staff,
+  happening,
 }: {
   eventId: string;
   roleId: string;
   roleName: string;
   current: { id: string; name: string } | null;
   staff: AssignableStaff[];
+  happening: boolean;
 }) {
   const t = useTranslations("eventDetail.team");
   const { showToast } = useShell();
+  const tHappening = useTranslations("eventDetail.happening");
+  const { confirm, dialog } = useConfirm();
+  /** While the event is happening, every change is confirmed first (decided 2026-10-21). */
+  const confirmed = async () =>
+    !happening ||
+    confirm({
+      title: tHappening("title"),
+      description: tHappening("description"),
+      confirmLabel: tHappening("confirm"),
+      cancelLabel: tHappening("cancel"),
+    });
   const [pending, startTransition] = useTransition();
 
   const preferred = staff.filter((s) => s.preferredDutyRoleIds.includes(roleId));
@@ -56,7 +70,8 @@ export function DutyMenu({
     return t("toast.changed", { role: roleName, from: fromName, to: toName });
   }
 
-  function run(to: string | null) {
+  async function run(to: string | null) {
+    if (!(await confirmed())) return;
     startTransition(async () => {
       const result = await assignDuty(eventId, roleId, to);
       if (!result.ok) {
@@ -103,51 +118,54 @@ export function DutyMenu({
   }
 
   return (
-    <Menu.Root>
-      <Menu.Trigger
-        render={
-          <Button
-            size="sm"
-            aria-label={t(current ? "changeLabel" : "assignLabel", { role: roleName })}
-            aria-busy={pending}
-            disabled={pending}
-          />
-        }
-      >
-        {t(current ? "change" : "assign")}
-        <ChevronDown aria-hidden />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
-          <Menu.Popup className="flex max-h-[min(420px,var(--available-height))] min-w-[260px] flex-col overflow-y-auto rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
-            {preferred.length > 0 && (
-              <Menu.Group>
-                <Menu.GroupLabel className={groupLabel}>
-                  {t("preferred", { role: roleName })}
-                </Menu.GroupLabel>
-                {preferred.map(person)}
-              </Menu.Group>
-            )}
-            {others.length > 0 && (
-              <Menu.Group>
-                <Menu.GroupLabel className={groupLabel}>
-                  {preferred.length > 0 ? t("others") : t("everyone")}
-                </Menu.GroupLabel>
-                {others.map(person)}
-              </Menu.Group>
-            )}
-            {current && (
-              <>
-                <Menu.Separator className="my-1 h-px bg-border" />
-                <Menu.Item className={item} onClick={() => run(null)}>
-                  <UserMinus aria-hidden className="size-4 text-muted-foreground" />
-                  {t("clear")}
-                </Menu.Item>
-              </>
-            )}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
+    <>
+      <Menu.Root>
+        <Menu.Trigger
+          render={
+            <Button
+              size="sm"
+              aria-label={t(current ? "changeLabel" : "assignLabel", { role: roleName })}
+              aria-busy={pending}
+              disabled={pending}
+            />
+          }
+        >
+          {t(current ? "change" : "assign")}
+          <ChevronDown aria-hidden />
+        </Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
+            <Menu.Popup className="flex max-h-[min(420px,var(--available-height))] min-w-[260px] flex-col overflow-y-auto rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+              {preferred.length > 0 && (
+                <Menu.Group>
+                  <Menu.GroupLabel className={groupLabel}>
+                    {t("preferred", { role: roleName })}
+                  </Menu.GroupLabel>
+                  {preferred.map(person)}
+                </Menu.Group>
+              )}
+              {others.length > 0 && (
+                <Menu.Group>
+                  <Menu.GroupLabel className={groupLabel}>
+                    {preferred.length > 0 ? t("others") : t("everyone")}
+                  </Menu.GroupLabel>
+                  {others.map(person)}
+                </Menu.Group>
+              )}
+              {current && (
+                <>
+                  <Menu.Separator className="my-1 h-px bg-border" />
+                  <Menu.Item className={item} onClick={() => run(null)}>
+                    <UserMinus aria-hidden className="size-4 text-muted-foreground" />
+                    {t("clear")}
+                  </Menu.Item>
+                </>
+              )}
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+      {dialog}
+    </>
   );
 }

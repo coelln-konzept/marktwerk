@@ -1,11 +1,11 @@
-import { canMoveEvent, daysBetween } from "@marktwerk/core";
+import { canMoveEvent, daysBetween, isHappening } from "@marktwerk/core";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Health, HealthShape } from "@/components/ui/health";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
-import { formatDateWithWeekday, formatMoney, formatNumber } from "@/lib/format";
+import { formatDateWithWeekday, formatMoney, formatNumber, todayIn } from "@/lib/format";
 import type { EventDetail } from "@/server/queries/events";
 import { FactsDialog } from "./facts-dialog";
 import { MoveDialog } from "./move-dialog";
@@ -105,6 +105,7 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
           <FactsDialog
             eventId={event.id}
             multiDay={event.endsOn !== event.startsOn}
+            happening={isHappening(event, todayIn())}
             facts={{
               times: event.times,
               pricePerMCents: event.pricePerMCents,

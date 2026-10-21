@@ -1,11 +1,13 @@
-import { auditLog, event, eventAnchor, eventPreset } from "@marktwerk/db/schema";
+import { auditLog, event, eventAnchor, eventPreset, venue } from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import {
   moveEvent,
   previewEventMove,
+  previewEventSchedule,
   setEventBookingFlag,
+  updateEventBasics,
   updateEventFacts,
 } from "@/server/services/event-details";
 import { createEventsFromPreset } from "@/server/services/events";
@@ -201,5 +203,87 @@ describe("moving an event", () => {
     expect(
       isForbidden(await setEventBookingFlag(staff, id, "bookingOpen", true).catch((e) => e)),
     ).toBe(true);
+  });
+});
+
+describe("updateEventBasics", () => {
+  it("renames, changes the length (named dates recomputed) and the venue, audited with names", async () => {
+    const id = await oneEvent(); // Sa 2026-11-14, 1 day
+    const [other] = await db
+      .insert(venue)
+      .values({ name: "Rheinwiesen", kind: "outdoor_public", city: "Köln" })
+      .returning();
+    if (!other) throw new Error("no venue");
+    const result = await updateEventBasics(owner, id, {
+      name: "  Herbstflohmarkt   Test ",
+      durationDays: 2,
+      venueId: other.id,
+    });
+    expect(result).toEqual({
+      changed: true,
+      previous: { name: "Testflohmarkt", durationDays: 1, venueId: cat.venue.id },
+    });
+    expect(await load(id)).toMatchObject({
+      name: "Herbstflohmarkt Test",
+      startsOn: "2026-11-14",
+      endsOn: "2026-11-15",
+      venueId: other.id,
+    });
+    expect(await anchorsOf(id)).toMatchObject({
+      setup_day: "2026-11-13",
+      teardown_day: "2026-11-15",
+      booking_cutoff: "2026-11-09",
+    });
+    const [entry] = await auditsOf("event.update");
+    expect(entry?.diff).toMatchObject({
+      changes: {
+        name: { from: "Testflohmarkt", to: "Herbstflohmarkt Test" },
+        durationDays: { from: 1, to: 2 },
+        venueId: { fromName: "Messeplatz Test", toName: "Rheinwiesen" },
+      },
+      anchors: { setup_day: { from: "2026-11-14", to: "2026-11-13" } },
+    });
+  });
+
+  it("validates name, length and venue; undo is guarded", async () => {
+    const id = await oneEvent();
+    const base = { name: "Testflohmarkt", durationDays: 1, venueId: cat.venue.id };
+    expect((await updateEventBasics(owner, id, base)).changed).toBe(false);
+    await expect(updateEventBasics(owner, id, { ...base, name: "  " })).rejects.toMatchObject({
+      code: "invalid_name",
+    });
+    await expect(updateEventBasics(owner, id, { ...base, durationDays: 15 })).rejects.toMatchObject(
+      { code: "invalid_duration" },
+    );
+    await db.update(venue).set({ archivedAt: new Date() }).where(eq(venue.id, cat.venue.id));
+    const [other] = await db
+      .insert(venue)
+      .values({ name: "Alt", kind: "outdoor_public", city: "Köln", archivedAt: new Date() })
+      .returning();
+    await expect(
+      updateEventBasics(owner, id, { ...base, venueId: other?.id ?? "" }),
+    ).rejects.toMatchObject({ code: "invalid_venue" });
+    // The event may stay at its (now archived) venue while other fields change.
+    const renamed = await updateEventBasics(owner, id, { ...base, name: "Neu" });
+    expect(renamed.changed).toBe(true);
+    await expect(
+      updateEventBasics(owner, id, base, { ...base, name: "Anders" }),
+    ).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("previews a venue change with the venue's other events", async () => {
+    const id = await oneEvent();
+    const [other] = await db
+      .insert(venue)
+      .values({ name: "Rheinwiesen", kind: "outdoor_public", city: "Köln" })
+      .returning();
+    if (!other) throw new Error("no venue");
+    const [busy] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-11-14"]);
+    await db
+      .update(event)
+      .set({ venueId: other.id })
+      .where(eq(event.id, busy?.id ?? ""));
+    const preview = await previewEventSchedule(owner, id, { venueId: other.id, durationDays: 1 });
+    expect(preview.check?.venueConflicts.map((c) => c.id)).toEqual([busy?.id]);
   });
 });

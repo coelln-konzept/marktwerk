@@ -3,12 +3,15 @@
 import { refresh } from "next/cache";
 import { type Actor, getActor } from "@/server/actor";
 import {
+  type EventBasics,
   EventDetailsInputError,
   type EventFacts,
-  type EventMovePreview,
+  type EventSchedulePreview,
   moveEvent,
   previewEventMove,
+  previewEventSchedule,
   setEventBookingFlag,
+  updateEventBasics,
   updateEventFacts,
 } from "@/server/services/event-details";
 import { EventDutyInputError, setEventDuty } from "@/server/services/event-duties";
@@ -164,7 +167,7 @@ export async function setBookingFlag(eventId: string, flag: string, value: boole
 export async function previewMove(
   eventId: string,
   startsOn: string,
-): Promise<ActionResult<EventMovePreview>> {
+): Promise<ActionResult<EventSchedulePreview>> {
   return detailsAction((actor) => previewEventMove(actor, eventId, startsOn), false);
 }
 
@@ -176,4 +179,22 @@ export async function moveToDate(eventId: string, startsOn: string, expectedStar
 /** Undo toast of moveToDate. */
 export async function undoMove(eventId: string, movedTo: string, back: string) {
   return detailsAction((actor) => moveEvent(actor, eventId, back, movedTo, { undo: true }));
+}
+
+/** "Name, Dauer, Ort": warnings for a new length or venue (read only). */
+export async function previewBasics(
+  eventId: string,
+  change: { durationDays: number; venueId: string },
+): Promise<ActionResult<EventSchedulePreview>> {
+  return detailsAction((actor) => previewEventSchedule(actor, eventId, change), false);
+}
+
+/** "Name, Dauer, Ort": saves after the confirmation. */
+export async function saveBasics(eventId: string, basics: EventBasics) {
+  return detailsAction((actor) => updateEventBasics(actor, eventId, basics));
+}
+
+/** Undo toast of saveBasics. */
+export async function undoBasics(eventId: string, previous: EventBasics, saved: EventBasics) {
+  return detailsAction((actor) => updateEventBasics(actor, eventId, previous, saved));
 }

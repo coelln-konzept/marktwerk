@@ -183,7 +183,10 @@
       "fields": {
         "times": "Zeiten",
         "pricePerMCents": "Standpreis",
-        "bookingFeeCents": "Buchungsgebühr"
+        "bookingFeeCents": "Buchungsgebühr",
+        "name": "Name",
+        "durationDays": "Dauer",
+        "venueId": "Ort"
       },
       "bookingOn": "{flag}: ja",
       "bookingOff": "{flag}: nein",
@@ -284,6 +287,48 @@
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
       }
+    },
+    "happening": {
+      "title": "Die Veranstaltung läuft gerade",
+      "description": "Die Änderung gilt sofort, auch für das Team vor Ort. Trotzdem ändern?",
+      "confirm": "Ändern",
+      "cancel": "Abbrechen"
+    },
+    "basics": {
+      "open": "Bearbeiten",
+      "title": "Name, Dauer und Ort",
+      "description": "Gilt nur für diese Veranstaltung. Vor dem Speichern fragen wir noch einmal nach.",
+      "name": "Name",
+      "venue": "Ort",
+      "days": "Tage",
+      "archivedVenue": "Bisheriger Ort (archiviert)",
+      "newDays": "Neu: {from} – {to}",
+      "presetHint": "Die Vorlage bleibt unverändert. Bei mehr oder weniger Tagen werden Aufbau, Abbau und Buchungsschluss neu berechnet.",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "saved": "Name, Dauer und Ort gespeichert",
+      "unchanged": "Keine Änderungen zu speichern.",
+      "undo": "Rückgängig",
+      "reverted": "Wieder wie vorher",
+      "change": {
+        "name": "Name: {from} → {to}",
+        "days": "Dauer: {from} → {to} Tage",
+        "venue": "Ort: {from} → {to}"
+      },
+      "confirm": {
+        "title": "Wirklich ändern?",
+        "description": "Händler, Team und Website sehen danach die neuen Angaben.",
+        "ok": "Ändern"
+      },
+      "errors": {
+        "invalid_name": "Bitte einen Namen angeben (höchstens 120 Zeichen).",
+        "invalid_duration": "Bitte 1 bis 14 Tage angeben.",
+        "invalid_venue": "Diesen Ort gibt es nicht mehr.",
+        "conflict": "Die Veranstaltung wurde zwischenzeitlich geändert. Nichts zurückgesetzt.",
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      },
+      "openLabel": "Name, Dauer und Ort bearbeiten"
     }
   }
 }

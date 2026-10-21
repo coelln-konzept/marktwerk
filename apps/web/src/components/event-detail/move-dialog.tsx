@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { formatDateShort, formatDateWithWeekday, formatWeek } from "@/lib/format";
-import type { EventMovePreview } from "@/server/services/event-details";
+import type { EventSchedulePreview } from "@/server/services/event-details";
 
 /**
  * "Verschieben" (decided 2026-10-21): pick a new first day; the duration stays and the named dates are
@@ -25,7 +25,7 @@ export function MoveDialog({ eventId, startsOn }: { eventId: string; startsOn: s
   const { showToast } = useShell();
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(startsOn);
-  const [preview, setPreview] = useState<EventMovePreview | null>(null);
+  const [preview, setPreview] = useState<EventSchedulePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, startLoading] = useTransition();
   const [pending, startTransition] = useTransition();

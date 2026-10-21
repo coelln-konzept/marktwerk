@@ -1,3 +1,4 @@
+import { isHappening } from "@marktwerk/core";
 import { UserX } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Avatar } from "@/components/ui/avatar";
@@ -5,6 +6,7 @@ import { Health } from "@/components/ui/health";
 import { Panel, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { todayIn } from "@/lib/format";
 import type { EventDetail } from "@/server/queries/events";
 import type { AssignableStaff } from "@/server/queries/team";
 import { DutyMenu } from "./duty-menu";
@@ -24,6 +26,7 @@ export async function TeamTable({
   const total = event.duties.length;
   const assigned = event.duties.filter((d) => d.staffMemberId).length;
   const level = event.health.team ?? "none";
+  const happening = isHappening(event, todayIn());
   return (
     <Panel aria-labelledby="duties-title">
       <PanelHeader>
@@ -71,6 +74,7 @@ export async function TeamTable({
                         : null
                     }
                     staff={staff}
+                    happening={happening}
                   />
                 </TD>
               )}

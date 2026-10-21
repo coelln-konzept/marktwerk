@@ -183,7 +183,10 @@
       "fields": {
         "times": "times",
         "pricePerMCents": "pitch price",
-        "bookingFeeCents": "booking fee"
+        "bookingFeeCents": "booking fee",
+        "name": "name",
+        "durationDays": "length",
+        "venueId": "venue"
       },
       "bookingOn": "{flag}: yes",
       "bookingOff": "{flag}: no",
@@ -284,6 +287,48 @@
         "not_found": "This event no longer exists.",
         "generic": "That didn't work. Please try again."
       }
+    },
+    "happening": {
+      "title": "This event is happening now",
+      "description": "The change applies immediately, also for the team on site. Change it anyway?",
+      "confirm": "Change",
+      "cancel": "Cancel"
+    },
+    "basics": {
+      "open": "Edit",
+      "title": "Name, length and venue",
+      "description": "Applies to this event only. We ask once more before saving.",
+      "name": "Name",
+      "venue": "Venue",
+      "days": "Days",
+      "archivedVenue": "Current venue (archived)",
+      "newDays": "New: {from} – {to}",
+      "presetHint": "The preset stays as it is. With more or fewer days, setup, teardown and booking cut-off are recalculated.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Name, length and venue saved",
+      "unchanged": "Nothing to save.",
+      "undo": "Undo",
+      "reverted": "Back as before",
+      "change": {
+        "name": "Name: {from} → {to}",
+        "days": "Length: {from} → {to} days",
+        "venue": "Venue: {from} → {to}"
+      },
+      "confirm": {
+        "title": "Change it?",
+        "description": "Vendors, team and website will see the new details.",
+        "ok": "Change"
+      },
+      "errors": {
+        "invalid_name": "Please enter a name (at most 120 characters).",
+        "invalid_duration": "Please enter 1 to 14 days.",
+        "invalid_venue": "This venue no longer exists.",
+        "conflict": "The event was changed in the meantime. Nothing was reverted.",
+        "not_found": "This event no longer exists.",
+        "generic": "That didn't work. Please try again."
+      },
+      "openLabel": "Edit name, length and venue"
     }
   }
 }

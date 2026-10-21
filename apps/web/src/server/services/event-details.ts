@@ -15,8 +15,8 @@ import {
   MAX_PRICE_CENTS,
 } from "@marktwerk/core";
 import type { EventStatus } from "@marktwerk/core/events/lifecycle";
-import { event, eventAnchor } from "@marktwerk/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { event, eventAnchor, venue } from "@marktwerk/db/schema";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
@@ -32,6 +32,9 @@ export type EventDetailsError =
   | "invalid_price"
   | "invalid_flag"
   | "invalid_date"
+  | "invalid_duration"
+  | "invalid_name"
+  | "invalid_venue"
   | "not_movable"
   | "conflict";
 
@@ -181,11 +184,17 @@ export async function setEventBookingFlag(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Moving an event to another date (decided 2026-10-21: recompute the named dates, with a preview)
+// Schedule: days and venue of an event (decided 2026-10-21: moving recomputes the named dates with a
+// preview; name, length and venue are editable with a confirmation)
 
 const MOVED_ANCHORS = ["event_day", "setup_day", "teardown_day", "booking_cutoff"] as const;
 
-export type EventMovePreview = {
+/** At most this many days (same limit as presets, db check event_preset_duration). */
+export const MAX_DURATION_DAYS = 14;
+
+export type ScheduleChange = { startsOn?: string; durationDays?: number; venueId?: string };
+
+export type EventSchedulePreview = {
   status: EventStatus;
   movable: boolean;
   announced: boolean;
@@ -193,49 +202,72 @@ export type EventMovePreview = {
   to: { startsOn: string; endsOn: string };
   /** Named dates old → new (old is null if the event didn't have it yet). */
   anchors: { key: AnchorKey; from: string | null; to: string }[];
-  /** Holidays, venue already booked, weekend cap, for the new dates (the event itself excluded). */
+  /** Holidays, venue already booked, weekend cap, for the new days/venue (the event itself excluded). */
   check: CandidateCheck | null;
 };
 
-function moveTarget(current: { startsOn: string; endsOn: string }, startsOn: string) {
-  const durationDays = daysBetween(current.startsOn, current.endsOn) + 1;
-  return { startsOn, endsOn: addDays(startsOn, durationDays - 1), durationDays };
+type EventRow = typeof event.$inferSelect;
+
+const durationOf = (e: { startsOn: string; endsOn: string }) =>
+  daysBetween(e.startsOn, e.endsOn) + 1;
+
+function target(current: EventRow, change: ScheduleChange) {
+  const startsOn = change.startsOn ?? current.startsOn;
+  const durationDays = change.durationDays ?? durationOf(current);
+  if (!isIsoDate(startsOn)) throw new EventDetailsInputError("invalid_date");
+  if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > MAX_DURATION_DAYS)
+    throw new EventDetailsInputError("invalid_duration");
+  return {
+    startsOn,
+    endsOn: addDays(startsOn, durationDays - 1),
+    durationDays,
+    venueId: change.venueId ?? current.venueId,
+  };
 }
 
-/** What "Verschieben" would do; nothing is written. */
-export async function previewEventMove(
+/** Old anchors by key; older data may lack the teardown anchor (= last event day then, like DatesPanel). */
+function oldAnchors(rows: { key: string; date: string }[], current: EventRow) {
+  const byKey = new Map(rows.map((a) => [a.key, a.date]));
+  if (!byKey.has("teardown_day")) byKey.set("teardown_day", current.endsOn);
+  return byKey;
+}
+
+/** What a change of days and/or venue would do; nothing is written. */
+export async function previewEventSchedule(
   actor: Actor,
   id: string,
-  startsOn: string,
-): Promise<EventMovePreview> {
+  change: ScheduleChange,
+): Promise<EventSchedulePreview> {
   if (!can(actor.role, "event", "write")) forbidden();
-  if (!isIsoDate(startsOn)) throw new EventDetailsInputError("invalid_date");
   if (!UUID.test(id)) throw new EventDetailsInputError("not_found");
+  if (change.venueId !== undefined && !UUID.test(change.venueId))
+    throw new EventDetailsInputError("invalid_venue");
   const current = await db.query.event.findFirst({
     where: and(eq(event.id, id), isNull(event.archivedAt)),
   });
   if (!current) throw new EventDetailsInputError("not_found");
-  const target = moveTarget(current, startsOn);
-  const anchors = await db
+  const next = target(current, change);
+  const rows = await db
     .select({ key: eventAnchor.key, date: eventAnchor.date })
     .from(eventAnchor)
     .where(eq(eventAnchor.eventId, id));
-  const old = new Map(anchors.map((a) => [a.key, a.date]));
-  // Older data may lack the teardown anchor: the last event day is the teardown day then (DatesPanel).
-  if (!old.has("teardown_day")) old.set("teardown_day", current.endsOn);
-  const next = defaultAnchors(target.startsOn, target.durationDays);
-  const unchanged = target.startsOn === current.startsOn;
+  const old = oldAnchors(rows, current);
+  const anchors = defaultAnchors(next.startsOn, next.durationDays);
+  const unchanged =
+    next.startsOn === current.startsOn &&
+    next.endsOn === current.endsOn &&
+    next.venueId === current.venueId;
 
   // Weekend load counts the neighbours of the whole weekend, so fetch a little around the dates.
   const existing = unchanged
     ? []
-    : (
-        await scheduledEventsBetween(addDays(target.startsOn, -7), addDays(target.endsOn, 7))
-      ).filter((e) => e.id !== id);
+    : (await scheduledEventsBetween(addDays(next.startsOn, -7), addDays(next.endsOn, 7))).filter(
+        (e) => e.id !== id,
+      );
   const [check] = unchanged
     ? []
     : checkCandidates(
-        [{ startsOn: target.startsOn, endsOn: target.endsOn, venueId: current.venueId }],
+        [{ startsOn: next.startsOn, endsOn: next.endsOn, venueId: next.venueId }],
         existing,
       );
 
@@ -244,18 +276,60 @@ export async function previewEventMove(
     movable: canMoveEvent(current.status),
     announced: isAnnounced(current.status),
     from: { startsOn: current.startsOn, endsOn: current.endsOn },
-    to: { startsOn: target.startsOn, endsOn: target.endsOn },
-    anchors: MOVED_ANCHORS.map((key) => ({ key, from: old.get(key) ?? null, to: next[key] })),
+    to: { startsOn: next.startsOn, endsOn: next.endsOn },
+    anchors: MOVED_ANCHORS.map((key) => ({ key, from: old.get(key) ?? null, to: anchors[key] })),
     check: check ?? null,
   };
 }
 
+/** "Verschieben": the preview for a new first day. */
+export async function previewEventMove(actor: Actor, id: string, startsOn: string) {
+  if (!isIsoDate(startsOn)) throw new EventDetailsInputError("invalid_date");
+  return previewEventSchedule(actor, id, { startsOn });
+}
+
 /**
- * The one service path for moving an event (CLAUDE.md: anchor shifts). Keeps the duration, recomputes the
- * four named dates (booking cut-off = Monday before again) and the season. Only until the event runs.
- * `expectedStartsOn` guards against a concurrent move (and makes the undo toast safe). Other anchors
- * (custom ones, later the permit decision) stay. Warnings never block. M2 extends this: open,
- * non-overridden tasks follow their anchors, with a preview (roadmap).
+ * The one place that changes the days of an event (CLAUDE.md: anchor shifts): first/last day, season and
+ * the four named dates (booking cut-off = Monday before). Other anchors (custom ones, later the permit
+ * decision) stay. Returns the anchor diff for the audit entry. M2 extends this: open, non-overridden
+ * tasks follow their anchors, with a preview (roadmap).
+ */
+async function applySchedule(
+  tx: Tx,
+  current: EventRow,
+  next: { startsOn: string; endsOn: string; durationDays: number },
+) {
+  await tx
+    .update(event)
+    .set({
+      startsOn: next.startsOn,
+      endsOn: next.endsOn,
+      season: Number(next.startsOn.slice(0, 4)),
+    })
+    .where(eq(event.id, current.id));
+  const rows = await tx
+    .select({ key: eventAnchor.key, date: eventAnchor.date })
+    .from(eventAnchor)
+    .where(eq(eventAnchor.eventId, current.id));
+  const old = oldAnchors(rows, current);
+  const anchors = defaultAnchors(next.startsOn, next.durationDays);
+  const diff: Record<string, { from: string | null; to: string }> = {};
+  for (const key of MOVED_ANCHORS) {
+    diff[key] = { from: old.get(key) ?? null, to: anchors[key] };
+    await tx
+      .insert(eventAnchor)
+      .values({ eventId: current.id, key, date: anchors[key] })
+      .onConflictDoUpdate({
+        target: [eventAnchor.eventId, eventAnchor.key],
+        set: { date: anchors[key] },
+      });
+  }
+  return diff;
+}
+
+/**
+ * "Verschieben": new first day, duration kept. Only until the event runs. `expectedStartsOn` guards
+ * against a concurrent move (and makes the undo toast safe). Warnings never block.
  */
 export async function moveEvent(
   actor: Actor,
@@ -274,36 +348,8 @@ export async function moveEvent(
     if (startsOn === current.startsOn)
       return { changed: false, from: current.startsOn, to: startsOn };
 
-    const target = moveTarget(current, startsOn);
-    await tx
-      .update(event)
-      .set({
-        startsOn: target.startsOn,
-        endsOn: target.endsOn,
-        season: Number(target.startsOn.slice(0, 4)),
-      })
-      .where(eq(event.id, id));
-
-    const old = await tx
-      .select({ key: eventAnchor.key, date: eventAnchor.date })
-      .from(eventAnchor)
-      .where(eq(eventAnchor.eventId, id));
-    const oldByKey = new Map(old.map((a) => [a.key, a.date]));
-    if (!oldByKey.has("teardown_day")) oldByKey.set("teardown_day", current.endsOn);
-    const next = defaultAnchors(target.startsOn, target.durationDays);
-    const anchorDiff: Record<string, { from: string | null; to: string }> = {};
-    for (const key of MOVED_ANCHORS) {
-      const from = oldByKey.get(key) ?? null;
-      anchorDiff[key] = { from, to: next[key] };
-      await tx
-        .insert(eventAnchor)
-        .values({ eventId: id, key, date: next[key] })
-        .onConflictDoUpdate({
-          target: [eventAnchor.eventId, eventAnchor.key],
-          set: { date: next[key] },
-        });
-    }
-
+    const next = target(current, { startsOn });
+    const anchors = await applySchedule(tx, current, next);
     await audit(tx, actor.id, [
       {
         action: "event.move",
@@ -311,12 +357,89 @@ export async function moveEvent(
         entityId: id,
         diff: {
           from: { startsOn: current.startsOn, endsOn: current.endsOn },
-          to: { startsOn: target.startsOn, endsOn: target.endsOn },
-          anchors: anchorDiff,
+          to: { startsOn: next.startsOn, endsOn: next.endsOn },
+          anchors,
           ...(options.undo ? { undo: true } : {}),
         },
       },
     ]);
-    return { changed: true, from: current.startsOn, to: target.startsOn };
+    return { changed: true, from: current.startsOn, to: next.startsOn };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Grunddaten: name, length, venue (always confirmed in the UI, decided 2026-10-21)
+
+export const MAX_NAME_LENGTH = 120;
+
+export type EventBasics = { name: string; durationDays: number; venueId: string };
+
+/**
+ * "Name, Dauer, Ort" of this event only (the preset stays). A new length keeps the first day and
+ * recomputes the named dates through the same path as "Verschieben". `expected` (undo toast) applies the
+ * change only while the event still has those values. Audited as "event.update"; the venue change keeps
+ * both names so the Verlauf stays readable after a venue is renamed.
+ */
+export async function updateEventBasics(
+  actor: Actor,
+  id: string,
+  next: EventBasics,
+  expected?: EventBasics,
+): Promise<{ changed: boolean; previous: EventBasics }> {
+  if (!can(actor.role, "event", "write")) forbidden();
+  const name = next.name.trim().replace(/\s+/g, " ");
+  if (name === "" || name.length > MAX_NAME_LENGTH)
+    throw new EventDetailsInputError("invalid_name");
+  if (!UUID.test(next.venueId)) throw new EventDetailsInputError("invalid_venue");
+
+  return db.transaction(async (tx) => {
+    const current = await lockEvent(tx, id);
+    const previous: EventBasics = {
+      name: current.name,
+      durationDays: durationOf(current),
+      venueId: current.venueId,
+    };
+    if (
+      expected &&
+      (expected.name !== previous.name ||
+        expected.durationDays !== previous.durationDays ||
+        expected.venueId !== previous.venueId)
+    )
+      throw new EventDetailsInputError("conflict");
+
+    const schedule = target(current, { durationDays: next.durationDays, venueId: next.venueId });
+    const venues = await tx
+      .select({ id: venue.id, name: venue.name, archivedAt: venue.archivedAt })
+      .from(venue)
+      .where(inArray(venue.id, [current.venueId, schedule.venueId]));
+    const newVenue = venues.find((v) => v.id === schedule.venueId);
+    // An archived venue can't be picked, but an event already there may keep it.
+    if (!newVenue || (newVenue.archivedAt && newVenue.id !== current.venueId))
+      throw new EventDetailsInputError("invalid_venue");
+
+    const changes: Record<string, Record<string, unknown>> = {};
+    if (name !== current.name) changes.name = { from: current.name, to: name };
+    if (schedule.durationDays !== previous.durationDays)
+      changes.durationDays = { from: previous.durationDays, to: schedule.durationDays };
+    if (schedule.venueId !== current.venueId)
+      changes.venueId = {
+        from: current.venueId,
+        to: schedule.venueId,
+        fromName: venues.find((v) => v.id === current.venueId)?.name ?? null,
+        toName: newVenue.name,
+      };
+    if (Object.keys(changes).length === 0) return { changed: false, previous };
+
+    await tx.update(event).set({ name, venueId: schedule.venueId }).where(eq(event.id, id));
+    const anchors = changes.durationDays ? await applySchedule(tx, current, schedule) : undefined;
+    await audit(tx, actor.id, [
+      {
+        action: "event.update",
+        entityType: "event",
+        entityId: id,
+        diff: { changes, ...(anchors ? { anchors } : {}), ...(expected ? { undo: true } : {}) },
+      },
+    ]);
+    return { changed: true, previous };
   });
 }
