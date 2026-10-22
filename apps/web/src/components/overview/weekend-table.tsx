@@ -173,7 +173,17 @@ export async function WeekendTable({
                 <Link href={item.href as never} className="font-medium hover:underline">
                   {item.title}
                 </Link>
-                {item.meta && <span className="text-muted-foreground text-small">{item.meta}</span>}
+                {item.meta &&
+                  (item.metaHref ? (
+                    <Link
+                      href={item.metaHref as never}
+                      className="text-muted-foreground text-small hover:underline"
+                    >
+                      {item.meta}
+                    </Link>
+                  ) : (
+                    <span className="text-muted-foreground text-small">{item.meta}</span>
+                  ))}
                 <span className="tabular text-muted-foreground text-small">
                   {formatDateShort(item.dueOn, locale)}
                 </span>

@@ -855,6 +855,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
             : ("soon" as const),
       href: taskLink(r.id, r.eventId),
       meta: r.eventName ?? undefined,
+      metaHref: r.eventId ? `/veranstaltungen/${r.eventId}/board` : undefined,
       eventId: r.eventId,
       assigneeName: r.assigneeName,
     };
