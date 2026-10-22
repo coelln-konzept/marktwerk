@@ -1,6 +1,7 @@
 import { BellOff, SearchX, UserX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { MarkAllReadButton } from "@/components/notifications/mark-all-read-button";
 import { NotificationItem } from "@/components/notifications/notification-item";
@@ -16,7 +17,7 @@ import {
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { formatAgo } from "@/lib/format";
-import { HIDDEN_MODULES } from "@/lib/modules";
+import { HIDDEN_MODULES, isModuleHidden } from "@/lib/modules";
 import { isNotificationGroup, NOTIFICATION_GROUPS } from "@/lib/notification-reasons";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
@@ -42,6 +43,8 @@ export default async function NotificationsPage({
   searchParams,
 }: PageProps<"/benachrichtigungen">) {
   await requireUser();
+  // Hidden module (`lib/modules.ts`): the page answers 404 like /team; the code stays for Phase 4.
+  if (isModuleHidden("notifications")) notFound();
   const actor = await getActor();
   const sp = await searchParams;
   const t = await getTranslations("notificationsPage");

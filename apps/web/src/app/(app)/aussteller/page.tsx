@@ -1,4 +1,4 @@
-import { Check, Info, SearchX } from "lucide-react";
+import { Check, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -11,7 +11,7 @@ import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
-import { formatLength, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import {
@@ -75,14 +75,6 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
         title={t("title")}
         subtitle={t("subtitle", { count: formatNumber(imported, locale, 0) })}
       />
-
-      <div
-        role="note"
-        className="flex items-start gap-2 rounded-xl border border-status-info-dot/30 bg-status-info-bg px-4 py-3 text-status-info"
-      >
-        <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
-        <p className="m-0">{t("banner")}</p>
-      </div>
 
       <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
         {category && <input type="hidden" name="kategorie" value={category} />}
@@ -152,14 +144,9 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
               <THead>
                 <tr>
                   <TH>{t("cols.name")}</TH>
-                  <TH>{t("cols.kind")}</TH>
                   <TH>{t("cols.categories")}</TH>
                   <TH>{t("cols.city")}</TH>
-                  <TH className="text-right">{t("cols.length")}</TH>
-                  <TH>{t("cols.car")}</TH>
                   <TH>{t("cols.regular")}</TH>
-                  <TH>{t("cols.newsletter")}</TH>
-                  <TH className="text-right">{t("cols.since")}</TH>
                 </tr>
               </THead>
               <tbody>
@@ -190,7 +177,6 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
                           </span>
                         )}
                       </TD>
-                      <TD className="whitespace-nowrap">{t(`kind.${v.kind}`)}</TD>
                       <TD>
                         <TagList
                           items={v.categories.map((c) => tCat(c as never))}
@@ -198,25 +184,6 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
                         />
                       </TD>
                       <TD className="whitespace-nowrap">{v.city ?? none}</TD>
-                      <TD className="tabular whitespace-nowrap text-right">
-                        {v.defaultLengthCm ? formatLength(v.defaultLengthCm, locale) : none}
-                      </TD>
-                      <TD className="tabular whitespace-nowrap">
-                        {v.hasCar ? (
-                          <span className="inline-flex items-center gap-1">
-                            <Check aria-hidden className="size-4 text-status-ok" />
-                            <span className="sr-only">{t("withCar")}</span>
-                            {v.carLengthCm ? formatLength(v.carLengthCm, locale) : none}
-                          </span>
-                        ) : (
-                          <>
-                            <span aria-hidden className="text-faint-foreground">
-                              –
-                            </span>
-                            <span className="sr-only">{t("carNo")}</span>
-                          </>
-                        )}
-                      </TD>
                       <TD>
                         {v.isRegular ? (
                           <span className="inline-flex flex-col items-start gap-0.5 whitespace-nowrap">
@@ -232,21 +199,6 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
                         ) : (
                           none
                         )}
-                      </TD>
-                      <TD className="whitespace-nowrap">
-                        {v.newsletterConsent ? (
-                          t(`consent.${v.newsletterConsent}` as never)
-                        ) : (
-                          <>
-                            <span aria-hidden className="text-faint-foreground">
-                              –
-                            </span>
-                            <span className="sr-only">{t("consent.none")}</span>
-                          </>
-                        )}
-                      </TD>
-                      <TD className="tabular text-right text-muted-foreground">
-                        {v.createdOn ? v.createdOn.slice(0, 4) : none}
                       </TD>
                     </TR>
                   );

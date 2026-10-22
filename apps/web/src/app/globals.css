@@ -29,7 +29,7 @@
   --foreground: light-dark(#1c1b19, #edebe6);
   --foreground-2: light-dark(#55524c, #bab6ae);
   --muted-foreground: light-dark(#5f5b54, #a29d95);
-  --faint-foreground: light-dark(#7f7b73, #7f7a72);
+  --faint-foreground: light-dark(#666259, #938e85);
   --card: light-dark(#ffffff, #1d1c1a);
   --card-foreground: var(--foreground);
   --surface-2: light-dark(#fbfaf8, #232220);

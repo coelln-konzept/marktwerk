@@ -27,10 +27,10 @@ import {
 import { requirePermission } from "@/server/session";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await getTranslations("nav"))("logbook") };
+  return { title: (await getTranslations("nav"))("permits") };
 }
 
-const PATH = "/logbuch";
+const PATH = "/genehmigungen";
 
 const isState = (value: string | undefined): value is PermitDisplayState =>
   PERMIT_STATE_ORDER.includes(value as PermitDisplayState);
@@ -38,11 +38,12 @@ const isFocus = (value: string | undefined): value is LogbookFocus =>
   (LOGBOOK_FOCUS as readonly string[]).includes(value ?? "");
 
 /**
- * Logbuch: the status quo of the company's permits, per venue and category (Stadt / Extern), as a
- * matrix or a list. Filters (Ort, Kategorie, Saison, Status) and the focus chips live in the URL; a
- * permit opens in the drawer (`?genehmigung=<id>`) next to the table.
+ * Genehmigungen (was "Logbuch"): the status quo of the company's permits, per venue and category
+ * (Stadt / Extern), as a matrix or a list. Filters (Ort, Kategorie, Saison) and ONE status row (all
+ * states plus "Fehlt/abgelaufen für kommende Märkte", the number the sidebar badge shows) live in the
+ * URL; a permit opens in the drawer (`?genehmigung=<id>`) next to the table.
  */
-export default async function LogbuchPage({ searchParams }: PageProps<"/logbuch">) {
+export default async function PermitsPage({ searchParams }: PageProps<"/genehmigungen">) {
   await requirePermission("permit", "read");
   const actor = await getActor();
   const sp = await searchParams;
@@ -77,12 +78,6 @@ export default async function LogbuchPage({ searchParams }: PageProps<"/logbuch"
     (a, b) => b - a,
   );
   const venueCount = new Set(logbook.rows.map((r) => r.venueId)).size;
-  const missing =
-    logbook.counts.missing +
-    logbook.counts.preparing +
-    logbook.counts.rejected +
-    logbook.counts.expired;
-  const expiring = logbook.counts.expiring + logbook.counts.expired;
   const closeHref = hrefWith(PATH, sp, { genehmigung: undefined });
   const reset = view === "liste" ? `${PATH}?ansicht=liste` : PATH;
 
@@ -156,7 +151,7 @@ export default async function LogbuchPage({ searchParams }: PageProps<"/logbuch"
       </form>
 
       <FilterBar>
-        <FilterGroup label={t("focus")}>
+        <FilterGroup label={t("statusFilter")}>
           <FilterChips>
             <FilterChip
               href={hrefWith(PATH, sp, {
@@ -165,35 +160,24 @@ export default async function LogbuchPage({ searchParams }: PageProps<"/logbuch"
                 genehmigung: undefined,
               })}
               active={!focus && !state}
+              count={logbook.total}
             >
-              {t("focusAll")}
+              {t("filterAll")}
             </FilterChip>
             <FilterChip
               href={hrefWith(PATH, sp, {
                 fokus: "fehlt",
                 status: undefined,
+                // Needing action depends on upcoming markets, not on the season.
+                saison: "alle",
                 genehmigung: undefined,
               })}
               active={focus === "fehlt"}
-              count={missing}
+              count={logbook.needsAction}
+              title={t("needsActionHint")}
             >
-              {t("focusMissing")}
+              {t("needsAction")}
             </FilterChip>
-            <FilterChip
-              href={hrefWith(PATH, sp, {
-                fokus: "ablaufend",
-                status: undefined,
-                genehmigung: undefined,
-              })}
-              active={focus === "ablaufend"}
-              count={expiring}
-            >
-              {t("focusExpiring")}
-            </FilterChip>
-          </FilterChips>
-        </FilterGroup>
-        <FilterGroup label={t("status")}>
-          <FilterChips>
             {PERMIT_STATE_ORDER.filter((s) => logbook.counts[s] > 0 || s === state).map((s) => (
               <FilterChip
                 key={s}

@@ -194,7 +194,7 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
                     label: t("replaces"),
                     value: (
                       <Link
-                        href={`/logbuch?genehmigung=${permit.supersedes.id}` as never}
+                        href={`/genehmigungen?genehmigung=${permit.supersedes.id}` as never}
                         className="font-medium text-accent-soft-foreground hover:underline"
                       >
                         {permit.supersedes.title}

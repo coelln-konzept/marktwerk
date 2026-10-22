@@ -82,7 +82,8 @@ export async function CompanySummary({ settings }: { settings: CompanySettings }
         },
         {
           label: t("fields.dailyDigestEnabled"),
-          value: settings.dailyDigestEnabled ? t("digestOn") : t("digestOff"),
+          value:
+            settings.emailEnabled && settings.dailyDigestEnabled ? t("digestOn") : t("digestOff"),
         },
         {
           label: t("fields.permitHorizonDays"),

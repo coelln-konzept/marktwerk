@@ -1,3 +1,4 @@
+import { can as roleCan } from "@marktwerk/core";
 import { getTranslations } from "next-intl/server";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { CommandPalette } from "@/components/shell/command-palette";
@@ -26,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ? [{ kind: "action" as const, title: t("payable"), href: "/finanzen/neu" }]
       : []),
     ...(can("permit")
-      ? [{ kind: "action" as const, title: t("permit"), href: "/logbuch?neu=1" }]
+      ? [{ kind: "action" as const, title: t("permit"), href: "/genehmigungen?neu=1" }]
       : []),
     ...(can("shift")
       ? [{ kind: "action" as const, title: t("shift"), href: "/team/schichten?neu=1" }]
@@ -36,6 +37,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : []),
     { kind: "action", title: t("calendar"), href: "/kalender" },
     { kind: "action", title: t("events"), href: "/veranstaltungen" },
+    // Einstellungen is not in the sidebar any more (profile menu); Strg+K finds it too.
+    ...(roleCan(actor.role, "settings", "read")
+      ? [{ kind: "action" as const, title: t("settings"), href: "/einstellungen" }]
+      : []),
   ];
   return (
     <ShellProvider creatable={creatable}>

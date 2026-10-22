@@ -36,7 +36,7 @@
     "standing": "standing"
   },
   "logbook": {
-    "title": "Logbook",
+    "title": "Permits",
     "subtitle": "{count, plural, one {# permit} other {# permits}} at {venues, plural, one {# venue} other {# venues}}",
     "new": "Add permit",
     "filters": "Filters",
@@ -52,10 +52,6 @@
     "view": "View",
     "viewMatrix": "Matrix",
     "viewList": "List",
-    "focus": "Focus",
-    "focusAll": "All",
-    "focusMissing": "Missing",
-    "focusExpiring": "Expiring",
     "summary": "At a glance",
     "matrixCaption": "Permits by venue and type. A cell shows the most urgent state and opens the permit.",
     "listCaption": "Permits by venue and category",
@@ -115,7 +111,12 @@
       "created": "Permit added.",
       "undo": "Undo",
       "createdUndone": "Permit removed again."
-    }
+    },
+    "statusFilter": "Status",
+    "filterAll": "All",
+    "needsAction": "Missing/expired for upcoming markets",
+    "needsActionHint": "Permits that are missing, not yet applied for or expired and needed for an upcoming market (all seasons). The same number shows in the sidebar.",
+    "scrollHint": "More columns to the right: scroll sideways"
   },
   "permitDrawer": {
     "label": "Permit",
@@ -189,9 +190,9 @@
       "cancelled": "Cancelled"
     },
     "fees": "Fees",
-    "feesEmpty": "No payment created yet. Payments arrive with M5.",
+    "feesEmpty": "No payment created yet.",
     "edit": "Edit",
-    "archive": "Remove from logbook",
+    "archive": "Remove from permits",
     "archived": "“{title}” removed.",
     "restored": "Permit restored.",
     "undoArchive": "Undo",
@@ -344,11 +345,11 @@
     "applied": "Decision expected {date}",
     "validity": "{from} to {until}",
     "validityUntil": "until {until}",
-    "open": "Open in logbook",
-    "openNamed": "Open {title} in logbook",
+    "open": "Open permit",
+    "openNamed": "Open {title}",
     "empty": "No permits for this event yet.",
     "emptyHint": "No requirements are set up for {venue} yet. With requirements, the permits and their tasks are created automatically.",
     "emptyAction": "Set up requirements at the venue",
-    "logbook": "To the logbook"
+    "logbook": "All permits"
   }
 }

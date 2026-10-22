@@ -176,11 +176,11 @@ describe("logbook query", () => {
     expect(
       (await listLogbook(owner, { season: 2026, focus: "fehlt" }, TODAY)).rows.map((r) => r.title),
     ).toEqual(["Wasser"]);
+    // The focus counts permits that are missing for an upcoming market, whatever the season.
+    expect(all.needsAction).toBe(1);
     expect(
-      (await listLogbook(owner, { season: 2026, focus: "ablaufend" }, TODAY)).rows.map(
-        (r) => r.title,
-      ),
-    ).toEqual(["Toiletten"]);
+      (await listLogbook(owner, { season: 2025, focus: "fehlt" }, TODAY)).rows.map((r) => r.title),
+    ).toEqual(["Wasser"]);
     expect(
       (await listLogbook(owner, { season: 2026, category: "external" }, TODAY)).rows,
     ).toHaveLength(2);
@@ -198,6 +198,8 @@ describe("logbook query", () => {
       (await listLogbook(owner, { season: 2026, state: "missing" }, TODAY)).counts.granted,
     ).toBe(2);
 
+    // The sidebar badge is the same number as the focus chip of the Genehmigungen page.
+    expect(await missingPermitCount(owner, TODAY)).toBe(all.needsAction);
     expect(await missingPermitCount(owner, TODAY)).toBe(1);
     expect((await listLogbook(field, { season: 2026 }, TODAY)).rows).toEqual([]);
     expect(await missingPermitCount(field, TODAY)).toBe(0);
@@ -314,7 +316,7 @@ describe("feeds for Übersicht and Kalender", () => {
       assigneeName: "Anna Test",
       meta: "Antrag · Messeplatz Test",
     });
-    expect(items[0]?.href).toBe(`/logbuch?genehmigung=${items[0]?.id}`);
+    expect(items[0]?.href).toBe(`/genehmigungen?genehmigung=${items[0]?.id}`);
     expect(await dueItems(field, TODAY)).toEqual([]);
   });
 

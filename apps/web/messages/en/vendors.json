@@ -1,8 +1,7 @@
 {
   "vendors": {
     "title": "Vendors",
-    "subtitle": "{count} imported · read only",
-    "banner": "Phase 1: list from the old website, read only. Bookings arrive in phase 2.",
+    "subtitle": "{count} imported from the old website · read only",
     "search": "Search name, company, city or email",
     "categories": "Categories",
     "filters": "More filters",
@@ -22,14 +21,9 @@
     "caption": "Vendor list, page {page} of {pages}",
     "cols": {
       "name": "Name",
-      "kind": "Type",
-      "categories": "Categories",
+      "categories": "Range",
       "city": "City",
-      "length": "Default length",
-      "car": "Car",
-      "regular": "Regular",
-      "newsletter": "Newsletter",
-      "since": "Since"
+      "regular": "Regular"
     },
     "kind": {
       "private": "private",
@@ -41,9 +35,9 @@
     "regularBadge": "Regular",
     "regularSpot": "Regular spot {spot}",
     "consent": {
-      "soft_opt_in": "Soft opt-in",
-      "double_opt_in": "Double opt-in",
-      "none": "no consent"
+      "soft_opt_in": "yes",
+      "double_opt_in": "yes",
+      "none": "no"
     },
     "noValue": "–",
     "preview": "Preview {name}",
@@ -76,7 +70,7 @@
       "imported": "Imported on",
       "notes": "Notes",
       "noNotes": "No notes.",
-      "readOnly": "Read only: changes arrive with bookings in phase 2."
+      "readOnly": "Read only: these vendors come from the old website and cannot be edited here yet."
     }
   }
 }

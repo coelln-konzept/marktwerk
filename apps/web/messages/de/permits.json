@@ -36,7 +36,7 @@
     "standing": "dauerhaft"
   },
   "logbook": {
-    "title": "Logbuch",
+    "title": "Genehmigungen",
     "subtitle": "{count, plural, one {# Genehmigung} other {# Genehmigungen}} an {venues, plural, one {# Ort} other {# Orten}}",
     "new": "Genehmigung anlegen",
     "filters": "Filter",
@@ -52,10 +52,6 @@
     "view": "Ansicht",
     "viewMatrix": "Matrix",
     "viewList": "Liste",
-    "focus": "Fokus",
-    "focusAll": "Alle",
-    "focusMissing": "Fehlt",
-    "focusExpiring": "Läuft ab",
     "summary": "Auf einen Blick",
     "matrixCaption": "Genehmigungen je Ort und Art. Eine Zelle zeigt den dringendsten Stand und öffnet die Genehmigung.",
     "listCaption": "Genehmigungen nach Ort und Kategorie",
@@ -115,7 +111,12 @@
       "created": "Genehmigung angelegt.",
       "undo": "Rückgängig",
       "createdUndone": "Genehmigung wieder entfernt."
-    }
+    },
+    "statusFilter": "Status",
+    "filterAll": "Alle",
+    "needsAction": "Fehlt/abgelaufen für kommende Märkte",
+    "needsActionHint": "Genehmigungen, die fehlen, noch nicht beantragt oder abgelaufen sind und für einen kommenden Markt gebraucht werden (alle Saisons). Dieselbe Zahl steht in der Seitenleiste.",
+    "scrollHint": "Weitere Spalten rechts: seitlich scrollen"
   },
   "permitDrawer": {
     "label": "Genehmigung",
@@ -189,9 +190,9 @@
       "cancelled": "Abgebrochen"
     },
     "fees": "Gebühren",
-    "feesEmpty": "Noch keine Zahlung angelegt. Zahlungen kommen mit M5.",
+    "feesEmpty": "Noch keine Zahlung angelegt.",
     "edit": "Bearbeiten",
-    "archive": "Aus dem Logbuch entfernen",
+    "archive": "Aus den Genehmigungen entfernen",
     "archived": "„{title}“ entfernt.",
     "restored": "Genehmigung wiederhergestellt.",
     "undoArchive": "Rückgängig",
@@ -344,11 +345,11 @@
     "applied": "Entscheidung erwartet {date}",
     "validity": "{from} bis {until}",
     "validityUntil": "bis {until}",
-    "open": "Im Logbuch öffnen",
-    "openNamed": "{title} im Logbuch öffnen",
+    "open": "Genehmigung öffnen",
+    "openNamed": "{title} öffnen",
     "empty": "Noch keine Genehmigungen für diese Veranstaltung.",
     "emptyHint": "Am Ort {venue} sind noch keine Anforderungen hinterlegt. Mit Anforderungen entstehen die Genehmigungen und ihre Aufgaben automatisch.",
     "emptyAction": "Anforderungen am Ort anlegen",
-    "logbook": "Zum Logbuch"
+    "logbook": "Alle Genehmigungen"
   }
 }

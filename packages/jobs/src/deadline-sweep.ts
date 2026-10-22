@@ -214,7 +214,7 @@ async function stagePermits(
     const recipients = p.responsibleStaffMemberId
       ? [p.responsibleStaffMemberId]
       : managers.map((m) => m.id);
-    const link = `/logbuch?genehmigung=${p.id}`;
+    const link = `/genehmigungen?genehmigung=${p.id}`;
 
     if ((p.status === "not_started" || p.status === "preparing") && p.applyBy) {
       const dueAt = endOfDay(p.applyBy);
@@ -346,7 +346,7 @@ async function escalate(
         title: p.title,
         dueAt: endOfDay(p.applyBy),
         who: p.responsibleName,
-        link: `/logbuch?genehmigung=${p.id}`,
+        link: `/genehmigungen?genehmigung=${p.id}`,
       });
   }
 

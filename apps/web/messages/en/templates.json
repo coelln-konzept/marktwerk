@@ -37,7 +37,11 @@
       "noDates": "No dates in the next 12 months.",
       "noRule": "No recurrence recorded; dates are picked by hand.",
       "generate": "Generate dates",
-      "edit": "Edit"
+      "edit": "Edit",
+      "tasksOwn": "Tasks: copy of the master template.",
+      "tasksOpen": "View",
+      "tasksShared": "Tasks: {names}",
+      "tasksNone": "Tasks: no template yet."
     },
     "editLabel": "Edit: {name}",
     "form": {
@@ -172,11 +176,6 @@
       "caption": "Markets with venue, rhythm and task template",
       "empty": "No markets yet.",
       "emptyHint": "Add a market under Events → Plan a market.",
-      "cols": {
-        "tasks": "Own task template"
-      },
-      "own": "Yes",
-      "notOwn": "No",
       "tasksLabel": "Task template of {name}",
       "hint": "Add new markets under Events → Plan a market.",
       "count": "{count, plural, one {# market} other {# markets}} · {active} active"

@@ -150,7 +150,6 @@ export default async function LibraryPage({
                   <TH>{tTpl("cols.venue")}</TH>
                   <TH>{tTpl("cols.rhythm")}</TH>
                   <TH>{tTpl("cols.status")}</TH>
-                  <TH>{t("markets.cols.tasks")}</TH>
                   <TH>
                     <span className="sr-only">{tTpl("cols.actions")}</span>
                   </TH>
@@ -201,29 +200,6 @@ export default async function LibraryPage({
                       <TD className="max-w-60">{rruleText(m.rrule, locale)}</TD>
                       <TD>
                         <PresetStatusBadge active={m.active} />
-                      </TD>
-                      <TD className="max-w-64">
-                        {m.ownTemplate ? (
-                          <Link
-                            href={`/vorlagen/ablauf/${m.ownTemplate.id}` as never}
-                            tabIndex={-1}
-                            className="font-medium text-accent-soft-foreground hover:underline"
-                          >
-                            {t("markets.own")}
-                          </Link>
-                        ) : (
-                          <span className="block">
-                            <span>{t("markets.notOwn")}</span>
-                            {m.sharedTemplates.length > 0 && (
-                              <span
-                                className="block truncate text-muted-foreground text-tiny"
-                                title={m.sharedTemplates.map((x) => x.name).join(", ")}
-                              >
-                                {m.sharedTemplates.map((x) => x.name).join(", ")}
-                              </span>
-                            )}
-                          </span>
-                        )}
                       </TD>
                       <TD className="w-24">
                         <RowActions>

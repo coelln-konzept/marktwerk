@@ -145,7 +145,7 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
       title: unfiled ? p.title : `${p.title} (Entscheidung erwartet)`,
       dueOn,
       urgency,
-      href: `/logbuch?genehmigung=${p.id}`,
+      href: `/genehmigungen?genehmigung=${p.id}`,
     });
   }
   return items;

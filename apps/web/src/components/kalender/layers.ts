@@ -23,22 +23,29 @@ export type Layers = {
   venue: string | null;
 };
 
+/**
+ * What the Kalender shows until someone changes it (UX pass 2026-10-22): the markets and the deadlines
+ * around them (permits, instalments, obligations, shifts), not every single task: those are on the
+ * Board. This equals the preset "Märkte + Fristen".
+ */
 export const DEFAULT_LAYERS: Layers = {
   types: [...EVENT_TYPE_KEYS],
-  deadlines: [...CALENDAR_LAYERS],
+  deadlines: CALENDAR_LAYERS.filter((l) => l !== "tasks"),
   holidays: true,
   critical: false,
   mine: false,
   venue: null,
 };
 
-/** Presets set the layer groups and keep the narrowing as it is. */
+/** Two presets (set the layer groups, keep the narrowing as it is): only the markets, or markets + deadlines. */
 export const PRESETS = [
-  { key: "all", types: [...EVENT_TYPE_KEYS], deadlines: [...CALENDAR_LAYERS], holidays: true },
-  { key: "events", types: [...EVENT_TYPE_KEYS], deadlines: [], holidays: false },
-  { key: "deadlines", types: [], deadlines: [...CALENDAR_LAYERS], holidays: true },
-  // The decision log: permits join "Märkte + Genehmigungen" once they exist (M3).
-  { key: "markets", types: ["flea", "antique"], deadlines: ["permits"], holidays: true },
+  { key: "markets", types: [...EVENT_TYPE_KEYS], deadlines: [], holidays: false },
+  {
+    key: "marketsDeadlines",
+    types: [...EVENT_TYPE_KEYS],
+    deadlines: CALENDAR_LAYERS.filter((l) => l !== "tasks"),
+    holidays: true,
+  },
 ] as const satisfies {
   key: string;
   types: readonly string[];
@@ -48,12 +55,11 @@ export const PRESETS = [
 
 export type PresetKey = (typeof PRESETS)[number]["key"];
 
-/** Layer groups of the panel, in order. Rückgaben (Miete) come with rentals (M12) and show disabled. */
+/** Layer groups of the panel, in order. */
 export const DEADLINE_GROUPS = {
   deadlines: ["permits", "installments", "tasks", "obligations"],
   team: ["shifts"],
 } as const satisfies Record<string, readonly CalendarLayer[]>;
-export const FUTURE_LAYERS = { deadlines: [{ key: "returns", milestone: "M12" }] } as const;
 
 /**
  * The module layers a role may see (same checks as the modules' `calendarItems`): tasks for everyone,
@@ -84,7 +90,7 @@ export function sanitizeLayers(raw: unknown): Layers {
   const types = Array.isArray(o.types)
     ? EVENT_TYPE_KEYS.filter((k) => (o.types as unknown[]).includes(k))
     : [...DEFAULT_LAYERS.types];
-  // Selections saved before the module layers existed have no `deadlines`: everything on.
+  // Selections saved before the module layers existed have no `deadlines`: the default set.
   const deadlines = Array.isArray(o.deadlines)
     ? CALENDAR_LAYERS.filter((k) => (o.deadlines as unknown[]).includes(k))
     : [...DEFAULT_LAYERS.deadlines];

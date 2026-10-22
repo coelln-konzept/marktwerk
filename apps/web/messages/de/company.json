@@ -1,6 +1,6 @@
 {
   "company": {
-    "title": "Firma",
+    "title": "Pflichten & Fahrzeuge",
     "subtitle": "Wiederkehrende Pflichten, Fahrzeuge und Mängel.",
     "tabs": {
       "label": "Bereiche der Firma",
@@ -41,7 +41,7 @@
       "other": "Sonstiges"
     },
     "scopes": {
-      "company": "Firma",
+      "company": "Unternehmen",
       "vehicle": "Fahrzeug",
       "venue": "Ort"
     },

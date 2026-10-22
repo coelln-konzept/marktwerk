@@ -1,6 +1,6 @@
 {
   "kalenderPage": {
-    "subtitle": "Veranstaltungen, Fristen und Feiertage an einem Ort · Ebenen links ein- und ausblenden",
+    "subtitle": "Märkte und Fristen auf einen Blick · über „Ebenen“ blendest du mehr ein",
     "nav": "Zeitraum",
     "prev": "Zurück",
     "next": "Weiter",
@@ -14,13 +14,10 @@
     "layers": {
       "title": "Ebenen",
       "visible": "{count} sichtbar",
-      "toggle": "Ebenen ein- oder ausklappen",
       "presets": "Voreinstellungen",
       "preset": {
-        "all": "Alles",
-        "events": "Nur Veranstaltungen",
-        "deadlines": "Nur Fristen",
-        "markets": "Märkte + Genehmigungen"
+        "markets": "Märkte",
+        "marketsDeadlines": "Märkte + Fristen"
       },
       "events": "Veranstaltungen",
       "deadlines": "Fristen",
@@ -32,15 +29,10 @@
         "city_festival": "Stadtfeste",
         "food_wine": "Food & Wine"
       },
-      "future": {
-        "returns": "Rückgaben (Miete)"
-      },
-      "comesWith": "kommt mit {milestone}",
       "holidays": "Feiertage NRW",
       "narrow": "Eingrenzen",
       "critical": "Nur Achtung und Kritisch",
       "mine": "Nur meine Zuständigkeit",
-      "mineNone": "Dir ist kein Teammitglied zugeordnet.",
       "venue": "Ort",
       "allVenues": "Alle Orte",
       "saved": "Auswahl bleibt pro Person gespeichert.",
@@ -51,8 +43,7 @@
         "tasks": "Aufgaben",
         "obligations": "Fahrzeuge & Pflichten",
         "shifts": "Schichten"
-      },
-      "narrowHint": "„Nur meine Zuständigkeit“ gilt für Veranstaltungen und Aufgaben, „Achtung und Kritisch“ auch für Fristen."
+      }
     },
     "gridCaption": "Kalender {month}",
     "listCaption": "Veranstaltungen, Fristen und Feiertage, {from} bis {to}",
@@ -69,10 +60,9 @@
       "future": "in {n} T",
       "past": "vor {n} T"
     },
-    "preview": "Vorschau: {name}",
     "open": "Öffnen",
     "emptyList": "In diesen sechs Wochen ist nichts eingetragen.",
-    "emptyListHint": "Ebenen und Eingrenzungen links ändern, oder mit › weiterblättern.",
+    "emptyListHint": "Über „Ebenen“ änderst du die Auswahl, oder blättere mit › weiter.",
     "emptyMonth": "Für diese Auswahl gibt es in diesem Monat keine Einträge.",
     "emptyReset": "Auswahl zurücksetzen",
     "legend": {
@@ -80,7 +70,7 @@
       "holiday": "Feiertag NRW",
       "cancelled": "durchgestrichen = abgesagt"
     },
-    "keys": "Klick auf einen Eintrag: Vorschau · <k>T</k> heute · <k>M</k> Monat · <k>L</k> Liste",
+    "keys": "Klick auf einen Eintrag öffnet ihn · <k>T</k> heute · <k>M</k> Monat · <k>L</k> Liste",
     "tone": {
       "ok": "Im Plan",
       "warn": "Achtung",

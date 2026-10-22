@@ -25,7 +25,6 @@ export async function CalendarList({
   deadlines,
   holidays,
   hrefFor,
-  vorschauId,
   resetHref,
 }: {
   from: string;
@@ -35,9 +34,8 @@ export async function CalendarList({
   /** Entries of the module layers (Aufgaben, Genehmigungen, …). */
   deadlines: CalendarItem[];
   holidays: Map<string, string>;
-  /** Vorschau link for an event. */
+  /** Link to an event (its Überblick). */
   hrefFor: (id: string) => string;
-  vorschauId?: string;
   resetHref: string;
 }) {
   const t = await getTranslations("kalenderPage");
@@ -143,16 +141,13 @@ export async function CalendarList({
                   );
                 }
                 const eventRows = events.map((r, i) => {
-                  const href = `/veranstaltungen/${r.id}/board`;
-                  const peek = hrefFor(r.id);
+                  const href = hrefFor(r.id);
                   return (
                     <TR
                       key={`${day}-${r.id}`}
                       tabIndex={0}
                       data-row
                       data-href={href}
-                      data-peek={peek}
-                      aria-selected={vorschauId === r.id}
                       className={cn(
                         "cursor-pointer outline-none focus-visible:bg-selected",
                         r.status === "cancelled" && "text-muted-foreground",
@@ -166,10 +161,8 @@ export async function CalendarList({
                           className="mr-2 align-middle"
                         />
                         <Link
-                          href={peek as never}
-                          scroll={false}
+                          href={href as never}
                           tabIndex={-1}
-                          aria-label={t("preview", { name: r.name })}
                           className={cn(
                             "mr-2 font-semibold hover:underline",
                             r.status === "cancelled" && "line-through",

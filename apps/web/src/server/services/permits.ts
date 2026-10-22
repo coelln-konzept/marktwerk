@@ -323,7 +323,7 @@ export async function fillLogbookForEvents(
         permitIds.length === 1
           ? "Neue Aufgabe: Genehmigung beantragen"
           : `${permitIds.length} neue Aufgaben: Genehmigungen beantragen`,
-      link: "/logbuch?fokus=fehlt",
+      link: "/genehmigungen?fokus=fehlt",
       dedupeKey: `assigned:permit-fill:${createHash("sha1").update(permitIds.sort().join(",")).digest("hex").slice(0, 16)}`,
     })),
   );

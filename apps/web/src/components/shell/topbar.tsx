@@ -2,7 +2,6 @@
 
 import { Menu } from "@base-ui/react/menu";
 import {
-  Bell,
   CalendarPlus,
   ChevronRight,
   CircleCheck,
@@ -53,7 +52,7 @@ function NewMenu() {
       icon: CircleCheck,
     },
     { kind: "payable", href: "/finanzen/neu", label: t("newPayable"), icon: Wallet },
-    { kind: "permit", href: "/logbuch?neu=1", label: t("newPermit"), icon: ShieldCheck },
+    { kind: "permit", href: "/genehmigungen?neu=1", label: t("newPermit"), icon: ShieldCheck },
     { kind: "shift", href: "/team/schichten?neu=1", label: t("newShift"), icon: Clock },
     { kind: "issue", href: "/firma/maengel?neu=1", label: t("newIssue"), icon: TriangleAlert },
   ];
@@ -133,7 +132,10 @@ function NewMenu() {
   );
 }
 
-/** Breadcrumb · visible search field (opens the palette, Ctrl+K) · "+ Neu" · notifications. */
+/**
+ * Breadcrumb (only when there is a parent to show) · visible search field (opens the palette, Ctrl+K) ·
+ * "+ Neu" · the notification bell when the page passes one.
+ */
 export function Topbar({ crumbs, bell }: { crumbs: Crumb[]; bell?: React.ReactNode }) {
   const t = useTranslations("topbar");
   const { setNavOpen, setPaletteOpen, creatable } = useShell();
@@ -147,35 +149,39 @@ export function Topbar({ crumbs, bell }: { crumbs: Crumb[]; bell?: React.ReactNo
       >
         <MenuIcon className="size-5" />
       </button>
-      <nav aria-label={t("breadcrumb")} className="min-w-0 flex-1">
-        <ol className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-          {crumbs.map((crumb, index) => {
-            const last = index === crumbs.length - 1;
-            return (
-              <li
-                key={`${crumb.href ?? ""}|${crumb.label}`}
-                className="flex min-w-0 items-center gap-1.5"
-              >
-                {index > 0 && <ChevronRight aria-hidden className="size-3.5 shrink-0" />}
-                {crumb.href && !last ? (
-                  <Link href={crumb.href as never} className="truncate hover:text-foreground">
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <span
-                    aria-current={last ? "page" : undefined}
-                    className={
-                      last && index > 0 ? "truncate font-semibold text-foreground" : "truncate"
-                    }
-                  >
-                    {crumb.label}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+      {crumbs.length > 1 ? (
+        <nav aria-label={t("breadcrumb")} className="min-w-0 flex-1">
+          <ol className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+            {crumbs.map((crumb, index) => {
+              const last = index === crumbs.length - 1;
+              return (
+                <li
+                  key={`${crumb.href ?? ""}|${crumb.label}`}
+                  className="flex min-w-0 items-center gap-1.5"
+                >
+                  {index > 0 && <ChevronRight aria-hidden className="size-3.5 shrink-0" />}
+                  {crumb.href && !last ? (
+                    <Link href={crumb.href as never} className="truncate hover:text-foreground">
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span
+                      aria-current={last ? "page" : undefined}
+                      className={
+                        last && index > 0 ? "truncate font-semibold text-foreground" : "truncate"
+                      }
+                    >
+                      {crumb.label}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+      ) : (
+        <div className="flex-1" />
+      )}
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
@@ -194,15 +200,7 @@ export function Topbar({ crumbs, bell }: { crumbs: Crumb[]; bell?: React.ReactNo
         <Search className="size-4" />
       </button>
       {creatable.length > 0 && <NewMenu />}
-      {bell ?? (
-        <Link
-          href="/benachrichtigungen"
-          aria-label={t("notifications")}
-          className="relative grid size-8 place-items-center rounded-lg hover:bg-hover"
-        >
-          <Bell className="size-4" />
-        </Link>
-      )}
+      {bell}
     </header>
   );
 }
