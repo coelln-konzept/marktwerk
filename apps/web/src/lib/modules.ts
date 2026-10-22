@@ -13,6 +13,13 @@ export const HIDDEN_MODULES = {
   finance: true,
   /** Time estimates on tasks and templates (hours per card, column and event). Data stays; needed again with team allocation. */
   estimates: true,
+  /**
+   * The bell and Benachrichtigungen: notifications reach staff members, and the main user's login has
+   * none while Team is hidden (UX pass 2026-10-22). Back with Team in Phase 4.
+   */
+  notifications: true,
+  /** Vendor booking (Buchung menu, "Buchung geschlossen" chip): Phase 2. */
+  booking: true,
 } as const;
 
 export type HiddenModule = keyof typeof HIDDEN_MODULES;
