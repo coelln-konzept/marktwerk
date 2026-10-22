@@ -1,7 +1,7 @@
 import { addDays, weekday } from "./calendar";
 
 /**
- * The weekend "Nächstes Wochenende" refers to: the coming Saturday and Sunday. On a Saturday or
+ * The weekend "Dieses Wochenende" refers to: the coming Saturday and Sunday. On a Saturday or
  * Sunday it is the current weekend (it is still happening), from Monday on the one ahead.
  */
 export function upcomingWeekend(today: string): { saturday: string; sunday: string } {

@@ -8,6 +8,7 @@ export * from "./dates/holidays";
 export * from "./dates/relative";
 export * from "./dates/weekend";
 export * from "./deadlines/due-ranking";
+export * from "./deadlines/permit-horizon";
 export * from "./deadlines/reminders";
 export * from "./events/anchors";
 export * from "./events/details";

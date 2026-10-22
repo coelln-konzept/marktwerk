@@ -36,7 +36,15 @@ export const settings = app.table(
      */
     emailEnabled: boolean().notNull().default(false),
     dailyDigestEnabled: boolean().notNull().default(true),
+    /**
+     * How many days before their apply-by date (or expected decision) permits appear in the Übersicht.
+     * 7–180; tasks and other due items keep their fixed 7-day horizon.
+     */
+    permitHorizonDays: integer().notNull().default(30),
     ...timestamps,
   },
-  (t) => [check("settings_singleton", sql`${t.id} = 1`)],
+  (t) => [
+    check("settings_singleton", sql`${t.id} = 1`),
+    check("settings_permit_horizon_range", sql`${t.permitHorizonDays} between 7 and 180`),
+  ],
 );

@@ -1,0 +1,2 @@
+ALTER TABLE "app"."settings" ADD COLUMN "permit_horizon_days" integer DEFAULT 30 NOT NULL;--> statement-breakpoint
+ALTER TABLE "app"."settings" ADD CONSTRAINT "settings_permit_horizon_range" CHECK ("app"."settings"."permit_horizon_days" between 7 and 180);

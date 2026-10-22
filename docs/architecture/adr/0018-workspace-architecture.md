@@ -23,7 +23,7 @@ JetBrains, TradingView, Zendesk, Linear, Notion) and React libraries.
    `schema_version` and pure migration functions in `packages/core` (Vitest-tested). Autosave of the current state
    (debounced) + explicit named saves; **team templates are copied on use, never live-linked**. Max ~8 named
    workspaces per user. Layout writes are preferences: server action with `requireUser()`, no `audit_log`.
-5. **Defaults:** one default workspace **"Start"** for everyone (Heute fällig | Nächstes Wochenende); seeded team
+5. **Defaults:** one default workspace **"Start"** for everyone (Heute fällig | Dieses Wochenende); seeded team
    templates (Bürotag, Genehmigungen, Geld, Wochenende). "Start wiederherstellen" always available.
 6. **URLs:** the browser path is the **focused pane's own route**; `?ws=<workspaceId>` restores the rest from the server.
    Navigation in the focused pane uses `pushState`, changes in other panes `replaceState`. Every pane offers

@@ -3,14 +3,15 @@
  *
  * Order (decided with the product owner's wording "Überfällig · Heute · Diese Woche", kind order is our
  * default and documented here):
- *   1. urgency: overdue, then today, then soon (within 7 days);
+ *   1. urgency: overdue, then today, then soon (within 7 days), then upcoming (permits only: further out
+ *      than a week but inside the company's permit horizon, shown as "Genehmigungen demnächst");
  *   2. within an urgency group, by kind: Genehmigungen > Raten (Geld) > Aufgaben > Stunden > Pflichten
  *      (a missed permit or a late payment costs money or the event; an open task rarely does);
  *   3. then the oldest due date first, then the title (stable, alphabetical).
  */
 
 export type RankableDueKind = "task" | "permit" | "installment" | "hours" | "obligation";
-export type RankableUrgency = "overdue" | "today" | "soon";
+export type RankableUrgency = "overdue" | "today" | "soon" | "upcoming";
 
 /** Lower = more important. */
 export const DUE_KIND_PRIORITY: Record<RankableDueKind, number> = {
@@ -21,7 +22,12 @@ export const DUE_KIND_PRIORITY: Record<RankableDueKind, number> = {
   obligation: 4,
 };
 
-const URGENCY_PRIORITY: Record<RankableUrgency, number> = { overdue: 0, today: 1, soon: 2 };
+const URGENCY_PRIORITY: Record<RankableUrgency, number> = {
+  overdue: 0,
+  today: 1,
+  soon: 2,
+  upcoming: 3,
+};
 
 export type Rankable = {
   kind: RankableDueKind;

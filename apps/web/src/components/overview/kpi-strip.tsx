@@ -4,7 +4,7 @@ import type { Overview } from "@/server/queries/overview";
 
 /**
  * KPI strip next to the greeting (UX concept §5): Fällig bis Sonntag · Überfällig · Geld überfällig ·
- * Offene Aufgaben · Nächstes Wochenende ("2 von 4 im Plan"). "Geld überfällig" is left out for roles
+ * Offene Aufgaben · Dieses Wochenende ("2 von 4 im Plan"). "Geld überfällig" is left out for roles
  * without finance access; "Entwürfe" only shows while drafts are waiting.
  */
 export async function KpiStrip({ kpis }: { kpis: Overview["kpis"] }) {

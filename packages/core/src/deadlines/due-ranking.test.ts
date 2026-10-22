@@ -18,6 +18,15 @@ describe("rankDue", () => {
     expect(ranked.map((i) => i.urgency)).toEqual(["overdue", "today", "soon"]);
   });
 
+  it("puts upcoming permits after everything due this week", () => {
+    const ranked = rankDue([
+      item("permit", "upcoming", "2026-11-10"),
+      item("task", "soon", "2026-10-25"),
+      item("permit", "soon", "2026-10-27"),
+    ]);
+    expect(ranked.map((i) => i.urgency)).toEqual(["soon", "soon", "upcoming"]);
+  });
+
   it("orders kinds inside a group: permits, instalments, tasks, hours, obligations", () => {
     const ranked = rankDue([
       item("obligation", "today", "2026-10-21"),

@@ -80,7 +80,7 @@ erDiagram
 
 ### Access & people
 - **user / session / account / verification**: Better Auth *(exists)*. `user.role` = permission role.
-- **settings** *(exists)*: company data, IBAN, time zone, Bundesland (`NW`), default due time, reminder policy, `email_enabled` (master switch for outgoing email, default `false`: while off the jobs queue no email and `send-emails` delivers none, in-app notifications are unaffected) and `daily_digest_enabled` (the 07:00 digest additionally needs this on).
+- **settings** *(exists)*: company data, IBAN, time zone, Bundesland (`NW`), default due time, reminder policy, `email_enabled` (master switch for outgoing email, default `false`: while off the jobs queue no email and `send-emails` delivers none, in-app notifications are unaffected) and `daily_digest_enabled` (the 07:00 digest additionally needs this on) and `permit_horizon_days` (integer 7–180, default 30, check constraint: how many days before the apply-by date, or the expected decision once filed, permits appear in the Übersicht; beyond 7 days they form the group "Genehmigungen demnächst"; tasks and other due items keep 7 days).
 - **staff_member**: `display_name`, `first_name`, `last_name`, `phone_e164`, `email?`, `user_id?` (unique),
   `preferred_duty_role_ids`, `active`, notes. (The synthetic dataset marks future login users with
   `permissionRole`; the seed creates their Better Auth users.) Phase 2 (M7) adds `whatsapp_opt_in_at`, `whatsapp_opt_in_method`,

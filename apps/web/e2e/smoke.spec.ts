@@ -14,7 +14,7 @@ test("Übersicht: Heute fällig with filter chips, KPI strip and the weekend tab
   await expect(page.getByRole("heading", { level: 2, name: "Heute fällig" })).toBeVisible();
   const chips = page.getByRole("group", { name: "Filter" });
   await expect(chips.getByRole("link", { name: /^Alle/ })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Nächstes Wochenende" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Dieses Wochenende" })).toBeVisible();
   await expect(page.locator('dl[aria-label="Kennzahlen"]')).toBeVisible();
 
   // A chip filters the list; the state lives in the URL.

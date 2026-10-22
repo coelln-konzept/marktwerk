@@ -80,7 +80,7 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 - **App shell** (ADR 0019, [UX concept v2](./ux-concept.md)): sidebar, top bar with search/Strg+K + Neu + notifications,
   pages with Vorschau and detail drawers, event tabs, theme (light/dark/system) and density switch, design tokens +
   base components from the Claude Design output ([`docs/design/claude-design/a-classic/`](../design/claude-design/a-classic/INDEX.md))
-- **Übersicht** (start screen, `/`): KPI strip and Nächstes Wochenende from events; Heute fällig and the season strip
+- **Übersicht** (start screen, `/`): KPI strip and Dieses Wochenende from events; Heute fällig and the season strip
   fill up as M2–M5 add tasks, permits, hours and payables
 - **Kalender** module (`/kalender`): month view with KW + "Liste · 6 Wochen", layer panel saved per person; M1 ships the
   **events + NRW holidays** layers, the other layers arrive with their modules (tasks M2, permits M3, hours/shifts M4,
@@ -143,7 +143,7 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 - **Receipts** (photo/PDF) on payables/expenses; "missing receipt" counter; monthly bundle for the tax advisor
 - **Event money tab:** costs by category, plan → committed → actual (revenue from bookings in Phase 2)
 - **Übersicht complete:** ranked **"Heute fällig"** (tasks, permits, instalments, missing hours) with filter chips
-  incl. **Geld**; KPI "Geld überfällig"; event health; Nächstes Wochenende with all health columns
+  incl. **Geld**; KPI "Geld überfällig"; event health; Dieses Wochenende with all health columns
 - **Exit:** no instalment is paid late; the owner opens Übersicht instead of asking.
 
 ### M6: Company tab & pilot (≈ 2 weeks)

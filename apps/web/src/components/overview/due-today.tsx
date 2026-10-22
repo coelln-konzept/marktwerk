@@ -30,7 +30,7 @@ const KIND_ICONS: Record<DueKind, LucideIcon> = {
   obligation: Truck,
 };
 
-const GROUPS: DueUrgency[] = ["overdue", "today", "soon"];
+const GROUPS: DueUrgency[] = ["overdue", "today", "soon", "upcoming"];
 
 /** Rows shown before "Alle anzeigen" (the list is long in a busy season). */
 export const DUE_PREVIEW_ROWS = 20;

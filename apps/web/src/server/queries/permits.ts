@@ -1,15 +1,17 @@
 import "server-only";
 import {
-  addDays,
   can,
   DISPLAY_STATE_SEVERITY,
   daysBetween,
   eventPermitHealth,
   type HealthLevel,
   isUnfiled,
+  PERMIT_HORIZON_DEFAULT_DAYS,
   type PermitDisplayState,
   type PermitStatus,
   permitDisplayState,
+  permitHorizonEnd,
+  permitUrgency,
 } from "@marktwerk/core";
 import {
   contact,
@@ -20,6 +22,7 @@ import {
   payable,
   permit,
   permitRequirement,
+  settings,
   staffMember,
   task,
   venue,
@@ -59,6 +62,12 @@ const upcomingCount = (today: string) =>
   sql<number>`(select count(*)::int from ${eventPermit} ep join ${event} e on e.id = ep.event_id
     where ep.permit_id = ${permit.id} and ep.required and e.archived_at is null and e.status <> 'cancelled' and e.ends_on >= ${today})`;
 const linkedCount = sql<number>`(select count(*)::int from ${eventPermit} ep where ep.permit_id = ${permit.id})`;
+/** Ids of the upcoming events a permit is required for (what the weekend table needs). */
+const upcomingEventIds = (today: string) =>
+  sql<
+    string[]
+  >`coalesce((select array_agg(e.id::text) from ${eventPermit} ep join ${event} e on e.id = ep.event_id
+    where ep.permit_id = ${permit.id} and ep.required and e.archived_at is null and e.status <> 'cancelled' and e.ends_on >= ${today}), '{}'::text[])`;
 const nextEventOn = (today: string) =>
   sql<
     string | null
@@ -541,17 +550,28 @@ export async function listStaffOptions() {
 // ---------------------------------------------------------------------------------------------
 // Übersicht and Kalender feeds
 
-const urgencyOf = (dueOn: string, today: string): DueItem["urgency"] | null => {
-  const days = daysBetween(today, dueOn);
-  if (days < 0) return "overdue";
-  if (days === 0) return "today";
-  return days <= 7 ? "soon" : null;
-};
+/** Company setting: how many days ahead permits show up in the Übersicht (default 30). */
+export async function getPermitHorizonDays(): Promise<number> {
+  const [row] = await db
+    .select({ days: settings.permitHorizonDays })
+    .from(settings)
+    .where(eq(settings.id, 1));
+  return row?.days ?? PERMIT_HORIZON_DEFAULT_DAYS;
+}
 
-/** Permits to act on: unfiled ones by their apply-by date, applied ones by the expected decision. */
-export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> {
+/**
+ * Permits to act on: unfiled ones by their apply-by date, applied ones by the expected decision. They
+ * appear up to the company's permit horizon ahead (`settings.permit_horizon_days`, default 30 days, not
+ * the 7 days of tasks); beyond a week they are "upcoming" (own group "Genehmigungen demnächst").
+ */
+export async function dueItems(
+  actor: Actor,
+  today: string,
+  horizonDays?: number,
+): Promise<DueItem[]> {
   if (!can(actor.role, "permit", "read")) return [];
-  const horizon = addDays(today, 7);
+  const days = horizonDays ?? (await getPermitHorizonDays());
+  const horizon = permitHorizonEnd(today, days);
   const rows = await db
     .select({
       id: permit.id,
@@ -563,6 +583,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       responsibleName: staffMember.displayName,
       upcoming: upcomingCount(today),
       linked: linkedCount,
+      eventIds: upcomingEventIds(today),
     })
     .from(permit)
     .leftJoin(venue, eq(venue.id, permit.venueId))
@@ -591,7 +612,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
     const unfiled = isUnfiled(r.status);
     const dueOn = unfiled ? r.applyBy : r.expectedDecisionOn;
     if (!dueOn) continue;
-    const urgency = urgencyOf(dueOn, today);
+    const urgency = permitUrgency(dueOn, today, days);
     if (!urgency) continue;
     items.push({
       kind: "permit",
@@ -602,6 +623,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       href: `/logbuch?genehmigung=${r.id}`,
       meta: [unfiled ? "Antrag" : "Entscheidung erwartet", r.venueName].filter(Boolean).join(" · "),
       assigneeName: r.responsibleName,
+      eventIds: r.eventIds ?? [],
     });
   }
   return items.sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.title.localeCompare(b.title));
