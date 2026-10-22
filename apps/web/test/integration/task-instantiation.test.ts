@@ -98,8 +98,10 @@ describe("instantiation on event creation", () => {
       offsetDays: -60,
       dayMode: "calendar",
       requiresPhoto: false,
+      isKey: true,
     });
     expect(tasks.get("plakate_aufhaengen")).toMatchObject({
+      isKey: false,
       category: "communication",
       dayMode: "business",
       requiresPhoto: true,

@@ -85,6 +85,7 @@ async function publishVersion2() {
   await updateTemplateItem(owner, draft.versionId, "aufbau", {
     ...(items[2] as (typeof items)[number]),
     dutyRoleId: cat.roles.lead.id,
+    isKey: true,
   });
   await deleteTemplateItem(owner, draft.versionId, "abrechnung");
   await addTemplateItem(
@@ -139,7 +140,7 @@ describe("previewTemplateApplication", () => {
     expect(p1?.add.map((a) => a.key)).toEqual(["foto_der_flaeche"]);
     expect(p1?.remove.map((r) => r.title)).toEqual(["Abrechnung"]);
     // The aufbau task gets its duty role: an update.
-    expect(p1?.update.map((u) => [u.key, u.changes])).toEqual([["aufbau", ["duty"]]]);
+    expect(p1?.update.map((u) => [u.key, u.changes])).toEqual([["aufbau", ["key", "duty"]]]);
     expect(p1?.keep.map((k) => [k.title, k.reason])).toEqual([
       ["Marktgenehmigung beantragen", "customized"],
       ["Plakate aufhängen", "closed"],
@@ -148,7 +149,7 @@ describe("previewTemplateApplication", () => {
     const p2 = preview.events[1];
     expect(p2?.update.map((u) => [u.key, u.changes])).toEqual([
       ["marktgenehmigung_beantragen", ["title", "due"]],
-      ["aufbau", ["duty"]],
+      ["aufbau", ["key", "duty"]],
     ]);
     expect(p2?.size).toBe(4);
     expect(await tasksOf(e1)).toEqual(snapshot);
@@ -216,7 +217,11 @@ describe("applyTemplateVersion", () => {
     expect(await taskOf(e2, "aufbau")).toMatchObject({
       dutyRoleId: cat.roles.lead.id,
       assigneeId: cat.staff.anna.id,
+      isKey: true,
     });
+    // The flag flows through the same path as the other copied fields.
+    expect(await taskOf(e2, "marktgenehmigung_beantragen")).toMatchObject({ isKey: true });
+    expect(await taskOf(e1, "aufbau")).toMatchObject({ isKey: false });
     // Removed from the template: marked, not deleted.
     expect(await taskOf(e2, "abrechnung")).toMatchObject({
       removedFromTemplate: true,

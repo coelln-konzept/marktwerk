@@ -66,6 +66,24 @@
         "active": "Aktiv",
         "activeHint": "Inaktive Vorlagen erscheinen nicht unter „Aus Vorlage erzeugen“. Mit dem Haken ist sie wieder da."
       },
+      "color": {
+        "legend": "Farbe des Markts",
+        "hint": "Ein schmaler Farbbalken neben dem Namen, damit du die Termine eines Markts auf einen Blick erkennst. Gilt für alle Termine dieses Markts.",
+        "none": "Keine Farbe",
+        "swatch": "Farbe: {name}",
+        "names": {
+          "plum": "Pflaume",
+          "rose": "Rosé",
+          "brown": "Braun",
+          "sand": "Sand",
+          "olive": "Oliv",
+          "petrol": "Petrol",
+          "cyan": "Cyan",
+          "slate": "Schiefer",
+          "indigo": "Indigo",
+          "graphite": "Graphit"
+        }
+      },
       "public": {
         "title": "Öffentliche Angaben",
         "publicTitle": "Öffentlicher Titel",
@@ -133,6 +151,7 @@
         "invalid_rrule": "Dieser Rhythmus ist nicht gültig. Bitte Wochentage und Monate prüfen.",
         "rrule_empty": "Wähle mindestens einen Wochentag oder „Kein Rhythmus“.",
         "invalid_type": "Bitte eine Art wählen.",
+        "invalid_color": "Bitte eine Farbe aus der Auswahl wählen.",
         "invalid_venue": "Bitte einen Ort wählen, der nicht archiviert ist.",
         "invalid_duty_role": "Diese Aufgabe gibt es nicht mehr.",
         "invalid_staff": "Diese Person ist nicht (mehr) aktiv. Bitte jemand anderen wählen.",

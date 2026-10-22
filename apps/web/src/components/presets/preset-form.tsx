@@ -3,6 +3,7 @@
 import {
   checkPresetFields,
   type EventTimesInput,
+  MARKET_COLORS,
   normalizeClockTime,
   parseEuroCents,
 } from "@marktwerk/core";
@@ -15,6 +16,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { marketColorClass } from "@/components/ui/market-marker";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import type { PresetFormOptions } from "@/server/queries/presets";
 import type { PresetInput } from "@/server/services/presets";
@@ -37,6 +39,7 @@ const FIELD_ORDER = [
   "name",
   "type",
   "venue",
+  "color",
   "duration",
   "publicTitle",
   "publicText",
@@ -85,6 +88,8 @@ export function PresetForm({
   const [rhythm, setRhythm] = useState<Rhythm>(editing ? rhythmFromRule(initial.rrule) : NO_RHYTHM);
   const [duties, setDuties] = useState<Record<string, string>>(initial.defaultDuties);
   const [active, setActive] = useState(initial.active);
+  const [color, setColor] = useState<string | null>(initial.color ?? null);
+  const tColor = useTranslations("templates.form.color");
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
@@ -143,6 +148,7 @@ export function PresetForm({
       rrule: rrule ?? null,
       defaultDuties: Object.fromEntries(Object.entries(duties).filter(([, id]) => id !== "")),
       active,
+      color,
     };
     // The same rules the server applies; parse problems found above come first.
     for (const issue of checkPresetFields({
@@ -301,6 +307,42 @@ export function PresetForm({
             />
             {fieldError("duration")}
           </div>
+          <fieldset className="flex flex-col gap-2 sm:col-span-2">
+            <legend className="mb-1 font-medium text-small">{tColor("legend")}</legend>
+            <div className="flex flex-wrap items-center gap-2">
+              {MARKET_COLORS.map((key) => (
+                <label key={key} className="cursor-pointer">
+                  <input
+                    type="radio"
+                    name="preset-color"
+                    value={key}
+                    checked={color === key}
+                    onChange={() => setColor(key)}
+                    className="peer sr-only"
+                    aria-label={tColor("swatch", { name: tColor(`names.${key}`) })}
+                  />
+                  <span
+                    aria-hidden
+                    title={tColor(`names.${key}`)}
+                    className={`block size-7 rounded-md ${marketColorClass(key)} ring-offset-2 ring-offset-card peer-checked:ring-2 peer-checked:ring-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-ring`}
+                  />
+                </label>
+              ))}
+              <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-muted-foreground text-small has-checked:bg-selected has-checked:text-foreground has-focus-visible:outline-2 has-focus-visible:outline-ring">
+                <input
+                  type="radio"
+                  name="preset-color"
+                  value=""
+                  checked={color === null}
+                  onChange={() => setColor(null)}
+                  className="sr-only"
+                />
+                {tColor("none")}
+              </label>
+            </div>
+            <p className="text-faint-foreground text-small">{tColor("hint")}</p>
+            {fieldError("color")}
+          </fieldset>
           <div className="flex flex-col justify-end gap-1.5">
             <label
               htmlFor="preset-active"

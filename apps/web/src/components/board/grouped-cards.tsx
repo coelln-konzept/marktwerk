@@ -4,10 +4,11 @@ import { isFinishedStatus } from "@marktwerk/core";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
-import { EventTypeMarker } from "@/components/ui/event-type-tag";
+import { MarketMarker, marketBorderClass } from "@/components/ui/market-marker";
 import { formatDateWithWeekday } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { formatHours } from "@/lib/task-ui";
+import { cn } from "@/lib/utils";
 import type { BoardTask } from "@/server/queries/tasks";
 import { TaskCard } from "./task-card";
 
@@ -31,6 +32,7 @@ export function GroupedCards({
         label: string;
         href?: string;
         typeKey?: string | null;
+        color?: string | null;
         first: string;
         cards: BoardTask[];
       }
@@ -41,8 +43,10 @@ export function GroupedCards({
       let label: string;
       let href: string | undefined;
       let typeKey: string | null = null;
+      let color: string | null = null;
       if (groupBy === "event") {
         typeKey = card.eventTypeKey;
+        color = card.eventColor;
         key = card.eventId ?? "none";
         label = card.eventName ?? t("group.noEvent");
         href = card.eventId ? `/veranstaltungen/${card.eventId}/board` : undefined;
@@ -61,6 +65,7 @@ export function GroupedCards({
         label,
         href,
         typeKey,
+        color,
         first: card.dueOn ?? "9999",
         cards: [],
       };
@@ -83,10 +88,15 @@ export function GroupedCards({
           <section
             key={group.key}
             aria-label={group.label}
-            className="flex flex-col gap-3 rounded-xl border border-border bg-sunken p-3 sm:p-4"
+            className={cn(
+              "flex flex-col gap-3 rounded-xl border border-border bg-sunken p-3 sm:p-4",
+              group.color && ["border-l-4", marketBorderClass(group.color)],
+            )}
           >
             <h3 className="flex items-center gap-2.5 font-semibold text-base leading-tight">
-              <EventTypeMarker typeKey={group.typeKey} className="size-3" />
+              {!group.color && (
+                <MarketMarker color={null} typeKey={group.typeKey} className="size-3" />
+              )}
               {group.href ? (
                 <Link href={group.href as never} className="hover:underline">
                   {group.label}

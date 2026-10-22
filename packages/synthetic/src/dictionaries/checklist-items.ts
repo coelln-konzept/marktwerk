@@ -22,6 +22,22 @@ export interface ChecklistItemBlueprint {
   appliesTo: readonly EventTypeKey[];
 }
 
+/**
+ * Kernaufgaben (manual flag, product owner 2026-10-22): the tasks every market needs. Picked by key so
+ * the blueprint list stays readable; the generators copy the flag to template items and tasks.
+ */
+export const KEY_ITEM_KEYS: ReadonlySet<string> = new Set([
+  "marktgenehmigung", // market permit application
+  "termin_website", // date entered on the website
+  "plakatierung", // poster permit
+  "flyer_drucken", // flyers ordered
+  "halteverbot_beantragen", // no-parking signs applied for
+  "standrohr_reservieren", // water standpipes
+  "toiletten_bestaetigen", // toilets
+  "muell_bestellen", // waste
+  "buchungsliste", // booking list handed over at the cutoff
+]);
+
 const ALL: readonly EventTypeKey[] = ["flea", "antique", "city_festival", "food_wine"];
 const FLEA_ANTIQUE: readonly EventTypeKey[] = ["flea", "antique"];
 const FESTIVALS: readonly EventTypeKey[] = ["city_festival", "food_wine"];

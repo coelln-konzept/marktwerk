@@ -31,6 +31,7 @@ import {
   employmentContract,
   event,
   eventDuty,
+  eventPreset,
   eventType,
   staffMember,
   task,
@@ -81,6 +82,10 @@ export type BoardTask = {
   eventName: string | null;
   /** Event type key (`flea`, …), for the colour marker. */
   eventTypeKey: string | null;
+  /** The market colour of the event's preset (`MARKET_COLORS` key), null = fall back to the type. */
+  eventColor: string | null;
+  /** Kernaufgabe: a task every market needs. */
+  isKey: boolean;
   dueOn: string | null;
   estimateMinutes: number;
   assigneeId: string | null;
@@ -147,6 +152,8 @@ export async function listBoardTasks(
       eventId: task.eventId,
       eventName: event.name,
       eventTypeKey: eventType.key,
+      eventColor: eventPreset.color,
+      isKey: task.isKey,
       dueAt: task.dueAt,
       estimateMinutes: task.estimateMinutes,
       assigneeId: task.assigneeId,
@@ -168,6 +175,7 @@ export async function listBoardTasks(
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
     .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
+    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
     .where(
       and(
@@ -199,6 +207,8 @@ export async function listBoardTasks(
     eventId: r.eventId,
     eventName: r.eventName,
     eventTypeKey: r.eventTypeKey,
+    eventColor: r.eventColor,
+    isKey: r.isKey,
     dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
     estimateMinutes: r.estimateMinutes,
     assigneeId: r.assigneeId,
@@ -631,6 +641,7 @@ export type TaskDetail = {
   source: BoardTask["source"];
   eventId: string | null;
   eventName: string | null;
+  isKey: boolean;
   dueOn: string | null;
   dueOverridden: boolean;
   estimateMinutes: number;
@@ -734,6 +745,7 @@ export async function getTaskDetail(
     source: t.source,
     eventId: t.eventId,
     eventName: row.eventName,
+    isKey: t.isKey,
     dueOn: t.dueAt ? berlinDay(t.dueAt) : null,
     dueOverridden: t.dueOverridden,
     estimateMinutes: t.estimateMinutes,
@@ -817,12 +829,15 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       eventId: task.eventId,
       eventName: event.name,
       eventTypeKey: eventType.key,
+      eventColor: eventPreset.color,
       eventStartsOn: event.startsOn,
+      isKey: task.isKey,
       assigneeName: staffMember.displayName,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
     .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
+    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
     .where(
       and(
@@ -853,7 +868,9 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       metaHref: r.eventId ? `/veranstaltungen/${r.eventId}/board` : undefined,
       eventId: r.eventId,
       eventTypeKey: r.eventTypeKey,
+      eventColor: r.eventColor,
       eventStartsOn: r.eventStartsOn,
+      isKey: r.isKey,
       assigneeName: r.assigneeName,
     };
   });

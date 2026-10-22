@@ -97,6 +97,10 @@
         "invalid_staff": "Diese Person kann nicht zugewiesen werden."
       }
     },
+    "keyTask": {
+      "label": "Kernaufgabe",
+      "hint": "Eine Aufgabe, die jeder Markt braucht."
+    },
     "fields": {
       "title": "Titel",
       "description": "Beschreibung",

@@ -65,6 +65,7 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
           rrule: preset.rrule,
           defaultDuties,
           active: preset.active,
+          color: preset.color,
         }}
       />
     </Page>

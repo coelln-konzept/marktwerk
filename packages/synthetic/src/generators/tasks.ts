@@ -1,5 +1,5 @@
 import { REFERENCE_DATE } from "../constants";
-import { CHECKLIST_ITEM_BLUEPRINTS } from "../dictionaries/checklist-items";
+import { CHECKLIST_ITEM_BLUEPRINTS, KEY_ITEM_KEYS } from "../dictionaries/checklist-items";
 import { addDays, berlinInstant } from "../lib/dates";
 import type { Rng } from "../lib/rng";
 import type {
@@ -35,6 +35,7 @@ export function buildChecklistTemplates(rng: Rng, eventTypes: EventType[]): Chec
       priority: blueprint.priority,
       estimateMinutes: blueprint.estimateMinutes,
       requiresPhoto: blueprint.requiresPhoto,
+      isKey: KEY_ITEM_KEYS.has(blueprint.key),
     }));
     return {
       id: rng.uuid(),
@@ -166,6 +167,7 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
         priority: item.priority,
         estimateMinutes: item.estimateMinutes,
         requiresPhoto: item.requiresPhoto,
+        isKey: item.isKey,
         status: decision.status,
         waitingReason: decision.waitingReason,
         completedAt,

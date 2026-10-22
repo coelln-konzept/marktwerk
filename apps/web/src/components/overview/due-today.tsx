@@ -12,8 +12,9 @@ import {
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { SnoozeMenu } from "@/components/task/snooze";
-import { EventTypeMarker } from "@/components/ui/event-type-tag";
 import { FilterChip, FilterChips } from "@/components/ui/filter-bar";
+import { KeyTaskMark } from "@/components/ui/key-task-mark";
+import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -43,6 +44,7 @@ type Cluster = {
     name: string;
     href: string;
     typeKey: string | null;
+    color: string | null;
     startsOn: string | null;
   } | null;
   items: DueItem[];
@@ -68,6 +70,7 @@ function clusters(rows: DueItem[]): Cluster[] {
           name: item.meta,
           href: item.metaHref ?? `/veranstaltungen/${item.eventId}/board`,
           typeKey: item.eventTypeKey ?? null,
+          color: item.eventColor ?? null,
           startsOn: item.eventStartsOn ?? null,
         },
         items: [],
@@ -145,6 +148,7 @@ export async function DueToday({
             aria-label={t("openItem", { title: item.title })}
             className="block truncate font-semibold hover:underline"
           >
+            {item.isKey && <KeyTaskMark className="mr-1.5 align-middle" />}
             {item.title}
           </Link>
           {(meta || assignee) && (
@@ -250,7 +254,10 @@ export async function DueToday({
                         className="border-border-subtle border-b"
                       >
                         <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-body">
-                          <EventTypeMarker typeKey={cluster.event.typeKey} />
+                          <MarketMarker
+                            color={cluster.event.color}
+                            typeKey={cluster.event.typeKey}
+                          />
                           <Link
                             href={cluster.event.href as never}
                             className="truncate font-semibold hover:underline"

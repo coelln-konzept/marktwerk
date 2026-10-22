@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Health, type HealthLevel, HealthShape } from "@/components/ui/health";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
@@ -107,15 +108,18 @@ export async function WeekendTable({
                     className="cursor-pointer outline-none focus-visible:bg-selected"
                   >
                     <TD className="py-2">
-                      <Link
-                        href={peek as never}
-                        scroll={false}
-                        tabIndex={-1}
-                        aria-label={t("preview", { name: r.name })}
-                        className="font-semibold hover:underline"
-                      >
-                        {r.name}
-                      </Link>
+                      <span className="inline-flex items-center gap-2">
+                        <MarketMarker color={r.color} typeKey={r.typeKey} />
+                        <Link
+                          href={peek as never}
+                          scroll={false}
+                          tabIndex={-1}
+                          aria-label={t("preview", { name: r.name })}
+                          className="font-semibold hover:underline"
+                        >
+                          {r.name}
+                        </Link>
+                      </span>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         <EventTypeTag typeKey={r.typeKey}>
                           {locale === "en" ? r.typeNameEn : r.typeNameDe}

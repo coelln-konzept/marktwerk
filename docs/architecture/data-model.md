@@ -99,7 +99,8 @@ erDiagram
 - **event_preset** ("Vorlage", the old website's preset): `event_type_id`, `venue_id`, `name`,
   `public_title`, `public_text` (rich text, for the website later), `price_per_m_cents`, `booking_fee_cents`,
   `default_times` (setup/open/close/teardown), `rrule?`, `default_duties` (duty_role → staff_member),
-  `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M11), active.
+  `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M11), active,
+  `color?` (Marktfarbe: a key of `MARKET_COLORS`, shown as a thin bar next to the market's name; null = event-type colour).
 - **location_agreement**: `venue_id`, counterparty contact, `valid_from`, `valid_until`, `fixed_dates` (date[]),
   terms, documents. Generates events. Doesn't replace permits.
 
@@ -126,7 +127,8 @@ erDiagram
   **template_item** (`stable_key`, title, description, `phase`, `category` (`general | permits | logistics |
   communication | finance | staff`), `anchor_key`, `offset_days`, `day_mode` (`calendar | business`), `due_time?`,
   `duty_role_id?`, `priority`, **`estimate_minutes`**, evidence (`requires_photo`, `requires_note`,
-  `requires_attachment`, `check_items`), `requires_approval_by?`, `depends_on_keys`, `condition` (on event
+  `requires_attachment`, `check_items`), `is_key` (Kernaufgabe, manual flag, copied to the task by
+  instantiation and propagation), `requires_approval_by?`, `depends_on_keys`, `condition` (on event
   type/venue attributes), sort).
   *(implemented 0002: `task_category` also has `office` (the synthetic Büro tasks); `phase` is `pre | live | post`;
   `priority` is `low | normal | high`; `checklist_template.kind` (`event | permit`, a permit-prep template has
@@ -140,7 +142,7 @@ erDiagram
   `payable_id?`, `parent_task_id?`, `source` (`template | manual | permit | permit_condition | obligation |
   rental | email | system`)), title, description, `phase?`, `category`, `priority`, labels;
   assignment (`duty_role_id?`, `assignee_id → staff_member`, `assignee_overridden`); timing (`anchor_key?`,
-  `offset_days?`, `day_mode`, `due_at?`, `due_overridden`); **effort** (`estimate_minutes`, `effort_feedback`
+  `offset_days?`, `day_mode`, `due_at?`, `due_overridden`); `is_key` (Kernaufgabe: editable on the task, ranks first in the Übersicht due list); **effort** (`estimate_minutes`, `effort_feedback`
   `as_planned | longer | shorter`); state (`status` `todo | in_progress | waiting_external | blocked | done |
   skipped | cancelled`, `waiting_reason?`, `completed_at?`, `completed_by?`, `approval_status?`);
   **kanban** (`board_column?` override, `board_sort`); **carry-over** (`rollover_count`, `last_rolled_at`);

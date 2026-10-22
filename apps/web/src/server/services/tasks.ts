@@ -662,11 +662,13 @@ export type TaskPatch = {
   title?: string;
   description?: string | null;
   estimateMinutes?: number;
+  /** Kernaufgabe flag (a task every market needs). */
+  isKey?: boolean;
   /** `YYYY-MM-DD`, or null to clear. Editing it pins the date against anchor shifts. */
   dueOn?: string | null;
 };
 
-/** Title, description, estimate and due date. Marks the task as customized and the due date as set by hand. */
+/** Title, description, estimate, Kernaufgabe flag and due date. Marks the task as customized and the due date as set by hand. */
 export async function updateTask(
   actor: Actor,
   taskId: string,
@@ -702,6 +704,14 @@ export async function updateTask(
         set.estimateMinutes = minutes;
         before.estimateMinutes = row.estimateMinutes;
         after.estimateMinutes = minutes;
+      }
+    }
+    if (patch.isKey !== undefined) {
+      if (typeof patch.isKey !== "boolean") throw new TaskInputError("invalid_input");
+      if (patch.isKey !== row.isKey) {
+        set.isKey = patch.isKey;
+        before.isKey = row.isKey;
+        after.isKey = patch.isKey;
       }
     }
     if (patch.dueOn !== undefined) {

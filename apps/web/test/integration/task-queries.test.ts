@@ -1,4 +1,4 @@
-import { employmentContract, event } from "@marktwerk/db/schema";
+import { employmentContract, event, eventPreset } from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Actor } from "@/server/actor";
@@ -139,6 +139,39 @@ describe("listBoardTasks", () => {
     expect(tasks.find((t) => t.id === a.id)).toMatchObject({
       column: "today",
       boardColumn: "today",
+    });
+  });
+});
+
+describe("market colour and Kernaufgabe on cards", () => {
+  it("exposes the preset colour of the event and the key flag on board cards and due items", async () => {
+    await db
+      .update(eventPreset)
+      .set({ color: "petrol" })
+      .where(eq(eventPreset.id, cat.presets.flea.id));
+    await db.update(event).set({ presetId: cat.presets.flea.id }).where(eq(event.id, eventId));
+    const other = (await insertEvent(cat, "Ohne Vorlage", "2026-11-21")).id;
+    await insertTask({ title: "Kern", eventId, dueAt: dueOn("2026-10-21"), isKey: true });
+    await insertTask({ title: "Gewöhnlich", eventId: other, dueAt: dueOn("2026-10-21") });
+
+    const { tasks } = await listBoardTasks(owner, {}, TODAY);
+    expect(tasks.find((t) => t.title === "Kern")).toMatchObject({
+      eventColor: "petrol",
+      isKey: true,
+    });
+    expect(tasks.find((t) => t.title === "Gewöhnlich")).toMatchObject({
+      eventColor: null,
+      isKey: false,
+    });
+
+    const due = await dueItems(owner, TODAY);
+    expect(due.find((d) => d.title === "Kern")).toMatchObject({
+      eventColor: "petrol",
+      isKey: true,
+    });
+    expect(due.find((d) => d.title === "Gewöhnlich")).toMatchObject({
+      eventColor: null,
+      isKey: false,
     });
   });
 });

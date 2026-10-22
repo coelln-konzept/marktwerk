@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { PresetForm } from "@/components/presets/preset-form";
 import { Page, PageHeader } from "@/components/shell/page";
-import { getPresetFormOptions } from "@/server/queries/presets";
+import { getPresetFormOptions, suggestedMarketColor } from "@/server/queries/presets";
 import { requirePermission } from "@/server/session";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -46,6 +46,7 @@ export default async function NewPresetPage() {
           rrule: null,
           defaultDuties: {},
           active: true,
+          color: await suggestedMarketColor(),
         }}
       />
     </Page>

@@ -84,6 +84,7 @@ export function itemFields(row: ItemRow): TemplateItemFields {
     requiresPhoto: row.requiresPhoto,
     requiresNote: row.requiresNote,
     requiresAttachment: row.requiresAttachment,
+    isKey: row.isKey,
     checkItems: row.checkItems,
     approverDutyRoleId: row.approverDutyRoleId,
     dependsOnKeys: row.dependsOnKeys,

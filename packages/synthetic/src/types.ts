@@ -318,6 +318,8 @@ export interface TemplateItem {
   priority: TaskPriority;
   estimateMinutes: number;
   requiresPhoto: boolean;
+  /** Kernaufgabe: a task every market needs. */
+  isKey: boolean;
 }
 
 export interface ChecklistTemplate {
@@ -346,6 +348,7 @@ export interface Task {
   priority: TaskPriority;
   estimateMinutes: number;
   requiresPhoto: boolean;
+  isKey: boolean;
   status: TaskStatus;
   waitingReason: string | null;
   completedAt: Instant | null;

@@ -16,6 +16,7 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  Star,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
@@ -163,6 +164,15 @@ export function ItemGrid({
                         >
                           {item.title}
                         </Link>
+                        {item.isKey && (
+                          <span
+                            className="ml-1.5 inline-flex align-middle text-muted-foreground"
+                            title={t("grid.keyTask")}
+                          >
+                            <Star aria-hidden className="size-3.5" />
+                            <span className="sr-only">{t("grid.keyTask")}</span>
+                          </span>
+                        )}
                         <span className="ml-2 inline-flex items-center gap-2 align-middle text-muted-foreground text-tiny">
                           {item.checkItems.length > 0 && (
                             <span

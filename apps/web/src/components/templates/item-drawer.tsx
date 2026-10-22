@@ -54,6 +54,7 @@ type Form = {
   requiresPhoto: boolean;
   requiresNote: boolean;
   requiresAttachment: boolean;
+  isKey: boolean;
   checkItems: string;
   dependsOnKeys: string[];
   eventTypeKeys: string[];
@@ -85,6 +86,7 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
       requiresPhoto: false,
       requiresNote: false,
       requiresAttachment: false,
+      isKey: false,
       checkItems: "",
       dependsOnKeys: [],
       eventTypeKeys: [],
@@ -107,6 +109,7 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
     requiresPhoto: item.requiresPhoto,
     requiresNote: item.requiresNote,
     requiresAttachment: item.requiresAttachment,
+    isKey: item.isKey,
     checkItems: item.checkItems.join("\n"),
     dependsOnKeys: item.dependsOnKeys,
     eventTypeKeys: item.condition?.eventTypeKeys ?? [],
@@ -138,6 +141,7 @@ function toFields(form: Form): TemplateItemFields {
     requiresPhoto: form.requiresPhoto,
     requiresNote: form.requiresNote,
     requiresAttachment: form.requiresAttachment,
+    isKey: form.isKey,
     checkItems: form.checkItems
       .split("\n")
       .map((line) => line.trim())
@@ -495,6 +499,20 @@ export function ItemDrawer({
                 )}
               </div>
               {isModuleVisible("estimates") && fieldError("estimateMinutes")}
+
+              <div className="flex flex-col gap-1">
+                <label className="flex items-center gap-2 font-semibold text-small">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-(--primary)"
+                    checked={form.isKey}
+                    disabled={disabled}
+                    onChange={(e) => set({ isKey: e.target.checked })}
+                  />
+                  {t("drawer.isKey")}
+                </label>
+                <p className="text-muted-foreground text-tiny">{t("drawer.isKeyHint")}</p>
+              </div>
 
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-1 font-semibold text-small">{t("drawer.evidence")}</legend>

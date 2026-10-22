@@ -30,6 +30,7 @@ const item = (patch: Partial<TemplateItemFields> = {}): TemplateItemFields => ({
   requiresPhoto: false,
   requiresNote: false,
   requiresAttachment: false,
+  isKey: false,
   checkItems: [],
   approverDutyRoleId: null,
   dependsOnKeys: [],

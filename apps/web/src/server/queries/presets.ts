@@ -1,4 +1,5 @@
 import "server-only";
+import { type MarketColor, nextMarketColor } from "@marktwerk/core";
 import { dutyRole, eventPreset, eventType, staffMember, venue } from "@marktwerk/db/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "../db";
@@ -65,6 +66,15 @@ export async function listPresets() {
   }));
 }
 
+/** The colour a new market starts with: the least used one among the current presets. */
+export async function suggestedMarketColor(): Promise<MarketColor> {
+  const rows = await db
+    .select({ color: eventPreset.color })
+    .from(eventPreset)
+    .where(isNull(eventPreset.archivedAt));
+  return nextMarketColor(rows.map((r) => r.color));
+}
+
 const UUID = /^[0-9a-f-]{36}$/i;
 
 /** One preset with everything the edit form needs; null if it doesn't exist or is archived. */
@@ -85,6 +95,7 @@ export async function getPresetForEdit(id: string) {
       bookingFeeCents: eventPreset.bookingFeeCents,
       rrule: eventPreset.rrule,
       defaultDuties: eventPreset.defaultDuties,
+      color: eventPreset.color,
       updatedAt: eventPreset.updatedAt,
     })
     .from(eventPreset)
