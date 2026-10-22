@@ -16,6 +16,9 @@ import {
   isValidSnoozeDate,
   mentionedText,
   missingEvidence,
+  OPEN_STATUSES,
+  PAST_EVENT_SKIP_REASON,
+  pastEventCutoff,
   sortBetween,
   TASK_STATUSES,
   type TaskStatusKey,
@@ -34,11 +37,11 @@ import {
   taskComment,
   user,
 } from "@marktwerk/db/schema";
-import { and, count, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
-import { visibleTasks } from "../task-scope";
+import { deadlineScope, visibleTasks } from "../task-scope";
 
 export type TaskError =
   | "not_found"
@@ -608,50 +611,130 @@ export async function undoTaskChange(
 ): Promise<{ taskId: string; action: string }> {
   need(actor, "write");
   checkId(auditId, "not_undoable");
+  return db.transaction((tx) => undoEntry(tx, actor, auditId));
+}
+
+/** Undo toast of a bulk change (cleanup): all entries are reverted in one transaction, or none. */
+export async function undoTaskChanges(
+  actor: Actor,
+  auditIds: string[],
+): Promise<{ undone: number }> {
+  need(actor, "write");
+  for (const id of auditIds) checkId(id, "not_undoable");
   return db.transaction(async (tx) => {
-    const [entry] = await tx
-      .select()
-      .from(auditLog)
+    for (const id of auditIds) await undoEntry(tx, actor, id);
+    return { undone: auditIds.length };
+  });
+}
+
+async function undoEntry(
+  tx: Tx,
+  actor: Actor,
+  auditId: string,
+): Promise<{ taskId: string; action: string }> {
+  const [entry] = await tx
+    .select()
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.id, auditId),
+        eq(auditLog.entityType, "task"),
+        eq(auditLog.actorId, actor.id),
+        inArray(auditLog.action, UNDOABLE),
+      ),
+    );
+  const diff = entry?.diff as { before?: Partial<TaskState>; after?: Partial<TaskState> } | null;
+  if (!entry?.entityId || !diff?.before || !diff.after) throw new TaskInputError("not_undoable");
+  if ("assigneeId" in diff.before) need(actor, "assign");
+
+  const row = await loadTask(tx, actor, entry.entityId);
+  const current = stateOf(row);
+  const expected = diff.after;
+  for (const key of Object.keys(expected) as StateKey[]) {
+    if (current[key] !== expected[key]) throw new TaskInputError("conflict");
+  }
+  // A person who has been deactivated since cannot be put back.
+  if (diff.before.assigneeId) await activeStaff(tx, diff.before.assigneeId);
+
+  await tx.update(task).set(columnsOf(diff.before)).where(eq(task.id, row.id));
+  if (entry.action === "task.assign") {
+    // the person was told "assigned"; take that back while they have not read it
+    await tx
+      .delete(notification)
       .where(
         and(
-          eq(auditLog.id, auditId),
-          eq(auditLog.entityType, "task"),
-          eq(auditLog.actorId, actor.id),
-          inArray(auditLog.action, UNDOABLE),
+          eq(notification.dedupeKey, assignedKey(row.id, entry.id)),
+          eq(notification.state, "unread"),
         ),
       );
-    const diff = entry?.diff as { before?: Partial<TaskState>; after?: Partial<TaskState> } | null;
-    if (!entry?.entityId || !diff?.before || !diff.after) throw new TaskInputError("not_undoable");
-    if ("assigneeId" in diff.before) need(actor, "assign");
+  }
+  await writeAudit(tx, actor, "task.undo", row.id, {
+    of: entry.id,
+    ofAction: entry.action,
+    before: diff.after,
+    after: diff.before,
+  });
+  return { taskId: row.id, action: entry.action };
+}
 
-    const row = await loadTask(tx, actor, entry.entityId);
-    const current = stateOf(row);
-    const expected = diff.after;
-    for (const key of Object.keys(expected) as StateKey[]) {
-      if (current[key] !== expected[key]) throw new TaskInputError("conflict");
-    }
-    // A person who has been deactivated since cannot be put back.
-    if (diff.before.assigneeId) await activeStaff(tx, diff.before.assigneeId);
+// ---------------------------------------------------------------------------------------------
+// cleanup of past markets
 
-    await tx.update(task).set(columnsOf(diff.before)).where(eq(task.id, row.id));
-    if (entry.action === "task.assign") {
-      // the person was told "assigned"; take that back while they have not read it
-      await tx
-        .delete(notification)
-        .where(
-          and(
-            eq(notification.dedupeKey, assignedKey(row.id, entry.id)),
-            eq(notification.state, "unread"),
-          ),
-        );
+/**
+ * "Aufräumen": skips the open tasks of past markets (last day more than 7 days ago, `isPastEvent`) in one
+ * transaction. `eventIds` limits it to those markets (a market that is not past, or other open tasks, are
+ * never touched); omitted = every past market. One `task.status` audit entry per task, so each is
+ * undoable; the returned `auditIds` feed {@link undoTaskChanges} (the undo toast).
+ */
+export async function skipPastEventTasks(
+  actor: Actor,
+  eventIds?: string[],
+  at?: TaskClock,
+): Promise<{ skipped: number; auditIds: string[] }> {
+  need(actor, "write");
+  const { now, today } = clock(at);
+  if (eventIds) for (const id of eventIds) checkId(id, "invalid_event");
+  if (eventIds && eventIds.length === 0) return { skipped: 0, auditIds: [] };
+  return db.transaction(async (tx) => {
+    const ids = await tx
+      .select({ id: task.id })
+      .from(task)
+      .innerJoin(event, eq(event.id, task.eventId))
+      .where(
+        and(
+          deadlineScope(actor),
+          inArray(task.status, [...OPEN_STATUSES]),
+          lt(event.endsOn, pastEventCutoff(today)),
+          eventIds ? inArray(task.eventId, eventIds) : undefined,
+        ),
+      );
+    const auditIds: string[] = [];
+    for (const { id } of ids) {
+      // Lock each task and look again: it may have been finished or skipped since the list was read.
+      const row = await loadTask(tx, actor, id);
+      if (!isOpenStatus(row.status)) continue;
+      const before = stateOf(row);
+      const { patch } = await statusPatch(
+        tx,
+        actor,
+        row,
+        "skipped",
+        { reason: PAST_EVENT_SKIP_REASON },
+        now,
+      );
+      const diff = stateDiff(before, { ...before, ...patch });
+      await tx.update(task).set(columnsOf(patch)).where(eq(task.id, row.id));
+      auditIds.push(
+        await writeAudit(tx, actor, "task.status", row.id, {
+          from: row.status,
+          to: "skipped",
+          before: diff.before,
+          after: diff.after,
+          cleanup: "past_event",
+        }),
+      );
     }
-    await writeAudit(tx, actor, "task.undo", row.id, {
-      of: entry.id,
-      ofAction: entry.action,
-      before: diff.after,
-      after: diff.before,
-    });
-    return { taskId: row.id, action: entry.action };
+    return { skipped: auditIds.length, auditIds };
   });
 }
 

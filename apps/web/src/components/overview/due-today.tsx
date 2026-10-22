@@ -1,4 +1,4 @@
-import { DUE_FILTERS, type DueFilter, daysBetween, dueFilterOf } from "@marktwerk/core";
+import { daysBetween } from "@marktwerk/core";
 import {
   CalendarCheck,
   CircleCheck,
@@ -13,7 +13,6 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { TaskDoneButton } from "@/components/task/done-button";
 import { SnoozeMenu } from "@/components/task/snooze";
-import { FilterChip, FilterChips } from "@/components/ui/filter-bar";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
@@ -36,8 +35,8 @@ const KIND_ICONS: Record<DueKind, LucideIcon> = {
 
 const GROUPS: DueUrgency[] = ["overdue", "today", "soon", "upcoming"];
 
-/** Rows shown before "Alle anzeigen" (the list is long in a busy season). */
-export const DUE_PREVIEW_ROWS = 20;
+/** Markets (and single items) shown per group before "+ N weitere" (the overdue group can be long). */
+export const DUE_PREVIEW_CLUSTERS = 10;
 
 type Cluster = {
   event: {
@@ -69,7 +68,8 @@ function clusters(rows: DueItem[]): Cluster[] {
         event: {
           id: item.eventId,
           name: item.meta,
-          href: item.metaHref ?? `/veranstaltungen/${item.eventId}/board`,
+          // Every link to a market opens its Überblick.
+          href: item.metaHref ?? `/veranstaltungen/${item.eventId}`,
           typeKey: item.eventTypeKey ?? null,
           color: item.eventColor ?? null,
           startsOn: item.eventStartsOn ?? null,
@@ -85,34 +85,28 @@ function clusters(rows: DueItem[]): Cluster[] {
 }
 
 /**
- * "Heute fällig": every module's due items, ranked (overdue · today · this week; within a group permits >
- * instalments > tasks > hours > obligations), with filter chips and counts. State lives in the URL
- * (`?faellig=geld&alle=1`), so the chips are plain links and work without JavaScript.
+ * "Heute fällig": every module's due items, ranked (overdue · today · this week · permits soon; within a
+ * group permits > instalments > tasks > hours > obligations) and grouped by market. Only current
+ * markets: tasks of past markets are handled by the "Aufräumen" line. Each group shows its first markets;
+ * the rest sits behind `?alle=1` (a plain link, works without JavaScript).
  */
 export async function DueToday({
   due,
-  filter,
   showAll,
   today,
   query,
   canSnooze,
 }: {
   due: OverviewDue;
-  filter: DueFilter;
   showAll: boolean;
   today: string;
-  /** Current search params, so chips keep e.g. an open Vorschau. */
+  /** Current search params, so "Alle anzeigen" keeps e.g. an open Vorschau. */
   query: Record<string, string | string[] | undefined>;
   /** May snooze tasks (`task:write`). */
   canSnooze: boolean;
 }) {
   const t = await getTranslations("overview.due");
   const locale = await getLocale();
-  const filtered =
-    filter === "all" ? due.items : due.items.filter((i) => dueFilterOf(i.kind) === filter);
-  const shown = showAll ? filtered : filtered.slice(0, DUE_PREVIEW_ROWS);
-  const chipHref = (key: DueFilter) =>
-    hrefWith("/", query, { faellig: key === "all" ? undefined : key, alle: undefined });
   const relative = (item: DueItem) => {
     const days = daysBetween(today, item.dueOn);
     if (item.urgency === "today" || days === 0) return t("relative.today");
@@ -132,8 +126,9 @@ export async function DueToday({
     return (
       <li
         className={cn(
-          "flex flex-wrap items-center gap-x-3 gap-y-1 px-4 hover:bg-hover",
-          nested ? "py-1 pl-8" : "border-border-subtle border-b py-2 last:border-b-0",
+          // Phone: the title gets its own line, date and actions sit below it. From sm: one line.
+          "grid grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 px-4 hover:bg-hover sm:flex sm:items-center",
+          nested ? "py-1.5 pl-8" : "border-border-subtle border-b py-2 last:border-b-0",
         )}
       >
         {item.kind === "task" && canSnooze ? (
@@ -147,17 +142,17 @@ export async function DueToday({
             <span className="sr-only">{t(`kind.${item.kind}`)}</span>
           </span>
         )}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 sm:flex-1">
           <Link
             href={item.href as never}
             aria-label={t("openItem", { title: item.title })}
-            className="block truncate font-semibold hover:underline"
+            className="block break-words font-semibold hover:underline sm:truncate"
           >
-            {item.isKey && <KeyTaskMark className="mr-1.5 align-middle" />}
+            {item.isKey && <KeyTaskMark label={t("keyTask")} className="mr-1.5 align-middle" />}
             {item.title}
           </Link>
           {(meta || assignee) && (
-            <span className="block truncate text-muted-foreground text-small">
+            <span className="block break-words text-muted-foreground text-small sm:truncate">
               {meta && item.metaHref ? (
                 <Link href={item.metaHref as never} className="hover:underline">
                   {meta}
@@ -174,29 +169,38 @@ export async function DueToday({
             </span>
           )}
         </div>
-        <StatusBadge
-          tone={
-            item.urgency === "overdue" ? "critical" : item.urgency === "today" ? "warn" : "neutral"
-          }
-          icon={
-            item.urgency === "overdue"
-              ? OctagonAlert
-              : item.urgency === "today"
-                ? Clock
-                : CalendarCheck
-          }
-        >
-          <span className="sr-only">{t(`urgencyLabel.${item.urgency}`)}: </span>
-          <span className="tabular">
-            {formatDateShort(item.dueOn, locale)} · {relative(item)}
-          </span>
-        </StatusBadge>
-        {item.kind === "task" && canSnooze && (
-          <SnoozeMenu task={{ id: item.id, title: item.title, status: "todo" }} today={today} />
-        )}
+        <div className="col-start-2 flex flex-wrap items-center gap-2 sm:col-auto sm:shrink-0">
+          <StatusBadge
+            tone={
+              item.urgency === "overdue"
+                ? "critical"
+                : item.urgency === "today"
+                  ? "warn"
+                  : "neutral"
+            }
+            icon={
+              item.urgency === "overdue"
+                ? OctagonAlert
+                : item.urgency === "today"
+                  ? Clock
+                  : CalendarCheck
+            }
+          >
+            <span className="sr-only">{t(`urgencyLabel.${item.urgency}`)}: </span>
+            <span className="tabular">
+              {formatDateShort(item.dueOn, locale)} · {relative(item)}
+            </span>
+          </StatusBadge>
+          {item.kind === "task" && canSnooze && (
+            <SnoozeMenu task={{ id: item.id, title: item.title, status: "todo" }} today={today} />
+          )}
+        </div>
       </li>
     );
   }
+
+  const allHref = (open: boolean) =>
+    hrefWith("/", query, { alle: open ? "1" : undefined, aufraeumen: undefined });
 
   return (
     <Panel aria-labelledby="due-title">
@@ -205,67 +209,43 @@ export async function DueToday({
           <PanelTitle id="due-title">{t("title")}</PanelTitle>
           <span className="text-muted-foreground text-small">{t("subtitle")}</span>
         </div>
-        {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of filter links, not form controls */}
-        <div role="group" aria-label={t("filters")}>
-          <FilterChips>
-            {DUE_FILTERS.filter(
-              (key) => key === "all" || due.counts[key] > 0 || key === filter,
-            ).map((key) => (
-              <FilterChip
-                key={key}
-                href={chipHref(key)}
-                active={key === filter}
-                count={due.counts[key]}
-              >
-                {t(`filter.${key}`)}
-              </FilterChip>
-            ))}
-          </FilterChips>
-        </div>
       </PanelHeader>
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={CalendarCheck}
-          title={filter === "all" ? t("emptyTitle") : t("emptyFilter")}
-          hint={filter === "all" ? t("emptyHint") : undefined}
-        >
-          {filter !== "all" && (
-            <Link
-              href={chipHref("all") as never}
-              scroll={false}
-              className="inline-flex min-h-8 items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover"
-            >
-              {t("emptyFilterReset")}
-            </Link>
-          )}
-        </EmptyState>
+      {due.items.length === 0 ? (
+        <EmptyState icon={CalendarCheck} title={t("emptyTitle")} hint={t("emptyHint")} />
       ) : (
         <div className="flex flex-col">
           {GROUPS.map((urgency) => {
-            const rows = shown.filter((i) => i.urgency === urgency);
+            const rows = due.items.filter((i) => i.urgency === urgency);
             if (rows.length === 0) return null;
-            const total = filtered.filter((i) => i.urgency === urgency).length;
+            const all = clusters(rows);
+            const shown = showAll ? all : all.slice(0, DUE_PREVIEW_CLUSTERS);
+            const hidden = all.length - shown.length;
             return (
-              <section key={urgency} aria-label={t(`groups.${urgency}`)}>
+              <section
+                key={urgency}
+                id={`faellig-${urgency}`}
+                aria-label={t(`groups.${urgency}`)}
+                className="scroll-mt-20"
+              >
                 <h3 className="flex items-center gap-2 border-border-subtle border-b bg-surface-2 px-4 py-1.5 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">
                   {t(`groups.${urgency}`)}
-                  <span className="tabular font-medium normal-case">{total}</span>
+                  <span className="tabular font-medium normal-case">{rows.length}</span>
                 </h3>
                 <ul className="m-0 flex list-none flex-col p-0">
-                  {clusters(rows).map((cluster) =>
+                  {shown.map((cluster) =>
                     cluster.event ? (
                       <li
                         key={`event-${cluster.event.id}`}
                         className="border-border-subtle border-b"
                       >
-                        <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-body">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-4 pt-3 pb-1 text-body">
                           <MarketMarker
                             color={cluster.event.color}
                             typeKey={cluster.event.typeKey}
                           />
                           <Link
                             href={cluster.event.href as never}
-                            className="truncate font-semibold hover:underline"
+                            className="min-w-0 break-words font-semibold hover:underline"
                           >
                             {cluster.event.name}
                           </Link>
@@ -290,23 +270,29 @@ export async function DueToday({
                       ))
                     ),
                   )}
+                  {hidden > 0 && (
+                    <li className="border-border-subtle border-b">
+                      <Link
+                        href={allHref(true) as never}
+                        scroll={false}
+                        className="inline-flex min-h-9 items-center px-4 font-medium text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        {t("more", { count: hidden })}
+                      </Link>
+                    </li>
+                  )}
                 </ul>
               </section>
             );
           })}
-          {filtered.length > DUE_PREVIEW_ROWS && (
+          {showAll && (
             <div className="border-border-subtle border-t px-4 py-2">
               <Link
-                href={
-                  hrefWith("/", query, {
-                    faellig: filter === "all" ? undefined : filter,
-                    alle: showAll ? undefined : "1",
-                  }) as never
-                }
+                href={allHref(false) as never}
                 scroll={false}
                 className="inline-flex min-h-8 items-center rounded-lg px-2 font-medium hover:bg-hover"
               >
-                {showAll ? t("showLess") : t("showAll", { count: filtered.length })}
+                {t("showLess")}
               </Link>
             </div>
           )}

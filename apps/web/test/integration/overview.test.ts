@@ -1,5 +1,4 @@
 import { eventPermit, obligation, permit, shift } from "@marktwerk/db/schema";
-import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
@@ -154,16 +153,8 @@ describe("Heute fällig", () => {
     for (const hidden of ["Erledigt", "Ohne Datum", "Später"]) expect(titles).not.toContain(hidden);
   });
 
-  it("counts per filter chip, from the same list", async () => {
+  it("lists every item once, grouped by urgency by the page", async () => {
     const { due } = await getOverview(owner, TODAY);
-    expect(due.counts).toEqual({
-      all: 8,
-      money: 2,
-      permits: 1,
-      hours: 1,
-      tasks: 3,
-      company: 1,
-    });
     expect(due.items).toHaveLength(8);
   });
 
@@ -188,8 +179,9 @@ describe("Heute fällig", () => {
       "obligation:Brandschutzprüfung",
     ]);
     const overview = await getOverview(staffActor, TODAY);
-    expect(overview.kpis.moneyOverdue).toBeNull();
-    expect(overview.due.counts.money).toBe(0);
+    expect(overview.due.items.some((i) => i.kind === "installment" || i.kind === "hours")).toBe(
+      false,
+    );
   });
 
   it("a staff login without a staff record sees no tasks", async () => {
@@ -207,37 +199,22 @@ describe("Heute fällig", () => {
 });
 
 describe("KPI strip", () => {
-  it("counts overdue, due by Sunday, open tasks and overdue money for an owner", async () => {
+  it("counts what is due today and what is overdue, from the Heute-fällig list", async () => {
     const { kpis } = await getOverview(owner, TODAY);
     expect(kpis.overdue).toBe(3);
-    // Today (3) and soon (task on the 25th, obligation on the 24th); nothing later than Sunday.
-    expect(kpis.dueByWeekend).toBe(5);
-    expect(kpis.openTasks).toBe(5);
-    expect(kpis.overdueTasks).toBe(1);
-    expect(kpis.moneyOverdue).toEqual({ count: 1, cents: 80_000 });
+    // Today: the rate "Sicherheitsdienst", the task "Heutige Aufgabe" and the shift without times.
+    expect(kpis.dueToday).toBe(3);
   });
 
-  it("counts upcoming planned events whose required permits are not all granted", async () => {
-    expect((await getOverview(owner, TODAY)).kpis.withoutPermit).toBe(0); // no permit linked yet
-    const [p] = await db.select().from(permit);
-    await db.insert(eventPermit).values({ eventId: laterEvent, permitId: p?.id as string });
-    expect((await getOverview(owner, TODAY)).kpis.withoutPermit).toBe(1);
-    await db
-      .update(permit)
-      .set({ status: "granted" })
-      .where(eq(permit.id, p?.id as string));
-    expect((await getOverview(owner, TODAY)).kpis.withoutPermit).toBe(0);
-  });
-
-  it("staff count only their own tasks", async () => {
+  it("staff count only their own items", async () => {
     const { kpis } = await getOverview(staffActor, TODAY);
-    expect(kpis.openTasks).toBe(2);
-    expect(kpis.overdueTasks).toBe(1);
+    expect(kpis.overdue).toBe(2); // the permit and Anna's overdue task
+    expect(kpis.dueToday).toBe(1);
   });
 });
 
 describe("Dieses Wochenende", () => {
-  it("lists the weekend's events with all four health dimensions, the open effort and its blockers", async () => {
+  it("lists the weekend's events with all four health dimensions and its blockers", async () => {
     const { weekend } = await getOverview(owner, TODAY);
     expect(weekend.saturday).toBe("2026-10-24");
     expect(weekend.rows.map((r) => r.name)).toEqual(["Wochenendmarkt"]);
@@ -246,8 +223,6 @@ describe("Dieses Wochenende", () => {
     expect(row?.health.tasks).toBe("warn");
     expect(row?.health.money).not.toBeNull();
     expect(row?.health.team).not.toBeNull();
-    // 90 + 30 minutes of Anna's tasks plus the 0-minute one of Ben.
-    expect(weekend.effortMinutes[weekendEvent]).toBe(120);
     expect(weekend.blockers.map((b) => b.title)).toEqual([
       "Toiletten",
       "Überfällige Aufgabe",
@@ -299,21 +274,9 @@ describe("Dieses Wochenende", () => {
   });
 
   it("field users see their own weekend event only, without money", async () => {
-    const { weekend, kpis } = await getOverview(fieldActor, TODAY);
+    const { weekend } = await getOverview(fieldActor, TODAY);
     expect(weekend.rows.map((r) => r.name)).toEqual(["Wochenendmarkt"]);
     expect(weekend.rows[0]?.health.money).toBeNull();
-    expect(kpis.moneyOverdue).toBeNull();
     expect(weekend.blockers.every((b) => b.kind === "task")).toBe(true);
-  });
-});
-
-describe("season strip", () => {
-  it("has the workload (hiring signal) for roles that plan the team, not for staff or field", async () => {
-    const owners = await getOverview(owner, TODAY);
-    expect(owners.workload).not.toBeNull();
-    expect(owners.workload?.season).toBe(2026);
-    expect(owners.workload?.demandHours).toBeGreaterThan(0);
-    expect((await getOverview(staffActor, TODAY)).workload).toBeNull();
-    expect((await getOverview(fieldActor, TODAY)).workload).toBeNull();
   });
 });

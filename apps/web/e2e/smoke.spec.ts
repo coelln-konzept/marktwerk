@@ -7,23 +7,55 @@ test("Übersicht loads after login", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).first()).toBeVisible();
 });
 
-test("Übersicht: Heute fällig with filter chips, KPI strip and the weekend table", async ({
+test("Übersicht: the weekend comes first, then Heute fällig; no season strip, no filter chips", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 2, name: "Heute fällig" })).toBeVisible();
-  const chips = page.getByRole("group", { name: "Filter" });
-  await expect(chips.getByRole("link", { name: /^Alle/ })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Dieses Wochenende" })).toBeVisible();
-  await expect(page.locator('dl[aria-label="Kennzahlen"]')).toBeVisible();
+  const weekend = page.getByRole("heading", { level: 2, name: "Dieses Wochenende" });
+  const due = page.getByRole("heading", { level: 2, name: "Heute fällig" });
+  await expect(weekend).toBeVisible();
+  await expect(due).toBeVisible();
+  const [weekendY, dueY] = await Promise.all([weekend.boundingBox(), due.boundingBox()]);
+  expect((weekendY?.y ?? 0) < (dueY?.y ?? 0)).toBe(true);
 
-  // A chip filters the list; the state lives in the URL.
-  const chip = chips.getByRole("link").nth(1);
-  if (await chip.isVisible()) {
-    await chip.click();
-    await expect(page).toHaveURL(/faellig=/);
-    await expect(page.getByRole("heading", { level: 2, name: "Heute fällig" })).toBeVisible();
-  }
+  // Two numbers only; no season strip, no filter chips, no estimate legend.
+  const kpis = page.locator('dl[aria-label="Kennzahlen"]');
+  await expect(kpis).toContainText("Heute fällig");
+  await expect(kpis).toContainText("Überfällig");
+  await expect(kpis.getByText("Offene Aufgaben")).toHaveCount(0);
+  await expect(page.getByText(/^Saison 2026/)).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Filter" })).toHaveCount(0);
+  await expect(page.getByText(/Aufwand =/)).toHaveCount(0);
+});
+
+test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a market and undoes", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const line = page.getByText(/offene Aufgaben? aus vergangenen Märkten/);
+  await expect(line).toBeVisible();
+  await page.getByRole("link", { name: "Aufräumen", exact: true }).click();
+  await expect(page).toHaveURL(/aufraeumen=1/);
+  const drawer = page.getByRole("complementary", {
+    name: "Offene Aufgaben aus vergangenen Märkten",
+  });
+  await expect(drawer.getByText("Offene Aufgaben aus vergangenen Märkten")).toBeVisible();
+
+  const first = drawer.getByRole("listitem").first();
+  const before = await drawer.getByRole("listitem").count();
+  await first.getByRole("button", { name: /überspringen/ }).click();
+  await expect(page.getByText(/Aufgaben? übersprungen/)).toBeVisible();
+  await expect(drawer.getByRole("listitem")).toHaveCount(before - 1);
+
+  // The undo toast brings the market back.
+  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await expect(drawer.getByRole("listitem")).toHaveCount(before);
+
+  // The drawer is a linkable page state: a reload keeps it, Esc closes it.
+  await page.reload();
+  await expect(drawer).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page).not.toHaveURL(/aufraeumen=/);
 });
 
 /** The module pages; each has to render with its own heading (owner login, seeded data). */
@@ -164,6 +196,8 @@ test("Veranstaltungen: Space previews a row, Enter opens it, back returns to the
 test("command palette: Ctrl+K finds Köln by typing “koln”", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // The Übersicht is a long page: wait until it is hydrated, or the shortcut has no listener yet.
+  await page.waitForLoadState("networkidle");
   await page.keyboard.press("Control+k");
   const input = page.getByRole("combobox");
   await expect(input).toBeVisible();
@@ -237,6 +271,8 @@ test("Board: Kernaufgaben-Matrix shows markets x key tasks with a legend and ope
 test("command palette finds tasks, permits and vehicles by their titles", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // The Übersicht is a long page: wait until it is hydrated, or the shortcut has no listener yet.
+  await page.waitForLoadState("networkidle");
   await page.keyboard.press("Control+k");
   const input = page.getByRole("combobox");
   await input.fill("genehmigung");

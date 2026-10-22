@@ -10,7 +10,14 @@ import {
   user,
 } from "@marktwerk/db";
 import { and, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
-import { appUrl, berlinDate, emailSettings, isEmailDisabled, OPEN_TASK_STATUSES } from "./shared";
+import {
+  appUrl,
+  berlinDate,
+  emailSettings,
+  isEmailDisabled,
+  notOfPastEvent,
+  OPEN_TASK_STATUSES,
+} from "./shared";
 
 /** Logins that work in the office get the morning mail; the field crew does not (decision: office users). */
 const OFFICE_ROLES = ["owner", "manager", "staff"];
@@ -95,6 +102,8 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
         // The permit's own line covers "beantragen".
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),
+        // Open tasks of markets that are long over are left to the cleanup on the Übersicht.
+        notOfPastEvent(today),
       ),
     );
   for (const t of tasks) {
