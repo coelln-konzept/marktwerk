@@ -3,6 +3,7 @@ import {
   Check,
   CircleAlert,
   CircleDashed,
+  History,
   Hourglass,
   type LucideIcon,
   Minus,
@@ -26,6 +27,7 @@ export const PERMIT_STATE = {
   expired: { tone: "critical", icon: TimerOff },
   rejected: { tone: "critical", icon: X },
   not_required: { tone: "neutral", icon: Minus },
+  past: { tone: "neutral", icon: History },
   superseded: { tone: "neutral", icon: Repeat2 },
 } as const satisfies Record<PermitDisplayState, { tone: Tone; icon: LucideIcon }>;
 
@@ -39,6 +41,7 @@ export const PERMIT_STATE_ORDER: PermitDisplayState[] = [
   "expired",
   "rejected",
   "not_required",
+  "past",
 ];
 
 export const PERMIT_TYPE_KEYS = [

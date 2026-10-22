@@ -26,6 +26,7 @@ export const baseItem = (patch: Partial<TemplateItemFields> = {}): TemplateItemF
   requiresNote: false,
   requiresAttachment: false,
   isKey: false,
+  permitType: null,
   checkItems: [],
   approverDutyRoleId: null,
   dependsOnKeys: [],

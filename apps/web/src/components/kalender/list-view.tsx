@@ -10,7 +10,7 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
-import { formatDateShort } from "@/lib/format";
+import { formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CalendarItem } from "@/server/queries/due";
 import type { EventRow } from "@/server/queries/events";
@@ -25,7 +25,6 @@ export async function CalendarList({
   deadlines,
   holidays,
   hrefFor,
-  vorschauId,
   resetHref,
 }: {
   from: string;
@@ -35,9 +34,8 @@ export async function CalendarList({
   /** Entries of the module layers (Aufgaben, Genehmigungen, …). */
   deadlines: CalendarItem[];
   holidays: Map<string, string>;
-  /** Vorschau link for an event. */
+  /** Link to an event (its Überblick). */
   hrefFor: (id: string) => string;
-  vorschauId?: string;
   resetHref: string;
 }) {
   const t = await getTranslations("kalenderPage");
@@ -88,8 +86,8 @@ export async function CalendarList({
       <Table>
         <caption className="sr-only">
           {t("listCaption", {
-            from: formatDateShort(from, locale),
-            to: formatDateShort(to, locale),
+            from: formatDateShortYear(from, locale, today),
+            to: formatDateShortYear(to, locale, today),
           })}
         </caption>
         <THead>
@@ -109,8 +107,8 @@ export async function CalendarList({
               <TGroup colSpan={5}>
                 {t("week", {
                   week: isoWeek(monday).week,
-                  from: formatDateShort(monday, locale),
-                  to: formatDateShort(addDays(monday, 6), locale),
+                  from: formatDateShortYear(monday, locale, today),
+                  to: formatDateShortYear(addDays(monday, 6), locale, today),
                 })}
               </TGroup>
               {weekDays.map((day) => {
@@ -127,7 +125,9 @@ export async function CalendarList({
                       holiday && "text-status-critical",
                     )}
                   >
-                    <span className="tabular font-semibold">{formatDateShort(day, locale)}</span>
+                    <span className="tabular font-semibold">
+                      {formatDateShortYear(day, locale, today)}
+                    </span>
                     <span className="block text-muted-foreground text-tiny">{relative(day)}</span>
                     {holiday && <span className="block font-semibold text-tiny">{holiday}</span>}
                   </TD>
@@ -143,16 +143,13 @@ export async function CalendarList({
                   );
                 }
                 const eventRows = events.map((r, i) => {
-                  const href = `/veranstaltungen/${r.id}/board`;
-                  const peek = hrefFor(r.id);
+                  const href = hrefFor(r.id);
                   return (
                     <TR
                       key={`${day}-${r.id}`}
                       tabIndex={0}
                       data-row
                       data-href={href}
-                      data-peek={peek}
-                      aria-selected={vorschauId === r.id}
                       className={cn(
                         "cursor-pointer outline-none focus-visible:bg-selected",
                         r.status === "cancelled" && "text-muted-foreground",
@@ -166,10 +163,8 @@ export async function CalendarList({
                           className="mr-2 align-middle"
                         />
                         <Link
-                          href={peek as never}
-                          scroll={false}
+                          href={href as never}
                           tabIndex={-1}
-                          aria-label={t("preview", { name: r.name })}
                           className={cn(
                             "mr-2 font-semibold hover:underline",
                             r.status === "cancelled" && "line-through",

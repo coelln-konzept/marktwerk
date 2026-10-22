@@ -139,7 +139,7 @@ describe("anchor change → tasks follow", () => {
       subjectType: "event",
       subjectId: eventId,
       state: "unread",
-      link: `/veranstaltungen/${eventId}/board`,
+      link: `/veranstaltungen/${eventId}`,
     });
     expect(anna?.title).toBe("Termine verschoben: Testflohmarkt");
     expect(anna?.body).toContain("13.03.2027");

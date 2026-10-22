@@ -556,6 +556,46 @@ describe("eventTaskSummary", () => {
   });
 });
 
+describe("tasks that wait for somebody else (Wartet)", () => {
+  it("are 'wartet seit …' in the Übersicht feed, not overdue anywhere", async () => {
+    await insertTask({ title: "überfällig", eventId, dueAt: dueOn("2026-10-15") });
+    await insertTask({
+      title: "beim Amt",
+      eventId,
+      dueAt: dueOn("2026-09-01"),
+      status: "waiting_external",
+    });
+    await insertTask({
+      title: "Amt, noch nicht fällig",
+      eventId,
+      dueAt: dueOn("2026-10-23"),
+      status: "waiting_external",
+    });
+
+    const items = await dueItems(owner, TODAY);
+    const urgency = (title: string) => items.find((i) => i.title === title)?.urgency;
+    expect(urgency("überfällig")).toBe("overdue");
+    expect(urgency("beim Amt")).toBe("waiting");
+    expect(urgency("Amt, noch nicht fällig")).toBe("soon");
+
+    expect(await openTaskCounts(owner, TODAY)).toMatchObject({ open: 3, overdue: 1 });
+    expect(await eventTaskSummary(owner, eventId, TODAY)).toMatchObject({ open: 3, overdue: 1 });
+    // Calendar chip: neutral, not red.
+    const chips = await calendarItems(owner, "2026-09-01", "2026-09-30", TODAY);
+    expect(chips.find((c) => c.title === "beim Amt")?.tone).toBe("neutral");
+  });
+
+  it("do not make the event health look worse", async () => {
+    await insertTask({
+      title: "beim Amt",
+      eventId,
+      dueAt: dueOn("2026-09-01"),
+      status: "waiting_external",
+    });
+    expect((await eventTaskSummary(owner, eventId, TODAY)).health).toBe("ok");
+  });
+});
+
 describe("getTaskDetail", () => {
   it("collects check items, the completion note and the audit activity", async () => {
     const office = asStaff(await createActor("staff"), cat.staff.anna);

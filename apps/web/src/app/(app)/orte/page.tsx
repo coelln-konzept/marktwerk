@@ -2,8 +2,7 @@ import { can } from "@marktwerk/core";
 import { Eye, Plus, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
-import { VenueKindBadge } from "@/components/catalogue/kinds";
+import { getTranslations } from "next-intl/server";
 import { VenueVorschau } from "@/components/catalogue/venue-vorschau";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
-import { formatLength, todayIn } from "@/lib/format";
+import { todayIn } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { getActor } from "@/server/actor";
@@ -30,7 +29,6 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
   const sp = await searchParams;
   const t = await getTranslations("venues");
   const tm = await getTranslations("venues.manage");
-  const locale = await getLocale();
   const q = param(sp.q)?.slice(0, 100);
   const vorschauId = param(sp.vorschau);
   const rows = await listVenues(actor, todayIn(), q);
@@ -83,16 +81,11 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
                 <tr>
                   <TH>{t("cols.name")}</TH>
                   <TH>{t("cols.city")}</TH>
-                  <TH>{t("cols.kind")}</TH>
-                  <TH className="text-right">{t("cols.zones")}</TH>
-                  <TH className="text-right">{t("cols.rows")}</TH>
-                  <TH className="text-right">{t("cols.capacity")}</TH>
                   {showUpcoming && (
                     <TH className="text-right" title={t("upcomingTitle")}>
                       {t("cols.upcoming")}
                     </TH>
                   )}
-                  <TH>{t("cols.landowner")}</TH>
                   <TH>
                     <span className="sr-only">{t("cols.actions")}</span>
                   </TH>
@@ -122,30 +115,9 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
                         </Link>
                       </TD>
                       <TD className="whitespace-nowrap">{r.city}</TD>
-                      <TD>
-                        <VenueKindBadge kind={r.kind} label={t(`kinds.${r.kind}`)} />
-                      </TD>
-                      <TD className="tabular text-right">{r.zones}</TD>
-                      <TD className="tabular text-right">{r.rows}</TD>
-                      <TD className="tabular whitespace-nowrap text-right">
-                        {r.capacityCm ? formatLength(r.capacityCm, locale) : t("none")}
-                      </TD>
                       {showUpcoming && (
                         <TD className="tabular text-right">{r.upcoming ?? t("none")}</TD>
                       )}
-                      <TD className="max-w-44 truncate" title={r.landownerName ?? undefined}>
-                        {r.landownerId ? (
-                          <Link
-                            href={`/kontakte?vorschau=${r.landownerId}` as never}
-                            tabIndex={-1}
-                            className="hover:underline"
-                          >
-                            {r.landownerName}
-                          </Link>
-                        ) : (
-                          <span className="text-faint-foreground">{t("none")}</span>
-                        )}
-                      </TD>
                       <TD className="w-12">
                         <RowActions>
                           <Link

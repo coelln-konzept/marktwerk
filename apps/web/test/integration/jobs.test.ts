@@ -11,7 +11,7 @@ import {
   task,
 } from "@marktwerk/db/schema";
 import { dailyDigest, deadlineSweep, type MailTransport, sendQueuedEmails } from "@marktwerk/jobs";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -206,8 +206,8 @@ describe("deadline sweep: tasks", () => {
     expect(mails[1]?.renderedText).toContain("http://localhost:3000/board?detail=task:");
 
     // Nothing again on the next sweeps.
-    expect(await deadlineSweep(db, NOW)).toEqual({ created: 0, escalated: 0, emails: 0 });
-    expect(await deadlineSweep(db, daysFromNow(0.1))).toEqual({
+    expect(await deadlineSweep(db, NOW)).toMatchObject({ created: 0, escalated: 0, emails: 0 });
+    expect(await deadlineSweep(db, daysFromNow(0.1))).toMatchObject({
       created: 0,
       escalated: 0,
       emails: 0,
@@ -229,7 +229,7 @@ describe("deadline sweep: tasks", () => {
       dueAt: daysFromNow(-2),
       snoozedUntil: "2026-10-22",
     });
-    expect(await deadlineSweep(db, NOW)).toEqual({ created: 0, escalated: 0, emails: 0 });
+    expect(await deadlineSweep(db, NOW)).toMatchObject({ created: 0, escalated: 0, emails: 0 });
     expect(await notificationsOf(annaId)).toHaveLength(0);
     expect(await notificationsOf(benId)).toHaveLength(0);
 
@@ -278,8 +278,11 @@ describe("deadline sweep: tasks", () => {
       applyBy: "2026-08-01",
       responsibleStaffMemberId: annaId,
     });
-    expect(await deadlineSweep(db, NOW)).toEqual({ created: 0, escalated: 0, emails: 0 });
-    expect(await db.select().from(notification)).toHaveLength(0);
+    expect(await deadlineSweep(db, NOW)).toMatchObject({ created: 0, escalated: 0, emails: 0 });
+    // personal reminders only: the backlog is in the center (company-wide), not in anybody's inbox
+    expect(
+      await db.select().from(notification).where(isNotNull(notification.recipientStaffMemberId)),
+    ).toHaveLength(0);
     await dailyDigest(db, NOW);
     const [mail] = await db
       .select()
@@ -362,13 +365,13 @@ describe("deadline sweep: permits", () => {
       severity: "critical",
       subjectType: "permit",
       subjectId: p.id,
-      link: `/logbuch?genehmigung=${p.id}`,
+      link: `/genehmigungen?genehmigung=${p.id}`,
       title: "Antrag überfällig: Wasser 2027",
     });
     const ben = await notificationsOf(benId);
     expect(ben.map((n) => n.reason)).toEqual(["escalated"]);
     expect(ben[0]?.title).toContain("Wasser 2027 ist seit 3 Tagen überfällig");
-    expect(await deadlineSweep(db, NOW)).toEqual({ created: 0, escalated: 0, emails: 0 });
+    expect(await deadlineSweep(db, NOW)).toMatchObject({ created: 0, escalated: 0, emails: 0 });
   });
 
   it("permit without a responsible person: the manager gets the reminder", async () => {
@@ -513,7 +516,7 @@ describe("daily digest", () => {
     expect(text).not.toContain("Später");
     expect(text).not.toContain("Fremd");
     expect(text).not.toContain("Beantragen");
-    expect(text).toContain("http://localhost:3000/logbuch?genehmigung=");
+    expect(text).toContain("http://localhost:3000/genehmigungen?genehmigung=");
 
     // Ben's digest only has his own task.
     expect(mails[1]?.renderedText).toContain("Fremd");
@@ -661,7 +664,10 @@ describe("email master switch", () => {
     await overdueHigh();
     const result = await deadlineSweep(db, NOW);
     expect(result).toMatchObject({ created: 2, escalated: 1, emails: 0 });
-    expect(await db.select().from(notification)).toHaveLength(2);
+    // company-wide notifications (recipient null) are the center's and counted elsewhere
+    expect(
+      await db.select().from(notification).where(isNotNull(notification.recipientStaffMemberId)),
+    ).toHaveLength(2);
     expect(await db.select().from(outboundMessage)).toHaveLength(0);
   });
 

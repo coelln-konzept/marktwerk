@@ -7,25 +7,22 @@
     "overview": "Overview",
     "board": "Board",
     "events": "Events",
-    "logbook": "Logbook",
+    "permits": "Permits",
+    "permitsBadge": "missing or expired for upcoming markets",
+    "masterData": "Master data",
+    "duties": "Duties",
     "team": "Team",
     "finance": "Finance",
-    "company": "Company",
     "vendors": "Vendors",
     "knowledgeBase": "Knowledge",
     "notifications": "Notifications",
     "settings": "Settings",
-    "bookings": "Bookings",
-    "inbox": "Inbox",
-    "inventory": "Inventory",
-    "comingSoon": "Phase 2",
     "signOut": "Sign out",
     "label": "Main navigation",
     "close": "Close navigation",
     "calendar": "Calendar",
     "venues": "Venues",
-    "contacts": "Contacts",
-    "later": "Later"
+    "contacts": "Contacts"
   },
   "roles": {
     "owner": "Owner",
@@ -64,7 +61,8 @@
       "standard": "Standard",
       "compact": "Compact"
     },
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "settings": "Settings"
   },
   "topbar": {
     "menu": "Open navigation",
@@ -112,7 +110,9 @@
       "payable": "Create payment",
       "permit": "Create permit",
       "shift": "Record shift",
-      "issue": "Report defect"
+      "issue": "Report defect",
+      "settings": "Open settings",
+      "notifications": "Open notifications"
     }
   },
   "vorschau": {
@@ -122,14 +122,8 @@
     "keys": "Esc: close · Enter: open"
   },
   "comingSoon": {
-    "title": "Coming with milestone {milestone}",
-    "board": "The board with tasks from timeline templates, people rail and workload arrives in M2.",
-    "logbook": "The logbook (permits per venue as matrix and timeline) arrives in M3.",
-    "finance": "Payables with instalments, receipts and money per event arrive in M5.",
-    "company": "Obligations, vehicles and insurances arrive in M6.",
-    "knowledgeBase": "The knowledge base follows after the core modules.",
-    "notifications": "Notifications (deadlines, assignments, escalations) arrive in M3.",
-    "settings": "Company data, users, roles and legal parameters will be maintained here (later)."
+    "title": "Coming later",
+    "knowledgeBase": "The knowledge base follows after the core modules."
   },
   "status": {
     "event": {
@@ -147,6 +141,16 @@
     "warn": "Attention",
     "critical": "Critical",
     "none": "not yet tracked",
+    "reason": {
+      "ok": "On track",
+      "permits": "{count, plural, one {# permit missing} other {# permits missing}}",
+      "permitsEnding": "Permit ends before the end",
+      "tasksOverdue": "{count} overdue",
+      "tasksBlocked": "{count} blocked",
+      "tasksRollover": "often postponed",
+      "team": "Team incomplete",
+      "money": "Money open"
+    },
     "dims": {
       "permits": "Permits",
       "tasks": "Tasks",

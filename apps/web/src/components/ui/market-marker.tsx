@@ -51,10 +51,13 @@ export function marketBorderClass(color: string | null | undefined): string | un
 export function MarketMarker({
   color,
   typeKey,
+  size = "md",
   className,
 }: {
   color: string | null | undefined;
   typeKey?: string | null;
+  /** `lg`: a taller, wider bar for lists where the market is the row's identity (Veranstaltungen). */
+  size?: "md" | "lg";
   className?: string;
 }) {
   if (isMarketColor(color))
@@ -63,7 +66,8 @@ export function MarketMarker({
         aria-hidden
         data-market-color={color}
         className={cn(
-          "inline-block h-4 w-1 shrink-0 self-center rounded-full",
+          "inline-block shrink-0 self-center rounded-full",
+          size === "lg" ? "h-7 w-1.5" : "h-4 w-1",
           BAR[color],
           className,
         )}

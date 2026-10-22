@@ -8,7 +8,7 @@ export default async function EventMoneyTabLayout({
 }: LayoutProps<"/veranstaltungen/[id]/geld">) {
   if (isModuleHidden("finance")) {
     const { id } = await params;
-    redirect(`/veranstaltungen/${id}/board`);
+    redirect(`/veranstaltungen/${id}`);
   }
   return children;
 }

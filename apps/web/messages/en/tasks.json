@@ -35,13 +35,13 @@
     },
     "due": {
       "overdue": "Overdue · {days} d",
+      "waitingSince": "Waiting since {date}",
       "today": "Today",
       "soon": "Due in {days} d",
       "none": "No date",
       "doneOn": "Done {date}",
       "finished": "Finished"
     },
-    "rollover": "carried over {count}×",
     "estimate": "Estimate",
     "checks": "Checklist",
     "evidence": {
@@ -99,7 +99,9 @@
     },
     "keyTask": {
       "label": "Key task",
-      "hint": "A task every market needs."
+      "hint": "Every market needs it – shown in the overview, the matrix and at the top of the Übersicht.",
+      "tooltip": "Key task – a task every market needs",
+      "toggle": "Key task"
     },
     "fields": {
       "title": "Title",
@@ -110,7 +112,6 @@
       "estimate": "Estimated",
       "assignee": "Assigned to",
       "role": "Role",
-      "source": "Origin",
       "completed": "Done on"
     },
     "source": {
@@ -191,6 +192,11 @@
     "quickDone": {
       "label": "Done",
       "aria": "Mark “{title}” as done"
-    }
+    },
+    "statusToggle": {
+      "waiting": "Waiting for authority"
+    },
+    "statusMore": "More statuses",
+    "statusReopen": "Open again"
   }
 }

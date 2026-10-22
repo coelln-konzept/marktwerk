@@ -1,7 +1,8 @@
 import { addDays, daysBetween } from "../dates/calendar";
-import { type EventPermitInput, isHeld, permitDisplayState } from "../permits/status";
+import { type EventPermitInput, isHeld, permitStateForEvent } from "../permits/status";
 import { isFinishedStatus, isOpenStatus, type TaskStatusKey } from "../tasks/board";
 import { isSnoozed } from "../tasks/snooze";
+import { isOverdueTask, isWaitingPastDue } from "../tasks/waiting";
 
 /*
  * The Überblick of an event ("is this market on track, and what's missing?", decision 2026-10-22).
@@ -73,8 +74,9 @@ export function permitCoversEvent(
   permit: EventPermitInput,
   startsOn: string,
   today: string,
+  endsOn: string = startsOn,
 ): boolean {
-  if (!isHeld(permitDisplayState(permit, today))) return false;
+  if (!isHeld(permitStateForEvent(permit, { endsOn }, today))) return false;
   return permit.validUntil === null || permit.validUntil >= startsOn;
 }
 
@@ -93,10 +95,11 @@ export function permitProgress(
   permits: readonly EventPermitInput[],
   startsOn: string,
   today: string,
+  endsOn: string = startsOn,
 ): PermitProgress {
   const needed = neededPermits(permits);
   return {
-    granted: needed.filter((p) => permitCoversEvent(p, startsOn, today)).length,
+    granted: needed.filter((p) => permitCoversEvent(p, startsOn, today, endsOn)).length,
     total: needed.length,
   };
 }
@@ -111,10 +114,13 @@ export type MissingTask = OverviewTask & {
   reason: MissingReason;
 };
 
-/** Open, not snoozed, and overdue, blocked / waiting, or due within the next 7 days. Null = not missing. */
+/**
+ * Open, not snoozed, and overdue, blocked / waiting, or due within the next 7 days. Null = not missing.
+ * A task waiting for somebody else is never "overdue", it is "waiting" (the UI says "wartet seit …").
+ */
 export function missingReason(task: OverviewTask, today: string): MissingReason | null {
   if (!isOpenStatus(task.status) || isSnoozed(task, today)) return null;
-  if (task.dueOn !== null && task.dueOn < today) return "overdue";
+  if (isOverdueTask(task, today)) return "overdue";
   if (task.status === "blocked") return "blocked";
   if (task.status === "waiting_external") return "waiting";
   if (task.dueOn !== null && task.dueOn === today) return "today";
@@ -149,9 +155,10 @@ export function missingPermits<T extends OverviewPermit>(
   permits: readonly T[],
   startsOn: string,
   today: string,
+  endsOn: string = startsOn,
 ): T[] {
   return neededPermits(permits)
-    .filter((p) => !permitCoversEvent(p, startsOn, today))
+    .filter((p) => !permitCoversEvent(p, startsOn, today, endsOn))
     .sort((a, b) => {
       if (a.applyBy !== b.applyBy) {
         if (a.applyBy === null) return 1;
@@ -165,16 +172,17 @@ export function missingPermits<T extends OverviewPermit>(
 // ---------------------------------------------------------------------------------------------
 // Kernaufgaben
 
-export type KeyTaskState = "done" | "open" | "soon" | "overdue" | "snoozed";
+export type KeyTaskState = "done" | "open" | "soon" | "overdue" | "waiting" | "snoozed";
 
 /**
- * State of a Kernaufgabe: done (also skipped) · snoozed (hidden until its date) · overdue (due before
- * today) · soon (due within 7 days, today included) · open. Cancelled tasks have no state (null).
+ * State of a Kernaufgabe: done (also skipped) · snoozed (hidden until its date) · waiting (waiting for somebody
+ * else, past its date) · overdue (due before today) · soon (due within 7 days, today included) · open. Cancelled tasks have no state (null).
  */
 export function keyTaskState(task: OverviewTask, today: string): KeyTaskState | null {
   if (task.status === "cancelled") return null;
   if (isFinishedStatus(task.status)) return "done";
   if (isSnoozed(task, today)) return "snoozed";
+  if (isWaitingPastDue(task, today)) return "waiting";
   if (task.dueOn !== null && task.dueOn < today) return "overdue";
   if (task.dueOn !== null && task.dueOn <= addDays(today, OVERVIEW_SOON_DAYS)) return "soon";
   return "open";

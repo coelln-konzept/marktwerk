@@ -3,7 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
-import { formatDate, formatDateShort, formatMoney } from "@/lib/format";
+import { formatDate, formatDateShortYear, formatMoney, todayIn } from "@/lib/format";
 import { hrefWith } from "@/lib/url";
 import type { LogbookRow } from "@/server/queries/permits";
 import { PermitStateBadge } from "./permit-state-badge";
@@ -29,6 +29,7 @@ export async function LogbookList({
   const tTypes = await getTranslations("permitTypes");
   const tCat = await getTranslations("permitCategories");
   const locale = await getLocale();
+  const today = todayIn();
 
   const venues = [...new Set(rows.map((r) => r.venueId ?? ""))]
     .map((id) => ({
@@ -114,11 +115,11 @@ export async function LogbookList({
                             <PermitStateBadge state={r.state} />
                           </TD>
                           <TD className="tabular whitespace-nowrap">
-                            {r.applyBy ? formatDateShort(r.applyBy, locale) : dash}
+                            {r.applyBy ? formatDateShortYear(r.applyBy, locale, today) : dash}
                           </TD>
                           <TD className="tabular whitespace-nowrap">
                             {r.expectedDecisionOn
-                              ? formatDateShort(r.expectedDecisionOn, locale)
+                              ? formatDateShortYear(r.expectedDecisionOn, locale, today)
                               : dash}
                           </TD>
                           <TD className="tabular whitespace-nowrap">
@@ -155,7 +156,7 @@ export async function LogbookList({
                                 {r.nextEventOn && (
                                   <span className="block text-muted-foreground text-tiny">
                                     {t("eventsNext", {
-                                      date: formatDateShort(r.nextEventOn, locale),
+                                      date: formatDateShortYear(r.nextEventOn, locale, today),
                                     })}
                                   </span>
                                 )}

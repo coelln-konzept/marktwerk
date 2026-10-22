@@ -11,6 +11,7 @@ import {
   type PermitCadence,
   type PermitStatus,
   permitCovers,
+  permitCoversApplication,
   resolveRelativeDue,
   seasonFor,
 } from "@marktwerk/core";
@@ -28,15 +29,17 @@ import {
   permitType,
   staffMember,
   task,
+  templateItem,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, gte, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { type AutoConfirmSource, autoConfirmEvents } from "./event-lifecycle";
+import { completeTasksForPermit } from "./tasks";
 
 export type PermitErrorCode =
   | "not_found"
@@ -186,6 +189,25 @@ export async function fillLogbookForEvents(
     .where(inArray(eventPermit.eventId, ids));
   const linked = new Set(linkedRows.map((l) => `${l.eventId}:${l.permitId}`));
 
+  // Template tasks that apply for a permit of some type ("Marktgenehmigung beantragen"): they are linked
+  // to the permit afterwards, so the fill must not add a second "beantragen" task for the same work.
+  const templateCovered = new Set(
+    (
+      await tx
+        .select({ eventId: task.eventId, permitType: templateItem.permitType })
+        .from(task)
+        .innerJoin(templateItem, eq(templateItem.id, task.templateItemId))
+        .where(
+          and(
+            inArray(task.eventId, ids),
+            eq(task.source, "template"),
+            isNotNull(templateItem.permitType),
+            ne(task.status, "cancelled"),
+          ),
+        )
+    ).map((t) => `${t.eventId}:${t.permitType}`),
+  );
+
   const linkedEvents = new Map<string, string[]>();
   const newTasks: { assignee: string | null; permitId: string }[] = [];
 
@@ -259,6 +281,7 @@ export async function fillLogbookForEvents(
       permits.push(created);
       result.createdPermits.push(created.id);
       await link(created, ev.id);
+      if (templateCovered.has(`${ev.id}:${req.permitType}`)) continue;
       await tx.insert(task).values({
         // A permit that covers a season belongs to no single event; only single-event permits show on one.
         eventId: req.cadence === "per_event" ? ev.id : null,
@@ -297,6 +320,9 @@ export async function fillLogbookForEvents(
     ]);
   }
 
+  // Template tasks that apply for these permits get linked (and close when the permit is in already).
+  await linkPermitTasks(tx, ids, actor);
+
   // Events whose required permits are all held already (an existing permit covers them) start confirmed.
   if (actor) {
     await autoConfirmEvents(
@@ -323,10 +349,98 @@ export async function fillLogbookForEvents(
         permitIds.length === 1
           ? "Neue Aufgabe: Genehmigung beantragen"
           : `${permitIds.length} neue Aufgaben: Genehmigungen beantragen`,
-      link: "/logbuch?fokus=fehlt",
+      link: "/genehmigungen?fokus=fehlt",
       dedupeKey: `assigned:permit-fill:${createHash("sha1").update(permitIds.sort().join(",")).digest("hex").slice(0, 16)}`,
     })),
   );
+  return result;
+}
+
+/**
+ * THE one place that links template tasks to permits (UX pass 2026-10-22): a task whose template item names
+ * a permit type (`template_item.permit_type`, e.g. "Marktgenehmigung beantragen" → market_permit) gets
+ * `task.permit_id` = the event's permit of that type (required permits first, then the one that is
+ * furthest along). Called after instantiation, the logbook fill, linking a permit to events and applying
+ * requirements to existing events. Idempotent; tasks that already carry a permit are left alone.
+ * With an `actor`, open tasks whose permit is applied for / granted are completed right away (audited as
+ * "task.status", reason "Genehmigung beantragt/erteilt"). Returns the linked task ids per permit and the
+ * completed ones.
+ */
+export async function linkPermitTasks(
+  tx: Tx,
+  eventIds: readonly string[],
+  actor?: Pick<Actor, "id"> & { staffMemberId?: string | null },
+): Promise<{ linked: number; completedTaskIds: string[] }> {
+  const result = { linked: 0, completedTaskIds: [] as string[] };
+  const ids = [...new Set(eventIds)];
+  if (ids.length === 0) return result;
+  const open = await tx
+    .select({
+      id: task.id,
+      eventId: task.eventId,
+      permitType: templateItem.permitType,
+    })
+    .from(task)
+    .innerJoin(templateItem, eq(templateItem.id, task.templateItemId))
+    .where(
+      and(
+        inArray(task.eventId, ids),
+        eq(task.source, "template"),
+        isNull(task.permitId),
+        isNotNull(templateItem.permitType),
+        ne(task.status, "cancelled"),
+      ),
+    );
+  if (open.length === 0) return result;
+
+  const candidates = await tx
+    .select({
+      eventId: eventPermit.eventId,
+      permitId: permit.id,
+      permitType: permit.permitType,
+      status: permit.status,
+      required: eventPermit.required,
+      createdAt: permit.createdAt,
+    })
+    .from(eventPermit)
+    .innerJoin(permit, eq(permit.id, eventPermit.permitId))
+    .where(
+      and(
+        inArray(eventPermit.eventId, ids),
+        isNull(permit.archivedAt),
+        ne(permit.status, "superseded"),
+      ),
+    );
+  const rank = (c: (typeof candidates)[number]) =>
+    (c.required && c.status !== "not_required" ? 0 : 100) + COVER_PREFERENCE.indexOf(c.status);
+
+  const byPermit = new Map<string, string[]>();
+  for (const t of open) {
+    const best = candidates
+      .filter((c) => c.eventId === t.eventId && c.permitType === t.permitType)
+      .sort((a, b) => rank(a) - rank(b) || a.createdAt.getTime() - b.createdAt.getTime())[0];
+    if (!best) continue;
+    byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t.id]);
+  }
+  for (const [permitId, taskIds] of byPermit) {
+    await tx.update(task).set({ permitId }).where(inArray(task.id, taskIds));
+    result.linked += taskIds.length;
+  }
+  if (!actor) return result;
+
+  const statusOf = new Map(candidates.map((c) => [c.permitId, c.status]));
+  for (const [permitId, taskIds] of byPermit) {
+    const status = statusOf.get(permitId);
+    if (!status || !permitCoversApplication(status)) continue;
+    result.completedTaskIds.push(
+      ...(await completeTasksForPermit(
+        tx,
+        { id: actor.id, staffMemberId: actor.staffMemberId ?? null },
+        permitId,
+        taskIds,
+      )),
+    );
+  }
   return result;
 }
 
@@ -781,6 +895,25 @@ export async function setPermitStatus(
     await tx.update(permit).set(set).where(eq(permit.id, id));
 
     let closedTaskIds: string[] = [];
+    if (permitCoversApplication(to)) {
+      // The template tasks that apply for this permit ("Marktgenehmigung beantragen") are done as well.
+      const linked = await tx
+        .select({ id: task.id })
+        .from(task)
+        .where(
+          and(
+            eq(task.permitId, id),
+            eq(task.source, "template"),
+            inArray(task.status, [...OPEN_TASK]),
+          ),
+        );
+      closedTaskIds = await completeTasksForPermit(
+        tx,
+        actor,
+        id,
+        linked.map((t) => t.id),
+      );
+    }
     if (to === "applied" || to === "granted" || to === "not_required" || to === "superseded") {
       const done = to === "applied" || to === "granted";
       const closed = await tx
@@ -802,7 +935,7 @@ export async function setPermitStatus(
           ),
         )
         .returning({ id: task.id });
-      closedTaskIds = closed.map((t) => t.id);
+      closedTaskIds = [...closedTaskIds, ...closed.map((t) => t.id)];
     }
     await audit(tx, actor.id, [
       {
@@ -910,6 +1043,11 @@ export async function linkEventsToPermit(
           diff: { eventIds: added.map((a) => a.eventId), source: "manual" },
         },
       ]);
+      await linkPermitTasks(
+        tx,
+        added.map((a) => a.eventId),
+        actor,
+      );
       await autoConfirmEvents(
         tx,
         actor,

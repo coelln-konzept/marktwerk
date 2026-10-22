@@ -14,6 +14,7 @@ import {
   event,
   eventPresetTemplate,
   task,
+  templateItem,
   templateVersion,
 } from "@marktwerk/db/schema";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, notInArray, or } from "drizzle-orm";
@@ -22,6 +23,7 @@ import { todayIn } from "../../lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
+import { linkPermitTasks } from "./permits";
 import {
   type DesiredTask,
   desiredTasks,
@@ -93,8 +95,11 @@ type Plan = {
   plan: PropagationPlan<DesiredTask, ExistingTask>;
 };
 
-function existingTasks(rows: (typeof task.$inferSelect)[]): ExistingTask[] {
-  return rows.map((r) => ({
+function existingTasks(
+  rows: { task: typeof task.$inferSelect; permitType: string | null }[],
+): ExistingTask[] {
+  return rows.map(({ task: r, permitType }) => ({
+    permitType,
     id: r.id,
     templateStableKey: r.templateStableKey,
     status: r.status,
@@ -203,7 +208,11 @@ async function computePlans(
     const { desired, items } = desiredTasks(version, ev, defaults);
     const existing = candidate.checklistId
       ? existingTasks(
-          await tx.select().from(task).where(eq(task.checklistId, candidate.checklistId)),
+          await tx
+            .select({ task, permitType: templateItem.permitType })
+            .from(task)
+            .leftJoin(templateItem, eq(templateItem.id, task.templateItemId))
+            .where(eq(task.checklistId, candidate.checklistId)),
         )
       : [];
     const plan = planPropagation<DesiredTask, ExistingTask>(desired, existing);
@@ -338,6 +347,8 @@ export async function applyTemplateVersion(
             requiresNote: d.requiresNote,
             requiresAttachment: d.requiresAttachment,
             isKey: d.isKey,
+            // A task whose item stopped naming a permit lets go of it (a new one links below).
+            ...(u.changes.includes("permit") ? { permitId: null } : {}),
             dutyRoleId: d.dutyRoleId,
             anchorKey: d.anchorKey,
             offsetDays: d.offsetDays,
@@ -393,6 +404,12 @@ export async function applyTemplateVersion(
       });
     }
     await audit(tx, actor.id, entries);
+    // New and changed items that apply for a permit get linked to the event's permit (one linking path).
+    await linkPermitTasks(
+      tx,
+      plans.map((p) => p.ev.id),
+      actor,
+    );
     return result;
   });
 }

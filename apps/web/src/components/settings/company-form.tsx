@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
 import { saveCompanySettings } from "@/app/(app)/einstellungen/actions";
@@ -86,6 +86,7 @@ export function CompanyForm({
   }
 
   const hasErrors = Object.values(errors).some(Boolean);
+  const bankHasError = (["taxNumber", "vatId", "iban", "bic"] as const).some((f) => errors[f]);
 
   const text = (
     field: CompanyField & keyof Values,
@@ -164,17 +165,28 @@ export function CompanyForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby={`${formId}-bank`}>
-        <PanelHeader>
-          <PanelTitle id={`${formId}-bank`}>{t("sections.bank")}</PanelTitle>
-        </PanelHeader>
-        <PanelBody className={grid}>
+      {/* Collapsed: tax number and bank data are rarely touched (UX pass 2026-10-22). Opens by itself on a field error. */}
+      <details
+        open={bankHasError || undefined}
+        className="group rounded-xl border bg-card shadow-card"
+      >
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-semibold text-[15px] [&::-webkit-details-marker]:hidden">
+          <ChevronRight
+            aria-hidden
+            className="size-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
+          {t("sections.bank")}
+          <span className="ml-auto font-normal text-muted-foreground text-small">
+            {t("bankSummary")}
+          </span>
+        </summary>
+        <div className={`${grid} border-border-subtle border-t p-4`}>
           {text("taxNumber")}
           {text("vatId")}
           {text("iban")}
           {text("bic")}
-        </PanelBody>
-      </Panel>
+        </div>
+      </details>
 
       <Panel aria-labelledby={`${formId}-operations`}>
         <PanelHeader>
@@ -240,23 +252,27 @@ export function CompanyForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${formId}-permitHorizonDays`}>{t("fields.permitHorizonDays")}</Label>
-            <Input
-              id={`${formId}-permitHorizonDays`}
-              type="number"
-              inputMode="numeric"
-              min={7}
-              max={180}
-              step={1}
-              value={Number.isNaN(values.permitHorizonDays) ? "" : values.permitHorizonDays}
-              onChange={(e) =>
-                set(
-                  "permitHorizonDays",
-                  e.target.value === "" ? Number.NaN : Number(e.target.value),
-                )
-              }
-              aria-invalid={errors.permitHorizonDays ? true : undefined}
-              aria-describedby={`${formId}-permitHorizonDays-${errors.permitHorizonDays ? "error" : "hint"}`}
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                id={`${formId}-permitHorizonDays`}
+                type="number"
+                inputMode="numeric"
+                min={7}
+                max={180}
+                step={1}
+                className="w-28"
+                value={Number.isNaN(values.permitHorizonDays) ? "" : values.permitHorizonDays}
+                onChange={(e) =>
+                  set(
+                    "permitHorizonDays",
+                    e.target.value === "" ? Number.NaN : Number(e.target.value),
+                  )
+                }
+                aria-invalid={errors.permitHorizonDays ? true : undefined}
+                aria-describedby={`${formId}-permitHorizonDays-${errors.permitHorizonDays ? "error" : "hint"}`}
+              />
+              <span className="text-muted-foreground">{t("units.days")}</span>
+            </div>
             {errors.permitHorizonDays ? (
               <p
                 id={`${formId}-permitHorizonDays-error`}
@@ -297,14 +313,17 @@ export function CompanyForm({
               id={`${formId}-digest`}
               type="checkbox"
               checked={values.dailyDigestEnabled}
+              disabled={!values.emailEnabled}
               onChange={(e) => set("dailyDigestEnabled", e.target.checked)}
               aria-describedby={`${formId}-digest-hint`}
-              className="mt-0.5 size-4 accent-primary"
+              className="mt-0.5 size-4 accent-primary disabled:cursor-not-allowed"
             />
             <div className="flex flex-col gap-1">
               <Label htmlFor={`${formId}-digest`}>{t("fields.dailyDigestEnabled")}</Label>
               <p id={`${formId}-digest-hint`} className="text-muted-foreground text-tiny">
-                {t("hints.dailyDigestEnabled")}
+                {values.emailEnabled
+                  ? t("hints.dailyDigestEnabled")
+                  : t("hints.dailyDigestNeedsEmail")}
               </p>
             </div>
           </div>

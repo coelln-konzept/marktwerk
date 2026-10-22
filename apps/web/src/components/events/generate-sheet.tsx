@@ -256,12 +256,17 @@ export function GenerateSheet({
         return;
       }
       const ids = result.data;
-      close();
+      // Straight to the (first) new date's page: the market's Überblick with its tasks and permits.
+      const first = ids[0];
+      if (first) router.push(`/veranstaltungen/${first}` as never);
+      else close();
       showToast({
         message: t("created", { count: ids.length }),
         actionLabel: t("undo"),
         onAction: async () => {
           await undoCreateEvents(ids);
+          // The page we moved to belonged to one of the undone events.
+          router.push("/veranstaltungen" as never);
         },
       });
     });

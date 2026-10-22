@@ -23,9 +23,11 @@ import {
   task,
 } from "@marktwerk/db";
 import { and, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { type CompanySweepResult, companySweep } from "./company-notifications";
 import {
   berlinDate,
   escalationRecipients,
+  notOfPastEvent,
   OPEN_TASK_STATUSES,
   queueImmediateEmails,
 } from "./shared";
@@ -37,6 +39,8 @@ export type SweepResult = {
   escalated: number;
   /** Emails queued for immediate delivery. */
   emails: number;
+  /** Company-wide notifications of the notification center (no email, see company-notifications.ts). */
+  company: CompanySweepResult;
 };
 
 /** Clock time at which a date-only deadline ("bis 30.11.") ends. */
@@ -91,7 +95,8 @@ export async function deadlineSweep(db: Database, now: Date = new Date()): Promi
       .map((s) => ({ recipientStaffMemberId: s.recipientStaffMemberId, dedupeKey: s.dedupeKey })),
     now,
   );
-  return { created, escalated, emails };
+  const company = await companySweep(db, now, today);
+  return { created, escalated, emails, company };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -119,6 +124,8 @@ async function stageTasks(db: Database, now: Date, today: string, out: Staged[])
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),
+        // Open tasks of markets that are long over are left to the cleanup on the Übersicht.
+        notOfPastEvent(today),
       ),
     );
   for (const t of rows) {
@@ -214,7 +221,7 @@ async function stagePermits(
     const recipients = p.responsibleStaffMemberId
       ? [p.responsibleStaffMemberId]
       : managers.map((m) => m.id);
-    const link = `/logbuch?genehmigung=${p.id}`;
+    const link = `/genehmigungen?genehmigung=${p.id}`;
 
     if ((p.status === "not_started" || p.status === "preparing") && p.applyBy) {
       const dueAt = endOfDay(p.applyBy);
@@ -325,6 +332,8 @@ async function escalate(
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),
+        // Open tasks of markets that are long over are left to the cleanup on the Übersicht.
+        notOfPastEvent(today),
       ),
     );
   for (const t of tasks) {
@@ -346,7 +355,7 @@ async function escalate(
         title: p.title,
         dueAt: endOfDay(p.applyBy),
         who: p.responsibleName,
-        link: `/logbuch?genehmigung=${p.id}`,
+        link: `/genehmigungen?genehmigung=${p.id}`,
       });
   }
 

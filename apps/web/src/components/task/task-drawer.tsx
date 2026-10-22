@@ -1,7 +1,17 @@
 "use client";
 
+import { Menu } from "@base-ui/react/menu";
 import type { TaskStatusKey } from "@marktwerk/core";
-import { AlarmClockOff, Camera, Check, Paperclip, Pencil, Plus } from "lucide-react";
+import {
+  AlarmClockOff,
+  Camera,
+  Check,
+  ChevronRight,
+  Ellipsis,
+  Paperclip,
+  Pencil,
+  Plus,
+} from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
@@ -22,16 +32,21 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
-import { RolloverBadge } from "@/components/ui/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate, formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
-import { formatEstimate, REASON_STATUSES, SETTABLE_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
+import { formatEstimate, REASON_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { StaffOption, TaskDetail } from "@/server/queries/tasks";
 import { SnoozeDialog, useSnoozePresets } from "./snooze";
 import { TaskActivity } from "./task-activity";
 
 const FEEDBACK = ["as_planned", "longer", "shorter"] as const;
+
+/** Statuses behind the "…" menu; Erledigt and Wartet auf Amt have their own buttons. */
+const WaitingIcon = TASK_STATUS_UI.waiting_external.icon;
+
+const MENU_STATUSES = ["in_progress", "blocked", "skipped", "todo"] as const;
 
 function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -64,7 +79,7 @@ export function TaskDrawer({
   closeHref: string;
 }) {
   const t = useTranslations("tasks");
-  const tBoard = useTranslations("board");
+  const tStatus = useTranslations("tasks.status");
   const locale = useLocale();
   const { showToast } = useShell();
   const actions = useTaskActions({ staff, scopeEventId: task.eventId });
@@ -120,33 +135,87 @@ export function TaskDrawer({
     });
   }
 
+  const StatusIcon = TASK_STATUS_UI[task.status].icon;
+  const doneNow = task.status === "done";
+  const waitingNow = task.status === "waiting_external";
+  const buttonBase =
+    "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 font-medium text-small outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-60";
+
+  // Primary: Erledigt. Toggle: Wartet auf Amt. Everything else (In Arbeit, Blockiert, Übersprungen, wieder
+  // Offen) sits in the "…" menu. The current state is always spelled out as a badge (colour + icon + text).
   const statusHeader = (
     <div className="flex flex-col gap-2">
-      {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of toggle buttons */}
-      <div role="group" aria-label={t("statusLabel")} className="flex flex-wrap gap-1">
-        {SETTABLE_STATUSES.map((status) => {
-          const ui = TASK_STATUS_UI[status];
-          const Icon = ui.icon;
-          const on = task.status === status;
-          return (
-            <button
-              key={status}
-              type="button"
-              aria-pressed={on}
-              disabled={!canWrite}
-              onClick={() => pickStatus(status)}
-              className={cn(
-                "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 font-medium text-small outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-60",
-                on
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-input bg-card hover:bg-hover",
-              )}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          aria-pressed={doneNow}
+          disabled={!canWrite}
+          onClick={() => pickStatus("done")}
+          className={cn(
+            buttonBase,
+            doneNow
+              ? "border-status-ok bg-status-ok-bg text-status-ok"
+              : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover",
+          )}
+        >
+          <Check aria-hidden className="size-4" />
+          {t("statusLong.done")}
+        </button>
+        <button
+          type="button"
+          aria-pressed={waitingNow}
+          disabled={!canWrite}
+          onClick={() =>
+            waitingNow ? actions.setStatus(ref, "todo") : pickStatus("waiting_external")
+          }
+          className={cn(
+            buttonBase,
+            waitingNow
+              ? "border-foreground bg-foreground text-background"
+              : "border-input bg-card hover:bg-hover",
+          )}
+        >
+          <WaitingIcon aria-hidden className="size-4" />
+          {t("statusToggle.waiting")}
+        </button>
+        {canWrite && (
+          <Menu.Root>
+            <Menu.Trigger
+              aria-label={t("statusMore")}
+              className="grid size-8 cursor-pointer place-items-center rounded-lg border border-input bg-card text-foreground-2 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
             >
-              <Icon aria-hidden className="size-4" />
-              {t(`statusLong.${status}`)}
-            </button>
-          );
-        })}
+              <Ellipsis aria-hidden className="size-4" />
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner side="bottom" align="start" sideOffset={4} className="z-50">
+                <Menu.Popup className="flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+                  {MENU_STATUSES.map((status) => {
+                    const Icon = TASK_STATUS_UI[status].icon;
+                    const on = task.status === status;
+                    return (
+                      <Menu.Item
+                        key={status}
+                        disabled={on}
+                        onClick={() => pickStatus(status)}
+                        className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[disabled]:cursor-default data-[highlighted]:bg-hover"
+                      >
+                        <Icon aria-hidden className="size-4 text-muted-foreground" />
+                        {status === "todo" ? t("statusReopen") : t(`statusLong.${status}`)}
+                        {on && <Check aria-hidden className="ml-auto size-4" />}
+                      </Menu.Item>
+                    );
+                  })}
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        )}
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground text-small">
+          {t("statusLabel")}:
+          <StatusBadge tone={TASK_STATUS_UI[task.status].tone} icon={StatusIcon}>
+            {tStatus(task.status)}
+          </StatusBadge>
+        </span>
       </div>
       {task.status === "waiting_external" && (
         <p className="text-small text-status-waiting">
@@ -176,7 +245,7 @@ export function TaskDrawer({
             <CategoryTag category={task.category} />
             {task.eventId ? (
               <Link
-                href={`/veranstaltungen/${task.eventId}/board` as never}
+                href={`/veranstaltungen/${task.eventId}` as never}
                 className="truncate hover:underline"
               >
                 {task.eventName}
@@ -216,19 +285,6 @@ export function TaskDrawer({
               <Pencil aria-hidden />
             </Button>
           ) : null
-        }
-        badges={
-          task.rolloverCount > 0 ? (
-            <>
-              <RolloverBadge
-                count={task.rolloverCount}
-                label={t("rollover", { count: task.rolloverCount })}
-              />
-              <span className="text-muted-foreground text-tiny">
-                {t("rollover", { count: task.rolloverCount })}
-              </span>
-            </>
-          ) : undefined
         }
         header={statusHeader}
         closeHref={closeHref}
@@ -385,15 +441,17 @@ export function TaskDrawer({
                     className="size-4 accent-(--primary)"
                     checked={task.isKey}
                     disabled={!canWrite || pending}
+                    aria-describedby={`${uid}-key-hint`}
                     onChange={(e) => save({ isKey: e.target.checked })}
                   />
-                  {t("keyTask.hint")}
+                  {t("keyTask.toggle")}
                 </label>
+                <p id={`${uid}-key-hint`} className="mt-1 text-muted-foreground text-tiny">
+                  {t("keyTask.hint")}
+                </p>
               </dd>
             </>
           )}
-          <dt className="text-muted-foreground text-small">{t("fields.source")}</dt>
-          <dd className="m-0 text-small">{t(`source.${task.source}`)}</dd>
           {task.completedAt && (
             <>
               <dt className="text-muted-foreground text-small">{t("fields.completed")}</dt>
@@ -612,11 +670,21 @@ export function TaskDrawer({
           </Section>
         )}
 
-        <Section title={t("activity.title")}>
-          <TaskActivity entries={task.activity} />
-        </Section>
-
-        <p className="text-faint-foreground text-tiny">{tBoard("drawer.linkHint")}</p>
+        <details className="group">
+          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded-md font-semibold text-small outline-none focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+            <ChevronRight
+              aria-hidden
+              className="size-4 text-muted-foreground transition-transform group-open:rotate-90"
+            />
+            {t("activity.title")}
+            <span className="tabular font-normal text-muted-foreground">
+              {task.activity.length}
+            </span>
+          </summary>
+          <div className="mt-2">
+            <TaskActivity entries={task.activity} />
+          </div>
+        </details>
       </Drawer>
       <SnoozeDialog
         open={snoozeDate}

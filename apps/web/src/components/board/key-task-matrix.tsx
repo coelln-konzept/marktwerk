@@ -1,10 +1,11 @@
-import { type MatrixCellState, shortLabel } from "@marktwerk/core";
+import type { MatrixCellState } from "@marktwerk/core";
 import {
   BellOff,
   CalendarX,
   CircleCheck,
   CircleDashed,
   Clock,
+  Hourglass,
   Star,
   TriangleAlert,
 } from "lucide-react";
@@ -12,7 +13,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
-import { formatDateRange, formatMonthDay } from "@/lib/format";
+import { formatDateRangeYear, formatMonthDay, todayIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { KeyTaskMatrix } from "@/server/queries/board-overview";
 
@@ -21,6 +22,7 @@ const STATE_ICON = {
   open: CircleDashed,
   soon: Clock,
   overdue: TriangleAlert,
+  waiting: Hourglass,
   snoozed: BellOff,
 } as const;
 
@@ -29,10 +31,18 @@ const STATE_TONE: Record<Exclude<MatrixCellState, "absent">, string> = {
   open: "text-foreground-2",
   soon: "text-status-warn",
   overdue: "text-status-critical",
+  waiting: "text-status-waiting",
   snoozed: "text-status-waiting",
 };
 
-const LEGEND: Exclude<MatrixCellState, "absent">[] = ["done", "open", "soon", "overdue", "snoozed"];
+const LEGEND: Exclude<MatrixCellState, "absent">[] = [
+  "done",
+  "open",
+  "soon",
+  "overdue",
+  "waiting",
+  "snoozed",
+];
 
 /**
  * "Matrix": markets (rows) x Kernaufgaben (columns). A cell is the market's state of that task; every
@@ -48,6 +58,7 @@ export async function KeyTaskMatrixView({
 }) {
   const t = await getTranslations("board.matrix");
   const locale = await getLocale();
+  const today = todayIn();
 
   if (matrix.events.length === 0)
     return (
@@ -64,14 +75,14 @@ export async function KeyTaskMatrixView({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="overflow-x-auto rounded-xl border bg-card">
+      <div className="relative overflow-x-auto rounded-xl border bg-card">
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">{t("caption")}</caption>
           <thead>
             <tr className="border-b bg-surface-2">
               <th
                 scope="col"
-                className="sticky left-0 z-[1] h-12 min-w-44 border-r bg-surface-2 px-3 py-1 font-semibold text-muted-foreground text-tiny"
+                className="sticky left-0 z-[1] h-[4.5rem] min-w-44 border-r bg-surface-2 px-3 py-1 font-semibold text-muted-foreground text-tiny"
               >
                 {t("market")}
               </th>
@@ -79,11 +90,10 @@ export async function KeyTaskMatrixView({
                 <th
                   key={col.key}
                   scope="col"
-                  className="h-12 w-28 min-w-28 hyphens-none px-2 py-1 text-center align-bottom font-semibold text-muted-foreground text-tiny"
+                  className="h-[4.5rem] w-36 min-w-36 hyphens-none px-2 py-1 text-center align-bottom font-semibold text-muted-foreground text-tiny"
                 >
-                  <span title={col.title} className="line-clamp-2">
-                    <span aria-hidden>{shortLabel(col.title)}</span>
-                    <span className="sr-only">{col.title}</span>
+                  <span title={col.title} className="line-clamp-3 text-balance leading-tight">
+                    {col.title}
                   </span>
                 </th>
               ))}
@@ -97,14 +107,14 @@ export async function KeyTaskMatrixView({
                   className="sticky left-0 z-[1] border-r bg-card px-3 py-2 text-left font-normal"
                 >
                   <Link
-                    href={`/veranstaltungen/${event.id}/board`}
+                    href={`/veranstaltungen/${event.id}`}
                     className="inline-flex items-center gap-2 rounded-sm font-semibold hover:underline"
                   >
                     <MarketMarker color={event.color} typeKey={event.typeKey} />
                     {event.name}
                   </Link>
                   <div className="pl-3 text-muted-foreground text-tiny">
-                    {formatDateRange(event.startsOn, event.endsOn, locale)}
+                    {formatDateRangeYear(event.startsOn, event.endsOn, locale, today)}
                   </div>
                 </th>
                 {matrix.columns.map((col) => {

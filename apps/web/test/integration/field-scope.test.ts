@@ -104,8 +104,7 @@ describe("what a field user sees", () => {
     expect(ids(await listEvents(field, { season: 2026, q: "festival" }))).toEqual([]);
     expect(await listSeasons(field)).toEqual([2026]);
     const overview = await getOverview(field, "2026-11-01");
-    expect(overview.season.count).toBe(2);
-    expect((await getOverview(owner, "2026-11-01")).season.count).toBe(4);
+    expect(overview.weekend.rows.every((r) => mine.includes(r.id))).toBe(true);
   });
 
   it("getEvent returns the own events and null for everybody else's", async () => {

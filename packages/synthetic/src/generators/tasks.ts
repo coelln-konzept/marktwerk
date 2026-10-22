@@ -1,5 +1,9 @@
 import { REFERENCE_DATE } from "../constants";
-import { CHECKLIST_ITEM_BLUEPRINTS, KEY_ITEM_KEYS } from "../dictionaries/checklist-items";
+import {
+  CHECKLIST_ITEM_BLUEPRINTS,
+  ITEM_PERMIT_TYPES,
+  KEY_ITEM_KEYS,
+} from "../dictionaries/checklist-items";
 import { addDays, berlinInstant } from "../lib/dates";
 import type { Rng } from "../lib/rng";
 import type {
@@ -36,6 +40,7 @@ export function buildChecklistTemplates(rng: Rng, eventTypes: EventType[]): Chec
       estimateMinutes: blueprint.estimateMinutes,
       requiresPhoto: blueprint.requiresPhoto,
       isKey: KEY_ITEM_KEYS.has(blueprint.key),
+      permitType: ITEM_PERMIT_TYPES[blueprint.key] ?? null,
     }));
     return {
       id: rng.uuid(),

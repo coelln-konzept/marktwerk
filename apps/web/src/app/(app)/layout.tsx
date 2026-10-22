@@ -1,9 +1,11 @@
+import { can as roleCan } from "@marktwerk/core";
 import { getTranslations } from "next-intl/server";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShellProvider } from "@/components/shell/shell-context";
 import { ToastRegion } from "@/components/shell/toast-region";
 import { type Creatable, creatableFor } from "@/lib/creatable";
+import { isModuleVisible } from "@/lib/modules";
 import { getActor } from "@/server/actor";
 import { getDisplayPreferences } from "@/server/preferences";
 import type { SearchHit } from "@/server/search-core";
@@ -26,7 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ? [{ kind: "action" as const, title: t("payable"), href: "/finanzen/neu" }]
       : []),
     ...(can("permit")
-      ? [{ kind: "action" as const, title: t("permit"), href: "/logbuch?neu=1" }]
+      ? [{ kind: "action" as const, title: t("permit"), href: "/genehmigungen?neu=1" }]
       : []),
     ...(can("shift")
       ? [{ kind: "action" as const, title: t("shift"), href: "/team/schichten?neu=1" }]
@@ -34,8 +36,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(can("issue")
       ? [{ kind: "action" as const, title: t("issue"), href: "/firma/maengel?neu=1" }]
       : []),
+    // The bell is the way in (no sidebar entry, decision 2026-10-22); Strg+K finds the center too.
+    ...(isModuleVisible("notifications")
+      ? [{ kind: "action" as const, title: t("notifications"), href: "/benachrichtigungen" }]
+      : []),
     { kind: "action", title: t("calendar"), href: "/kalender" },
     { kind: "action", title: t("events"), href: "/veranstaltungen" },
+    // Einstellungen is not in the sidebar any more (profile menu); Strg+K finds it too.
+    ...(roleCan(actor.role, "settings", "read")
+      ? [{ kind: "action" as const, title: t("settings"), href: "/einstellungen" }]
+      : []),
   ];
   return (
     <ShellProvider creatable={creatable}>

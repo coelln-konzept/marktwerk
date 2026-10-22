@@ -62,6 +62,36 @@ describe("getReadinessList", () => {
     expect(rows[1]).toMatchObject({ total: 1, done: 0, overdue: 0, next: null });
   });
 
+  it("does not count waiting tasks as overdue, nor as the next deadline, and counts a one-day permit as held", async () => {
+    const soon = await insertEvent(cat, "Bald", "2026-11-07");
+    await insertTask({
+      title: "beim Amt",
+      eventId: soon.id,
+      dueAt: dueOn("2026-09-01"),
+      status: "waiting_external",
+    });
+    await insertTask({ title: "morgen", eventId: soon.id, dueAt: dueOn("2026-10-22") });
+    const [p] = await db
+      .insert(permit)
+      .values({
+        category: "city",
+        permitType: "market_permit",
+        title: "Tag",
+        status: "granted",
+        validUntil: "2026-11-07",
+      })
+      .returning();
+    if (!p) throw new Error("permit failed");
+    await db.insert(eventPermit).values({ eventId: soon.id, permitId: p.id });
+
+    const { rows } = await getReadinessList(owner, { horizonDays: null }, TODAY);
+    expect(rows[0]).toMatchObject({
+      overdue: 0,
+      missingPermits: 0,
+      next: { title: "morgen", dueOn: "2026-10-22" },
+    });
+  });
+
   it("limits by the first day, keeps running markets, and drops cancelled or finished events", async () => {
     await insertEvent(cat, "In 5 Tagen", "2026-10-26");
     await insertEvent(cat, "In 14 Tagen", "2026-11-04");

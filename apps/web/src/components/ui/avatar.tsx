@@ -26,7 +26,7 @@ export function Avatar({
       title={name}
       className={cn(
         "inline-grid shrink-0 place-items-center rounded-full font-bold text-[#2A2824] shadow-[0_0_0_2px_var(--card)]",
-        size === "sm" ? "size-6 text-[10.5px]" : "size-8 text-xs",
+        size === "sm" ? "size-6 text-[11px]" : "size-8 text-xs",
         className,
       )}
       style={{ background: COLOURS[Math.abs(hash) % COLOURS.length] }}

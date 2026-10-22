@@ -1,14 +1,14 @@
-import { can, isDueFilter } from "@marktwerk/core";
+import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { DueToday } from "@/components/overview/due-today";
 import { KpiStrip } from "@/components/overview/kpi-strip";
-import { SeasonStrip } from "@/components/overview/season-strip";
+import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
 import { WeekendTable } from "@/components/overview/weekend-table";
 import { Page, PageHeader } from "@/components/shell/page";
 import { formatDate, formatWeek, todayIn } from "@/lib/format";
-import { HIDDEN_MODULES, isModuleHidden } from "@/lib/modules";
+import { HIDDEN_MODULES } from "@/lib/modules";
 import { param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { getOverview } from "@/server/queries/overview";
@@ -40,12 +40,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   }).format(new Date(`${today}T12:00:00Z`));
   const overview = await getOverview(actor, today, HIDDEN_MODULES);
   const vorschauId = param(sp.vorschau);
-  const dueParam = param(sp.faellig);
-  // Chips of hidden modules (Geld, Stunden) are gone; an old link to one falls back to "Alle".
-  const hiddenChip =
-    (dueParam === "money" && isModuleHidden("finance")) ||
-    (dueParam === "hours" && isModuleHidden("team"));
-  const dueFilter = isDueFilter(dueParam) && !hiddenChip ? dueParam : "all";
+  const canWrite = can(actor.role, "task", "write");
 
   return (
     <Page crumbs={[{ label: tNav("overview") }]}>
@@ -58,28 +53,23 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         title={t(`greeting.${part}`, { name: actor.firstName })}
         actions={<KpiStrip kpis={overview.kpis} />}
       />
-      <SeasonStrip
-        season={overview.season}
-        workload={overview.workload}
-        nextSeason={overview.nextSeason}
-      />
-      <DueToday
-        due={overview.due}
-        filter={dueFilter}
-        showAll={param(sp.alle) === "1"}
-        today={today}
-        query={sp}
-        canSnooze={can(actor.role, "task", "write")}
-      />
       <WeekendTable
         weekend={overview.weekend}
         next={overview.nextAfterWeekend}
         vorschauId={vorschauId}
       />
-      {overview.weekend.rows.length > 0 && (
-        <p className="text-muted-foreground text-tiny">{t("weekend.keys")}</p>
+      <PastMarketsLine count={overview.pastMarketTasks} query={sp} canCleanup={canWrite} />
+      <DueToday
+        due={overview.due}
+        showAll={param(sp.alle) === "1"}
+        today={today}
+        query={sp}
+        canSnooze={canWrite}
+      />
+      {vorschauId && <EventVorschau id={vorschauId} closeHref="/" />}
+      {canWrite && param(sp.aufraeumen) === "1" && (
+        <PastMarketsDrawer actor={actor} today={today} query={sp} />
       )}
-      {vorschauId && <EventVorschau id={vorschauId} closeHref="/" openTab="board" />}
     </Page>
   );
 }

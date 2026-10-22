@@ -90,6 +90,24 @@ export async function PresetVorschau({
         ]}
       />
 
+      <p className="m-0 text-muted-foreground text-small">
+        {preset.ownTemplate ? (
+          <>
+            {t("vorschau.tasksOwn")}{" "}
+            <Link
+              href={`/vorlagen/ablauf/${preset.ownTemplate.id}` as never}
+              className="text-accent-soft-foreground hover:underline"
+            >
+              {t("vorschau.tasksOpen")}
+            </Link>
+          </>
+        ) : preset.sharedTemplates.length > 0 ? (
+          t("vorschau.tasksShared", { names: preset.sharedTemplates.map((x) => x.name).join(", ") })
+        ) : (
+          t("vorschau.tasksNone")
+        )}
+      </p>
+
       <section aria-labelledby="vorschau-team">
         <h3
           id="vorschau-team"

@@ -11,8 +11,10 @@ export type DueKind = (typeof DUE_KINDS)[number];
 /**
  * `upcoming` is only used by permits: further out than a week but inside the company's permit horizon.
  * The Übersicht shows it as its own group "Genehmigungen demnächst" after "Diese Woche".
+ * `waiting` is only used by tasks that wait for somebody else (status "Wartet") and are past their due date:
+ * neutral, never counted as overdue ("wartet seit …").
  */
-export const DUE_URGENCIES = ["overdue", "today", "soon", "upcoming"] as const;
+export const DUE_URGENCIES = ["overdue", "today", "soon", "upcoming", "waiting"] as const;
 export type DueUrgency = (typeof DUE_URGENCIES)[number];
 
 export type DueItem = {

@@ -5,6 +5,7 @@ import type {
   TaskCategory,
   TaskPhase,
   TaskPriority,
+  TemplatePermitType,
 } from "../types";
 
 export interface ChecklistItemBlueprint {
@@ -21,6 +22,20 @@ export interface ChecklistItemBlueprint {
   requiresPhoto: boolean;
   appliesTo: readonly EventTypeKey[];
 }
+
+/**
+ * Items that apply for a permit (UX pass 2026-10-22): their task is linked to the event's permit of that
+ * type and counts as done once it is applied for or granted. Items that only check or reserve something
+ * (standpipes, toilets, signs) stay unlinked.
+ */
+export const ITEM_PERMIT_TYPES: Readonly<Record<string, TemplatePermitType>> = {
+  marktgenehmigung: "market_permit",
+  halteverbot_beantragen: "no_parking",
+  plakatierung: "signage",
+  musikanmeldung: "gema",
+  sicherheitskonzept: "safety_concept",
+  ausschank: "catering",
+};
 
 /**
  * Kernaufgaben (manual flag, product owner 2026-10-22): the tasks every market needs. Picked by key so

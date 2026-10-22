@@ -29,7 +29,7 @@ export default async function VehiclesPage() {
   const rows = await listVehicles(todayIn());
 
   return (
-    <Page crumbs={[{ label: t("title"), href: "/firma" }, { label: tv("title") }]}>
+    <Page crumbs={[{ label: t("title") }]}>
       <CompanyHeader
         actor={actor}
         actions={

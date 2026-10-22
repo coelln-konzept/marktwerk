@@ -28,6 +28,14 @@ describe("can", () => {
     expect(can("field", "vendor", "read")).toBe(false);
   });
 
+  it("gives the company-wide notification center to owner and manager only", () => {
+    expect(can("owner", "notification", "manage")).toBe(true);
+    expect(can("manager", "notification", "read")).toBe(true);
+    expect(can("manager", "notification", "manage")).toBe(true);
+    expect(can("staff", "notification", "read")).toBe(false);
+    expect(can("field", "notification", "read")).toBe(false);
+  });
+
   it("denies anonymous users", () => {
     expect(can(null, "task", "read")).toBe(false);
   });

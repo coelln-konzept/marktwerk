@@ -1,14 +1,15 @@
 {
   "board": {
     "title": "Board",
-    "subtitle": "Tasks across all events",
     "tab": {
-      "open": "{count, plural, one {# open task} other {# open tasks}}"
+      "open": "{count, plural, one {# open task} other {# open tasks}}",
+      "openShort": "{count} open",
+      "openOverdue": "{open} open · {overdue} overdue"
     },
     "columns": {
-      "preparation": "Preparation",
+      "preparation": "Later",
       "this_week": "This week",
-      "today": "Today",
+      "today": "Overdue & today",
       "done": "Done"
     },
     "doneRange": "last 14 days",
@@ -19,7 +20,6 @@
       "label": "View",
       "bereitschaft": "Readiness",
       "matrix": "Matrix",
-      "gruppiert": "Grouped",
       "spalten": "Columns",
       "person": "By person",
       "arbeitslast": "Workload"
@@ -30,24 +30,14 @@
       "mine": "Mine",
       "unassigned": "Unassigned",
       "category": "Category",
-      "allCategories": "All categories"
+      "allCategories": "All categories",
+      "button": "Filter"
     },
     "tabs": {
       "label": "Tasks",
       "mine": "My tasks",
       "all": "All",
       "unassigned": "Unassigned"
-    },
-    "group": {
-      "label": "Group",
-      "by": {
-        "veranstaltung": "By event",
-        "tag": "By day"
-      },
-      "noEvent": "No event",
-      "noDate": "No date",
-      "overdue": "Overdue",
-      "today": "Today"
     },
     "horizon": {
       "label": "Time frame",
@@ -178,8 +168,7 @@
     "drawer": {
       "label": "Task",
       "notFound": "Task not found",
-      "notFoundHint": "It no longer exists, or you do not have access to it.",
-      "linkHint": "This view can be shared as a link: the address contains the task."
+      "notFoundHint": "It no longer exists, or you do not have access to it."
     },
     "readiness": {
       "caption": "Readiness of the upcoming events",
@@ -199,7 +188,18 @@
       "noDeadline": "No open deadline",
       "dueOn": "due {date}",
       "empty": "No upcoming events in this period.",
-      "emptyHint": "Choose “All” to see every upcoming event."
+      "emptyHint": "Choose “All” to see every upcoming event.",
+      "panelColumn": "",
+      "panel": {
+        "toggle": "Tasks",
+        "showLabel": "Show important tasks of {name}",
+        "hideLabel": "Close tasks of {name}",
+        "title": "Important at {name}",
+        "allOk": "All on track: nothing overdue, no missing permit.",
+        "permitMissing": "Permit missing",
+        "more": "{count, plural, one {# more task} other {# more tasks}} in the next 7 days",
+        "openOverview": "Open overview"
+      }
     },
     "matrix": {
       "caption": "Key tasks of the upcoming events",
@@ -217,10 +217,12 @@
         "open": "open",
         "soon": "due soon",
         "overdue": "overdue",
+        "waiting": "waiting",
         "snoozed": "snoozed",
         "absent": "not present"
       }
-    }
+    },
+    "afterEvent": "After the event"
   },
   "drawer": {
     "close": "Close"

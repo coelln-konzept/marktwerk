@@ -9,6 +9,7 @@ import { KindIcon } from "@/components/company/kind-icon";
 import { DueCell, IntervalText, TargetCell } from "@/components/company/obligation-cells";
 import { ObligationStatusBadge } from "@/components/company/status";
 import { Page } from "@/components/shell/page";
+import { AutoSubmitSelect } from "@/components/ui/auto-submit";
 import { buttonVariants } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/chip";
 import { Panel } from "@/components/ui/panel";
@@ -48,7 +49,7 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
   const count = (s: ObligationStatus) => byScope.filter((o) => o.status === s).length;
 
   return (
-    <Page crumbs={[{ label: t("title"), href: "/firma" }, { label: to("title") }]}>
+    <Page crumbs={[{ label: t("title") }]}>
       <CompanyHeader
         actor={actor}
         actions={
@@ -64,7 +65,8 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
         }
       />
 
-      <div className="flex flex-col gap-2">
+      {/* One filter row: status chips (links) and the scope as a select, all in the URL. */}
+      <div className="flex flex-wrap items-center gap-2">
         <nav aria-label={to("filterStatus")} className="flex flex-wrap gap-2">
           <FilterChip
             href={hrefWith(PATH, sp, { status: undefined })}
@@ -84,16 +86,20 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
             </FilterChip>
           ))}
         </nav>
-        <nav aria-label={to("filterScope")} className="flex flex-wrap gap-2">
-          <FilterChip href={hrefWith(PATH, sp, { bereich: undefined })} active={!scope}>
-            {to("allScopes")}
-          </FilterChip>
-          {SCOPES.map((s) => (
-            <FilterChip key={s} href={hrefWith(PATH, sp, { bereich: s })} active={scope === s}>
-              {t(`scopes.${s}`)}
-            </FilterChip>
-          ))}
-        </nav>
+        <form method="get" action={PATH} className="ml-auto">
+          {status && <input type="hidden" name="status" value={status} />}
+          <label className="sr-only" htmlFor="filter-bereich">
+            {to("filterScope")}
+          </label>
+          <AutoSubmitSelect id="filter-bereich" name="bereich" defaultValue={scope ?? ""}>
+            <option value="">{to("allScopes")}</option>
+            {SCOPES.map((s) => (
+              <option key={s} value={s}>
+                {t(`scopes.${s}`)}
+              </option>
+            ))}
+          </AutoSubmitSelect>
+        </form>
       </div>
 
       <Panel className="overflow-hidden">
@@ -125,8 +131,6 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
               <tr>
                 <TH>{to("cols.status")}</TH>
                 <TH>{to("cols.title")}</TH>
-                <TH>{to("cols.target")}</TH>
-                <TH>{to("cols.interval")}</TH>
                 <TH>{to("cols.due")}</TH>
                 <TH>{to("cols.lastDone")}</TH>
                 <TH>{to("cols.responsible")}</TH>
@@ -140,7 +144,7 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
             <tbody>
               {rows.map((o) => (
                 <TR key={o.id}>
-                  <TD>
+                  <TD className="w-px whitespace-nowrap">
                     <ObligationStatusBadge
                       status={o.status}
                       daysLeft={o.daysLeft}
@@ -148,27 +152,30 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
                       trigger={o.trigger}
                     />
                   </TD>
-                  <TD className="max-w-80">
+                  {/* The title wraps; where it applies (Bezug) and how often (Intervall) sit under it, so no column can print over another. */}
+                  <TD className="min-w-64 max-w-[28rem]">
                     <Link
                       href={`/firma/pflichten/${o.id}` as never}
-                      className="inline-flex items-center gap-2 font-semibold text-accent-soft-foreground hover:underline"
+                      className="inline-flex items-start gap-2 font-semibold text-accent-soft-foreground hover:underline"
                     >
-                      <KindIcon kind={o.kind} />
-                      <span className="truncate">{o.title}</span>
+                      <KindIcon
+                        kind={o.kind}
+                        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                      />
+                      <span>{o.title}</span>
                     </Link>
-                  </TD>
-                  <TD className="max-w-56 truncate">
-                    <TargetCell
-                      scope={o.scope}
-                      vehicleId={o.vehicleId}
-                      vehicleName={o.vehicleName}
-                      vehiclePlate={o.vehiclePlate}
-                      venueId={o.venueId}
-                      venueName={o.venueName}
-                    />
-                  </TD>
-                  <TD className="text-small text-foreground-2">
-                    <IntervalText months={o.intervalMonths} km={o.intervalKm} />
+                    <div className="mt-0.5 flex flex-wrap gap-x-2 text-muted-foreground text-small">
+                      <TargetCell
+                        scope={o.scope}
+                        vehicleId={o.vehicleId}
+                        vehicleName={o.vehicleName}
+                        vehiclePlate={o.vehiclePlate}
+                        venueId={o.venueId}
+                        venueName={o.venueName}
+                      />
+                      <span aria-hidden>·</span>
+                      <IntervalText months={o.intervalMonths} km={o.intervalKm} />
+                    </div>
                   </TD>
                   <TD>
                     <DueCell dueOn={o.nextDueOn} dueKm={o.nextDueKm} />
@@ -180,9 +187,9 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
                       <span className="text-faint-foreground">{t("none")}</span>
                     )}
                   </TD>
-                  <TD className="whitespace-nowrap">{o.responsibleName}</TD>
+                  <TD>{o.responsibleName}</TD>
                   {canWrite && (
-                    <TD className="text-right">
+                    <TD className="w-px whitespace-nowrap text-right">
                       <CompleteButton
                         size="sm"
                         today={today}

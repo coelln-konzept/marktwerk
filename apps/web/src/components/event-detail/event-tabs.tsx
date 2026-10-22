@@ -1,5 +1,7 @@
 "use client";
 
+import { Menu } from "@base-ui/react/menu";
+import { Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type HealthLevel, HealthShape } from "@/components/ui/health";
@@ -15,14 +17,46 @@ export type EventTab = {
   hint?: { text: string; sr: string };
 };
 
-/** Tab bar of the event page: links to sub-routes, `aria-current="page"` and a teal underline on the active one. */
-export function EventTabs({ tabs, label }: { tabs: EventTab[]; label: string }) {
+const tabClass = (active: boolean) =>
+  cn(
+    "-mb-px flex min-h-10 cursor-pointer items-center gap-2 whitespace-nowrap border-b-2 px-3 text-body outline-none hover:text-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
+    active
+      ? "border-primary font-semibold text-foreground"
+      : "border-transparent text-foreground-2",
+  );
+
+function Count({ count }: { count: NonNullable<EventTab["count"]> }) {
+  return (
+    <span className="tabular inline-flex items-center gap-1 text-small text-foreground-2">
+      {count.level && <HealthShape level={count.level} className="size-3" />}
+      <span aria-hidden={count.sr ? true : undefined}>{count.text}</span>
+      {count.sr && <span className="sr-only">{count.sr}</span>}
+    </span>
+  );
+}
+
+/**
+ * Tab bar of the event page: links to sub-routes, `aria-current="page"` and a teal underline on the
+ * active one. The tabs in `more` (Dokumente, Notizen, Verlauf) sit in one "Mehr ▾" menu; each is still
+ * its own URL, and the menu button is underlined while one of them is open.
+ */
+export function EventTabs({
+  tabs,
+  more = [],
+  moreLabel = "",
+  label,
+}: {
+  tabs: EventTab[];
+  more?: EventTab[];
+  moreLabel?: string;
+  label: string;
+}) {
   const pathname = usePathname();
   const base = tabs[0]?.href ?? "";
-  const activeKey =
-    tabs.find(
-      (tab) => tab.href !== base && (pathname === tab.href || pathname.startsWith(`${tab.href}/`)),
-    )?.key ?? tabs[0]?.key;
+  const matches = (tab: EventTab) =>
+    tab.href !== base && (pathname === tab.href || pathname.startsWith(`${tab.href}/`));
+  const activeMore = more.find(matches);
+  const activeKey = activeMore ? null : (tabs.find(matches)?.key ?? tabs[0]?.key);
   return (
     <nav aria-label={label} className="-mx-4 overflow-x-auto border-b px-4 lg:-mx-7 lg:px-7">
       <ul className="flex min-w-max gap-1">
@@ -33,21 +67,10 @@ export function EventTabs({ tabs, label }: { tabs: EventTab[]; label: string }) 
               <Link
                 href={tab.href as never}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "-mb-px flex min-h-10 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-body outline-none hover:text-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
-                  active
-                    ? "border-primary font-semibold text-foreground"
-                    : "border-transparent text-foreground-2",
-                )}
+                className={tabClass(active)}
               >
                 {tab.label}
-                {tab.count && (
-                  <span className="tabular inline-flex items-center gap-1 text-small text-foreground-2">
-                    {tab.count.level && <HealthShape level={tab.count.level} className="size-3" />}
-                    <span aria-hidden={tab.count.sr ? true : undefined}>{tab.count.text}</span>
-                    {tab.count.sr && <span className="sr-only">{tab.count.sr}</span>}
-                  </span>
-                )}
+                {tab.count && <Count count={tab.count} />}
                 {tab.hint && (
                   <span className="text-faint-foreground text-tiny">
                     <span aria-hidden>{tab.hint.text}</span>
@@ -58,6 +81,43 @@ export function EventTabs({ tabs, label }: { tabs: EventTab[]; label: string }) 
             </li>
           );
         })}
+        {more.length > 0 && (
+          <li>
+            <Menu.Root>
+              <Menu.Trigger
+                aria-current={activeMore ? "page" : undefined}
+                className={cn(tabClass(activeMore !== undefined), "bg-transparent")}
+              >
+                {moreLabel}
+                {activeMore && <span className="sr-only">: {activeMore.label}</span>}
+                <ChevronDown aria-hidden className="-ml-1 size-4 text-muted-foreground" />
+              </Menu.Trigger>
+              <Menu.Portal>
+                <Menu.Positioner side="bottom" align="start" sideOffset={4} className="z-50">
+                  <Menu.Popup className="flex min-w-[180px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+                    {more.map((tab) => {
+                      const active = activeMore?.key === tab.key;
+                      return (
+                        <Menu.LinkItem
+                          key={tab.key}
+                          render={<Link href={tab.href as never} />}
+                          aria-current={active ? "page" : undefined}
+                          className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover"
+                        >
+                          <span className="grid size-4 place-items-center">
+                            {active && <Check aria-hidden className="size-4" />}
+                          </span>
+                          <span className={cn(active && "font-semibold")}>{tab.label}</span>
+                          {tab.count && <Count count={tab.count} />}
+                        </Menu.LinkItem>
+                      );
+                    })}
+                  </Menu.Popup>
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.Root>
+          </li>
+        )}
       </ul>
     </nav>
   );

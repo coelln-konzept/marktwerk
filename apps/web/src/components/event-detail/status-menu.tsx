@@ -1,26 +1,23 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
-import { Menu } from "@base-ui/react/menu";
 import { allowedTransitions, type EventStatus } from "@marktwerk/core/events/lifecycle";
-import { ChevronDown, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { changeStatus, undoStatus } from "@/app/(app)/veranstaltungen/[id]/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { EVENT_STATUS } from "@/lib/status";
+import { isModuleHidden } from "@/lib/modules";
 import { TEXTAREA_CLASS } from "./textarea-class";
 
-const item =
-  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
-
 /**
- * "Status ändern": offers the allowed targets (core lifecycle), asks for a reason only when cancelling,
- * then shows an undo toast instead of a confirmation dialog (UX concept §6).
+ * Status change of an event: the allowed targets (core lifecycle) for the "…" menu, a reason dialog only
+ * when cancelling, then an undo toast instead of a confirmation dialog (UX concept §6). "abgerechnet" is
+ * a finance step and not offered while finance is hidden.
  */
-export function StatusMenu({
+export function useStatusChange({
   eventId,
   eventName,
   status,
@@ -36,7 +33,9 @@ export function StatusMenu({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const targets = allowedTransitions(status);
+  const targets = allowedTransitions(status).filter(
+    (to) => !(to === "closed" && isModuleHidden("finance")),
+  );
 
   const errorText = (code: string) =>
     t.has(`status.errors.${code}` as never)
@@ -74,55 +73,17 @@ export function StatusMenu({
     });
   }
 
-  if (targets.length === 0) return null;
+  /** Picks a target: cancelling opens the reason dialog first. */
+  function choose(to: EventStatus) {
+    if (to === "cancelled") {
+      setReason("");
+      setError(null);
+      setCancelOpen(true);
+    } else run(to);
+  }
 
-  return (
+  const dialog = (
     <>
-      <Menu.Root>
-        <Menu.Trigger
-          render={
-            <Button
-              aria-label={t("status.menuLabel", { status: tStatus(status) })}
-              aria-busy={pending}
-              disabled={pending}
-            />
-          }
-        >
-          {t("status.menu")}
-          <ChevronDown aria-hidden />
-        </Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
-            <Menu.Popup className="flex min-w-[220px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
-              <Menu.Group>
-                <Menu.GroupLabel className="px-2 pt-2 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider">
-                  {t("status.changeTo")}
-                </Menu.GroupLabel>
-                {targets.map((to) => {
-                  const Icon = EVENT_STATUS[to].icon;
-                  return (
-                    <Menu.Item
-                      key={to}
-                      className={item}
-                      onClick={() => {
-                        if (to === "cancelled") {
-                          setReason("");
-                          setError(null);
-                          setCancelOpen(true);
-                        } else run(to);
-                      }}
-                    >
-                      <Icon aria-hidden className="size-4 text-muted-foreground" />
-                      {tStatus(to)}
-                    </Menu.Item>
-                  );
-                })}
-              </Menu.Group>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-
       <Dialog.Root open={cancelOpen} onOpenChange={(open) => !pending && setCancelOpen(open)}>
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-scrim" />
@@ -188,4 +149,6 @@ export function StatusMenu({
       </Dialog.Root>
     </>
   );
+
+  return { targets, choose, pending, dialog };
 }

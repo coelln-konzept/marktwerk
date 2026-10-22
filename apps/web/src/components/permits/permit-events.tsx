@@ -8,7 +8,7 @@ import {
   linkEventsAction,
   setEventRequiredAction,
   unlinkEventAction,
-} from "@/app/(app)/logbuch/actions";
+} from "@/app/(app)/genehmigungen/actions";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,7 @@ export function PermitEvents({
               <div className="min-w-0">
                 {canOpenEvents ? (
                   <Link
-                    href={`/veranstaltungen/${e.id}/board` as never}
+                    href={`/veranstaltungen/${e.id}` as never}
                     className="font-medium text-accent-soft-foreground hover:underline"
                   >
                     {e.name}

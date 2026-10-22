@@ -35,13 +35,13 @@
     },
     "due": {
       "overdue": "Überfällig · {days} T",
+      "waitingSince": "Wartet seit {date}",
       "today": "Heute",
       "soon": "Fällig in {days} T",
       "none": "Kein Datum",
       "doneOn": "Erledigt {date}",
       "finished": "Abgeschlossen"
     },
-    "rollover": "{count}× übertragen",
     "estimate": "Schätzung",
     "checks": "Checkliste",
     "evidence": {
@@ -99,7 +99,9 @@
     },
     "keyTask": {
       "label": "Kernaufgabe",
-      "hint": "Eine Aufgabe, die jeder Markt braucht."
+      "hint": "Braucht jeder Markt – steht im Überblick, in der Matrix und ganz oben in der Übersicht.",
+      "tooltip": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",
+      "toggle": "Kernaufgabe"
     },
     "fields": {
       "title": "Titel",
@@ -110,7 +112,6 @@
       "estimate": "Geschätzt",
       "assignee": "Zuständig",
       "role": "Rolle",
-      "source": "Herkunft",
       "completed": "Erledigt am"
     },
     "source": {
@@ -191,6 +192,11 @@
     "quickDone": {
       "label": "Erledigt",
       "aria": "„{title}“ als erledigt markieren"
-    }
+    },
+    "statusToggle": {
+      "waiting": "Wartet auf Amt"
+    },
+    "statusMore": "Weitere Status",
+    "statusReopen": "Wieder offen"
   }
 }

@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { defaultAnchors } from "./anchors";
-import { issueCount, overallHealth, teamHealth } from "./health";
+import { issueCount, overallHealth, permitsReason, tasksReason, teamHealth } from "./health";
+
+describe("health reasons", () => {
+  it("names what is wrong with the permits", () => {
+    expect(permitsReason(null, 0)).toBeNull();
+    expect(permitsReason("ok", 0)).toEqual({ key: "ok" });
+    expect(permitsReason("critical", 1)).toEqual({ key: "permits", count: 1 });
+    expect(permitsReason("warn", 2)).toEqual({ key: "permits", count: 2 });
+    expect(permitsReason("warn", 0)).toEqual({ key: "permitsEnding" });
+  });
+
+  it("names what is wrong with the tasks, overdue first", () => {
+    expect(tasksReason(null, 0, 0)).toBeNull();
+    expect(tasksReason("ok", 0, 0)).toEqual({ key: "ok" });
+    expect(tasksReason("critical", 5, 2)).toEqual({ key: "tasksOverdue", count: 5 });
+    expect(tasksReason("warn", 0, 2)).toEqual({ key: "tasksBlocked", count: 2 });
+    expect(tasksReason("critical", 0, 0)).toEqual({ key: "tasksRollover" });
+  });
+});
 
 describe("event health", () => {
   it("takes the worst tracked dimension and ignores untracked ones", () => {

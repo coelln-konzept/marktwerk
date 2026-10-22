@@ -64,7 +64,10 @@ export async function EventVorschau({
           ...(cutoff
             ? [{ label: t("facts.cutoff"), value: formatDateWithWeekday(cutoff, locale) }]
             : []),
-          { label: t("facts.health"), value: <HealthSummary health={event.health} /> },
+          {
+            label: t("facts.health"),
+            value: <HealthSummary health={event.health} counts={event.reasons} />,
+          },
         ]}
       />
     </Vorschau>

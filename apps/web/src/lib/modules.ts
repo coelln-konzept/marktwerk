@@ -13,6 +13,13 @@ export const HIDDEN_MODULES = {
   finance: true,
   /** Time estimates on tasks and templates (hours per card, column and event). Data stays; needed again with team allocation. */
   estimates: true,
+  /**
+   * The bell and Benachrichtigungen. Back with the company-wide notification center (decision
+   * 2026-10-22): owner and manager see every important item once, no team set-up needed.
+   */
+  notifications: false,
+  /** Vendor booking (Buchung menu, "Buchung geschlossen" chip): Phase 2. */
+  booking: true,
 } as const;
 
 export type HiddenModule = keyof typeof HIDDEN_MODULES;

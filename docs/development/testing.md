@@ -34,7 +34,7 @@ owner, then check: Übersicht heading, Veranstaltungen list → Space opens the 
 page → back, and the command palette (`Ctrl+K`, “koln” finds Köln). The app is **not** started by Playwright.
 
 ```bash
-pnpm db:up && pnpm db:migrate && pnpm db:seed   # once
+pnpm db:up && pnpm db:migrate && pnpm db:seed   # once (the seed also runs one deadline sweep: the notification center needs its notifications)
 pnpm dev                                        # or: pnpm build && pnpm --filter @marktwerk/web start
 pnpm test:e2e                                   # other terminal
 pnpm --filter @marktwerk/web exec playwright install chromium   # first time on a new machine

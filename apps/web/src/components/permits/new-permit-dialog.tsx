@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
-import { archivePermitAction, createPermitAction } from "@/app/(app)/logbuch/actions";
+import { archivePermitAction, createPermitAction } from "@/app/(app)/genehmigungen/actions";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
 import { useOpenOnNew } from "@/components/shell/use-new-param";
@@ -71,7 +71,7 @@ export function NewPermitDialog({ venues }: { venues: { id: string; name: string
           showToast({ message: t("toast.createdUndone") });
         },
       });
-      router.push(`/logbuch?genehmigung=${id}` as never);
+      router.push(`/genehmigungen?genehmigung=${id}` as never);
     });
   }
 

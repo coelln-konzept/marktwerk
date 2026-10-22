@@ -1,5 +1,15 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, integer, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { id, timestamps } from "./_columns";
 import { app } from "./_schema";
 import { staffMember } from "./people";
@@ -38,16 +48,16 @@ export const notificationState = app.enum("notification_state", [
 ]);
 
 /**
- * In-app notification of one staff member. `dedupe_key` (incl. the due date) makes sweeps idempotent: the
- * same reminder is never created twice for the same person.
+ * In-app notification of one staff member, or company-wide when `recipient_staff_member_id` is null (the
+ * notification center for owner/manager logins, decision 2026-10-22: every important item once, with one
+ * shared state). `dedupe_key` (incl. the due date) makes sweeps idempotent: the same reminder is never
+ * created twice for the same person, nor twice company-wide.
  */
 export const notification = app.table(
   "notification",
   {
     id: id(),
-    recipientStaffMemberId: uuid()
-      .notNull()
-      .references(() => staffMember.id, { onDelete: "cascade" }),
+    recipientStaffMemberId: uuid().references(() => staffMember.id, { onDelete: "cascade" }),
     reason: notificationReason().notNull(),
     severity: notificationSeverity().notNull().default("info"),
     /** What it is about (e.g. "task" + id); no FK because it spans many tables. */
@@ -65,6 +75,9 @@ export const notification = app.table(
   },
   (t) => [
     unique().on(t.recipientStaffMemberId, t.dedupeKey),
+    uniqueIndex("notification_company_dedupe")
+      .on(t.dedupeKey)
+      .where(sql`${t.recipientStaffMemberId} is null`),
     index().on(t.recipientStaffMemberId, t.state, t.createdAt),
     index().on(t.subjectType, t.subjectId),
   ],

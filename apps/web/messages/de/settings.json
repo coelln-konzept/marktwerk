@@ -1,7 +1,7 @@
 {
   "settings": {
     "title": "Einstellungen",
-    "subtitle": "Firmendaten, Logins mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen.",
+    "subtitle": "Firmendaten, Logins mit Rollen und die Bibliothek der Märkte und Aufgabenvorlagen.",
     "tabsLabel": "Bereiche der Einstellungen",
     "tabs": {
       "company": "Firma",
@@ -51,7 +51,8 @@
         "defaultDueTime": "Uhrzeit für Aufgaben aus Vorlagen ohne eigene Fälligkeitszeit.",
         "emailEnabled": "Solange das ausgeschaltet ist, verschickt marktwerk keine E-Mails. Benachrichtigungen in der App funktionieren weiterhin.",
         "dailyDigestEnabled": "Täglich eine Zusammenfassung dessen, was fällig ist, per E-Mail versenden.",
-        "permitHorizonDays": "So viele Tage vor dem Antragsdatum erscheinen Genehmigungen in der Übersicht."
+        "permitHorizonDays": "So viele Tage vor dem Antragsdatum erscheinen Genehmigungen in der Übersicht.",
+        "dailyDigestNeedsEmail": "Erst verfügbar, wenn „E-Mails versenden“ eingeschaltet ist."
       },
       "bundeslaender": {
         "NW": "Nordrhein-Westfalen"
@@ -86,7 +87,11 @@
       "saved": "Firmendaten gespeichert.",
       "unchanged": "Keine Änderungen.",
       "failed": "Das Speichern hat nicht geklappt. Bitte versuche es noch einmal.",
-      "errorSummary": "Bitte prüfe die markierten Felder."
+      "errorSummary": "Bitte prüfe die markierten Felder.",
+      "bankSummary": "Steuernummer, IBAN, BIC",
+      "units": {
+        "days": "Tage"
+      }
     },
     "users": {
       "title": "Benutzer & Rollen",
@@ -179,6 +184,7 @@
         "hu_interval_months_up_to_3500kg": "Hauptuntersuchung bis 3,5 t",
         "hu_interval_months_over_3500kg": "Hauptuntersuchung über 3,5 t"
       }
-    }
+    },
+    "subtitleWithLegal": "Firmendaten, Logins mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen."
   }
 }

@@ -1,14 +1,15 @@
 {
   "board": {
     "title": "Board",
-    "subtitle": "Aufgaben über alle Veranstaltungen",
     "tab": {
-      "open": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}}"
+      "open": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}}",
+      "openShort": "{count} offen",
+      "openOverdue": "{open} offen · {overdue} überfällig"
     },
     "columns": {
-      "preparation": "Vorbereitung",
+      "preparation": "Später",
       "this_week": "Diese Woche",
-      "today": "Heute",
+      "today": "Überfällig & heute",
       "done": "Erledigt"
     },
     "doneRange": "letzte 14 Tage",
@@ -19,7 +20,6 @@
       "label": "Ansicht",
       "bereitschaft": "Bereitschaft",
       "matrix": "Matrix",
-      "gruppiert": "Gruppiert",
       "spalten": "Spalten",
       "person": "Nach Person",
       "arbeitslast": "Arbeitslast"
@@ -30,24 +30,14 @@
       "mine": "Meine",
       "unassigned": "Nicht zugewiesen",
       "category": "Kategorie",
-      "allCategories": "Alle Kategorien"
+      "allCategories": "Alle Kategorien",
+      "button": "Filter"
     },
     "tabs": {
       "label": "Aufgaben",
       "mine": "Meine Aufgaben",
       "all": "Alle",
       "unassigned": "Nicht zugewiesen"
-    },
-    "group": {
-      "label": "Gruppieren",
-      "by": {
-        "veranstaltung": "Nach Veranstaltung",
-        "tag": "Nach Tag"
-      },
-      "noEvent": "Ohne Veranstaltung",
-      "noDate": "Ohne Datum",
-      "overdue": "Überfällig",
-      "today": "Heute"
     },
     "horizon": {
       "label": "Zeitraum",
@@ -178,8 +168,7 @@
     "drawer": {
       "label": "Aufgabe",
       "notFound": "Aufgabe nicht gefunden",
-      "notFoundHint": "Sie existiert nicht mehr, oder du hast keinen Zugriff darauf.",
-      "linkHint": "Diese Ansicht lässt sich als Link weitergeben: Die Adresse enthält die Aufgabe."
+      "notFoundHint": "Sie existiert nicht mehr, oder du hast keinen Zugriff darauf."
     },
     "readiness": {
       "caption": "Bereitschaft der kommenden Veranstaltungen",
@@ -199,7 +188,18 @@
       "noDeadline": "Keine offene Frist",
       "dueOn": "fällig {date}",
       "empty": "Keine kommenden Veranstaltungen in diesem Zeitraum.",
-      "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen."
+      "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen.",
+      "panelColumn": "",
+      "panel": {
+        "toggle": "Aufgaben",
+        "showLabel": "Wichtige Aufgaben von {name} zeigen",
+        "hideLabel": "Aufgaben von {name} schließen",
+        "title": "Wichtig bei {name}",
+        "allOk": "Alles im Plan: nichts überfällig, keine fehlende Genehmigung.",
+        "permitMissing": "Genehmigung fehlt",
+        "more": "{count, plural, one {# weitere Aufgabe} other {# weitere Aufgaben}} in den nächsten 7 Tagen",
+        "openOverview": "Zum Überblick"
+      }
     },
     "matrix": {
       "caption": "Kernaufgaben der kommenden Veranstaltungen",
@@ -217,10 +217,12 @@
         "open": "offen",
         "soon": "bald fällig",
         "overdue": "überfällig",
+        "waiting": "wartet",
         "snoozed": "zurückgestellt",
         "absent": "nicht vorhanden"
       }
-    }
+    },
+    "afterEvent": "Nach der Veranstaltung"
   },
   "drawer": {
     "close": "Schließen"

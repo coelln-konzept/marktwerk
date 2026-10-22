@@ -37,7 +37,11 @@
       "noDates": "Keine Termine in den nächsten 12 Monaten.",
       "noRule": "Kein Rhythmus hinterlegt; Termine werden von Hand gewählt.",
       "generate": "Termine erzeugen",
-      "edit": "Bearbeiten"
+      "edit": "Bearbeiten",
+      "tasksOwn": "Aufgaben: Grundvorlage-Kopie.",
+      "tasksOpen": "Ansehen",
+      "tasksShared": "Aufgaben: {names}",
+      "tasksNone": "Aufgaben: noch keine Vorlage."
     },
     "editLabel": "Bearbeiten: {name}",
     "form": {
@@ -172,11 +176,6 @@
       "caption": "Märkte mit Ort, Rhythmus und Aufgabenvorlage",
       "empty": "Noch keine Märkte.",
       "emptyHint": "Einen Markt legst du unter Veranstaltungen → Markt planen an.",
-      "cols": {
-        "tasks": "Eigene Aufgabenvorlage"
-      },
-      "own": "Ja",
-      "notOwn": "Nein",
       "tasksLabel": "Aufgabenvorlage von {name}",
       "hint": "Neue Märkte legst du unter Veranstaltungen → Markt planen an.",
       "count": "{count, plural, one {# Markt} other {# Märkte}} · {active} aktiv"

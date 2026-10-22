@@ -3,7 +3,7 @@
 import { Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
-import { savePermitAction } from "@/app/(app)/logbuch/actions";
+import { savePermitAction } from "@/app/(app)/genehmigungen/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";

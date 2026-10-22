@@ -63,6 +63,8 @@ export type PermitType =
   | "no_parking"
   | "toilets"
   | "landowner_ok";
+/** Permit types a template item can apply for: the seeded ones plus those without a seeded permit. */
+export type TemplatePermitType = PermitType | "gema" | "safety_concept" | "catering";
 export type PermitCadence = "per_event" | "per_season" | "per_year" | "multi_year" | "standing";
 export type PermitStatus =
   | "not_started"
@@ -320,6 +322,8 @@ export interface TemplateItem {
   requiresPhoto: boolean;
   /** Kernaufgabe: a task every market needs. */
   isKey: boolean;
+  /** The permit this item applies for (its task counts as done once that permit is applied for / granted). */
+  permitType: TemplatePermitType | null;
 }
 
 export interface ChecklistTemplate {

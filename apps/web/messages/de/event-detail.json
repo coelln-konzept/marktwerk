@@ -4,15 +4,14 @@
     "header": {
       "dateLine": "{date} · {open}–{close} Uhr · {week}",
       "dateLineRange": "{from} – {to} · {open}–{close} Uhr · {week}",
-      "setup": "Aufbau {date} ab {time} Uhr",
-      "preset": "Vorlage {name}",
       "noPreset": "Ohne Vorlage",
       "booking": {
         "open": "buchbar",
         "closed": "Buchung geschlossen",
         "full": "ausgebucht",
         "carsFull": "Autoplätze ausgebucht"
-      }
+      },
+      "more": "Weitere Aktionen"
     },
     "tabs": {
       "label": "Bereiche der Veranstaltung",
@@ -25,7 +24,8 @@
       "notes": "Notizen",
       "history": "Verlauf",
       "milestone": "ab {milestone}",
-      "milestoneHint": "Kommt mit Meilenstein {milestone}"
+      "milestoneHint": "Kommt mit Meilenstein {milestone}",
+      "more": "Mehr"
     },
     "status": {
       "menu": "Status ändern",
@@ -84,7 +84,8 @@
         "yes": "ja",
         "no": "nein",
         "cancelledReason": "Grund der Absage",
-        "summary": "{venue} · {open}–{close} Uhr · {price} je Meter"
+        "summary": "{venue} · {open}–{close} Uhr · {price} je Meter",
+        "preset": "Vorlage"
       },
       "team": {
         "title": "Team",
@@ -118,6 +119,7 @@
           "today": "Heute",
           "soon": "in {n} T"
         },
+        "waitingSince": "wartet seit {date}",
         "done": "Erledigt",
         "doneLabel": "„{title}“ erledigt",
         "permitKind": "Genehmigung",
@@ -132,8 +134,10 @@
           "open": "Offen",
           "soon": "Bald fällig",
           "overdue": "Überfällig",
+          "waiting": "Wartet",
           "snoozed": "Zurückgestellt"
         },
+        "waitingSince": "seit {date}",
         "dueOn": "fällig {date}",
         "snoozedUntil": "bis {date}"
       },

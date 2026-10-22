@@ -1,10 +1,10 @@
 "use client";
 
-import { dueness, type LoadLevel, type TaskStatusKey } from "@marktwerk/core";
-import { AlertTriangle, CalendarDays, Clock } from "lucide-react";
+import { type LoadLevel, type TaskStatusKey, taskDueness } from "@marktwerk/core";
+import { AlertTriangle, CalendarDays, Clock, Hourglass } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDate, formatDateShort } from "@/lib/format";
+import { formatDate, formatDateShort, formatDateShortYear } from "@/lib/format";
 import { formatHours, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 
@@ -61,9 +61,19 @@ export function DueLine({
       </span>
     );
   }
-  const d = dueness(dueOn, today);
+  const d = taskDueness({ status, dueOn }, today);
   if (d.kind === "none")
     return <span className="text-faint-foreground text-tiny">{t("none")}</span>;
+  if (d.kind === "waiting_since") {
+    // Somebody else has to act: neutral, never the red "Überfällig".
+    return (
+      <StatusBadge tone="neutral" icon={Hourglass}>
+        <span className="tabular">
+          {t("waitingSince", { date: formatDateShortYear(d.since, locale, today) })}
+        </span>
+      </StatusBadge>
+    );
+  }
   if (d.kind === "overdue") {
     return (
       <StatusBadge tone="critical" icon={AlertTriangle}>

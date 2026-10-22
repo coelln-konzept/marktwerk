@@ -4,15 +4,14 @@
     "header": {
       "dateLine": "{date} · {open}–{close} · {week}",
       "dateLineRange": "{from} – {to} · {open}–{close} · {week}",
-      "setup": "Setup {date} from {time}",
-      "preset": "Preset {name}",
       "noPreset": "No preset",
       "booking": {
         "open": "bookable",
         "closed": "Booking closed",
         "full": "fully booked",
         "carsFull": "Car spaces full"
-      }
+      },
+      "more": "More actions"
     },
     "tabs": {
       "label": "Sections of the event",
@@ -25,7 +24,8 @@
       "notes": "Notes",
       "history": "History",
       "milestone": "from {milestone}",
-      "milestoneHint": "Arrives with milestone {milestone}"
+      "milestoneHint": "Arrives with milestone {milestone}",
+      "more": "More"
     },
     "status": {
       "menu": "Change status",
@@ -84,7 +84,8 @@
         "yes": "yes",
         "no": "no",
         "cancelledReason": "Reason for cancelling",
-        "summary": "{venue} · {open}–{close} · {price} per metre"
+        "summary": "{venue} · {open}–{close} · {price} per metre",
+        "preset": "Template"
       },
       "team": {
         "title": "Team",
@@ -118,6 +119,7 @@
           "today": "Today",
           "soon": "in {n} d"
         },
+        "waitingSince": "waiting since {date}",
         "done": "Done",
         "doneLabel": "Mark “{title}” done",
         "permitKind": "Permit",
@@ -132,8 +134,10 @@
           "open": "Open",
           "soon": "Due soon",
           "overdue": "Overdue",
+          "waiting": "Waiting",
           "snoozed": "Snoozed"
         },
+        "waitingSince": "since {date}",
         "dueOn": "due {date}",
         "snoozedUntil": "until {date}"
       },

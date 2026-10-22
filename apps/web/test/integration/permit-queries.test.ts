@@ -176,11 +176,11 @@ describe("logbook query", () => {
     expect(
       (await listLogbook(owner, { season: 2026, focus: "fehlt" }, TODAY)).rows.map((r) => r.title),
     ).toEqual(["Wasser"]);
+    // The focus counts permits that are missing for an upcoming market, whatever the season.
+    expect(all.needsAction).toBe(1);
     expect(
-      (await listLogbook(owner, { season: 2026, focus: "ablaufend" }, TODAY)).rows.map(
-        (r) => r.title,
-      ),
-    ).toEqual(["Toiletten"]);
+      (await listLogbook(owner, { season: 2025, focus: "fehlt" }, TODAY)).rows.map((r) => r.title),
+    ).toEqual(["Wasser"]);
     expect(
       (await listLogbook(owner, { season: 2026, category: "external" }, TODAY)).rows,
     ).toHaveLength(2);
@@ -198,6 +198,8 @@ describe("logbook query", () => {
       (await listLogbook(owner, { season: 2026, state: "missing" }, TODAY)).counts.granted,
     ).toBe(2);
 
+    // The sidebar badge is the same number as the focus chip of the Genehmigungen page.
+    expect(await missingPermitCount(owner, TODAY)).toBe(all.needsAction);
     expect(await missingPermitCount(owner, TODAY)).toBe(1);
     expect((await listLogbook(field, { season: 2026 }, TODAY)).rows).toEqual([]);
     expect(await missingPermitCount(field, TODAY)).toBe(0);
@@ -247,15 +249,13 @@ describe("event permits and health", () => {
       { eventId: ev.id, permitId: granted.id },
       { eventId: ev.id, permitId: applied.id },
     ]);
-    const summary = await listEventPermits(owner, { id: ev.id, startsOn: ev.startsOn }, TODAY);
+    const summary = await listEventPermits(owner, ev, TODAY);
     expect(summary.rows.map((r) => [r.title, r.state])).toEqual([
       ["Markt", "granted"],
       ["Wasser", "applied"],
     ]);
     expect([summary.held, summary.required, summary.health]).toEqual([1, 2, "warn"]);
-    expect(
-      (await listEventPermits(field, { id: ev.id, startsOn: ev.startsOn }, TODAY)).rows,
-    ).toEqual([]);
+    expect((await listEventPermits(field, ev, TODAY)).rows).toEqual([]);
 
     const healthy = await permitHealthByEvent([{ id: ev.id, startsOn: ev.startsOn }], TODAY);
     expect(healthy.get(ev.id)).toBe("warn");
@@ -314,7 +314,7 @@ describe("feeds for Übersicht and Kalender", () => {
       assigneeName: "Anna Test",
       meta: "Antrag · Messeplatz Test",
     });
-    expect(items[0]?.href).toBe(`/logbuch?genehmigung=${items[0]?.id}`);
+    expect(items[0]?.href).toBe(`/genehmigungen?genehmigung=${items[0]?.id}`);
     expect(await dueItems(field, TODAY)).toEqual([]);
   });
 
@@ -373,5 +373,88 @@ describe("feeds for Übersicht and Kalender", () => {
       ["2026-11-20", "permits", "Läuft ab: C · Messeplatz Test", "warn"],
     ]);
     expect(await calendarItems(field, "2026-11-01", "2026-11-30")).toEqual([]);
+  });
+});
+
+describe("a permit judged for its event (UX pass 2026-10-22)", () => {
+  it("a one-day permit valid exactly on the market day is granted for it, not 'Läuft ab'", async () => {
+    const ev = await makeEvent("2026-11-01");
+    const p = await makePermit({
+      title: "Tag",
+      status: "granted",
+      validFrom: "2026-11-01",
+      validUntil: "2026-11-01",
+    });
+    await db.insert(eventPermit).values({ eventId: ev.id, permitId: p.id });
+
+    const summary = await listEventPermits(owner, ev, TODAY);
+    expect(summary.rows.map((r) => r.state)).toEqual(["granted"]);
+    expect([summary.held, summary.required, summary.health]).toEqual([1, 1, "ok"]);
+    // The events list (weekend table) agrees: no 'Achtung' because of the expiry.
+    expect((await listEvents(owner, {})).find((r) => r.id === ev.id)?.health.permits).toBe("ok");
+    // The permit itself is shown as granted in the company-wide list too.
+    expect((await listLogbook(owner, { season: null }, TODAY)).rows[0]?.state).toBe("granted");
+    // And no 'Läuft ab' chip in the calendar for a permit that covers its event.
+    expect(await calendarItems(owner, "2026-10-01", "2026-11-30", TODAY)).toEqual([]);
+  });
+
+  it("a permit that ends before the last day of a multi-day event keeps its warning and chip", async () => {
+    const [ev] = await db
+      .insert(event)
+      .values({
+        eventTypeId: cat.type.id,
+        venueId: cat.venue.id,
+        name: "Stadtfest",
+        season: 2026,
+        startsOn: "2026-11-06",
+        endsOn: "2026-11-08",
+        times: cat.times,
+        pricePerMCents: 0,
+        bookingFeeCents: 0,
+      })
+      .returning();
+    if (!ev) throw new Error("no event");
+    const p = await makePermit({ status: "granted", validUntil: "2026-11-07" });
+    await db.insert(eventPermit).values({ eventId: ev.id, permitId: p.id });
+    const summary = await listEventPermits(owner, ev, TODAY);
+    expect(summary.rows[0]?.state).toBe("expiring");
+    expect(summary.health).toBe("warn");
+    const items = await calendarItems(owner, "2026-11-01", "2026-11-30", TODAY);
+    expect(items.map((i) => i.title)).toEqual(["Läuft ab: Wasser · Messeplatz Test"]);
+  });
+
+  it("a past one-day permit whose events are over is history, not an 'Abgelaufen' warning", async () => {
+    const ev = await makeEvent("2026-10-04");
+    const p = await makePermit({
+      title: "Vorbei",
+      status: "granted",
+      validFrom: "2026-10-04",
+      validUntil: "2026-10-04",
+    });
+    await db.insert(eventPermit).values({ eventId: ev.id, permitId: p.id });
+    const stale = await makePermit({
+      title: "Ohne Markt",
+      status: "granted",
+      validUntil: "2026-09-01",
+    });
+    const book = await listLogbook(owner, { season: null }, TODAY);
+    const state = (title: string) => book.rows.find((r) => r.title === title)?.state;
+    expect(state("Vorbei")).toBe("past");
+    expect(state("Ohne Markt")).toBe("expired");
+    expect(book.counts.past).toBe(1);
+    expect(book.counts.expired).toBe(1);
+    expect(book.needsAction).toBe(0);
+    expect(await missingPermitCount(owner, TODAY)).toBe(0);
+    expect(stale.id).toBeTruthy();
+    expect((await getPermit(owner, p.id, TODAY))?.state).toBe("past");
+  });
+
+  it("an expired permit that an upcoming event still needs stays a warning", async () => {
+    const ev = await makeEvent("2026-11-08");
+    const p = await makePermit({ title: "Alt", status: "granted", validUntil: "2026-10-01" });
+    await db.insert(eventPermit).values({ eventId: ev.id, permitId: p.id });
+    const book = await listLogbook(owner, { season: null }, TODAY);
+    expect(book.rows[0]?.state).toBe("expired");
+    expect(book.needsAction).toBe(1);
   });
 });

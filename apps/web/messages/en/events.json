@@ -6,14 +6,9 @@
     "season": "Season",
     "seasonOption": "Season {season}",
     "status": "Status",
-    "statusActive": "All except cancelled",
+    "statusActive": "All except cancelled (incl. past)",
     "statusAll": "All",
     "statusOnly": "Only: {status}",
-    "view": "View",
-    "views": {
-      "liste": "List",
-      "kalender": "Calendar"
-    },
     "permitFilter": {
       "label": "Permits",
       "open": "Without permit"
@@ -22,7 +17,7 @@
     "all": "All",
     "emptyFiltered": "No events match these filters.",
     "resetFilters": "Reset filters",
-    "caption": "Events of season {season}",
+    "caption": "Events",
     "cols": {
       "week": "CW",
       "date": "Date",
@@ -30,15 +25,17 @@
       "type": "Type",
       "venue": "Venue",
       "status": "Status",
-      "health": "Health",
       "effort": "Effort",
       "actions": "Actions"
     },
     "preview": "Preview: {name}",
-    "legend": "Health: {dims} (● on track ▲ attention ■ critical ○ not yet tracked).",
     "keys": "Space: preview · Enter: open · J/K: next/previous row",
     "weekendFlag": "⚑ Weekend with 4+ events",
-    "single": "Single event"
+    "single": "Single event",
+    "statusOver": "over",
+    "subtitleUpcoming": "{count} current and upcoming dates · {planned} planned",
+    "seasonAny": "All seasons",
+    "statusCurrent": "Current & upcoming"
   },
   "eventPage": {
     "kind": "Event",

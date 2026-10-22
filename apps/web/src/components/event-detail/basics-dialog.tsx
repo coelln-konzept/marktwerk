@@ -1,8 +1,8 @@
 "use client";
 
-import { Flag, Pencil, TriangleAlert, XCircle } from "lucide-react";
+import { Flag, TriangleAlert, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { previewBasics, saveBasics, undoBasics } from "@/app/(app)/veranstaltungen/[id]/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
@@ -18,26 +18,30 @@ const SELECT_CLASS =
   "flex min-h-(--control-h) w-full rounded-lg border border-input bg-card px-3 py-1 text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-1";
 
 /**
- * "Bearbeiten" in the event header: name, length (days) and venue of this event only. Always confirmed
- * before saving (decided 2026-10-21), with the same hints as the generation for a new venue or length.
+ * "Bearbeiten" (item of the event's "…" menu): name, length (days) and venue of this event only. Always
+ * confirmed before saving (decided 2026-10-21), with the same hints as the generation for a new venue or
+ * length. Controlled by the menu (`open`).
  */
 export function BasicsDialog({
   eventId,
   startsOn,
   basics,
   venues,
+  open,
+  onOpenChange,
 }: {
   eventId: string;
   startsOn: string;
   basics: EventBasics;
   venues: VenueOption[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("eventDetail.basics");
   const tWarn = useTranslations("generate.warn");
   const locale = useLocale();
   const { showToast } = useShell();
   const { confirm, dialog } = useConfirm();
-  const [open, setOpen] = useState(false);
   const [name, setName] = useState(basics.name);
   const [days, setDays] = useState(String(basics.durationDays));
   const [venueId, setVenueId] = useState(basics.venueId);
@@ -49,6 +53,17 @@ export function BasicsDialog({
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
   const venueName = (id: string) => venues.find((v) => v.id === id)?.name ?? "?";
+
+  // Every time the dialog opens it starts from the saved values.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when opening
+  useEffect(() => {
+    if (!open) return;
+    setName(basics.name);
+    setDays(String(basics.durationDays));
+    setVenueId(basics.venueId);
+    setPreview(null);
+    setError(null);
+  }, [open]);
 
   async function refreshPreview(nextDays: string, nextVenue: string) {
     const durationDays = Number(nextDays);
@@ -87,7 +102,7 @@ export function BasicsDialog({
     const next: EventBasics = { name: name.trim().replace(/\s+/g, " "), durationDays, venueId };
     const list = changes(next);
     if (list.length === 0) {
-      setOpen(false);
+      onOpenChange(false);
       showToast({ message: t("unchanged") });
       return;
     }
@@ -105,7 +120,7 @@ export function BasicsDialog({
         setError(errorText(result.error));
         return;
       }
-      setOpen(false);
+      onOpenChange(false);
       const { previous } = result.data;
       showToast({
         message:
@@ -129,23 +144,9 @@ export function BasicsDialog({
 
   return (
     <>
-      <Button
-        aria-label={t("openLabel")}
-        onClick={() => {
-          setName(basics.name);
-          setDays(String(basics.durationDays));
-          setVenueId(basics.venueId);
-          setPreview(null);
-          setError(null);
-          setOpen(true);
-        }}
-      >
-        <Pencil aria-hidden />
-        {t("open")}
-      </Button>
       <Modal
         open={open}
-        onOpenChange={(next) => !pending && setOpen(next)}
+        onOpenChange={(next) => !pending && onOpenChange(next)}
         title={t("title")}
         description={t("description")}
         closeLabel={t("cancel")}
@@ -249,7 +250,7 @@ export function BasicsDialog({
           )}
           <p className="text-faint-foreground text-small">{t("presetHint")}</p>
           <div className="flex justify-end gap-2">
-            <Button disabled={pending} onClick={() => setOpen(false)}>
+            <Button disabled={pending} onClick={() => onOpenChange(false)}>
               {t("cancel")}
             </Button>
             <Button type="submit" variant="default" aria-busy={pending} disabled={pending}>
