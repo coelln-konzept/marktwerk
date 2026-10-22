@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { FilterChip, FilterChips } from "@/components/ui/filter-bar";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -75,23 +76,21 @@ export async function DueToday({
           <span className="text-muted-foreground text-small">{t("subtitle")}</span>
         </div>
         {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of filter links, not form controls */}
-        <div role="group" aria-label={t("filters")} className="flex flex-wrap gap-2">
-          {DUE_FILTERS.filter((key) => key === "all" || due.counts[key] > 0 || key === filter).map(
-            (key) => (
-              <Link
+        <div role="group" aria-label={t("filters")}>
+          <FilterChips>
+            {DUE_FILTERS.filter(
+              (key) => key === "all" || due.counts[key] > 0 || key === filter,
+            ).map((key) => (
+              <FilterChip
                 key={key}
-                href={chipHref(key) as never}
-                scroll={false}
-                aria-current={key === filter ? "true" : undefined}
-                className="inline-flex min-h-8 items-center gap-2 whitespace-nowrap rounded-full border border-input bg-card px-3 font-medium text-small hover:bg-hover aria-[current=true]:border-foreground aria-[current=true]:bg-foreground aria-[current=true]:text-background"
+                href={chipHref(key)}
+                active={key === filter}
+                count={due.counts[key]}
               >
                 {t(`filter.${key}`)}
-                <span className="tabular inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-neutral-bg px-1 font-semibold text-[11.5px] text-foreground-2 in-aria-[current=true]:bg-white/20 in-aria-[current=true]:text-inherit">
-                  {due.counts[key]}
-                </span>
-              </Link>
-            ),
-          )}
+              </FilterChip>
+            ))}
+          </FilterChips>
         </div>
       </PanelHeader>
       {filtered.length === 0 ? (

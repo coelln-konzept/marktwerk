@@ -6,7 +6,13 @@ import { MarkAllReadButton } from "@/components/notifications/mark-all-read-butt
 import { NotificationItem } from "@/components/notifications/notification-item";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
-import { FilterChip } from "@/components/ui/chip";
+import {
+  FilterBar,
+  FilterChip,
+  FilterChips,
+  FilterGroup,
+  Segments,
+} from "@/components/ui/filter-bar";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { formatAgo } from "@/lib/format";
@@ -71,38 +77,39 @@ export default async function NotificationsPage({
         actions={<MarkAllReadButton group={group} disabled={page.unread === 0} />}
       />
 
-      {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls */}
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t("views.label")}>
-        {NOTIFICATION_VIEWS.map((v) => (
-          <FilterChip
-            key={v}
-            href={hrefWith(PATH, sp, { ansicht: v === "open" ? undefined : v })}
-            active={view === v}
-          >
-            {t(`views.${v}`)}
-          </FilterChip>
-        ))}
-      </div>
-      {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls */}
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t("groups.label")}>
-        <FilterChip
-          href={hrefWith(PATH, sp, { art: undefined })}
-          active={!group}
-          count={page.total}
-        >
-          {t("groups.all")}
-        </FilterChip>
-        {NOTIFICATION_GROUPS.map((g) => (
-          <FilterChip
-            key={g}
-            href={hrefWith(PATH, sp, { art: g })}
-            active={group === g}
-            count={page.groupCounts[g]}
-          >
-            {t(`groups.${g}`)}
-          </FilterChip>
-        ))}
-      </div>
+      <FilterBar>
+        <FilterGroup label={t("views.label")}>
+          <Segments
+            items={NOTIFICATION_VIEWS.map((v) => ({
+              key: v,
+              label: t(`views.${v}`),
+              href: hrefWith(PATH, sp, { ansicht: v === "open" ? undefined : v }),
+              active: view === v,
+            }))}
+          />
+        </FilterGroup>
+        <FilterGroup label={t("groups.label")} wide>
+          <FilterChips>
+            <FilterChip
+              href={hrefWith(PATH, sp, { art: undefined })}
+              active={!group}
+              count={page.total}
+            >
+              {t("groups.all")}
+            </FilterChip>
+            {NOTIFICATION_GROUPS.map((g) => (
+              <FilterChip
+                key={g}
+                href={hrefWith(PATH, sp, { art: g })}
+                active={group === g}
+                count={page.groupCounts[g]}
+              >
+                {t(`groups.${g}`)}
+              </FilterChip>
+            ))}
+          </FilterChips>
+        </FilterGroup>
+      </FilterBar>
 
       <Panel className="overflow-hidden">
         {page.rows.length === 0 ? (

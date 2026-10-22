@@ -11,8 +11,8 @@ import { HEALTH_DIMS, HealthSummary } from "@/components/events/health-summary";
 import { MonthGrid } from "@/components/events/month-grid";
 import { Page, PageHeader } from "@/components/shell/page";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit";
-import { FilterChip } from "@/components/ui/chip";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
+import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
@@ -179,28 +179,31 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
         </div>
       </form>
 
-      {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls */}
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t("types")}>
-        <FilterChip
-          href={hrefWith(PATH, sp, { art: undefined, vorschau: undefined })}
-          active={!typeKey}
-          count={total}
-        >
-          {t("all")}
-        </FilterChip>
-        {types.map((type) => (
-          <FilterChip
-            key={type.key}
-            href={hrefWith(PATH, sp, { art: type.key, vorschau: undefined })}
-            active={typeKey === type.key}
-            count={counts[type.key] ?? 0}
-          >
-            <EventTypeTag typeKey={type.key} className="h-auto bg-transparent p-0 text-inherit">
-              {locale === "en" ? type.nameEn : type.nameDe}
-            </EventTypeTag>
-          </FilterChip>
-        ))}
-      </div>
+      <FilterBar>
+        <FilterGroup label={t("types")} wide>
+          <FilterChips>
+            <FilterChip
+              href={hrefWith(PATH, sp, { art: undefined, vorschau: undefined })}
+              active={!typeKey}
+              count={total}
+            >
+              {t("all")}
+            </FilterChip>
+            {types.map((type) => (
+              <FilterChip
+                key={type.key}
+                href={hrefWith(PATH, sp, { art: type.key, vorschau: undefined })}
+                active={typeKey === type.key}
+                count={counts[type.key] ?? 0}
+              >
+                <EventTypeTag typeKey={type.key} className="h-auto bg-transparent p-0 text-inherit">
+                  {locale === "en" ? type.nameEn : type.nameDe}
+                </EventTypeTag>
+              </FilterChip>
+            ))}
+          </FilterChips>
+        </FilterGroup>
+      </FilterBar>
 
       {view === "liste" ? (
         <Panel className="overflow-hidden">

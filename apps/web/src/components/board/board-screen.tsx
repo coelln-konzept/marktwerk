@@ -2,9 +2,14 @@ import { can, daysBetween, endOfIsoWeek, isFinishedStatus } from "@marktwerk/cor
 import { UserRoundX } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { TaskDrawer } from "@/components/task/task-drawer";
-import { FilterChip } from "@/components/ui/chip";
 import { Drawer } from "@/components/ui/drawer";
-import { SegmentedLinks } from "@/components/ui/segmented-links";
+import {
+  FilterBar,
+  FilterChip,
+  FilterChips,
+  FilterGroup,
+  Segments,
+} from "@/components/ui/filter-bar";
 import { EmptyState } from "@/components/ui/states";
 import { formatWeek, todayIn } from "@/lib/format";
 import { isModuleHidden } from "@/lib/modules";
@@ -21,7 +26,6 @@ import {
   listTaskEventOptions,
 } from "@/server/queries/tasks";
 import { BoardView } from "./board-view";
-import { ChipGroup } from "./chip-group";
 import { NewTaskButton } from "./new-task-dialog";
 import { WorkloadTable } from "./workload-table";
 
@@ -116,15 +120,16 @@ export async function BoardScreen({
   ) : null;
 
   const viewSwitch = views.length > 1 && (
-    <SegmentedLinks
-      label={t("view.label")}
-      items={views.map((key) => ({
-        key,
-        label: t(`view.${key}`),
-        href: href({ ansicht: key === views[0] ? undefined : key }),
-        active: key === view,
-      }))}
-    />
+    <FilterGroup label={t("view.label")}>
+      <Segments
+        items={views.map((key) => ({
+          key,
+          label: t(`view.${key}`),
+          href: href({ ansicht: key === views[0] ? undefined : key }),
+          active: key === view,
+        }))}
+      />
+    </FilterGroup>
   );
 
   // ---- workload table (across events)
@@ -132,8 +137,8 @@ export async function BoardScreen({
     const workload = await getWorkload(actor, today, 8);
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {viewSwitch}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <FilterBar>{viewSwitch}</FilterBar>
           {newTask}
         </div>
         <WorkloadTable workload={workload} />
@@ -169,72 +174,65 @@ export async function BoardScreen({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <FilterBar className="min-w-0 flex-1">
+          {viewSwitch}
           {scopeKeys.length > 1 && (
-            <nav
-              aria-label={eventMode ? t("filter.label") : t("tabs.label")}
-              className="flex flex-wrap items-center gap-2"
-            >
-              {scopeKeys.map((key) => (
+            <FilterGroup label={t("tabs.label")}>
+              <Segments
+                items={scopeKeys.map((key) => ({
+                  key,
+                  label: scopeLabels[key] ?? key,
+                  href: href({ [scopeUrlKey]: key === defaultScope ? undefined : key }),
+                  active: key === scope,
+                  count: counts[key as keyof typeof counts],
+                }))}
+              />
+            </FilterGroup>
+          )}
+          {!eventMode && (
+            <FilterGroup label={t("horizon.label")}>
+              <Segments
+                items={(["woche", "14", "alle"] as const).map((key) => ({
+                  key,
+                  label: t(`horizon.${key}`),
+                  href: href({ zeitraum: key === "14" ? undefined : key }),
+                  active: horizon === key,
+                }))}
+              />
+            </FilterGroup>
+          )}
+          {!eventMode && view === "gruppen" && (
+            <FilterGroup label={t("group.label")}>
+              <Segments
+                items={(["veranstaltung", "tag"] as const).map((key) => ({
+                  key,
+                  label: t(`group.by.${key}`),
+                  href: href({ gruppe: key === "veranstaltung" ? undefined : key }),
+                  active: (key === "tag") === (groupBy === "day"),
+                }))}
+              />
+            </FilterGroup>
+          )}
+          <FilterGroup label={t("filter.category")} wide>
+            <FilterChips>
+              <FilterChip href={href({ kategorie: undefined })} active={category === undefined}>
+                {t("filter.allCategories")}
+              </FilterChip>
+              {TASK_CATEGORIES.filter((c) => byCategory.has(c) || c === category).map((c) => (
                 <FilterChip
-                  key={key}
-                  href={href({ [scopeUrlKey]: key === defaultScope ? undefined : key })}
-                  active={key === scope}
-                  count={counts[key as keyof typeof counts]}
+                  key={c}
+                  href={href({ kategorie: c })}
+                  active={category === c}
+                  count={byCategory.get(c) ?? 0}
                 >
-                  {scopeLabels[key]}
+                  {tTasks(`categories.${c}`)}
                 </FilterChip>
               ))}
-            </nav>
-          )}
-          {viewSwitch}
-        </div>
+            </FilterChips>
+          </FilterGroup>
+        </FilterBar>
         {newTask}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <ChipGroup label={t("filter.category")}>
-          <FilterChip href={href({ kategorie: undefined })} active={category === undefined}>
-            {t("filter.allCategories")}
-          </FilterChip>
-          {TASK_CATEGORIES.filter((c) => byCategory.has(c) || c === category).map((c) => (
-            <FilterChip
-              key={c}
-              href={href({ kategorie: c })}
-              active={category === c}
-              count={byCategory.get(c) ?? 0}
-            >
-              {tTasks(`categories.${c}`)}
-            </FilterChip>
-          ))}
-        </ChipGroup>
-        {!eventMode && (
-          <ChipGroup label={t("horizon.label")}>
-            {(["woche", "14", "alle"] as const).map((key) => (
-              <FilterChip
-                key={key}
-                href={href({ zeitraum: key === "14" ? undefined : key })}
-                active={horizon === key}
-              >
-                {t(`horizon.${key}`)}
-              </FilterChip>
-            ))}
-          </ChipGroup>
-        )}
-        {!eventMode && view === "gruppen" && (
-          <ChipGroup label={t("group.label")}>
-            {(["veranstaltung", "tag"] as const).map((key) => (
-              <FilterChip
-                key={key}
-                href={href({ gruppe: key === "veranstaltung" ? undefined : key })}
-                active={(key === "tag") === (groupBy === "day")}
-              >
-                {t(`group.by.${key}`)}
-              </FilterChip>
-            ))}
-          </ChipGroup>
-        )}
       </div>
 
       {!eventMode && scope === "meine" && !me ? (

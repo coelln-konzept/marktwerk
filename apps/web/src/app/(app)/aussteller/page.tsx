@@ -5,7 +5,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { TagList } from "@/components/people/duty-tags";
 import { VendorVorschau } from "@/components/people/vendor-vorschau";
 import { Page, PageHeader } from "@/components/shell/page";
-import { FilterChip } from "@/components/ui/chip";
+import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
@@ -101,35 +101,39 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
         />
       </form>
 
-      {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls */}
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t("categories")}>
-        <FilterChip
-          href={withFilter({ kategorie: undefined })}
-          active={!category}
-          count={counts.total}
-        >
-          {t("all")}
-        </FilterChip>
-        {VENDOR_CATEGORIES.map((c) => (
-          <FilterChip
-            key={c}
-            href={withFilter({ kategorie: c })}
-            active={category === c}
-            count={counts.byCategory[c] ?? 0}
-          >
-            {tCat(c)}
-          </FilterChip>
-        ))}
-      </div>
-      {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls */}
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t("filters")}>
-        <FilterChip href={withFilter({ stamm: regular ? undefined : 1 })} active={regular}>
-          {t("regular")}
-        </FilterChip>
-        <FilterChip href={withFilter({ auto: car ? undefined : 1 })} active={car}>
-          {t("withCar")}
-        </FilterChip>
-      </div>
+      <FilterBar>
+        <FilterGroup label={t("categories")} wide>
+          <FilterChips>
+            <FilterChip
+              href={withFilter({ kategorie: undefined })}
+              active={!category}
+              count={counts.total}
+            >
+              {t("all")}
+            </FilterChip>
+            {VENDOR_CATEGORIES.map((c) => (
+              <FilterChip
+                key={c}
+                href={withFilter({ kategorie: c })}
+                active={category === c}
+                count={counts.byCategory[c] ?? 0}
+              >
+                {tCat(c)}
+              </FilterChip>
+            ))}
+          </FilterChips>
+        </FilterGroup>
+        <FilterGroup label={t("filters")}>
+          <FilterChips>
+            <FilterChip href={withFilter({ stamm: regular ? undefined : 1 })} active={regular}>
+              {t("regular")}
+            </FilterChip>
+            <FilterChip href={withFilter({ auto: car ? undefined : 1 })} active={car}>
+              {t("withCar")}
+            </FilterChip>
+          </FilterChips>
+        </FilterGroup>
+      </FilterBar>
 
       <Panel className="overflow-hidden">
         {rows.length === 0 ? (
