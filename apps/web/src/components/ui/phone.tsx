@@ -3,7 +3,7 @@ import { Phone } from "lucide-react";
 
 /**
  * Phone number as a tel: link with the readable German grouping ("+49 176 04069381"). Renders
- * `fallback` (dimmed) when there is no number. Shared by Kontakte, Orte, Team and Händler.
+ * `fallback` (dimmed) when there is no number. Shared by Kontakte, Orte, Team and Aussteller.
  */
 export function PhoneLink({
   phone,

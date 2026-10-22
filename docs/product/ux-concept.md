@@ -42,7 +42,7 @@ marktwerk
 ├── Team                      ← hours month grid · shifts per event · month close
 ├── Finanzen                  ← payables & instalments · receipts · event money overview
 ├── Firma                     ← obligations · vehicles · insurances · company documents
-├── Händler                   ← vendor list (read-only import in Phase 1)
+├── Aussteller                 ← vendor list (read-only import in Phase 1)
 ├── Kontakte                  ← authorities, landowners, suppliers, services (own entry, decision 2026-10-21)
 ├── Vorlagen                  ← event presets · timeline templates
 ├── Wissen                    ← knowledge base
@@ -68,7 +68,7 @@ marktwerk
 ```
 - **Sidebar** (232 px, collapsible to an icon rail; `user_preference.sidebar_collapsed`): logo "marktwerk", then
   Übersicht · Kalender · Board · Veranstaltungen · **Orte** · Logbuch (badge count) · Team · Finanzen (badge) · Firma ·
-  Händler · **Kontakte** · Vorlagen · Wissen · Benachrichtigungen (count) · Einstellungen. Orte and Kontakte have their
+  Aussteller · **Kontakte** · Vorlagen · Wissen · Benachrichtigungen (count) · Einstellungen. Orte and Kontakte have their
   own entries (product owner, 2026-10-21; the prototype's sidebar predates this). Entries a role may not read are
   hidden (`can()`). Group **SPÄTER**: Buchungen · Postfach · Inventar,
   disabled with the hint "Phase 2". At the bottom the **profile** (name, role, current theme); it opens the profile menu
@@ -130,7 +130,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Person | `?person=<id>` on `/team`; page `/team/[id]` planned (M4) | Contract, hours history, shifts |
 | Finanzen · Zahlungen | `/finanzen` | Payables with inline instalments, receipts; drawer `?detail=payable:<id>` (M5) |
 | Firma | `/firma` | Obligations, vehicles, insurances, documents (M6) |
-| Händler | `/haendler` | Vendor list (read-only) |
+| Aussteller | `/aussteller` | Vendor list (read-only) |
 | Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`) |
 | Vorlagen | `/vorlagen` | Event presets, timeline templates |
 | Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` (planned, M2) | Timeline template editor (Excel-like grid + timeline ruler) |

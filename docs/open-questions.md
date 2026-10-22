@@ -39,7 +39,7 @@
 | 2026-10-21 (session 2) | Kalender | Company-wide **Kalender** module after Übersicht: Monat (KW) + "Liste · 6 Wochen", layer panel, presets, narrowing, layers saved per person, ⚑ for 4+ events per weekend. M1: events + NRW holidays; other layers per module. Veranstaltungen keeps its own Liste/Kalender toggle |
 | 2026-10-21 (session 2) | Font | **Inter**, self-hosted via `@fontsource-variable/inter` (no Google request at runtime), tabular figures; system `ui-monospace` for kbd hints. Replaces Geist |
 | 2026-10-21 (session 2) | Start screen | **"Übersicht"** (`/`), one for everyone: KPI strip, season strip with hiring signal, Heute fällig, Nächstes Wochenende. **No fixed master-detail** screen. Task detail drawer and season strip restored |
-| 2026-10-21 (session 2) | Sidebar | **Orte and Kontakte: own sidebar entries** (Orte after Veranstaltungen, Kontakte after Händler). Routes `/orte`, `/orte/[id]`, `/kontakte`. The prototype's sidebar does not show them |
+| 2026-10-21 (session 2) | Sidebar | **Orte and Kontakte: own sidebar entries** (Orte after Veranstaltungen, Kontakte after Aussteller). Routes `/orte`, `/orte/[id]`, `/kontakte`. The prototype's sidebar does not show them |
 | 2026-10-21 (session 2) | Platform / shortcuts | The office mainly uses **Windows**: shortcut hints show **Strg+K** (en: Ctrl+K), not ⌘K. Ctrl+K and ⌘K both open the command palette |
 
 ## Open: product owner

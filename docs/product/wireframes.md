@@ -29,7 +29,7 @@ Legend: `⋯` menu · `👁` Vorschau · `›` breadcrumb · ↻n carried over n
 │ ☺ Team           │ 3.410 h geschätzter Aufwand · Platzteam 2.380 h Bedarf · 1.170 h Kapazität               │
 │ € Finanzen     2 │ → ≈ 3,1 Minijobber/Monat zusätzlich                                                      │
 │ ⌂ Firma          │──────────────────────────────────────────────────────────────────────────────────────────│
-│ ☷ Händler        │ HEUTE FÄLLIG   [Alle 12] [Geld 3] [Genehmigungen 2] [Stunden 3] [Aufgaben 4]              │
+│ ☷ Aussteller    │ HEUTE FÄLLIG   [Alle 12] [Geld 3] [Genehmigungen 2] [Stunden 3] [Aufgaben 4]              │
 │ ☎ Kontakte       │ ÜBERFÄLLIG                                                                               │
 │ ⎘ Vorlagen       │ ! 💶 Rate 2/3 Standgebühr Altstadt            6.000 €  seit 2 T            [Bezahlt]     │
 │ ? Wissen         │ ! ▣ Plakatierung Neuss beantragen             Jonas    seit 1 T            [Öffnen]      │

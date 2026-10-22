@@ -11,7 +11,7 @@
     "team": "Team",
     "finance": "Finanzen",
     "company": "Firma",
-    "vendors": "Händler",
+    "vendors": "Aussteller",
     "templates": "Vorlagen",
     "knowledgeBase": "Wissen",
     "notifications": "Benachrichtigungen",
@@ -85,7 +85,7 @@
   },
   "palette": {
     "title": "Suchen und Befehle",
-    "placeholder": "Veranstaltung, Aufgabe, Genehmigung, Zahlung, Fahrzeug, Ort, Person, Händler oder Befehl …",
+    "placeholder": "Veranstaltung, Aufgabe, Genehmigung, Zahlung, Fahrzeug, Ort, Person, Aussteller oder Befehl …",
     "hint": "Mindestens zwei Zeichen eingeben.",
     "searching": "Suche läuft …",
     "empty": "Keine Treffer.",
@@ -101,7 +101,7 @@
       "venue": "Orte",
       "staff": "Personen",
       "contact": "Kontakte",
-      "vendor": "Händler",
+      "vendor": "Aussteller",
       "action": "Aktionen"
     },
     "actions": {

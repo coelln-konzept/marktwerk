@@ -79,7 +79,12 @@ export async function AppSidebar({
       icon: <Building2 />,
       visible: can(r, "company", "read"),
     },
-    { href: "/haendler", label: t("vendors"), icon: <Store />, visible: can(r, "vendor", "read") },
+    {
+      href: "/aussteller",
+      label: t("vendors"),
+      icon: <Store />,
+      visible: can(r, "vendor", "read"),
+    },
     {
       href: "/kontakte",
       label: t("contacts"),

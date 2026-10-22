@@ -231,7 +231,7 @@ export async function searchAs(actor: Actor, locale: string, query: string): Pro
         kind: "vendor",
         title: r.name,
         subtitle: r.city ?? undefined,
-        href: `/haendler?vorschau=${r.id}`,
+        href: `/aussteller?vorschau=${r.id}`,
       });
     }
   }

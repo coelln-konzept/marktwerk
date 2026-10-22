@@ -9,9 +9,9 @@ comes to the event (client's explicit rule, research 05).
 ## People
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
-| Händler / Aussteller | Vendor | `vendor` | Rents a stall at an event. Private or commercial. |
+| Aussteller (earlier client wording: Händler) | Vendor | `vendor` | Rents a stall at an event. Private or commercial. UI-DE says "Aussteller" (client decision, route `/aussteller`). |
 | Besucher | Visitor | `visitor` | Comes to an event. Only relevant for communication (flyers, newsletter, social). |
-| Stammhändler | Regular vendor | `vendor.is_regular` | Comes repeatedly, "family"; follows to new events. |
+| Stammaussteller (Stammhändler) | Regular vendor | `vendor.is_regular` | Comes repeatedly, "family"; follows to new events. |
 | Stammplatz | Usual spot | `regular_spot` | Preferred stall of a regular, a *preference*, not a right. |
 | Mitarbeiter:in | Staff member | `staff_member` | A person who works for the company (office or field). May have no login. |
 | Benutzer:in | User | `user` | Someone with a marktwerk login (linked to a staff member). |
