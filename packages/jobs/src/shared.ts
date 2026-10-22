@@ -1,6 +1,7 @@
-import { renderImmediate } from "@marktwerk/core";
+import { pastEventCutoff, renderImmediate } from "@marktwerk/core";
 import {
   type Database,
+  event,
   notification,
   notificationPreference,
   outboundMessage,
@@ -8,10 +9,19 @@ import {
   staffMember,
   user,
 } from "@marktwerk/db";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, or, type SQL } from "drizzle-orm";
 
 /** Tasks that are still to be done. */
 export const OPEN_TASK_STATUSES = ["todo", "in_progress", "waiting_external", "blocked"] as const;
+
+/**
+ * Tasks of past markets (last day more than 7 days ago) neither remind, escalate nor appear in the digest;
+ * they are left to the cleanup on the Übersicht. Needs the `event` table left-joined on `task.event_id`;
+ * tasks without an event stay.
+ */
+export function notOfPastEvent(today: string): SQL {
+  return or(isNull(event.id), gte(event.endsOn, pastEventCutoff(today))) as SQL;
+}
 
 /** The business date (YYYY-MM-DD) of an instant in the company's time zone. */
 export function berlinDate(instant: Date, timeZone = "Europe/Berlin"): string {

@@ -17,6 +17,7 @@ export * from "./events/health";
 export * from "./events/lifecycle";
 export * from "./events/market-colors";
 export * from "./events/overview";
+export * from "./events/past";
 export * from "./events/preset";
 export * from "./events/rrule";
 export * from "./events/rrule-describe";

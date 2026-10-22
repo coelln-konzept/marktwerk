@@ -26,6 +26,7 @@ import { and, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-o
 import {
   berlinDate,
   escalationRecipients,
+  notOfPastEvent,
   OPEN_TASK_STATUSES,
   queueImmediateEmails,
 } from "./shared";
@@ -119,6 +120,8 @@ async function stageTasks(db: Database, now: Date, today: string, out: Staged[])
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),
+        // Open tasks of markets that are long over are left to the cleanup on the Übersicht.
+        notOfPastEvent(today),
       ),
     );
   for (const t of rows) {
@@ -325,6 +328,8 @@ async function escalate(
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),
+        // Open tasks of markets that are long over are left to the cleanup on the Übersicht.
+        notOfPastEvent(today),
       ),
     );
   for (const t of tasks) {

@@ -8,13 +8,17 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
-import { formatDateRange, formatDateShort, formatHours, formatWeek } from "@/lib/format";
+import { formatDateRange, formatDateShort, formatWeek } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import type { Overview } from "@/server/queries/overview";
 
-const BLOCKER_ROWS = 6;
+const BLOCKER_ROWS = 8;
 
-/** "Dieses Wochenende": one row per event with the four health dimensions and the open effort, plus what holds it up. */
+/**
+ * "Dieses Wochenende", the first block of the Übersicht: one row per market with its readiness (permits,
+ * tasks; team and money while those modules are visible), plus what holds the weekend up. Market names
+ * open the Überblick of the market.
+ */
 export async function WeekendTable({
   weekend,
   next,
@@ -69,7 +73,7 @@ export async function WeekendTable({
         >
           {next && (
             <Link
-              href={`/veranstaltungen/${next.id}/board` as never}
+              href={`/veranstaltungen/${next.id}` as never}
               className="inline-flex min-h-8 items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover"
             >
               {t("openEvent")}
@@ -87,14 +91,11 @@ export async function WeekendTable({
                 <TH className="hidden md:table-cell">{t("cols.tasks")}</TH>
                 {showTeam && <TH>{t("cols.team")}</TH>}
                 {showMoney && <TH className="hidden md:table-cell">{t("cols.money")}</TH>}
-                {isModuleVisible("estimates") && (
-                  <TH className="hidden text-right md:table-cell">{t("cols.effort")}</TH>
-                )}
               </tr>
             </THead>
             <tbody>
               {weekend.rows.map((r) => {
-                const href = `/veranstaltungen/${r.id}/board`;
+                const href = `/veranstaltungen/${r.id}`;
                 const peek = `/?vorschau=${r.id}`;
                 const team = r.health.team;
                 return (
@@ -111,10 +112,8 @@ export async function WeekendTable({
                       <span className="inline-flex items-center gap-2">
                         <MarketMarker color={r.color} typeKey={r.typeKey} />
                         <Link
-                          href={peek as never}
-                          scroll={false}
+                          href={href as never}
                           tabIndex={-1}
-                          aria-label={t("preview", { name: r.name })}
                           className="font-semibold hover:underline"
                         >
                           {r.name}
@@ -127,6 +126,17 @@ export async function WeekendTable({
                         <span className="tabular text-muted-foreground text-small">
                           {formatDateRange(r.startsOn, r.endsOn, locale)}
                         </span>
+                      </div>
+                      {/* Phone: the readiness columns are hidden, so it sits under the name. */}
+                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 md:hidden">
+                        <Health
+                          level={r.health.permits ?? "none"}
+                          label={`${t("cols.permits")}: ${tHealth(r.health.permits ?? "none")}`}
+                        />
+                        <Health
+                          level={r.health.tasks ?? "none"}
+                          label={`${t("cols.tasks")}: ${tHealth(r.health.tasks ?? "none")}`}
+                        />
                       </div>
                     </TD>
                     <TD className="hidden md:table-cell">{cell(r.health.permits)}</TD>
@@ -151,13 +161,6 @@ export async function WeekendTable({
                       </TD>
                     )}
                     {showMoney && <TD className="hidden md:table-cell">{cell(r.health.money)}</TD>}
-                    {isModuleVisible("estimates") && (
-                      <TD className="tabular hidden text-right text-muted-foreground md:table-cell">
-                        {weekend.effortMinutes[r.id]
-                          ? formatHours(weekend.effortMinutes[r.id] as number, locale)
-                          : t("effortNone")}
-                      </TD>
-                    )}
                   </TR>
                 );
               })}
@@ -176,61 +179,50 @@ export async function WeekendTable({
           <p className="m-0 mb-2 text-muted-foreground text-tiny">{t("blockersHint")}</p>
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
             {weekend.blockers.slice(0, BLOCKER_ROWS).map((item) => (
-              <li key={`${item.kind}-${item.id}`} className="flex flex-wrap items-baseline gap-x-2">
-                <HealthShape level={item.urgency === "overdue" ? "critical" : "warn"} />
-                <Link href={item.href as never} className="font-medium hover:underline">
-                  {item.title}
-                </Link>
-                {item.meta &&
-                  (item.metaHref ? (
-                    <Link
-                      href={item.metaHref as never}
-                      className="text-muted-foreground text-small hover:underline"
-                    >
-                      {item.meta}
-                    </Link>
-                  ) : (
-                    <span className="text-muted-foreground text-small">{item.meta}</span>
-                  ))}
-                {item.kind === "permit" && weekend.rows.length > 1 && (
-                  <span className="text-muted-foreground text-small">
-                    {t("blockerFor", { events: item.eventNames.join(", ") })}
+              <li key={`${item.kind}-${item.id}`} className="flex items-baseline gap-2">
+                <HealthShape
+                  level={item.urgency === "overdue" ? "critical" : "warn"}
+                  className="translate-y-0.5"
+                />
+                <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                  <Link href={item.href as never} className="font-medium hover:underline">
+                    {item.title}
+                  </Link>
+                  {item.meta &&
+                    (item.metaHref ? (
+                      <Link
+                        href={item.metaHref as never}
+                        className="text-muted-foreground text-small hover:underline"
+                      >
+                        {item.meta}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground text-small">{item.meta}</span>
+                    ))}
+                  {item.kind === "permit" && weekend.rows.length > 1 && (
+                    <span className="text-muted-foreground text-small">
+                      {t("blockerFor", { events: item.eventNames.join(", ") })}
+                    </span>
+                  )}
+                  <span className="tabular text-muted-foreground text-small">
+                    {formatDateShort(item.dueOn, locale)}
                   </span>
-                )}
-                <span className="tabular text-muted-foreground text-small">
-                  {formatDateShort(item.dueOn, locale)}
                 </span>
               </li>
             ))}
           </ul>
+          {weekend.blockers.length > BLOCKER_ROWS && (
+            <p className="m-0 mt-1.5 text-muted-foreground text-small">
+              {t("blockersMore", { count: weekend.blockers.length - BLOCKER_ROWS })}
+            </p>
+          )}
         </section>
       )}
       {weekend.rows.length > 0 && (
-        <PanelFooter className="justify-between text-muted-foreground text-tiny">
-          <span className="inline-flex flex-wrap items-center gap-x-4 gap-y-1">
-            <LegendItem level="ok" label={tHealth("ok")} />
-            <LegendItem level="warn" label={tHealth("warn")} />
-            <LegendItem level="critical" label={tHealth("critical")} />
-            <LegendItem level="none" label={tHealth("none")} />
-          </span>
-          <span>{t("legendNote")}</span>
+        <PanelFooter className="hidden text-muted-foreground text-tiny md:flex">
+          {t("keys")}
         </PanelFooter>
       )}
     </Panel>
-  );
-}
-
-function LegendItem({
-  level,
-  label,
-}: {
-  level: "ok" | "warn" | "critical" | "none";
-  label: string;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <HealthShape level={level} />
-      {label}
-    </span>
   );
 }

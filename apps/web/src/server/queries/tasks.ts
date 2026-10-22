@@ -18,6 +18,7 @@ import {
   mondayOf,
   monthlyCapacityHours,
   OPEN_STATUSES,
+  pastEventCutoff,
   resolveRelativeDue,
   type TaskStatusKey,
   taskHealth,
@@ -56,7 +57,7 @@ import {
 } from "drizzle-orm";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
-import { visibleTasks } from "../task-scope";
+import { deadlineScope, notOfPastEvent, visibleTasks } from "../task-scope";
 import { type DocumentRow, listLinkedDocuments } from "./documents";
 import type { CalendarItem, DueItem } from "./due";
 
@@ -108,7 +109,10 @@ export type BoardTask = {
 };
 
 export type BoardScope = {
-  /** One event's board; omitted = across all events (and tasks without one). */
+  /**
+   * One event's board (shows all of its tasks); omitted = across all events (and tasks without one), where
+   * tasks of past markets are left out (see `notOfPastEvent`).
+   */
   eventId?: string;
   /**
    * Open tasks due later than this many days from today are left out (the cross-event board would
@@ -180,7 +184,7 @@ export async function listBoardTasks(
     .where(
       and(
         visibleTasks(actor),
-        scope.eventId ? eq(task.eventId, scope.eventId) : undefined,
+        scope.eventId ? eq(task.eventId, scope.eventId) : notOfPastEvent(today),
         or(
           and(
             inArray(task.status, OPEN),
@@ -326,7 +330,9 @@ export async function getPeopleRail(
         and(
           visibleTasks(actor),
           inArray(task.status, OPEN),
-          scope.eventId && UUID.test(scope.eventId) ? eq(task.eventId, scope.eventId) : undefined,
+          scope.eventId && UUID.test(scope.eventId)
+            ? eq(task.eventId, scope.eventId)
+            : notOfPastEvent(today),
         ),
       )
       .groupBy(task.assigneeId),
@@ -340,6 +346,7 @@ export async function getPeopleRail(
         and(
           visibleTasks(actor),
           inArray(task.status, OPEN),
+          notOfPastEvent(today),
           isNotNull(task.assigneeId),
           isNotNull(task.dueAt),
           lt(task.dueAt, weekEnd),
@@ -436,6 +443,7 @@ export async function getWorkload(actor: Actor, today: string, count = 8): Promi
         and(
           visibleTasks(actor),
           inArray(task.status, OPEN),
+          notOfPastEvent(today),
           isNotNull(task.dueAt),
           lt(task.dueAt, windowEnd),
         ),
@@ -448,7 +456,14 @@ export async function getWorkload(actor: Actor, today: string, count = 8): Promi
     db
       .select({ n: sql<number>`count(*)::int` })
       .from(task)
-      .where(and(visibleTasks(actor), inArray(task.status, OPEN), isNull(task.dueAt))),
+      .where(
+        and(
+          visibleTasks(actor),
+          inArray(task.status, OPEN),
+          notOfPastEvent(today),
+          isNull(task.dueAt),
+        ),
+      ),
   ]);
   const contracts = await contractsOf(staff.map((s) => s.id));
 
@@ -773,16 +788,6 @@ export async function getTaskDetail(
 // ---------------------------------------------------------------------------------------------
 // Übersicht + Kalender feeds (shapes in ./due)
 
-/**
- * Whose tasks the Übersicht and the Kalender show: owners and managers see all visible tasks, everybody
- * else their own (the Kalender narrows further with "Nur meine Zuständigkeit").
- */
-function deadlineScope(actor: Actor, mineOnly = false): SQL {
-  if (!mineOnly && (actor.role === "owner" || actor.role === "manager")) return visibleTasks(actor);
-  if (!actor.staffMemberId) return sql`false`;
-  return and(visibleTasks(actor), eq(task.assigneeId, actor.staffMemberId)) as SQL;
-}
-
 const DUE_LIMIT = 300;
 
 /** Open and overdue tasks in the actor's Übersicht scope (KPI "Offene Aufgaben"). */
@@ -797,8 +802,60 @@ export async function openTaskCounts(
       overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart}))::int`,
     })
     .from(task)
-    .where(and(deadlineScope(actor), inArray(task.status, OPEN), notSnoozed(today)));
+    .where(
+      and(
+        deadlineScope(actor),
+        inArray(task.status, OPEN),
+        notSnoozed(today),
+        notOfPastEvent(today),
+      ),
+    );
   return { open: row?.open ?? 0, overdue: row?.overdue ?? 0 };
+}
+
+export type PastEventCleanupRow = {
+  id: string;
+  name: string;
+  startsOn: string;
+  endsOn: string;
+  typeKey: string;
+  color: string | null;
+  openTasks: number;
+};
+
+/**
+ * Past markets (last day more than 7 days ago) that still have open tasks, newest first, with their open
+ * task counts: the cleanup view on the Übersicht. Snoozed tasks count too; nothing hides there.
+ */
+export async function pastEventCleanup(
+  actor: Actor,
+  today: string,
+): Promise<{ events: PastEventCleanupRow[]; total: number }> {
+  const openTasks = sql<number>`count(${task.id})::int`;
+  const events = await db
+    .select({
+      id: event.id,
+      name: event.name,
+      startsOn: event.startsOn,
+      endsOn: event.endsOn,
+      typeKey: eventType.key,
+      color: eventPreset.color,
+      openTasks,
+    })
+    .from(task)
+    .innerJoin(event, eq(event.id, task.eventId))
+    .innerJoin(eventType, eq(eventType.id, event.eventTypeId))
+    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
+    .where(
+      and(
+        deadlineScope(actor),
+        inArray(task.status, OPEN),
+        lt(event.endsOn, pastEventCutoff(today)),
+      ),
+    )
+    .groupBy(event.id, eventType.key, eventPreset.color)
+    .orderBy(desc(event.endsOn), asc(event.name));
+  return { events, total: events.reduce((sum, e) => sum + e.openTasks, 0) };
 }
 
 /** Estimated minutes of the open tasks per event (column "Aufwand" of the weekend table). */
@@ -844,6 +901,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
         deadlineScope(actor),
         inArray(task.status, OPEN),
         notSnoozed(today),
+        notOfPastEvent(today),
         isNotNull(task.dueAt),
         lt(task.dueAt, until),
       ),
@@ -865,7 +923,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
             : ("soon" as const),
       href: taskLink(r.id, r.eventId),
       meta: r.eventName ?? undefined,
-      metaHref: r.eventId ? `/veranstaltungen/${r.eventId}/board` : undefined,
+      metaHref: r.eventId ? `/veranstaltungen/${r.eventId}` : undefined,
       eventId: r.eventId,
       eventTypeKey: r.eventTypeKey,
       eventColor: r.eventColor,
@@ -897,6 +955,7 @@ export async function calendarItems(
         deadlineScope(actor, mineOnly),
         inArray(task.status, OPEN),
         notSnoozed(today),
+        notOfPastEvent(today),
         isNotNull(task.dueAt),
         gte(task.dueAt, start),
         lt(task.dueAt, end),

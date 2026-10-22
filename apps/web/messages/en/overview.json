@@ -7,66 +7,20 @@
     },
     "kpi": {
       "label": "Key figures",
-      "weekend": "This weekend",
-      "weekendHint": "{count, plural, one {event} other {events}} · {inPlan} on track",
-      "weekendHintNone": "{count, plural, one {event} other {events}}",
-      "withoutPermit": "Without permit",
-      "withoutPermitHint": "not confirmed yet",
-      "dueByWeekend": "Due by Sunday",
-      "dueByWeekendHint": "excluding overdue",
-      "overdue": "Overdue",
-      "overdueHint": "across all areas",
-      "moneyOverdue": "Money overdue",
-      "moneyOverdueHint": "{amount} open",
-      "moneyOverdueNone": "no instalment overdue",
-      "openTasks": "Open tasks",
-      "openTasksHint": "{overdue} overdue",
-      "openTasksNone": "nothing overdue"
-    },
-    "season": {
-      "label": "Season",
-      "title": "Season {year} · {from}–{to}",
-      "titleEmpty": "Season {year}",
-      "count": "{count, plural, one {# event} other {# events}}",
-      "empty": "No events have been created for this season yet.",
-      "next": "Season {year}: {count} planned",
-      "months": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
-      "types": {
-        "flea": "Flea markets",
-        "antique": "Antique markets",
-        "city_festival": "City festivals",
-        "food_wine": "Food & Wine"
-      },
-      "effort": "{hours} h estimated effort",
-      "capacity": "{hours} h capacity",
-      "noEstimates": "No time estimates on tasks yet.",
-      "hiring": "≈ {n} additional Minijobbers/month",
-      "hiringPeak": "peak: {n}",
-      "hiringNone": "Capacity covers the estimated tasks",
-      "hiringHint": "Assumption: one additional Minijob worker delivers {hours} h a month. Demand = the tasks' time estimates, capacity = contracts of active team members."
+      "dueToday": "Due today",
+      "overdue": "Overdue"
     },
     "due": {
       "title": "Due today",
-      "subtitle": "by urgency: Overdue · Today · This week · Upcoming permits",
-      "filters": "Filter",
-      "filter": {
-        "all": "All",
-        "money": "Money",
-        "permits": "Permits",
-        "hours": "Hours",
-        "tasks": "Tasks",
-        "company": "Company"
-      },
+      "subtitle": "by urgency, grouped by market",
       "emptyTitle": "Nothing is due.",
-      "emptyHint": "Anything overdue, due today or within the next 7 days from permits, instalments, tasks, hours and obligations shows up here. Permits show up earlier (set under Settings → Company).",
+      "emptyHint": "Anything overdue, due today or within the next 7 days from permits, tasks and obligations shows up here. Permits show up earlier (set under Settings → Company).",
       "groups": {
         "overdue": "Overdue",
         "today": "Today",
         "soon": "This week",
         "upcoming": "Upcoming permits"
       },
-      "emptyFilter": "Nothing is due for this filter.",
-      "emptyFilterReset": "Show all",
       "open": "Open",
       "openItem": "Open: {title}",
       "showAll": "Show all {count}",
@@ -90,7 +44,9 @@
         "soon": "Due soon",
         "upcoming": "Due later"
       },
-      "eventCount": "{count, plural, one {# due} other {# due}}"
+      "eventCount": "{count, plural, one {# due} other {# due}}",
+      "keyTask": "Key task – a task every market needs",
+      "more": "+ {count} more"
     },
     "weekend": {
       "title": "This weekend",
@@ -102,20 +58,36 @@
         "permits": "Permits",
         "tasks": "Tasks",
         "team": "Team",
-        "money": "Money",
-        "effort": "Effort"
+        "money": "Money"
       },
       "empty": "Nothing is planned for this weekend.",
       "emptyNext": "Next event: {name}, {date}.",
       "emptyNone": "No further events have been created.",
       "openEvent": "View event",
-      "preview": "Preview: {name}",
-      "legendNote": "Effort = estimated time of the open tasks.",
       "keys": "Space: preview · Enter: open · J/K: next/previous row",
       "blockersTitle": "What is holding the weekend up",
       "blockersHint": "Open tasks and missing permits of these events, most urgent first.",
       "blockerFor": "for {events}",
-      "effortNone": "–"
+      "blockersMore": "+ {count} more"
+    },
+    "cleanup": {
+      "line": "{count, plural, one {# open task} other {# open tasks}} from past markets",
+      "action": "Clean up",
+      "kind": "Clean up",
+      "title": "Open tasks from past markets",
+      "intro": "These markets ended more than 7 days ago. Their open tasks no longer show in Overview, Board and Calendar. Skipping marks them as skipped; Undo restores them.",
+      "summary": "{tasks, plural, one {# open task} other {# open tasks}} in {markets, plural, one {# market} other {# markets}}",
+      "open": "{count} open",
+      "skip": "Skip",
+      "skipOne": "Skip the open tasks of {name}",
+      "skipAll": "Skip all",
+      "skipped": "{count, plural, one {# task skipped} other {# tasks skipped}}",
+      "undo": "Undo",
+      "reverted": "Undone",
+      "undoFailed": "Undo is no longer possible, a task has changed since.",
+      "nothingToSkip": "Nothing is open here any more.",
+      "error": "That did not work. Please try again.",
+      "empty": "All tidy. Nothing is open from past markets."
     }
   }
 }

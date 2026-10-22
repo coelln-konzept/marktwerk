@@ -7,66 +7,20 @@
     },
     "kpi": {
       "label": "Kennzahlen",
-      "weekend": "Dieses Wochenende",
-      "weekendHint": "{count, plural, one {Veranstaltung} other {Veranstaltungen}} · {inPlan} im Plan",
-      "weekendHintNone": "{count, plural, one {Veranstaltung} other {Veranstaltungen}}",
-      "withoutPermit": "Ohne Genehmigung",
-      "withoutPermitHint": "noch nicht bestätigt",
-      "dueByWeekend": "Fällig bis Sonntag",
-      "dueByWeekendHint": "ohne Überfälliges",
-      "overdue": "Überfällig",
-      "overdueHint": "über alle Bereiche",
-      "moneyOverdue": "Geld überfällig",
-      "moneyOverdueHint": "{amount} offen",
-      "moneyOverdueNone": "keine Rate überfällig",
-      "openTasks": "Offene Aufgaben",
-      "openTasksHint": "{overdue} überfällig",
-      "openTasksNone": "nichts überfällig"
-    },
-    "season": {
-      "label": "Saison",
-      "title": "Saison {year} · {from}–{to}",
-      "titleEmpty": "Saison {year}",
-      "count": "{count, plural, one {# Veranstaltung} other {# Veranstaltungen}}",
-      "empty": "In dieser Saison sind noch keine Veranstaltungen angelegt.",
-      "next": "Saison {year}: {count} geplant",
-      "months": "Jan,Feb,Mär,Apr,Mai,Jun,Jul,Aug,Sep,Okt,Nov,Dez",
-      "types": {
-        "flea": "Flohmärkte",
-        "antique": "Antikmärkte",
-        "city_festival": "Stadtfeste",
-        "food_wine": "Food & Wine"
-      },
-      "effort": "{hours} h geschätzter Aufwand",
-      "capacity": "{hours} h Kapazität",
-      "noEstimates": "Noch keine Zeitschätzungen an den Aufgaben.",
-      "hiring": "≈ {n} Minijobber/Monat zusätzlich",
-      "hiringPeak": "Spitze: {n}",
-      "hiringNone": "Kapazität reicht für die geschätzten Aufgaben",
-      "hiringHint": "Annahme: eine zusätzliche Minijob-Kraft leistet {hours} h im Monat. Bedarf = Zeitschätzungen der Aufgaben, Kapazität = Verträge der aktiven Teammitglieder."
+      "dueToday": "Heute fällig",
+      "overdue": "Überfällig"
     },
     "due": {
       "title": "Heute fällig",
-      "subtitle": "nach Dringlichkeit: Überfällig · Heute · Diese Woche · Genehmigungen demnächst",
-      "filters": "Filter",
-      "filter": {
-        "all": "Alle",
-        "money": "Geld",
-        "permits": "Genehmigungen",
-        "hours": "Stunden",
-        "tasks": "Aufgaben",
-        "company": "Firma"
-      },
+      "subtitle": "nach Dringlichkeit, je Markt gebündelt",
       "emptyTitle": "Nichts fällig.",
-      "emptyHint": "Überfälliges, Heutiges und alles der nächsten 7 Tage aus Genehmigungen, Raten, Aufgaben, Stunden und Pflichten erscheint hier. Genehmigungen kommen früher dazu (einstellbar unter Einstellungen → Firma).",
+      "emptyHint": "Überfälliges, Heutiges und alles der nächsten 7 Tage aus Genehmigungen, Aufgaben und Pflichten erscheint hier. Genehmigungen kommen früher dazu (einstellbar unter Einstellungen → Firma).",
       "groups": {
         "overdue": "Überfällig",
         "today": "Heute",
         "soon": "Diese Woche",
         "upcoming": "Genehmigungen demnächst"
       },
-      "emptyFilter": "Für diesen Filter ist nichts fällig.",
-      "emptyFilterReset": "Alle anzeigen",
       "open": "Öffnen",
       "openItem": "Öffnen: {title}",
       "showAll": "Alle {count} anzeigen",
@@ -90,7 +44,9 @@
         "soon": "Bald fällig",
         "upcoming": "Demnächst fällig"
       },
-      "eventCount": "{count, plural, one {# fällig} other {# fällig}}"
+      "eventCount": "{count, plural, one {# fällig} other {# fällig}}",
+      "keyTask": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",
+      "more": "+ {count} weitere"
     },
     "weekend": {
       "title": "Dieses Wochenende",
@@ -102,20 +58,36 @@
         "permits": "Genehmigungen",
         "tasks": "Aufgaben",
         "team": "Team",
-        "money": "Geld",
-        "effort": "Aufwand"
+        "money": "Geld"
       },
       "empty": "An diesem Wochenende ist nichts geplant.",
       "emptyNext": "Nächste Veranstaltung: {name}, {date}.",
       "emptyNone": "Es sind keine weiteren Veranstaltungen angelegt.",
       "openEvent": "Veranstaltung ansehen",
-      "preview": "Vorschau: {name}",
-      "legendNote": "Aufwand = geschätzte Zeit der offenen Aufgaben.",
       "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
       "blockersTitle": "Was das Wochenende aufhält",
       "blockersHint": "Offene Aufgaben und fehlende Genehmigungen dieser Veranstaltungen, dringendste zuerst.",
       "blockerFor": "für {events}",
-      "effortNone": "–"
+      "blockersMore": "+ {count} weitere"
+    },
+    "cleanup": {
+      "line": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}} aus vergangenen Märkten",
+      "action": "Aufräumen",
+      "kind": "Aufräumen",
+      "title": "Offene Aufgaben aus vergangenen Märkten",
+      "intro": "Diese Märkte sind länger als 7 Tage vorbei. Ihre offenen Aufgaben stehen nicht mehr in Übersicht, Board und Kalender. Überspringen setzt sie auf „Übersprungen“; Rückgängig stellt sie wieder her.",
+      "summary": "{tasks, plural, one {# offene Aufgabe} other {# offene Aufgaben}} in {markets, plural, one {# Markt} other {# Märkten}}",
+      "open": "{count} offen",
+      "skip": "Überspringen",
+      "skipOne": "Offene Aufgaben von {name} überspringen",
+      "skipAll": "Alle überspringen",
+      "skipped": "{count, plural, one {# Aufgabe übersprungen} other {# Aufgaben übersprungen}}",
+      "undo": "Rückgängig",
+      "reverted": "Rückgängig gemacht",
+      "undoFailed": "Rückgängig ist nicht mehr möglich, eine Aufgabe wurde inzwischen geändert.",
+      "nothingToSkip": "Hier ist nichts mehr offen.",
+      "error": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "empty": "Alles aufgeräumt. Aus vergangenen Märkten ist nichts mehr offen."
     }
   }
 }

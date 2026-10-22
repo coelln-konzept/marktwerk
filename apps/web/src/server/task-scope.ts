@@ -1,6 +1,7 @@
 import "server-only";
+import { pastEventCutoff } from "@marktwerk/core";
 import { event, task } from "@marktwerk/db/schema";
-import { and, eq, exists, isNull, or, type SQL, sql } from "drizzle-orm";
+import { and, eq, exists, gte, isNull, or, type SQL, sql } from "drizzle-orm";
 import { type Actor, visibleEvents } from "./actor";
 import { db } from "./db";
 
@@ -22,4 +23,31 @@ export function visibleTasks(actor: Actor): SQL {
     eventVisible,
     and(isNull(task.eventId), eq(task.assigneeId, actor.staffMemberId)),
   ) as SQL;
+}
+
+/**
+ * Tasks of past markets stay out of every cross-market list and KPI (Übersicht, Board, Kalender): tasks
+ * without an event and tasks of an event whose last day is at most 7 days ago (`pastEventCutoff`) stay.
+ * Do not apply this to an event's own board or Überblick; the event page shows all of its tasks.
+ */
+export function notOfPastEvent(today: string): SQL {
+  return or(
+    isNull(task.eventId),
+    exists(
+      db
+        .select({ one: event.id })
+        .from(event)
+        .where(and(eq(event.id, task.eventId), gte(event.endsOn, pastEventCutoff(today)))),
+    ),
+  ) as SQL;
+}
+
+/**
+ * Whose tasks the Übersicht and the Kalender show: owners and managers see all visible tasks, everybody
+ * else their own (the Kalender narrows further with "Nur meine Zuständigkeit").
+ */
+export function deadlineScope(actor: Actor, mineOnly = false): SQL {
+  if (!mineOnly && (actor.role === "owner" || actor.role === "manager")) return visibleTasks(actor);
+  if (!actor.staffMemberId) return sql`false`;
+  return and(visibleTasks(actor), eq(task.assigneeId, actor.staffMemberId)) as SQL;
 }

@@ -1,5 +1,5 @@
 import "server-only";
-import { can, countByDueFilter, type DueFilter, overallHealth, rankDue } from "@marktwerk/core";
+import { rankDue } from "@marktwerk/core";
 import { upcomingWeekend } from "@marktwerk/core/dates/weekend";
 import { dutyRole } from "@marktwerk/db/schema";
 import { count } from "drizzle-orm";
@@ -8,42 +8,25 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import * as company from "./company";
 import type { DueItem } from "./due";
-import { type EventRow, listEvents, listEventTypes } from "./events";
+import { type EventRow, listEvents } from "./events";
 import * as finance from "./finance";
 import * as hours from "./hours";
 import * as permits from "./permits";
 import * as tasks from "./tasks";
 
-export type SeasonSummary = {
-  year: number;
-  count: number;
-  /** Month numbers (1–12) of the first and last event, null without events. */
-  firstMonth: number | null;
-  lastMonth: number | null;
-  byType: { key: string; nameDe: string; nameEn: string; n: number }[];
-};
-
-/** "Heute fällig": every module's due items in display order, plus the number behind each chip. */
+/** "Heute fällig": every module's due items in display order. Tasks of past markets are not in it. */
 export type OverviewDue = {
   items: DueItem[];
-  counts: Record<DueFilter, number>;
 };
 
 export type WeekendBlocker = DueItem & { eventNames: string[] };
 
 export type Overview = {
-  season: SeasonSummary;
-  /** Estimated effort against capacity and the hiring signal. Null for roles that do not plan the team. */
-  workload: tasks.SeasonWorkload | null;
-  /** Next season's planned events, only once the current season is (almost) over. */
-  nextSeason: { year: number; count: number } | null;
   weekend: {
     saturday: string;
     sunday: string;
     rows: EventRow[];
     duties: number;
-    /** Estimated minutes of open tasks per event. */
-    effortMinutes: Record<string, number>;
     /**
      * Due items of the weekend's events ("Was das Wochenende aufhält"), most urgent first: open tasks of the
      * event and permits it needs, each with the weekend events it holds up.
@@ -52,25 +35,16 @@ export type Overview = {
   };
   nextAfterWeekend: EventRow | null;
   due: OverviewDue;
+  /** Two numbers next to the greeting; both count the "Heute fällig" list, so current markets only. */
   kpis: {
-    weekendCount: number;
-    weekendInPlan: number;
-    weekendTracked: number;
+    /** Due items (all modules) due today. */
+    dueToday: number;
     /** Due items (all modules) that are overdue. */
     overdue: number;
-    /** Not overdue, but due by the coming Sunday. */
-    dueByWeekend: number;
-    openTasks: number;
-    overdueTasks: number;
-    /** Null for roles without `finance:read`. */
-    moneyOverdue: { count: number; cents: number } | null;
-    /** Upcoming planned events whose required permits are not all granted yet. */
-    withoutPermit: number;
   };
+  /** Open tasks of markets that ended more than 7 days ago (in none of the lists above): the "Aufräumen" line. */
+  pastMarketTasks: number;
 };
-
-/** The season is "almost over" when at most this share of its events is still ahead. */
-const SEASON_OVER_SHARE = 0.1;
 
 /** The due items that belong to a weekend event (a task's event, or any event a permit is required for). */
 function weekendBlockers(items: DueItem[], rows: EventRow[]): WeekendBlocker[] {
@@ -102,86 +76,40 @@ export async function listDueItems(
 
 /**
  * Everything the Übersicht shows. Each part honours the actor's permissions and field scope. `hide` leaves
- * out the modules hidden in the UI (lib/modules.ts): no money/hours items, no money KPI, no workload
- * signal, and no team/money health dimension.
+ * out the modules hidden in the UI (lib/modules.ts): no money/hours items and no team/money health
+ * dimension.
  */
 export async function getOverview(
   actor: Actor,
   today: string,
   hide: ModuleHide = {},
 ): Promise<Overview> {
-  const year = Number(today.slice(0, 4));
   const { saturday, sunday } = upcomingWeekend(today);
-  const canMoney = !hide.finance && can(actor.role, "finance", "read");
-  const [all, types, [roles], dueItems, taskCounts, money, workload] = await Promise.all([
+  const [all, [roles], dueItems, past] = await Promise.all([
     listEvents(actor, {}).then((rows) =>
       rows.map((r) => ({ ...r, health: maskHealth(r.health, hide) })),
     ),
-    listEventTypes(),
     db.select({ n: count() }).from(dutyRole),
     listDueItems(actor, today, hide),
-    tasks.openTaskCounts(actor, today),
-    canMoney ? finance.moneyOverdue(actor, today) : Promise.resolve(null),
-    !hide.team && can(actor.role, "team", "read")
-      ? tasks.seasonWorkload(actor, year)
-      : Promise.resolve(null),
+    tasks.pastEventCleanup(actor, today),
   ]);
   const active = all.filter((e) => e.status !== "cancelled");
-
-  const inSeason = active.filter((e) => e.season === year);
-  const byType = types
-    .map((t) => ({
-      key: t.key,
-      nameDe: t.nameDe,
-      nameEn: t.nameEn,
-      n: inSeason.filter((e) => e.typeKey === t.key).length,
-    }))
-    .filter((t) => t.n > 0);
-  const months = inSeason.map((e) => Number(e.startsOn.slice(5, 7)));
-  const upcomingInSeason = inSeason.filter((e) => e.endsOn >= today).length;
-  const nextCount = active.filter((e) => e.season === year + 1).length;
-  const over = inSeason.length === 0 || upcomingInSeason / inSeason.length <= SEASON_OVER_SHARE;
-
   const weekendRows = active.filter((e) => e.startsOn <= sunday && e.endsOn >= saturday);
-  const tracked = weekendRows.filter((e) => overallHealth(e.health) !== null);
-  const weekendIds = new Set(weekendRows.map((e) => e.id));
-  const effort = await tasks.openEffortByEvent(actor, [...weekendIds]);
 
   return {
-    season: {
-      year,
-      count: inSeason.length,
-      firstMonth: months.length ? Math.min(...months) : null,
-      lastMonth: months.length ? Math.max(...months) : null,
-      byType,
-    },
-    workload,
-    nextSeason: over && nextCount > 0 ? { year: year + 1, count: nextCount } : null,
     weekend: {
       saturday,
       sunday,
       rows: weekendRows,
       duties: roles?.n ?? 0,
-      effortMinutes: Object.fromEntries(effort),
       blockers: weekendBlockers(dueItems, weekendRows),
     },
     nextAfterWeekend: active.find((e) => e.startsOn > sunday) ?? null,
-    due: { items: dueItems, counts: countByDueFilter(dueItems) },
+    due: { items: dueItems },
     kpis: {
-      weekendCount: weekendRows.length,
-      weekendTracked: tracked.length,
-      weekendInPlan: tracked.filter((e) => overallHealth(e.health) === "ok").length,
+      dueToday: dueItems.filter((i) => i.urgency === "today").length,
       overdue: dueItems.filter((i) => i.urgency === "overdue").length,
-      dueByWeekend: dueItems.filter((i) => i.urgency !== "overdue" && i.dueOn <= sunday).length,
-      openTasks: taskCounts.open,
-      overdueTasks: taskCounts.overdue,
-      moneyOverdue: money,
-      withoutPermit: all.filter(
-        (e) =>
-          e.status === "planned" &&
-          e.endsOn >= today &&
-          (e.health.permits === "warn" || e.health.permits === "critical"),
-      ).length,
     },
+    pastMarketTasks: past.total,
   };
 }
