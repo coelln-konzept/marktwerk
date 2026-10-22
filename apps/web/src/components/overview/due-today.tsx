@@ -249,7 +249,7 @@ export async function DueToday({
                         key={`event-${cluster.event.id}`}
                         className="border-border-subtle border-b"
                       >
-                        <div className="flex items-center gap-2 px-4 pt-2.5 pb-1 text-small">
+                        <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-body">
                           <EventTypeMarker typeKey={cluster.event.typeKey} />
                           <Link
                             href={cluster.event.href as never}

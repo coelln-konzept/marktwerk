@@ -56,6 +56,9 @@
 | 2026-10-22 (product owner) | Event Überblick | Top to bottom: status line (days until the market, tasks done, permits granted) → **Was fehlt** (overdue, blocked and next-7-days tasks + missing permits, key tasks first, quick done/snooze) → **Kernaufgaben** checklist → next dates (compact Termine & Fristen) → Eckdaten and type rules collapsed. The separate "Zustand" panel goes |
 | 2026-10-22 (product owner) | Board views | **Bereitschaftsliste** (one row per market: date, progress, what's missing, next deadline) is the **default**; **Kernaufgaben-Matrix** (markets × key tasks) as a second view; Spalten (kanban) stays for working on single tasks |
 | 2026-10-22 (product owner) | Declutter | After the feedback items, one pass over the whole app: start minimal, hide/merge redundant elements, then make things visible one by one |
+| 2026-10-22 (product owner) | Telling markets apart | First **structure and type size**: each market group in its own container with a larger heading. Then a **colour per market** (on the preset, so every date of a market shares it), auto-assigned from a muted palette that avoids the status colours, editable, shown only as a thin bar/marker next to the name (never as a background, never the only cue). Event-type colours stay for filters and legends |
+| 2026-10-22 (product owner) | Time estimates | **Hidden for now** (`estimates` flag in `apps/web/src/lib/modules.ts`): cards, board sums, weekend effort, drawer estimate and effort feedback, template editor. Data stays; back with team allocation |
+| 2026-10-22 (product owner) | For the declutter pass | The carried-over badge (↻) on cards; open tasks of events that are long over (close automatically or drop out of the lists) |
 | 2026-10-22 (client feedback) | Postponed | Aussteller data-collection companion; weekly report email; finance; staff assignment and staff emails; website publishing |
 
 ## Open: product owner

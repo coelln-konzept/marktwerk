@@ -76,13 +76,17 @@ export function GroupedCards({
   }, [tasks, groupBy, today, t, locale]);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {groups.map((group) => {
         const hours = group.cards.reduce((n, c) => n + c.estimateMinutes, 0) / 60;
         return (
-          <section key={group.key} aria-label={group.label} className="flex flex-col gap-2">
-            <h3 className="flex items-center gap-2 font-semibold text-small">
-              <EventTypeMarker typeKey={group.typeKey} />
+          <section
+            key={group.key}
+            aria-label={group.label}
+            className="flex flex-col gap-3 rounded-xl border border-border bg-sunken p-3 sm:p-4"
+          >
+            <h3 className="flex items-center gap-2.5 font-semibold text-base leading-tight">
+              <EventTypeMarker typeKey={group.typeKey} className="size-3" />
               {group.href ? (
                 <Link href={group.href as never} className="hover:underline">
                   {group.label}
