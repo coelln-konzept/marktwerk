@@ -5,9 +5,10 @@
  * default and documented here):
  *   1. urgency: overdue, then today, then soon (within 7 days), then upcoming (permits only: further out
  *      than a week but inside the company's permit horizon, shown as "Genehmigungen demnächst");
- *   2. within an urgency group, by kind: Genehmigungen > Raten (Geld) > Aufgaben > Stunden > Pflichten
+ *   2. within an urgency group, Kernaufgaben (`isKey`, manual flag) come first;
+ *   3. then by kind: Genehmigungen > Raten (Geld) > Aufgaben > Stunden > Pflichten
  *      (a missed permit or a late payment costs money or the event; an open task rarely does);
- *   3. then the oldest due date first, then the title (stable, alphabetical).
+ *   4. then the oldest due date first, then the title (stable, alphabetical).
  */
 
 export type RankableDueKind = "task" | "permit" | "installment" | "hours" | "obligation";
@@ -34,11 +35,14 @@ export type Rankable = {
   urgency: RankableUrgency;
   dueOn: string;
   title: string;
+  /** Kernaufgabe: goes first within its urgency group. */
+  isKey?: boolean;
 };
 
 export function compareDue(a: Rankable, b: Rankable): number {
   return (
     URGENCY_PRIORITY[a.urgency] - URGENCY_PRIORITY[b.urgency] ||
+    Number(b.isKey === true) - Number(a.isKey === true) ||
     DUE_KIND_PRIORITY[a.kind] - DUE_KIND_PRIORITY[b.kind] ||
     a.dueOn.localeCompare(b.dueOn) ||
     a.title.localeCompare(b.title, "de")

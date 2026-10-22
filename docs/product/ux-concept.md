@@ -35,7 +35,7 @@ marktwerk
 ├── Übersicht                 ← start screen for everyone (KPIs, season, Heute fällig, Dieses Wochenende)
 ├── Kalender                  ← company-wide calendar with layers (events, deadlines, shifts, holidays)
 ├── Board                     ← tasks across events (kanban, nach Person, Arbeitslast)
-├── Veranstaltungen           ← list · calendar · "Aus Vorlage erzeugen"
+├── Veranstaltungen           ← list · calendar · "Markt planen"
 │   └── Veranstaltung         ← tabs: Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf
 ├── Orte                      ← venues with zones/rows and location agreements (own entry, decision 2026-10-21)
 ├── Logbuch                   ← permit matrix (locations × permit types) · Zeitstrahl
@@ -44,9 +44,8 @@ marktwerk
 ├── Firma                     ← obligations · vehicles · insurances · company documents
 ├── Aussteller                 ← vendor list (read-only import in Phase 1)
 ├── Kontakte                  ← authorities, landowners, suppliers, services (own entry, decision 2026-10-21)
-├── Vorlagen                  ← event presets · timeline templates
 ├── Wissen                    ← knowledge base
-├── Benachrichtigungen · Einstellungen
+├── Benachrichtigungen · Einstellungen  ← Firma · Benutzer & Rollen · Rechtliche Werte · **Bibliothek** (Grundvorlage · Märkte · weitere Ablaufvorlagen)
 ├── SPÄTER (disabled, "Phase 2"): Buchungen · Postfach · Inventar
 └── (bottom) Profil: Sprache · Design (System/Hell/Dunkel) · Dichte (Standard/Kompakt) · Abmelden
 ```
@@ -68,7 +67,7 @@ marktwerk
 ```
 - **Sidebar** (232 px, collapsible to an icon rail; `user_preference.sidebar_collapsed`): logo "marktwerk", then
   Übersicht · Kalender · Board · Veranstaltungen · **Orte** · Logbuch (badge count) · Team · Finanzen (badge) · Firma ·
-  Aussteller · **Kontakte** · Vorlagen · Wissen · Benachrichtigungen (count) · Einstellungen. Orte and Kontakte have their
+  Aussteller · **Kontakte** · Wissen · Benachrichtigungen (count) · Einstellungen. Orte and Kontakte have their
   own entries (product owner, 2026-10-21; the prototype's sidebar predates this). Entries a role may not read are
   hidden (`can()`). Group **SPÄTER**: Buchungen · Postfach · Inventar,
   disabled with the hint "Phase 2". At the bottom the **profile** (name, role, current theme); it opens the profile menu
@@ -88,7 +87,7 @@ marktwerk
 | **Vorschau** (quick preview) | Looking at a record from any list without leaving it: key facts, health, next deadlines | Small card/sheet top right; 👁 icon on the row or **Space**; **Enter** opens the page, **Esc** closes; read-only apart from one primary action |
 | **Detail drawer** | Real work on one record while the list stays visible: task, permit, payable/instalment, shift | Slides in from the right; full editing, comments, activity; Esc closes |
 | **Modal** | ≤ 8 fields, quick creation (new task, new contact) or confirming something irreversible | Centered; never for a form someone might abandon halfway |
-| **Side sheet (stepper)** | Multi-step flows that need the page behind them: "Aus Vorlage erzeugen" (3 steps), "Auf Veranstaltungen anwenden…" | Wide sheet from the right with steps |
+| **Side sheet (stepper)** | Multi-step flows that need the page behind them: "Markt planen" (3 steps), "Auf Veranstaltungen anwenden…" | Wide sheet from the right with steps |
 
 **Event page tabs:** Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf. Each tab label
 shows its count or health (e.g. "Genehmigungen 4/5 ▲", "Team 5/6").
@@ -105,7 +104,7 @@ shows its count or health (e.g. "Genehmigungen 4/5 ▲", "Team 5/6").
 ### Linkable overlays (implementation detail, ADR 0019)
 Vorschau and drawers are addressed by search params on the current page. As built in M1: **`?vorschau=<id>`** (the
 list page knows which record kind it shows; Team uses **`?person=<id>`**) and, for the generation sheet,
-**`?erzeugen=1[&vorlage=<presetId>]`** on `/veranstaltungen`. Drawers (from M2) follow the same idea, e.g.
+**`?erzeugen=1[&vorlage=<presetId>|&neu=1]`** on `/veranstaltungen` (`neu=1` opens the new-market form). Drawers (from M2) follow the same idea, e.g.
 `?detail=task:<id>`. A copied link reopens the same page with the same overlay; closing a Vorschau replaces the URL
 (it does not pile up history entries). Pages read the param on the server and render the overlay with the page, so a
 hard refresh keeps it.
@@ -120,7 +119,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Kalender | `/kalender` | Company-wide calendar with layers (below) |
 | Board | `/board` | Kanban across events, people rail, Nach Person, Arbeitslast toggle |
 | Aufgabe | drawer `?aufgabe=<id>` on `/board` and `/veranstaltungen/[id]/board` (M2; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity, status incl. "Wartet · Amt" (no comments, client decision 2026-10-22) |
-| Veranstaltungen | `/veranstaltungen` | Liste / Kalender toggle (KW column), type filter chips, Vorschau `?vorschau=<id>`, "Aus Vorlage erzeugen" (3-step side sheet) via `?erzeugen=1[&vorlage=<presetId>]` |
+| Veranstaltungen | `/veranstaltungen` | Liste / Kalender toggle (KW column), type filter chips, Vorschau `?vorschau=<id>`, one primary button **"Markt planen"** (3-step side sheet: pick a market, dates, preview) via `?erzeugen=1[&vorlage=<presetId>]`; a single date without a market is "+ Neu → Einzeltermin" (`/veranstaltungen/neu`) |
 | Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`) |
 | Orte | `/orte` | Venues (list, Vorschau `?vorschau=<id>`) |
 | Ort | `/orte/[id]` | One venue: zones and rows, location agreements |
@@ -132,8 +131,9 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Firma | `/firma` | Obligations, vehicles, insurances, documents (M6) |
 | Aussteller | `/aussteller` | Vendor list (read-only) |
 | Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`) |
-| Vorlagen | `/vorlagen` | Event presets, timeline templates |
-| Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` (planned, M2) | Timeline template editor (Excel-like grid + timeline ruler) |
+| Einstellungen → Bibliothek | `/einstellungen/bibliothek` | Grundvorlage (master task template), Märkte (presets with venue, rhythm, own task template; Vorschau `?vorschau=<id>`), "Weitere Ablaufvorlagen" (collapsed, the old per-type templates). There is no "Vorlagen" sidebar entry; `/vorlagen` redirects here |
+| Markt bearbeiten | `/vorlagen/[id]` | Edit form of a market (preset) |
+| Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` | Timeline template editor (Excel-like grid + timeline ruler); used for the Grundvorlage, a market's own template and the other templates, its back link goes to the Bibliothek |
 | Wissen | `/wissen` | Knowledge base |
 | Benachrichtigungen | `/benachrichtigungen` | Grouped notifications |
 | Einstellungen | `/einstellungen` | Users & roles, legal parameters, company settings |

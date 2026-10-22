@@ -1,12 +1,12 @@
 {
   "generate": {
-    "title": "Generate from preset",
+    "title": "Plan a market",
     "close": "Close",
     "steps": "Steps",
-    "step1": "Preset",
+    "step1": "Market",
     "step2": "Dates",
     "step3": "Preview",
-    "choosePreset": "Which preset?",
+    "choosePreset": "Which market?",
     "mode": "Selection",
     "modes": {
       "click": "Click dates",
@@ -65,7 +65,7 @@
       "no_dates": "Please select at least one date.",
       "too_many_dates": "Too many dates at once (max. 60).",
       "invalid_date": "A date is invalid.",
-      "preset_not_found": "The preset no longer exists or is inactive.",
+      "preset_not_found": "This market no longer exists or is inactive.",
       "invalid_selection": "Invalid selection."
     },
     "single": {
@@ -111,6 +111,29 @@
         "setup_after_open": "On single-day markets setup cannot be after the start.",
         "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most 10,000 €).",
         "generic": "That didn't work. Please try again."
+      }
+    },
+    "search": "Search market or venue …",
+    "searchLabel": "Search markets",
+    "noMarkets": "No markets yet.",
+    "noMatch": "No market matches “{query}”.",
+    "lastHeld": "last held {date}",
+    "neverHeld": "not held yet",
+    "market": {
+      "new": "Add a new market",
+      "newHint": "For a market that is not in the list yet. You pick its dates right after.",
+      "title": "New market",
+      "hint": "Set name, venue and the usual times once. The market starts with the tasks of the master template and is in this list from then on.",
+      "rhythm": "Rhythm (optional)",
+      "cancel": "Cancel",
+      "create": "Add market",
+      "creating": "Adding …",
+      "created": "{name} added, with {count, plural, one {# task} other {# tasks}} from the master template",
+      "createdNoTasks": "{name} added without tasks (there is no master template yet)",
+      "noMasterNote": "This market has no tasks yet because there is no published master template. Create it under Settings → Library.",
+      "errors": {
+        "invalid_fee": "Please enter the booking fee in euros, e.g. 5.00.",
+        "invalid_rrule": "Please pick at least one weekday for the rhythm or tick “No rhythm”."
       }
     }
   }

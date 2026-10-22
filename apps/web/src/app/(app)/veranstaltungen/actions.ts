@@ -11,11 +11,12 @@ import {
   scheduledEventsBetween,
   undoGeneratedEvents,
 } from "@/server/services/events";
+import { createMarket, type MarketInput, PresetInputError } from "@/server/services/presets";
 import { requirePermission } from "@/server/session";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
-/** Existing events around the months shown in "Aus Vorlage erzeugen", for markers and preview warnings. */
+/** Existing events around the months shown in "Markt planen", for markers and preview warnings. */
 export async function loadScheduleContext(from: string, to: string) {
   await requirePermission("event", "write");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return [];
@@ -60,6 +61,37 @@ export async function undoCreateEvents(ids: string[]): Promise<Result<number>> {
     return { ok: true, data: n };
   } catch (error) {
     if (error instanceof EventInputError) return { ok: false, error: error.message };
+    throw error;
+  }
+}
+
+/**
+ * "Neuen Markt anlegen" in the planning flow: the market (preset) with its own task template copied
+ * from the master. `template` is null when there is no master, so the UI can say the market has no
+ * tasks yet.
+ */
+export async function createMarketAction(
+  input: MarketInput,
+): Promise<Result<{ id: string; color: string; template: { items: number } | null }>> {
+  await requirePermission("template", "write");
+  const actor = await getActor();
+  try {
+    const created = await createMarket(actor, input);
+    refresh();
+    return {
+      ok: true,
+      data: {
+        id: created.id,
+        color: created.color,
+        template: created.template ? { items: created.template.items } : null,
+      },
+    };
+  } catch (error) {
+    if (error instanceof PresetInputError)
+      return {
+        ok: false,
+        error: error.code === "invalid_type" ? "invalid_event_type" : error.code,
+      };
     throw error;
   }
 }

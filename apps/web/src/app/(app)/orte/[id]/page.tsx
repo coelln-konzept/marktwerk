@@ -322,7 +322,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
                   >
                     <div className="min-w-0">
                       <Link
-                        href={`/vorlagen?vorschau=${p.id}` as never}
+                        href={`/einstellungen/bibliothek?vorschau=${p.id}` as never}
                         className="font-semibold text-accent-soft-foreground hover:underline"
                       >
                         {p.name}

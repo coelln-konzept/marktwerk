@@ -116,6 +116,8 @@ export type TemplateItemFields = {
   requiresPhoto: boolean;
   requiresNote: boolean;
   requiresAttachment: boolean;
+  /** Kernaufgabe: a task every market needs (manual flag, copied to the task). */
+  isKey: boolean;
   checkItems: string[];
   approverDutyRoleId: string | null;
   dependsOnKeys: string[];

@@ -111,6 +111,7 @@ function existingTasks(rows: (typeof task.$inferSelect)[]): ExistingTask[] {
     requiresPhoto: r.requiresPhoto,
     requiresNote: r.requiresNote,
     requiresAttachment: r.requiresAttachment,
+    isKey: r.isKey,
     dutyRoleId: r.dutyRoleId,
     dueAt: r.dueAt ? r.dueAt.getTime() : null,
   }));
@@ -336,6 +337,7 @@ export async function applyTemplateVersion(
             requiresPhoto: d.requiresPhoto,
             requiresNote: d.requiresNote,
             requiresAttachment: d.requiresAttachment,
+            isKey: d.isKey,
             dutyRoleId: d.dutyRoleId,
             anchorKey: d.anchorKey,
             offsetDays: d.offsetDays,

@@ -503,6 +503,29 @@ describe("tasks", () => {
       }
     }
   });
+
+  it("flags a small, fixed set of template items as Kernaufgaben and copies the flag to the tasks", () => {
+    const keyKeys = new Set(
+      data.checklistTemplates.flatMap((t) =>
+        t.items.filter((i) => i.isKey).map((i) => i.stableKey),
+      ),
+    );
+    expect([...keyKeys].sort()).toEqual(
+      [
+        "buchungsliste",
+        "flyer_drucken",
+        "halteverbot_beantragen",
+        "marktgenehmigung",
+        "muell_bestellen",
+        "plakatierung",
+        "standrohr_reservieren",
+        "termin_website",
+        "toiletten_bestaetigen",
+      ].sort(),
+    );
+    for (const task of data.tasks) expect(task.isKey).toBe(keyKeys.has(task.templateStableKey));
+    expect(data.tasks.some((task) => task.isKey)).toBe(true);
+  });
 });
 
 /* ----------------------------------------------------------------- permits */

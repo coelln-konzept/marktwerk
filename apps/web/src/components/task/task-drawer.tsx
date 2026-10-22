@@ -375,6 +375,23 @@ export function TaskDrawer({
               <dd className="m-0 whitespace-pre-wrap text-small">{task.completionNote}</dd>
             </>
           )}
+          {(canWrite || task.isKey) && (
+            <>
+              <dt className="text-muted-foreground text-small">{t("keyTask.label")}</dt>
+              <dd className="m-0">
+                <label className="flex items-center gap-2 text-small">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-(--primary)"
+                    checked={task.isKey}
+                    disabled={!canWrite || pending}
+                    onChange={(e) => save({ isKey: e.target.checked })}
+                  />
+                  {t("keyTask.hint")}
+                </label>
+              </dd>
+            </>
+          )}
           <dt className="text-muted-foreground text-small">{t("fields.source")}</dt>
           <dd className="m-0 text-small">{t(`source.${task.source}`)}</dd>
           {task.completedAt && (

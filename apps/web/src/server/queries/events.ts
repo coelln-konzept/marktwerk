@@ -1,6 +1,14 @@
 import "server-only";
 import { type HealthDimensions, type HealthLevel, teamHealth } from "@marktwerk/core";
-import { dutyRole, event, eventDuty, eventType, staffMember, venue } from "@marktwerk/db/schema";
+import {
+  dutyRole,
+  event,
+  eventDuty,
+  eventPreset,
+  eventType,
+  staffMember,
+  venue,
+} from "@marktwerk/db/schema";
 import { and, asc, count, eq, gte, lte, ne, type SQL, sql } from "drizzle-orm";
 import { cache } from "react";
 import { todayIn } from "@/lib/format";
@@ -59,6 +67,8 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
       typeKey: eventType.key,
       typeNameDe: eventType.nameDe,
       typeNameEn: eventType.nameEn,
+      /** Market colour of the event's preset (`MARKET_COLORS` key), null = use the type marker. */
+      color: eventPreset.color,
       venueId: venue.id,
       venueName: venue.name,
       city: venue.city,
@@ -67,6 +77,7 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
     .from(event)
     .innerJoin(eventType, eq(eventType.id, event.eventTypeId))
     .innerJoin(venue, eq(venue.id, event.venueId))
+    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
     .where(where(actor, filters))
     .orderBy(asc(event.startsOn), asc(event.name));
   const dims = await dimensionHealth(actor, rows, todayIn());

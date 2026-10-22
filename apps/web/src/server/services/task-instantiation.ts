@@ -261,6 +261,7 @@ export function desiredTask(
     requiresPhoto: item.requiresPhoto,
     requiresNote: item.requiresNote,
     requiresAttachment: item.requiresAttachment,
+    isKey: item.isKey,
     dutyRoleId: item.dutyRoleId,
     dueAt: dueAt ? dueAt.getTime() : null,
     anchorKey: item.anchorKey,
@@ -369,6 +370,7 @@ export async function insertTemplateTasks(
           requiresPhoto: d.requiresPhoto,
           requiresNote: d.requiresNote,
           requiresAttachment: d.requiresAttachment,
+          isKey: d.isKey,
           approverStaffMemberId: d.approverStaffMemberId,
           // Keeps the template order inside a kanban column until someone moves cards around.
           boardSort: d.sort,

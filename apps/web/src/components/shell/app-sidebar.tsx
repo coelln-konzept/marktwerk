@@ -6,7 +6,6 @@ import {
   CalendarDays,
   CalendarRange,
   Contact,
-  Copy,
   Euro,
   FileCheck2,
   Home,
@@ -101,12 +100,6 @@ export async function AppSidebar({
       label: t("contacts"),
       icon: <Contact />,
       visible: can(r, "contact", "read"),
-    },
-    {
-      href: "/vorlagen",
-      label: t("templates"),
-      icon: <Copy />,
-      visible: can(r, "template", "read"),
     },
     {
       href: "/wissen",

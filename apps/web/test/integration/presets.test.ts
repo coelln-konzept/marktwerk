@@ -126,6 +126,52 @@ describe("createPreset", () => {
   });
 });
 
+describe("market colour", () => {
+  it("gives new presets the least used colour in creation order unless one is chosen", async () => {
+    const colors = async () => (await db.select().from(eventPreset)).map((r) => r.color);
+    const a = await createPreset(owner, input({ name: "A" }));
+    const b = await createPreset(owner, input({ name: "B" }));
+    const c = await createPreset(owner, input({ name: "C", color: "indigo" }));
+    expect((await load(a.id)).color).toBe("plum");
+    expect((await load(b.id)).color).toBe("rose");
+    expect((await load(c.id)).color).toBe("indigo");
+    expect((await colors()).filter(Boolean).length).toBeGreaterThanOrEqual(3);
+    const [entry] = await audits("preset.create");
+    expect(entry?.diff).toMatchObject({ changes: { color: { from: null, to: "plum" } } });
+  });
+
+  it("edits the colour (audited), keeps it when left out and allows clearing it", async () => {
+    const { id } = await createPreset(owner, input({ color: "olive" }));
+    let updatedAt = (await load(id)).updatedAt;
+    await updatePreset(owner, id, input({ name: "Anders" }), updatedAt);
+    expect((await load(id)).color).toBe("olive");
+    updatedAt = (await load(id)).updatedAt;
+    const result = await updatePreset(
+      owner,
+      id,
+      input({ name: "Anders", color: "cyan" }),
+      updatedAt,
+    );
+    expect(result.changed).toBe(true);
+    expect((await load(id)).color).toBe("cyan");
+    const entry = (await audits("preset.update")).at(-1);
+    expect(entry?.diff).toMatchObject({ changes: { color: { from: "olive", to: "cyan" } } });
+    await updatePreset(owner, id, input({ name: "Anders", color: null }), result.updatedAt);
+    expect((await load(id)).color).toBeNull();
+  });
+
+  it("rejects colours outside the palette", async () => {
+    await rejects(createPreset(owner, input({ color: "red" })), "invalid_color", "color");
+    const { id } = await createPreset(owner, input());
+    const { updatedAt } = await load(id);
+    await rejects(
+      updatePreset(owner, id, input({ color: "#fff" }), updatedAt),
+      "invalid_color",
+      "color",
+    );
+  });
+});
+
 describe("validation", () => {
   it("rejects bad names", async () => {
     await rejects(createPreset(owner, input({ name: "  " })), "invalid_name", "name");

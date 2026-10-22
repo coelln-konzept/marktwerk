@@ -25,6 +25,7 @@ export const baseItem = (patch: Partial<TemplateItemFields> = {}): TemplateItemF
   requiresPhoto: false,
   requiresNote: false,
   requiresAttachment: false,
+  isKey: false,
   checkItems: [],
   approverDutyRoleId: null,
   dependsOnKeys: [],
@@ -42,6 +43,7 @@ export function flohmarktItems(cat: Awaited<ReturnType<typeof seedCatalogue>>) {
       dutyRoleId: cat.roles.lead.id,
       estimateMinutes: 30,
       priority: "high",
+      isKey: true,
       checkItems: ["Formular ausfüllen", "Gebühr prüfen"],
     }),
     baseItem({

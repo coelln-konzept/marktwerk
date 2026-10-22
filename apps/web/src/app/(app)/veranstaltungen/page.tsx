@@ -1,5 +1,5 @@
 import { addDays, can, holidaysBetween, isoDate, isoWeek, weekendsTouched } from "@marktwerk/core";
-import { CalendarDays, Copy, Eye, List, Plus, SearchX, TriangleAlert } from "lucide-react";
+import { CalendarDays, CalendarPlus, Eye, List, SearchX, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -14,6 +14,7 @@ import { AutoSubmitSelect } from "@/components/ui/auto-submit";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
@@ -23,6 +24,7 @@ import { EVENT_STATUSES } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { getActor } from "@/server/actor";
+import { listEventTypeOptions } from "@/server/queries/event-form";
 import {
   countByType,
   type EventStatusKey,
@@ -31,6 +33,7 @@ import {
   listSeasons,
 } from "@/server/queries/events";
 import { listPresetsForGeneration } from "@/server/queries/presets";
+import { listVenueOptions } from "@/server/queries/venues";
 import { requirePermission } from "@/server/session";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -94,6 +97,11 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   const vorschauId = param(sp.vorschau);
   const canWrite = can(actor.role, "event", "write");
   const generating = canWrite && param(sp.erzeugen) === "1";
+  // "Neuen Markt anlegen" needs template:write on top of event:write.
+  const canCreateMarket = generating && can(actor.role, "template", "write");
+  const marketOptions = canCreateMarket
+    ? { types: await listEventTypeOptions(), venues: await listVenueOptions() }
+    : undefined;
   const typeName = (r: { typeNameDe: string; typeNameEn: string }) =>
     locale === "en" ? r.typeNameEn : r.typeNameDe;
 
@@ -113,23 +121,14 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
         subtitle={t("subtitle", { season, count: total, planned })}
         actions={
           canWrite && (
-            <>
-              <Link
-                href={"/veranstaltungen/neu" as never}
-                className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover"
-              >
-                <Plus aria-hidden className="size-4" />
-                {t("single")}
-              </Link>
-              <Link
-                href={hrefWith(PATH, sp, { erzeugen: 1, vorschau: undefined }) as never}
-                scroll={false}
-                className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-primary bg-primary px-3 font-medium text-primary-foreground hover:bg-primary-hover"
-              >
-                <Copy aria-hidden className="size-4" />
-                {t("generate")}
-              </Link>
-            </>
+            <Link
+              href={hrefWith(PATH, sp, { erzeugen: 1, vorschau: undefined }) as never}
+              scroll={false}
+              className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-primary bg-primary px-3 font-medium text-primary-foreground hover:bg-primary-hover"
+            >
+              <CalendarPlus aria-hidden className="size-4" />
+              {t("generate")}
+            </Link>
           )
         }
       />
@@ -288,13 +287,16 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                           {formatDateRange(r.startsOn, r.endsOn, locale)}
                         </TD>
                         <TD>
-                          <Link
-                            href={href as never}
-                            tabIndex={-1}
-                            className="whitespace-nowrap font-semibold text-accent-soft-foreground hover:underline"
-                          >
-                            {r.name}
-                          </Link>
+                          <span className="inline-flex items-center gap-2">
+                            <MarketMarker color={r.color} typeKey={r.typeKey} />
+                            <Link
+                              href={href as never}
+                              tabIndex={-1}
+                              className="whitespace-nowrap font-semibold text-accent-soft-foreground hover:underline"
+                            >
+                              {r.name}
+                            </Link>
+                          </span>
                         </TD>
                         <TD>
                           <EventTypeTag typeKey={r.typeKey}>{typeName(r)}</EventTypeTag>
@@ -350,9 +352,16 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
       )}
       {generating && (
         <GenerateSheet
-          presets={await listPresetsForGeneration()}
+          presets={await listPresetsForGeneration(today)}
           initialPresetId={param(sp.vorlage)}
-          closeHref={hrefWith(PATH, sp, { erzeugen: undefined, vorlage: undefined })}
+          closeHref={hrefWith(PATH, sp, {
+            erzeugen: undefined,
+            vorlage: undefined,
+            neu: undefined,
+          })}
+          canCreateMarket={canCreateMarket}
+          marketOptions={marketOptions}
+          openNewMarket={param(sp.neu) === "1"}
         />
       )}
     </Page>
@@ -401,6 +410,7 @@ async function CalendarView({
         <EventChip
           href={hrefWith(PATH, sp, { vorschau: r.id })}
           typeKey={r.typeKey}
+          color={r.color}
           name={r.name}
           cancelled={r.status === "cancelled"}
         />

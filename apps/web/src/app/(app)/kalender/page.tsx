@@ -139,6 +139,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
           <EventChip
             href={peekHref(r.id)}
             typeKey={r.typeKey}
+            color={r.color}
             name={r.name}
             cancelled={r.status === "cancelled"}
           />

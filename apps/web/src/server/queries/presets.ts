@@ -1,11 +1,29 @@
 import "server-only";
-import { dutyRole, eventPreset, eventType, staffMember, venue } from "@marktwerk/db/schema";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import {
+  checklistTemplate,
+  dutyRole,
+  event,
+  eventPreset,
+  eventPresetTemplate,
+  eventType,
+  staffMember,
+  venue,
+} from "@marktwerk/db/schema";
+import { and, asc, eq, isNull, lte, max, ne } from "drizzle-orm";
 import { db } from "../db";
 
-/** Presets for "Aus Vorlage erzeugen": only active ones. */
-export async function listPresetsForGeneration() {
-  return db
+/**
+ * The markets (presets) for "Markt planen": only active ones, most recently held first (latest
+ * non-cancelled event on or before `today`), markets that were never held last, each group by name.
+ */
+export async function listPresetsForGeneration(today: string) {
+  const lastHeld = db
+    .select({ presetId: event.presetId, lastHeldOn: max(event.startsOn).as("last_held_on") })
+    .from(event)
+    .where(and(lte(event.startsOn, today), ne(event.status, "cancelled")))
+    .groupBy(event.presetId)
+    .as("last_held");
+  const rows = await db
     .select({
       id: eventPreset.id,
       name: eventPreset.name,
@@ -17,19 +35,29 @@ export async function listPresetsForGeneration() {
       durationDays: eventPreset.durationDays,
       rrule: eventPreset.rrule,
       pricePerMCents: eventPreset.pricePerMCents,
+      color: eventPreset.color,
+      lastHeldOn: lastHeld.lastHeldOn,
     })
     .from(eventPreset)
     .innerJoin(eventType, eq(eventType.id, eventPreset.eventTypeId))
     .innerJoin(venue, eq(venue.id, eventPreset.venueId))
-    .where(and(isNull(eventPreset.archivedAt), eq(eventPreset.active, true)))
-    .orderBy(asc(eventType.sort), asc(eventPreset.name));
+    .leftJoin(lastHeld, eq(lastHeld.presetId, eventPreset.id))
+    .where(and(isNull(eventPreset.archivedAt), eq(eventPreset.active, true)));
+  return rows.sort((a, b) => {
+    if (a.lastHeldOn !== b.lastHeldOn) {
+      if (!a.lastHeldOn) return 1;
+      if (!b.lastHeldOn) return -1;
+      return a.lastHeldOn < b.lastHeldOn ? 1 : -1;
+    }
+    return a.name.localeCompare(b.name, "de");
+  });
 }
 
 export type GenerationPreset = Awaited<ReturnType<typeof listPresetsForGeneration>>[number];
 
-/** All presets for the Vorlagen page, with the default team resolved to names. */
+/** All markets (presets) for Einstellungen → Bibliothek, with the default team resolved to names. */
 export async function listPresets() {
-  const [presets, people] = await Promise.all([
+  const [presets, people, linkedTemplates] = await Promise.all([
     db
       .select({
         id: eventPreset.id,
@@ -47,6 +75,7 @@ export async function listPresets() {
         defaultTimes: eventPreset.defaultTimes,
         defaultDuties: eventPreset.defaultDuties,
         publicTitle: eventPreset.publicTitle,
+        color: eventPreset.color,
       })
       .from(eventPreset)
       .innerJoin(eventType, eq(eventType.id, eventPreset.eventTypeId))
@@ -54,15 +83,36 @@ export async function listPresets() {
       .where(isNull(eventPreset.archivedAt))
       .orderBy(asc(eventType.sort), asc(eventPreset.name)),
     db.select({ id: staffMember.id, name: staffMember.displayName }).from(staffMember),
+    db
+      .select({
+        presetId: eventPresetTemplate.presetId,
+        id: checklistTemplate.id,
+        name: checklistTemplate.name,
+        ownerPresetId: checklistTemplate.ownerPresetId,
+      })
+      .from(eventPresetTemplate)
+      .innerJoin(checklistTemplate, eq(checklistTemplate.id, eventPresetTemplate.templateId))
+      .where(and(eq(checklistTemplate.kind, "event"), isNull(checklistTemplate.archivedAt)))
+      .orderBy(asc(eventPresetTemplate.sort), asc(checklistTemplate.name)),
   ]);
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
-  return presets.map((p) => ({
-    ...p,
-    team: Object.entries(p.defaultDuties).map(([roleKey, id]) => ({
-      roleKey,
-      name: nameOf.get(id) ?? "?",
-    })),
-  }));
+  return presets.map((p) => {
+    const linked = linkedTemplates.filter((l) => l.presetId === p.id);
+    const own = linked.find((l) => l.ownerPresetId === p.id) ?? null;
+    return {
+      ...p,
+      /** The market's own task template (made from the master), if it has one. */
+      ownTemplate: own ? { id: own.id, name: own.name } : null,
+      /** The library templates it still uses (existing markets keep their per-type templates). */
+      sharedTemplates: linked
+        .filter((l) => l.ownerPresetId === null)
+        .map((l) => ({ id: l.id, name: l.name })),
+      team: Object.entries(p.defaultDuties).map(([roleKey, id]) => ({
+        roleKey,
+        name: nameOf.get(id) ?? "?",
+      })),
+    };
+  });
 }
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -85,6 +135,7 @@ export async function getPresetForEdit(id: string) {
       bookingFeeCents: eventPreset.bookingFeeCents,
       rrule: eventPreset.rrule,
       defaultDuties: eventPreset.defaultDuties,
+      color: eventPreset.color,
       updatedAt: eventPreset.updatedAt,
     })
     .from(eventPreset)

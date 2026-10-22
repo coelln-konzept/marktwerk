@@ -1,4 +1,5 @@
 import { addDays, can, weekday } from "@marktwerk/core";
+import { Layers } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -15,6 +16,7 @@ import type { ItemView } from "@/components/templates/types";
 import { VersionBar } from "@/components/templates/version-bar";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { param } from "@/lib/url";
@@ -62,7 +64,8 @@ export default async function TemplateEditorPage({
   const template = await getTemplateForEditor(id);
   if (!template) notFound();
   const t = await getTranslations("taskTemplates");
-  const tList = await getTranslations("templates");
+  const tSettings = await getTranslations("settings");
+  const tNav = await getTranslations("nav");
   const locale = await getLocale();
 
   // Default: the draft if there is one (work in progress), otherwise the published version.
@@ -115,20 +118,25 @@ export default async function TemplateEditorPage({
     <Page
       wide
       crumbs={[
-        { label: tList("title"), href: "/vorlagen" },
-        { label: t("list.title"), href: "/vorlagen/ablauf" },
+        { label: tNav("settings"), href: "/einstellungen/firma" },
+        { label: tSettings("tabs.library"), href: "/einstellungen/bibliothek" },
         { label: template.name },
       ]}
     >
       <PageHeader
         title={template.name}
         eyebrow={
-          <Link href={"/vorlagen/ablauf" as never} className="hover:underline">
+          <Link href={"/einstellungen/bibliothek" as never} className="hover:underline">
             {t("editor.back")}
           </Link>
         }
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
+            {template.isMaster && (
+              <StatusBadge tone="info" icon={Layers}>
+                {t("editor.master")}
+              </StatusBadge>
+            )}
             {template.typeKey ? (
               <EventTypeTag typeKey={template.typeKey}>{typeName}</EventTypeTag>
             ) : (
@@ -222,18 +230,33 @@ export default async function TemplateEditorPage({
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <PresetLinks
-          templateId={template.id}
-          canWrite={canWrite}
-          linkedIds={template.presets.map((p) => p.id)}
-          presets={options.presets.map((p) => ({
-            id: p.id,
-            name: p.name,
-            typeKey: p.typeKey,
-            typeName: locale === "en" ? p.typeNameEn : p.typeNameDe,
-            active: p.active,
-          }))}
-        />
+        {template.isMaster || template.ownerPresetId ? (
+          <Panel>
+            <PanelHeader>
+              <PanelTitle>{t("links.title")}</PanelTitle>
+            </PanelHeader>
+            <PanelBody>
+              <p className="m-0 text-small text-foreground-2">
+                {template.isMaster
+                  ? t("links.master")
+                  : t("links.owned", { name: template.ownerPresetName ?? "" })}
+              </p>
+            </PanelBody>
+          </Panel>
+        ) : (
+          <PresetLinks
+            templateId={template.id}
+            canWrite={canWrite}
+            linkedIds={template.presets.map((p) => p.id)}
+            presets={options.presets.map((p) => ({
+              id: p.id,
+              name: p.name,
+              typeKey: p.typeKey,
+              typeName: locale === "en" ? p.typeNameEn : p.typeNameDe,
+              active: p.active,
+            }))}
+          />
+        )}
         <Panel>
           <PanelHeader>
             <PanelTitle>{t("rules.title")}</PanelTitle>

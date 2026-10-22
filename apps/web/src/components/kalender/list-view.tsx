@@ -6,6 +6,7 @@ import { Fragment } from "react";
 import { EventStatusBadge } from "@/components/events/event-status";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
@@ -159,6 +160,11 @@ export async function CalendarList({
                     >
                       {i === 0 && dateCell}
                       <TD>
+                        <MarketMarker
+                          color={r.color}
+                          typeKey={r.typeKey}
+                          className="mr-2 align-middle"
+                        />
                         <Link
                           href={peek as never}
                           scroll={false}

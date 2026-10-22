@@ -412,6 +412,20 @@ describe("updateTask", () => {
     expect(entry?.diff).toMatchObject({ before: { title: "Alt" }, after: { title: "Neu" } });
   });
 
+  it("flags and unflags a Kernaufgabe, audited, and ignores a no-op", async () => {
+    const t = await insertTask({ title: "A", eventId });
+    expect(t.isKey).toBe(false);
+    const result = await updateTask(owner, t.id, { isKey: true });
+    expect(result.fields).toEqual(["isKey"]);
+    expect(await getTask(t.id)).toMatchObject({ isKey: true, customized: true });
+    const [entry] = await audits("task.update");
+    expect(entry?.diff).toMatchObject({ before: { isKey: false }, after: { isKey: true } });
+    expect((await updateTask(owner, t.id, { isKey: true })).changed).toBe(false);
+    await updateTask(owner, t.id, { isKey: false });
+    expect((await getTask(t.id)).isKey).toBe(false);
+    expect(await code(updateTask(owner, t.id, { isKey: "yes" as never }))).toBe("invalid_input");
+  });
+
   it("pins the due date by hand and keeps the time of day", async () => {
     const t = await insertTask({ title: "A", eventId, dueAt: new Date("2026-10-27T13:30:00Z") }); // 14:30 CET
     await updateTask(owner, t.id, { dueOn: "2026-10-30" });

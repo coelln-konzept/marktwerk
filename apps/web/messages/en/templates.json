@@ -1,13 +1,6 @@
 {
   "templates": {
     "title": "Templates",
-    "subtitle": "{count, plural, one {# event preset} other {# event presets}} · {active} active",
-    "tabsLabel": "Template type",
-    "tabs": {
-      "events": "Event presets",
-      "timelines": "Timeline templates",
-      "soon": "from M2"
-    },
     "caption": "Event presets",
     "empty": "No event presets yet.",
     "cols": {
@@ -28,7 +21,7 @@
     "preview": "Preview: {name}",
     "keys": "Space: preview · J/K: next/previous row",
     "vorschau": {
-      "kind": "Event preset",
+      "kind": "Market",
       "venue": "Venue",
       "rhythm": "Recurrence",
       "duration": "Duration",
@@ -46,14 +39,11 @@
       "generate": "Generate dates",
       "edit": "Edit"
     },
-    "new": "New preset",
     "editLabel": "Edit: {name}",
     "form": {
-      "newTitle": "New preset",
-      "newSubtitle": "Later you generate the dates of a season from a preset.",
       "editTitle": "Edit preset",
       "editCrumb": "Edit",
-      "back": "Back to templates",
+      "back": "Back to the library",
       "propagationHint": "Changes to the preset only apply to events you generate afterwards. Events that already exist stay as they are.",
       "basics": {
         "title": "Basics",
@@ -64,7 +54,25 @@
         "retired": "(no longer active)",
         "duration": "Duration (days)",
         "active": "Active",
-        "activeHint": "Inactive presets do not appear under “Generate from preset”. Tick the box to bring it back."
+        "activeHint": "Inactive markets do not show up under “Plan a market”. Tick the box to bring it back."
+      },
+      "color": {
+        "legend": "Market colour",
+        "hint": "A thin colour bar next to the name so you can tell a market's dates apart at a glance. Applies to every date of this market.",
+        "none": "No colour",
+        "swatch": "Colour: {name}",
+        "names": {
+          "plum": "Plum",
+          "rose": "Rosé",
+          "brown": "Brown",
+          "sand": "Sand",
+          "olive": "Olive",
+          "petrol": "Petrol",
+          "cyan": "Cyan",
+          "slate": "Slate",
+          "indigo": "Indigo",
+          "graphite": "Graphite"
+        }
       },
       "public": {
         "title": "Public details",
@@ -133,6 +141,7 @@
         "invalid_rrule": "This recurrence is not valid. Please check weekdays and months.",
         "rrule_empty": "Select at least one weekday or “No recurrence”.",
         "invalid_type": "Please choose a type.",
+        "invalid_color": "Please choose a colour from the list.",
         "invalid_venue": "Please choose a venue that is not archived.",
         "invalid_duty_role": "This duty no longer exists.",
         "invalid_staff": "This person is not (or no longer) active. Please choose somebody else.",
@@ -140,6 +149,42 @@
         "invalid_input": "The details are incomplete. Please reload the page.",
         "generic": "That did not work. Please try again."
       }
+    }
+  },
+  "library": {
+    "subtitle": "The master template with the tasks every market starts with, the markets themselves and the older timeline templates.",
+    "master": {
+      "title": "Master template",
+      "description": "The tasks every market needs. A new market starts with its own copy of it and adjusts it for itself.",
+      "published": "Published: v{version} · {date}",
+      "notPublished": "Not published yet",
+      "draft": "Draft v{version}",
+      "items": "{count, plural, =0 {No tasks} one {# task} other {# tasks}}",
+      "edit": "Edit master template",
+      "view": "View master template",
+      "rule": "Changes only apply to markets you add afterwards. Existing markets and events stay as they are.",
+      "none": "There is no master template yet.",
+      "noneHint": "Without one, new markets start without tasks.",
+      "create": "Create master template"
+    },
+    "markets": {
+      "title": "Markets",
+      "caption": "Markets with venue, rhythm and task template",
+      "empty": "No markets yet.",
+      "emptyHint": "Add a market under Events → Plan a market.",
+      "cols": {
+        "tasks": "Own task template"
+      },
+      "own": "Yes",
+      "notOwn": "No",
+      "tasksLabel": "Task template of {name}",
+      "hint": "Add new markets under Events → Plan a market.",
+      "count": "{count, plural, one {# market} other {# markets}} · {active} active"
+    },
+    "others": {
+      "title": "More timeline templates",
+      "summary": "{count, plural, =0 {none} one {# template} other {# templates}} · existing markets still use them",
+      "hint": "The older timeline templates per event type. Markets that existed before the master template keep their tasks from here."
     }
   }
 }

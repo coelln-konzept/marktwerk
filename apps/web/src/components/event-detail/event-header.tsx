@@ -5,6 +5,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { EventStatusBadge } from "@/components/events/event-status";
 import { HealthSummary } from "@/components/events/health-summary";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
+import { MarketMarker } from "@/components/ui/market-marker";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateShort, formatDateWithWeekday, formatWeek, todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
@@ -147,7 +148,14 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
     <header className="flex flex-col gap-3">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="font-semibold text-[22px] tracking-tight">{event.name}</h1>
+          <h1 className="flex items-center gap-2.5 font-semibold text-[22px] tracking-tight">
+            <MarketMarker
+              color={event.preset?.color}
+              typeKey={event.type.key}
+              className={event.preset?.color ? "h-6" : "size-3"}
+            />
+            {event.name}
+          </h1>
           <EventTypeTag typeKey={event.type.key}>{typeName}</EventTypeTag>
           <EventStatusBadge status={event.status} />
           <HealthSummary health={event.health} compact />
@@ -201,7 +209,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
         <li className="text-muted-foreground">
           {event.preset ? (
             <Link
-              href={`/vorlagen?vorschau=${event.preset.id}` as never}
+              href={`/einstellungen/bibliothek?vorschau=${event.preset.id}` as never}
               className="underline-offset-2 hover:text-foreground hover:underline"
             >
               {t("header.preset", { name: event.preset.name })}

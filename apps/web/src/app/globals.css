@@ -89,6 +89,18 @@
   --type-food-wine: light-dark(#56632a, #c8d584);
   --type-food-wine-bg: light-dark(#edf0dc, #2a2f17);
 
+  /* Market colour labels (Marktfarbe): muted, away from the status hues; bars and markers only */
+  --market-plum: light-dark(#8a4f7d, #d9a6cc);
+  --market-rose: light-dark(#b4637a, #eaa5b8);
+  --market-brown: light-dark(#7b5a3c, #d4b08c);
+  --market-sand: light-dark(#9b8457, #dac9a0);
+  --market-olive: light-dark(#6f7a2f, #c5d07e);
+  --market-petrol: light-dark(#3f7178, #93c8cf);
+  --market-cyan: light-dark(#2f7f95, #8fcfe0);
+  --market-slate: light-dark(#5a6b7d, #b5c3d1);
+  --market-indigo: light-dark(#4f56a3, #aab0ee);
+  --market-graphite: light-dark(#4a4945, #c9c7c2);
+
   /* Shell */
   --sidebar: var(--sunken);
   --sidebar-foreground: var(--foreground);
@@ -194,6 +206,16 @@
   --color-type-city-festival-bg: var(--type-city-festival-bg);
   --color-type-food-wine: var(--type-food-wine);
   --color-type-food-wine-bg: var(--type-food-wine-bg);
+  --color-market-plum: var(--market-plum);
+  --color-market-rose: var(--market-rose);
+  --color-market-brown: var(--market-brown);
+  --color-market-sand: var(--market-sand);
+  --color-market-olive: var(--market-olive);
+  --color-market-petrol: var(--market-petrol);
+  --color-market-cyan: var(--market-cyan);
+  --color-market-slate: var(--market-slate);
+  --color-market-indigo: var(--market-indigo);
+  --color-market-graphite: var(--market-graphite);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-accent: var(--sidebar-accent);

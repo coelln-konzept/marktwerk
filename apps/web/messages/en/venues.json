@@ -208,8 +208,8 @@
       "eventName": "Event",
       "eventType": "Type",
       "eventStatus": "Status",
-      "presets": "Presets at this venue",
-      "noPresets": "There is no event preset for this venue.",
+      "presets": "Markets at this venue",
+      "noPresets": "There is no market for this venue.",
       "presetInactive": "inactive"
     }
   }

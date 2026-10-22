@@ -1,13 +1,6 @@
 {
   "templates": {
     "title": "Vorlagen",
-    "subtitle": "{count, plural, one {# Veranstaltungs-Vorlage} other {# Veranstaltungs-Vorlagen}} · {active} aktiv",
-    "tabsLabel": "Art der Vorlagen",
-    "tabs": {
-      "events": "Veranstaltungs-Vorlagen",
-      "timelines": "Ablaufvorlagen",
-      "soon": "ab M2"
-    },
     "caption": "Veranstaltungs-Vorlagen",
     "empty": "Noch keine Veranstaltungs-Vorlagen.",
     "cols": {
@@ -28,7 +21,7 @@
     "preview": "Vorschau: {name}",
     "keys": "Leertaste: Vorschau · J/K: nächste/vorige Zeile",
     "vorschau": {
-      "kind": "Veranstaltungs-Vorlage",
+      "kind": "Markt",
       "venue": "Ort",
       "rhythm": "Rhythmus",
       "duration": "Dauer",
@@ -46,14 +39,11 @@
       "generate": "Termine erzeugen",
       "edit": "Bearbeiten"
     },
-    "new": "Neue Vorlage",
     "editLabel": "Bearbeiten: {name}",
     "form": {
-      "newTitle": "Neue Vorlage",
-      "newSubtitle": "Aus einer Vorlage erzeugst du später die Termine einer Saison.",
       "editTitle": "Vorlage bearbeiten",
       "editCrumb": "Bearbeiten",
-      "back": "Zurück zu den Vorlagen",
+      "back": "Zurück zur Bibliothek",
       "propagationHint": "Änderungen an der Vorlage gelten nur für Veranstaltungen, die du danach erzeugst. Bereits erzeugte Veranstaltungen bleiben unverändert.",
       "basics": {
         "title": "Grunddaten",
@@ -64,7 +54,25 @@
         "retired": "(nicht mehr aktiv)",
         "duration": "Dauer (Tage)",
         "active": "Aktiv",
-        "activeHint": "Inaktive Vorlagen erscheinen nicht unter „Aus Vorlage erzeugen“. Mit dem Haken ist sie wieder da."
+        "activeHint": "Inaktive Märkte erscheinen nicht unter „Markt planen“. Mit dem Haken ist er wieder da."
+      },
+      "color": {
+        "legend": "Farbe des Markts",
+        "hint": "Ein schmaler Farbbalken neben dem Namen, damit du die Termine eines Markts auf einen Blick erkennst. Gilt für alle Termine dieses Markts.",
+        "none": "Keine Farbe",
+        "swatch": "Farbe: {name}",
+        "names": {
+          "plum": "Pflaume",
+          "rose": "Rosé",
+          "brown": "Braun",
+          "sand": "Sand",
+          "olive": "Oliv",
+          "petrol": "Petrol",
+          "cyan": "Cyan",
+          "slate": "Schiefer",
+          "indigo": "Indigo",
+          "graphite": "Graphit"
+        }
       },
       "public": {
         "title": "Öffentliche Angaben",
@@ -133,6 +141,7 @@
         "invalid_rrule": "Dieser Rhythmus ist nicht gültig. Bitte Wochentage und Monate prüfen.",
         "rrule_empty": "Wähle mindestens einen Wochentag oder „Kein Rhythmus“.",
         "invalid_type": "Bitte eine Art wählen.",
+        "invalid_color": "Bitte eine Farbe aus der Auswahl wählen.",
         "invalid_venue": "Bitte einen Ort wählen, der nicht archiviert ist.",
         "invalid_duty_role": "Diese Aufgabe gibt es nicht mehr.",
         "invalid_staff": "Diese Person ist nicht (mehr) aktiv. Bitte jemand anderen wählen.",
@@ -140,6 +149,42 @@
         "invalid_input": "Die Angaben sind unvollständig. Bitte die Seite neu laden.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
       }
+    }
+  },
+  "library": {
+    "subtitle": "Die Grundvorlage mit den Aufgaben, mit denen jeder Markt startet, die Märkte selbst und die älteren Ablaufvorlagen.",
+    "master": {
+      "title": "Grundvorlage",
+      "description": "Die Aufgaben, die jeder Markt braucht. Ein neuer Markt startet mit einer eigenen Kopie davon und passt sie für sich an.",
+      "published": "Veröffentlicht: v{version} · {date}",
+      "notPublished": "Noch nicht veröffentlicht",
+      "draft": "Entwurf v{version}",
+      "items": "{count, plural, =0 {Keine Aufgaben} one {# Aufgabe} other {# Aufgaben}}",
+      "edit": "Grundvorlage bearbeiten",
+      "view": "Grundvorlage ansehen",
+      "rule": "Änderungen gelten nur für Märkte, die du danach anlegst. Bestehende Märkte und Veranstaltungen ändern sich nicht.",
+      "none": "Es gibt noch keine Grundvorlage.",
+      "noneHint": "Ohne Grundvorlage starten neue Märkte ohne Aufgaben.",
+      "create": "Grundvorlage anlegen"
+    },
+    "markets": {
+      "title": "Märkte",
+      "caption": "Märkte mit Ort, Rhythmus und Aufgabenvorlage",
+      "empty": "Noch keine Märkte.",
+      "emptyHint": "Einen Markt legst du unter Veranstaltungen → Markt planen an.",
+      "cols": {
+        "tasks": "Eigene Aufgabenvorlage"
+      },
+      "own": "Ja",
+      "notOwn": "Nein",
+      "tasksLabel": "Aufgabenvorlage von {name}",
+      "hint": "Neue Märkte legst du unter Veranstaltungen → Markt planen an.",
+      "count": "{count, plural, one {# Markt} other {# Märkte}} · {active} aktiv"
+    },
+    "others": {
+      "title": "Weitere Ablaufvorlagen",
+      "summary": "{count, plural, =0 {keine} one {# Vorlage} other {# Vorlagen}} · bestehende Märkte nutzen sie noch",
+      "hint": "Die älteren Ablaufvorlagen je Veranstaltungsart. Märkte, die es schon vor der Grundvorlage gab, behalten ihre Aufgaben von hier."
     }
   }
 }

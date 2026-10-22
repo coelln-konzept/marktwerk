@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { RolloverBadge } from "@/components/ui/status-badge";
 import { formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
@@ -170,6 +171,7 @@ function CardContent({
       <div className="flex items-start justify-between gap-1">
         <div className="flex flex-wrap items-center gap-1">
           <CategoryTag category={task.category} />
+          {task.isKey && <KeyTaskMark />}
           {task.rolloverCount > 0 && (
             <RolloverBadge
               count={task.rolloverCount}
