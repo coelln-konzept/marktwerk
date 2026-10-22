@@ -10,8 +10,9 @@ import { PermitDrawer } from "@/components/permits/permit-drawer";
 import { Page, PageHeader } from "@/components/shell/page";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit";
 import { buttonVariants } from "@/components/ui/button";
-import { FilterChip } from "@/components/ui/chip";
+import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { Panel } from "@/components/ui/panel";
+import { SegmentedLinks } from "@/components/ui/segmented-links";
 import { EmptyState } from "@/components/ui/states";
 import { todayIn } from "@/lib/format";
 import { PERMIT_STATE_ORDER } from "@/lib/permit-status";
@@ -136,57 +137,76 @@ export default async function LogbuchPage({ searchParams }: PageProps<"/logbuch"
             {t("resetFilters")}
           </Link>
         )}
-        {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls */}
-        <span className="ml-auto flex gap-1" role="group" aria-label={t("view")}>
-          <FilterChip href={hrefWith(PATH, sp, { ansicht: undefined })} active={view === "matrix"}>
-            {t("viewMatrix")}
-          </FilterChip>
-          <FilterChip href={hrefWith(PATH, sp, { ansicht: "liste" })} active={view === "liste"}>
-            {t("viewList")}
-          </FilterChip>
-        </span>
+        <div className="ml-auto">
+          <SegmentedLinks
+            label={t("view")}
+            items={(
+              [
+                ["matrix", t("viewMatrix"), undefined],
+                ["liste", t("viewList"), "liste"],
+              ] as const
+            ).map(([key, label, ansicht]) => ({
+              key,
+              label,
+              href: hrefWith(PATH, sp, { ansicht }),
+              active: view === key,
+            }))}
+          />
+        </div>
       </form>
 
-      {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls */}
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t("focus")}>
-        <FilterChip
-          href={hrefWith(PATH, sp, { fokus: undefined, status: undefined, genehmigung: undefined })}
-          active={!focus && !state}
-        >
-          {t("focusAll")}
-        </FilterChip>
-        <FilterChip
-          href={hrefWith(PATH, sp, { fokus: "fehlt", status: undefined, genehmigung: undefined })}
-          active={focus === "fehlt"}
-          count={missing}
-        >
-          {t("focusMissing")}
-        </FilterChip>
-        <FilterChip
-          href={hrefWith(PATH, sp, {
-            fokus: "ablaufend",
-            status: undefined,
-            genehmigung: undefined,
-          })}
-          active={focus === "ablaufend"}
-          count={expiring}
-        >
-          {t("focusExpiring")}
-        </FilterChip>
-        <span aria-hidden className="mx-1 self-center text-faint-foreground">
-          |
-        </span>
-        {PERMIT_STATE_ORDER.filter((s) => logbook.counts[s] > 0 || s === state).map((s) => (
-          <FilterChip
-            key={s}
-            href={hrefWith(PATH, sp, { status: s, fokus: undefined, genehmigung: undefined })}
-            active={state === s}
-            count={logbook.counts[s]}
-          >
-            {tState(s)}
-          </FilterChip>
-        ))}
-      </div>
+      <FilterBar>
+        <FilterGroup label={t("focus")}>
+          <FilterChips>
+            <FilterChip
+              href={hrefWith(PATH, sp, {
+                fokus: undefined,
+                status: undefined,
+                genehmigung: undefined,
+              })}
+              active={!focus && !state}
+            >
+              {t("focusAll")}
+            </FilterChip>
+            <FilterChip
+              href={hrefWith(PATH, sp, {
+                fokus: "fehlt",
+                status: undefined,
+                genehmigung: undefined,
+              })}
+              active={focus === "fehlt"}
+              count={missing}
+            >
+              {t("focusMissing")}
+            </FilterChip>
+            <FilterChip
+              href={hrefWith(PATH, sp, {
+                fokus: "ablaufend",
+                status: undefined,
+                genehmigung: undefined,
+              })}
+              active={focus === "ablaufend"}
+              count={expiring}
+            >
+              {t("focusExpiring")}
+            </FilterChip>
+          </FilterChips>
+        </FilterGroup>
+        <FilterGroup label={t("status")}>
+          <FilterChips>
+            {PERMIT_STATE_ORDER.filter((s) => logbook.counts[s] > 0 || s === state).map((s) => (
+              <FilterChip
+                key={s}
+                href={hrefWith(PATH, sp, { status: s, fokus: undefined, genehmigung: undefined })}
+                active={state === s}
+                count={logbook.counts[s]}
+              >
+                {tState(s)}
+              </FilterChip>
+            ))}
+          </FilterChips>
+        </FilterGroup>
+      </FilterBar>
 
       {logbook.total === 0 && !filtered ? (
         <Panel>
