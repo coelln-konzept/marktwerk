@@ -46,7 +46,8 @@
       },
       "eventCount": "{count, plural, one {# fällig} other {# fällig}}",
       "keyTask": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",
-      "more": "+ {count} weitere"
+      "more": "+ {count} weitere",
+      "moreAtMarket": "+ {count} weitere bei {name}"
     },
     "weekend": {
       "title": "Dieses Wochenende",

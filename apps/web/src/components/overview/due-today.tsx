@@ -38,6 +38,9 @@ const GROUPS: DueUrgency[] = ["overdue", "today", "soon", "upcoming"];
 /** Markets (and single items) shown per group before "+ N weitere" (the overdue group can be long). */
 export const DUE_PREVIEW_CLUSTERS = 10;
 
+/** Items shown per market before "+ N weitere bei …" (the rest is in the market's "Was fehlt"). */
+export const DUE_PER_MARKET = 3;
+
 type Cluster = {
   event: {
     id: string;
@@ -259,9 +262,24 @@ export async function DueToday({
                           </span>
                         </div>
                         <ul className="m-0 flex list-none flex-col p-0 pb-1.5">
-                          {cluster.items.map((item) => (
-                            <DueRow key={`${item.kind}-${item.id}`} item={item} nested />
-                          ))}
+                          {(showAll ? cluster.items : cluster.items.slice(0, DUE_PER_MARKET)).map(
+                            (item) => (
+                              <DueRow key={`${item.kind}-${item.id}`} item={item} nested />
+                            ),
+                          )}
+                          {!showAll && cluster.items.length > DUE_PER_MARKET && (
+                            <li className="py-1 pl-8">
+                              <Link
+                                href={cluster.event.href as never}
+                                className="inline-flex min-h-8 items-center px-4 text-muted-foreground text-small hover:text-foreground hover:underline"
+                              >
+                                {t("moreAtMarket", {
+                                  count: cluster.items.length - DUE_PER_MARKET,
+                                  name: cluster.event.name,
+                                })}
+                              </Link>
+                            </li>
+                          )}
                         </ul>
                       </li>
                     ) : (

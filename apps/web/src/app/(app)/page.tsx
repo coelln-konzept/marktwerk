@@ -58,6 +58,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         next={overview.nextAfterWeekend}
         vorschauId={vorschauId}
       />
+      <PastMarketsLine count={overview.pastMarketTasks} query={sp} canCleanup={canWrite} />
       <DueToday
         due={overview.due}
         showAll={param(sp.alle) === "1"}
@@ -65,7 +66,6 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         query={sp}
         canSnooze={canWrite}
       />
-      <PastMarketsLine count={overview.pastMarketTasks} query={sp} canCleanup={canWrite} />
       {vorschauId && <EventVorschau id={vorschauId} closeHref="/" />}
       {canWrite && param(sp.aufraeumen) === "1" && (
         <PastMarketsDrawer actor={actor} today={today} query={sp} />
