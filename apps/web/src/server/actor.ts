@@ -1,6 +1,6 @@
 import "server-only";
-import { event, eventDuty, staffMember } from "@marktwerk/db/schema";
-import { and, eq, exists, isNull, type SQL, sql } from "drizzle-orm";
+import { event, eventDuty, shift, staffMember } from "@marktwerk/db/schema";
+import { and, eq, exists, isNull, notInArray, or, type SQL, sql } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "./db";
 import { type CurrentUser, requireUser } from "./session";
@@ -29,7 +29,8 @@ export const getActor = cache(async (): Promise<Actor> => {
 
 /**
  * Row-level scope for events: field users only see events they work at (decision 2026-10-21).
- * In M1 that means an event duty; shifts join in with M4. Archived events are always hidden.
+ * That means an event duty or a shift there (M4; declined and cancelled shifts do not count).
+ * Archived events are always hidden.
  */
 export function visibleEvents(actor: Actor): SQL {
   const notArchived = isNull(event.archivedAt);
@@ -37,13 +38,27 @@ export function visibleEvents(actor: Actor): SQL {
   if (!actor.staffMemberId) return sql`false`;
   return and(
     notArchived,
-    exists(
-      db
-        .select({ one: eventDuty.eventId })
-        .from(eventDuty)
-        .where(
-          and(eq(eventDuty.eventId, event.id), eq(eventDuty.staffMemberId, actor.staffMemberId)),
-        ),
+    or(
+      exists(
+        db
+          .select({ one: eventDuty.eventId })
+          .from(eventDuty)
+          .where(
+            and(eq(eventDuty.eventId, event.id), eq(eventDuty.staffMemberId, actor.staffMemberId)),
+          ),
+      ),
+      exists(
+        db
+          .select({ one: shift.id })
+          .from(shift)
+          .where(
+            and(
+              eq(shift.eventId, event.id),
+              eq(shift.staffMemberId, actor.staffMemberId),
+              notInArray(shift.status, ["declined", "cancelled"]),
+            ),
+          ),
+      ),
     ),
   ) as SQL;
 }

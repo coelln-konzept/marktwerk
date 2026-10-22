@@ -1,0 +1,184 @@
+{
+  "board": {
+    "title": "Board",
+    "subtitle": "Aufgaben über alle Veranstaltungen",
+    "tab": {
+      "open": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}}"
+    },
+    "columns": {
+      "preparation": "Vorbereitung",
+      "this_week": "Diese Woche",
+      "today": "Heute",
+      "done": "Erledigt"
+    },
+    "doneRange": "letzte 14 Tage",
+    "emptyColumn": "Keine Aufgaben",
+    "showMore": "{count} weitere anzeigen",
+    "showLess": "Weniger anzeigen",
+    "view": {
+      "label": "Ansicht",
+      "spalten": "Spalten",
+      "person": "Nach Person",
+      "gruppen": "Gruppiert",
+      "arbeitslast": "Arbeitslast"
+    },
+    "filter": {
+      "label": "Aufgaben filtern",
+      "all": "Alle",
+      "mine": "Meine",
+      "unassigned": "Nicht zugewiesen",
+      "category": "Kategorie",
+      "allCategories": "Alle Kategorien"
+    },
+    "tabs": {
+      "label": "Aufgaben",
+      "mine": "Meine Aufgaben",
+      "all": "Alle",
+      "unassigned": "Nicht zugewiesen"
+    },
+    "group": {
+      "label": "Gruppieren",
+      "by": {
+        "veranstaltung": "Nach Veranstaltung",
+        "tag": "Nach Tag"
+      },
+      "noEvent": "Ohne Veranstaltung",
+      "noDate": "Ohne Datum",
+      "overdue": "Überfällig",
+      "today": "Heute"
+    },
+    "horizon": {
+      "label": "Zeitraum",
+      "woche": "Bis Sonntag",
+      "14": "14 Tage",
+      "alle": "Alles"
+    },
+    "empty": {
+      "board": "Noch keine Aufgaben. Mit „Aufgabe“ legst du eine an, oder sie kommen aus der Ablaufvorlage der Veranstaltung.",
+      "filtered": "Keine Treffer. Setze die Filter zurück, um alle Aufgaben zu sehen.",
+      "noStaff": "Für dein Konto ist kein Teammitglied hinterlegt",
+      "noStaffHint": "Deshalb gibt es keine „Meine Aufgaben“. Wähle „Alle“, um alle Aufgaben zu sehen."
+    },
+    "truncated": "Es gibt mehr Aufgaben, als hier geladen werden. Grenze den Zeitraum oder die Kategorie ein.",
+    "sum": {
+      "open": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}}"
+    },
+    "keys": {
+      "title": "Tastatur",
+      "picked": "„{title}“ aufgenommen, Spalte {column}, Position {position} von {total}. Pfeiltasten bewegen, Leertaste legt ab, Escape bricht ab.",
+      "moved": "„{title}“: Spalte {column}, Position {position} von {total}.",
+      "cancelled": "Verschieben abgebrochen.",
+      "dropped": "„{title}“ nach {column} verschoben.",
+      "banner": "„{title}“ aufgenommen",
+      "column": "Spalte wechseln",
+      "position": "Position",
+      "space": "Leertaste",
+      "drop": "ablegen",
+      "cancel": "abbrechen",
+      "pickUp": "Karte aufnehmen (am Griff)",
+      "moveArrows": "Karte bewegen",
+      "dropShort": "Karte ablegen",
+      "cancelShort": "Verschieben abbrechen",
+      "markDone": "Erledigt (auf der Karte)",
+      "openMenu": "Aktionsmenü (auf der Karte)",
+      "newTask": "Neue Aufgabe",
+      "dropHere": "Hier ablegen"
+    },
+    "card": {
+      "actions": "Aktionen für „{title}“",
+      "grip": "„{title}“ verschieben",
+      "gripHint": "Ziehen oder mit der Leertaste aufnehmen",
+      "reopen": "„{title}“ wieder öffnen",
+      "complete": "„{title}“ als erledigt markieren",
+      "completeHint": "Als erledigt markieren (E)",
+      "unassigned": "Nicht zugewiesen"
+    },
+    "dnd": {
+      "roleDescription": "verschiebbare Karte",
+      "instructions": "Leertaste nimmt die Karte auf, Pfeiltasten bewegen sie, Leertaste legt sie ab, Escape bricht ab. Mit Maus oder Finger ziehst du die Karte direkt an ihren Platz oder auf eine Person.",
+      "start": "„{title}“ aufgenommen.",
+      "moveTo": "„{title}“: Spalte {column}, Position {position} von {total}.",
+      "assignTo": "„{title}“: zuweisen an {name}.",
+      "unassignTo": "„{title}“: Zuweisung entfernen.",
+      "assignMoveTo": "„{title}“: zuweisen an {name}, Spalte {column}, Position {position} von {total}.",
+      "unassignMoveTo": "„{title}“: Zuweisung entfernen, Spalte {column}, Position {position} von {total}.",
+      "noDrop": "„{title}“: hier nicht ablegbar.",
+      "cancelled": "Verschieben abgebrochen."
+    },
+    "menu": {
+      "open": "Öffnen",
+      "assign": "Zuweisen an…",
+      "assignTo": "Zuweisen an",
+      "current": "Aktuell",
+      "unassign": "Niemandem zuweisen",
+      "move": "Verschieben nach…",
+      "status": "Status",
+      "reopen": "Wieder öffnen",
+      "done": "Erledigt"
+    },
+    "toast": {
+      "moved": "„{title}“ nach {column} verschoben",
+      "assigned": "„{title}“ an {name} zugewiesen",
+      "assignedMoved": "„{title}“ an {name} zugewiesen und nach {column} verschoben",
+      "unassignedMoved": "Zuweisung von „{title}“ entfernt, nach {column} verschoben",
+      "unassigned": "Zuweisung von „{title}“ entfernt",
+      "done": "„{title}“ erledigt",
+      "reopened": "„{title}“ wieder geöffnet",
+      "status": "„{title}“: {status}",
+      "reverted": "Rückgängig gemacht",
+      "undo": "Rückgängig",
+      "open": "Öffnen"
+    },
+    "errors": {
+      "generic": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "not_found": "Die Aufgabe gibt es nicht mehr oder du siehst sie nicht.",
+      "invalid_input": "Die Eingabe ist nicht gültig.",
+      "invalid_status": "Dieser Status ist nicht möglich.",
+      "invalid_column": "Diese Spalte gibt es nicht.",
+      "invalid_staff": "Diese Person kann nicht zugewiesen werden.",
+      "invalid_event": "Diese Veranstaltung ist nicht verfügbar.",
+      "invalid_state": "Das geht bei diesem Stand der Aufgabe nicht.",
+      "reason_required": "Bitte nenne einen Grund.",
+      "evidence_missing": "„{title}“ kann noch nicht erledigt werden. Es fehlt: {what}.",
+      "not_undoable": "Das lässt sich nicht mehr rückgängig machen.",
+      "conflict": "Die Aufgabe wurde inzwischen geändert. Rückgängig ist nicht mehr möglich."
+    },
+    "rail": {
+      "title": "Team",
+      "week": "Auslastung diese Woche · {week}",
+      "empty": "Noch niemand mit offenen Aufgaben.",
+      "emptyEvent": "Noch niemand im Team und keine zugewiesenen Aufgaben.",
+      "tasks": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
+      "load": "Auslastung {name}",
+      "unassigned": "Nicht zugewiesen",
+      "capacityNote": "Last = geschätzte offene Stunden dieser Woche, Überfälliges eingerechnet. Kapazität = Vertragsstunden pro Woche, sonst 20 Stunden."
+    },
+    "load": {
+      "ok": "im Rahmen",
+      "warn": "Grenze nah",
+      "critical": "überlastet"
+    },
+    "lanes": {
+      "person": "Person",
+      "unassigned": "Nicht zugewiesen"
+    },
+    "workload": {
+      "title": "Arbeitslast · alle Veranstaltungen",
+      "subtitle": "Geschätzte offene Stunden je Person und Kalenderwoche, nächste 8 Wochen",
+      "person": "Person",
+      "capacity": "Kapazität / Woche",
+      "unassigned": "Nicht zugewiesen",
+      "footnote": "Aus offenen Aufgaben mit Fälligkeitsdatum; Überfälliges zählt in der aktuellen Woche. Kapazität = Vertragsstunden pro Woche, sonst 20 Stunden.",
+      "undated": "{count, plural, one {# Aufgabe ohne Datum ist nicht enthalten.} other {# Aufgaben ohne Datum sind nicht enthalten.}}"
+    },
+    "drawer": {
+      "label": "Aufgabe",
+      "notFound": "Aufgabe nicht gefunden",
+      "notFoundHint": "Sie existiert nicht mehr, oder du hast keinen Zugriff darauf.",
+      "linkHint": "Diese Ansicht lässt sich als Link weitergeben: Die Adresse enthält die Aufgabe."
+    }
+  },
+  "drawer": {
+    "close": "Schließen"
+  }
+}

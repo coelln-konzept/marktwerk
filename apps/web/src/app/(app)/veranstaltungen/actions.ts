@@ -6,7 +6,9 @@ import { getActor } from "@/server/actor";
 import {
   archiveDraftEvents,
   createEventsFromPreset,
+  createManualEvent,
   EventInputError,
+  type ManualEventInput,
   scheduledEventsBetween,
 } from "@/server/services/events";
 import { requirePermission } from "@/server/session";
@@ -21,6 +23,7 @@ export async function loadScheduleContext(from: string, to: string) {
 }
 
 export async function createEvents(presetId: string, dates: string[]): Promise<Result<string[]>> {
+  await requirePermission("event", "write");
   const actor = await getActor();
   try {
     const created = await createEventsFromPreset(actor, presetId, dates);
@@ -32,7 +35,24 @@ export async function createEvents(presetId: string, dates: string[]): Promise<R
   }
 }
 
+/** "Neue Veranstaltung ohne Vorlage": one draft event from typed data. */
+export async function createSingleEvent(
+  input: ManualEventInput & { startsOn: string },
+): Promise<Result<{ id: string; name: string }>> {
+  await requirePermission("event", "write");
+  const actor = await getActor();
+  try {
+    const created = await createManualEvent(actor, input);
+    refresh();
+    return { ok: true, data: { id: created.id, name: input.name.trim() } };
+  } catch (error) {
+    if (error instanceof EventInputError) return { ok: false, error: error.message };
+    throw error;
+  }
+}
+
 export async function undoCreateEvents(ids: string[]): Promise<Result<number>> {
+  await requirePermission("event", "write");
   const actor = await getActor();
   try {
     const n = await archiveDraftEvents(actor, ids);

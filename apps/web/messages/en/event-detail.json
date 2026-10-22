@@ -25,9 +25,7 @@
       "notes": "Notes",
       "history": "History",
       "milestone": "from {milestone}",
-      "milestoneHint": "Arrives with milestone {milestone}",
-      "later": "later",
-      "laterHint": "Arrives in a later step"
+      "milestoneHint": "Arrives with milestone {milestone}"
     },
     "status": {
       "menu": "Change status",
@@ -102,9 +100,9 @@
         "tasks": "Tasks",
         "team": "Team",
         "money": "Money",
-        "permitsNote": "from M3",
-        "tasksNote": "from M2",
-        "moneyNote": "from M5",
+        "permitsNote": "status of the permits needed",
+        "tasksNote": "overdue and blocked tasks",
+        "moneyNote": "overdue and soon-due instalments, plan against committed",
         "teamNote": "{assigned}/{total} duties filled"
       }
     },
@@ -116,7 +114,34 @@
       "unassigned": "not filled",
       "assigned": "filled",
       "summary": "{assigned} of {total} duties filled",
-      "hint": "Read only: duties are taken over from the preset. Changing them here arrives in a later step."
+      "hint": "Applies to this event only. The preset's default team stays as it is.",
+      "hintReadOnly": "Read only: owners and office managers can change duties.",
+      "actions": "Actions",
+      "change": "Change",
+      "assign": "Assign",
+      "changeLabel": "Change person for {role}",
+      "assignLabel": "Assign {role}",
+      "preferred": "Preferred for {role}",
+      "others": "Others",
+      "everyone": "Everyone",
+      "busyAt": "same day at {event}",
+      "current": "currently assigned",
+      "clear": "Leave unassigned",
+      "undo": "Undo",
+      "toast": {
+        "changed": "{role}: {from} → {to}",
+        "assigned": "{role}: {name}",
+        "cleared": "{role}: no longer filled ({name})",
+        "reverted": "{role} back to {name}",
+        "tasks": "{count, plural, one {1 task follows} other {# tasks follow}}"
+      },
+      "errors": {
+        "not_found": "This event no longer exists.",
+        "invalid_role": "This duty no longer exists. The page was refreshed.",
+        "invalid_staff": "This person is no longer active. The page was refreshed.",
+        "conflict": "The duty was changed in the meantime. Nothing was reverted.",
+        "generic": "That didn't work. Please try again."
+      }
     },
     "notes": {
       "title": "Notes",
@@ -139,7 +164,7 @@
       "who": "Who",
       "what": "Change",
       "empty": "No changes since the import yet.",
-      "emptyHint": "Status changes, edited notes and other changes appear here.",
+      "emptyHint": "Status changes, edited notes, duties and other changes appear here.",
       "unknownActor": "System",
       "created": "Created from preset",
       "createdManual": "Created",
@@ -148,25 +173,157 @@
       "reason": "Reason: {reason}",
       "notes": "Notes changed",
       "archived": "Archived",
-      "other": "Changed ({action})"
+      "other": "Changed ({action})",
+      "dutyChanged": "{role}: {from} → {to}",
+      "dutyAssigned": "{role} assigned: {name}",
+      "dutyCleared": "{role} no longer filled (was {name})",
+      "dutyUndone": "Undone",
+      "updated": "Key facts changed: {fields}",
+      "fields": {
+        "times": "times",
+        "pricePerMCents": "pitch price",
+        "bookingFeeCents": "booking fee",
+        "name": "name",
+        "durationDays": "length",
+        "venueId": "venue"
+      },
+      "bookingOn": "{flag}: yes",
+      "bookingOff": "{flag}: no",
+      "moved": "Moved: {from} → {to}",
+      "undone": "Undone",
+      "createdAgreement": "Created from agreement"
     },
-    "later": {
-      "board": {
-        "title": "The board arrives in M2",
-        "hint": "Tasks from the process templates as a kanban board, with the people rail showing workload per person."
+    "facts": {
+      "edit": "Edit",
+      "title": "Edit key facts",
+      "description": "Times and prices of this event.",
+      "times": "Times",
+      "time": {
+        "setup": "Setup",
+        "open": "Opens",
+        "close": "Closes",
+        "teardown": "Teardown"
       },
-      "permits": {
-        "title": "Permits arrive in M3",
-        "hint": "Which permits apply to this event, their status and deadlines come with the logbook."
-      },
-      "money": {
-        "title": "Money arrives in M5",
-        "hint": "Later this shows the items with Plan · Committed · Actual, payments with instalments and receipts."
-      },
-      "documents": {
-        "title": "Documents arrive later",
-        "hint": "Notices, plans and contracts of this event will be filed here later."
+      "price": "Pitch price",
+      "perMeter": "€ per m",
+      "fee": "Booking fee",
+      "presetHint": "Applies to this event only; the preset stays as it is.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Key facts saved",
+      "unchanged": "Nothing to save.",
+      "undo": "Undo",
+      "reverted": "Key facts reverted",
+      "errors": {
+        "invalid_time": "Please enter all times as HH:MM.",
+        "open_after_close": "Closing must be after opening.",
+        "close_after_teardown": "Teardown can't be before closing.",
+        "setup_after_open": "For single-day markets, setup can't be after opening.",
+        "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most €10,000).",
+        "not_found": "This event no longer exists.",
+        "conflict": "The key facts were changed in the meantime. Nothing was reverted.",
+        "generic": "That didn't work. Please try again."
       }
+    },
+    "booking": {
+      "menu": "Booking",
+      "flag": {
+        "bookingOpen": "Bookable",
+        "fullyBooked": "Fully booked",
+        "carSpacesFull": "Car spaces full"
+      },
+      "on": {
+        "bookingOpen": "Booking opened",
+        "fullyBooked": "Marked as fully booked",
+        "carSpacesFull": "Car spaces marked as full"
+      },
+      "off": {
+        "bookingOpen": "Booking closed",
+        "fullyBooked": "No longer fully booked",
+        "carSpacesFull": "Car spaces available again"
+      },
+      "undo": "Undo",
+      "failed": "That didn't work. Please try again."
+    },
+    "move": {
+      "open": "Move",
+      "title": "Move event",
+      "description": "New first day; the duration stays. Setup, teardown and booking cut-off are recalculated.",
+      "newDate": "New first day",
+      "loading": "Loading preview …",
+      "caption": "Dates before and after",
+      "what": "Date",
+      "before": "Before",
+      "after": "New",
+      "announced": "This event is already announced: vendors and the website need to learn the new date.",
+      "note": "Hints never block: you decide.",
+      "submit": "Move",
+      "cancel": "Cancel",
+      "moved": "Moved to {date}",
+      "undo": "Undo",
+      "reverted": "Back on {date}",
+      "errors": {
+        "invalid_date": "Please pick a valid date.",
+        "not_movable": "This event is running or over and can no longer be moved.",
+        "conflict": "The event was moved in the meantime. The page was refreshed.",
+        "not_found": "This event no longer exists.",
+        "generic": "That didn't work. Please try again."
+      },
+      "tasksShifting": "{count, plural, =0 {No task moves.} one {1 task moves.} other {# tasks move.}}",
+      "tasksShiftingNote": "Done tasks and due dates set by hand stay.",
+      "movedTasks": "{count, plural, one {1 task moved} other {# tasks moved}}"
+    },
+    "happening": {
+      "title": "This event is happening now",
+      "description": "The change applies immediately, also for the team on site. Change it anyway?",
+      "confirm": "Change",
+      "cancel": "Cancel"
+    },
+    "basics": {
+      "open": "Edit",
+      "title": "Name, length and venue",
+      "description": "Applies to this event only. We ask once more before saving.",
+      "name": "Name",
+      "venue": "Venue",
+      "days": "Days",
+      "archivedVenue": "Current venue (archived)",
+      "newDays": "New: {from} – {to}",
+      "presetHint": "The preset stays as it is. With more or fewer days, setup, teardown and booking cut-off are recalculated.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Name, length and venue saved",
+      "unchanged": "Nothing to save.",
+      "undo": "Undo",
+      "reverted": "Back as before",
+      "change": {
+        "name": "Name: {from} → {to}",
+        "days": "Length: {from} → {to} days",
+        "venue": "Venue: {from} → {to}"
+      },
+      "confirm": {
+        "title": "Change it?",
+        "description": "Vendors, team and website will see the new details.",
+        "ok": "Change"
+      },
+      "errors": {
+        "invalid_name": "Please enter a name (at most 120 characters).",
+        "invalid_duration": "Please enter 1 to 14 days.",
+        "invalid_venue": "This venue no longer exists.",
+        "conflict": "The event was changed in the meantime. Nothing was reverted.",
+        "not_found": "This event no longer exists.",
+        "generic": "That didn't work. Please try again."
+      },
+      "openLabel": "Edit name, length and venue",
+      "tasksShifting": "{count, plural, =0 {No task moves.} one {1 task moves.} other {# tasks move.}}",
+      "tasksShiftingNote": "Done tasks and due dates set by hand stay.",
+      "movedTasks": "{count, plural, one {1 task moved} other {# tasks moved}}"
+    },
+    "documents": {
+      "title": "Documents",
+      "empty": "Nothing filed yet. Notices, plans and contracts of this event go here.",
+      "add": "Add document",
+      "readOnly": "You can view documents but not add them.",
+      "count": "{count, plural, one {# document} other {# documents}}"
     }
   }
 }

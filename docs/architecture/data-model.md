@@ -1,6 +1,9 @@
 # Data model
 
-Status: **draft v0.4 (2026-10-21)**. Change in v0.4: `workspace` removed; `user_preference` keeps theme, density,
+Status: **draft v0.5 (2026-10-21)**. Change in v0.5: the Phase 1 schema for M2–M6 exists (migration
+`0002_phase1_modules`); where it deliberately differs from this text the line is marked "(implemented 0002: …)".
+Table list by file in `packages/db/src/schema/`: `templates.ts`, `tasks.ts`, `permits.ts`, `notifications.ts`,
+`staff.ts`, `money.ts`, `company.ts`, `documents.ts`. Change in v0.4: `workspace` removed; `user_preference` keeps theme, density,
 sidebar and `saved_views` (ADR 0019, classic screens). v0.3 was revised after the client meeting (research 05) and
 follow-up research 06–08. Changes from v0.2: **`event` replaces `market`** (ADR 0010), **event presets** (the old website's
 "presets") replace market series, **staff members** separate from login users (ADR 0012), time estimates,
@@ -119,7 +122,14 @@ erDiagram
   `duty_role_id?`, `priority`, **`estimate_minutes`**, evidence (`requires_photo`, `requires_note`,
   `requires_attachment`, `check_items`), `requires_approval_by?`, `depends_on_keys`, `condition` (on event
   type/venue attributes), sort).
-- **checklist**: `event_id?`, `permit_id?`, `template_version_id?`, name.
+  *(implemented 0002: `task_category` also has `office` (the synthetic Büro tasks); `phase` is `pre | live | post`;
+  `priority` is `low | normal | high`; `checklist_template.kind` (`event | permit`, a permit-prep template has
+  kind `permit`) and `event_type_id?`; `template_version` has `published_at`, `published_by_id`, `change_note`, a
+  partial unique index allows **one draft** per template; `requires_approval_by` is `approver_duty_role_id` (a
+  role, not a person, principle 4); the preset → templates link is the table **`event_preset_template`**
+  `(preset_id, template_id, sort)` that stands for "`checklist_template_ids`".)*
+- **checklist**: `event_id?`, `permit_id?`, `template_version_id?`, name. *(implemented 0002: + `template_id?`, `sort`,
+  `archived_at`; a check forbids both `event_id` and `permit_id`.)*
 - **task**: origin (`event_id?`, `checklist_id?`, `template_item_id?`, `template_stable_key?`, `permit_id?`,
   `payable_id?`, `parent_task_id?`, `source` (`template | manual | permit | permit_condition | obligation |
   rental | email | system`)), title, description, `phase?`, `category`, `priority`, labels;
@@ -129,7 +139,14 @@ erDiagram
   skipped | cancelled`, `waiting_reason?`, `completed_at?`, `completed_by?`, `approval_status?`);
   **kanban** (`board_column?` override, `board_sort`); **carry-over** (`rollover_count`, `last_rolled_at`);
   template tracking (`customized`, `removed_from_template`).
+  *(implemented 0002: task also has `obligation_id?` (source `obligation`), `skipped_reason`, the copied evidence
+  flags `requires_photo/note/attachment`, `approver_staff_member_id?`, `completed_by_staff_member_id`; `board_column`
+  is the enum `preparation | this_week | today | done`; `board_sort` is a double (fractional ordering);
+  `labels` is `text[]`. Constraints: `status = done` needs `completed_at`; a partial unique index
+  `(checklist_id, template_stable_key)` makes instantiation idempotent. `event_id` is nullable (company/permit tasks).)*
 - **task_check_item**, **task_dependency** (doesn't move dates), **task_comment**, **task_watcher**.
+  *(implemented 0002: a comment has `author_staff_member_id?` and `author_user_id?` (an office login may have no staff
+  record), `mentioned_staff_member_ids`, `edited_at`, `archived_at`.)*
 
 ### Permits & logbook
 - **permit_requirement** (blueprint per venue, optionally narrowed by event type): `category` (`city | external`),
@@ -143,7 +160,11 @@ erDiagram
   `applied_at?`, `expected_decision_on?`, `granted_at?`, `valid_from?`, `valid_until?`, `conditions`,
   `deliverables_received` (e.g. stickers: 100), `responsible_staff_member_id?`, `supersedes_id?`, notes.
   Fees → `payable` (with instalments). Derived flags: `expiring`, `expired`.
-- **event_permit**: `(event_id, permit_id, required)`.
+  *(implemented 0002: `permit` also has `venue_id?` and `season?` (denormalised from the requirement so the logbook
+  groups by location without a join and ad-hoc permits work); all dates are `date`; `apply_by`, `status` default
+  `not_started`; `conditions` is `text[]`; `permit_requirement.event_type_id?`, `archived_at`; month-days are text
+  `MM-DD` with a check; `permit_type` has the full list of the data model, the synthetic data uses six.)*
+- **event_permit**: `(event_id, permit_id, required)`. *(implemented 0002: primary key `(event_id, permit_id)`.)*
 - **Logbook** = a view over permits + agreements + (M11) equipment + documents, grouped by location and category,
   showing *held / pending / missing* for upcoming events.
 
@@ -161,6 +182,14 @@ erDiagram
 - **payroll_period**: `month`, `status` (`open | locked | approved | exported`), `locked_at`, `exported_at`,
   export files. Computed per person: hours, gross, remaining allowance, YTD, overrun months.
 - **overrun_justification**: staff member, month, reason (needed for the "unforeseeable" exception).
+  *(implemented 0002: all "who did it" columns are `staff_member` ids (`recorded_by_staff_member_id`,
+  `approved_by_staff_member_id`, `locked_by_…`), `shift.event_id` and `shift.staff_member_id` are `restrict`
+  (time records outlive people and events); `shift_revision` = `(shift_id, version, reason, before jsonb snapshot,
+  changed_by_staff_member_id, changed_at)`; `shift` times are `time` columns, `planned_*`/`actual_*` nullable;
+  `payroll_period.month` is the first day of the month (unique, checked) and has no `export_files` column: the export
+  files are `document`s with `payroll_period_id`; `employment_contract` is unique on `(staff_member_id, valid_from)`,
+  overlapping periods are checked in the service, `contracted_hours_per_week` is `numeric(5,2)`; `overrun_justification`
+  is unique per `(staff_member_id, month)`.)*
 
 ### Payables, receipts, event P&L (M5)
 - **payable**: `counterparty_contact_id?`, title, `scope` (`event | company | vehicle | venue_season`), `event_id?`,
@@ -177,6 +206,27 @@ erDiagram
   e-invoice XML stored byte-identical.
 - **event budget** = view: per category **plan** (`event_budget_line`), **committed** (payables), **actual**
   (paid instalments + expenses); revenue lines from bookings (M9) and other income (`event_income`).
+  *(implemented 0002: `payable.status` is **not stored** (derived from the instalments); `payable.obligation_id?`
+  added, `rental_id` waits for M12 (no rental table yet); `scope = venue_season` needs `venue_id` + `season`, `event`
+  needs `event_id`, `vehicle` needs `vehicle_id` (check); `installment` is unique on `(payable_id, sort)`, a paid or
+  partially paid row needs `paid_on` and `paid_amount_cents` (check), `method` is the enum `payment_method`
+  (`bank_transfer | sepa_direct_debit | cash | card | other`), `paid_by_staff_member_id`; `expense` has `merchant`,
+  `method`; `event_budget_line` is unique per `(event_id, category)`; `event_income` = `label`, `amount_cents`,
+  `received_on?`. **`document`** lives in `documents.ts` and carries its links as **direct nullable columns** (payable,
+  installment, expense, permit, event, venue, location agreement, vehicle, vehicle issue, obligation completion,
+  task, employment contract, payroll period; a check requires at least one) instead of a link table: nothing
+  references `document`, so no import cycle; links are `restrict` (evidence outlives the record). Extra kind
+  `export`; `storage_key` unique; `sha256` checked as 64 hex; soft delete = `archived_at` + `archived_by` + reason.)*
+  *(implemented M5, service rules: a payable's non-cancelled instalments add up to its total (checked in
+  `services/payables.ts`); paying adds up part payments (`paid_amount_cents` is cumulative, never above the rate);
+  cancelling a rate does not change the total. **Event budget:** committed = non-cancelled instalments of the event's
+  payables + its expenses, actual = paid amounts + expenses, variance = plan − committed; `venue_season` payables are
+  not in the category totals but listed with this event's share (total ÷ non-cancelled events at the venue that season).
+  **"Beleg fehlt":** a paid or part-paid rate or an expense with no live document of kind receipt/invoice/e_invoice_xml
+  on it (for a rate: on the rate or on its payable). Files live in the storage driver under
+  `<sha-prefix>/<sha256>-<document id>.<ext>`; uploads are checked by magic numbers (PDF/JPEG/PNG/HEIC, XML only as
+  e-invoice), max 15 MB. Reminders: `installment_due` at 14 d / 3 d / due day / overdue to everyone with `finance:read`
+  and a login (dedupe `installment:<id>:<stage>:<due>`), critical overdue also `escalated` to the manager.)*
 
 ### Company tab: obligations & vehicles (M6)
 - **vehicle**: plate, model, VIN, first registration, `gross_weight_kg` (→ HU interval), odometer, insurer,
@@ -187,6 +237,23 @@ erDiagram
   service, tyres, insurances, vehicle tax, licence check (6-monthly practice; store date + checker only), KSK
   report 31 March.
 - **vehicle_issue**: vehicle, reported_by, photo, severity, status.
+  *(implemented 0002: `vehicle` has `name`, `make`, `model`, `odometer_recorded_on`, unique `plate` and `vin`;
+  `obligation` has `kind` (`hu | uvv | service | tyres | insurance | vehicle_tax | licence_check | report | other`),
+  `notes`, `archived_at`, and checks that `scope = vehicle` has a vehicle and `scope = venue` a venue; the history is
+  the new table **`obligation_completion`** `(obligation_id, done_on, done_km, cost_cents, done_by_id, checker_name,
+  notes, next_due_on_after, next_due_km_after)`; the payable a completion creates points back through
+  `payable.obligation_id`; `vehicle_issue` has `title`, `description`, `severity` (`minor | major | critical`),
+  `status` (`open | in_progress | resolved`), `reported_*`, `resolved_*`; photos are `document`s with `vehicle_issue_id`.)*
+  *(implemented M6: legal intervals come from `legal_parameter` keys `hu_interval_months_up_to_3500kg`,
+  `hu_interval_months_over_3500kg` and `uvv_interval_months` (HU by gross weight, ≤ 3.5 t inclusive; unknown weight takes
+  the shorter one). Status = `ok | soon | due | overdue` by date (`lead_days` before, the day itself, after) and/or km
+  (within 1 000 km, reached, beyond), the worse one counts. Completing (`obligation_completion`) rolls forward: km from
+  the reading at completion; date from `done_on + interval`, except inside the reminder window (done at most `lead_days`
+  before the due date or later) where the old due date stays the anchor, falling back to `done_on` if that is not after
+  it; month ends are clamped (31.01. + 1 month = 28.02.). A completion dated before `last_done_on` is history only.
+  A km reading above the vehicle's odometer raises it. The reminders job `obligation-reminders` notifies the responsible
+  person (`obligation_due`) from `lead_days` before and once overdue, and the manager (`escalated`, plus
+  `escalation_log`) from the second overdue day; dedupe key `obligation:<id>:<soon|overdue|escalated>:<due date>|<due km>`.)*
 
 ### Notifications & messaging
 - **notification**: `recipient_staff_member_id`, reason (`assigned | mentioned | due_soon | overdue |
@@ -197,6 +264,12 @@ erDiagram
   rendered text, `status` (`queued | ready | sent | delivered | read | failed`), `send_after` (debounce/quiet hours),
   external id. For `whatsapp_link`, "sent" is set when the office clicks the wa.me button.
 - **escalation_log**; **notification_preference**.
+  *(implemented 0002: `notification`: "subject" = `subject_type` + `subject_id` (no FK, spans tables), `severity`
+  `info | warning | critical`, unique `(recipient_staff_member_id, dedupe_key)`; `outbound_message`: `notification_id?`,
+  `recipient_address` (snapshot), `subject`, `attempts`, `error`, unique `dedupe_key`, index on `(status, send_after)`;
+  `escalation_log` = `(subject_type, subject_id, level, escalated_to_staff_member_id, reason, dedupe_key unique,
+  escalated_at)`; `notification_preference` = one row per `(staff_member_id, reason, channel)` with `enabled`, no row =
+  default on.)*
 
 ### UI preferences (ADR 0019)
 - **user_preference**: `user_id`, `theme` (`system | light | dark`), `density` (`standard | compact`),
@@ -226,9 +299,17 @@ createEvent(preset | agreement, date):
 ### Kanban columns (derived, overridable)
 `Erledigt` if done; `Heute` if due today or overdue (rolled over); `Diese Woche` if due ≤ 7 days;
 else `Vorbereitung`. A manual move sets `board_column` until the due date passes.
+*(implemented M2b, `boardColumnFor` in `@marktwerk/core`: "this week" is the ISO week (Mon–Sun, Europe/Berlin), not 7 days;
+a task without a due date is `Vorbereitung`; `skipped` shows in `Erledigt` too, `cancelled` is not shown; `Erledigt` lists the
+last 14 days; moving a card into `Erledigt` marks it done, moving a finished card out reopens it; the override is stored only
+when it differs from the derived column and the nightly job clears it once the due date has passed.)*
 
 ### Carry-over (nightly, 00:05)
 Open tasks with `due_at < today` → `rollover_count += 1`; included in tomorrow's digest; at 3 → notify manager.
+*(implemented M2b, `packages/jobs/src/task-rollover.ts`, cron `5 0 * * *` Europe/Berlin: "open" = todo, in progress, waiting,
+blocked; counted at most once per Berlin day (idempotent); sets `last_rolled_at`, clears the manual column override, notifies the
+assignee (`rolled_over`, dedupe `task:<id>:rolled-over:<n>`); exactly when the count reaches 3 the managers (login role
+`manager`) get `escalated` (dedupe `task:<id>:escalated:3`) and an `escalation_log` row; tasks of cancelled/archived events are skipped.)*
 
 ### Deadline sweep & escalation (every 15 min, idempotent)
 Reminders by `dedupe_key` (incl. due date). Overdue → assignee; +1 day → **manager** (decision 2026-10-21;

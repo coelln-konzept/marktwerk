@@ -1,10 +1,14 @@
 import "server-only";
-import { type HealthDimensions, teamHealth } from "@marktwerk/core";
+import { type HealthDimensions, type HealthLevel, teamHealth } from "@marktwerk/core";
 import { dutyRole, event, eventDuty, eventType, staffMember, venue } from "@marktwerk/db/schema";
 import { and, asc, count, eq, gte, lte, ne, type SQL, sql } from "drizzle-orm";
 import { cache } from "react";
+import { todayIn } from "@/lib/format";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
+import { eventMoneyHealthFor } from "./finance";
+import { permitHealthByEvent } from "./permits";
+import { taskHealthByEvent } from "./tasks";
 
 export type EventStatusKey = (typeof event.status.enumValues)[number];
 
@@ -65,16 +69,63 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
     .innerJoin(venue, eq(venue.id, event.venueId))
     .where(where(actor, filters))
     .orderBy(asc(event.startsOn), asc(event.name));
-  return rows.map((r) => ({ ...r, health: healthOf(r.status, r.duties, required) }));
+  const dims = await dimensionHealth(actor, rows, todayIn());
+  return rows.map((r) => ({
+    ...r,
+    health: healthOf(r.status, r.duties, required, dims.get(r.id)),
+  }));
 }
 
-function healthOf(status: EventStatusKey, duties: number, required: number): HealthDimensions {
+type Dimensions = {
+  permits: HealthLevel | null;
+  tasks: HealthLevel | null;
+  money: HealthLevel | null;
+};
+
+/**
+ * Permits, tasks and money health of many events: one query per dimension for all of them (never per
+ * event). Tasks and money honour the actor's scope (no `finance:read` = no money dimension).
+ */
+async function dimensionHealth(
+  actor: Actor,
+  events: { id: string; startsOn: string }[],
+  today: string,
+): Promise<Map<string, Dimensions>> {
+  const ids = events.map((e) => e.id);
+  const [permits, tasks, money] = await Promise.all([
+    permitHealthByEvent(events, today),
+    taskHealthByEvent(actor, ids, today),
+    eventMoneyHealthFor(actor, ids, today),
+  ]);
+  return new Map(
+    ids.map((id) => [
+      id,
+      {
+        permits: permits.get(id) ?? null,
+        tasks: tasks.get(id) ?? null,
+        money: money.get(id) ?? null,
+      },
+    ]),
+  );
+}
+
+/**
+ * The four health dimensions of one event. Finished and cancelled events carry no permits/tasks/team
+ * signal any more; the money dimension stays for finished ones (rates can still be open) and goes for
+ * cancelled ones.
+ */
+function healthOf(
+  status: EventStatusKey,
+  duties: number,
+  required: number,
+  dims: Dimensions = { permits: null, tasks: null, money: null },
+): HealthDimensions {
   const past = status === "completed" || status === "closed" || status === "cancelled";
   return {
-    permits: null,
-    tasks: null,
+    permits: past ? null : dims.permits,
+    tasks: past ? null : dims.tasks,
     team: past ? null : teamHealth(duties, required),
-    money: null,
+    money: status === "cancelled" ? null : dims.money,
   };
 }
 
@@ -115,9 +166,13 @@ export async function listSeasons(actor: Actor): Promise<number[]> {
 /** One event with everything the header and the Überblick tab need. Null if not visible. */
 export const getEvent = cache(async (actor: Actor, id: string) => {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  const found = await db.query.event.findFirst({
-    where: and(eq(event.id, id), visibleEvents(actor)),
-  });
+  // Not `db.query.event.findFirst`: the relational API aliases the table as "event", and the
+  // `exists (…)` of visibleEvents() for field users references "app"."event", which then fails to resolve.
+  const [found] = await db
+    .select()
+    .from(event)
+    .where(and(eq(event.id, id), visibleEvents(actor)))
+    .limit(1);
   if (!found) return null;
   const [type, place, anchors, duties, preset, required] = await Promise.all([
     db.query.eventType.findFirst({ where: (t, { eq }) => eq(t.id, found.eventTypeId) }),
@@ -153,7 +208,12 @@ export const getEvent = cache(async (actor: Actor, id: string) => {
     anchors,
     duties,
     preset: preset ?? null,
-    health: healthOf(found.status, assigned, required),
+    health: healthOf(
+      found.status,
+      assigned,
+      required,
+      (await dimensionHealth(actor, [{ id, startsOn: found.startsOn }], todayIn())).get(id),
+    ),
   };
 });
 

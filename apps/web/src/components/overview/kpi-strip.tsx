@@ -1,10 +1,46 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { formatMoney } from "@/lib/format";
 import type { Overview } from "@/server/queries/overview";
 
-/** KPI strip next to the greeting. Only numbers that exist in M1 (events); no placeholder zeros. */
+/**
+ * KPI strip next to the greeting (UX concept §5): Fällig bis Sonntag · Überfällig · Geld überfällig ·
+ * Offene Aufgaben · Nächstes Wochenende ("2 von 4 im Plan"). "Geld überfällig" is left out for roles
+ * without finance access; "Entwürfe" only shows while drafts are waiting.
+ */
 export async function KpiStrip({ kpis }: { kpis: Overview["kpis"] }) {
   const t = await getTranslations("overview.kpi");
+  const locale = await getLocale();
+  const money = kpis.moneyOverdue;
   const items = [
+    {
+      key: "dueByWeekend",
+      label: t("dueByWeekend"),
+      value: kpis.dueByWeekend,
+      hint: t("dueByWeekendHint"),
+    },
+    { key: "overdue", label: t("overdue"), value: kpis.overdue, hint: t("overdueHint") },
+    ...(money
+      ? [
+          {
+            key: "moneyOverdue",
+            label: t("moneyOverdue"),
+            value: money.count,
+            hint:
+              money.count > 0
+                ? t("moneyOverdueHint", { amount: formatMoney(money.cents, locale) })
+                : t("moneyOverdueNone"),
+          },
+        ]
+      : []),
+    {
+      key: "openTasks",
+      label: t("openTasks"),
+      value: kpis.openTasks,
+      hint:
+        kpis.overdueTasks > 0
+          ? t("openTasksHint", { overdue: kpis.overdueTasks })
+          : t("openTasksNone"),
+    },
     {
       key: "weekend",
       label: t("weekend"),
@@ -14,23 +50,19 @@ export async function KpiStrip({ kpis }: { kpis: Overview["kpis"] }) {
           ? t("weekendHint", { count: kpis.weekendCount, inPlan: kpis.weekendInPlan })
           : t("weekendHintNone", { count: kpis.weekendCount }),
     },
-    {
-      key: "next30",
-      label: t("next30"),
-      value: kpis.next30,
-      hint: t("next30Hint", { count: kpis.next30 }),
-    },
-    { key: "drafts", label: t("drafts"), value: kpis.drafts, hint: t("draftsHint") },
+    ...(kpis.drafts > 0
+      ? [{ key: "drafts", label: t("drafts"), value: kpis.drafts, hint: t("draftsHint") }]
+      : []),
   ];
   return (
     <dl
       aria-label={t("label")}
-      className="m-0 grid w-full grid-cols-3 gap-y-3 sm:flex sm:w-auto sm:flex-nowrap"
+      className="m-0 grid w-full grid-cols-2 gap-y-3 sm:flex sm:w-auto sm:flex-wrap sm:gap-y-3"
     >
       {items.map((item, i) => (
         <div
           key={item.key}
-          className={`flex min-w-0 flex-col gap-0.5 pr-3 sm:pr-5 ${i > 0 ? "border-border-subtle border-l pl-3 sm:pl-5" : ""}`}
+          className={`flex min-w-0 flex-col gap-0.5 pr-3 sm:pr-5 ${i > 0 ? "sm:border-border-subtle sm:border-l sm:pl-5" : ""}`}
         >
           <dt className="text-muted-foreground text-tiny sm:whitespace-nowrap">{item.label}</dt>
           <dd className="m-0 flex flex-col sm:flex-row sm:items-baseline sm:gap-2">

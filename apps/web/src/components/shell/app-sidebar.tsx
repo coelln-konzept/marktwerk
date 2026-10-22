@@ -20,6 +20,10 @@ import {
   Users,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { todayIn } from "@/lib/format";
+import { getActor } from "@/server/actor";
+import { unreadCount } from "@/server/queries/notifications";
+import { missingPermitCount } from "@/server/queries/permits";
 import type { CurrentUser } from "@/server/session";
 import { ProfileMenu } from "./profile-menu";
 import { type NavEntry, SidebarNav } from "./sidebar-nav";
@@ -39,6 +43,11 @@ export async function AppSidebar({
   const t = await getTranslations("nav");
   const tRoles = await getTranslations("roles");
   const r = user.role;
+  const actor = await getActor();
+  const [missingPermits, unread] = await Promise.all([
+    missingPermitCount(actor, todayIn()),
+    unreadCount(actor),
+  ]);
   const items: (NavEntry & { visible: boolean })[] = [
     { href: "/", label: t("overview"), icon: <Home />, visible: true },
     {
@@ -59,6 +68,7 @@ export async function AppSidebar({
       href: "/logbuch",
       label: t("logbook"),
       icon: <FileCheck2 />,
+      badge: missingPermits,
       visible: can(r, "permit", "read"),
     },
     { href: "/team", label: t("team"), icon: <Users />, visible: can(r, "team", "read") },
@@ -88,7 +98,13 @@ export async function AppSidebar({
       icon: <BookOpen />,
       visible: can(r, "kb", "read"),
     },
-    { href: "/benachrichtigungen", label: t("notifications"), icon: <Bell />, visible: true },
+    {
+      href: "/benachrichtigungen",
+      label: t("notifications"),
+      icon: <Bell />,
+      badge: unread,
+      visible: true,
+    },
     {
       href: "/einstellungen",
       label: t("settings"),

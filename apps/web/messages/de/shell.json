@@ -73,11 +73,19 @@
     "search": "Suchen oder Befehl …",
     "new": "Neu",
     "notifications": "Benachrichtigungen",
-    "shortcut": "Strg K"
+    "shortcut": "Strg K",
+    "newFromPreset": "Aus Vorlage erzeugen",
+    "newSingle": "Einzeltermin",
+    "newKey": "öffnet dieses Menü",
+    "newTask": "Aufgabe",
+    "newPayable": "Zahlung",
+    "newPermit": "Genehmigung",
+    "newShift": "Schicht",
+    "newIssue": "Mangel melden"
   },
   "palette": {
     "title": "Suchen und Befehle",
-    "placeholder": "Veranstaltung, Ort, Person, Händler oder Befehl …",
+    "placeholder": "Veranstaltung, Aufgabe, Genehmigung, Zahlung, Fahrzeug, Ort, Person, Händler oder Befehl …",
     "hint": "Mindestens zwei Zeichen eingeben.",
     "searching": "Suche läuft …",
     "empty": "Keine Treffer.",
@@ -86,6 +94,10 @@
     "umlauts": "Umlaute egal: „koln“ findet Köln",
     "groups": {
       "event": "Veranstaltungen",
+      "task": "Aufgaben",
+      "permit": "Genehmigungen",
+      "payable": "Zahlungen",
+      "vehicle": "Fahrzeuge",
       "venue": "Orte",
       "staff": "Personen",
       "contact": "Kontakte",
@@ -95,7 +107,13 @@
     "actions": {
       "generate": "Veranstaltungen aus Vorlage erzeugen",
       "calendar": "Kalender öffnen",
-      "events": "Alle Veranstaltungen"
+      "events": "Alle Veranstaltungen",
+      "single": "Einzeltermin (Veranstaltung ohne Vorlage) anlegen",
+      "task": "Aufgabe anlegen",
+      "payable": "Zahlung anlegen",
+      "permit": "Genehmigung anlegen",
+      "shift": "Schicht erfassen",
+      "issue": "Mangel melden"
     }
   },
   "vorschau": {

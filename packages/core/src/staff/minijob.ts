@@ -45,10 +45,36 @@ export function minijobMonthStatus(
   if (input.hourlyRateCents <= 0) throw new Error("hourlyRateCents must be positive");
   const minutes = input.workedMinutes + input.plannedMinutes;
   const earnedCents = Math.round((minutes * input.hourlyRateCents) / 60);
-  const remainingMinutes = Math.max(
-    0,
-    Math.floor(((params.limitCents - earnedCents) * 60) / input.hourlyRateCents),
+  return minijobEarningsStatus(
+    {
+      earnedCents,
+      hourlyRateCents: input.hourlyRateCents,
+      previousOverrunMonths: input.previousOverrunMonths,
+      previousElevenMonthsCents: input.previousElevenMonthsCents,
+    },
+    params,
   );
+}
+
+/**
+ * The same rules for earnings that are already known in cents (several rates in one month, or a fixed
+ * monthly pay with a working-time account). `hourlyRateCents` only turns the remaining allowance into
+ * minutes; without it `remainingMinutes` is 0.
+ */
+export function minijobEarningsStatus(
+  input: {
+    earnedCents: number;
+    hourlyRateCents: number | null;
+    previousOverrunMonths: number;
+    previousElevenMonthsCents: number;
+  },
+  params: MinijobParameters,
+): MinijobMonthStatus {
+  const { earnedCents } = input;
+  const remainingMinutes =
+    input.hourlyRateCents && input.hourlyRateCents > 0
+      ? Math.max(0, Math.floor(((params.limitCents - earnedCents) * 60) / input.hourlyRateCents))
+      : 0;
 
   const reasons: MinijobMonthStatus["reasons"] = [];
   const overLimit = earnedCents > params.limitCents;

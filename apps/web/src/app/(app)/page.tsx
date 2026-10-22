@@ -1,3 +1,4 @@
+import { isDueFilter } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventVorschau } from "@/components/events/event-vorschau";
@@ -38,6 +39,8 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   }).format(new Date(`${today}T12:00:00Z`));
   const overview = await getOverview(actor, today);
   const vorschauId = param(sp.vorschau);
+  const dueParam = param(sp.faellig);
+  const dueFilter = isDueFilter(dueParam) ? dueParam : "all";
 
   return (
     <Page crumbs={[{ label: tNav("overview") }]}>
@@ -50,8 +53,18 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         title={t(`greeting.${part}`, { name: actor.firstName })}
         actions={<KpiStrip kpis={overview.kpis} />}
       />
-      <SeasonStrip season={overview.season} nextSeason={overview.nextSeason} />
-      <DueToday />
+      <SeasonStrip
+        season={overview.season}
+        workload={overview.workload}
+        nextSeason={overview.nextSeason}
+      />
+      <DueToday
+        due={overview.due}
+        filter={dueFilter}
+        showAll={param(sp.alle) === "1"}
+        today={today}
+        query={sp}
+      />
       <WeekendTable
         weekend={overview.weekend}
         next={overview.nextAfterWeekend}

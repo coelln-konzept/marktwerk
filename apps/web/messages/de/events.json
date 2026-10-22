@@ -31,9 +31,10 @@
       "actions": "Aktionen"
     },
     "preview": "Vorschau: {name}",
-    "legend": "Zustand: Genehmigungen · Aufgaben · Team · Geld (● Im Plan ▲ Achtung ■ Kritisch ○ noch offen). Genehmigungen ab M3, Aufgaben und Aufwand ab M2, Geld ab M5.",
+    "legend": "Zustand: Genehmigungen · Aufgaben · Team · Geld (● Im Plan ▲ Achtung ■ Kritisch ○ noch offen).",
     "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
-    "weekendFlag": "⚑ Wochenende mit 4+ Veranstaltungen"
+    "weekendFlag": "⚑ Wochenende mit 4+ Veranstaltungen",
+    "single": "Einzeltermin"
   },
   "eventPage": {
     "kind": "Veranstaltung",

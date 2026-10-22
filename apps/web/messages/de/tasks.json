@@ -1,0 +1,184 @@
+{
+  "tasks": {
+    "label": "Aufgabe",
+    "status": {
+      "todo": "Offen",
+      "in_progress": "In Arbeit",
+      "waiting_external": "Wartet",
+      "blocked": "Blockiert",
+      "done": "Erledigt",
+      "skipped": "Übersprungen",
+      "cancelled": "Abgebrochen"
+    },
+    "statusLong": {
+      "todo": "Offen",
+      "in_progress": "In Arbeit",
+      "waiting_external": "Wartet · Amt/Extern",
+      "blocked": "Blockiert",
+      "done": "Erledigt",
+      "skipped": "Übersprungen",
+      "cancelled": "Abgebrochen"
+    },
+    "statusLabel": "Status",
+    "waitingFor": "Wartet auf: {reason}",
+    "waitingNoReason": "Wartet auf eine Antwort von außen.",
+    "blockedBy": "Blockiert: {reason}",
+    "skippedBecause": "Übersprungen: {reason}",
+    "categories": {
+      "general": "Allgemein",
+      "permits": "Genehmigungen",
+      "logistics": "Logistik",
+      "communication": "Kommunikation",
+      "finance": "Finanzen",
+      "staff": "Team",
+      "office": "Büro"
+    },
+    "due": {
+      "overdue": "Überfällig · {days} T",
+      "today": "Heute",
+      "soon": "Fällig in {days} T",
+      "none": "Kein Datum",
+      "doneOn": "Erledigt {date}",
+      "finished": "Abgeschlossen"
+    },
+    "rollover": "{count}× übertragen",
+    "estimate": "Schätzung",
+    "checks": "Checkliste",
+    "evidence": {
+      "title": "Nachweis",
+      "note": "Notiz",
+      "photo": "Foto",
+      "attachment": "Anhang",
+      "check_items": "Checkliste vollständig abhaken",
+      "missing": "fehlt",
+      "given": "vorhanden",
+      "noteLabel": "Notiz zum Erledigen",
+      "noteNeeded": "Für diese Aufgabe ist eine Notiz erforderlich.",
+      "noteHint": "Wird als Kommentar gespeichert, sobald du die Aufgabe erledigst.",
+      "addPhoto": "Foto hinzufügen",
+      "addAttachment": "Anhang hinzufügen"
+    },
+    "reason": {
+      "waiting_external": {
+        "title": "Wartet",
+        "label": "Worauf wartet die Aufgabe?",
+        "placeholder": "z. B. Ordnungsamt Neuss, Rückmeldung bis Freitag"
+      },
+      "blocked": {
+        "title": "Blockiert",
+        "label": "Was blockiert die Aufgabe?",
+        "placeholder": "z. B. Schilder fehlen noch"
+      },
+      "skipped": {
+        "title": "Überspringen",
+        "label": "Warum wird die Aufgabe übersprungen?",
+        "placeholder": "z. B. Bei diesem Markt nicht nötig"
+      },
+      "cancel": "Abbrechen",
+      "save": "Speichern"
+    },
+    "create": {
+      "button": "Aufgabe",
+      "title": "Neue Aufgabe",
+      "cancel": "Abbrechen",
+      "submit": "Aufgabe anlegen",
+      "created": "„{title}“ angelegt",
+      "noEvent": "Ohne Veranstaltung",
+      "nobody": "Niemand",
+      "fields": {
+        "title": "Titel",
+        "event": "Veranstaltung",
+        "due": "Fällig am",
+        "hours": "Schätzung in Stunden",
+        "category": "Kategorie",
+        "assignee": "Zuweisen an",
+        "description": "Beschreibung"
+      },
+      "errors": {
+        "generic": "Die Aufgabe konnte nicht angelegt werden.",
+        "invalid_input": "Bitte gib einen Titel an und prüfe Datum und Stunden.",
+        "invalid_event": "Diese Veranstaltung ist nicht verfügbar.",
+        "invalid_staff": "Diese Person kann nicht zugewiesen werden."
+      }
+    },
+    "fields": {
+      "title": "Titel",
+      "description": "Beschreibung",
+      "estimateMinutes": "Schätzung",
+      "dueOn": "Fälligkeit",
+      "due": "Fällig",
+      "estimate": "Geschätzt",
+      "assignee": "Zuständig",
+      "role": "Rolle",
+      "source": "Herkunft",
+      "completed": "Erledigt am"
+    },
+    "source": {
+      "template": "Aus Ablaufvorlage",
+      "manual": "Von Hand angelegt",
+      "permit": "Aus einer Genehmigung",
+      "permit_condition": "Aus einer Auflage",
+      "obligation": "Aus einer Pflicht",
+      "rental": "Aus einer Vermietung",
+      "email": "Aus einer E-Mail",
+      "system": "Vom System"
+    },
+    "noEvent": "Ohne Veranstaltung",
+    "edit": "Titel und Beschreibung bearbeiten",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "saved": "Gespeichert",
+    "unchanged": "Nichts geändert",
+    "hours": "Stunden",
+    "nobody": "Niemand",
+    "dueSetByHand": "von Hand gesetzt, folgt dem Veranstaltungstermin nicht mehr",
+    "description": "Beschreibung",
+    "noDescription": "Keine Beschreibung.",
+    "checklist": "Checkliste · {done}/{total}",
+    "addCheckItem": "Schritt hinzufügen",
+    "addCheckItemButton": "Schritt anlegen",
+    "feedback": {
+      "title": "Wie war der Aufwand?",
+      "as_planned": "Wie geplant",
+      "longer": "Länger",
+      "shorter": "Kürzer",
+      "saved": "Rückmeldung gespeichert"
+    },
+    "comments": {
+      "title": "Kommentare · {count}",
+      "empty": "Noch keine Kommentare.",
+      "someone": "Jemand",
+      "label": "Kommentar schreiben",
+      "placeholder": "Kommentar schreiben. Mit @ erwähnst du jemanden.",
+      "mentionList": "Personen",
+      "suggestions": "{count, plural, one {# Vorschlag. Pfeiltasten wählen, Enter übernimmt.} other {# Vorschläge. Pfeiltasten wählen, Enter übernimmt.}}",
+      "hint": "Strg+Enter sendet",
+      "send": "Senden",
+      "sent": "Kommentar gespeichert",
+      "sentMentioned": "{count, plural, one {Kommentar gespeichert, # Person benachrichtigt} other {Kommentar gespeichert, # Personen benachrichtigt}}",
+      "failed": "Der Kommentar konnte nicht gespeichert werden."
+    },
+    "activity": {
+      "title": "Aktivität",
+      "empty": "Noch keine Aktivität.",
+      "someone": "Jemand",
+      "create": "{name} hat die Aufgabe angelegt.",
+      "move": "{name} hat die Aufgabe nach „{column}“ verschoben.",
+      "moveDone": "{name} hat die Aufgabe durch Verschieben erledigt.",
+      "reopen": "{name} hat die Aufgabe wieder geöffnet („{column}“).",
+      "assign": "{name} hat die Aufgabe {to} zugewiesen.",
+      "reassign": "{name} hat die Aufgabe von {from} an {to} übergeben.",
+      "unassign": "{name} hat die Zuweisung an {from} entfernt.",
+      "status": "{name} hat den Status von „{from}“ auf „{to}“ gesetzt.",
+      "statusDone": "{name} hat die Aufgabe erledigt.",
+      "update": "{name} hat geändert: {fields}.",
+      "checkAdd": "{name} hat den Schritt „{title}“ hinzugefügt.",
+      "checkTick": "{name} hat „{title}“ abgehakt.",
+      "checkUntick": "{name} hat „{title}“ wieder geöffnet.",
+      "comment": "{name} hat kommentiert.",
+      "effort": "{name} hat den Aufwand bewertet.",
+      "undo": "{name} hat eine Änderung rückgängig gemacht.",
+      "other": "{name}: {action}"
+    }
+  }
+}

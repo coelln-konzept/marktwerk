@@ -10,10 +10,18 @@
       "weekend": "Nächstes Wochenende",
       "weekendHint": "{count, plural, one {Veranstaltung} other {Veranstaltungen}} · {inPlan} im Plan",
       "weekendHintNone": "{count, plural, one {Veranstaltung} other {Veranstaltungen}}",
-      "next30": "Nächste 30 Tage",
-      "next30Hint": "{count, plural, one {Veranstaltung} other {Veranstaltungen}}",
       "drafts": "Entwürfe",
-      "draftsHint": "noch zu bestätigen"
+      "draftsHint": "noch zu bestätigen",
+      "dueByWeekend": "Fällig bis Sonntag",
+      "dueByWeekendHint": "ohne Überfälliges",
+      "overdue": "Überfällig",
+      "overdueHint": "über alle Bereiche",
+      "moneyOverdue": "Geld überfällig",
+      "moneyOverdueHint": "{amount} offen",
+      "moneyOverdueNone": "keine Rate überfällig",
+      "openTasks": "Offene Aufgaben",
+      "openTasksHint": "{overdue} überfällig",
+      "openTasksNone": "nichts überfällig"
     },
     "season": {
       "label": "Saison",
@@ -21,7 +29,6 @@
       "titleEmpty": "Saison {year}",
       "count": "{count, plural, one {# Veranstaltung} other {# Veranstaltungen}}",
       "empty": "In dieser Saison sind noch keine Veranstaltungen angelegt.",
-      "later": "Geschätzter Aufwand, Platzteam-Bedarf und Hiring-Signal kommen mit den Zeitschätzungen (M2).",
       "next": "Saison {year}: {count} geplant",
       "months": "Jan,Feb,Mär,Apr,Mai,Jun,Jul,Aug,Sep,Okt,Nov,Dez",
       "types": {
@@ -29,7 +36,14 @@
         "antique": "Antikmärkte",
         "city_festival": "Stadtfeste",
         "food_wine": "Food & Wine"
-      }
+      },
+      "effort": "{hours} h geschätzter Aufwand",
+      "capacity": "{hours} h Kapazität",
+      "noEstimates": "Noch keine Zeitschätzungen an den Aufgaben.",
+      "hiring": "≈ {n} Minijobber/Monat zusätzlich",
+      "hiringPeak": "Spitze: {n}",
+      "hiringNone": "Kapazität reicht für die geschätzten Aufgaben",
+      "hiringHint": "Annahme: eine zusätzliche Minijob-Kraft leistet {hours} h im Monat. Bedarf = Zeitschätzungen der Aufgaben, Kapazität = Verträge der aktiven Teammitglieder."
     },
     "due": {
       "title": "Heute fällig",
@@ -40,11 +54,40 @@
         "money": "Geld",
         "permits": "Genehmigungen",
         "hours": "Stunden",
-        "tasks": "Aufgaben"
+        "tasks": "Aufgaben",
+        "company": "Firma"
       },
-      "emptyTitle": "Hier ist noch nichts fällig.",
-      "emptyHint": "Die Liste füllt sich mit den nächsten Meilensteinen: Aufgaben ab M2, Genehmigungen ab M3, Stunden ab M4, Geld ab M5.",
-      "soon": "ab {milestone}"
+      "emptyTitle": "Nichts fällig.",
+      "emptyHint": "Überfälliges, Heutiges und alles der nächsten 7 Tage aus Genehmigungen, Raten, Aufgaben, Stunden und Pflichten erscheint hier.",
+      "groups": {
+        "overdue": "Überfällig",
+        "today": "Heute",
+        "soon": "Diese Woche"
+      },
+      "emptyFilter": "Für diesen Filter ist nichts fällig.",
+      "emptyFilterReset": "Alle anzeigen",
+      "open": "Öffnen",
+      "openItem": "Öffnen: {title}",
+      "showAll": "Alle {count} anzeigen",
+      "showLess": "Weniger anzeigen",
+      "assignee": "zuständig: {name}",
+      "relative": {
+        "overdue": "seit {n} T",
+        "today": "heute",
+        "soon": "in {n} T"
+      },
+      "kind": {
+        "task": "Aufgabe",
+        "permit": "Genehmigung",
+        "installment": "Rate",
+        "hours": "Stunden",
+        "obligation": "Pflicht"
+      },
+      "urgencyLabel": {
+        "overdue": "Überfällig",
+        "today": "Heute fällig",
+        "soon": "Bald fällig"
+      }
     },
     "weekend": {
       "title": "Nächstes Wochenende",
@@ -64,8 +107,11 @@
       "emptyNone": "Es sind keine weiteren Veranstaltungen angelegt.",
       "openEvent": "Veranstaltung ansehen",
       "preview": "Vorschau: {name}",
-      "legendNote": "Genehmigungen ab M3, Aufgaben und Aufwand ab M2, Geld ab M5.",
-      "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile"
+      "legendNote": "Aufwand = geschätzte Zeit der offenen Aufgaben.",
+      "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
+      "blockersTitle": "Was das Wochenende aufhält",
+      "blockersHint": "Offene Posten dieser Veranstaltungen, dringendste zuerst.",
+      "effortNone": "–"
     }
   }
 }

@@ -1,16 +1,23 @@
-# Handoff: session 2 → session 3 (local Claude Code)
+# Handoff: session 3 → session 4 (local Claude Code)
 
-**Written 2026-10-21 at the end of session 2.** Session 2 ran in the Claude Code cloud environment on branch
-`claude/kind-ramanujan-80fns3` (pull request against `main`). Session 3 continues **locally** in Claude Code on the
-product owner's machine. Read this file first, then the documents it points to. Repository:
-[`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk).
+**Written 2026-10-21 at the end of session 3.** Session 3 ran locally on the product owner's Windows PC. All work is
+on branch `claude/m1-master-data` with open **PR #2** against `main` (CI + Auto-fix). Read this file first, then the
+documents it points to. Repository: [`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk).
 
-> **Where things stand:** design direction **A, classic screens** is decided ([ADR 0019](./architecture/adr/0019-classic-screens.md)),
-> the Claude Design output is integrated (tokens, components, docs), and **M1 is largely built**: schema + seed, app
-> shell, Übersicht, Kalender, Veranstaltungen (+ "Aus Vorlage erzeugen"), the event page, Orte, Kontakte, Vorlagen,
-> Team, Händler, with unit, integration and e2e tests. What's left of M1 is mostly **editing** master data (§7).
+> **Where things stand: Phase 1 (M1–M6) is built** with synthetic data, except what needs the product owner (§7):
+> drag and drop on the board, production hosting + pilot, user invitations. Session 3 merged PR #1, finished the M1
+> editing screens, then built M2–M6 with parallel Sonnet agents in git worktrees, orchestrated and merged here:
+> one schema migration `0002_phase1_modules` (32 tables) + seed for all modules first, then six module agents
+> (M2a templates/instantiation, M2b board/tasks, M3 permits/notifications, M4 hours, M5 finance, M6 company), then
+> one integration agent (Übersicht, Kalender layers, cross-module links, search). `pnpm check` + **640 integration
+> tests** green locally; every new screen opened in the browser at least once (not every interaction clicked).
 
----
+> **Local setup (this PC):** no Docker/WSL, so a portable PostgreSQL 17.11 runs from `%LOCALAPPDATA%\marktwerk-pg` on
+> **port 5433** (5432 is taken by another Postgres; start it after a reboot: setup.md "Windows without Docker").
+> `.gitattributes` forces LF. `TEST_DATABASE_URL` is read from `.env`. pnpm lives in `%APPDATA%\npm` (use it from
+> PowerShell; the Git-Bash shim fails). Playwright's Chromium isn't installed locally (CI runs e2e). After merging
+> branches, **restart `pnpm dev`** (Turbopack keeps stale modules). Agent worktrees live in `.claude/worktrees/`
+> (git-excluded); remove them once PR #2 is merged.
 
 ## 1. What marktwerk is (in 5 lines)
 An internal operations platform for **one** German company (Cologne area) that runs mainly **flea markets and
@@ -38,20 +45,20 @@ with the research-based improvements (ADR 0019). German UI first, English second
 
 Research background (only when needed): `docs/research/01–09`.
 
-## 3. State of the repository (end of session 2)
+## 3. State of the repository (end of session 3)
 | Area | State |
 |---|---|
 | Monorepo | pnpm 10.34.7 + Turborepo; Node 24 (min 22.18); TypeScript 6.0.3; Biome 2.5 (only linter/formatter; `docs/design` is excluded) |
 | `apps/web` | Next.js 16.4.2 (App Router, Turbopack, Cache Components **off**, `proxy.ts`, typed routes), React 19.3, Better Auth 1.7, next-intl 4 (DE/EN via cookie), Tailwind 4 with the design tokens, Base UI 1.9 (Dialog, Menu), Inter via `@fontsource-variable/inter` |
 | Shell | `components/shell/*`: sidebar (Orte + Kontakte as own entries, SPÄTER group), top bar (breadcrumb, search field **Strg K** → command palette, "+ Neu", bell), profile menu (Design System/Hell/Dunkel, Dichte Standard/Kompakt, Sprache, Abmelden; stored in `user_preference`, mirrored to cookies, restored at login), undo toasts, not-found page |
 | UI kit | `components/ui/*`: button, input, label, panel, table (+ group rows, row actions), status badge, rollover badge, health shapes (● ▲ ■ ○), event-type tag, filter chips, kbd, empty/skeleton states, avatar, Vorschau card + facts, keyboard rows (J/K/Space/Enter), auto-submit select, coming-soon. Mapping to the design: [`design/component-inventory.md`](./design/component-inventory.md) |
-| Screens | `/` Übersicht · `/kalender` (layers saved per person) · `/veranstaltungen` (list + month calendar, KW, Vorschau `?vorschau=<id>`, generation sheet `?erzeugen=1[&vorlage=<id>]`) · `/veranstaltungen/[id]` with tabs (Überblick, Team, Notizen (editable), Verlauf (audit log); Board/Genehmigungen/Geld/Dokumente are milestone placeholders) + "Status ändern" with undo · `/orte`, `/orte/[id]` · `/kontakte` · `/vorlagen` (presets) · `/team` (`?person=<id>`) · `/haendler` (read-only, paginated). Placeholders: board, logbuch, finanzen, firma, wissen, benachrichtigungen, einstellungen |
-| Services | `server/services/events.ts` (**the one path** that creates events: `createEventsFromPreset`, undo `archiveDraftEvents`), `event-lifecycle.ts` (status transitions + revert, notes), `audit.ts`. Field users are scoped by `visibleEvents(actor)` in `server/actor.ts` |
-| `packages/core` | + calendar arithmetic & ISO weeks, NRW holidays (Easter-based), booking cut-off, `upcomingWeekend`, rrule expand/describe, default anchors, scheduling checks (weekend cap 4, venue conflicts, holidays), event health, lifecycle transitions, umlaut folding. **67 tests** |
-| `packages/db` | Migration **`0001_m1_events`**: `legal_parameter`, `event_type`, `contact`, `venue`, `zone`, `row`, `location_agreement`, `staff_member`, `duty_role`, `event_preset`, `event`, `event_anchor`, `event_duty`, `vendor`, `user_preference`; `settings.bundesland` |
-| Seed | `pnpm db:seed` loads the synthetic dataset (148 events 2026–2027, 12 venues, 43 zones, 162 rows, 30 contacts, 14 staff, 7 duty roles, 14 presets, 1,500 vendors) idempotently; logins for staff with a permission role. The public dev password is used **only for a local DB** (elsewhere: `SEED_OWNER_PASSWORD` / `SEED_STAFF_PASSWORD`) |
-| i18n | `apps/web/messages/<locale>/<area>.json`, one namespace per area, loaded by `src/i18n/messages.ts`; `pnpm --filter @marktwerk/web test` fails if de/en keys differ |
-| Tests | `pnpm check` (Biome + typecheck + core 67 + synthetic 46 + message check) · `pnpm test:integration` (22 service tests against `marktwerk_test`) · `pnpm test:e2e` (Playwright smoke, 5 tests, needs a running seeded app). All green at handoff; `pnpm build` passes |
+| Screens | `/` **Übersicht** (KPIs incl. Geld überfällig, season strip with hiring signal, **Heute fällig** from all modules with chips, Nächstes Wochenende with 4 health columns) · `/kalender` (layers: events, holidays, Aufgaben, Genehmigungen, Raten, Pflichten, Schichten) · `/veranstaltungen` (+ `/neu` Einzeltermin) · `/veranstaltungen/[id]` tabs Überblick (edit Eckdaten, Verschieben, Name/Dauer/Ort, Buchung), **Board**, **Genehmigungen**, Team (duties + **Schichten**), **Geld**, **Dokumente**, Notizen, Verlauf · `/board` (Meine/Alle/Nicht zugewiesen, Arbeitslast) · `/logbuch` (matrix + list, drawer `?genehmigung=`) · `/team` (Personen · Stunden · Schichten, `/team/stunden/abschluss` month close) · `/finanzen` (Zahlungen · Ausgaben · Belege fehlen, `/finanzen/posten/[id]`, monthly receipt bundle) · `/firma` (Pflichten · Fahrzeuge · Mängel) · `/benachrichtigungen` + bell · `/orte` (+ edit, zones/rows, agreements, permit requirements) · `/kontakte` (+ edit) · `/vorlagen` (presets edit, **Ablaufvorlagen** editor `/vorlagen/ablauf/[id]`, "Auf Veranstaltungen anwenden…") · `/einstellungen` (Firma, Benutzer & Rollen, Rechtliche Werte) · `/haendler` (read-only). Placeholder: `/wissen` |
+| Services | All mutations in `apps/web/src/server/services/*.ts` (permission → transaction → audit). One-path rules: event creation `instantiateEvents` (events.ts) → task instantiation (task-instantiation.ts) + logbook fill (permits.ts); anchor shifts `applySchedule` (event-details.ts) → tasks follow; duty changes (event-duties.ts) → tasks follow. Notifications only via `insertNotifications` (`packages/db/src/notify.ts`). Files via `server/storage.ts` (local driver; S3 stub) + `/api/documents` |
+| Jobs | `packages/jobs`: deadline-sweep (15 min), task-rollover (00:05), daily-digest (07:00), send-emails (5 min, own SMTP client, log transport without `SMTP_HOST`), installment-, obligation-, payroll-reminders. Worker (pg-boss) and `/api/cron/<job>` both iterate `JOBS`; the external scheduler (`cron.yml`) needs the new job names |
+| `packages/core` | Domain rules with Vitest: dates/holidays/rrule (+ form parts), event details (times, euro parsing, move rules), presets, tasks (business-day due dates, board columns, carry-over, evidence, workload), permits (coverage, apply-by), staff (worktime incl. DST, ArbZG, MiLoG, Minijob, payroll CSV), finance (instalments, budget, CSV), company (obligation roll-forward), due ranking |
+| `packages/db` | Migrations **0000, 0001, `0002_phase1_modules`** (templates, tasks, permits, notifications, staff hours, money, documents, company). `data-model.md` v0.5 marks the deviations |
+| Seed | `pnpm db:seed` (idempotent): M1 data + 4 templates/157 items, 5,774 tasks, 234 permits, 287 shifts, 14 contracts, 90 payables/120 rates, 3 vehicles/11 obligations. Logins (local password `marktwerk-dev-123`): owner, manager, 2 staff, **field `logistik@marktwerk.local`** |
+| Tests | `pnpm check` (Biome + typecheck + unit tests + message parity, 21 message areas) · `pnpm test:integration` (**640 tests, ~5 min**, DB `marktwerk_test`) · `pnpm test:e2e` (smoke incl. the new pages; selectors not run locally yet) |
 | CI | `ci.yml`: lint, typecheck, test, migrate, build, integration tests; new `e2e` job (build + `next start` + Playwright; **first run happens on the PR**). `seed-dev.yml`: manual seeding of the Supabase dev DB. `cron.yml` unchanged |
 
 ## 4. Infrastructure and local setup
@@ -114,25 +121,27 @@ Full log with dates: [`docs/open-questions.md`](./open-questions.md). Highlights
   [`design/component-inventory.md`](./design/component-inventory.md) (Kompakt label-beside-field, sidebar icon rail,
   focus return after Vorschau, a keyboard-accessible drag-and-drop library for the M2 board).
 
-## 7. M1 status and what's next
-**Done** (exit criterion met with synthetic data: a full season of events with dates, types and teams, browsable):
-schema + seed, shell, Übersicht, Kalender, Veranstaltungen list/calendar, generation from presets (preview with
-holiday/weekend-cap/venue warnings, one service path, audit, undo), event page (Überblick, Team, Notizen, Verlauf,
-status changes with undo), Orte, Kontakte, Vorlagen, Team, Händler, core rules + tests, integration + e2e tests, CI,
-seed workflow.
+## 7. Phase 1 status and what's next
+**Built in session 3** (all on PR #2): M1 complete (see §3), **M2** templates + instantiation + board + task drawer +
+carry-over + workload, **M3** logbook + requirements + event permits tab + deadline sweep + notification center +
+email/digest, **M4** contracts + shifts (versioned) + month grid + Minijob/ArbZG/MiLoG warnings + month close + CSV,
+**M5** payables + instalments + expenses + receipts (upload, missing counter, monthly bundle) + event money tab +
+reminders, **M6** company tab (vehicles, obligations with roll-forward → payable, issues with photos), **integration**
+(Übersicht complete, Kalender layers, four health dimensions, search, "+ Neu" for every module).
 
-**Still open in M1** (suggested order):
-1. Merge the PR; let Vercel deploy (applies 0001), seed Supabase via the workflow; product owner clicks through.
-2. **Edit master data** (all via services: permission → transaction → audit): event duties on the Team tab (reassign;
-   later also reassigns open tasks of that role, M2), event dates/times/prices/booking flags, presets (create/edit,
-   default team, rrule), venues + zones/rows, contacts. Modals for ≤ 8 fields, pages for more (UX concept §4).
-3. **Einzeltermin** (single event without preset) through the same `createEvents` service path, and **location
-   agreements** (fixed dates → events; table exists, no UI).
-4. **Einstellungen**: company settings, users & permission roles (Better Auth admin), legal parameters (read-only list).
-5. Field-user check: add a seeded field login (staff member with duties) and verify scoping end-to-end.
-6. Smaller gaps: "+ Neu" context-aware + `C` shortcut; Vorschau focus return; Kompakt label-beside-field;
-   consolidate the two `phone.tsx` helpers (`components/catalogue`, `components/people`); the month grid on phones.
-Then **M2: templates, tasks & kanban** (roadmap) — needs the timeline workshop input and a drag-and-drop decision.
+**Not done, needs the product owner:**
+1. **Merge PR #2** after a click-through (Vercel preview; Supabase gets migration 0002 with the deploy), then seed
+   Supabase via *Seed dev database* once the secrets `DATABASE_MIGRATION_URL` + `SEED_OWNER_PASSWORD` exist.
+2. ~~Drag and drop on the board~~ **built** (dnd-kit, ADR 0020; mouse drag between columns, drop on a person and undo checked in the browser): every move also works via menu + keyboard; all moves go
+   through `moveCard` → `moveTask`, so a library only has to call that path.
+3. **M6 production hosting + pilot** (Scalingo candidate, ADR 0006/0017), backups, S3 bucket (the S3 storage driver is
+   a stub; Vercel's 4.5 MB body limit blocks phone photos → presigned uploads once hosting is decided).
+4. **User invitations** (§8 13), DATEV export format (CSV now), real data from the client (timeline workshop first).
+
+**Smaller gaps:** Kalender layer "Arbeitszeiten & Abschluss"; "Nur meine Zuständigkeit" only narrows events/tasks;
+Heute fällig rows open the drawer/page (no inline "Bezahlt/Erledigt"); no J/K card navigation; comment edit/delete;
+expense edit UI; notification titles stored German-only; Vorschau focus return; Kompakt label-beside-field; month grid
+on phones; Vorschau/peek on Firma lists; `/wissen`. Then **Phase 2** (M7 staff WhatsApp, magic links, shift planning).
 
 ## 8. Open items for the product owner
 **Product questions raised while building M1** (answers → decisions log):
@@ -144,19 +153,43 @@ Then **M2: templates, tasks & kanban** (roadmap) — needs the timeline workshop
 6. Inactive presets: offer "reactivate" and generation from them?
 7. Händler: newsletter consent label "Soft-Opt-in". Wording OK?
 8. "Veranstaltungen kommend" counts events running today. OK?
+9. ~~Lock duties after "abgeschlossen"?~~ Decided: editable, confirmation while the event is happening.
+10. ~~Same-day clashes~~ Decided: hint only.
+11. ~~Lock Eckdaten/booking after "abgeschlossen"?~~ Decided like 9.
+12. ~~Name/length/venue editable on the event?~~ Decided: yes, with confirmation (open-questions).
+13. **Inviting users** (Einstellungen → Benutzer): invitation email or initial password? Button is disabled for now.
+14. Defaults the agents guessed: new presets and Einzeltermine start with 06:00 / 08:00 / 16:00 / 18:00; text limits
+    200 (fields) / 4,000–5,000 (notes, public text). OK?
+15. Presets at an archived venue still show in Vorlagen (and can generate). Hide, warn, or keep?
+16. `audit_log.entity_id` is a uuid, but Better Auth user ids and the settings row aren't: user/settings audit entries
+    keep the id in the diff only. Change the column to text in a later migration?
+17. ~~M2 drag and drop for the board~~ decided 2026-10-21: dnd-kit (ADR 0020).
+18. **Heute fällig order:** overdue items rank oldest first, so tasks overdue for 300 days (synthetic past events) sit
+    on top. Newest-overdue first, or hide items overdue > 30 days (like the sweep's backlog guard)?
+19. Escalation: if no staff member has the manager login, the owner gets escalations. OK? Escalate 1 day after the
+    deadline (permits, obligations, critical instalments)?
+20. Payment reminders go to everyone with `finance:read` (owner, manager). Should staff get them (permission change)?
+21. Hours: planned shifts count toward the Minijob allowance; lock/approve/export all by `team:manage` (no four-eyes);
+    fixed monthly pay is not prorated. OK?
+22. Company: only owner/manager can report vehicle defects. Should drivers (staff/field) report themselves?
+23. Obligation → payable only when a cost is entered; the rate is due on the completion date. OK?
+24. Permit tasks: the logbook creates "beantragen" tasks, and the Ablaufvorlagen may contain the same task → possible
+    duplicates. Remove those items from the templates, or skip permit items in instantiation?
+25. Moving an event does not recompute its permits' apply-by dates. Should it?
+More agent assumptions (ranking, defaults, thresholds) are logged in [`open-questions.md`](./open-questions.md).
 
-**Infrastructure:** production URL of the Vercel deployment; confirm `BETTER_AUTH_URL`/`APP_URL` in Vercel and
+**Infrastructure:** production URL is `https://marktwerk-ardas-s-projects.vercel.app` (behind Vercel Authentication;
+`marktwerk.vercel.app` is someone else's app) → record in README + deployment.md and set as `BETTER_AUTH_URL`/`APP_URL`; confirm `BETTER_AUTH_URL`/`APP_URL` in Vercel and
 `APP_URL`/`CRON_SECRET` for `cron.yml`; add `DATABASE_MIGRATION_URL` (+ seed password secrets) for `seed-dev.yml`.
 
 **Client discovery** (see open-questions): timeline workshop per event type with time estimates (feeds M2), permit
 inventory per location, staff list & payroll format, payables list, vehicles; old-website DB access later. Before the
 pilot: production hosting decision, tax-advisor questions.
 
-## 9. First message for session 3 (local Claude Code)
-> Read `docs/HANDOFF.md` and the files it lists (CLAUDE.md is loaded automatically). We're continuing locally now,
-> not in the cloud environment: check my local setup first (Node 24, pnpm, Docker, `.env`), start the database, run
-> `pnpm db:migrate && pnpm db:seed`, then `pnpm check` and `pnpm test:integration` to confirm everything is green.
-> Then check the state of the session-2 pull request (`claude/kind-ramanujan-80fns3` → `main`) with `gh pr view` and
-> its CI; fix anything red. After that, continue with the open M1 items in HANDOFF §7 (start with editing event duties
-> and master data), asking me before product or architecture decisions that aren't settled in the docs. Use
-> `gh` for GitHub. Commit in small steps with `pnpm check` green, and keep HANDOFF.md current at the end.
+## 9. First message for session 4 (local Claude Code)
+> Read `docs/HANDOFF.md` and the files it lists (CLAUDE.md is loaded automatically). Start the local Postgres
+> (setup.md "Windows without Docker"), run `pnpm install && pnpm db:migrate && pnpm db:seed`, then `pnpm check` and
+> `pnpm test:integration`. Check PR #2 (`gh pr view 2`) and its CI; fix anything red. Then go through HANDOFF §8 with
+> me, apply my answers, and continue with §7 (drag and drop once decided, the smaller gaps), asking before product or
+> architecture decisions that aren't settled in the docs. Commit in small steps with `pnpm check` green, and keep
+> HANDOFF.md current at the end.

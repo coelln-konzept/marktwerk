@@ -7,8 +7,11 @@ import { useRef, useState, useTransition } from "react";
 import { saveKalenderLayers } from "@/app/(app)/kalender/actions";
 import { type EventTypeKey, EventTypeSquare } from "@/components/ui/event-type-tag";
 import { cn } from "@/lib/utils";
+import type { CalendarLayer } from "@/server/queries/due";
+import { LAYER_ICONS } from "./deadline-chip";
 import {
   activePreset,
+  DEADLINE_GROUPS,
   FUTURE_LAYERS,
   type Layers,
   layerParams,
@@ -21,6 +24,10 @@ type Props = {
   /** Events per type in the shown range, after the narrowing. */
   counts: Record<string, number>;
   typeKeys: string[];
+  /** Module layers this person may see (permissions); the others are not offered at all. */
+  available: CalendarLayer[];
+  /** Entries per module layer in the shown range, after the narrowing. */
+  deadlineCounts: Record<string, number>;
   holidayCount: number;
   visibleCount: number;
   venues: { id: string; name: string }[];
@@ -38,6 +45,8 @@ export function LayerPanel({
   layers,
   counts,
   typeKeys,
+  available,
+  deadlineCounts,
   holidayCount,
   visibleCount,
   venues,
@@ -49,7 +58,7 @@ export function LayerPanel({
   const formRef = useRef<HTMLFormElement>(null);
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const preset = activePreset(layers);
+  const preset = activePreset(layers, available);
 
   function apply(next: Layers) {
     const params = new URLSearchParams(keep);
@@ -62,6 +71,11 @@ export function LayerPanel({
     const data = new FormData(formRef.current as HTMLFormElement);
     return {
       types: typeKeys.filter((k) => data.getAll("typ").includes(k)),
+      // Layers this person cannot see are not in the form; keep whatever was saved for them.
+      deadlines: [
+        ...layers.deadlines.filter((l) => !available.includes(l)),
+        ...available.filter((l) => data.getAll("frist").includes(l)),
+      ],
       holidays: data.has("feiertage"),
       critical: data.has("kritisch"),
       mine: data.has("meine"),
@@ -71,7 +85,8 @@ export function LayerPanel({
 
   function applyPreset(key: PresetKey) {
     const p = PRESETS.find((x) => x.key === key);
-    if (p) apply({ ...layers, types: [...p.types], holidays: p.holidays });
+    if (p)
+      apply({ ...layers, types: [...p.types], deadlines: [...p.deadlines], holidays: p.holidays });
   }
 
   return (
@@ -146,33 +161,40 @@ export function LayerPanel({
           ))}
         </fieldset>
 
-        <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
-          <legend className="mb-1 p-0 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">
-            {t("deadlines")}
-          </legend>
-          {FUTURE_LAYERS.deadlines.map((f) => (
-            <LayerCheck
-              key={f.key}
-              disabled
-              label={t(`future.${f.key}`)}
-              hint={t("comesWith", { milestone: f.milestone })}
-            />
-          ))}
-        </fieldset>
-
-        <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
-          <legend className="mb-1 p-0 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">
-            {t("team")}
-          </legend>
-          {FUTURE_LAYERS.team.map((f) => (
-            <LayerCheck
-              key={f.key}
-              disabled
-              label={t(`future.${f.key}`)}
-              hint={t("comesWith", { milestone: f.milestone })}
-            />
-          ))}
-        </fieldset>
+        {(["deadlines", "team"] as const).map((group) => {
+          const keys = DEADLINE_GROUPS[group].filter((k) => available.includes(k));
+          const future = group === "deadlines" ? FUTURE_LAYERS.deadlines : [];
+          if (keys.length === 0 && future.length === 0) return null;
+          return (
+            <fieldset key={group} className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
+              <legend className="mb-1 p-0 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">
+                {t(group)}
+              </legend>
+              {keys.map((key) => {
+                const Icon = LAYER_ICONS[key];
+                return (
+                  <LayerCheck
+                    key={key}
+                    name="frist"
+                    value={key}
+                    checked={layers.deadlines.includes(key)}
+                    count={deadlineCounts[key] ?? 0}
+                    swatch={<Icon aria-hidden className="size-3.5 shrink-0 text-foreground-2" />}
+                    label={t(`deadline.${key}`)}
+                  />
+                );
+              })}
+              {future.map((f) => (
+                <LayerCheck
+                  key={f.key}
+                  disabled
+                  label={t(`future.${f.key}`)}
+                  hint={t("comesWith", { milestone: f.milestone })}
+                />
+              ))}
+            </fieldset>
+          );
+        })}
 
         <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
           <legend className="mb-1 p-0 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">
@@ -224,6 +246,7 @@ export function LayerPanel({
           </label>
         </fieldset>
 
+        <p className="m-0 text-muted-foreground text-tiny">{t("narrowHint")}</p>
         <p className="m-0 text-muted-foreground text-tiny">{t("saved")}</p>
         <noscript>
           <button

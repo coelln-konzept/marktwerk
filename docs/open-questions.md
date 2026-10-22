@@ -30,6 +30,12 @@
 | 2026-10-21 | Panes | Simple "folgt" linking; every view is both a page (own URL) and a pane; single pane below 1024 px → superseded 2026-10-21 by ADR 0019 |
 | 2026-10-21 | From the client meeting | Internal first (old website stays); no AI in operations; manual payment reminders; WhatsApp for staff; time estimates per task (ADRs 0011–0015) |
 | 2026-10-21 (session 2) | Design direction | **A: classic screens** (sidebar, pages with own URLs, Vorschau, detail drawers, event tabs) with all research-based improvements; no docking, workspace tabs, saved/team workspaces or "folgt" (ADR 0019, supersedes ADR 0018). Prototype: `docs/design/claude-design/a-classic/` |
+| 2026-10-21 (session 3) | Moving an event | **Own action "Verschieben" with a preview**: new first day, duration stays, the named dates (Aufbau, Abbau, Buchungsschluss = Monday before) are **recomputed**; same hints as the generation. One service path `moveEvent`; M2 extends it to tasks |
+| 2026-10-21 (session 3) | Moving announced events | Allowed for Entwurf, geplant and bestätigt; for geplant/bestätigt the preview **warns** that vendors and the website need the new date. Not once the event runs |
+| 2026-10-21 (session 3) | Editing while an event happens | Duties, Eckdaten, booking flags stay editable on every event (also abgeschlossen/abgesagt); **while it is happening** (läuft, or today is one of its days) each change is **confirmed first** |
+| 2026-10-21 (session 3) | Same-day duty clashes | **Hint only** ("am selben Tag bei …"), never blocked |
+| 2026-10-21 (session 3) | Name, length, venue of an event | **Editable on the event**, always with a confirmation; the preset stays; a new length recomputes the named dates through the move path |
+| 2026-10-21 (session 3) | Board drag and drop | **dnd-kit** (`@dnd-kit/core`, pointer + touch, `DragOverlay`, German announcements); cards drag between and within columns, onto a swimlane (assigns, and moves if the column differs) and onto a person in the people rail ("Zugewiesen an Lars" + Rückgängig). Keyboard mode stays our own, index-based one; the "⋯" menu stays (2.5.7). Grouped view stays menu-only. ADR 0020 |
 | 2026-10-21 (session 2) | Kalender | Company-wide **Kalender** module after Übersicht: Monat (KW) + "Liste · 6 Wochen", layer panel, presets, narrowing, layers saved per person, ⚑ for 4+ events per weekend. M1: events + NRW holidays; other layers per module. Veranstaltungen keeps its own Liste/Kalender toggle |
 | 2026-10-21 (session 2) | Font | **Inter**, self-hosted via `@fontsource-variable/inter` (no Google request at runtime), tabular figures; system `ui-monospace` for kbd hints. Replaces Geist |
 | 2026-10-21 (session 2) | Start screen | **"Übersicht"** (`/`), one for everyone: KPI strip, season strip with hiring signal, Heute fällig, Nächstes Wochenende. **No fixed master-detail** screen. Task detail drawer and season strip restored |
@@ -42,6 +48,23 @@
 2. **File storage bucket** for documents/receipts: Outscale OOS (same provider family as Scalingo) or another EU
    S3 provider? (decided in the M0.5 spike unless you have a preference)
 3. **WhatsApp (Phase 2):** which phone sends? Is there a works council (Betriebsrat)?
+
+## Assumed during the Phase 1 integration (confirm or change)
+1. **"Heute fällig" order:** overdue, then today, then this week; inside a group permits > instalments (money) >
+   tasks > hours > obligations, then oldest date first (`packages/core/src/deadlines/due-ranking.ts`). The list shows
+   20 rows with "Alle anzeigen".
+2. **Event health:** tasks (core `taskHealth`) and money (`eventMoneyHealth`) join permits and team. Finished events keep
+   only the money dimension (rates can still be open); cancelled ones have none.
+3. **Kalender module layers** are all on by default; "Märkte + Genehmigungen" = Flohmarkt + Antikmarkt + permits.
+   "Nur Achtung und Kritisch" also filters the deadline layers; "Nur meine Zuständigkeit" also limits tasks to the
+   person's own. The layer "Arbeitszeiten & Abschluss" is not built (the payroll deadline shows in Heute fällig only).
+4. **Obligation with "Zahlung beim Erledigen":** completing it with a cost creates a payable with one rate, due on the
+   completion date but never in the past (so: today). Without a cost nothing is created. Undo removes it unless a rate
+   was paid or a document is attached.
+5. **Task evidence:** a document of kind "Foto" on the task is the photo, a document of any other kind the attachment;
+   both now block "Erledigt" when the task requires them.
+6. **Season strip workload** (estimated hours, capacity, hiring signal) is shown to roles with `team:read` (owner,
+   manager); staff and field see only the event counts.
 
 ## Open: client (next meeting / workshop)
 **Timeline workshop (top priority, feeds M2)**

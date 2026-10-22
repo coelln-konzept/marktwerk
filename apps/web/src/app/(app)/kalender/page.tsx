@@ -14,8 +14,14 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { EventChip } from "@/components/events/event-chip";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { MonthGrid } from "@/components/events/month-grid";
+import { DeadlineChip, LAYER_ICONS } from "@/components/kalender/deadline-chip";
 import { LayerPanel } from "@/components/kalender/layer-panel";
-import { DEFAULT_LAYERS, layerParams, parseLayers } from "@/components/kalender/layers";
+import {
+  availableLayers,
+  DEFAULT_LAYERS,
+  layerParams,
+  parseLayers,
+} from "@/components/kalender/layers";
 import { CalendarList } from "@/components/kalender/list-view";
 import { KalenderShortcuts } from "@/components/kalender/shortcuts";
 import { Page, PageHeader } from "@/components/shell/page";
@@ -25,7 +31,12 @@ import { Panel } from "@/components/ui/panel";
 import { formatDate, formatMonth, todayIn } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
-import { getSavedLayers, listCalendarEvents, listVenueOptions } from "@/server/queries/kalender";
+import {
+  getSavedLayers,
+  listCalendarDeadlines,
+  listCalendarEvents,
+  listVenueOptions,
+} from "@/server/queries/kalender";
 import { requirePermission } from "@/server/session";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -61,13 +72,18 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const from = view === "monat" ? mondayOf(monthFirst) : listFrom;
   const to = view === "monat" ? addDays(mondayOf(monthLast), 6) : addDays(listFrom, LIST_DAYS - 1);
 
-  const [rows, venues] = await Promise.all([
+  const available = availableLayers(actor.role, actor.staffMemberId !== null);
+  const [rows, deadlines, venues] = await Promise.all([
     listCalendarEvents(actor, { from, to }, layers),
+    listCalendarDeadlines(actor, { from, to }, layers, today),
     listVenueOptions(actor),
   ]);
   const counts: Record<string, number> = {};
   for (const r of rows) counts[r.typeKey] = (counts[r.typeKey] ?? 0) + 1;
   const visible = rows.filter((r) => layers.types.includes(r.typeKey));
+  // Entries per module layer for the panel counts (everything fetched is already switched on and allowed).
+  const deadlineCounts: Record<string, number> = {};
+  for (const d of deadlines) deadlineCounts[d.layer] = (deadlineCounts[d.layer] ?? 0) + 1;
 
   const allHolidays = holidaysBetween(from, to);
   const holidays = new Map(
@@ -100,7 +116,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   if (view === "liste" && abParam && isIsoDate(abParam)) keep.ab = abParam;
 
   const holidayCount = allHolidays.size;
-  const visibleCount = visible.length + (layers.holidays ? holidayCount : 0);
+  const visibleCount = visible.length + deadlines.length + (layers.holidays ? holidayCount : 0);
 
   // Weekend cap: Saturdays of weekends with 4+ events (cancelled ones don't count).
   const perWeekend = new Map<string, number>();
@@ -130,6 +146,22 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     }
     return out;
   });
+
+  for (const item of deadlines) {
+    entries.push({
+      key: `${item.layer}-${item.id}`,
+      date: item.date,
+      node: (
+        <DeadlineChip
+          item={item}
+          layerLabel={t(`layers.deadline.${item.layer}`)}
+          toneLabel={
+            item.tone === "warn" || item.tone === "critical" ? t(`tone.${item.tone}`) : undefined
+          }
+        />
+      ),
+    });
+  }
 
   const pill =
     "inline-flex min-h-8 items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover";
@@ -181,6 +213,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
           layers={layers}
           counts={counts}
           typeKeys={[...EVENT_TYPE_KEYS]}
+          available={available}
+          deadlineCounts={deadlineCounts}
           holidayCount={holidayCount}
           visibleCount={visibleCount}
           venues={venues}
@@ -207,6 +241,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
                 to={to}
                 today={today}
                 rows={visible}
+                deadlines={deadlines}
                 holidays={holidays}
                 hrefFor={peekHref}
                 vorschauId={vorschauId}
@@ -214,7 +249,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               />
             )}
           </Panel>
-          {view === "monat" && visible.length === 0 && (
+          {view === "monat" && visible.length === 0 && deadlines.length === 0 && (
             <p className="m-0 flex flex-wrap items-center gap-x-3 text-muted-foreground text-small">
               {t("emptyMonth")}
               <Link
@@ -234,6 +269,17 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
                 {t(`layers.types.${k}`)}
               </span>
             ))}
+            {layers.deadlines
+              .filter((l) => available.includes(l))
+              .map((l) => {
+                const Icon = LAYER_ICONS[l];
+                return (
+                  <span key={l} className="inline-flex items-center gap-1">
+                    <Icon aria-hidden className="size-3" />
+                    {t(`layers.deadline.${l}`)}
+                  </span>
+                );
+              })}
             <span className="text-status-warn">{t("legend.weekend")}</span>
             {layers.holidays && (
               <span className="inline-flex items-center gap-1">

@@ -1,8 +1,10 @@
 /**
  * Development seed: company settings, the owner account and the M1 entities from the synthetic
  * dataset (ADR 0016): legal parameters, event types, contacts, venues with zones and rows, staff
- * members (+ logins for those with a permission role), duty roles, presets, events with anchors and
- * duties, vendors (read-only import).
+ * members (+ logins for those with a permission role, and one field login for the logistics lead), duty roles, presets, events with anchors and
+ * duties, vendors (read-only import), and the Phase 1 modules from ./seed/*: templates, checklists and
+ * tasks (M2), permits (M3), contracts and shifts (M4), payables and instalments (M5), vehicles and
+ * obligations (M6).
  *
  * Idempotent: synthetic rows keep their ids and are inserted with ON CONFLICT DO NOTHING, so the
  * script is safe to run repeatedly. Usage: `pnpm db:seed` from the repo root.
@@ -13,6 +15,13 @@ import { createDb, schema } from "@marktwerk/db";
 import { generateDataset } from "@marktwerk/synthetic";
 import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
+import { seedCompany } from "./seed/company";
+import { seedMoney } from "./seed/money";
+import { seedPermits } from "./seed/permits";
+import { ANCHOR_KEYS, insertAll, type SeedContext, type Tx } from "./seed/shared";
+import { seedStaff } from "./seed/staff";
+import { seedTasks } from "./seed/tasks";
+import { seedTemplates } from "./seed/templates";
 
 const url = process.env.DATABASE_MIGRATION_URL ?? process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set");
@@ -30,24 +39,6 @@ const staffPassword = process.env.SEED_STAFF_PASSWORD || (isLocal ? DEV_PASSWORD
 
 const db = createDb(url, { max: 1 });
 const data = generateDataset();
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-/** Inserts in chunks (Postgres caps bind parameters at 65,535 per statement). */
-async function insertAll<T extends object>(
-  tx: Tx,
-  table: Parameters<Tx["insert"]>[0],
-  rows: T[],
-  label: string,
-) {
-  for (let i = 0; i < rows.length; i += 500) {
-    await tx
-      .insert(table)
-      .values(rows.slice(i, i + 500) as never)
-      .onConflictDoNothing();
-  }
-  console.log(`✓ ${label}: ${rows.length}`);
-}
 
 /** Creates a credential login unless the email exists; returns the user id (null if none and no password). */
 async function ensureUser(
@@ -75,12 +66,6 @@ async function ensureUser(
   console.log(`✓ login ${email} (${role})${isLocal ? ` / ${password}` : ""}`);
   return userId;
 }
-
-const ANCHOR_KEYS = {
-  eventDay: "event_day",
-  setupDay: "setup_day",
-  bookingCutoff: "booking_cutoff",
-} as const;
 
 await db.transaction(async (tx) => {
   const s = data.settings;
@@ -165,6 +150,28 @@ await db.transaction(async (tx) => {
     await tx.update(schema.staffMember).set({ userId }).where(eq(schema.staffMember.id, m.id));
   }
 
+  // One field login (HANDOFF §7.5) to check the row-level scoping end to end: the logistics lead is the
+  // default holder of "setup_crew" and so has duties at the events generated from the presets. Same rules
+  // as the other logins: the public dev password only for a local database, otherwise SEED_STAFF_PASSWORD
+  // (without it no login is created).
+  const fieldStaffId = data.dutyRoles.find((r) => r.key === "setup_crew")?.defaultStaffMemberId;
+  if (fieldStaffId) {
+    const member = data.staffMembers.find((m) => m.id === fieldStaffId);
+    const userId = await ensureUser(
+      tx,
+      process.env.SEED_FIELD_EMAIL || "logistik@marktwerk.local",
+      member?.displayName ?? "Platzteam",
+      "field",
+      staffPassword,
+    );
+    if (userId) {
+      await tx
+        .update(schema.staffMember)
+        .set({ userId })
+        .where(eq(schema.staffMember.id, fieldStaffId));
+    }
+  }
+
   await insertAll(
     tx,
     schema.eventPreset,
@@ -204,6 +211,18 @@ await db.transaction(async (tx) => {
     data.vendors.map((v) => ({ ...v, importedAt })),
     "vendors",
   );
+
+  // Phase 1 modules (M2-M6). Each area has its own file under ./seed/ and runs in dependency order.
+  const officeStaff =
+    data.staffMembers.find((m) => m.permissionRole === "manager") ??
+    data.staffMembers.find((m) => m.permissionRole === "owner");
+  const ctx: SeedContext = { data, roleIdByKey, officeStaffId: officeStaff?.id ?? null };
+  await seedTemplates(tx, ctx); // M2: checklist_template, template_version, template_item, preset links
+  await seedTasks(tx, ctx); // M2: checklists + tasks
+  await seedPermits(tx, ctx); // M3: permit_requirement, permit, event_permit
+  await seedCompany(tx, ctx); // M6: vehicles, obligations (before payables, which reference vehicles)
+  await seedMoney(tx, ctx); // M5: payables, instalments, event money
+  await seedStaff(tx, ctx); // M4: contracts, shifts, payroll periods
 });
 
 await db.$client.end();

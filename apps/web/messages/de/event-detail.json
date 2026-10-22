@@ -25,9 +25,7 @@
       "notes": "Notizen",
       "history": "Verlauf",
       "milestone": "ab {milestone}",
-      "milestoneHint": "Kommt mit Meilenstein {milestone}",
-      "later": "später",
-      "laterHint": "Kommt in einem späteren Schritt"
+      "milestoneHint": "Kommt mit Meilenstein {milestone}"
     },
     "status": {
       "menu": "Status ändern",
@@ -102,9 +100,9 @@
         "tasks": "Aufgaben",
         "team": "Team",
         "money": "Geld",
-        "permitsNote": "ab M3",
-        "tasksNote": "ab M2",
-        "moneyNote": "ab M5",
+        "permitsNote": "Stand der benötigten Genehmigungen",
+        "tasksNote": "überfällige und blockierte Aufgaben",
+        "moneyNote": "überfällige und bald fällige Raten, Plan gegen Zugesagtes",
         "teamNote": "{assigned}/{total} Zuständigkeiten besetzt"
       }
     },
@@ -116,7 +114,34 @@
       "unassigned": "nicht besetzt",
       "assigned": "besetzt",
       "summary": "{assigned} von {total} Zuständigkeiten besetzt",
-      "hint": "Nur lesen: Zuständigkeiten werden aus der Vorlage übernommen. Sie hier zu ändern kommt in einem späteren Schritt."
+      "hint": "Gilt nur für diese Veranstaltung. Das Standard-Team der Vorlage bleibt unverändert.",
+      "hintReadOnly": "Nur lesen: Zuständigkeiten ändern können Geschäftsführung und Büroleitung.",
+      "actions": "Aktionen",
+      "change": "Ändern",
+      "assign": "Besetzen",
+      "changeLabel": "Person für {role} ändern",
+      "assignLabel": "{role} besetzen",
+      "preferred": "Bevorzugt für {role}",
+      "others": "Weitere",
+      "everyone": "Alle Personen",
+      "busyAt": "am selben Tag bei {event}",
+      "current": "aktuell zuständig",
+      "clear": "Nicht besetzen",
+      "undo": "Rückgängig",
+      "toast": {
+        "changed": "{role}: {from} → {to}",
+        "assigned": "{role}: {name}",
+        "cleared": "{role}: nicht mehr besetzt ({name})",
+        "reverted": "{role} wieder: {name}",
+        "tasks": "{count, plural, one {1 Aufgabe folgt} other {# Aufgaben folgen}}"
+      },
+      "errors": {
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "invalid_role": "Diese Zuständigkeit gibt es nicht mehr. Die Seite wurde aktualisiert.",
+        "invalid_staff": "Diese Person ist nicht mehr aktiv. Die Seite wurde aktualisiert.",
+        "conflict": "Die Zuständigkeit wurde zwischenzeitlich geändert. Nichts zurückgesetzt.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      }
     },
     "notes": {
       "title": "Notizen",
@@ -139,7 +164,7 @@
       "who": "Wer",
       "what": "Änderung",
       "empty": "Noch keine Änderungen seit dem Import.",
-      "emptyHint": "Statuswechsel, geänderte Notizen und weitere Änderungen erscheinen hier.",
+      "emptyHint": "Statuswechsel, geänderte Notizen, Zuständigkeiten und weitere Änderungen erscheinen hier.",
       "unknownActor": "System",
       "created": "Angelegt aus Vorlage",
       "createdManual": "Angelegt",
@@ -148,25 +173,157 @@
       "reason": "Grund: {reason}",
       "notes": "Notizen geändert",
       "archived": "Archiviert",
-      "other": "Geändert ({action})"
+      "other": "Geändert ({action})",
+      "dutyChanged": "{role}: {from} → {to}",
+      "dutyAssigned": "{role} besetzt: {name}",
+      "dutyCleared": "{role} nicht mehr besetzt (war {name})",
+      "dutyUndone": "Rückgängig gemacht",
+      "updated": "Eckdaten geändert: {fields}",
+      "fields": {
+        "times": "Zeiten",
+        "pricePerMCents": "Standpreis",
+        "bookingFeeCents": "Buchungsgebühr",
+        "name": "Name",
+        "durationDays": "Dauer",
+        "venueId": "Ort"
+      },
+      "bookingOn": "{flag}: ja",
+      "bookingOff": "{flag}: nein",
+      "moved": "Verschoben: {from} → {to}",
+      "undone": "Rückgängig gemacht",
+      "createdAgreement": "Angelegt aus Vereinbarung"
     },
-    "later": {
-      "board": {
-        "title": "Das Board folgt in M2",
-        "hint": "Aufgaben aus den Ablaufvorlagen als Kanban-Board, daneben die Personenleiste mit Auslastung je Person."
+    "facts": {
+      "edit": "Bearbeiten",
+      "title": "Eckdaten bearbeiten",
+      "description": "Zeiten und Preise dieser Veranstaltung.",
+      "times": "Zeiten (Uhr)",
+      "time": {
+        "setup": "Aufbau",
+        "open": "Beginn",
+        "close": "Ende",
+        "teardown": "Abbau"
       },
-      "permits": {
-        "title": "Genehmigungen folgen in M3",
-        "hint": "Welche Genehmigungen für diese Veranstaltung gelten, ihr Stand und die Fristen kommen mit dem Logbuch."
-      },
-      "money": {
-        "title": "Geld folgt in M5",
-        "hint": "Hier stehen später die Posten mit Plan · Zugesagt · Tatsächlich, die Zahlungen mit Raten und die Belege."
-      },
-      "documents": {
-        "title": "Dokumente folgen später",
-        "hint": "Bescheide, Pläne und Verträge dieser Veranstaltung werden später hier abgelegt."
+      "price": "Standpreis",
+      "perMeter": "€ je m",
+      "fee": "Buchungsgebühr",
+      "presetHint": "Gilt nur für diese Veranstaltung; die Vorlage bleibt unverändert.",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "saved": "Eckdaten gespeichert",
+      "unchanged": "Keine Änderungen zu speichern.",
+      "undo": "Rückgängig",
+      "reverted": "Eckdaten zurückgesetzt",
+      "errors": {
+        "invalid_time": "Bitte alle Zeiten als HH:MM angeben.",
+        "open_after_close": "Das Ende muss nach dem Beginn liegen.",
+        "close_after_teardown": "Der Abbau kann nicht vor dem Ende liegen.",
+        "setup_after_open": "Der Aufbau kann bei eintägigen Märkten nicht nach dem Beginn liegen.",
+        "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "conflict": "Die Eckdaten wurden zwischenzeitlich geändert. Nichts zurückgesetzt.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
       }
+    },
+    "booking": {
+      "menu": "Buchung",
+      "flag": {
+        "bookingOpen": "Buchbar",
+        "fullyBooked": "Ausgebucht",
+        "carSpacesFull": "Autoplätze ausgebucht"
+      },
+      "on": {
+        "bookingOpen": "Buchung geöffnet",
+        "fullyBooked": "Als ausgebucht markiert",
+        "carSpacesFull": "Autoplätze als ausgebucht markiert"
+      },
+      "off": {
+        "bookingOpen": "Buchung geschlossen",
+        "fullyBooked": "Nicht mehr ausgebucht",
+        "carSpacesFull": "Autoplätze wieder frei"
+      },
+      "undo": "Rückgängig",
+      "failed": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+    },
+    "move": {
+      "open": "Verschieben",
+      "title": "Veranstaltung verschieben",
+      "description": "Neuer erster Tag; die Dauer bleibt. Aufbau, Abbau und Buchungsschluss werden neu berechnet.",
+      "newDate": "Neuer erster Tag",
+      "loading": "Vorschau wird geladen …",
+      "caption": "Termine vorher und nachher",
+      "what": "Termin",
+      "before": "Bisher",
+      "after": "Neu",
+      "announced": "Die Veranstaltung ist schon angekündigt: Händler und Website müssen den neuen Termin erfahren.",
+      "note": "Hinweise blockieren nichts: du entscheidest.",
+      "submit": "Verschieben",
+      "cancel": "Abbrechen",
+      "moved": "Verschoben auf {date}",
+      "undo": "Rückgängig",
+      "reverted": "Wieder am {date}",
+      "errors": {
+        "invalid_date": "Bitte ein gültiges Datum wählen.",
+        "not_movable": "Diese Veranstaltung läuft schon oder ist vorbei und kann nicht mehr verschoben werden.",
+        "conflict": "Die Veranstaltung wurde zwischenzeitlich verschoben. Die Seite wurde aktualisiert.",
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      },
+      "tasksShifting": "{count, plural, =0 {Keine Aufgabe verschiebt sich.} one {1 Aufgabe verschiebt sich.} other {# Aufgaben verschieben sich.}}",
+      "tasksShiftingNote": "Erledigte Aufgaben und von Hand gesetzte Fälligkeiten bleiben.",
+      "movedTasks": "{count, plural, one {1 Aufgabe verschoben} other {# Aufgaben verschoben}}"
+    },
+    "happening": {
+      "title": "Die Veranstaltung läuft gerade",
+      "description": "Die Änderung gilt sofort, auch für das Team vor Ort. Trotzdem ändern?",
+      "confirm": "Ändern",
+      "cancel": "Abbrechen"
+    },
+    "basics": {
+      "open": "Bearbeiten",
+      "title": "Name, Dauer und Ort",
+      "description": "Gilt nur für diese Veranstaltung. Vor dem Speichern fragen wir noch einmal nach.",
+      "name": "Name",
+      "venue": "Ort",
+      "days": "Tage",
+      "archivedVenue": "Bisheriger Ort (archiviert)",
+      "newDays": "Neu: {from} – {to}",
+      "presetHint": "Die Vorlage bleibt unverändert. Bei mehr oder weniger Tagen werden Aufbau, Abbau und Buchungsschluss neu berechnet.",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "saved": "Name, Dauer und Ort gespeichert",
+      "unchanged": "Keine Änderungen zu speichern.",
+      "undo": "Rückgängig",
+      "reverted": "Wieder wie vorher",
+      "change": {
+        "name": "Name: {from} → {to}",
+        "days": "Dauer: {from} → {to} Tage",
+        "venue": "Ort: {from} → {to}"
+      },
+      "confirm": {
+        "title": "Wirklich ändern?",
+        "description": "Händler, Team und Website sehen danach die neuen Angaben.",
+        "ok": "Ändern"
+      },
+      "errors": {
+        "invalid_name": "Bitte einen Namen angeben (höchstens 120 Zeichen).",
+        "invalid_duration": "Bitte 1 bis 14 Tage angeben.",
+        "invalid_venue": "Diesen Ort gibt es nicht mehr.",
+        "conflict": "Die Veranstaltung wurde zwischenzeitlich geändert. Nichts zurückgesetzt.",
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      },
+      "openLabel": "Name, Dauer und Ort bearbeiten",
+      "tasksShifting": "{count, plural, =0 {Keine Aufgabe verschiebt sich.} one {1 Aufgabe verschiebt sich.} other {# Aufgaben verschieben sich.}}",
+      "tasksShiftingNote": "Erledigte Aufgaben und von Hand gesetzte Fälligkeiten bleiben.",
+      "movedTasks": "{count, plural, one {1 Aufgabe verschoben} other {# Aufgaben verschoben}}"
+    },
+    "documents": {
+      "title": "Dokumente",
+      "empty": "Noch nichts abgelegt. Hier stehen Bescheide, Pläne und Verträge dieser Veranstaltung.",
+      "add": "Dokument hinzufügen",
+      "readOnly": "Du kannst Dokumente ansehen, aber nicht hinzufügen.",
+      "count": "{count, plural, one {# Dokument} other {# Dokumente}}"
     }
   }
 }

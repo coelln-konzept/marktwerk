@@ -1,10 +1,10 @@
 import { Check, Minus } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
+import { PhoneLink } from "@/components/ui/phone";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
 import { formatDate, formatLength } from "@/lib/format";
 import { getVendor } from "@/server/queries/vendors";
 import { TagList } from "./duty-tags";
-import { PhoneLink } from "./phone";
 
 /** Vorschau of one vendor: every field, read only (Phase 1 import). */
 export async function VendorVorschau({ id, closeHref }: { id: string; closeHref: string }) {

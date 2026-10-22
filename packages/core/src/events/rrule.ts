@@ -79,3 +79,40 @@ export function expandRRule(rule: string, from: string, to: string): string[] {
   }
   return occurrences.sort();
 }
+
+/** What the preset form edits: weekdays (0 = Sunday), the n-th of them per month (null = every), months (null = all). */
+export type RRuleParts = { weekdays: number[]; setPos: number | null; months: number[] | null };
+
+const CODE_BY_WEEKDAY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+/** Monday first, the German week. */
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+/**
+ * A rule as form fields. In this subset, YEARLY with BYMONTH yields the same dates as MONTHLY with
+ * BYMONTH (BYSETPOS works per month), so both read back the same way.
+ */
+export function rruleToParts(rule: string): RRuleParts {
+  const parsed = parseRRule(rule);
+  return {
+    weekdays: WEEKDAY_ORDER.filter((d) => parsed.weekdays.includes(d)),
+    setPos: parsed.setPos,
+    months: parsed.months ? [...new Set(parsed.months)].sort((a, b) => a - b) : null,
+  };
+}
+
+/** Form fields → rule ("FREQ=MONTHLY;BYMONTH=4,5;BYDAY=SU;BYSETPOS=1"); null without weekdays = no rhythm. */
+export function partsToRRule(parts: RRuleParts): string | null {
+  const weekdays = WEEKDAY_ORDER.filter((d) => parts.weekdays.includes(d));
+  if (weekdays.length === 0) return null;
+  const months =
+    parts.months && parts.months.length > 0 && parts.months.length < 12
+      ? [...new Set(parts.months)].sort((a, b) => a - b)
+      : null;
+  const segments = ["FREQ=MONTHLY"];
+  if (months) segments.push(`BYMONTH=${months.join(",")}`);
+  segments.push(`BYDAY=${weekdays.map((d) => CODE_BY_WEEKDAY[d]).join(",")}`);
+  if (parts.setPos !== null) segments.push(`BYSETPOS=${parts.setPos}`);
+  const rule = segments.join(";");
+  parseRRule(rule); // validates setPos and months
+  return rule;
+}

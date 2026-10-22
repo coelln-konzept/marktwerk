@@ -18,6 +18,16 @@ export const DEFAULT_TASK_REMINDER_DAYS: Record<Priority, readonly number[]> = {
 
 export const DEFAULT_PERMIT_APPLY_REMINDER_DAYS = [30, 14, 7] as const;
 export const DEFAULT_PERMIT_EXPIRY_REMINDER_DAYS = [60, 30] as const;
+export const DEFAULT_PERMIT_DECISION_REMINDER_DAYS = [7] as const;
+
+/** An overdue critical item also reaches the manager after this many days (decision 2026-10-21). */
+export const ESCALATION_AFTER_DAYS = 1;
+
+/**
+ * Overdue longer than this is backlog: the daily digest lists it, but the sweep stays quiet, so switching the
+ * system on does not flood people (and the manager) with a notification per old item.
+ */
+export const BACKLOG_AFTER_DAYS = 30;
 
 export type DueState =
   | { kind: "none" }
@@ -41,7 +51,7 @@ export function dueState(dueAt: Date, now: Date, reminderDays: readonly number[]
  * the deadline means moving a due date re-arms its reminders automatically.
  */
 export function reminderDedupeKey(
-  entity: "task" | "permit",
+  entity: "task" | "permit" | "permit_decision" | "permit_expiry",
   entityId: string,
   state: Exclude<DueState, { kind: "none" }>,
   dueAt: Date,

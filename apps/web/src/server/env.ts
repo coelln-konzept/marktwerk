@@ -16,6 +16,10 @@ const schema = z.object({
   /** Bearer token the external scheduler sends to /api/cron/* (ADR 0017). */
   CRON_SECRET: z.string().min(32).optional(),
   VERCEL_URL: z.string().optional(),
+  /** Where uploaded documents live: plain files under ./.data/files, or an S3-compatible bucket. */
+  STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
+  /** Directory of the local driver (default `.data/files` in the web app's working directory). */
+  STORAGE_LOCAL_DIR: z.string().min(1).optional(),
 });
 
 const parsed = schema.parse(process.env);

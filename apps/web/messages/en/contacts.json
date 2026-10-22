@@ -36,7 +36,61 @@
       "address": "Address",
       "notes": "Notes",
       "venues": "Venues where this contact is the landowner",
-      "noVenues": "Not recorded as landowner of any venue."
+      "noVenues": "Not recorded as landowner of any venue.",
+      "agreements": "Location agreements with this contact",
+      "usedAt": "Used at {places}. You can still archive it: the contact stays recorded there.",
+      "archiveHint": "Archived contacts disappear from the list and from pickers."
+    },
+    "new": "New contact",
+    "edit": "Edit",
+    "archive": "Archive",
+    "editRow": "Edit: {name}",
+    "empty": "No contacts yet.",
+    "emptyHint": "Add authorities, landowners, suppliers and service providers so they can be picked for venues and agreements.",
+    "form": {
+      "titleNew": "New contact",
+      "titleEdit": "Edit contact",
+      "subtitleNew": "Authority, landowner, supplier or service provider",
+      "subtitleEdit": "Changes apply everywhere this contact is used, right away.",
+      "sectionBasics": "Contact",
+      "sectionAddress": "Address",
+      "sectionNotes": "Notes",
+      "kind": "Type",
+      "name": "Name / organisation",
+      "namePlaceholder": "e.g. City of Cologne public order office",
+      "contactPerson": "Contact person",
+      "phone": "Phone",
+      "phoneHint": "German numbers are stored in one format (+49 …).",
+      "phoneNormalized": "Will be saved as {value}",
+      "email": "Email",
+      "street": "Street and number",
+      "postalCode": "Postcode",
+      "city": "City",
+      "notes": "Notes",
+      "notesPlaceholder": "For example availability, responsibilities or agreements",
+      "save": "Save",
+      "create": "Create contact",
+      "cancel": "Cancel",
+      "reload": "Reload",
+      "errors": {
+        "name_required": "Please enter a name.",
+        "invalid_kind": "Please choose a type.",
+        "invalid_email": "Please enter a valid email address.",
+        "invalid_phone": "Please enter a valid phone number.",
+        "too_long": "A field is too long.",
+        "conflict": "Someone else changed this contact in the meantime. Reload the page to see the current version.",
+        "not_found": "This contact no longer exists.",
+        "generic": "That didn't work. Please try again."
+      }
+    },
+    "toast": {
+      "created": "Contact created.",
+      "saved": "Changes saved.",
+      "unchanged": "No changes.",
+      "archived": "{name} archived.",
+      "undo": "Undo",
+      "restored": "{name} restored.",
+      "failed": "That didn't work."
     }
   }
 }

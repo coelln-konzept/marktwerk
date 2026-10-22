@@ -4,11 +4,12 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { TagList } from "@/components/people/duty-tags";
 import { PersonVorschau } from "@/components/people/person-vorschau";
-import { PhoneLink } from "@/components/people/phone";
 import { Page, PageHeader } from "@/components/shell/page";
+import { TeamTabs } from "@/components/team/team-nav";
 import { Avatar } from "@/components/ui/avatar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { PhoneLink } from "@/components/ui/phone";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
@@ -77,32 +78,7 @@ export default async function TeamPage({ searchParams }: PageProps<"/team">) {
     <Page crumbs={[{ label: tNav("team") }]}>
       <PageHeader title={t("title")} subtitle={t("subtitle", { people: people.length, logins })} />
 
-      <nav aria-label={t("tabsLabel")}>
-        <ul className="m-0 inline-flex list-none gap-0.5 rounded-lg border border-input bg-sunken p-0.5">
-          <li>
-            <Link
-              href={PATH}
-              aria-current="page"
-              className="inline-flex min-h-7 items-center rounded-md bg-card px-3 font-medium text-foreground shadow-card"
-            >
-              {t("tabs.people")}
-            </Link>
-          </li>
-          {(["hours", "shifts"] as const).map((tab) => (
-            <li key={tab}>
-              <span
-                aria-disabled="true"
-                className="inline-flex min-h-7 items-center gap-1.5 rounded-md px-3 font-medium text-faint-foreground"
-              >
-                {t(`tabs.${tab}`)}
-                <span className="rounded-sm bg-status-neutral-bg px-1.5 text-[11px] text-muted-foreground">
-                  {t("tabs.soon")}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <TeamTabs active="people" />
 
       <Panel className="overflow-hidden">
         {view.length === 0 ? (

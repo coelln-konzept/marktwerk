@@ -72,12 +72,55 @@ export function formatNumber(value: number, locale: string, maximumFractionDigit
   return new Intl.NumberFormat(tag(locale), { maximumFractionDigits }).format(value);
 }
 
+/** "01.10." for a month-day ("10-01"); "01/10" in English. */
+export function formatMonthDay(md: string, locale: string): string {
+  const [month, day] = md.split("-");
+  return locale === "en" ? `${day}/${month}` : `${day}.${month}.`;
+}
+
+/** "17 Min." / "3 Std." / "2 T." since `then`, for notification lists; null if it is under a minute ago. */
+export function formatAgo(then: Date, now: Date, locale: string): string | null {
+  const minutes = Math.floor((now.getTime() - then.getTime()) / 60_000);
+  if (minutes < 1) return null;
+  const en = locale === "en";
+  if (minutes < 60) return `${minutes} ${en ? "min" : "Min."}`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${en ? "h" : "Std."}`;
+  const days = Math.floor(hours / 24);
+  if (days < 14) return `${days} ${en ? (days === 1 ? "day" : "days") : "T."}`;
+  return formatDate(todayIn("Europe/Berlin", then), locale);
+}
+
+/** "120" or "1.234,56" (German) or "1234.56" → integer cents; null if empty, NaN if not an amount. */
+export function parseMoneyToCents(input: string): number | null {
+  const text = input.trim().replace(/\s|€/g, "");
+  if (text === "") return null;
+  const normalized = text.includes(",") ? text.replace(/\./g, "").replace(",", ".") : text;
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return Number.NaN;
+  return Math.round(Number(normalized) * 100);
+}
+
+/** Cents → "120" / "120,50" for an input field (no currency sign, no thousands separator). */
+export function centsToInput(cents: number | null, locale: string): string {
+  if (cents === null) return "";
+  return new Intl.NumberFormat(locale === "en" ? "en-GB" : "de-DE", {
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  }).format(cents / 100);
+}
+
 /** Today's business date in the company's time zone. */
-export function todayIn(timeZone = "Europe/Berlin"): string {
+export function todayIn(timeZone = "Europe/Berlin", now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(now);
+}
+
+/** 7,5 h (minutes in). */
+export function formatHours(minutes: number, locale: string): string {
+  return `${formatNumber(minutes / 60, locale, 2)} h`;
 }

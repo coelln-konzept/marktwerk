@@ -1,6 +1,11 @@
 import type { Database } from "@marktwerk/db";
 import { dailyDigest } from "./daily-digest";
 import { deadlineSweep } from "./deadline-sweep";
+import { installmentReminders } from "./installment-reminders";
+import { obligationReminders } from "./obligation-reminders";
+import { payrollReminders } from "./payroll-reminders";
+import { sendQueuedEmails } from "./send-emails";
+import { taskRollover } from "./task-rollover";
 
 /**
  * Every scheduled job, keyed by name. The worker schedules these with pg-boss;
@@ -9,7 +14,14 @@ import { deadlineSweep } from "./deadline-sweep";
  */
 export const JOBS = {
   "deadline-sweep": { cron: "*/15 * * * *", run: (db: Database) => deadlineSweep(db) },
+  "task-rollover": { cron: "5 0 * * *", run: (db: Database) => taskRollover(db) },
   "daily-digest": { cron: "0 7 * * *", run: (db: Database) => dailyDigest(db) },
+  // Date-based, so hourly is plenty; the dedupe keys make repeated runs harmless.
+  "obligation-reminders": { cron: "5 * * * *", run: (db: Database) => obligationReminders(db) },
+  "installment-reminders": { cron: "10 * * * *", run: (db: Database) => installmentReminders(db) },
+  "payroll-reminders": { cron: "5 7 * * *", run: (db: Database) => payrollReminders(db) },
+  /** Delivers the queued emails (immediate ones and the digest) every 5 minutes. */
+  "send-emails": { cron: "*/5 * * * *", run: (db: Database) => sendQueuedEmails(db) },
 } as const satisfies Record<string, { cron: string; run: (db: Database) => Promise<unknown> }>;
 
 export type JobName = keyof typeof JOBS;
@@ -18,4 +30,14 @@ export function isJobName(value: string): value is JobName {
   return Object.hasOwn(JOBS, value);
 }
 
-export { dailyDigest, deadlineSweep };
+export { sendSmtp } from "./mail/smtp";
+export { createLogTransport, createMailTransport, type MailTransport } from "./mail/transport";
+export {
+  dailyDigest,
+  deadlineSweep,
+  installmentReminders,
+  obligationReminders,
+  payrollReminders,
+  sendQueuedEmails,
+  taskRollover,
+};

@@ -1,8 +1,10 @@
 import type * as React from "react";
+import { Suspense } from "react";
 import { cn } from "@/lib/utils";
+import { BellFallback, NotificationBell } from "./notification-bell";
 import { type Crumb, Topbar } from "./topbar";
 
-/** Every page: top bar with breadcrumb, then the content column. */
+/** Every page: top bar with breadcrumb (and the notification bell), then the content column. */
 export function Page({
   crumbs,
   children,
@@ -17,7 +19,14 @@ export function Page({
 }) {
   return (
     <>
-      <Topbar crumbs={crumbs} />
+      <Topbar
+        crumbs={crumbs}
+        bell={
+          <Suspense fallback={<BellFallback />}>
+            <NotificationBell />
+          </Suspense>
+        }
+      />
       <div
         className={cn(
           "flex flex-col gap-6 px-4 py-6 lg:px-7",

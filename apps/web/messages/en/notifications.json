@@ -1,0 +1,95 @@
+{
+  "notificationsPage": {
+    "title": "Notifications",
+    "subtitle": "{unread, plural, =0 {All read} one {# unread} other {# unread}}",
+    "snoozed": "{count, plural, one {# snoozed} other {# snoozed}}",
+    "views": {
+      "label": "View",
+      "open": "Open",
+      "saved": "Saved",
+      "done": "Done",
+      "all": "All"
+    },
+    "groups": {
+      "label": "Type",
+      "all": "All",
+      "assigned": "Assigned to me",
+      "mentioned": "Mentions",
+      "deadlines": "Deadlines",
+      "escalated": "Escalated",
+      "changes": "Changes"
+    },
+    "reasons": {
+      "assigned": "Assigned",
+      "mentioned": "Mentioned",
+      "due_soon": "Due soon",
+      "overdue": "Overdue",
+      "rolled_over": "Carried over",
+      "dates_shifted": "Dates shifted",
+      "permit_apply_by": "Application due",
+      "permit_decision_due": "Decision pending",
+      "installment_due": "Instalment due",
+      "rental_return_due": "Return due",
+      "obligation_due": "Obligation due",
+      "shift_request": "Shift request",
+      "hours_missing": "Hours missing",
+      "payroll_close": "Month close",
+      "escalated": "Escalated"
+    },
+    "severity": {
+      "info": "Note",
+      "warning": "Attention",
+      "critical": "Critical"
+    },
+    "markAllRead": "Mark all as read",
+    "markedAllRead": "{count, plural, one {# notification} other {# notifications}} marked as read.",
+    "nothingToMark": "Nothing unread.",
+    "undo": "Undo",
+    "list": "Notifications",
+    "unread": "unread",
+    "open": "Open",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "done": "Done",
+    "reopen": "Reopen",
+    "save": "Save",
+    "unsave": "Unsave",
+    "snooze": "Remind me later",
+    "snoozeChoices": {
+      "hour": "In an hour",
+      "tomorrow": "Tomorrow morning",
+      "next_week": "Next week"
+    },
+    "actionsFor": "Actions for {title}",
+    "toast": {
+      "done": "Done.",
+      "read": "Marked as read.",
+      "unread": "Marked as unread.",
+      "saved": "Saved.",
+      "reopened": "Reopened.",
+      "snoozed": "Reminder on {when}.",
+      "restored": "Restored."
+    },
+    "empty": "All done.",
+    "emptyHint": "Notes about deadlines, assignments and escalations appear here.",
+    "emptyFiltered": "No notifications in this selection.",
+    "noStaffTitle": "Your login is not linked to a person on the team.",
+    "noStaffHint": "Notifications go to team members. Link your login to a person and they will show up here.",
+    "more": "There are older notifications. Done ones disappear from “Open”.",
+    "errors": {
+      "generic": "That did not work. Please try again.",
+      "not_found": "This notification no longer exists."
+    }
+  },
+  "bell": {
+    "label": "Notifications",
+    "labelUnread": "Notifications, {count, plural, one {# unread} other {# unread}}",
+    "title": "Notifications",
+    "markAll": "Mark all read",
+    "viewAll": "View all",
+    "empty": "No new notifications.",
+    "unread": "unread",
+    "ago": "{when} ago",
+    "now": "just now"
+  }
+}

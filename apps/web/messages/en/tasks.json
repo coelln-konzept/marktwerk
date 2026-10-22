@@ -1,0 +1,184 @@
+{
+  "tasks": {
+    "label": "Task",
+    "status": {
+      "todo": "Open",
+      "in_progress": "In progress",
+      "waiting_external": "Waiting",
+      "blocked": "Blocked",
+      "done": "Done",
+      "skipped": "Skipped",
+      "cancelled": "Cancelled"
+    },
+    "statusLong": {
+      "todo": "Open",
+      "in_progress": "In progress",
+      "waiting_external": "Waiting · authority/external",
+      "blocked": "Blocked",
+      "done": "Done",
+      "skipped": "Skipped",
+      "cancelled": "Cancelled"
+    },
+    "statusLabel": "Status",
+    "waitingFor": "Waiting for: {reason}",
+    "waitingNoReason": "Waiting for an outside reply.",
+    "blockedBy": "Blocked: {reason}",
+    "skippedBecause": "Skipped: {reason}",
+    "categories": {
+      "general": "General",
+      "permits": "Permits",
+      "logistics": "Logistics",
+      "communication": "Communication",
+      "finance": "Finance",
+      "staff": "Team",
+      "office": "Office"
+    },
+    "due": {
+      "overdue": "Overdue · {days} d",
+      "today": "Today",
+      "soon": "Due in {days} d",
+      "none": "No date",
+      "doneOn": "Done {date}",
+      "finished": "Finished"
+    },
+    "rollover": "carried over {count}×",
+    "estimate": "Estimate",
+    "checks": "Checklist",
+    "evidence": {
+      "title": "Evidence",
+      "note": "Note",
+      "photo": "Photo",
+      "attachment": "Attachment",
+      "check_items": "tick off the whole checklist",
+      "missing": "missing",
+      "given": "given",
+      "noteLabel": "Note for completing",
+      "noteNeeded": "This task needs a note.",
+      "noteHint": "Saved as a comment when you complete the task.",
+      "addPhoto": "Add photo",
+      "addAttachment": "Add attachment"
+    },
+    "reason": {
+      "waiting_external": {
+        "title": "Waiting",
+        "label": "What is the task waiting for?",
+        "placeholder": "e.g. city office Neuss, reply due Friday"
+      },
+      "blocked": {
+        "title": "Blocked",
+        "label": "What blocks the task?",
+        "placeholder": "e.g. signs are still missing"
+      },
+      "skipped": {
+        "title": "Skip",
+        "label": "Why is the task skipped?",
+        "placeholder": "e.g. not needed at this market"
+      },
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "create": {
+      "button": "Task",
+      "title": "New task",
+      "cancel": "Cancel",
+      "submit": "Create task",
+      "created": "“{title}” created",
+      "noEvent": "No event",
+      "nobody": "Nobody",
+      "fields": {
+        "title": "Title",
+        "event": "Event",
+        "due": "Due on",
+        "hours": "Estimate in hours",
+        "category": "Category",
+        "assignee": "Assign to",
+        "description": "Description"
+      },
+      "errors": {
+        "generic": "The task could not be created.",
+        "invalid_input": "Please give a title and check the date and hours.",
+        "invalid_event": "This event is not available.",
+        "invalid_staff": "This person cannot be assigned."
+      }
+    },
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "estimateMinutes": "Estimate",
+      "dueOn": "Due date",
+      "due": "Due",
+      "estimate": "Estimated",
+      "assignee": "Assigned to",
+      "role": "Role",
+      "source": "Origin",
+      "completed": "Done on"
+    },
+    "source": {
+      "template": "From timeline template",
+      "manual": "Created by hand",
+      "permit": "From a permit",
+      "permit_condition": "From a permit condition",
+      "obligation": "From an obligation",
+      "rental": "From a rental",
+      "email": "From an e-mail",
+      "system": "By the system"
+    },
+    "noEvent": "No event",
+    "edit": "Edit title and description",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saved": "Saved",
+    "unchanged": "Nothing changed",
+    "hours": "hours",
+    "nobody": "Nobody",
+    "dueSetByHand": "set by hand, no longer follows the event date",
+    "description": "Description",
+    "noDescription": "No description.",
+    "checklist": "Checklist · {done}/{total}",
+    "addCheckItem": "Add a step",
+    "addCheckItemButton": "Add step",
+    "feedback": {
+      "title": "How was the effort?",
+      "as_planned": "As planned",
+      "longer": "Longer",
+      "shorter": "Shorter",
+      "saved": "Feedback saved"
+    },
+    "comments": {
+      "title": "Comments · {count}",
+      "empty": "No comments yet.",
+      "someone": "Someone",
+      "label": "Write a comment",
+      "placeholder": "Write a comment. Use @ to mention someone.",
+      "mentionList": "People",
+      "suggestions": "{count, plural, one {# suggestion. Arrow keys choose, Enter accepts.} other {# suggestions. Arrow keys choose, Enter accepts.}}",
+      "hint": "Ctrl+Enter sends",
+      "send": "Send",
+      "sent": "Comment saved",
+      "sentMentioned": "{count, plural, one {Comment saved, # person notified} other {Comment saved, # people notified}}",
+      "failed": "The comment could not be saved."
+    },
+    "activity": {
+      "title": "Activity",
+      "empty": "No activity yet.",
+      "someone": "Someone",
+      "create": "{name} created the task.",
+      "move": "{name} moved the task to “{column}”.",
+      "moveDone": "{name} completed the task by moving it.",
+      "reopen": "{name} reopened the task (“{column}”).",
+      "assign": "{name} assigned the task to {to}.",
+      "reassign": "{name} handed the task over from {from} to {to}.",
+      "unassign": "{name} removed the assignment to {from}.",
+      "status": "{name} changed the status from “{from}” to “{to}”.",
+      "statusDone": "{name} completed the task.",
+      "update": "{name} changed: {fields}.",
+      "checkAdd": "{name} added the step “{title}”.",
+      "checkTick": "{name} ticked off “{title}”.",
+      "checkUntick": "{name} reopened “{title}”.",
+      "comment": "{name} commented.",
+      "effort": "{name} rated the effort.",
+      "undo": "{name} undid a change.",
+      "other": "{name}: {action}"
+    }
+  }
+}

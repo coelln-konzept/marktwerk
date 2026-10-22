@@ -1,10 +1,13 @@
-import { Eye, Layers } from "lucide-react";
+import { can } from "@marktwerk/core";
+import { Eye, Layers, Pencil, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
 import { PresetVorschau } from "@/components/catalogue/preset-vorschau";
 import { Page, PageHeader } from "@/components/shell/page";
+import { TemplateTabs } from "@/components/templates/template-tabs";
+import { buttonVariants } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
@@ -24,7 +27,8 @@ export async function generateMetadata(): Promise<Metadata> {
 const PATH = "/vorlagen";
 
 export default async function TemplatesPage({ searchParams }: PageProps<"/vorlagen">) {
-  await requirePermission("template", "read");
+  const user = await requirePermission("template", "read");
+  const canWrite = can(user.role, "template", "write");
   const sp = await searchParams;
   const t = await getTranslations("templates");
   const locale = await getLocale();
@@ -35,26 +39,23 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/vorlag
 
   return (
     <Page crumbs={[{ label: t("title") }]}>
-      <PageHeader title={t("title")} subtitle={t("subtitle", { count: presets.length, active })} />
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle", { count: presets.length, active })}
+        actions={
+          canWrite && (
+            <Link
+              href={"/vorlagen/neu" as never}
+              className={buttonVariants({ variant: "default" })}
+            >
+              <Plus aria-hidden />
+              {t("new")}
+            </Link>
+          )
+        }
+      />
 
-      <nav aria-label={t("tabsLabel")} className="-mb-2 flex gap-1 border-b">
-        <Link
-          href={PATH as never}
-          aria-current="page"
-          className="-mb-px inline-flex min-h-9 items-center border-primary border-b-2 px-3 font-semibold text-foreground"
-        >
-          {t("tabs.events")}
-        </Link>
-        <span
-          aria-disabled="true"
-          className="-mb-px inline-flex min-h-9 cursor-not-allowed items-center gap-2 border-transparent border-b-2 px-3 font-medium text-faint-foreground"
-        >
-          {t("tabs.timelines")}
-          <span className="rounded-full bg-status-neutral-bg px-2 py-0.5 font-semibold text-status-neutral text-tiny">
-            {t("tabs.soon")}
-          </span>
-        </span>
-      </nav>
+      <TemplateTabs current="events" />
 
       <Panel className="overflow-hidden">
         {presets.length === 0 ? (
@@ -130,7 +131,7 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/vorlag
                       <TD>
                         <PresetStatusBadge active={p.active} />
                       </TD>
-                      <TD className="w-12">
+                      <TD className="w-20">
                         <RowActions>
                           <Link
                             href={peek as never}
@@ -141,6 +142,16 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/vorlag
                           >
                             <Eye className="size-4" />
                           </Link>
+                          {canWrite && (
+                            <Link
+                              href={`/vorlagen/${p.id}` as never}
+                              tabIndex={-1}
+                              aria-label={t("editLabel", { name: p.name })}
+                              className="grid size-7 place-items-center rounded-md hover:bg-hover"
+                            >
+                              <Pencil className="size-4" />
+                            </Link>
+                          )}
                         </RowActions>
                       </TD>
                     </TR>
@@ -155,7 +166,11 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/vorlag
       <p className="text-muted-foreground text-tiny">{t("keys")}</p>
 
       {selected && (
-        <PresetVorschau preset={selected} closeHref={hrefWith(PATH, sp, { vorschau: undefined })} />
+        <PresetVorschau
+          preset={selected}
+          closeHref={hrefWith(PATH, sp, { vorschau: undefined })}
+          canEdit={canWrite}
+        />
       )}
     </Page>
   );

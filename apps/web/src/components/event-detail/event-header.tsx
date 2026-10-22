@@ -1,4 +1,4 @@
-import { can } from "@marktwerk/core";
+import { can, daysBetween, isHappening } from "@marktwerk/core";
 import { CalendarDays, MapPin, Truck } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -6,10 +6,17 @@ import { EventStatusBadge } from "@/components/events/event-status";
 import { HealthSummary } from "@/components/events/health-summary";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateShort, formatDateWithWeekday, formatWeek } from "@/lib/format";
+import { formatDateShort, formatDateWithWeekday, formatWeek, todayIn } from "@/lib/format";
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
+import { listLinkedDocuments } from "@/server/queries/documents";
 import type { EventDetail } from "@/server/queries/events";
+import { getEventMoney } from "@/server/queries/finance";
+import { listEventPermits } from "@/server/queries/permits";
+import { eventTaskSummary } from "@/server/queries/tasks";
+import { listVenueOptions } from "@/server/queries/venues";
+import { BasicsDialog } from "./basics-dialog";
+import { BookingMenu } from "./booking-menu";
 import { type EventTab, EventTabs } from "./event-tabs";
 import { StatusMenu } from "./status-menu";
 
@@ -17,6 +24,8 @@ import { StatusMenu } from "./status-menu";
 export async function EventHeader({ event, actor }: { event: EventDetail; actor: Actor }) {
   const t = await getTranslations("eventDetail");
   const tHealth = await getTranslations("health");
+  const tMoney = await getTranslations("eventMoney");
+  const tBoard = await getTranslations("board");
   const locale = await getLocale();
   const base = `/veranstaltungen/${event.id}`;
   const multiDay = event.endsOn !== event.startsOn;
@@ -24,6 +33,29 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const typeName = locale === "en" ? event.type.nameEn : event.type.nameDe;
   const assigned = event.duties.filter((d) => d.staffMemberId).length;
   const total = event.duties.length;
+  const canWrite = can(actor.role, "event", "write");
+  const venues = canWrite ? await listVenueOptions() : [];
+  // Tab "Geld": rates paid of all rates, with the money health (only for roles that may read finance).
+  const money = can(actor.role, "finance", "read")
+    ? await getEventMoney(actor, event.id, todayIn())
+    : null;
+  const moneyCount = money?.summary.health
+    ? {
+        text:
+          money.summary.installmentsTotal > 0
+            ? `${money.summary.installmentsPaid}/${money.summary.installmentsTotal}`
+            : "–",
+        level: money.summary.health,
+        sr: `${tMoney("tab.summary", { paid: money.summary.installmentsPaid, total: money.summary.installmentsTotal })}, ${tHealth(money.summary.health)}`,
+      }
+    : undefined;
+  const tasks = await eventTaskSummary(actor, event.id, todayIn());
+  const tPermits = await getTranslations("eventPermits");
+  const permits = can(actor.role, "permit", "read")
+    ? await listEventPermits(actor, event, todayIn())
+    : null;
+  const documentCount =
+    (await listLinkedDocuments(actor, "eventId", [event.id])).get(event.id)?.length ?? 0;
   const BookingIcon = event.bookingOpen ? BOOKING_FLAG_ICONS.open : BOOKING_FLAG_ICONS.notOpen;
 
   const dateLine = multiDay
@@ -41,19 +73,35 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
         week: formatWeek(event.startsOn, locale),
       });
 
-  const milestone = (m: string) => ({
-    text: t("tabs.milestone", { milestone: m }),
-    sr: t("tabs.milestoneHint", { milestone: m }),
-  });
   const tabs: EventTab[] = [
     { key: "overview", href: base, label: t("tabs.overview") },
-    { key: "board", href: `${base}/board`, label: t("tabs.board"), hint: milestone("M2") },
     {
-      key: "permits",
-      href: `${base}/genehmigungen`,
-      label: t("tabs.permits"),
-      hint: milestone("M3"),
+      key: "board",
+      href: `${base}/board`,
+      label: t("tabs.board"),
+      count: {
+        text: String(tasks.open),
+        level: tasks.health ?? undefined,
+        sr: `${tBoard("tab.open", { count: tasks.open })}${tasks.health ? `, ${tHealth(tasks.health)}` : ""}`,
+      },
     },
+    ...(permits
+      ? [
+          {
+            key: "permits",
+            href: `${base}/genehmigungen`,
+            label: t("tabs.permits"),
+            count:
+              permits.rows.length > 0
+                ? {
+                    text: `${permits.held}/${permits.required}`,
+                    level: permits.health ?? "none",
+                    sr: `${tPermits("tabSummary", { held: permits.held, required: permits.required })}, ${tHealth(permits.health ?? "none")}`,
+                  }
+                : undefined,
+          } satisfies EventTab,
+        ]
+      : []),
     {
       key: "team",
       href: `${base}/team`,
@@ -64,12 +112,24 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
         sr: `${t("overview.team.summary", { assigned, total })}, ${tHealth(event.health.team ?? "none")}`,
       },
     },
-    { key: "money", href: `${base}/geld`, label: t("tabs.money"), hint: milestone("M5") },
+    ...(money
+      ? [
+          {
+            key: "money",
+            href: `${base}/geld`,
+            label: t("tabs.money"),
+            count: moneyCount,
+          },
+        ]
+      : []),
     {
       key: "documents",
       href: `${base}/dokumente`,
       label: t("tabs.documents"),
-      hint: { text: t("tabs.later"), sr: t("tabs.laterHint") },
+      count:
+        documentCount > 0
+          ? { text: String(documentCount), sr: t("documents.count", { count: documentCount }) }
+          : undefined,
     },
     { key: "notes", href: `${base}/notizen`, label: t("tabs.notes") },
     ...(can(actor.role, "audit", "read")
@@ -86,8 +146,29 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
           <EventStatusBadge status={event.status} />
           <HealthSummary health={event.health} compact />
         </div>
-        {can(actor.role, "event", "write") && (
-          <StatusMenu eventId={event.id} eventName={event.name} status={event.status} />
+        {canWrite && (
+          <div className="flex flex-wrap items-center gap-2">
+            <BasicsDialog
+              eventId={event.id}
+              startsOn={event.startsOn}
+              venues={venues}
+              basics={{
+                name: event.name,
+                durationDays: daysBetween(event.startsOn, event.endsOn) + 1,
+                venueId: event.venueId,
+              }}
+            />
+            <BookingMenu
+              eventId={event.id}
+              flags={{
+                bookingOpen: event.bookingOpen,
+                fullyBooked: event.fullyBooked,
+                carSpacesFull: event.carSpacesFull,
+              }}
+              happening={isHappening(event, todayIn())}
+            />
+            <StatusMenu eventId={event.id} eventName={event.name} status={event.status} />
+          </div>
         )}
       </div>
 
