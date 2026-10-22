@@ -3,7 +3,9 @@
 import {
   type BoardColumn,
   derivedColumn,
+  isAfterEvent,
   isFinishedStatus,
+  sortColumnByDue,
   type TaskStatusKey,
 } from "@marktwerk/core";
 import { Keyboard } from "lucide-react";
@@ -18,7 +20,6 @@ import { cn } from "@/lib/utils";
 import type { BoardTask, PeopleRail, StaffOption } from "@/server/queries/tasks";
 import { BoardProvider, type Lift } from "./board-context";
 import { BoardDnd, useCellDrop, useLaneDrop } from "./board-dnd";
-import { GroupedCards } from "./grouped-cards";
 import { PeopleRailPanel } from "./people-rail";
 import { ReasonDialog } from "./reason-dialog";
 import { LoadBar } from "./task-bits";
@@ -74,7 +75,7 @@ function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): 
   return [...rest.slice(0, at), moved, ...rest.slice(at)];
 }
 
-export type BoardLayout = "columns" | "person" | "groups";
+export type BoardLayout = "columns" | "person";
 
 type Props = {
   tasks: BoardTask[];
@@ -87,9 +88,9 @@ type Props = {
   canAssign: boolean;
   /** Event board: its id (card order is kept per event). Across events: null. */
   scopeEventId: string | null;
+  /** Event board: last day of the event; tasks due after it sit under "Nach der Veranstaltung". */
+  eventEndsOn?: string | null;
   layout: BoardLayout;
-  /** For the grouped list: group by event or by due day. */
-  groupBy?: "event" | "day";
   /** True when filters are active (changes the empty text). */
   filtered: boolean;
   /** More tasks exist than the page loaded. */
@@ -97,7 +98,7 @@ type Props = {
 };
 
 /**
- * The kanban board: four columns (Vorbereitung · Diese Woche · Heute · Erledigt) or one swimlane per
+ * The kanban board: four columns (Später · Diese Woche · Überfällig & heute · Erledigt) or one swimlane per
  * person, and the people rail. Cards move through the "⋯" menu, the keyboard (own index-based mode
  * below) or by dragging with mouse and finger (dnd-kit, `board-dnd.tsx`, ADR 0020); all of them end in
  * the same `useTaskActions` calls, so the server path is the same for every way of moving a card.
@@ -118,13 +119,18 @@ export function BoardView(props: Props) {
   const [snoozeFor, setSnoozeFor] = useState<BoardTask | null>(null);
   const focusAfter = useRef<string | null>(null);
 
+  const eventEndsOn = props.eventEndsOn ?? null;
   const cardsOf = useCallback(
-    (column: BoardColumn, lane?: string | null) =>
-      tasks.filter(
+    (column: BoardColumn, lane?: string | null) => {
+      const list = tasks.filter(
         (task) =>
           task.column === column && (lane === undefined || (task.assigneeId ?? null) === lane),
-      ),
-    [tasks],
+      );
+      return column === "done"
+        ? list
+        : sortColumnByDue(list, column === "preparation" ? eventEndsOn : null);
+    },
+    [tasks, eventEndsOn],
   );
 
   // After a drop the card sits in another list; give focus back to its grip.
@@ -223,7 +229,7 @@ export function BoardView(props: Props) {
       canWrite: props.canWrite,
       canAssign: props.canAssign,
       showEvent: props.scopeEventId === null,
-      liftable: props.layout !== "groups" && props.canWrite,
+      liftable: props.canWrite,
       actions,
       lift,
       pick,
@@ -239,7 +245,6 @@ export function BoardView(props: Props) {
       props.canWrite,
       props.canAssign,
       props.scopeEventId,
-      props.layout,
       actions,
       lift,
       pick,
@@ -293,18 +298,22 @@ export function BoardView(props: Props) {
               {props.layout === "columns" ? (
                 <div className="grid min-w-[880px] grid-cols-4 items-start gap-3">
                   {COLUMN_ORDER.map((column) => (
-                    <ColumnPanel key={column} column={column} cards={cardsOf(column)} lift={lift} />
+                    <ColumnPanel
+                      key={column}
+                      column={column}
+                      cards={cardsOf(column)}
+                      lift={lift}
+                      eventEndsOn={eventEndsOn}
+                    />
                   ))}
                 </div>
-              ) : props.layout === "person" ? (
+              ) : (
                 <Swimlanes
                   tasks={tasks}
                   rail={props.rail ?? { people: [], unassigned: { tasks: 0, hours: 0 } }}
                   lift={lift}
                   cardsOf={cardsOf}
                 />
-              ) : (
-                <GroupedCards tasks={tasks} groupBy={props.groupBy ?? "event"} today={today} />
               )}
               {tasks.length === 0 && (
                 <p className="rounded-xl border border-dashed px-4 py-8 text-center text-muted-foreground text-small">
@@ -388,10 +397,12 @@ function ColumnPanel({
   column,
   cards,
   lift,
+  eventEndsOn,
 }: {
   column: BoardColumn;
   cards: BoardTask[];
   lift: Lift | null;
+  eventEndsOn?: string | null;
 }) {
   const t = useTranslations("board");
   const locale = useLocale();
@@ -423,7 +434,12 @@ function ColumnPanel({
               : ""}
         </span>
       </header>
-      <CardList column={column} cards={cards} lift={lift} />
+      <CardList
+        column={column}
+        cards={cards}
+        lift={lift}
+        eventEndsOn={column === "preparation" ? eventEndsOn : null}
+      />
     </section>
   );
 }
@@ -434,11 +450,13 @@ function CardList({
   cards,
   lift,
   lane,
+  eventEndsOn,
 }: {
   column: BoardColumn;
   cards: BoardTask[];
   lift: Lift | null;
   lane?: string | null;
+  eventEndsOn?: string | null;
 }) {
   const t = useTranslations("board");
   const [expanded, setExpanded] = useState(false);
@@ -448,9 +466,22 @@ function CardList({
   const items: React.ReactNode[] = [];
   const others = shown.filter((c) => c.id !== marker?.id);
   let slot = 0;
+  let postHeading = false;
   for (const card of shown) {
     if (marker && card.id !== marker.id && slot === marker.index) {
       items.push(<DropMarker key="marker" />);
+    }
+    // Follow-up tasks (due after the event) get their own small heading in the event board.
+    if (!postHeading && isAfterEvent(card.dueOn, eventEndsOn)) {
+      postHeading = true;
+      items.push(
+        <li
+          key="post-event"
+          className="px-1.5 pt-1 font-semibold text-muted-foreground text-tiny first:pt-0"
+        >
+          {t("afterEvent")}
+        </li>,
+      );
     }
     items.push(<TaskCard key={card.id} task={card} />);
     if (card.id !== marker?.id) slot += 1;

@@ -6,14 +6,9 @@
     "season": "Saison",
     "seasonOption": "Saison {season}",
     "status": "Status",
-    "statusActive": "Alle außer abgesagt",
+    "statusActive": "Alle außer abgesagt (auch vergangene)",
     "statusAll": "Alle",
     "statusOnly": "Nur: {status}",
-    "view": "Ansicht",
-    "views": {
-      "liste": "Liste",
-      "kalender": "Kalender"
-    },
     "permitFilter": {
       "label": "Genehmigungen",
       "open": "Ohne Genehmigung"
@@ -22,7 +17,7 @@
     "all": "Alle",
     "emptyFiltered": "Keine Veranstaltungen für diese Filter.",
     "resetFilters": "Filter zurücksetzen",
-    "caption": "Veranstaltungen der Saison {season}",
+    "caption": "Veranstaltungen",
     "cols": {
       "week": "KW",
       "date": "Datum",
@@ -30,15 +25,17 @@
       "type": "Art",
       "venue": "Ort",
       "status": "Status",
-      "health": "Zustand",
       "effort": "Aufwand",
       "actions": "Aktionen"
     },
     "preview": "Vorschau: {name}",
-    "legend": "Zustand: {dims} (● Im Plan ▲ Achtung ■ Kritisch ○ noch offen).",
     "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
     "weekendFlag": "⚑ Wochenende mit 4+ Veranstaltungen",
-    "single": "Einzeltermin"
+    "single": "Einzeltermin",
+    "statusOver": "vorbei",
+    "subtitleUpcoming": "{count} aktuelle und kommende Termine · {planned} geplant",
+    "seasonAny": "Alle Saisons",
+    "statusCurrent": "Aktuell & kommend"
   },
   "eventPage": {
     "kind": "Veranstaltung",

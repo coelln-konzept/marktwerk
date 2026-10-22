@@ -7,8 +7,9 @@ import { PermitStateBadge } from "@/components/permits/permit-state-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Health } from "@/components/ui/health";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { LinkRow } from "@/components/ui/row-link";
 import { EmptyState } from "@/components/ui/states";
-import { Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { Table, TD, TH, THead } from "@/components/ui/table";
 import { formatDate, todayIn } from "@/lib/format";
 import { getActor } from "@/server/actor";
 import { getEvent } from "@/server/queries/events";
@@ -20,8 +21,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Tab "Genehmigungen": the permits this event needs (`event_permit`) with their state; each row opens the
- * permit in the Logbuch drawer. Permits are created by the venue's requirements when the event is made.
+ * Tab "Genehmigungen": the permits this event needs (`event_permit`) with their state; the whole row opens the
+ * permit in its drawer (Genehmigungen). Permits are created by the venue's requirements when the event is made.
  */
 export default async function EventPermitsPage({
   params,
@@ -87,16 +88,16 @@ export default async function EventPermitsPage({
             <TH>{t("cols.status")}</TH>
             <TH>{t("cols.applyBy")}</TH>
             <TH>{t("cols.validity")}</TH>
-            <TH>{t("cols.responsible")}</TH>
             <TH>{t("cols.covers")}</TH>
-            <TH>
-              <span className="sr-only">{t("open")}</span>
-            </TH>
           </tr>
         </THead>
         <tbody>
           {permits.rows.map((r) => (
-            <TR key={r.permitId} className={r.required ? undefined : "text-muted-foreground"}>
+            <LinkRow
+              key={r.permitId}
+              href={`/logbuch?genehmigung=${r.permitId}`}
+              className={r.required ? undefined : "text-muted-foreground"}
+            >
               <TD className="max-w-64">
                 <Link
                   href={`/logbuch?genehmigung=${r.permitId}` as never}
@@ -131,20 +132,10 @@ export default async function EventPermitsPage({
                     ? t("validityUntil", { until: formatDate(r.validUntil, locale) })
                     : none}
               </TD>
-              <TD className="whitespace-nowrap">{r.responsibleName ?? none}</TD>
               <TD className="tabular whitespace-nowrap">
                 {r.coversEvents > 1 ? t("covers", { count: r.coversEvents }) : none}
               </TD>
-              <TD className="text-right">
-                <Link
-                  href={`/logbuch?genehmigung=${r.permitId}` as never}
-                  aria-label={t("openNamed", { title: r.title })}
-                  className="text-accent-soft-foreground text-small hover:underline"
-                >
-                  {t("open")}
-                </Link>
-              </TD>
-            </TR>
+            </LinkRow>
           ))}
         </tbody>
       </Table>

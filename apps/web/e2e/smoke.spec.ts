@@ -57,7 +57,7 @@ test("Team and Finanzen are hidden: no navigation entries, direct visits do not 
   }
 });
 
-test("Event page: no Team and Geld tabs, links from the Übersicht open the Board tab", async ({
+test("Event page: no Team and Geld tabs, Dokumente/Notizen/Verlauf sit under Mehr", async ({
   page,
 }) => {
   await page.goto("/veranstaltungen?saison=2026");
@@ -68,12 +68,89 @@ test("Event page: no Team and Geld tabs, links from the Übersicht open the Boar
   await expect(tabs.getByRole("link", { name: "Board" })).toBeVisible();
   await expect(tabs.getByRole("link", { name: /^Team/ })).toHaveCount(0);
   await expect(tabs.getByRole("link", { name: /^Geld/ })).toHaveCount(0);
+  // Dokumente, Notizen and Verlauf are not tabs of their own any more.
+  await expect(tabs.getByRole("link", { name: /^Notizen/ })).toHaveCount(0);
 
   // Direct visits to the hidden tabs land on the Board.
   for (const tab of ["team", "geld"]) {
     await page.goto(`${href}/${tab}`);
     await expect(page).toHaveURL(new RegExp(`${href}/board$`));
   }
+});
+
+test("Event page: the Mehr menu opens Notizen and Dokumente, each on its own URL", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?saison=2026");
+  const href = (await page
+    .locator("tbody tr[data-row]")
+    .first()
+    .getAttribute("data-href")) as string;
+  await page.goto(href);
+  const tabs = page.getByRole("navigation", { name: "Bereiche der Veranstaltung" });
+  const more = tabs.getByRole("button", { name: "Mehr" });
+  await more.focus();
+  await page.keyboard.press("Enter");
+  const menu = page.getByRole("menu");
+  for (const entry of ["Dokumente", "Notizen"])
+    await expect(menu.getByRole("menuitem", { name: new RegExp(`^${entry}`) })).toBeVisible();
+  await menu.getByRole("menuitem", { name: /^Notizen/ }).click();
+  await expect(page).toHaveURL(new RegExp(`${href}/notizen$`));
+  // The menu button is the active tab while a page of the menu is open.
+  await expect(tabs.getByRole("button", { name: /^Mehr/ })).toHaveAttribute("aria-current", "page");
+});
+
+test('Event page: one "…" menu holds Bearbeiten, Verschieben and Status ändern (keyboard reachable)', async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?saison=2026");
+  const href = (await page
+    .locator("tbody tr[data-row]")
+    .first()
+    .getAttribute("data-href")) as string;
+  await page.goto(href);
+  // Health is shown once (Überblick), no separate chip or the old buttons in the header.
+  await expect(page.getByRole("button", { name: /^Status ändern/ })).toHaveCount(0);
+  await expect(page.locator("header").getByRole("button", { name: /^Buchung/ })).toHaveCount(0);
+  await expect(page.getByText("Buchung geschlossen")).toHaveCount(0);
+
+  const trigger = page.getByRole("button", { name: "Weitere Aktionen" });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem", { name: "Bearbeiten" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Verschieben" })).toBeVisible();
+  await expect(menu.getByText("Status ändern")).toBeVisible();
+  await menu.getByRole("menuitem", { name: "Bearbeiten" }).click();
+  await expect(page.getByRole("dialog", { name: "Name, Dauer und Ort" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Name, Dauer und Ort" })).toBeHidden();
+});
+
+test("Task drawer: Erledigt and Wartet auf Amt are buttons, the other states sit in a menu", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?saison=2026");
+  const href = (await page
+    .locator("tbody tr[data-row]")
+    .first()
+    .getAttribute("data-href")) as string;
+  await page.goto(href);
+  await page.getByRole("heading", { level: 2, name: "Was fehlt" }).waitFor();
+  await page.locator("a[href*='aufgabe=']").first().click();
+  const drawer = page.getByRole("complementary");
+  await expect(drawer.getByRole("button", { name: "Erledigt" })).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "Wartet auf Amt" })).toBeVisible();
+  await expect(drawer.getByText(/Status:/)).toBeVisible();
+  await drawer.getByRole("button", { name: "Weitere Status" }).click();
+  const menu = page.getByRole("menu");
+  for (const entry of ["In Arbeit", "Blockiert", "Übersprungen"])
+    await expect(menu.getByRole("menuitem", { name: entry })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // The carried-over count and the origin are not shown; the footer hint is gone.
+  await expect(drawer.getByText("übertragen")).toHaveCount(0);
+  await expect(drawer.getByText("Herkunft")).toHaveCount(0);
+  await expect(drawer.getByText("lässt sich als Link weitergeben")).toHaveCount(0);
 });
 
 test("Kalender: module layers are in the layer panel and the presets switch them", async ({
@@ -181,7 +258,7 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
   await page.goto("/board?ansicht=spalten&tab=alle&zeitraum=alle");
   await expect(page.getByRole("heading", { level: 1, name: "Board" })).toBeVisible();
 
-  const from = page.getByRole("region", { name: "Vorbereitung" });
+  const from = page.getByRole("region", { name: "Später" });
   const to = page.getByRole("region", { name: "Diese Woche" });
   const card = from.locator("[data-card]").first();
   await expect(card).toBeVisible();
@@ -202,7 +279,32 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
   await expect(from.locator(`[data-card="${id}"]`)).toBeVisible();
 });
 
-test("Board: Bereitschaft is the default view, one row per market linking to its Board", async ({
+test("Board: three views, the category filter sits behind Filter, no Team/Finanzen chips", async ({
+  page,
+}) => {
+  await page.goto("/board?zeitraum=alle&ansicht=gruppiert");
+  const views = page.getByRole("group", { name: "Ansicht" });
+  // "Gruppiert" is gone; an old link falls back to Bereitschaft.
+  await expect(views.getByRole("link")).toHaveText(["Bereitschaft", "Matrix", "Spalten"]);
+  await expect(views.getByRole("link", { name: "Bereitschaft" })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await expect(page.getByText("Aufgaben über alle Veranstaltungen")).toHaveCount(0);
+
+  const filter = page.getByText("Filter", { exact: true });
+  const chips = page.getByRole("group", { name: "Kategorie" });
+  await expect(chips).toBeHidden();
+  await filter.click();
+  await expect(chips).toBeVisible();
+  await expect(chips.getByRole("link", { name: /^Team/ })).toHaveCount(0);
+  await expect(chips.getByRole("link", { name: /^Finanzen/ })).toHaveCount(0);
+  await chips.getByRole("link", { name: /^Genehmigungen/ }).click();
+  await expect(page).toHaveURL(/kategorie=permits/);
+  await expect(page.getByText(/Filter: Genehmigungen/)).toBeVisible();
+});
+
+test("Board: Bereitschaft is the default view, one row per market linking to its Überblick", async ({
   page,
 }) => {
   await page.goto("/board?zeitraum=alle");
@@ -216,7 +318,7 @@ test("Board: Bereitschaft is the default view, one row per market linking to its
   await expect(table.getByRole("columnheader", { name: "Nächste Frist" })).toBeVisible();
   const market = table.locator("tbody tr").first().getByRole("link").first();
   await expect(market).toBeVisible();
-  await expect(market).toHaveAttribute("href", /\/veranstaltungen\/[^/]+\/board$/);
+  await expect(market).toHaveAttribute("href", /\/veranstaltungen\/[^/]+$/);
 });
 
 test("Board: Kernaufgaben-Matrix shows markets x key tasks with a legend and opens the drawer", async ({
@@ -260,6 +362,20 @@ test("Markt planen: the market list offers 'Neuen Markt anlegen'; no Vorlagen en
   await expect(page).toHaveURL(/erzeugen=1/);
   await expect(sheet.getByRole("button", { name: /Neuen Markt anlegen/ })).toBeVisible();
   await expect(sheet.getByRole("searchbox")).toBeVisible();
+});
+
+test("Veranstaltungen: opens at the current week (past ones one select away), no Liste/Kalender toggle", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen");
+  await expect(page.getByRole("heading", { level: 1, name: "Veranstaltungen" })).toBeVisible();
+  await expect(page.getByLabel("Status")).toHaveValue("aktuell");
+  await expect(page.getByRole("group", { name: "Ansicht" })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Zustand" })).toHaveCount(0);
+  // "abgerechnet" is not a separate state while finance is hidden.
+  await expect(page.getByLabel("Status").locator("option", { hasText: "abgerechnet" })).toHaveCount(
+    0,
+  );
 });
 
 test("Veranstaltung Überblick: shows Was fehlt and Kernaufgaben, no Zustand panel", async ({

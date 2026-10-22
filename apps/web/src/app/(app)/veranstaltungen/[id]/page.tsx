@@ -66,9 +66,9 @@ export default async function EventOverviewPage({
     <div className="flex flex-col gap-6">
       <StatusLine event={event} overview={overview} />
       <MissingPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
-      <div className="grid items-start gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2">
         <KeyTasksPanel event={event} overview={overview} />
-        <DatesPanel event={event} today={today} canWrite={canWrite} />
+        <DatesPanel event={event} today={today} />
       </div>
       <div className="flex flex-col gap-3">
         <FactsPanel event={event} canWrite={canWrite} />

@@ -7,7 +7,7 @@ import { DEFAULT_TIME_ZONE, resolveRelativeDue } from "../dates/relative";
  * the machine's clock or time zone.
  */
 
-/** The four columns, left to right: Vorbereitung · Diese Woche · Heute · Erledigt. */
+/** The four columns, left to right: Später (key `preparation`) · Diese Woche · Überfällig & heute · Erledigt. */
 export const BOARD_COLUMNS = ["preparation", "this_week", "today", "done"] as const;
 export type BoardColumn = (typeof BOARD_COLUMNS)[number];
 
@@ -87,7 +87,7 @@ export type BoardTaskInput = {
  * - finished (done / skipped / cancelled): Erledigt, an override never applies;
  * - a manual move wins until the due date has passed (then the task is overdue → Heute);
  * - otherwise by due date: today or overdue → Heute; later in this ISO week → Diese Woche;
- *   later than this week, or no due date yet → Vorbereitung.
+ *   later than this week, or no due date yet → Später (`preparation`).
  */
 export function boardColumnFor(task: BoardTaskInput, today: string): BoardColumn {
   if (!isOpenStatus(task.status)) return "done";
@@ -154,4 +154,35 @@ export function compareCards(a: Orderable, b: Orderable): number {
   const bc = b.createdAt.getTime();
   if (ac !== bc) return ac < bc ? -1 : 1;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** True when a task is due after the last day of its event (follow-up work: Abbau, Abrechnung, Nachbereitung). */
+export function isAfterEvent(
+  dueOn: string | null,
+  eventEndsOn: string | null | undefined,
+): boolean {
+  return Boolean(eventEndsOn && dueOn && dueOn > eventEndsOn);
+}
+
+/**
+ * Cards of an open column of one event: by due date (no date last), follow-up tasks (due after the event)
+ * behind all the others; the incoming order (template order) breaks ties. Does not mutate `list`.
+ */
+export function sortColumnByDue<T extends { dueOn: string | null }>(
+  list: readonly T[],
+  eventEndsOn?: string | null,
+): T[] {
+  return list
+    .map((card, index) => ({ card, index }))
+    .sort((a, b) => {
+      const after =
+        Number(isAfterEvent(a.card.dueOn, eventEndsOn)) -
+        Number(isAfterEvent(b.card.dueOn, eventEndsOn));
+      if (after !== 0) return after;
+      const ad = a.card.dueOn ?? "9999-99-99";
+      const bd = b.card.dueOn ?? "9999-99-99";
+      if (ad !== bd) return ad < bd ? -1 : 1;
+      return a.index - b.index;
+    })
+    .map((x) => x.card);
 }

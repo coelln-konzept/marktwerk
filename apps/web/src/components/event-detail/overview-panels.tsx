@@ -1,5 +1,4 @@
 import {
-  canMoveEvent,
   daysBetween,
   isHappening,
   type KeyTaskRow,
@@ -44,7 +43,6 @@ import { cn } from "@/lib/utils";
 import type { EventOverview } from "@/server/queries/event-overview";
 import type { EventDetail } from "@/server/queries/events";
 import { FactsDialog } from "./facts-dialog";
-import { MoveDialog } from "./move-dialog";
 import { TaskQuickActions } from "./overview-task-actions";
 import { roleName } from "./role-name";
 
@@ -169,7 +167,7 @@ function MissingTaskRow({
       <Link
         href={taskHref(eventId, task.id)}
         scroll={false}
-        className="min-w-0 flex-1 truncate font-medium hover:underline"
+        className="min-w-0 basis-full font-medium hover:underline sm:basis-0 sm:flex-1 sm:truncate"
       >
         {task.title}
       </Link>
@@ -244,7 +242,7 @@ export async function MissingPanel({
             >
               <Link
                 href={`/logbuch?genehmigung=${p.id}` as never}
-                className="flex min-w-0 flex-1 items-center gap-2 truncate font-medium hover:underline"
+                className="flex min-w-0 basis-full items-center gap-2 font-medium hover:underline sm:basis-0 sm:flex-1 sm:truncate"
               >
                 <ShieldCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                 <span className="sr-only">{t("permitKind")}: </span>
@@ -383,15 +381,7 @@ export async function KeyTasksPanel({
 // 4. Nächste Termine
 
 /** "Nächste Termine": the named dates of the event, upcoming first; past ones muted and collapsed. */
-export async function DatesPanel({
-  event,
-  today,
-  canWrite,
-}: {
-  event: EventDetail;
-  today: string;
-  canWrite: boolean;
-}) {
+export async function DatesPanel({ event, today }: { event: EventDetail; today: string }) {
   const t = await getTranslations("eventDetail.overview.dates");
   const locale = await getLocale();
   const byKey = new Map(event.anchors.map((a) => [a.key, a.date]));
@@ -436,9 +426,6 @@ export async function DatesPanel({
     <Panel id="termine" aria-labelledby="dates-title" className="scroll-mt-4">
       <PanelHeader>
         <PanelTitle id="dates-title">{t("title")}</PanelTitle>
-        {canWrite && canMoveEvent(event.status) && (
-          <MoveDialog eventId={event.id} startsOn={event.startsOn} />
-        )}
       </PanelHeader>
       {upcoming.length + past.length === 0 ? (
         <PanelBody className="text-muted-foreground text-small">{t("empty")}</PanelBody>
@@ -518,6 +505,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 /** "Eckdaten": venue, times and prices; collapsed with a one-line summary, editable with event:write. */
 export async function FactsPanel({ event, canWrite }: { event: EventDetail; canWrite: boolean }) {
   const t = await getTranslations("eventDetail.overview.facts");
+  const tHeader = await getTranslations("eventDetail.header");
   const locale = await getLocale();
   const { venue, times } = event;
   const address = [venue.street, [venue.postalCode, venue.city].filter(Boolean).join(" ")]
@@ -558,6 +546,18 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
               {venue.name}
             </Link>
             <span className="block text-muted-foreground text-small">{address}</span>
+          </Fact>
+          <Fact label={t("preset")}>
+            {event.preset ? (
+              <Link
+                href={`/einstellungen/bibliothek?vorschau=${event.preset.id}` as never}
+                className="font-medium underline-offset-2 hover:underline"
+              >
+                {event.preset.name}
+              </Link>
+            ) : (
+              <span className="text-muted-foreground">{tHeader("noPreset")}</span>
+            )}
           </Fact>
           <Fact label={t("times")}>
             <span className="tabular">

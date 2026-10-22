@@ -1,3 +1,4 @@
+import { ChevronDown, ListFilter } from "lucide-react";
 import { useId } from "react";
 import { cn } from "@/lib/utils";
 import { FilterChip } from "./chip";
@@ -61,6 +62,37 @@ export function FilterGroup({
       </span>
       {children}
     </div>
+  );
+}
+
+/**
+ * Filters behind one button: closed by default, and the active filter reads out next to the label so a
+ * narrowed list never looks unfiltered. Native `<details>`: works without client code and by keyboard.
+ */
+export function FilterDisclosure({
+  label,
+  summary,
+  children,
+}: {
+  /** Button text, e.g. "Filter". */
+  label: string;
+  /** The active filter as text ("Genehmigungen"); nothing when no filter is set. */
+  summary?: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group basis-full">
+      <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-lg border border-input bg-card px-3 font-medium text-small outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring group-open:bg-sunken [&::-webkit-details-marker]:hidden">
+        <ListFilter aria-hidden className="size-4 text-muted-foreground" />
+        {label}
+        {summary && <span className="font-semibold text-accent-soft-foreground">: {summary}</span>}
+        <ChevronDown
+          aria-hidden
+          className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
   );
 }
 

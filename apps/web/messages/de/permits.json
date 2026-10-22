@@ -336,7 +336,6 @@
       "status": "Status",
       "applyBy": "Antrag bis",
       "validity": "Gültig",
-      "responsible": "Zuständig",
       "covers": "Gilt für"
     },
     "covers": "{count, plural, one {# Veranstaltung} other {# Veranstaltungen}}",
@@ -344,11 +343,9 @@
     "applied": "Entscheidung erwartet {date}",
     "validity": "{from} bis {until}",
     "validityUntil": "bis {until}",
-    "open": "Im Logbuch öffnen",
-    "openNamed": "{title} im Logbuch öffnen",
     "empty": "Noch keine Genehmigungen für diese Veranstaltung.",
     "emptyHint": "Am Ort {venue} sind noch keine Anforderungen hinterlegt. Mit Anforderungen entstehen die Genehmigungen und ihre Aufgaben automatisch.",
     "emptyAction": "Anforderungen am Ort anlegen",
-    "logbook": "Zum Logbuch"
+    "logbook": "Alle Genehmigungen"
   }
 }

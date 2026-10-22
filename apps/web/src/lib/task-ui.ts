@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import type { Tone } from "@/components/ui/status-badge";
+import { isModuleHidden } from "@/lib/modules";
 
 /** Task status → colour + icon (UX concept §7: Offen ○ · In Arbeit ◐ · Wartet ⏸ · Blockiert ⛔ · Erledigt ✓ · Übersprungen ⤼). */
 export const TASK_STATUS_UI: Record<TaskStatusKey, { tone: Tone; icon: LucideIcon }> = {
@@ -44,6 +45,17 @@ export const TASK_CATEGORIES = [
   "staff",
   "office",
 ] as const;
+
+/**
+ * Categories offered as filter chips. "Team" and "Finanzen" go while those modules are hidden
+ * (lib/modules.ts); tasks of those categories still exist and still show.
+ */
+export function filterCategories(): (typeof TASK_CATEGORIES)[number][] {
+  return TASK_CATEGORIES.filter(
+    (c) =>
+      !(c === "staff" && isModuleHidden("team")) && !(c === "finance" && isModuleHidden("finance")),
+  );
+}
 
 export const COLUMN_ORDER: BoardColumn[] = ["preparation", "this_week", "today", "done"];
 

@@ -1,4 +1,4 @@
-import { type MatrixCellState, shortLabel } from "@marktwerk/core";
+import type { MatrixCellState } from "@marktwerk/core";
 import {
   BellOff,
   CalendarX,
@@ -64,14 +64,14 @@ export async function KeyTaskMatrixView({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="overflow-x-auto rounded-xl border bg-card">
+      <div className="relative overflow-x-auto rounded-xl border bg-card">
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">{t("caption")}</caption>
           <thead>
             <tr className="border-b bg-surface-2">
               <th
                 scope="col"
-                className="sticky left-0 z-[1] h-12 min-w-44 border-r bg-surface-2 px-3 py-1 font-semibold text-muted-foreground text-tiny"
+                className="sticky left-0 z-[1] h-[4.5rem] min-w-44 border-r bg-surface-2 px-3 py-1 font-semibold text-muted-foreground text-tiny"
               >
                 {t("market")}
               </th>
@@ -79,11 +79,10 @@ export async function KeyTaskMatrixView({
                 <th
                   key={col.key}
                   scope="col"
-                  className="h-12 w-28 min-w-28 hyphens-none px-2 py-1 text-center align-bottom font-semibold text-muted-foreground text-tiny"
+                  className="h-[4.5rem] w-36 min-w-36 hyphens-none px-2 py-1 text-center align-bottom font-semibold text-muted-foreground text-tiny"
                 >
-                  <span title={col.title} className="line-clamp-2">
-                    <span aria-hidden>{shortLabel(col.title)}</span>
-                    <span className="sr-only">{col.title}</span>
+                  <span title={col.title} className="line-clamp-3 text-balance leading-tight">
+                    {col.title}
                   </span>
                 </th>
               ))}
@@ -97,7 +96,7 @@ export async function KeyTaskMatrixView({
                   className="sticky left-0 z-[1] border-r bg-card px-3 py-2 text-left font-normal"
                 >
                   <Link
-                    href={`/veranstaltungen/${event.id}/board`}
+                    href={`/veranstaltungen/${event.id}`}
                     className="inline-flex items-center gap-2 rounded-sm font-semibold hover:underline"
                   >
                     <MarketMarker color={event.color} typeKey={event.typeKey} />

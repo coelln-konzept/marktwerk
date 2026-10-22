@@ -9,14 +9,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("nav"))("board") };
 }
 
-/** Board across all events: Meine Aufgaben · Alle · Nicht zugewiesen, grouped, as columns, by person, or as workload. */
+/** Board across all events: Bereitschaft (default), Matrix and Spalten (plus person and workload views with the team module). */
 export default async function BoardPage({ searchParams }: PageProps<"/board">) {
   await requirePermission("task", "read");
   const actor = await getActor();
   const t = await getTranslations("board");
   return (
     <Page crumbs={[{ label: t("title") }]} wide>
-      <PageHeader title={t("title")} subtitle={t("subtitle")} />
+      <PageHeader title={t("title")} />
       <BoardScreen path="/board" searchParams={await searchParams} actor={actor} />
     </Page>
   );

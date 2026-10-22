@@ -17,6 +17,7 @@ export default async function EventBoardPage({
   return (
     <BoardScreen
       eventId={event.id}
+      eventEndsOn={event.endsOn}
       path={`/veranstaltungen/${event.id}/board`}
       searchParams={await searchParams}
       actor={actor}
