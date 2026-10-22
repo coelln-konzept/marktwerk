@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
   if (!signIn.ok) {
     const login = new URL("/login", request.url);
     login.searchParams.set("next", next);
+    login.searchParams.set("auto", "0");
     return NextResponse.redirect(login);
   }
 

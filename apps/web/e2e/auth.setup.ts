@@ -3,7 +3,14 @@ import { expect, test as setup } from "@playwright/test";
 const email = process.env.E2E_EMAIL ?? "owner@marktwerk.local";
 const password = process.env.E2E_PASSWORD ?? "marktwerk-dev-123";
 
+/** Keeps the optional local auto-login (src/server/dev-auto-login.ts) from signing in someone else. */
+function noAutoLogin() {
+  const url = setup.info().project.use.baseURL ?? "http://localhost:3000";
+  return [{ name: "mw-dev-no-auto-login", value: "1", url }];
+}
+
 setup("login as owner", async ({ page }) => {
+  await page.context().addCookies(noAutoLogin());
   await page.goto("/login");
   await page.getByLabel("E-Mail").fill(email);
   await page.getByLabel("Passwort").fill(password);
@@ -15,6 +22,7 @@ setup("login as owner", async ({ page }) => {
 
 setup("wrong password is rejected", async ({ browser }) => {
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  await context.addCookies(noAutoLogin());
   const page = await context.newPage();
   await page.goto("/login");
   await page.getByLabel("E-Mail").fill(email);

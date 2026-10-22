@@ -18,6 +18,7 @@ import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDateRange, formatMonth, todayIn } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUSES } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
@@ -255,7 +256,9 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                     <TH>{t("cols.venue")}</TH>
                     <TH>{t("cols.status")}</TH>
                     <TH>{t("cols.health")}</TH>
-                    <TH className="text-right">{t("cols.effort")}</TH>
+                    {isModuleVisible("estimates") && (
+                      <TH className="text-right">{t("cols.effort")}</TH>
+                    )}
                     <TH>
                       <span className="sr-only">{t("cols.actions")}</span>
                     </TH>
@@ -305,7 +308,9 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                         <TD>
                           <HealthSummary health={r.health} />
                         </TD>
-                        <TD className="tabular text-right text-muted-foreground">–</TD>
+                        {isModuleVisible("estimates") && (
+                          <TD className="tabular text-right text-muted-foreground">–</TD>
+                        )}
                         <TD className="w-20">
                           <RowActions>
                             <Link
