@@ -187,6 +187,10 @@
       "label": "Notiz zum Erledigen (optional)",
       "hint": "Wird in der Aktivität der Aufgabe festgehalten.",
       "title": "Notiz"
+    },
+    "quickDone": {
+      "label": "Erledigt",
+      "aria": "„{title}“ als erledigt markieren"
     }
   }
 }

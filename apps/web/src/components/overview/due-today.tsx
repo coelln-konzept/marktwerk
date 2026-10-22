@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { TaskDoneButton } from "@/components/task/done-button";
 import { SnoozeMenu } from "@/components/task/snooze";
 import { FilterChip, FilterChips } from "@/components/ui/filter-bar";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
@@ -135,13 +136,17 @@ export async function DueToday({
           nested ? "py-1 pl-8" : "border-border-subtle border-b py-2 last:border-b-0",
         )}
       >
-        <span
-          title={t(`kind.${item.kind}`)}
-          className="grid size-7 shrink-0 place-items-center rounded-lg bg-status-neutral-bg text-foreground-2"
-        >
-          <Icon aria-hidden className="size-4" />
-          <span className="sr-only">{t(`kind.${item.kind}`)}</span>
-        </span>
+        {item.kind === "task" && canSnooze ? (
+          <TaskDoneButton task={{ id: item.id, title: item.title, status: "todo" }} />
+        ) : (
+          <span
+            title={t(`kind.${item.kind}`)}
+            className="grid size-7 shrink-0 place-items-center rounded-lg bg-status-neutral-bg text-foreground-2"
+          >
+            <Icon aria-hidden className="size-4" />
+            <span className="sr-only">{t(`kind.${item.kind}`)}</span>
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <Link
             href={item.href as never}
