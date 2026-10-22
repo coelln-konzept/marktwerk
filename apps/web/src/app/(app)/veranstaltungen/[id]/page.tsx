@@ -7,6 +7,7 @@ import {
   TeamSummaryPanel,
 } from "@/components/event-detail/overview-panels";
 import { todayIn } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { getActor } from "@/server/actor";
 import { getEvent } from "@/server/queries/events";
 import { requirePermission } from "@/server/session";
@@ -28,7 +29,7 @@ export default async function EventOverviewPage({ params }: PageProps<"/veransta
       </div>
       <div className="flex flex-col gap-6">
         <HealthPanel event={event} />
-        <TeamSummaryPanel event={event} />
+        {isModuleVisible("team") && <TeamSummaryPanel event={event} />}
       </div>
     </div>
   );

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { todayIn } from "@/lib/format";
+import { HIDDEN_MODULES, isModuleVisible } from "@/lib/modules";
 import { getActor } from "@/server/actor";
 import { unreadCount } from "@/server/queries/notifications";
 import { missingPermitCount } from "@/server/queries/permits";
@@ -46,7 +47,7 @@ export async function AppSidebar({
   const actor = await getActor();
   const [missingPermits, unread] = await Promise.all([
     missingPermitCount(actor, todayIn()),
-    unreadCount(actor),
+    unreadCount(actor, new Date(), HIDDEN_MODULES),
   ]);
   const items: (NavEntry & { visible: boolean })[] = [
     { href: "/", label: t("overview"), icon: <Home />, visible: true },
@@ -71,8 +72,18 @@ export async function AppSidebar({
       badge: missingPermits,
       visible: can(r, "permit", "read"),
     },
-    { href: "/team", label: t("team"), icon: <Users />, visible: can(r, "team", "read") },
-    { href: "/finanzen", label: t("finance"), icon: <Euro />, visible: can(r, "finance", "read") },
+    {
+      href: "/team",
+      label: t("team"),
+      icon: <Users />,
+      visible: isModuleVisible("team") && can(r, "team", "read"),
+    },
+    {
+      href: "/finanzen",
+      label: t("finance"),
+      icon: <Euro />,
+      visible: isModuleVisible("finance") && can(r, "finance", "read"),
+    },
     {
       href: "/firma",
       label: t("company"),

@@ -2,6 +2,7 @@ import { Bell } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { formatAgo } from "@/lib/format";
+import { HIDDEN_MODULES } from "@/lib/modules";
 import { getActor } from "@/server/actor";
 import { latestNotifications, unreadCount } from "@/server/queries/notifications";
 import { BellPopover } from "./bell-popover";
@@ -12,8 +13,8 @@ export async function NotificationBell() {
   const locale = await getLocale();
   const now = new Date();
   const [count, items] = await Promise.all([
-    unreadCount(actor, now),
-    latestNotifications(actor, 8, now),
+    unreadCount(actor, now, HIDDEN_MODULES),
+    latestNotifications(actor, 8, now, HIDDEN_MODULES),
   ]);
   return (
     <BellPopover

@@ -90,7 +90,7 @@ export function PermitEvents({
               <div className="min-w-0">
                 {canOpenEvents ? (
                   <Link
-                    href={`/veranstaltungen/${e.id}/genehmigungen` as never}
+                    href={`/veranstaltungen/${e.id}/board` as never}
                     className="font-medium text-accent-soft-foreground hover:underline"
                   >
                     {e.name}

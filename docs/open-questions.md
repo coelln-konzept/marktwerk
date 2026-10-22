@@ -10,6 +10,7 @@
 | 2026-10-20 | Email | Microsoft 365 (ADR 0008) |
 | 2026-10-20 | Payments | Bank transfer + cash on market day |
 | 2026-10-20 | Scale | Medium; up to 4 events per weekend |
+| 2026-10 | Team and Finance UI | Hidden for now (client feedback: a task monitoring panel for one main user). Data, services and tests stay. One switch in `apps/web/src/lib/modules.ts` (`HIDDEN_MODULES`), no user-facing setting. Team allocation returns in Phase 4, finance later. Event links from Übersicht, Board, Kalender and Logbuch open the event's Board tab. |
 | 2026-10-20 | MVP focus | Tasks, checklists, deadlines |
 | 2026-10-21 | Template propagation | **Never automatic, nothing pre-selected.** Applying a new version to events is a deliberate editor action with preview |
 | 2026-10-21 | Escalation | Overdue items escalate **only to the office manager** for now |

@@ -8,6 +8,7 @@ import { Panel, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/pan
 import { EmptyState } from "@/components/ui/states";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDateRange, formatDateShort, formatHours, formatWeek } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import type { Overview } from "@/server/queries/overview";
 
 const BLOCKER_ROWS = 6;
@@ -22,6 +23,8 @@ export async function WeekendTable({
   next: Overview["nextAfterWeekend"];
   vorschauId?: string;
 }) {
+  const showTeam = isModuleVisible("team");
+  const showMoney = isModuleVisible("finance");
   const t = await getTranslations("overview.weekend");
   const tHealth = await getTranslations("health");
   const locale = await getLocale();
@@ -65,7 +68,7 @@ export async function WeekendTable({
         >
           {next && (
             <Link
-              href={`/veranstaltungen/${next.id}` as never}
+              href={`/veranstaltungen/${next.id}/board` as never}
               className="inline-flex min-h-8 items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover"
             >
               {t("openEvent")}
@@ -81,14 +84,14 @@ export async function WeekendTable({
                 <TH>{t("cols.event")}</TH>
                 <TH className="hidden md:table-cell">{t("cols.permits")}</TH>
                 <TH className="hidden md:table-cell">{t("cols.tasks")}</TH>
-                <TH>{t("cols.team")}</TH>
-                <TH className="hidden md:table-cell">{t("cols.money")}</TH>
+                {showTeam && <TH>{t("cols.team")}</TH>}
+                {showMoney && <TH className="hidden md:table-cell">{t("cols.money")}</TH>}
                 <TH className="hidden text-right md:table-cell">{t("cols.effort")}</TH>
               </tr>
             </THead>
             <tbody>
               {weekend.rows.map((r) => {
-                const href = `/veranstaltungen/${r.id}`;
+                const href = `/veranstaltungen/${r.id}/board`;
                 const peek = `/?vorschau=${r.id}`;
                 const team = r.health.team;
                 return (
@@ -122,24 +125,26 @@ export async function WeekendTable({
                     </TD>
                     <TD className="hidden md:table-cell">{cell(r.health.permits)}</TD>
                     <TD className="hidden md:table-cell">{cell(r.health.tasks)}</TD>
-                    <TD>
-                      {team ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          <Health
-                            level={team}
-                            label={
-                              <>
-                                {r.duties}/{weekend.duties}
-                                <span className="sr-only"> ({tHealth(team)})</span>
-                              </>
-                            }
-                          />
-                        </span>
-                      ) : (
-                        cell(null)
-                      )}
-                    </TD>
-                    <TD className="hidden md:table-cell">{cell(r.health.money)}</TD>
+                    {showTeam && (
+                      <TD>
+                        {team ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Health
+                              level={team}
+                              label={
+                                <>
+                                  {r.duties}/{weekend.duties}
+                                  <span className="sr-only"> ({tHealth(team)})</span>
+                                </>
+                              }
+                            />
+                          </span>
+                        ) : (
+                          cell(null)
+                        )}
+                      </TD>
+                    )}
+                    {showMoney && <TD className="hidden md:table-cell">{cell(r.health.money)}</TD>}
                     <TD className="tabular hidden text-right text-muted-foreground md:table-cell">
                       {weekend.effortMinutes[r.id]
                         ? formatHours(weekend.effortMinutes[r.id] as number, locale)

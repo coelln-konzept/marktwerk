@@ -31,7 +31,7 @@
       "actions": "Aktionen"
     },
     "preview": "Vorschau: {name}",
-    "legend": "Zustand: Genehmigungen · Aufgaben · Team · Geld (● Im Plan ▲ Achtung ■ Kritisch ○ noch offen).",
+    "legend": "Zustand: {dims} (● Im Plan ▲ Achtung ■ Kritisch ○ noch offen).",
     "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
     "weekendFlag": "⚑ Wochenende mit 4+ Veranstaltungen",
     "single": "Einzeltermin"

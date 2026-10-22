@@ -8,6 +8,7 @@ import { SeasonStrip } from "@/components/overview/season-strip";
 import { WeekendTable } from "@/components/overview/weekend-table";
 import { Page, PageHeader } from "@/components/shell/page";
 import { formatDate, formatWeek, todayIn } from "@/lib/format";
+import { HIDDEN_MODULES, isModuleHidden } from "@/lib/modules";
 import { param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { getOverview } from "@/server/queries/overview";
@@ -37,10 +38,14 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
     timeZone: "UTC",
     weekday: "long",
   }).format(new Date(`${today}T12:00:00Z`));
-  const overview = await getOverview(actor, today);
+  const overview = await getOverview(actor, today, HIDDEN_MODULES);
   const vorschauId = param(sp.vorschau);
   const dueParam = param(sp.faellig);
-  const dueFilter = isDueFilter(dueParam) ? dueParam : "all";
+  // Chips of hidden modules (Geld, Stunden) are gone; an old link to one falls back to "Alle".
+  const hiddenChip =
+    (dueParam === "money" && isModuleHidden("finance")) ||
+    (dueParam === "hours" && isModuleHidden("team"));
+  const dueFilter = isDueFilter(dueParam) && !hiddenChip ? dueParam : "all";
 
   return (
     <Page crumbs={[{ label: tNav("overview") }]}>
@@ -73,7 +78,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
       {overview.weekend.rows.length > 0 && (
         <p className="text-muted-foreground text-tiny">{t("weekend.keys")}</p>
       )}
-      {vorschauId && <EventVorschau id={vorschauId} closeHref="/" />}
+      {vorschauId && <EventVorschau id={vorschauId} closeHref="/" openTab="board" />}
     </Page>
   );
 }

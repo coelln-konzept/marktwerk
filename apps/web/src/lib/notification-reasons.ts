@@ -27,6 +27,22 @@ export const NOTIFICATION_REASON_GROUPS: Record<NotificationGroup, readonly stri
   changes: ["dates_shifted", "shift_request"],
 };
 
+/**
+ * Reasons that belong to a module hidden in the UI (lib/modules.ts): instalments (finance), hours, payroll
+ * and shift requests (team). The notifications are still created; they are just not shown.
+ */
+export const REASONS_OF_MODULE: Record<"team" | "finance", readonly string[]> = {
+  finance: ["installment_due"],
+  team: ["hours_missing", "payroll_close", "shift_request"],
+};
+
+export function hiddenReasons(hide: { team?: boolean; finance?: boolean }): string[] {
+  return [
+    ...(hide.finance ? REASONS_OF_MODULE.finance : []),
+    ...(hide.team ? REASONS_OF_MODULE.team : []),
+  ];
+}
+
 export function isNotificationGroup(value: string | undefined): value is NotificationGroup {
   return (NOTIFICATION_GROUPS as readonly string[]).includes(value ?? "");
 }

@@ -7,6 +7,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
 import { EmptyState } from "@/components/ui/states";
 import { formatWeek, todayIn } from "@/lib/format";
+import { isModuleHidden } from "@/lib/modules";
 import { TASK_CATEGORIES } from "@/lib/task-ui";
 import { hrefWith, param } from "@/lib/url";
 import type { Actor } from "@/server/actor";
@@ -49,18 +50,28 @@ export async function BoardScreen({
   const today = todayIn();
   const eventMode = eventId !== undefined;
   const canWrite = can(actor.role, "task", "write");
-  const canAssign = can(actor.role, "task", "assign");
+  // Team allocation is hidden for now (lib/modules.ts): no assignees, people rail, swimlanes or workload.
+  const teamHidden = isModuleHidden("team");
+  const canAssign = !teamHidden && can(actor.role, "task", "assign");
   const me = actor.staffMemberId;
 
   // ---- URL state
-  const views: ViewKey[] = eventMode
+  const allViews: ViewKey[] = eventMode
     ? ["spalten", "person"]
     : ["gruppen", "spalten", "person", "arbeitslast"];
+  const views = teamHidden
+    ? allViews.filter((v) => v !== "person" && v !== "arbeitslast")
+    : allViews;
   const viewParam = param(sp.ansicht);
   const view: ViewKey = views.find((v) => v === viewParam) ?? (views[0] as ViewKey);
   const scopeParam = eventMode ? param(sp.filter) : param(sp.tab);
-  const scopeKeys = eventMode ? ["alle", "meine", "offen"] : ["meine", "alle", "offen"];
-  const defaultScope = eventMode ? "alle" : me ? "meine" : "alle";
+  // "Meine" and "Nicht zugewiesen" are assignee filters: gone with the team module, only "alle" is left.
+  const scopeKeys = teamHidden
+    ? ["alle"]
+    : eventMode
+      ? ["alle", "meine", "offen"]
+      : ["meine", "alle", "offen"];
+  const defaultScope = teamHidden || eventMode ? "alle" : me ? "meine" : "alle";
   const scope = scopeParam && scopeKeys.includes(scopeParam) ? scopeParam : defaultScope;
   const scopeUrlKey = eventMode ? "filter" : "tab";
   const category = TASK_CATEGORIES.find((c) => c === param(sp.kategorie));
@@ -104,7 +115,7 @@ export async function BoardScreen({
     <NewTaskButton eventId={eventId} events={events} staff={staff} canAssign={canAssign} />
   ) : null;
 
-  const viewSwitch = (
+  const viewSwitch = views.length > 1 && (
     <SegmentedLinks
       label={t("view.label")}
       items={views.map((key) => ({
@@ -134,7 +145,7 @@ export async function BoardScreen({
   // ---- cards
   const [{ tasks: all, truncated }, rail] = await Promise.all([
     listBoardTasks(actor, { eventId, horizonDays }, today),
-    getPeopleRail(actor, { eventId }, today),
+    teamHidden ? Promise.resolve(null) : getPeopleRail(actor, { eventId }, today),
   ]);
   const isMine = (c: BoardTask) => me !== null && c.assigneeId === me;
   const inScope = (c: BoardTask) =>
@@ -160,21 +171,23 @@ export async function BoardScreen({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <nav
-            aria-label={eventMode ? t("filter.label") : t("tabs.label")}
-            className="flex flex-wrap items-center gap-2"
-          >
-            {scopeKeys.map((key) => (
-              <FilterChip
-                key={key}
-                href={href({ [scopeUrlKey]: key === defaultScope ? undefined : key })}
-                active={key === scope}
-                count={counts[key as keyof typeof counts]}
-              >
-                {scopeLabels[key]}
-              </FilterChip>
-            ))}
-          </nav>
+          {scopeKeys.length > 1 && (
+            <nav
+              aria-label={eventMode ? t("filter.label") : t("tabs.label")}
+              className="flex flex-wrap items-center gap-2"
+            >
+              {scopeKeys.map((key) => (
+                <FilterChip
+                  key={key}
+                  href={href({ [scopeUrlKey]: key === defaultScope ? undefined : key })}
+                  active={key === scope}
+                  count={counts[key as keyof typeof counts]}
+                >
+                  {scopeLabels[key]}
+                </FilterChip>
+              ))}
+            </nav>
+          )}
           {viewSwitch}
         </div>
         {newTask}

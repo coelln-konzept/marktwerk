@@ -15,6 +15,7 @@ import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateShort } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { hrefWith } from "@/lib/url";
 import type { DueItem, DueKind, DueUrgency } from "@/server/queries/due";
 import type { OverviewDue } from "@/server/queries/overview";
@@ -147,7 +148,9 @@ export async function DueToday({
                           <span className="block truncate text-muted-foreground text-small">
                             {[
                               item.meta,
-                              item.assigneeName ? t("assignee", { name: item.assigneeName }) : null,
+                              item.assigneeName && isModuleVisible("team")
+                                ? t("assignee", { name: item.assigneeName })
+                                : null,
                             ]
                               .filter(Boolean)
                               .join(" · ")}

@@ -74,7 +74,8 @@ export type BoardLayout = "columns" | "person" | "groups";
 type Props = {
   tasks: BoardTask[];
   staff: StaffOption[];
-  rail: PeopleRail;
+  /** People rail; null while the team module is hidden (lib/modules.ts). */
+  rail: PeopleRail | null;
   today: string;
   weekLabel: string;
   canWrite: boolean;
@@ -286,7 +287,12 @@ export function BoardView(props: Props) {
                   ))}
                 </div>
               ) : props.layout === "person" ? (
-                <Swimlanes tasks={tasks} rail={props.rail} lift={lift} cardsOf={cardsOf} />
+                <Swimlanes
+                  tasks={tasks}
+                  rail={props.rail ?? { people: [], unassigned: { tasks: 0, hours: 0 } }}
+                  lift={lift}
+                  cardsOf={cardsOf}
+                />
               ) : (
                 <GroupedCards tasks={tasks} groupBy={props.groupBy ?? "event"} today={today} />
               )}
@@ -301,11 +307,13 @@ export function BoardView(props: Props) {
                 </p>
               )}
             </div>
-            <PeopleRailPanel
-              rail={props.rail}
-              weekLabel={props.weekLabel}
-              eventBoard={props.scopeEventId !== null}
-            />
+            {props.rail && (
+              <PeopleRailPanel
+                rail={props.rail}
+                weekLabel={props.weekLabel}
+                eventBoard={props.scopeEventId !== null}
+              />
+            )}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 text-small">
