@@ -17,9 +17,11 @@
     "showLess": "Weniger anzeigen",
     "view": {
       "label": "Ansicht",
+      "bereitschaft": "Bereitschaft",
+      "matrix": "Matrix",
+      "gruppiert": "Gruppiert",
       "spalten": "Spalten",
       "person": "Nach Person",
-      "gruppen": "Gruppiert",
       "arbeitslast": "Arbeitslast"
     },
     "filter": {
@@ -178,6 +180,46 @@
       "notFound": "Aufgabe nicht gefunden",
       "notFoundHint": "Sie existiert nicht mehr, oder du hast keinen Zugriff darauf.",
       "linkHint": "Diese Ansicht lässt sich als Link weitergeben: Die Adresse enthält die Aufgabe."
+    },
+    "readiness": {
+      "caption": "Bereitschaft der kommenden Veranstaltungen",
+      "market": "Veranstaltung",
+      "date": "Termin",
+      "progress": "Fortschritt",
+      "missing": "Fehlt",
+      "next": "Nächste Frist",
+      "inDays": "{days, plural, =0 {heute} =1 {morgen} other {in # Tagen}}",
+      "running": "läuft gerade",
+      "progressText": "{done} von {total} Aufgaben erledigt",
+      "noTasks": "Keine Aufgaben",
+      "overdue": "{count} überfällig",
+      "permits": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}",
+      "key": "{count, plural, one {# Kernaufgabe offen} other {# Kernaufgaben offen}}",
+      "ok": "Im Plan",
+      "noDeadline": "Keine offene Frist",
+      "dueOn": "fällig {date}",
+      "empty": "Keine kommenden Veranstaltungen in diesem Zeitraum.",
+      "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen."
+    },
+    "matrix": {
+      "caption": "Kernaufgaben der kommenden Veranstaltungen",
+      "market": "Veranstaltung",
+      "empty": "Keine kommenden Veranstaltungen in diesem Zeitraum.",
+      "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen.",
+      "noKeyTasks": "Noch keine Kernaufgaben",
+      "noKeyTasksHint": "Kernaufgaben markierst du in der Grundvorlage (Einstellungen → Bibliothek).",
+      "truncated": "Es gibt mehr Kernaufgaben, als Spalten Platz haben. Gezeigt werden die, die in den meisten Veranstaltungen vorkommen.",
+      "cell": "{task} bei {event}: {state}",
+      "absentCell": "{task} bei {event}: keine Aufgabe",
+      "legend": "Legende",
+      "state": {
+        "done": "erledigt",
+        "open": "offen",
+        "soon": "bald fällig",
+        "overdue": "überfällig",
+        "snoozed": "zurückgestellt",
+        "absent": "nicht vorhanden"
+      }
     }
   },
   "drawer": {

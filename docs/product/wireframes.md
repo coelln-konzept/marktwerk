@@ -188,12 +188,18 @@ heute – Filter zurücksetzen".
 │ Status: geplant (Genehmigung offen) · buchbar · Autoplätze frei    [Datum ändern…] │
 │ [Überblick] [Board 14/20] [Genehmigungen 4/5 ▲] [Team 5/6] [Geld ●] [Dokumente 6] [Notizen] [Verlauf]│
 ├───────────────────────────────────────────────────────────────────────────────────┤
-│ GESUNDHEIT ▲ Achtung                      NÄCHSTE FRISTEN                          │
-│  Genehmigungen ▲ Wasser fehlt              Fr 05.06. Halteverbot aufstellen · Lars │
-│  Aufgaben ● 14/20 erledigt                 Sa 06.06. Standrohr abholen · Dieter    │
-│  Team ● 5/6 Rollen besetzt                 So 07.06. 05:00 Aufbau                  │
-│  Geld ● Rate 2/3 bezahlt                                                          │
-│ AUFWAND 34 h geplant · 18 h erledigt       ZEITPLAN So 05:00 Aufbau · 08:00 Öffnung │
+│ ◷ in 24 Tagen        ☑ 14/20 Aufgaben erledigt ▬▬▬▬▬▬▭▭    ⛨ 4/5 Genehmigungen erteilt │
+│ WAS FEHLT                                                                          │
+│  Halteverbot beim Ordnungsamt beantragen          [⊘ Überfällig · 3 T] Mo 19.10. ✓ ⏰│
+│  Plakate abholen                                  [⌚ in 2 T]          Sa 24.10. ✓ ⏰│
+│  ⛨ Wasserentnahme (Hydrant / Standrohr)           [⏳ Beantragt]  Antrag bis Fr 13.11.│
+│   (leer: "Alles im Plan")                                                          │
+│ ★ KERNAUFGABEN                          │ NÄCHSTE TERMINE                           │
+│  ✓ Marktgenehmigung beantragen  Erledigt │  Aufbautag        Sa 06.06.2026   in 3 T │
+│  ◌ Flyer bestellen        Offen Sa 13.02.│  Veranstaltungstag So 07.06.2026   in 4 T │
+│  ⊘ Halteverbot …      Überfällig Mo 19.10│  › Vergangene Termine (1)                 │
+│ ▸ Eckdaten  Köln Altstadt · 08:00–16:00 Uhr · 12,00 € je Meter                      │
+│ ▸ Regeln der Art  Neuware max. 10 % · 2 verbotene Waren · Online-Buchung: ja        │
 └───────────────────────────────────────────────────────────────────────────────────┘
 ```
 

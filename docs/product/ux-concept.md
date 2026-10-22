@@ -34,7 +34,7 @@ and this document differ, the prototype wins unless a decision says otherwise.
 marktwerk
 ├── Übersicht                 ← start screen for everyone (KPIs, season, Heute fällig, Dieses Wochenende)
 ├── Kalender                  ← company-wide calendar with layers (events, deadlines, shifts, holidays)
-├── Board                     ← tasks across events (kanban, nach Person, Arbeitslast)
+├── Board                     ← across events: Bereitschaft · Matrix · Gruppiert · Spalten
 ├── Veranstaltungen           ← list · calendar · "Markt planen"
 │   └── Veranstaltung         ← tabs: Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf
 ├── Orte                      ← venues with zones/rows and location agreements (own entry, decision 2026-10-21)
@@ -92,6 +92,17 @@ marktwerk
 **Event page tabs:** Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf. Each tab label
 shows its count or health (e.g. "Genehmigungen 4/5 ▲", "Team 5/6").
 
+**Event Überblick** (decision 2026-10-22: an event is a bundle of to-dos; the page answers "is this market on track, and
+what's missing?"). Top to bottom: (1) **status line** with days until the market ("in 12 Tagen", "läuft heute",
+"vorbei"), tasks done x/y with a slim bar and permits granted a/b, each piece linking to what it summarises; (2) **Was
+fehlt**: open tasks that are overdue, blocked/waiting or due within 7 days (snoozed ones stay out) plus required permits
+not yet granted, Kernaufgaben first then by due date, each task row with a quick "Erledigt" tick and the snooze menu
+(undo toasts), permit rows opening the Logbuch drawer, "Alles im Plan" when empty; (3) **Kernaufgaben** checklist with
+state per row (erledigt · offen · bald fällig · überfällig · zurückgestellt), the star only in the heading;
+(4) **Nächste Termine**, upcoming dates first, past ones collapsed; (5) **Eckdaten** and **Regeln der Art**, collapsed with a
+one-line summary and editable as before. The tab bar already shows the counts, so there is no separate "Zustand" panel.
+Rules live in `packages/core/src/events/overview.ts`; task rows open the task drawer on the same page (`?aufgabe=<id>`).
+
 ### Opening things
 | Action | Mouse | Keyboard |
 |---|---|---|
@@ -117,7 +128,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 |---|---|---|
 | Übersicht | `/` | Start screen for everyone: KPI strip, season strip, Heute fällig, Dieses Wochenende (below) |
 | Kalender | `/kalender` | Company-wide calendar with layers (below) |
-| Board | `/board` | Kanban across events, people rail, Nach Person, Arbeitslast toggle |
+| Board | `/board` | Views in the "Ansicht" control (`?ansicht=`): **Bereitschaft** (default), **Matrix**, Gruppiert (`gruppiert`), Spalten (kanban); Nach Person and Arbeitslast return with the team module. See "Board views" below |
 | Aufgabe | drawer `?aufgabe=<id>` on `/board` and `/veranstaltungen/[id]/board` (M2; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity, status incl. "Wartet · Amt" (no comments, client decision 2026-10-22) |
 | Veranstaltungen | `/veranstaltungen` | Liste / Kalender toggle (KW column), type filter chips, Vorschau `?vorschau=<id>`, one primary button **"Markt planen"** (3-step side sheet: pick a market, dates, preview) via `?erzeugen=1[&vorlage=<presetId>]`; a single date without a market is "+ Neu → Einzeltermin" (`/veranstaltungen/neu`) |
 | Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`) |
@@ -140,6 +151,11 @@ Every view is a route-level page; drawers are listed where a record usually open
 
 Modules whose data arrives in a later milestone exist from M1 as routes with a "coming soon" page, so the sidebar never
 leads nowhere.
+
+### Board views (across events, decision 2026-10-22)
+- **Bereitschaft** (default, `/board`): one row per upcoming market (running ones included), by date. Columns: market (colour marker, links to its Board tab) · date and "in N Tagen" · progress bar and x/y · **Fehlt** (chips, worst first, only non-zero: überfällig, Genehmigungen fehlen, Kernaufgaben offen; "Im Plan" when none) · **Nächste Frist** (opens the task drawer). Attention is status colour + icon + text in the chips, never a row background; a missing permit turns critical within 14 days of the first day. Category chips narrow the task counts.
+- **Matrix** (`?ansicht=matrix`): the same markets x Kernaufgaben (at most 10 columns, matched by the template item's stable key, title as fallback, in their usual due order). Cell = erledigt / offen / bald fällig (due within 7 days) / überfällig / zurückgestellt / "–" (no such task), always icon + colour + date, with a legend below; every cell with a task opens the drawer (`?aufgabe=`). The market column sticks, the table scrolls sideways inside its container.
+- **Zeitraum** (Bis Sonntag / 14 Tage / Alles) applies to the first day of the market; "Alles" is every upcoming market. Gruppiert and Spalten keep their own behaviour.
 
 ### Übersicht (start screen, one for everyone)
 Top to bottom, no fixed master-detail layout:

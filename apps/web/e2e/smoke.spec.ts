@@ -202,6 +202,38 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
   await expect(from.locator(`[data-card="${id}"]`)).toBeVisible();
 });
 
+test("Board: Bereitschaft is the default view, one row per market linking to its Board", async ({
+  page,
+}) => {
+  await page.goto("/board?zeitraum=alle");
+  await expect(page.getByRole("heading", { level: 1, name: "Board" })).toBeVisible();
+  const views = page.getByRole("group", { name: "Ansicht" });
+  await expect(views.getByRole("link", { name: "Bereitschaft" })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  const table = page.getByRole("table", { name: "Bereitschaft der kommenden Veranstaltungen" });
+  await expect(table.getByRole("columnheader", { name: "Nächste Frist" })).toBeVisible();
+  const market = table.locator("tbody tr").first().getByRole("link").first();
+  await expect(market).toBeVisible();
+  await expect(market).toHaveAttribute("href", /\/veranstaltungen\/[^/]+\/board$/);
+});
+
+test("Board: Kernaufgaben-Matrix shows markets x key tasks with a legend and opens the drawer", async ({
+  page,
+}) => {
+  await page.goto("/board?ansicht=matrix&zeitraum=alle");
+  const table = page.getByRole("table", { name: "Kernaufgaben der kommenden Veranstaltungen" });
+  await expect(table).toBeVisible();
+  await expect(table.getByRole("columnheader").nth(1)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Legende" })).toBeVisible();
+  const cell = table.locator("tbody a[href*='aufgabe=']").first();
+  await cell.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/aufgabe=/);
+  await expect(page).toHaveURL(/ansicht=matrix/);
+});
+
 test("command palette finds tasks, permits and vehicles by their titles", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -228,4 +260,16 @@ test("Markt planen: the market list offers 'Neuen Markt anlegen'; no Vorlagen en
   await expect(page).toHaveURL(/erzeugen=1/);
   await expect(sheet.getByRole("button", { name: /Neuen Markt anlegen/ })).toBeVisible();
   await expect(sheet.getByRole("searchbox")).toBeVisible();
+});
+
+test("Veranstaltung Überblick: shows Was fehlt and Kernaufgaben, no Zustand panel", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?saison=2026");
+  const href = await page.locator("tbody tr[data-row]").first().getAttribute("data-href");
+  expect(href).toMatch(/^\/veranstaltungen\/[0-9a-f-]{36}$/);
+  await page.goto(href as string);
+  await expect(page.getByRole("heading", { level: 2, name: "Was fehlt" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Kernaufgaben" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Zustand" })).toHaveCount(0);
 });

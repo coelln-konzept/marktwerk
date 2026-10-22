@@ -187,6 +187,10 @@
       "label": "Note when completing (optional)",
       "hint": "Kept in the task's activity.",
       "title": "Note"
+    },
+    "quickDone": {
+      "label": "Done",
+      "aria": "Mark “{title}” as done"
     }
   }
 }

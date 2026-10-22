@@ -54,11 +54,7 @@
     },
     "overview": {
       "dates": {
-        "title": "Termine & Fristen",
-        "caption": "Termine und Fristen der Veranstaltung",
-        "date": "Datum",
-        "what": "Termin",
-        "relative": "Abstand",
+        "title": "Nächste Termine",
         "today": "heute",
         "inDays": "in {n} T",
         "daysAgo": "vor {n} T",
@@ -68,7 +64,10 @@
           "teardown_day": "Abbautag",
           "booking_cutoff": "Buchungsschluss"
         },
-        "empty": "Noch keine Termine hinterlegt."
+        "empty": "Noch keine Termine hinterlegt.",
+        "tomorrow": "morgen",
+        "pastToggle": "Vergangene Termine ({count})",
+        "nothingAhead": "Keine weiteren Termine."
       },
       "facts": {
         "title": "Eckdaten",
@@ -78,14 +77,14 @@
         "price": "Standpreis",
         "pricePerM": "{price} je Meter",
         "fee": "Buchungsgebühr",
-        "rules": "Regeln der Art",
         "newGoods": "Neuwarenanteil max. {share} %",
         "bannedGoods": "Verbotene Waren: {goods}",
         "noBannedGoods": "Keine verbotenen Waren",
         "onlineBooking": "Online-Buchung: {value}",
         "yes": "ja",
         "no": "nein",
-        "cancelledReason": "Grund der Absage"
+        "cancelledReason": "Grund der Absage",
+        "summary": "{venue} · {open}–{close} Uhr · {price} je Meter"
       },
       "team": {
         "title": "Team",
@@ -94,16 +93,55 @@
         "allSet": "Alle Zuständigkeiten sind besetzt.",
         "link": "Zum Team"
       },
-      "health": {
-        "title": "Zustand",
-        "permits": "Genehmigungen",
-        "tasks": "Aufgaben",
-        "team": "Team",
-        "money": "Geld",
-        "permitsNote": "Stand der benötigten Genehmigungen",
-        "tasksNote": "überfällige und blockierte Aufgaben",
-        "moneyNote": "überfällige und bald fällige Raten, Plan gegen Zugesagtes",
-        "teamNote": "{assigned}/{total} Zuständigkeiten besetzt"
+      "status": {
+        "label": "Stand des Marktes",
+        "upcoming": "in {n} Tagen",
+        "tomorrow": "morgen",
+        "running": "läuft heute",
+        "over": "vorbei",
+        "countdownDate": "Veranstaltungstag: {date}",
+        "tasks": "{done}/{total} Aufgaben erledigt",
+        "tasksNone": "Noch keine Aufgaben",
+        "permits": "{granted}/{total} Genehmigungen erteilt",
+        "permitsNone": "Keine Genehmigung nötig",
+        "progress": "Fortschritt der Aufgaben"
+      },
+      "missing": {
+        "title": "Was fehlt",
+        "hint": "Überfälliges, Blockiertes und was in den nächsten 7 Tagen fällig wird.",
+        "emptyTitle": "Alles im Plan",
+        "emptyHint": "Nichts ist überfällig oder blockiert, und es fehlt keine Genehmigung.",
+        "reason": {
+          "overdue": "Überfällig · {n} T",
+          "blocked": "Blockiert",
+          "waiting": "Wartet",
+          "today": "Heute",
+          "soon": "in {n} T"
+        },
+        "done": "Erledigt",
+        "doneLabel": "„{title}“ erledigt",
+        "permitKind": "Genehmigung",
+        "permitApplyBy": "Antrag bis {date}",
+        "more": "{count, plural, one {# weitere Aufgabe in den nächsten 7 Tagen} other {# weitere Aufgaben in den nächsten 7 Tagen}}"
+      },
+      "key": {
+        "title": "Kernaufgaben",
+        "empty": "Dieser Markt hat keine Kernaufgaben.",
+        "state": {
+          "done": "Erledigt",
+          "open": "Offen",
+          "soon": "Bald fällig",
+          "overdue": "Überfällig",
+          "snoozed": "Zurückgestellt"
+        },
+        "dueOn": "fällig {date}",
+        "snoozedUntil": "bis {date}"
+      },
+      "rules": {
+        "title": "Regeln der Art",
+        "summary": "Neuware max. {share} % · {banned} · Online-Buchung: {online}",
+        "bannedCount": "{count} verbotene Waren",
+        "noBanned": "keine verbotenen Waren"
       }
     },
     "team": {
