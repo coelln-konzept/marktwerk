@@ -1,4 +1,197 @@
-# Handoff: session 3 → session 4 (local Claude Code)
+# Handoff: session 4 → session 5 (local Claude Code, macOS)
+
+**Written 2026-10-22 at the end of session 4.** Session 4 ran locally on the product owner's Mac. Read this file
+first. Repository: [`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk). The session-3
+handoff is kept as history at the end (§12); its reading list and architecture notes still apply.
+
+> **Where things stand:** the client feedback of 2026-10-22 is built and merged (PRs #3–#8). A **UX pass** (declutter,
+> navigation, design critique with Impeccable) is on branch **`feat/ux-pass`** (pushed, **no PR yet**). Two parallel
+> agents were paused mid-way when the session ended: **P** (fix false alarms: link permit tasks to permits) and **Q**
+> (company-wide notification center). Their unfinished work is pushed as **`wip/ux-pass-p-false-alarms`** and
+> **`wip/ux-pass-q-notification-center`** (§5). A cloud session may already have continued them — check §5 first.
+> Next: finish P and Q, merge them into `feat/ux-pass`, verify, open the UX-pass PR, re-run the critique (§6).
+
+---
+
+## 1. First message for session 5 (paste this)
+
+> Read `docs/HANDOFF.md` and continue exactly where session 4 stopped. Work in
+> `~/Developer/CoellnKonzept/Marktwerk`. `git fetch`, then check §5: did the cloud session finish the paused
+> agents P and Q (look for an open PR from `feat/ux-pass` or new commits on the `wip/ux-pass-*` branches)? Continue
+> from whatever is there: finish P and Q from their `wip/` branches with the briefs in §11 (parallel Sonnet agents in
+> worktrees, each starting from its wip branch), review them, merge them into `feat/ux-pass`, then follow §6 step by
+> step (reseed + admin login, all tests, browser check, open and merge the UX-pass PR once CI is green, re-run the
+> Impeccable critique). Ask me before product decisions that aren't settled in `docs/open-questions.md`.
+
+## 2. Local environment (this Mac)
+
+| What | Where / how |
+|---|---|
+| Repo | **`~/Developer/CoellnKonzept/Marktwerk`** (moved out of iCloud-synced `~/Documents` on 2026-10-22 — iCloud created `… 2.ts` duplicates). Note: `~/.claude/CLAUDE.md` still says tool repos live under `~/Documents/Personal/development/CoellnKonzept/` — update when convenient. |
+| Node / pnpm | Node 22.22 (min 22.18 ok; `.nvmrc` says 24), pnpm 10.34.7 in `~/.local/bin` |
+| Postgres + Mailpit | Docker (`pnpm db:up`). **Postgres on port 5433** (a system Postgres owns 5432) via the git-excluded `docker-compose.override.yml`; `.env` has `DATABASE_URL=…:5433/marktwerk` and `TEST_DATABASE_URL=…:5433/marktwerk_test` |
+| Dev server | **http://localhost:3001** (port 3000 is taken by an `open-webui` container). The Claude Code session root is `~/Developer/CoellnKonzept`; its `.claude/launch.json` runs `pnpm --dir Marktwerk dev` on 3001 (`preview_start` name `marktwerk`). If a stale `next-server` blocks 3001 after a crash, check `ps`/`lsof` that it's this repo's, then stop it. |
+| Auto-login (local only) | `.env` has `DEV_AUTO_LOGIN_EMAIL=admin@marktwerk.local` / `DEV_AUTO_LOGIN_PASSWORD=admin12345` → opening the app signs in (see `apps/web/src/server/dev-auto-login.ts`; off in production; sign-out pauses it). |
+| Admin login | `admin@marktwerk.local` / `admin12345` (role owner). **Not part of the seed** — re-create it after every reseed with the snippet in §7. Seeded logins: `owner@marktwerk.local` etc. / `marktwerk-dev-123`. |
+| E2E | Playwright's own browser isn't installed; use Chrome: `E2E_BASE_URL=http://localhost:3001 E2E_CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" pnpm test:e2e` (e2e opts out of the auto-login via a cookie). |
+| Impeccable | Design skill installed project-locally (`npx impeccable@4.7.0 install --providers=claude --scope=project`): `.claude/skills/impeccable`, `.claude/agents/impeccable-*`, hooks in `.claude/settings.local.json` — all git-excluded (`.git/info/exclude`). Critique snapshots: `apps/web/.impeccable/critique/` (excluded). Run its CLI from `apps/web`: `../../.claude/skills/impeccable/scripts/impeccable …`. `PRODUCT.md` (via `/impeccable init`) not created yet. |
+| Agent worktrees | `.claude/worktrees/agent-*` (excluded). Old ones can be removed with `git worktree remove` once their branches are merged (all except P and Q are merged). |
+
+## 3. What session 4 did (all merged unless noted)
+
+| PR | Content |
+|---|---|
+| #2 | Phase 1 M1–M6 (session 3's PR, merged at the start of session 4) |
+| #3 | Händler → **Aussteller** (`/aussteller`); **Team and Finanzen hidden** (`apps/web/src/lib/modules.ts`); event links; **email master switch, off** |
+| #4 | No task comments (optional completion note); **snooze** (`task.snoozed_until`); grouped filter bars; local **dev auto-login** |
+| #5 | "Dieses Wochenende"; **permit horizon** setting (default 30 days); due list grouped by market; contrast; **time estimates hidden** |
+| #6 | New events start **geplant**, **auto-confirm** when all required permits are granted; "Ohne Genehmigung" |
+| #7 | **Einstellungen → Bibliothek** with the **Grundvorlage** (master template); **"Markt planen"**; **Kernaufgaben** (`is_key`); **Marktfarben** (market colours) |
+| #8 | **Event Überblick** redesign (status line, Was fehlt, Kernaufgaben, dates); board views **Bereitschaft** (default) and **Kernaufgaben-Matrix** |
+| `feat/ux-pass` (no PR yet) | UX pass, see §4 |
+
+## 4. The UX pass (`feat/ux-pass`, pushed, 16 commits on top of `main`)
+
+Done and verified (720 integration, 28 e2e green at commit `5df27e4`; later commits ran `pnpm check` only):
+- **Past markets**: open tasks of markets ended > 7 days ago drop out of all cross-market lists, KPIs, Kalender and
+  reminders; "N offene Aufgaben aus vergangenen Märkten · Aufräumen" opens a cleanup drawer (`/?aufraeumen=1`).
+- **Übersicht**: Dieses Wochenende first; KPIs reduced to Heute fällig / Überfällig; max 3 tasks per market, the rest
+  expands in place; season strip and chips removed; clickable task icon marks done; urgency groups as coloured bands.
+- **Navigation**: sidebar = Übersicht, Board, Veranstaltungen, Kalender, **Genehmigungen** (was Logbuch, `/logbuch`
+  redirects) + collapsible **Stammdaten** (Orte, Kontakte, Aussteller, Wissen, **Pflichten**); Einstellungen in the
+  profile menu; notifications + booking hidden (`modules.ts`); **every event link opens the event Überblick**.
+- **Event page**: health once, one "…" menu, tabs Überblick · Board · Genehmigungen · Mehr; drawer status reduced to
+  Erledigt / Wartet auf Amt + "…"; board columns most urgent first; Gruppiert view removed; Filter disclosure.
+- **Kalender / Genehmigungen / Pflichten / Aussteller / Orte / Einstellungen** decluttered (details in commits).
+- After **Markt planen** the first new date's Überblick opens; Veranstaltungen rows clickable, larger market bar;
+  **market panel** on Bereitschaft rows (`/board?markt=<id>`).
+- Commit `6f76be8`: **migration 0008** — `template_item.permit_type` (permit enums moved to
+  `packages/db/src/schema/permit-type.ts`) and **company-wide notifications** (`notification.recipient_staff_member_id`
+  nullable + partial unique index). Already applied to the local dev DB.
+
+Design critique (Impeccable, dual-agent): **22/40 → 25/40**. Remaining findings, in order:
+1. **P0 false alarms** (agent P): permit application tasks not linked to permits; "Läuft ab" for permits that cover
+   the market; "Wartet" tasks shown red; "Achtung/Kritisch" without reasons; dates without year.
+2. **P1** Übersicht still long; "Was das Wochenende aufhält" duplicates "Heute fällig"; collapse "Diese Woche".
+3. **P2** no home for a market as a whole (consider "nach Markt" grouping in Veranstaltungen or a market page).
+4. **P2** colour/health vocabulary (market bar vs type chip vs status); Kalender overflows at 390 px.
+5. Minor: ISO date in the task drawer date field; outline star in Bereitschaft "Kernaufgaben offen" chips; "Nächste
+   Frist" shows the oldest overdue; Strg+K placeholder mentions hidden modules.
+
+## 5. In flight when session 4 ended (paused, pushed as WIP)
+
+| Agent | Pushed WIP branch | Base | State when paused | Brief |
+|---|---|---|---|---|
+| **P** false alarms | `wip/ux-pass-p-false-alarms` (`ead2fe3`, 71 files) | `6f76be8` | Implementation done (linking, `permitStateForEvent`, waiting tasks, reasons, year format, editor select, seed mapping); was writing the last tests (Bereitschaft + event-health reasons). Not yet `pnpm check`-green. | §11.1 |
+| **Q** notification center | `wip/ux-pass-q-notification-center` (`c4cb74c`, 36 files) | `6f76be8` | Core rules, sweep, queries/services, center page, bell popover, tests written; was updating the docs. Not yet `pnpm check`-green. | §11.2 |
+
+At the end of session 4 a **cloud session** ("Continue UX pass: P and Q") was started to finish both from these
+branches, merge them into `feat/ux-pass` and open the PR. Check its result first: `git fetch`, then
+`gh pr list --repo coelln-konzept/marktwerk --state all`, `git log --oneline origin/feat/ux-pass -5`,
+`git log --oneline origin/wip/ux-pass-p-false-alarms -3` (and the Q branch). Continue from the newest state.
+
+To finish locally: for each agent, create a worktree from its wip branch, run `pnpm install`, copy `.env` with its own
+throwaway DBs (§11), then `pnpm check` / `pnpm test:integration`, fix what fails, finish the remaining items of its
+brief, and merge the branch into `feat/ux-pass`. **Known overlap**: both touch `docs/open-questions.md`,
+`e2e/smoke.spec.ts`, `messages/*/shell.json`; P owns permits/tasks/format, Q owns notifications/jobs sweep/bell.
+The local worktrees `.claude/worktrees/agent-a837d50a5bfeb4a17` (P) and `agent-a3febeb72e20752b6` (Q) hold the same
+commits; their throwaway DBs `marktwerk_p_*`/`marktwerk_q_*` may still exist — drop them when done.
+
+## 6. Next steps (in order)
+1. Collect P and Q (§5); merge both into `feat/ux-pass` (`git merge --no-ff`), resolve conflicts, `pnpm db:migrate`.
+2. Reseed the local DB if the seed changed (P changes templates): drop + create `marktwerk`, `pnpm db:migrate && pnpm
+   db:seed`, then re-create the admin login (§7). Restart the dev server (Turbopack keeps stale modules after merges).
+3. `pnpm check`, `pnpm test:integration`, e2e (§2). Browser check: Übersicht overdue count should drop a lot; event
+   Genehmigungen tab without false "Läuft ab"; `/benachrichtigungen` + bell work for the admin login.
+4. Open the PR `feat/ux-pass` → `main` (template `.github/pull_request_template.md`; summary from §4 + P/Q), watch CI,
+   **merge when green** (the product owner allowed merging once CI passes).
+5. Re-run the Impeccable critique (dual-agent, §4 method; snapshot via `impeccable critique-storage write`), compare
+   with 25/40, then work through the remaining findings (§4 items 2–5) with the product owner.
+6. Housekeeping: remove merged agent worktrees; consider `/impeccable init` (PRODUCT.md); the CoellnKonzept convention
+   (`docs/<Tool>.md` synced to Obsidian via `scripts/sync-docs.sh` + `.githooks/post-commit`) is not set up for
+   marktwerk yet — ask before adding.
+
+## 7. Re-create the admin login after a reseed
+```bash
+cd ~/Developer/CoellnKonzept/Marktwerk/apps/web
+HASH=$(pnpm exec tsx -e 'import { hashPassword } from "better-auth/crypto"; hashPassword("admin12345").then(h => console.log(h))')
+UID_=$(uuidgen | tr A-Z a-z)
+docker exec -i marktwerk-postgres-1 psql -U marktwerk -d marktwerk -v ON_ERROR_STOP=1 <<SQL
+insert into app."user" (id, name, email, email_verified, role) values ('$UID_', 'Admin', 'admin@marktwerk.local', true, 'owner');
+insert into app.account (id, account_id, provider_id, user_id, password) values (gen_random_uuid()::text, '$UID_', 'credential', '$UID_', '$HASH');
+SQL
+```
+Reseed: `docker exec marktwerk-postgres-1 psql -U marktwerk -d postgres -c "drop database marktwerk with (force)" -c "create database marktwerk owner marktwerk"`, then `pnpm db:migrate && pnpm db:seed`.
+
+## 8. How the product owner likes to work (session 4)
+- Plans first, approval, then build; **ask before product/architecture decisions**, log answers in
+  `docs/open-questions.md` (Decided table — all session-4 decisions are there, dated 2026-10-22).
+- Build with **parallel Sonnet agents in worktrees**, each owning separate files; write shared schema/migrations
+  first yourself so agents don't collide; **the UX refining and reviews are done by Claude (Opus)**, checked in the
+  browser. Give agents a throwaway DB and tell them to verify `DATABASE_URL` before any db command (one agent once
+  seeded the main dev DB by mistake — harmless, but avoid).
+- One PR per batch; **merge when CI is green** without asking again.
+- Less clutter, start minimal and reveal things step by step; German UI wording; market colours, Kernaufgaben.
+
+## 9. Product decisions of 2026-10-22 (summary — details in `docs/open-questions.md`)
+Single main user until Phase 4 (Team, Finanzen, estimates, booking hidden); Aussteller; email off; events start geplant
+and auto-confirm with permits; presets = real markets with venue; one Grundvorlage; Kernaufgaben as a manual flag;
+Marktfarbe per market; Bereitschaft default board view + Matrix; event Überblick layout; past-market tasks hidden
+after 7 days with cleanup; every event link → Überblick; sidebar 5 + Stammdaten; **notification center:
+company-wide for owner/manager, items = overdue/due-soon tasks + permit deadlines** (not market confirmations, not
+Pflichten yet); fix the permit/task false alarms before the center ships. Postponed: Aussteller data companion,
+weekly report email, finance, staff assignment, website publishing.
+
+## 10. Open items for the product owner
+- Session-3 questions in §12 (§8 there) are partly superseded by the 2026-10-22 decisions; re-check when relevant.
+- Infrastructure (unchanged): production URL/env vars on Vercel, `CRON_SECRET`, seed secrets for `seed-dev.yml`.
+- Client discovery: real task lists per market type (to fill the Grundvorlage), permit inventory per location.
+
+## 11. Briefs of the in-flight agents (re-run these if §5 shows no result)
+
+Continue each with the Agent tool (`model: sonnet`, `isolation: worktree`, background), starting from its WIP
+branch (`git reset --hard origin/wip/ux-pass-p-false-alarms` resp. `…-q-notification-center`): finish the open
+items, make `pnpm check` + `pnpm test:integration` + e2e green, commit. Then merge into `feat/ux-pass`.
+
+### 11.1 Agent P — fix false alarms
+Goal (critique P0, approved): template application tasks ("Marktgenehmigung bei der Stadt beantragen" →
+`market_permit`, "Halteverbot beim Ordnungsamt beantragen" → `no_parking`, "Plakatierungsgenehmigung beantragen und
+Aufkleber abholen" → `signage`, "Musik-Anmeldung bei der Verwertungsgesellschaft" → `gema`, "Sicherheitskonzept beim
+Ordnungsamt einreichen" → `safety_concept`, "Gaststättenerlaubnis für den Getränkeausschank prüfen" → `catering`;
+verify against the enum/seeded requirements) get `template_item.permit_type` (synthetic dictionaries, seed incl. the
+Grundvorlage, template editor select "Gehört zur Genehmigung", propagation). One helper `linkPermitTasks(tx, eventIds)`
+sets `task.permit_id` to the event's permit of that type after instantiation and after every permit-linking path;
+`fillLogbookForEvents` must not create a duplicate `source = permit` task when a linked template task exists.
+Pure rule in core: a linked application task is done once its permit is applied/granted/held → auto-complete via the
+tasks service (audited) in `setPermitStatus`/`restorePermitStatus` and after linking. Pure `permitStateForEvent`: a
+held permit valid through the event's last day is OK for that event (no "Läuft ab") — use it in the event
+Genehmigungen tab + count, Überblick, event health (weekend table), Bereitschaft, Kalender permit chips; past one-day
+permits of finished events are history, not "Abgelaufen" warnings, in `/genehmigungen`. Waiting tasks
+(`waiting_external`) past due show neutral "wartet seit …", not red overdue, and don't count as overdue. Health words
+→ reasons ("1 Genehmigung fehlt", "5 überfällig", "Im Plan"); event Board tab "■ 26" → "26 offen · N überfällig".
+Format helper in `apps/web/src/lib/format.ts` that adds the year when not the current year; use it in mixed-year
+lists. Tests (core + integration), e2e updated, screenshots, report. Don't touch the notification system.
+Own throwaway DBs `marktwerk_p_dev`/`marktwerk_p_test`, port 3023.
+
+### 11.2 Agent Q — notification center
+Goal (approved): company-wide notification center for owner/manager. Un-hide `HIDDEN_MODULES.notifications`.
+`packages/jobs/src/deadline-sweep.ts` creates company-wide notifications (recipient null, dedupe per subject +
+reason + due date, no email) for overdue tasks of current markets (past-event rule, not snoozed), due-soon tasks,
+permits with apply-by within the permit horizon or decision due, and permits expiring before a required market;
+higher severity for Kernaufgaben/overdue. Auto-resolve when the subject is resolved (task done/skipped/cancelled/
+snoozed; permit applied/granted/not required) in the sweep and at query time. Queries/services with filters
+(Offen/Zurückgestellt/Erledigt, Art Aufgaben/Genehmigungen, Markt), sort (Dringlichkeit/Neueste), actions (Erledigt —
+for a task completes it via the tasks service with undo; Zurückstellen; reopen; alle gelesen), permission
+owner/manager (staff keep personal ones). Page `/benachrichtigungen` with the labelled filter bar, rows with kind icon,
+title link, market colour marker, due info, actions; J/K/Enter. Bell in the top bar (count, latest 5, quick Erledigt,
+"Alle anzeigen"); Strg+K entry; no sidebar entry. Tests (core, integration incl. permission, e2e), docs
+(ux-concept, data-model, open-questions), screenshots, report. Don't touch permit services/state rules, task↔permit
+linking, templates, `lib/format.ts`, Übersicht/event/board components. Own throwaway DBs
+`marktwerk_q_dev`/`marktwerk_q_test`, port 3024.
+
+---
+
+## 12. History: session-3 handoff (as written 2026-10-21)
 
 **Written 2026-10-21 at the end of session 3.** Session 3 ran locally on the product owner's Windows PC. All work is
 on branch `claude/m1-master-data` with open **PR #2** against `main` (CI + Auto-fix). Read this file first, then the
