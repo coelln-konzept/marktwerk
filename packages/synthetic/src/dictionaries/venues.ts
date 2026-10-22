@@ -36,7 +36,8 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     city: "Köln",
     lat: 50.934,
     lng: 6.965,
-    accessInfo: "Anfahrt über die Komödienstraße. Zufahrt für Aussteller:innen bis 06:30 Uhr erlaubt.",
+    accessInfo:
+      "Anfahrt über die Komödienstraße. Zufahrt für Aussteller:innen bis 06:30 Uhr erlaubt.",
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: null,
