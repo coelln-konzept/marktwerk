@@ -16,6 +16,7 @@ import { isModuleHidden } from "@/lib/modules";
 import { TASK_CATEGORIES } from "@/lib/task-ui";
 import { hrefWith, param } from "@/lib/url";
 import type { Actor } from "@/server/actor";
+import { getKeyTaskMatrix, getReadinessList } from "@/server/queries/board-overview";
 import {
   type BoardTask,
   getPeopleRail,
@@ -26,11 +27,13 @@ import {
   listTaskEventOptions,
 } from "@/server/queries/tasks";
 import { BoardView } from "./board-view";
+import { KeyTaskMatrixView } from "./key-task-matrix";
 import { NewTaskButton } from "./new-task-dialog";
+import { ReadinessList } from "./readiness-list";
 import { WorkloadTable } from "./workload-table";
 
 type SearchParams = Record<string, string | string[] | undefined>;
-type ViewKey = "spalten" | "person" | "gruppen" | "arbeitslast";
+type ViewKey = "bereitschaft" | "matrix" | "gruppiert" | "spalten" | "person" | "arbeitslast";
 
 /**
  * The board of one event (tab "Board") or across all events (`/board`): toolbar with views and
@@ -62,11 +65,12 @@ export async function BoardScreen({
   // ---- URL state
   const allViews: ViewKey[] = eventMode
     ? ["spalten", "person"]
-    : ["gruppen", "spalten", "person", "arbeitslast"];
+    : ["bereitschaft", "matrix", "gruppiert", "spalten", "person", "arbeitslast"];
   const views = teamHidden
     ? allViews.filter((v) => v !== "person" && v !== "arbeitslast")
     : allViews;
-  const viewParam = param(sp.ansicht);
+  // "gruppen" was the first name of the grouped view; old links keep working.
+  const viewParam = param(sp.ansicht) === "gruppen" ? "gruppiert" : param(sp.ansicht);
   const view: ViewKey = views.find((v) => v === viewParam) ?? (views[0] as ViewKey);
   const scopeParam = eventMode ? param(sp.filter) : param(sp.tab);
   // "Meine" and "Nicht zugewiesen" are assignee filters: gone with the team module, only "alle" is left.
@@ -132,6 +136,19 @@ export async function BoardScreen({
     </FilterGroup>
   );
 
+  const horizonSwitch = !eventMode && (
+    <FilterGroup label={t("horizon.label")}>
+      <Segments
+        items={(["woche", "14", "alle"] as const).map((key) => ({
+          key,
+          label: t(`horizon.${key}`),
+          href: href({ zeitraum: key === "14" ? undefined : key }),
+          active: horizon === key,
+        }))}
+      />
+    </FilterGroup>
+  );
+
   // ---- workload table (across events)
   if (!eventMode && view === "arbeitslast") {
     const workload = await getWorkload(actor, today, 8);
@@ -142,6 +159,50 @@ export async function BoardScreen({
           {newTask}
         </div>
         <WorkloadTable workload={workload} />
+        {drawerNode}
+      </div>
+    );
+  }
+
+  // ---- Bereitschaft / Matrix (one row per upcoming market)
+  if (!eventMode && (view === "bereitschaft" || view === "matrix")) {
+    const taskHref = (id: string) => href({ aufgabe: id, detail: undefined });
+    const readiness =
+      view === "bereitschaft"
+        ? await getReadinessList(actor, { horizonDays, category }, today)
+        : null;
+    const matrix = view === "matrix" ? await getKeyTaskMatrix(actor, { horizonDays }, today) : null;
+    const categoryCounts = readiness?.categoryCounts ?? {};
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <FilterBar className="min-w-0 flex-1">
+            {viewSwitch}
+            {horizonSwitch}
+            {readiness && (
+              <FilterGroup label={t("filter.category")} wide>
+                <FilterChips>
+                  <FilterChip href={href({ kategorie: undefined })} active={category === undefined}>
+                    {t("filter.allCategories")}
+                  </FilterChip>
+                  {TASK_CATEGORIES.filter((c) => categoryCounts[c] || c === category).map((c) => (
+                    <FilterChip
+                      key={c}
+                      href={href({ kategorie: c })}
+                      active={category === c}
+                      count={categoryCounts[c] ?? 0}
+                    >
+                      {tTasks(`categories.${c}`)}
+                    </FilterChip>
+                  ))}
+                </FilterChips>
+              </FilterGroup>
+            )}
+          </FilterBar>
+          {newTask}
+        </div>
+        {readiness && <ReadinessList rows={readiness.rows} today={today} taskHref={taskHref} />}
+        {matrix && <KeyTaskMatrixView matrix={matrix} taskHref={taskHref} />}
         {drawerNode}
       </div>
     );
@@ -190,19 +251,8 @@ export async function BoardScreen({
               />
             </FilterGroup>
           )}
-          {!eventMode && (
-            <FilterGroup label={t("horizon.label")}>
-              <Segments
-                items={(["woche", "14", "alle"] as const).map((key) => ({
-                  key,
-                  label: t(`horizon.${key}`),
-                  href: href({ zeitraum: key === "14" ? undefined : key }),
-                  active: horizon === key,
-                }))}
-              />
-            </FilterGroup>
-          )}
-          {!eventMode && view === "gruppen" && (
+          {horizonSwitch}
+          {!eventMode && view === "gruppiert" && (
             <FilterGroup label={t("group.label")}>
               <Segments
                 items={(["veranstaltung", "tag"] as const).map((key) => ({

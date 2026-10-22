@@ -17,9 +17,11 @@
     "showLess": "Show fewer",
     "view": {
       "label": "View",
+      "bereitschaft": "Readiness",
+      "matrix": "Matrix",
+      "gruppiert": "Grouped",
       "spalten": "Columns",
       "person": "By person",
-      "gruppen": "Grouped",
       "arbeitslast": "Workload"
     },
     "filter": {
@@ -178,6 +180,46 @@
       "notFound": "Task not found",
       "notFoundHint": "It no longer exists, or you do not have access to it.",
       "linkHint": "This view can be shared as a link: the address contains the task."
+    },
+    "readiness": {
+      "caption": "Readiness of the upcoming events",
+      "market": "Event",
+      "date": "Date",
+      "progress": "Progress",
+      "missing": "Missing",
+      "next": "Next deadline",
+      "inDays": "{days, plural, =0 {today} =1 {tomorrow} other {in # days}}",
+      "running": "running now",
+      "progressText": "{done} of {total} tasks done",
+      "noTasks": "No tasks",
+      "overdue": "{count} overdue",
+      "permits": "{count, plural, one {# permit missing} other {# permits missing}}",
+      "key": "{count, plural, one {# key task open} other {# key tasks open}}",
+      "ok": "On track",
+      "noDeadline": "No open deadline",
+      "dueOn": "due {date}",
+      "empty": "No upcoming events in this period.",
+      "emptyHint": "Choose “All” to see every upcoming event."
+    },
+    "matrix": {
+      "caption": "Key tasks of the upcoming events",
+      "market": "Event",
+      "empty": "No upcoming events in this period.",
+      "emptyHint": "Choose “All” to see every upcoming event.",
+      "noKeyTasks": "No key tasks yet",
+      "noKeyTasksHint": "Mark key tasks in the master template (Settings → Library).",
+      "truncated": "There are more key tasks than columns. The ones that occur in most events are shown.",
+      "cell": "{task} at {event}: {state}",
+      "absentCell": "{task} at {event}: no task",
+      "legend": "Legend",
+      "state": {
+        "done": "done",
+        "open": "open",
+        "soon": "due soon",
+        "overdue": "overdue",
+        "snoozed": "snoozed",
+        "absent": "not present"
+      }
     }
   },
   "drawer": {
