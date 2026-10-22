@@ -117,10 +117,9 @@ export function SnoozeMenu({ task, today }: { task: SnoozeRef; today: string }) 
         <Menu.Trigger
           aria-label={t("actions", { title: task.title })}
           title={t("title")}
-          className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-input bg-card px-2.5 font-medium text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
+          className="inline-grid size-8 cursor-pointer place-items-center rounded-lg text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
         >
           <AlarmClockOff aria-hidden className="size-4" />
-          <span className="hidden sm:inline">{t("title")}</span>
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
