@@ -36,6 +36,20 @@ const KIND_ICONS: Record<DueKind, LucideIcon> = {
 
 const GROUPS: DueUrgency[] = ["overdue", "today", "soon", "upcoming"];
 
+/**
+ * Each urgency group opens with a band in its status colour (colour + icon + text), so the groups stand
+ * apart from the market blocks inside them.
+ */
+const GROUP_UI: Record<DueUrgency, { icon: LucideIcon; band: string }> = {
+  overdue: {
+    icon: OctagonAlert,
+    band: "border-status-critical-dot/30 bg-status-critical-bg text-status-critical",
+  },
+  today: { icon: Clock, band: "border-status-warn-dot/30 bg-status-warn-bg text-status-warn" },
+  soon: { icon: CalendarCheck, band: "border-border bg-status-neutral-bg text-foreground" },
+  upcoming: { icon: ShieldCheck, band: "border-border bg-status-info-bg text-status-info" },
+};
+
 /** Markets (and single items) shown per group before "+ N weitere" (the overdue group can be long). */
 export const DUE_PREVIEW_CLUSTERS = 10;
 
@@ -219,6 +233,7 @@ export async function DueToday({
       ) : (
         <div className="flex flex-col">
           {GROUPS.map((urgency) => {
+            const GroupIcon = GROUP_UI[urgency].icon;
             const rows = due.items.filter((i) => i.urgency === urgency);
             if (rows.length === 0) return null;
             const all = clusters(rows);
@@ -229,11 +244,19 @@ export async function DueToday({
                 key={urgency}
                 id={`faellig-${urgency}`}
                 aria-label={t(`groups.${urgency}`)}
-                className="scroll-mt-20"
+                className="mt-4 scroll-mt-20 first:mt-0"
               >
-                <h3 className="flex items-center gap-2 border-border-subtle border-b bg-surface-2 px-4 py-1.5 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">
+                <h3
+                  className={cn(
+                    "flex items-center gap-2 border-y px-4 py-2.5 font-semibold text-body",
+                    GROUP_UI[urgency].band,
+                  )}
+                >
+                  <GroupIcon aria-hidden className="size-4 shrink-0" />
                   {t(`groups.${urgency}`)}
-                  <span className="tabular font-medium normal-case">{rows.length}</span>
+                  <span className="tabular inline-grid h-5 min-w-6 place-items-center rounded-full bg-card/80 px-1.5 font-semibold text-tiny">
+                    {rows.length}
+                  </span>
                 </h3>
                 <ul className="m-0 flex list-none flex-col p-0">
                   {shown.map((cluster) =>
