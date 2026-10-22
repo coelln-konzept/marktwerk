@@ -1,10 +1,14 @@
 import type * as React from "react";
 import { Suspense } from "react";
+import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import { BellFallback, NotificationBell } from "./notification-bell";
 import { type Crumb, Topbar } from "./topbar";
 
-/** Every page: top bar with breadcrumb (and the notification bell), then the content column. */
+/**
+ * Every page: top bar, then the content column. The breadcrumb only shows below a top-level page (a
+ * single crumb would just repeat the H1); the notification bell only while notifications are visible.
+ */
 export function Page({
   crumbs,
   children,
@@ -22,9 +26,11 @@ export function Page({
       <Topbar
         crumbs={crumbs}
         bell={
-          <Suspense fallback={<BellFallback />}>
-            <NotificationBell />
-          </Suspense>
+          isModuleVisible("notifications") ? (
+            <Suspense fallback={<BellFallback />}>
+              <NotificationBell />
+            </Suspense>
+          ) : undefined
         }
       />
       <div

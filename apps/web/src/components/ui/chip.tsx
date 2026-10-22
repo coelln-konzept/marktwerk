@@ -18,12 +18,15 @@ export function FilterChip({
   href,
   active,
   count,
+  title,
   children,
   className,
 }: {
   href: string;
   active?: boolean;
   count?: number;
+  /** Tooltip with the definition of the chip. */
+  title?: string;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -32,6 +35,7 @@ export function FilterChip({
       href={href as never}
       scroll={false}
       aria-current={active ? "true" : undefined}
+      title={title}
       className={cn(base, className)}
     >
       {children}

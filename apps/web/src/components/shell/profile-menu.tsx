@@ -1,7 +1,8 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { Check, ChevronDown, LogOut } from "lucide-react";
+import { Check, ChevronDown, LogOut, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useTransition } from "react";
@@ -16,17 +17,20 @@ const item =
 const label =
   "px-2 pt-2 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider";
 
-/** Profile menu at the bottom of the sidebar: language, theme (System/Hell/Dunkel), density, sign out. */
+/** Profile menu at the bottom of the sidebar: Einstellungen, language, theme (System/Hell/Dunkel), density, sign out. */
 export function ProfileMenu({
   name,
   role,
   theme,
   density,
+  showSettings,
 }: {
   name: string;
   role: string;
   theme: string;
   density: string;
+  /** Einstellungen lives here (not in the sidebar); only for people who may read the settings. */
+  showSettings?: boolean;
 }) {
   const t = useTranslations("profile");
   const tLang = useTranslations("language");
@@ -49,6 +53,15 @@ export function ProfileMenu({
       <Menu.Portal>
         <Menu.Positioner side="top" align="start" sideOffset={6} className="z-50">
           <Menu.Popup className="flex min-w-[220px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+            {showSettings && (
+              <>
+                <Menu.LinkItem render={<Link href={"/einstellungen" as never} />} className={item}>
+                  <SlidersHorizontal aria-hidden className="size-4 text-muted-foreground" />
+                  {t("settings")}
+                </Menu.LinkItem>
+                <Menu.Separator className="my-1 border-border-subtle border-t" />
+              </>
+            )}
             <Menu.Group>
               <Menu.GroupLabel className={label}>{t("design")}</Menu.GroupLabel>
               <Menu.RadioGroup

@@ -1,7 +1,7 @@
 {
   "settings": {
     "title": "Settings",
-    "subtitle": "Company data, logins with roles, the legal values marktwerk calculates with, and the library of markets and task templates.",
+    "subtitle": "Company data, logins with roles and the library of markets and task templates.",
     "tabsLabel": "Settings sections",
     "tabs": {
       "company": "Company",
@@ -51,7 +51,8 @@
         "defaultDueTime": "Time of day for template tasks without their own due time.",
         "emailEnabled": "While this is off, marktwerk sends no emails. In-app notifications keep working.",
         "dailyDigestEnabled": "Send a daily email summarising what is due.",
-        "permitHorizonDays": "This many days before the apply-by date, permits appear in the Übersicht."
+        "permitHorizonDays": "This many days before the apply-by date, permits appear in the Übersicht.",
+        "dailyDigestNeedsEmail": "Only available once “Send emails” is switched on."
       },
       "bundeslaender": {
         "NW": "North Rhine-Westphalia"
@@ -86,7 +87,11 @@
       "saved": "Company data saved.",
       "unchanged": "No changes.",
       "failed": "Saving didn't work. Please try again.",
-      "errorSummary": "Please check the highlighted fields."
+      "errorSummary": "Please check the highlighted fields.",
+      "bankSummary": "Tax number, IBAN, BIC",
+      "units": {
+        "days": "days"
+      }
     },
     "users": {
       "title": "Users & roles",
@@ -179,6 +184,7 @@
         "hu_interval_months_up_to_3500kg": "Vehicle inspection up to 3.5 t",
         "hu_interval_months_over_3500kg": "Vehicle inspection over 3.5 t"
       }
-    }
+    },
+    "subtitleWithLegal": "Company data, logins with roles, the legal values marktwerk calculates with, and the library of markets and task templates."
   }
 }

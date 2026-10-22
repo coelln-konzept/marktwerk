@@ -7,25 +7,22 @@
     "overview": "Übersicht",
     "board": "Board",
     "events": "Veranstaltungen",
-    "logbook": "Logbuch",
+    "permits": "Genehmigungen",
+    "permitsBadge": "fehlen oder sind abgelaufen für kommende Märkte",
+    "masterData": "Stammdaten",
+    "duties": "Pflichten",
     "team": "Team",
     "finance": "Finanzen",
-    "company": "Firma",
     "vendors": "Aussteller",
     "knowledgeBase": "Wissen",
     "notifications": "Benachrichtigungen",
     "settings": "Einstellungen",
-    "bookings": "Buchungen",
-    "inbox": "Postfach",
-    "inventory": "Inventar",
     "signOut": "Abmelden",
     "label": "Hauptnavigation",
     "close": "Navigation schließen",
     "calendar": "Kalender",
     "venues": "Orte",
-    "contacts": "Kontakte",
-    "later": "Später",
-    "comingSoon": "Phase 2"
+    "contacts": "Kontakte"
   },
   "roles": {
     "owner": "Geschäftsführung",
@@ -64,7 +61,8 @@
       "standard": "Standard",
       "compact": "Kompakt"
     },
-    "signOut": "Abmelden"
+    "signOut": "Abmelden",
+    "settings": "Einstellungen"
   },
   "topbar": {
     "menu": "Navigation öffnen",
@@ -112,7 +110,8 @@
       "payable": "Zahlung anlegen",
       "permit": "Genehmigung anlegen",
       "shift": "Schicht erfassen",
-      "issue": "Mangel melden"
+      "issue": "Mangel melden",
+      "settings": "Einstellungen öffnen"
     }
   },
   "vorschau": {
@@ -122,14 +121,8 @@
     "keys": "Esc: schließen · Enter: öffnen"
   },
   "comingSoon": {
-    "title": "Kommt mit Meilenstein {milestone}",
-    "board": "Das Board mit Aufgaben aus den Ablaufvorlagen, Personenleiste und Arbeitslast entsteht in M2.",
-    "logbook": "Das Logbuch (Genehmigungen je Ort als Matrix und Zeitstrahl) entsteht in M3.",
-    "finance": "Zahlungen mit Raten, Belege und das Geld je Veranstaltung entstehen in M5.",
-    "company": "Pflichten, Fahrzeuge und Versicherungen entstehen in M6.",
-    "knowledgeBase": "Die Wissenssammlung folgt nach den Kernmodulen.",
-    "notifications": "Benachrichtigungen (Fristen, Zuweisungen, Eskalationen) entstehen in M3.",
-    "settings": "Firmendaten, Benutzer:innen, Rollen und gesetzliche Werte werden hier gepflegt (folgt)."
+    "title": "Kommt später",
+    "knowledgeBase": "Die Wissenssammlung folgt nach den Kernmodulen."
   },
   "status": {
     "event": {

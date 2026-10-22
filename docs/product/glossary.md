@@ -54,7 +54,7 @@ comes to the event (client's explicit rule, research 05).
 | Halteverbot | No-parking order | `permit_type = no_parking` | Temporary no-parking signs. |
 | Toiletten | Toilets | `permit_type = toilets` | External. |
 | Einverständnis Grundstück | Landowner OK | `permit_type = landowner_ok` | External. |
-| Bestandsübersicht / Logbuch | Status quo / logbook | logbook view | Company-wide: what we hold, for which location, what's missing. |
+| Genehmigungen (Bereich, früher „Logbuch“) | Permits (area, formerly "logbook") | logbook view, route `/genehmigungen` | Company-wide status quo: what we hold, for which location, what's missing. The sidebar badge counts "Fehlt/abgelaufen für kommende Märkte". |
 | Antragsfenster / Entscheidung erwartet | Application window / expected decision | `submission_window_*`, `expected_decision_on` | e.g. city collects all applications, decides in January. |
 | Auflagen | Conditions | `permit.conditions` | Turned into tasks. |
 | Frist / Vorlaufzeit | Deadline / lead time | `due_at` / `lead_time_days` | |
@@ -105,7 +105,7 @@ comes to the event (client's explicit rule, research 05).
 ## Company & resources
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
-| Firma (Bereich) | Company (area) | company tab | Everything not tied to one event. |
+| Pflichten (Bereich; Seitentitel „Pflichten & Fahrzeuge“) | Duties (area) | company tab, route `/firma` | Recurring obligations, vehicles and defects: everything not tied to one event. Not to be confused with **Firma** in Einstellungen, which holds the company data. |
 | Pflichttermin / wiederkehrende Pflicht | Recurring obligation | `obligation` | e.g. HU/TÜV, UVV inspection, insurance renewal, KSK report. |
 | Fahrzeug | Vehicle | `vehicle` | Vans; HU every 24 months (≤ 3.5 t), UVV yearly. |
 | Inventar / Material | Inventory / equipment | `item_type` | Bulk items: cables, power boxes, tables… |

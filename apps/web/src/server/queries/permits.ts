@@ -106,12 +106,19 @@ export type LogbookRow = {
   conditions: number;
 };
 
-export const LOGBOOK_FOCUS = ["fehlt", "ablaufend"] as const;
+/** The one focus filter: permits that are missing or expired for an upcoming market (= the sidebar badge). */
+export const LOGBOOK_FOCUS = ["fehlt"] as const;
 export type LogbookFocus = (typeof LOGBOOK_FOCUS)[number];
 
-/** States that count as "fehlt" in the focus: nothing in hand and nothing applied for. */
+/** States that need action: nothing in hand and nothing applied for, or out of date. */
 const MISSING_STATES: PermitDisplayState[] = ["missing", "preparing", "rejected", "expired"];
-const EXPIRING_STATES: PermitDisplayState[] = ["expiring", "expired"];
+
+/**
+ * "Fehlt oder abgelaufen für kommende Märkte": a permit in a missing state that at least one upcoming
+ * (not cancelled) event requires. One definition for the sidebar badge and the Genehmigungen focus chip.
+ */
+const needsAction = (row: Pick<LogbookRow, "state" | "upcomingEvents">) =>
+  MISSING_STATES.includes(row.state) && row.upcomingEvents > 0;
 
 export type LogbookFilters = {
   venueId?: string;
@@ -141,9 +148,11 @@ export type Logbook = {
   seasons: number[];
   venues: { id: string; name: string }[];
   total: number;
+  /** Permits missing or expired for upcoming markets, across seasons (venue and category narrowing apply). */
+  needsAction: number;
 };
 
-/** Everything the Logbuch page shows: permits with their derived state, filtered, plus counts. */
+/** Everything the Genehmigungen page shows: permits with their derived state, filtered, plus counts. */
 export async function listLogbook(
   actor: Actor,
   filters: LogbookFilters,
@@ -157,6 +166,7 @@ export async function listLogbook(
     seasons: [],
     venues: [],
     total: 0,
+    needsAction: 0,
   };
   if (!can(actor.role, "permit", "read")) return empty;
 
@@ -224,27 +234,34 @@ export async function listLogbook(
   const counts = { ...empty.counts };
   for (const r of bySeason) counts[r.state] += 1;
 
-  let rows = bySeason;
+  // Needing action depends on upcoming markets, not on the season, so this focus looks across seasons.
+  const urgent = all.filter(needsAction);
+  let rows = filters.focus === "fehlt" ? urgent : bySeason;
   if (filters.state) rows = rows.filter((r) => r.state === filters.state);
-  if (filters.focus === "fehlt") rows = rows.filter((r) => MISSING_STATES.includes(r.state));
-  if (filters.focus === "ablaufend") rows = rows.filter((r) => EXPIRING_STATES.includes(r.state));
-  return { rows, counts, seasons, venues, total: bySeason.length };
+  return { rows, counts, seasons, venues, total: bySeason.length, needsAction: urgent.length };
 }
 
-/** Rows for the sidebar badge and the page header: unfiled permits that an upcoming event needs. */
+/**
+ * The sidebar badge: permits missing or expired for upcoming markets. Equals the "Fehlt/abgelaufen für
+ * kommende Märkte" chip on the Genehmigungen page (`Logbook.needsAction`), same definition.
+ */
 export async function missingPermitCount(actor: Actor, today: string): Promise<number> {
   if (!can(actor.role, "permit", "read")) return 0;
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
+  const raw = await db
+    .select({
+      status: permit.status,
+      validUntil: permit.validUntil,
+      upcoming: upcomingCount(today),
+    })
     .from(permit)
-    .where(
-      and(
-        isNull(permit.archivedAt),
-        inArray(permit.status, ["not_started", "preparing"]),
-        sql`${upcomingCount(today)} > 0`,
-      ),
-    );
-  return row?.n ?? 0;
+    // The join makes Drizzle qualify `permit.id` inside the correlated subquery of upcomingCount.
+    .leftJoin(venue, eq(venue.id, permit.venueId))
+    .where(and(isNull(permit.archivedAt), ne(permit.status, "superseded")));
+  return raw.filter(
+    (r) =>
+      r.upcoming > 0 &&
+      needsAction({ state: permitDisplayState(r, today), upcomingEvents: r.upcoming }),
+  ).length;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -620,7 +637,7 @@ export async function dueItems(
       title: r.title,
       dueOn,
       urgency,
-      href: `/logbuch?genehmigung=${r.id}`,
+      href: `/genehmigungen?genehmigung=${r.id}`,
       meta: [unfiled ? "Antrag" : "Entscheidung erwartet", r.venueName].filter(Boolean).join(" · "),
       assigneeName: r.responsibleName,
       eventIds: r.eventIds ?? [],
@@ -677,7 +694,7 @@ export async function calendarItems(
   const items: CalendarItem[] = [];
   for (const r of rows) {
     const where = r.venueName ? ` · ${r.venueName}` : "";
-    const href = `/logbuch?genehmigung=${r.id}`;
+    const href = `/genehmigungen?genehmigung=${r.id}`;
     if (isUnfiled(r.status) && r.applyBy && r.applyBy >= from && r.applyBy <= to) {
       const days = daysBetween(today, r.applyBy);
       items.push({

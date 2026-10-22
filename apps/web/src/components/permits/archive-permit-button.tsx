@@ -4,7 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
-import { archivePermitAction, restorePermitAction } from "@/app/(app)/logbuch/actions";
+import { archivePermitAction, restorePermitAction } from "@/app/(app)/genehmigungen/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 

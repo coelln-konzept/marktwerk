@@ -24,7 +24,12 @@ import { asStaff, dueOn, insertEvent, insertTask, TODAY } from "../helpers/tasks
 
 const RANGE = { from: "2026-10-01", to: "2026-10-31" };
 const ALL: Layers["deadlines"] = ["tasks", "permits", "shifts", "installments", "obligations"];
-const selection = (over: Partial<Layers> = {}): Layers => ({ ...DEFAULT_LAYERS, ...over });
+/** Every module layer on, so the queries are tested with all of them (the default leaves tasks off). */
+const selection = (over: Partial<Layers> = {}): Layers => ({
+  ...DEFAULT_LAYERS,
+  deadlines: ALL,
+  ...over,
+});
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
 let owner: Actor;
@@ -205,25 +210,30 @@ describe("layer selection", () => {
     expect(parseLayers({})).toBeNull();
   });
 
-  it("selections saved before the module layers existed show them all", () => {
-    expect(sanitizeLayers({ types: ["flea"], holidays: false }).deadlines).toEqual(ALL);
+  it("selections saved before the module layers existed show the default set (tasks are off)", () => {
+    expect(sanitizeLayers({ types: ["flea"], holidays: false }).deadlines).toEqual(
+      DEFAULT_LAYERS.deadlines,
+    );
+    expect(DEFAULT_LAYERS.deadlines).not.toContain("tasks");
+    expect(DEFAULT_LAYERS.deadlines).toContain("permits");
     expect(sanitizeLayers({ deadlines: ["tasks", "nonsense", 3] }).deadlines).toEqual(["tasks"]);
   });
 
-  it("the preset 'Märkte + Genehmigungen' includes the permits layer", () => {
+  it("has two presets: only the markets, or markets + deadlines (the default, without tasks)", () => {
+    expect(PRESETS.map((p) => p.key)).toEqual(["markets", "marketsDeadlines"]);
     const markets = PRESETS.find((p) => p.key === "markets");
-    expect(markets?.deadlines).toEqual(["permits"]);
-    expect(markets?.types).toEqual(["flea", "antique"]);
-    expect(activePreset(selection({ types: ["flea", "antique"], deadlines: ["permits"] }))).toBe(
-      "markets",
-    );
+    expect(markets?.deadlines).toEqual([]);
+    const both = PRESETS.find((p) => p.key === "marketsDeadlines");
+    expect(both?.deadlines).toContain("permits");
+    expect(both?.deadlines).not.toContain("tasks");
+    expect(activePreset(DEFAULT_LAYERS)).toBe("marketsDeadlines");
+    expect(activePreset({ ...DEFAULT_LAYERS, deadlines: [], holidays: false })).toBe("markets");
   });
 
   it("recognises a preset among the layers the role can see", () => {
-    expect(activePreset(selection(), ["tasks", "permits"])).toBe("all");
+    expect(activePreset(DEFAULT_LAYERS, ["tasks", "permits"])).toBe("marketsDeadlines");
     expect(activePreset(selection({ deadlines: ["tasks"] }), ["tasks", "permits"])).toBeNull();
-    expect(activePreset(selection({ types: [], deadlines: ALL, holidays: true }))).toBe(
-      "deadlines",
-    );
+    // Everything on, tasks included, is no preset.
+    expect(activePreset(selection())).toBeNull();
   });
 });

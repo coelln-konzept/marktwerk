@@ -41,7 +41,7 @@ export default async function IssuesPage({ searchParams }: PageProps<"/firma/mae
     : [[], []];
 
   return (
-    <Page crumbs={[{ label: t("title"), href: "/firma" }, { label: ti("title") }]}>
+    <Page crumbs={[{ label: t("title") }]}>
       <CompanyHeader
         actor={actor}
         actions={

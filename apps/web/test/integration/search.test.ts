@@ -99,7 +99,7 @@ describe("searchAs", () => {
     ]);
     expect(hits.find((h) => h.kind === "permit")).toMatchObject({
       title: "Wassergenehmigung Köln",
-      href: `/logbuch?genehmigung=${permitId}`,
+      href: `/genehmigungen?genehmigung=${permitId}`,
     });
     expect(hits.find((h) => h.kind === "payable")).toMatchObject({
       title: "Plakatdruck Köln",

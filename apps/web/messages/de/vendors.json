@@ -1,8 +1,7 @@
 {
   "vendors": {
     "title": "Aussteller",
-    "subtitle": "{count} importiert · nur lesen",
-    "banner": "Phase 1: Liste aus der alten Website, nur lesend. Buchungen kommen in Phase 2.",
+    "subtitle": "{count} aus der alten Website importiert · nur zum Lesen",
     "search": "Suche nach Name, Firma, Ort oder E-Mail",
     "categories": "Kategorien",
     "filters": "Weitere Filter",
@@ -22,14 +21,9 @@
     "caption": "Ausstellerliste, Seite {page} von {pages}",
     "cols": {
       "name": "Name",
-      "kind": "Art",
-      "categories": "Kategorien",
+      "categories": "Sortiment",
       "city": "Ort",
-      "length": "Standardlänge",
-      "car": "Auto",
-      "regular": "Stammaussteller",
-      "newsletter": "Newsletter",
-      "since": "Seit"
+      "regular": "Stammaussteller"
     },
     "kind": {
       "private": "privat",
@@ -41,9 +35,9 @@
     "regularBadge": "Stammaussteller",
     "regularSpot": "Stammplatz {spot}",
     "consent": {
-      "soft_opt_in": "Soft-Opt-in",
-      "double_opt_in": "Double-Opt-in",
-      "none": "keine Einwilligung"
+      "soft_opt_in": "ja",
+      "double_opt_in": "ja",
+      "none": "nein"
     },
     "noValue": "–",
     "preview": "Vorschau für {name}",
@@ -76,7 +70,7 @@
       "imported": "Importiert am",
       "notes": "Notizen",
       "noNotes": "Keine Notizen.",
-      "readOnly": "Nur lesen: Änderungen kommen mit den Buchungen in Phase 2."
+      "readOnly": "Nur zum Lesen: Die Aussteller stammen aus der alten Website und lassen sich hier noch nicht bearbeiten."
     }
   }
 }

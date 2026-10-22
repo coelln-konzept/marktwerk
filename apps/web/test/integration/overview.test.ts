@@ -252,7 +252,7 @@ describe("Dieses Wochenende", () => {
       urgency: "upcoming",
       eventNames: ["Wochenendmarkt"],
     });
-    expect(blocker?.href).toBe(`/logbuch?genehmigung=${p?.id}`);
+    expect(blocker?.href).toBe(`/genehmigungen?genehmigung=${p?.id}`);
   });
 
   it("is the Saturday and Sunday of the current week from Monday to Sunday, also on Sunday evening", async () => {

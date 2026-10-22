@@ -61,9 +61,8 @@ test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a ma
 /** The module pages; each has to render with its own heading (owner login, seeded data). */
 const MODULE_PAGES = [
   { path: "/board", heading: "Board" },
-  { path: "/logbuch", heading: "Logbuch" },
-  { path: "/firma", heading: "Firma" },
-  { path: "/benachrichtigungen", heading: "Benachrichtigungen" },
+  { path: "/genehmigungen", heading: "Genehmigungen" },
+  { path: "/firma", heading: "Pflichten & Fahrzeuge" },
 ] as const;
 
 for (const { path, heading } of MODULE_PAGES) {
@@ -185,26 +184,136 @@ test("Task drawer: Erledigt and Wartet auf Amt are buttons, the other states sit
   await expect(drawer.getByText("lässt sich als Link weitergeben")).toHaveCount(0);
 });
 
-test("Kalender: module layers are in the layer panel and the presets switch them", async ({
+test("Kalender: Ebenen collapsed by default, two presets, tasks off, full market names", async ({
   page,
 }) => {
   await page.goto("/kalender");
   await expect(page.getByRole("heading", { level: 1, name: "Kalender" })).toBeVisible();
+  // No breadcrumb above a top-level page: it would only repeat the H1.
+  await expect(page.getByRole("navigation", { name: "Brotkrumen" })).toHaveCount(0);
+
+  const toggle = page.getByRole("button", { name: "Ebenen" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
   const panel = page.getByRole("complementary", { name: "Ebenen" });
-  for (const layer of ["Genehmigungen", "Aufgaben", "Fahrzeuge & Pflichten"])
-    await expect(panel.getByRole("checkbox", { name: new RegExp(layer) })).toBeVisible();
+  await expect(panel).toBeVisible();
+
+  // Permits and obligations on, tasks off; no disabled "Rückgaben" and no "Nur meine Zuständigkeit".
+  await expect(panel.getByRole("checkbox", { name: /Genehmigungen/ })).toBeChecked();
+  await expect(panel.getByRole("checkbox", { name: /Aufgaben/ })).not.toBeChecked();
+  await expect(panel.getByText(/Rückgaben/)).toHaveCount(0);
+  await expect(panel.getByText(/Nur meine Zuständigkeit/)).toHaveCount(0);
   // Finance and shift layers are hidden for now.
   for (const layer of ["Raten & Zahlungen", "Schichten"])
     await expect(panel.getByRole("checkbox", { name: new RegExp(layer) })).toHaveCount(0);
 
-  // The preset "Märkte + Genehmigungen" keeps the permit layer and drops the other module layers.
-  await panel.getByRole("button", { name: "Märkte + Genehmigungen" }).click();
-  await expect(page).toHaveURL(/frist=permits/);
-  await expect(panel.getByRole("checkbox", { name: /Aufgaben/ })).not.toBeChecked();
+  // Two presets only; "Märkte" drops all deadlines.
+  await expect(panel.getByRole("button", { name: /^Märkte/ })).toHaveCount(2);
+  await panel.getByRole("button", { name: "Märkte", exact: true }).click();
+  await expect(page).toHaveURL(/ebenen=1/);
+  await expect(panel.getByRole("checkbox", { name: /Genehmigungen/ })).not.toBeChecked();
+
+  // The open state is remembered.
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Ebenen" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await page.getByRole("button", { name: "Ebenen" }).click();
+
+  // Event chips link to the Überblick and show the whole market name.
+  await page.goto("/kalender?ebenen=1&typ=flea,antique,city_festival,food_wine");
+  const chip = page.locator("table a[href^='/veranstaltungen/']").first();
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveAttribute("href", /^\/veranstaltungen\/[0-9a-f-]{36}$/);
+  const name = (await chip.getAttribute("title")) as string;
+  expect((await chip.innerText()).replace(/\s+/g, " ").trim()).toBe(name);
 
   // The list view renders with the same selection.
   await page.goto("/kalender?ansicht=liste");
   await expect(page.getByRole("heading", { level: 1, name: "Kalender" })).toBeVisible();
+});
+
+test("Sidebar: five daily entries, Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Hauptnavigation" }).first();
+  for (const entry of ["Übersicht", "Board", "Veranstaltungen", "Kalender", "Genehmigungen"])
+    await expect(nav.getByRole("link", { name: new RegExp(`^${entry}`) })).toBeVisible();
+  // Gone: Logbuch, the "Später" group, Benachrichtigungen, Einstellungen, Firma.
+  for (const entry of [
+    "Logbuch",
+    "Buchungen",
+    "Postfach",
+    "Inventar",
+    "Benachrichtigungen",
+    "Einstellungen",
+    "Firma",
+  ])
+    await expect(nav.getByRole("link", { name: entry, exact: true })).toHaveCount(0);
+
+  const group = nav.getByRole("button", { name: "Stammdaten" });
+  await expect(group).toHaveAttribute("aria-expanded", "false");
+  await expect(nav.getByRole("link", { name: "Orte", exact: true })).toBeHidden();
+  await group.click();
+  await expect(group).toHaveAttribute("aria-expanded", "true");
+  for (const entry of ["Orte", "Kontakte", "Aussteller", "Wissen", "Pflichten"])
+    await expect(nav.getByRole("link", { name: entry, exact: true })).toBeVisible();
+
+  // Remembered across a reload.
+  await page.reload();
+  await expect(nav.getByRole("button", { name: "Stammdaten" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await nav.getByRole("link", { name: "Pflichten", exact: true }).click();
+  await expect(page).toHaveURL(/\/firma\/pflichten$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Pflichten & Fahrzeuge" }),
+  ).toBeVisible();
+
+  // Einstellungen: profile menu (bottom left).
+  await page.getByRole("button", { name: /Geschäftsführung/ }).click();
+  await page.getByRole("menuitem", { name: "Einstellungen" }).click();
+  await expect(page).toHaveURL(/\/einstellungen\/firma$/);
+});
+
+test("Logbuch became Genehmigungen: /logbuch redirects with the drawer link intact", async ({
+  page,
+}) => {
+  const response = await page.goto("/logbuch");
+  await expect(page).toHaveURL(/\/genehmigungen$/);
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.getByRole("heading", { level: 1, name: "Genehmigungen" })).toBeVisible();
+
+  // One status row; the focus chip's number is the sidebar badge.
+  const filters = page.getByRole("group", { name: "Status" });
+  await expect(filters).toHaveCount(1);
+  await expect(page.getByRole("group", { name: "Fokus" })).toHaveCount(0);
+  const focus = filters.getByRole("link", { name: /Fehlt\/abgelaufen für kommende Märkte/ });
+  const chipCount = (await focus.innerText()).match(/(\d+)\s*$/)?.[1];
+  const badge = page
+    .getByRole("navigation", { name: "Hauptnavigation" })
+    .first()
+    .getByRole("link", { name: /^Genehmigungen/ });
+  if (chipCount && chipCount !== "0") await expect(badge).toContainText(chipCount);
+
+  // Sub-paths and the drawer query keep working.
+  await page.goto("/logbuch?ansicht=liste&genehmigung=00000000-0000-4000-8000-000000000000");
+  await expect(page).toHaveURL(/\/genehmigungen\?ansicht=liste&genehmigung=/);
+});
+
+test("Notifications are hidden: no bell, no sidebar entry, the page answers 404", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Benachrichtigungen/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Benachrichtigungen/ })).toHaveCount(0);
+  const response = await page.goto("/benachrichtigungen");
+  expect(response?.status()).toBe(404);
 });
 
 test("+ Neu offers task, permit and defect to the owner (no payment or shift while hidden)", async ({

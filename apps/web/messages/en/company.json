@@ -1,6 +1,6 @@
 {
   "company": {
-    "title": "Company",
+    "title": "Duties & vehicles",
     "subtitle": "Recurring obligations, vehicles and defects.",
     "tabs": {
       "label": "Company sections",
@@ -41,7 +41,7 @@
       "other": "Other"
     },
     "scopes": {
-      "company": "Company",
+      "company": "Business",
       "vehicle": "Vehicle",
       "venue": "Venue"
     },

@@ -4,7 +4,7 @@ import { PERMIT_TRANSITIONS, type PermitStatus } from "@marktwerk/core";
 import { Check, Circle, CircleDot } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
-import { changePermitStatus, undoPermitStatus } from "@/app/(app)/logbuch/actions";
+import { changePermitStatus, undoPermitStatus } from "@/app/(app)/genehmigungen/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

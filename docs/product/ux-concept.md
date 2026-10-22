@@ -13,10 +13,11 @@ and this document differ, the prototype wins unless a decision says otherwise.
 
 1. **Familiar first, powerful second.** Every screen must work for someone who never changes a setting.
    Shortcuts, Strg+K, saved filters and *Kompakt* are layers for the people who want them, never a prerequisite.
-2. **Nothing hidden.** Every module is reachable from the labelled sidebar, always in the same place. Strg+K and
-   keyboard shortcuts are accelerators, not the only path (client: "don't hide existing functions").
+2. **Nothing hidden.** Every module is reachable from the labelled sidebar, always in the same place (the less
+   frequent ones one click away in the collapsible group "Stammdaten"). Strg+K and keyboard shortcuts are
+   accelerators, not the only path (client: "don't hide existing functions").
 3. **Their words, their mental models.** Vorlage → Termine (like the old PHP admin), calendar weeks (KW),
-   Platzkarte, Logbuch, Raten. Excel-like grids where they use Excel today. Printable views where they print today.
+   Platzkarte, Genehmigungen, Raten. Excel-like grids where they use Excel today. Printable views where they print today.
 4. **One view, one place.** Every view (board, event, logbook…) is a page with its own URL. Vorschau and detail
    drawers keep the list in sight while looking at or working on a record, and they are linkable too.
 5. **Undo over "Sind Sie sicher?".** Optimistic actions with an undo toast. Confirm only what can't be undone, and name
@@ -33,48 +34,55 @@ and this document differ, the prototype wins unless a decision says otherwise.
 ```
 marktwerk
 ├── Übersicht                 ← start screen for everyone (KPIs, season, Heute fällig, Dieses Wochenende)
-├── Kalender                  ← company-wide calendar with layers (events, deadlines, shifts, holidays)
 ├── Board                     ← across events: Bereitschaft · Matrix · Spalten
 ├── Veranstaltungen           ← list · calendar · "Markt planen"
-│   └── Veranstaltung         ← tabs: Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf
-├── Orte                      ← venues with zones/rows and location agreements (own entry, decision 2026-10-21)
-├── Logbuch                   ← permit matrix (locations × permit types) · Zeitstrahl
-├── Team                      ← hours month grid · shifts per event · month close
-├── Finanzen                  ← payables & instalments · receipts · event money overview
-├── Firma                     ← obligations · vehicles · insurances · company documents
-├── Aussteller                 ← vendor list (read-only import in Phase 1)
-├── Kontakte                  ← authorities, landowners, suppliers, services (own entry, decision 2026-10-21)
-├── Wissen                    ← knowledge base
-├── Benachrichtigungen · Einstellungen  ← Firma · Benutzer & Rollen · Rechtliche Werte · **Bibliothek** (Grundvorlage · Märkte · weitere Ablaufvorlagen)
-├── SPÄTER (disabled, "Phase 2"): Buchungen · Postfach · Inventar
-└── (bottom) Profil: Sprache · Design (System/Hell/Dunkel) · Dichte (Standard/Kompakt) · Abmelden
+│   └── Veranstaltung         ← tabs: Überblick · Board · Genehmigungen · Dokumente · Notizen · Verlauf (Team, Geld hidden)
+├── Kalender                  ← company-wide calendar, layers behind the "Ebenen" button
+├── Genehmigungen             ← permit matrix (locations × permit types) · list; was "Logbuch" (`/genehmigungen`)
+├── Stammdaten (collapsible, collapsed by default)
+│   ├── Orte                  ← venues with zones/rows and location agreements
+│   ├── Kontakte              ← authorities, landowners, suppliers, services
+│   ├── Aussteller            ← vendor list (read-only import)
+│   ├── Wissen                ← knowledge base
+│   └── Pflichten             ← recurring obligations · vehicles · defects (`/firma`, page title "Pflichten & Fahrzeuge")
+├── (hidden for now, `lib/modules.ts`: Team · Finanzen · Benachrichtigungen · Buchungen)
+└── (bottom) Profil: Einstellungen · Design (System/Hell/Dunkel) · Dichte (Standard/Kompakt) · Sprache · Abmelden
+      Einstellungen ← Firma (company data) · Benutzer & Rollen · [Rechtliche Werte with Team] · **Bibliothek**
 ```
+Naming: **Pflichten** is the sidebar entry for what the route `/firma` holds; **Firma** only names the company data
+in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/genehmigungen` (query strings such as
+`?genehmigung=<id>` stay intact).
 
 ## 3. App shell
 
 ```
-┌ Sidebar 232 px ─┬ Top bar: Veranstaltungen › Food & Wine Neuss   [🔍 Suchen oder Befehl … Strg+K]  [+ Neu]  🔔 3 ┐
+┌ Sidebar 232 px ─┬ Top bar: Veranstaltungen › Food & Wine Neuss   [🔍 Suchen oder Befehl … Strg+K]  [+ Neu]      ┐
 │ marktwerk       │─────────────────────────────────────────────────────────────────────────────────────────┤
 │ Übersicht       │                                                                                         │
 │ Kalender        │  Page (own URL)                                         ┌ Vorschau ───────┐             │
 │ Board           │                                                         │ card, top right │             │
 │ Veranstaltungen │                                                         └─────────────────┘             │
-│ Logbuch      7  │                                                                  ┌ Drawer (right) ─────┐│
+│ Genehmigungen 7 │                                                                  ┌ Drawer (right) ─────┐│
 │ …               │                                                                  │ real work           ││
-│ SPÄTER          │                                                                  │                     ││
+│ ▸ Stammdaten    │                                                                  │                     ││
 │ Profil ▾        │                                                                  └─────────────────────┘│
 └─────────────────┴─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-- **Sidebar** (232 px, collapsible to an icon rail; `user_preference.sidebar_collapsed`): logo "marktwerk", then
-  Übersicht · Kalender · Board · Veranstaltungen · **Orte** · Logbuch (badge count) · Team · Finanzen (badge) · Firma ·
-  Aussteller · **Kontakte** · Wissen · Benachrichtigungen (count) · Einstellungen. Orte and Kontakte have their
-  own entries (product owner, 2026-10-21; the prototype's sidebar predates this). Entries a role may not read are
-  hidden (`can()`). Group **SPÄTER**: Buchungen · Postfach · Inventar,
-  disabled with the hint "Phase 2". At the bottom the **profile** (name, role, current theme); it opens the profile menu
-  with Sprache, Design (System / Hell / Dunkel), Dichte (Standard / Kompakt) and Abmelden.
-- **Top bar:** breadcrumb (e.g. "Veranstaltungen › Food & Wine Neuss"), the visible search field "Suchen oder
-  Befehl …" with Strg+K hint (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board,
-  new event in Veranstaltungen…), notification bell with count.
+- **Sidebar** (232 px): logo "marktwerk", then **five daily entries**: Übersicht · Board · Veranstaltungen · Kalender ·
+  Genehmigungen (UX pass, product owner 2026-10-22). Team and Finanzen join them when their modules return. The red
+  badge on Genehmigungen is the number "Fehlt/abgelaufen für kommende Märkte": permits that are missing, not yet
+  applied for, rejected or expired and that an upcoming market needs; it is the same number as the focus chip of that
+  name on the Genehmigungen page (one definition, `missingPermitCount` / `Logbook.needsAction`). Below, the
+  collapsible group **Stammdaten** (Orte · Kontakte · Aussteller · Wissen · Pflichten), collapsed by default; the
+  state is remembered per browser (cookie `mw_nav_stammdaten`) and the group opens by itself when the current page is
+  inside it. Entries a role may not read are hidden (`can()`), as are the entries of hidden modules. The former
+  group "SPÄTER" (Buchungen · Postfach · Inventar) and the Benachrichtigungen entry are gone. At the bottom the
+  **profile** (name, role); its menu holds **Einstellungen** (also reachable with Strg+K), Design (System / Hell /
+  Dunkel), Dichte (Standard / Kompakt), Sprache and Abmelden.
+- **Top bar:** breadcrumb only below a top-level page (e.g. "Veranstaltungen › Food & Wine Neuss"; on a top-level
+  page it would repeat the H1, so it is left out), the visible search field "Suchen oder Befehl …" with Strg+K hint
+  (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board, new event in
+  Veranstaltungen…) and, once notifications are back, the bell with count.
 - **Content:** one page. Vorschau and drawers open over it (§4).
 - **Below 1024 px** the sidebar collapses to icons, then to a hamburger menu; pages go single-column. Staff/shift
   screens have a **390 px mobile variant** (Team · Schichten); field crew get magic-link pages in Phase 2.
@@ -83,7 +91,7 @@ marktwerk
 
 | Surface | Use for | Behaviour |
 |---|---|---|
-| **Page** | Modules and records that are work surfaces: event (with tabs), template editor, month close, Logbuch | Own URL, breadcrumb, browser back/forward |
+| **Page** | Modules and records that are work surfaces: event (with tabs), template editor, month close, Genehmigungen | Own URL, breadcrumb, browser back/forward |
 | **Vorschau** (quick preview) | Looking at a record from any list without leaving it: key facts, health, next deadlines | Small card/sheet top right; 👁 icon on the row or **Space**; **Enter** opens the page, **Esc** closes; read-only apart from one primary action |
 | **Detail drawer** | Real work on one record while the list stays visible: task, permit, payable/instalment, shift | Slides in from the right; full editing, comments, activity; Esc closes |
 | **Modal** | ≤ 8 fields, quick creation (new task, new contact) or confirming something irreversible | Centered; never for a form someone might abandon halfway |
@@ -106,7 +114,7 @@ what's missing?"). Top to bottom: (1) **status line** with days until the market
 "vorbei"), tasks done x/y with a slim bar and permits granted a/b, each piece linking to what it summarises; (2) **Was
 fehlt**: open tasks that are overdue, blocked/waiting or due within 7 days (snoozed ones stay out) plus required permits
 not yet granted, Kernaufgaben first then by due date, each task row with a quick "Erledigt" tick and the snooze menu
-(undo toasts), permit rows opening the permit drawer, "Alles im Plan" when empty; (3) **Kernaufgaben** checklist with
+(undo toasts), permit rows opening the Genehmigungen drawer, "Alles im Plan" when empty; (3) **Kernaufgaben** checklist with
 state per row (erledigt · offen · bald fällig · überfällig · zurückgestellt), the star only in the heading;
 (4) **Nächste Termine**, upcoming dates first, past ones collapsed; (5) **Eckdaten** and **Regeln der Art**, collapsed with a
 one-line summary and editable as before. The tab bar already shows the counts, so there is no separate "Zustand" panel.
@@ -141,15 +149,15 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Aufgabe | drawer `?aufgabe=<id>` on `/board` and `/veranstaltungen/[id]/board` (M2; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity (a closed disclosure), status: primary **Erledigt** button, **Wartet auf Amt** toggle and a "…" menu for In Arbeit / Blockiert / Übersprungen / Wieder offen, the current state always spelled out as a badge. The carried-over count and the origin of the task are not shown; the "Kernaufgabe" toggle explains itself in one line and the star carries the tooltip "Kernaufgabe – eine Aufgabe, die jeder Markt braucht" (no comments, client decision 2026-10-22) |
 | Veranstaltungen | `/veranstaltungen` | Opens at the **current week**: default filter "Aktuell & kommend" (running and upcoming, all seasons; past ones via the status or season select, `?status=alle`), no Liste/Kalender toggle (the Kalender page covers it; `?ansicht=kalender` redirects there), no health column, "abgerechnet" reads as "vorbei" while finance is hidden. KW column, type filter chips, Vorschau `?vorschau=<id>`, one primary button **"Markt planen"** (3-step side sheet: pick a market, dates, preview) via `?erzeugen=1[&vorlage=<presetId>]`; a single date without a market is "+ Neu → Einzeltermin" (`/veranstaltungen/neu`) |
 | Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`); Dokumente, Notizen and Verlauf sit under "Mehr". Every link to a market opens its Überblick |
-| Orte | `/orte` | Venues (list, Vorschau `?vorschau=<id>`) |
+| Orte | `/orte` | Venues: Name, Stadt, kommende Termine (zones, rows, capacity, landowner in the Vorschau `?vorschau=<id>`) |
 | Ort | `/orte/[id]` | One venue: zones and rows, location agreements |
-| Logbuch | `/logbuch` | Permit matrix (locations × permit types) + Zeitstrahl toggle; cells open the permit drawer (M3) |
+| Genehmigungen | `/genehmigungen` (was `/logbuch`, permanent redirect) | Permit matrix (locations × permit types) or list; one status row incl. "Fehlt/abgelaufen für kommende Märkte"; cells open the permit drawer `?genehmigung=<id>` |
 | Genehmigung | drawer `?detail=permit:<id>` (M3); page `/genehmigungen/[id]` planned | One permit (documents, conditions, fees) |
 | Team · Stunden | `/team` | Staff list (M1), Vorschau `?person=<id>`; month grid hours, remaining allowance, month-close stepper and Schichten je Veranstaltung from M4 |
 | Person | `?person=<id>` on `/team`; page `/team/[id]` planned (M4) | Contract, hours history, shifts |
 | Finanzen · Zahlungen | `/finanzen` | Payables with inline instalments, receipts; drawer `?detail=payable:<id>` (M5) |
-| Firma | `/firma` | Obligations, vehicles, insurances, documents (M6) |
-| Aussteller | `/aussteller` | Vendor list (read-only) |
+| Pflichten & Fahrzeuge | `/firma` (sidebar: Pflichten) | Obligations, vehicles, defects (tabs); one filter row, no column prints over another |
+| Aussteller | `/aussteller` | Vendor list (read-only): Name, Sortiment, Stadt, Stammaussteller; the rest in the Vorschau |
 | Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`) |
 | Einstellungen → Bibliothek | `/einstellungen/bibliothek` | Grundvorlage (master task template), Märkte (presets with venue, rhythm, own task template; Vorschau `?vorschau=<id>`), "Weitere Ablaufvorlagen" (collapsed, the old per-type templates). There is no "Vorlagen" sidebar entry; `/vorlagen` redirects here |
 | Markt bearbeiten | `/vorlagen/[id]` | Edit form of a market (preset) |
@@ -184,16 +192,19 @@ Top to bottom, no fixed master-detail layout:
 ### Kalender (module)
 - **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**. Veranstaltungen keeps its own Liste/Kalender toggle;
   the Kalender module is the company-wide view across modules.
-- **Layer panel ("Ebenen"):** *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*:
-  Genehmigungen, Raten & Zahlungen, Aufgaben, Arbeitszeiten & Abschluss, Rückgaben (Miete), Fahrzeuge & Pflichten;
-  *Team*: Schichten; *Hintergrund*: Feiertage NRW.
-- **Presets:** Alles · Nur Veranstaltungen · Nur Fristen · Märkte + Genehmigungen. **Narrowing:** "Nur Achtung und
-  Kritisch", "Nur meine Zuständigkeit", Ort.
+- **Layer panel ("Ebenen"):** collapsed behind an "Ebenen" button (state remembered, cookie `mw_kal_ebenen`).
+  *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*: Genehmigungen, Raten &
+  Zahlungen, Aufgaben, Fahrzeuge & Pflichten; *Team*: Schichten; *Hintergrund*: Feiertage NRW. Hidden modules' layers
+  are not offered. Default: events + permits + obligations on, **Aufgaben off** (those live on the Board).
+- **Presets:** two, "Märkte" and "Märkte + Fristen" (= the default). **Narrowing:** "Nur Achtung und Kritisch", Ort
+  ("Nur meine Zuständigkeit" returns with Team).
+- **Entries:** month chips show the full market name (up to two lines) with the market colour bar; every event
+  chip and list row links to the event's Überblick (`/veranstaltungen/<id>`).
 - The layer selection is **saved per person** (`user_preference.saved_views`).
 - Weekend marker **⚑** when a weekend has 4 or more events (the weekend cap).
 - **Rollout:** M1 ships the Veranstaltungen and Feiertage NRW layers; the other layers appear as their modules land
   (Aufgaben M2, Genehmigungen M3, Arbeitszeiten & Abschluss and Schichten M4, Raten & Zahlungen M5, Fahrzeuge &
-  Pflichten M6; Rückgaben (Miete) with rentals in M12).
+  Pflichten M6).
 
 ## 6. Interaction patterns
 

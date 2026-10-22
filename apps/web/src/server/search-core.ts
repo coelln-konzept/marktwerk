@@ -136,7 +136,7 @@ export async function searchAs(
         kind: "permit",
         title: r.title,
         subtitle: r.venueName ?? undefined,
-        href: `/logbuch?genehmigung=${r.id}`,
+        href: `/genehmigungen?genehmigung=${r.id}`,
       });
     }
   }

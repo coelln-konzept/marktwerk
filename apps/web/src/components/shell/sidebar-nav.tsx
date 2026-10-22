@@ -1,47 +1,93 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useId, useState } from "react";
+import { UI_STATE_COOKIES, writeUiState } from "@/lib/ui-state";
 import { cn } from "@/lib/utils";
 import { useShell } from "./shell-context";
 
-export type NavEntry = { href: string; label: string; icon: React.ReactNode; badge?: number };
-export type UpcomingEntry = { key: string; label: string; icon: React.ReactNode };
+export type NavEntry = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  badge?: number;
+  /** Spoken explanation of the badge (what the number counts). */
+  badgeLabel?: string;
+};
+
+/** A collapsible group of less frequent entries (Stammdaten). */
+export type NavGroup = { label: string; items: NavEntry[]; defaultOpen: boolean };
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function NavLink({ item, pathname }: { item: NavEntry; pathname: string }) {
+  const active = isActive(pathname, item.href);
+  return (
+    <Link
+      href={item.href as never}
+      aria-current={active ? "page" : undefined}
+      title={item.badge && item.badgeLabel ? `${item.label}: ${item.badgeLabel}` : undefined}
+      className={cn(
+        "flex min-h-8 items-center gap-3 rounded-lg px-2 py-1 font-medium text-foreground-2 hover:bg-hover [&_svg]:size-4 [&_svg]:text-muted-foreground",
+        active &&
+          "bg-card font-semibold text-foreground shadow-[0_0_0_1px_var(--border)] [&_svg]:text-accent-soft-foreground",
+      )}
+    >
+      {item.icon}
+      <span className="truncate">{item.label}</span>
+      {item.badge ? (
+        <span className="tabular ml-auto inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-critical-dot px-1.5 font-bold text-[11px] text-white">
+          {item.badge}
+          {item.badgeLabel && <span className="sr-only"> {item.badgeLabel}</span>}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
 /**
- * Labelled module navigation (nothing hidden). Fixed 232 px column from 1024 px; below that it
- * slides in over the page from the top bar's menu button.
+ * Labelled module navigation. Fixed 232 px column from 1024 px; below that it slides in over the page
+ * from the top bar's menu button. Five daily entries, then one collapsible group (Stammdaten) whose
+ * state is remembered; it opens by itself when the current page is inside it.
  */
 export function SidebarNav({
   brand,
   items,
-  upcoming,
-  upcomingTitle,
-  phaseLabel,
+  group,
   navLabel,
   closeLabel,
   footer,
 }: {
   brand: string;
   items: NavEntry[];
-  upcoming: UpcomingEntry[];
-  upcomingTitle: string;
-  phaseLabel: string;
+  group: NavGroup | null;
   navLabel: string;
   closeLabel: string;
   footer: React.ReactNode;
 }) {
   const pathname = usePathname();
   const { navOpen, setNavOpen } = useShell();
+  const groupId = useId();
+  const inGroup = group?.items.some((i) => isActive(pathname, i.href)) ?? false;
+  const [groupOpen, setGroupOpen] = useState(group?.defaultOpen ?? false);
 
   // Close the mobile navigation after navigating.
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs on route change only
   useEffect(() => setNavOpen(false), [pathname]);
+  // Arriving on a page of the group (link, palette, back button) shows where you are.
+  useEffect(() => {
+    if (inGroup) setGroupOpen(true);
+  }, [inGroup]);
+
+  function toggleGroup() {
+    const next = !groupOpen;
+    setGroupOpen(next);
+    writeUiState(UI_STATE_COOKIES.navMasterData, next);
+  }
 
   return (
     <>
@@ -79,45 +125,34 @@ export function SidebarNav({
           {brand}
         </Link>
         <nav aria-label={navLabel} className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
-          {items.map((item) => {
-            const active = isActive(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href as never}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex min-h-8 items-center gap-3 rounded-lg px-2 py-1 font-medium text-foreground-2 hover:bg-hover [&_svg]:size-4 [&_svg]:text-muted-foreground",
-                  active &&
-                    "bg-card font-semibold text-foreground shadow-[0_0_0_1px_var(--border)] [&_svg]:text-accent-soft-foreground",
-                )}
-              >
-                {item.icon}
-                <span className="truncate">{item.label}</span>
-                {item.badge ? (
-                  <span className="tabular ml-auto inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-critical-dot px-1.5 font-bold text-[11px] text-white">
-                    {item.badge}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
-          <div className="px-2 pt-3 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider">
-            {upcomingTitle}
-          </div>
-          {upcoming.map((item) => (
-            <span
-              key={item.key}
-              aria-disabled="true"
-              className="flex min-h-8 cursor-not-allowed items-center gap-3 px-2 py-1 font-medium text-faint-foreground [&_svg]:size-4"
-            >
-              {item.icon}
-              <span className="truncate">{item.label}</span>
-              <span className="ml-auto rounded-md bg-status-neutral-bg px-1.5 font-semibold text-[10.5px] text-foreground-2 leading-[18px]">
-                {phaseLabel}
-              </span>
-            </span>
+          {items.map((item) => (
+            <NavLink key={item.href} item={item} pathname={pathname} />
           ))}
+          {group && group.items.length > 0 && (
+            <div className="mt-3 flex flex-col gap-0.5 border-sidebar-border border-t pt-2">
+              <button
+                type="button"
+                onClick={toggleGroup}
+                aria-expanded={groupOpen}
+                aria-controls={groupId}
+                className="flex min-h-8 w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-1 text-left font-medium text-foreground-2 hover:bg-hover"
+              >
+                <ChevronRight
+                  aria-hidden
+                  className={cn(
+                    "size-4 text-muted-foreground transition-transform",
+                    groupOpen && "rotate-90",
+                  )}
+                />
+                <span className="truncate">{group.label}</span>
+              </button>
+              <div id={groupId} className={cn("flex-col gap-0.5", groupOpen ? "flex" : "hidden")}>
+                {group.items.map((item) => (
+                  <NavLink key={item.href} item={item} pathname={pathname} />
+                ))}
+              </div>
+            </div>
+          )}
         </nav>
         <div className="border-sidebar-border border-t pt-2">{footer}</div>
       </aside>

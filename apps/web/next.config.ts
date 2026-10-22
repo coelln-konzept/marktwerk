@@ -28,6 +28,9 @@ const nextConfig: NextConfig = {
     return [
       { source: "/haendler", destination: "/aussteller", permanent: true },
       { source: "/haendler/:path*", destination: "/aussteller/:path*", permanent: true },
+      // "Logbuch" became "Genehmigungen" (UX pass 2026-10-22); query strings (?genehmigung=<id>) pass through.
+      { source: "/logbuch", destination: "/genehmigungen", permanent: true },
+      { source: "/logbuch/:path*", destination: "/genehmigungen/:path*", permanent: true },
     ];
   },
   turbopack: {

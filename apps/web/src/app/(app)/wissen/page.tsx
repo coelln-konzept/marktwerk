@@ -10,11 +10,5 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Placeholder() {
   await requirePermission("kb", "read");
   const t = await getTranslations();
-  return (
-    <ComingSoon
-      title={t("nav.knowledgeBase")}
-      milestone="M6"
-      what={t("comingSoon.knowledgeBase")}
-    />
-  );
+  return <ComingSoon title={t("nav.knowledgeBase")} what={t("comingSoon.knowledgeBase")} />;
 }

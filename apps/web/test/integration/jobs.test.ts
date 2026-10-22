@@ -362,7 +362,7 @@ describe("deadline sweep: permits", () => {
       severity: "critical",
       subjectType: "permit",
       subjectId: p.id,
-      link: `/logbuch?genehmigung=${p.id}`,
+      link: `/genehmigungen?genehmigung=${p.id}`,
       title: "Antrag überfällig: Wasser 2027",
     });
     const ben = await notificationsOf(benId);
@@ -513,7 +513,7 @@ describe("daily digest", () => {
     expect(text).not.toContain("Später");
     expect(text).not.toContain("Fremd");
     expect(text).not.toContain("Beantragen");
-    expect(text).toContain("http://localhost:3000/logbuch?genehmigung=");
+    expect(text).toContain("http://localhost:3000/genehmigungen?genehmigung=");
 
     // Ben's digest only has his own task.
     expect(mails[1]?.renderedText).toContain("Fremd");
