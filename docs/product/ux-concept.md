@@ -201,7 +201,7 @@ announcements in German via `aria-live`.
 | Money | Geplant · Fällig · Teilweise bezahlt · Bezahlt · Überfällig | grey · amber · amber ◐ · green ✓ · red ! |
 | Hours | OK · Grenze nah · Über Grenze (zulässig?) · Unzulässig | green · amber · amber ⚠ · red ⛔ |
 | Health | Im Plan · Achtung · Kritisch | green ● · amber ▲ · red ■ (shape differs, too) |
-| Events (lifecycle) | Entwurf · geplant · bestätigt · läuft · abgeschlossen · abgesagt; from M10 also abgerechnet (`closed`, after financial close-out) | label badge; health shown separately (● ▲ ■) |
+| Events (lifecycle) | Entwurf (manual only) · geplant (start state of every new event) · bestätigt (automatic once all required permits are granted) · läuft · abgeschlossen · abgesagt; from M10 also abgerechnet (`closed`, after financial close-out) | label badge; health shown separately (● ▲ ■) |
 
 ## 8. Content & language
 

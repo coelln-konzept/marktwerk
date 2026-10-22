@@ -36,6 +36,7 @@ import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
+import { type AutoConfirmSource, autoConfirmEvents } from "./event-lifecycle";
 
 export type PermitErrorCode =
   | "not_found"
@@ -126,7 +127,7 @@ function permitTitle(requirementTitle: string, cadence: PermitCadence, eventStar
 export async function fillLogbookForEvents(
   tx: Tx,
   eventIds: string[],
-  actor?: Pick<Actor, "id">,
+  actor?: Pick<Actor, "id"> & { staffMemberId?: string | null },
 ): Promise<FillResult> {
   const result: FillResult = { createdPermits: [], linked: 0, tasks: 0 };
   if (eventIds.length === 0) return result;
@@ -294,6 +295,16 @@ export async function fillLogbookForEvents(
           diff: { source: "logbook_fill", eventIds },
         })),
     ]);
+  }
+
+  // Events whose required permits are all held already (an existing permit covers them) start confirmed.
+  if (actor) {
+    await autoConfirmEvents(
+      tx,
+      { id: actor.id, staffMemberId: actor.staffMemberId ?? null },
+      ids,
+      "logbook_fill",
+    );
   }
 
   // One grouped "assigned" notification per person instead of one per task.
@@ -717,6 +728,25 @@ export type PermitStatusState = {
 export const isPermitStatus = (value: unknown): value is PermitStatus =>
   typeof value === "string" && (PERMIT_STATUSES as readonly string[]).includes(value);
 
+/** Re-evaluates the events a permit belongs to after it was granted (see `autoConfirmEvents`). */
+async function autoConfirmEventsOfPermit(
+  tx: Tx,
+  actor: Pick<Actor, "id" | "staffMemberId">,
+  permitId: string,
+  source: AutoConfirmSource,
+) {
+  const linked = await tx
+    .select({ eventId: eventPermit.eventId })
+    .from(eventPermit)
+    .where(eq(eventPermit.permitId, permitId));
+  await autoConfirmEvents(
+    tx,
+    actor,
+    linked.map((l) => l.eventId),
+    source,
+  );
+}
+
 /**
  * Moves a permit along its flow (not_started → preparing → applied → granted / rejected; not_required;
  * superseded). Marking it applied / granted stamps today into `applied_at` / `granted_at` if empty and
@@ -782,6 +812,7 @@ export async function setPermitStatus(
         diff: { from: current.status, to, closedTaskIds },
       },
     ]);
+    if (to === "granted") await autoConfirmEventsOfPermit(tx, actor, id, "permit_status");
     return { changed: true, previous, closedTaskIds };
   });
 }
@@ -831,6 +862,8 @@ export async function restorePermitStatus(
         diff: { from: current.status, to: previous.status, undo: true, reopenedTaskIds: ids },
       },
     ]);
+    if (previous.status === "granted")
+      await autoConfirmEventsOfPermit(tx, actor, id, "permit_status");
     return { changed: true };
   });
 }
@@ -877,6 +910,12 @@ export async function linkEventsToPermit(
           diff: { eventIds: added.map((a) => a.eventId), source: "manual" },
         },
       ]);
+      await autoConfirmEvents(
+        tx,
+        actor,
+        added.map((a) => a.eventId),
+        "permit_link",
+      );
     }
     return { added: added.length };
   });
@@ -941,6 +980,7 @@ export async function setEventPermitRequired(
         diff: { eventId, from: row.required, to: required },
       },
     ]);
+    if (!required) await autoConfirmEvents(tx, actor, [eventId], "permit_required");
     return { changed: true };
   });
 }

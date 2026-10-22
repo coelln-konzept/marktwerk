@@ -19,7 +19,7 @@ import {
   restoreAgreement,
   updateAgreement,
 } from "@/server/services/agreements";
-import { archiveDraftEvents, EventInputError } from "@/server/services/events";
+import { EventInputError, undoGeneratedEvents } from "@/server/services/events";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
@@ -200,7 +200,7 @@ describe("agreements", () => {
 });
 
 describe("createEventsFromAgreement", () => {
-  it("creates linked draft events from a preset for the dates without an event", async () => {
+  it("creates linked planned events from a preset for the dates without an event", async () => {
     const { id } = await newAgreement();
     await db.delete(auditLog);
     const { created, skipped } = await createEventsFromAgreement(owner, id, {
@@ -217,7 +217,7 @@ describe("createEventsFromAgreement", () => {
         presetId: cat.presets.flea.id,
         venueId: cat.venue.id,
         name: "Testflohmarkt",
-        status: "draft",
+        status: "planned",
         pricePerMCents: 1200,
       });
     }
@@ -279,7 +279,7 @@ describe("createEventsFromAgreement", () => {
     expect(result.created.map((c) => c.startsOn)).toEqual(["2027-05-02"]);
   });
 
-  it("creates the date again after its draft event was undone (archived)", async () => {
+  it("creates the date again after its event was undone (archived)", async () => {
     const { id } = await newAgreement();
     const { created } = await createEventsFromAgreement(
       owner,
@@ -287,7 +287,7 @@ describe("createEventsFromAgreement", () => {
       { presetId: cat.presets.flea.id },
       ["2026-06-07"],
     );
-    await archiveDraftEvents(
+    await undoGeneratedEvents(
       owner,
       created.map((c) => c.id),
     );

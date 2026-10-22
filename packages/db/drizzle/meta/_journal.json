@@ -43,6 +43,13 @@
       "when": 1792669417897,
       "tag": "0005_permit_horizon",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792670120247,
+      "tag": "0006_event_confirmed_notification",
+      "breakpoints": true
     }
   ]
 }

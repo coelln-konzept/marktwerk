@@ -1,0 +1,1 @@
+ALTER TYPE "app"."notification_reason" ADD VALUE 'event_confirmed';

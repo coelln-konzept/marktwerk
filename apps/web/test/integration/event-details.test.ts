@@ -142,7 +142,7 @@ describe("moving an event", () => {
     const preview = await previewEventMove(owner, id, "2026-12-26");
     expect(preview).toMatchObject({
       movable: true,
-      announced: false,
+      announced: true, // new events start as planned = already published
       from: { startsOn: "2026-11-14", endsOn: "2026-11-14" },
       to: { startsOn: "2026-12-26", endsOn: "2026-12-26" },
     });

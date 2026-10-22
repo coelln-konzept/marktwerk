@@ -106,7 +106,13 @@ erDiagram
 ### Events
 - **event**: `preset_id?`, `event_type_id`, `venue_id`, `name`, `starts_on` (date), `ends_on` (date),
   local times, **`status`** (`draft | planned | confirmed | live | completed | closed | cancelled`)
-  where *planned* = announced/public but permit not confirmed (not bookable),
+  where *planned* = announced/public but permit not confirmed (not bookable). **New events start as `planned`**
+  (they go online before permits are in); `draft` is only reached by a manual change. A planned event becomes
+  `confirmed` **automatically** once it has at least one required permit and all of them are granted
+  (`shouldAutoConfirm`, evaluated by `autoConfirmEvents` after a permit is granted, linked or marked "not
+  needed", and at the end of the logbook fill; audit `event.status` with `auto: true`, notification reason
+  `event_confirmed`). No required permit → stays planned (manual confirmation). Never moves back,
+  the permit health keeps showing a withdrawn permit,
   **booking flags**: `booking_open` (bool), `fully_booked` (bool), `car_spaces_full` (bool);
   `price_per_m_cents` (copied from preset, overridable), `booking_fee_cents`, `target_revenue_cents?`,
   `health_override?` + reason, `custom_fields`, notes, `cancelled_reason?`.
@@ -298,9 +304,13 @@ createEvent(preset | agreement, date):
       duties ← preset.default_duties
       for template in preset.templates (current published version): checklist + tasks
           (due_at from anchor/offset/day_mode; assignee from duty; estimate from item)
+      status = planned
       logbook fill: for each permit requirement of venue/type:
           valid covering permit exists → link (ticked, with document link)
           else → new permit (apply_by = event_day − lead_time, or window end) + prep tasks
+      auto-confirm: all required permits already granted → planned → confirmed (audit auto, same tx)
+      (undo "Rückgängig" after a run: audit-based, an event qualifies while its audit trail holds only
+       event.create (+ that automatic confirmation); status is not looked at)
       (M11) equipment requirements ← preset
       audit; grouped "assigned" notifications (debounced)
 ```

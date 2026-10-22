@@ -7,9 +7,10 @@ maps, communication, **P4** open up. Revised 2026-10-21 after the client meeting
 
 ```mermaid
 stateDiagram-v2
-    [*] --> draft: create / generate from preset or agreement
-    draft --> planned: announced (website "geplant"), permit pending
-    planned --> confirmed: market permit granted
+    [*] --> planned: create / generate from preset or agreement (announced online right away)
+    draft --> planned: manual
+    planned --> draft: manual
+    planned --> confirmed: all required permits granted (automatic) or manual
     confirmed --> live: event day
     live --> completed: event over, post tasks running
     completed --> closed: close-out (money, rentals, receipts, lessons)
