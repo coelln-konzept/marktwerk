@@ -132,7 +132,9 @@ erDiagram
   `duty_role_id?`, `priority`, **`estimate_minutes`**, evidence (`requires_photo`, `requires_note`,
   `requires_attachment`, `check_items`), `is_key` (Kernaufgabe, manual flag, copied to the task by
   instantiation and propagation), `requires_approval_by?`, `depends_on_keys`, `condition` (on event
-  type/venue attributes), sort).
+  type/venue attributes), sort), `permit_type?` (0008: the item applies for a permit of that type, e.g.
+  "Marktgenehmigung beantragen" → `market_permit`; its tasks get `task.permit_id` = the event's permit of that type
+  via `linkPermitTasks` and complete automatically once that permit is applied for or granted).
   *(implemented 0002: `task_category` also has `office` (the synthetic Büro tasks); `phase` is `pre | live | post`;
   `priority` is `low | normal | high`; `checklist_template.kind` (`event | permit`, a permit-prep template has
   kind `permit`) and `event_type_id?`; `template_version` has `published_at`, `published_by_id`, `change_note`, a
