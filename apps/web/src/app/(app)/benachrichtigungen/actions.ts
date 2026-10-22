@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import type { NotificationGroup } from "@/lib/notification-reasons";
 import { getActor } from "@/server/actor";
+import { isCompanyArt } from "@/server/queries/notifications";
 import {
   markAllRead,
   markUnread,
@@ -12,7 +13,14 @@ import {
   setNotificationState,
   snoozeNotification,
 } from "@/server/services/notifications";
-import { requireUser } from "@/server/session";
+import {
+  markAllCompanyRead,
+  markCompanyUnread,
+  restoreCompanyNotification,
+  setCompanyNotificationState,
+  snoozeCompanyNotification,
+} from "@/server/services/notifications-company";
+import { requirePermission, requireUser } from "@/server/session";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -59,4 +67,45 @@ export async function markAllReadAction(group?: NotificationGroup) {
 
 export async function markUnreadAction(ids: string[]) {
   return guarded(async () => markUnread(await getActor(), ids));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Company-wide notification center (owner and manager)
+
+async function guardedCompany<T>(run: () => Promise<T>): Promise<ActionResult<T>> {
+  await requirePermission("notification", "manage");
+  return guarded(run);
+}
+
+/** done · unread (reopen) · read. */
+export async function setCompanyStateAction(id: string, state: string) {
+  return guardedCompany(async () => setCompanyNotificationState(await getActor(), id, state));
+}
+
+/** "Zurückstellen" until a date (`YYYY-MM-DD`, after today). */
+export async function snoozeCompanyAction(id: string, until: string) {
+  return guardedCompany(async () => {
+    const result = await snoozeCompanyNotification(await getActor(), id, until);
+    return { until: result.until.toISOString(), previous: result.previous };
+  });
+}
+
+export async function restoreCompanyAction(id: string, previous: NotificationSnapshot) {
+  return guardedCompany(async () => {
+    await restoreCompanyNotification(await getActor(), id, previous);
+    return null;
+  });
+}
+
+export async function markAllCompanyReadAction(art?: string, markt?: string) {
+  return guardedCompany(async () =>
+    markAllCompanyRead(await getActor(), {
+      art: isCompanyArt(art) ? art : undefined,
+      markt: markt || undefined,
+    }),
+  );
+}
+
+export async function markCompanyUnreadAction(ids: string[]) {
+  return guardedCompany(async () => markCompanyUnread(await getActor(), ids));
 }

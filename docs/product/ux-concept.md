@@ -45,7 +45,7 @@ marktwerk
 │   ├── Aussteller            ← vendor list (read-only import)
 │   ├── Wissen                ← knowledge base
 │   └── Pflichten             ← recurring obligations · vehicles · defects (`/firma`, page title "Pflichten & Fahrzeuge")
-├── (hidden for now, `lib/modules.ts`: Team · Finanzen · Benachrichtigungen · Buchungen)
+├── (hidden for now, `lib/modules.ts`: Team · Finanzen · Buchungen; Benachrichtigungen is reached by the bell, not the sidebar)
 └── (bottom) Profil: Einstellungen · Design (System/Hell/Dunkel) · Dichte (Standard/Kompakt) · Sprache · Abmelden
       Einstellungen ← Firma (company data) · Benutzer & Rollen · [Rechtliche Werte with Team] · **Bibliothek**
 ```
@@ -82,7 +82,7 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
 - **Top bar:** breadcrumb only below a top-level page (e.g. "Veranstaltungen › Food & Wine Neuss"; on a top-level
   page it would repeat the H1, so it is left out), the visible search field "Suchen oder Befehl …" with Strg+K hint
   (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board, new event in
-  Veranstaltungen…) and, once notifications are back, the bell with count.
+  Veranstaltungen…) and the **bell** with the number of unread open notifications (owner/manager: company-wide).
 - **Content:** one page. Vorschau and drawers open over it (§4).
 - **Below 1024 px** the sidebar collapses to icons, then to a hamburger menu; pages go single-column. Staff/shift
   screens have a **390 px mobile variant** (Team · Schichten); field crew get magic-link pages in Phase 2.
@@ -163,7 +163,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Markt bearbeiten | `/vorlagen/[id]` | Edit form of a market (preset) |
 | Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` | Timeline template editor (Excel-like grid + timeline ruler); used for the Grundvorlage, a market's own template and the other templates, its back link goes to the Bibliothek |
 | Wissen | `/wissen` | Knowledge base |
-| Benachrichtigungen | `/benachrichtigungen` | Grouped notifications |
+| Benachrichtigungen | `/benachrichtigungen` | Owner/manager: the company-wide notification center (below). Staff/field: their personal inbox. Entry: the bell and Strg+K, no sidebar entry |
 | Einstellungen | `/einstellungen` | Users & roles, legal parameters, company settings |
 
 Modules whose data arrives in a later milestone exist from M1 as routes with a "coming soon" page, so the sidebar never
@@ -188,6 +188,28 @@ Top to bottom, no fixed master-detail layout:
    row actions open the matching drawer.
 5. **Dieses Wochenende:** table of the coming events with columns Genehmigungen · Aufgaben · Team · Geld · Aufwand,
    each with health ● ▲ ■, plus a list **"Was das Wochenende aufhält"** (the blocking items, each linking to its drawer).
+
+### Benachrichtigungen (notification center, decision 2026-10-22)
+The place where the main user sees, sorts and addresses everything important; later it grows into the inbox (Phase 2).
+For **owner and manager** it is **company-wide**: every important item exists **once** (not per assignee) with **one shared
+state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and field logins keep their personal inbox.
+- **What is in it:** tasks of current markets that are **overdue** or **due soon** (today and tomorrow, Kernaufgaben three
+  days ahead) and **permit deadlines** (apply-by within the permit horizon, a decision due within a week, a granted permit
+  that ends before a market that needs it). Not included yet: market confirmations, Pflichten, Fahrzeuge. No email.
+- **Header:** "Benachrichtigungen" plus one line that this becomes the inbox later; "Alle als gelesen" on the right.
+- **Filter bar** (labelled, URL-driven): **Status** Offen · Zurückgestellt · Erledigt (with counts) · **Art** Alle ·
+  Aufgaben · Genehmigungen (counts for the current status) · **Markt** select · **Sortierung** Dringlichkeit (default:
+  critical first = overdue Kernaufgaben, then by date) · Neueste. Counts always show what a click gives.
+- **List:** open items by urgency are grouped Überfällig · Heute · Diese Woche · Später; other views are one list. Each row:
+  kind icon, title (opens the task drawer or the permit), Kernaufgabe star, market with its colour marker, kind and date,
+  the due information as colour + icon + text ("185 Tage überfällig"), and **Erledigt** · **Zurückstellen** (Morgen,
+  Nächste Woche, Datum wählen) · **Öffnen**. Every change shows an undo toast. J/K move between rows, Enter opens.
+- **Erledigt** on a task completes the task itself (tasks service, its own undo) and the notification resolves with it; on a
+  permit it only marks the notification done. **Zurückstellen** snoozes the notification, not the task or permit.
+- **Auto-resolve:** a notification whose subject is resolved (task done/skipped/cancelled/archived, market over, permit
+  filed/granted/not required, due date moved) is never shown as open: the query treats it as done at once and the
+  deadline sweep writes `done` afterwards. A task snoozed on the Übersicht shows as zurückgestellt until its date.
+- **Bell:** unread open count, popover with the five most urgent open items (quick Erledigt) and "Alle anzeigen".
 
 ### Kalender (module)
 - **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**. Veranstaltungen keeps its own Liste/Kalender toggle;

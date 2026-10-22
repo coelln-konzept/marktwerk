@@ -40,9 +40,14 @@ export function SnoozeDialog({
   today,
   onSubmit,
   onCancel,
+  title,
+  hint,
 }: {
   open: boolean;
   taskTitle: string;
+  /** Other wording than for a task (e.g. the notification center). */
+  title?: string;
+  hint?: string;
   today: string;
   onSubmit: (until: string) => void;
   onCancel: () => void;
@@ -59,7 +64,7 @@ export function SnoozeDialog({
     <Modal
       open={open}
       onOpenChange={(next) => !next && onCancel()}
-      title={t("dialogTitle")}
+      title={title ?? t("dialogTitle")}
       description={taskTitle}
       closeLabel={t("cancel")}
     >
@@ -81,7 +86,7 @@ export function SnoozeDialog({
             className="w-auto"
             onChange={(event) => setDate(event.target.value)}
           />
-          <p className="text-muted-foreground text-tiny">{t("hint")}</p>
+          <p className="text-muted-foreground text-tiny">{hint ?? t("hint")}</p>
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" onClick={onCancel}>

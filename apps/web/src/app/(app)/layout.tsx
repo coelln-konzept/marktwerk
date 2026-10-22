@@ -5,6 +5,7 @@ import { CommandPalette } from "@/components/shell/command-palette";
 import { ShellProvider } from "@/components/shell/shell-context";
 import { ToastRegion } from "@/components/shell/toast-region";
 import { type Creatable, creatableFor } from "@/lib/creatable";
+import { isModuleVisible } from "@/lib/modules";
 import { getActor } from "@/server/actor";
 import { getDisplayPreferences } from "@/server/preferences";
 import type { SearchHit } from "@/server/search-core";
@@ -34,6 +35,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : []),
     ...(can("issue")
       ? [{ kind: "action" as const, title: t("issue"), href: "/firma/maengel?neu=1" }]
+      : []),
+    // The bell is the way in (no sidebar entry, decision 2026-10-22); Strg+K finds the center too.
+    ...(isModuleVisible("notifications")
+      ? [{ kind: "action" as const, title: t("notifications"), href: "/benachrichtigungen" }]
       : []),
     { kind: "action", title: t("calendar"), href: "/kalender" },
     { kind: "action", title: t("events"), href: "/veranstaltungen" },

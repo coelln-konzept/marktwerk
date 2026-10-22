@@ -111,7 +111,8 @@
       "permit": "Genehmigung anlegen",
       "shift": "Schicht erfassen",
       "issue": "Mangel melden",
-      "settings": "Einstellungen öffnen"
+      "settings": "Einstellungen öffnen",
+      "notifications": "Benachrichtigungen öffnen"
     }
   },
   "vorschau": {

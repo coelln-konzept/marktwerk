@@ -12,7 +12,7 @@ import {
 import type { Actor } from "../actor";
 import { db } from "../db";
 
-export type NotificationErrorCode = "not_found" | "invalid_state" | "invalid_snooze";
+export type NotificationErrorCode = "not_found" | "invalid_state" | "invalid_snooze" | "forbidden";
 
 export class NotificationInputError extends Error {
   constructor(readonly code: NotificationErrorCode) {

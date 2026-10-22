@@ -196,3 +196,4 @@ export async function listNotifications(
     hasMore: rows.length > limit,
   };
 }
+export * from "./notifications-company";
