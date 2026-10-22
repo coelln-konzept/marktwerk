@@ -7,6 +7,7 @@ import { HealthSummary } from "@/components/events/health-summary";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateShort, formatDateWithWeekday, formatWeek, todayIn } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import { listLinkedDocuments } from "@/server/queries/documents";
@@ -36,9 +37,10 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const canWrite = can(actor.role, "event", "write");
   const venues = canWrite ? await listVenueOptions() : [];
   // Tab "Geld": rates paid of all rates, with the money health (only for roles that may read finance).
-  const money = can(actor.role, "finance", "read")
-    ? await getEventMoney(actor, event.id, todayIn())
-    : null;
+  const money =
+    isModuleVisible("finance") && can(actor.role, "finance", "read")
+      ? await getEventMoney(actor, event.id, todayIn())
+      : null;
   const moneyCount = money?.summary.health
     ? {
         text:
@@ -102,16 +104,20 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
           } satisfies EventTab,
         ]
       : []),
-    {
-      key: "team",
-      href: `${base}/team`,
-      label: t("tabs.team"),
-      count: {
-        text: `${assigned}/${total}`,
-        level: event.health.team ?? "none",
-        sr: `${t("overview.team.summary", { assigned, total })}, ${tHealth(event.health.team ?? "none")}`,
-      },
-    },
+    ...(isModuleVisible("team")
+      ? [
+          {
+            key: "team",
+            href: `${base}/team`,
+            label: t("tabs.team"),
+            count: {
+              text: `${assigned}/${total}`,
+              level: event.health.team ?? "none",
+              sr: `${t("overview.team.summary", { assigned, total })}, ${tHealth(event.health.team ?? "none")}`,
+            },
+          } satisfies EventTab,
+        ]
+      : []),
     ...(money
       ? [
           {

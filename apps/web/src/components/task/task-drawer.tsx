@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RolloverBadge } from "@/components/ui/status-badge";
 import { formatDate } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate, REASON_STATUSES, SETTABLE_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { StaffOption, TaskDetail } from "@/server/queries/tasks";
@@ -295,30 +296,34 @@ export function TaskDrawer({
             )}
           </dd>
 
-          <dt className="text-muted-foreground text-small">
-            <label htmlFor={`${uid}-who`}>{t("fields.assignee")}</label>
-          </dt>
-          <dd className="m-0">
-            {canAssign ? (
-              <select
-                id={`${uid}-who`}
-                className={cn(SELECT_CLASS, "max-w-64")}
-                value={task.assigneeId ?? ""}
-                onChange={(e) => actions.assign(ref, e.target.value || null)}
-              >
-                <option value="">{t("nobody")}</option>
-                {staff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.displayName}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span>{task.assigneeName ?? t("nobody")}</span>
-            )}
-          </dd>
+          {isModuleVisible("team") && (
+            <>
+              <dt className="text-muted-foreground text-small">
+                <label htmlFor={`${uid}-who`}>{t("fields.assignee")}</label>
+              </dt>
+              <dd className="m-0">
+                {canAssign ? (
+                  <select
+                    id={`${uid}-who`}
+                    className={cn(SELECT_CLASS, "max-w-64")}
+                    value={task.assigneeId ?? ""}
+                    onChange={(e) => actions.assign(ref, e.target.value || null)}
+                  >
+                    <option value="">{t("nobody")}</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.displayName}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span>{task.assigneeName ?? t("nobody")}</span>
+                )}
+              </dd>
+            </>
+          )}
 
-          {task.dutyRoleName && (
+          {isModuleVisible("team") && task.dutyRoleName && (
             <>
               <dt className="text-muted-foreground text-small">{t("fields.role")}</dt>
               <dd className="m-0 text-small">

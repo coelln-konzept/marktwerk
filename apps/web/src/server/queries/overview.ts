@@ -3,6 +3,7 @@ import { can, countByDueFilter, type DueFilter, overallHealth, rankDue } from "@
 import { upcomingWeekend } from "@marktwerk/core/dates/weekend";
 import { dutyRole } from "@marktwerk/db/schema";
 import { count } from "drizzle-orm";
+import { type ModuleHide, maskHealth } from "@/lib/modules";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import * as company from "./company";
@@ -66,30 +67,46 @@ export type Overview = {
 const SEASON_OVER_SHARE = 0.1;
 
 /** The five module feeds, each of which checks its own permissions and field scope. */
-export async function listDueItems(actor: Actor, today: string): Promise<DueItem[]> {
+export async function listDueItems(
+  actor: Actor,
+  today: string,
+  hide: ModuleHide = {},
+): Promise<DueItem[]> {
   const feeds = await Promise.all([
     permits.dueItems(actor, today),
-    finance.dueItems(actor, today),
+    hide.finance ? [] : finance.dueItems(actor, today),
     tasks.dueItems(actor, today),
-    hours.dueItems(actor, today),
+    hide.team ? [] : hours.dueItems(actor, today),
     company.dueItems(actor, today),
   ]);
   return rankDue(feeds.flat());
 }
 
-/** Everything the Übersicht shows. Each part honours the actor's permissions and field scope. */
-export async function getOverview(actor: Actor, today: string): Promise<Overview> {
+/**
+ * Everything the Übersicht shows. Each part honours the actor's permissions and field scope. `hide` leaves
+ * out the modules hidden in the UI (lib/modules.ts): no money/hours items, no money KPI, no workload
+ * signal, and no team/money health dimension.
+ */
+export async function getOverview(
+  actor: Actor,
+  today: string,
+  hide: ModuleHide = {},
+): Promise<Overview> {
   const year = Number(today.slice(0, 4));
   const { saturday, sunday } = upcomingWeekend(today);
-  const canMoney = can(actor.role, "finance", "read");
+  const canMoney = !hide.finance && can(actor.role, "finance", "read");
   const [all, types, [roles], dueItems, taskCounts, money, workload] = await Promise.all([
-    listEvents(actor, {}),
+    listEvents(actor, {}).then((rows) =>
+      rows.map((r) => ({ ...r, health: maskHealth(r.health, hide) })),
+    ),
     listEventTypes(),
     db.select({ n: count() }).from(dutyRole),
-    listDueItems(actor, today),
+    listDueItems(actor, today, hide),
     tasks.openTaskCounts(actor, today),
     canMoney ? finance.moneyOverdue(actor, today) : Promise.resolve(null),
-    can(actor.role, "team", "read") ? tasks.seasonWorkload(actor, year) : Promise.resolve(null),
+    !hide.team && can(actor.role, "team", "read")
+      ? tasks.seasonWorkload(actor, year)
+      : Promise.resolve(null),
   ]);
   const active = all.filter((e) => e.status !== "cancelled");
 

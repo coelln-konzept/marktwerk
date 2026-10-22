@@ -29,6 +29,7 @@ import { EVENT_TYPE_KEYS, EventTypeSquare } from "@/components/ui/event-type-tag
 import { Kbd } from "@/components/ui/kbd";
 import { Panel } from "@/components/ui/panel";
 import { formatDate, formatMonth, todayIn } from "@/lib/format";
+import { HIDDEN_MODULES } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import {
@@ -72,10 +73,10 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const from = view === "monat" ? mondayOf(monthFirst) : listFrom;
   const to = view === "monat" ? addDays(mondayOf(monthLast), 6) : addDays(listFrom, LIST_DAYS - 1);
 
-  const available = availableLayers(actor.role, actor.staffMemberId !== null);
+  const available = availableLayers(actor.role, actor.staffMemberId !== null, HIDDEN_MODULES);
   const [rows, deadlines, venues] = await Promise.all([
     listCalendarEvents(actor, { from, to }, layers),
-    listCalendarDeadlines(actor, { from, to }, layers, today),
+    listCalendarDeadlines(actor, { from, to }, layers, today, HIDDEN_MODULES),
     listVenueOptions(actor),
   ]);
   const counts: Record<string, number> = {};
@@ -302,7 +303,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
           l: nav({ ansicht: "liste", monat: undefined }),
         }}
       />
-      {vorschauId && <EventVorschau id={vorschauId} closeHref={closeHref} />}
+      {vorschauId && <EventVorschau id={vorschauId} closeHref={closeHref} openTab="board" />}
     </Page>
   );
 }

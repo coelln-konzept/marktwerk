@@ -6,6 +6,7 @@ import { Health, HealthShape } from "@/components/ui/health";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDateWithWeekday, formatMoney, formatNumber, todayIn } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import type { EventDetail } from "@/server/queries/events";
 import { FactsDialog } from "./facts-dialog";
 import { MoveDialog } from "./move-dialog";
@@ -212,6 +213,11 @@ export async function HealthPanel({ event }: { event: EventDetail }) {
     { key: "team", level: event.health.team, note: t("teamNote", { assigned, total }) },
     { key: "money", level: event.health.money, note: t("moneyNote") },
   ] as const;
+  const visibleRows = rows.filter(
+    (row) =>
+      (row.key !== "team" || isModuleVisible("team")) &&
+      (row.key !== "money" || isModuleVisible("finance")),
+  );
   return (
     <Panel aria-labelledby="health-title">
       <PanelHeader>
@@ -219,7 +225,7 @@ export async function HealthPanel({ event }: { event: EventDetail }) {
       </PanelHeader>
       <PanelBody>
         <ul className="flex flex-col">
-          {rows.map((row) => {
+          {visibleRows.map((row) => {
             const level = row.level ?? "none";
             return (
               <li
