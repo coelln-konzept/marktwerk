@@ -19,6 +19,7 @@ import { app } from "./_schema";
 import { eventType } from "./catalogue";
 import { eventPreset } from "./events";
 import { dutyRole, staffMember } from "./people";
+import { permitType } from "./permit-type";
 
 /* ------------------------------------------------------------------------------------------------
  * Enums shared by templates and tasks (a template item and the task made from it use the same values)
@@ -159,6 +160,12 @@ export const templateItem = app.table(
     requiresAttachment: boolean().notNull().default(false),
     /** "Kernaufgabe": a task every market needs; copied to the event's task (decision 2026-10-22). */
     isKey: boolean().notNull().default(false),
+    /**
+     * The permit this item applies for (e.g. "Marktgenehmigung beantragen" → market_permit). Its task is
+     * linked to the event's permit of that type and counts as done once the permit is applied for or
+     * granted (UX pass 2026-10-22: no false "overdue" for permits that are already in).
+     */
+    permitType: permitType(),
     /** Titles of the sub-steps; become `task_check_item` rows on instantiation. */
     checkItems: jsonb().$type<string[]>().notNull().default([]),
     /** Duty role whose holder has to approve before the task counts as done. */

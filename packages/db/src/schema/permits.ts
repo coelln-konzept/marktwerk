@@ -16,24 +16,10 @@ import { app } from "./_schema";
 import { contact, eventType, venue } from "./catalogue";
 import { event } from "./events";
 import { staffMember } from "./people";
+import { permitType } from "./permit-type";
 import { checklistTemplate } from "./templates";
 
 export const permitCategory = app.enum("permit_category", ["city", "external"]);
-
-export const permitType = app.enum("permit_type", [
-  "market_permit",
-  "water",
-  "signage",
-  "no_parking",
-  "toilets",
-  "landowner_ok",
-  "gema",
-  "safety_concept",
-  "traffic_order",
-  "catering",
-  "insurance",
-  "other",
-]);
 
 export const permitCadence = app.enum("permit_cadence", [
   "per_event",

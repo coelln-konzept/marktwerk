@@ -130,7 +130,12 @@ export async function queueImmediateEmails(
       ),
     );
   const wanted = new Set(sent.map((s) => `${s.recipientStaffMemberId}:${s.dedupeKey}`));
-  const mine = rows.filter((r) => wanted.has(`${r.recipientStaffMemberId}:${r.dedupeKey}`));
+  // Immediate mails go to a person; company-wide notifications (no recipient) are in-app only.
+  const mine = rows.flatMap((r) =>
+    r.recipientStaffMemberId !== null && wanted.has(`${r.recipientStaffMemberId}:${r.dedupeKey}`)
+      ? [{ ...r, recipientStaffMemberId: r.recipientStaffMemberId }]
+      : [],
+  );
   if (mine.length === 0) return 0;
   const people = await db
     .select({ id: staffMember.id, email: staffMember.email })

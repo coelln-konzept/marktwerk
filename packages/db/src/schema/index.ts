@@ -9,6 +9,7 @@ export * from "./legal";
 export * from "./money";
 export * from "./notifications";
 export * from "./people";
+export * from "./permit-type";
 export * from "./permits";
 export * from "./preferences";
 export * from "./settings";

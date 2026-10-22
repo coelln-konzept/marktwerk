@@ -57,6 +57,13 @@
       "when": 1792671285727,
       "tag": "0007_master_template_key_tasks_market_color",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792680965593,
+      "tag": "0008_permit_tasks_company_notifications",
+      "breakpoints": true
     }
   ]
 }
