@@ -13,15 +13,17 @@ import {
   listBoardTasks,
   listStaffOptions,
   listTaskEventOptions,
+  openTaskCounts,
   seasonWorkload,
 } from "@/server/queries/tasks";
 import {
   addCheckItem,
-  addComment,
   assignTask,
   moveTask,
   setCheckItemDone,
   setTaskStatus,
+  snoozeTask,
+  unsnoozeTask,
 } from "@/server/services/tasks";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 import { asStaff, dueOn, insertEvent, insertStaff, insertTask, TODAY } from "../helpers/tasks";
@@ -450,6 +452,54 @@ describe("dueItems and calendarItems", () => {
   });
 });
 
+describe("snoozed tasks", () => {
+  it("drop out of the due list, the open-task KPIs and the calendar until their date", async () => {
+    const overdue = await insertTask({ title: "alt", eventId, dueAt: dueOn("2026-10-10") });
+    const soon = await insertTask({ title: "bald", eventId, dueAt: dueOn("2026-10-23") });
+    await insertTask({ title: "normal", eventId, dueAt: dueOn("2026-10-22") });
+    const titles = async (today: string) => (await dueItems(owner, today)).map((i) => i.title);
+    const calendar = async (today: string) =>
+      (await calendarItems(owner, "2026-10-01", "2026-10-31", today)).map((i) => i.title);
+    expect(await titles(TODAY)).toEqual(["alt", "normal", "bald"]);
+    expect(await openTaskCounts(owner, TODAY)).toEqual({ open: 3, overdue: 1 });
+
+    await snoozeTask(owner, overdue.id, "2026-10-26", clock);
+    await snoozeTask(owner, soon.id, "2026-10-22", clock);
+    expect(await titles(TODAY)).toEqual(["normal"]);
+    expect(await calendar(TODAY)).toEqual(["normal"]);
+    expect(await openTaskCounts(owner, TODAY)).toEqual({ open: 1, overdue: 0 });
+
+    // the day before the date it is still hidden, on the date it is back (no job needed)
+    expect(await titles("2026-10-21")).toEqual(["normal"]);
+    expect(await titles("2026-10-22")).toEqual(["normal", "bald"]);
+    expect(await openTaskCounts(owner, "2026-10-22")).toEqual({ open: 2, overdue: 0 });
+    expect(await titles("2026-10-25")).toEqual(["normal", "bald"]);
+    expect(await titles("2026-10-26")).toEqual(["alt", "normal", "bald"]);
+    expect(await calendar("2026-10-26")).toEqual(["alt", "normal", "bald"]);
+  });
+
+  it("come back at once when the snooze is ended", async () => {
+    const t = await insertTask({ title: "alt", eventId, dueAt: dueOn("2026-10-10") });
+    await snoozeTask(owner, t.id, "2026-10-30", clock);
+    expect(await dueItems(owner, TODAY)).toEqual([]);
+    await unsnoozeTask(owner, t.id);
+    expect((await dueItems(owner, TODAY)).map((i) => i.title)).toEqual(["alt"]);
+  });
+
+  it("stay on the board and in the drawer, with the date only while it is ahead", async () => {
+    const t = await insertTask({ title: "A", eventId, dueAt: dueOn("2026-10-21") });
+    await snoozeTask(owner, t.id, "2026-10-26", clock);
+    const card = (await listBoardTasks(owner, { eventId }, TODAY)).tasks.find((c) => c.id === t.id);
+    expect(card).toMatchObject({ snoozedUntil: "2026-10-26", dueOn: "2026-10-21" });
+    expect((await getTaskDetail(owner, t.id, TODAY))?.snoozedUntil).toBe("2026-10-26");
+    const later = (await listBoardTasks(owner, { eventId }, "2026-10-26")).tasks.find(
+      (c) => c.id === t.id,
+    );
+    expect(later?.snoozedUntil).toBeNull();
+    expect((await getTaskDetail(owner, t.id, "2026-10-26"))?.snoozedUntil).toBeNull();
+  });
+});
+
 describe("eventTaskSummary", () => {
   it("counts open, overdue and blocked tasks and rates the health", async () => {
     expect(await eventTaskSummary(owner, eventId, TODAY)).toMatchObject({ open: 0, health: null });
@@ -474,7 +524,7 @@ describe("eventTaskSummary", () => {
 });
 
 describe("getTaskDetail", () => {
-  it("collects check items, comments with mentions and the audit activity", async () => {
+  it("collects check items, the completion note and the audit activity", async () => {
     const office = asStaff(await createActor("staff"), cat.staff.anna);
     const t = await insertTask({
       title: "Schilder",
@@ -483,10 +533,9 @@ describe("getTaskDetail", () => {
       dutyRoleId: cat.roles.setup.id,
     });
     const item = await addCheckItem(office, t.id, "zählen");
-    await addComment(office, t.id, "@Ben Test schaust du mal?");
     await assignTask(owner, t.id, cat.staff.ben.id);
     await setCheckItemDone(office, t.id, item.id, true, clock);
-    await setTaskStatus(office, t.id, "done", {}, clock);
+    await setTaskStatus(office, t.id, "done", { note: "Alles gezählt" }, clock);
 
     const detail = await getTaskDetail(owner, t.id);
     expect(detail).toMatchObject({
@@ -500,15 +549,13 @@ describe("getTaskDetail", () => {
       link: `/veranstaltungen/${eventId}/board?aufgabe=${t.id}`,
     });
     expect(detail?.checkItems).toEqual([expect.objectContaining({ title: "zählen", done: true })]);
-    expect(detail?.comments).toEqual([
-      expect.objectContaining({ authorName: "Anna Test", mentioned: ["Ben Test"] }),
-    ]);
+    expect(detail?.completionNote).toBe("Alles gezählt");
+    expect(detail?.snoozedUntil).toBeNull();
     // newest first
     expect(detail?.activity.map((a) => a.action)).toEqual([
       "task.status",
       "task.check",
       "task.assign",
-      "task.comment",
       "task.check",
     ]);
     expect(detail?.activity[0]?.actorName).toBe("Test staff");

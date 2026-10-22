@@ -20,6 +20,10 @@ password (the logistics lead of the synthetic data); other seeded logins: `burak
 `natalia.schulze@example.com` and `annabel.green@example.com` (staff). On a non-local database no login is created
 without `SEED_OWNER_PASSWORD` / `SEED_STAFF_PASSWORD`.
 
+To skip the login page locally, set `DEV_AUTO_LOGIN_EMAIL` and `DEV_AUTO_LOGIN_PASSWORD` in `.env` (see
+`.env.example`): an unauthenticated visit then signs that account in. It only works with `pnpm dev` on localhost;
+signing out pauses it until the browser closes, so other logins can still be tried.
+
 ### Windows without Docker
 Plain Postgres works as well (no Mailpit then; only mail sending needs it). Without admin rights, e.g. the
 EnterpriseDB "binaries" zip of PostgreSQL 17 extracted to `%LOCALAPPDATA%\marktwerk-pg`:

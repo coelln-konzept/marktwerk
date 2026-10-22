@@ -9,7 +9,7 @@ import {
   task,
   user,
 } from "@marktwerk/db";
-import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { appUrl, berlinDate, emailSettings, isEmailDisabled, OPEN_TASK_STATUSES } from "./shared";
 
 /** Logins that work in the office get the morning mail; the field crew does not (decision: office users). */
@@ -90,6 +90,8 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
         eq(task.assigneeId, staffMemberId),
         inArray(task.status, [...OPEN_TASK_STATUSES]),
         isNotNull(task.dueAt),
+        // Snoozed tasks stay out until their snooze date.
+        or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         // The permit's own line covers "beantragen".
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),

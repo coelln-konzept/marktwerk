@@ -110,7 +110,7 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 - **Kanban board per event** (Vorbereitung · Diese Woche · Heute · Erledigt) + **people rail**: drop a card on a
   person to assign (undo toast); swimlanes by person; **load bars** (estimated hours vs. capacity)
 - **Carry-over:** overdue unfinished tasks roll into "Heute" with ↻n; flagged to the manager after 3
-- **Task detail drawer** (description, check items, evidence, comments with @mention, activity, status incl. "Wartet · Amt")
+- **Task detail drawer** (description, check items, evidence, activity, status incl. "Wartet · Amt"; comments were dropped and snooze added on 2026-10-22)
 - My tasks, cross-event board, unassigned queue, keyboard shortcuts, Strg+K; Kalender layer *Aufgaben*
 - **Workload & hiring view:** board "Arbeitslast" toggle (estimated hours per person/week), hours per event and per
   season; the **season strip** on Übersicht with the hiring signal ("≈ x Minijobber/Monat zusätzlich")

@@ -1,6 +1,7 @@
 /*
- * Evidence a task needs before it can be marked done (template item: requires_note / requires_photo /
- * requires_attachment / check_items). Photos and attachments are documents linked to the task
+ * Evidence a task needs before it can be marked done (template item: requires_photo / requires_attachment /
+ * check_items). A note never blocks completion (client decision 2026-10-22): `requires_note` stays on the
+ * template item as a hint, and completing offers an optional note instead. Photos and attachments are documents linked to the task
  * (`document.task_id`): a live document of kind "photo" is the photo, a live document of any other kind
  * is the attachment. Since the document upload exists they block completion like the note does.
  */
@@ -20,11 +21,8 @@ export function fileEvidenceOf(kinds: readonly string[]): {
 }
 
 export type EvidenceInput = {
-  requiresNote: boolean;
   requiresPhoto: boolean;
   requiresAttachment: boolean;
-  /** Whether a note exists: given with this request, or an earlier comment on the task. */
-  hasNote: boolean;
   /** Check items not ticked yet. */
   openCheckItems: number;
   /** Whether a photo / an attachment exists (see {@link fileEvidenceOf}). */
@@ -32,12 +30,11 @@ export type EvidenceInput = {
   hasAttachment?: boolean;
 };
 
-export type EvidenceKind = "note" | "check_items" | "photo" | "attachment";
+export type EvidenceKind = "check_items" | "photo" | "attachment";
 
 /** What still blocks completion, in the order the UI shows it. */
 export function missingEvidence(input: EvidenceInput): EvidenceKind[] {
   const missing: EvidenceKind[] = [];
-  if (input.requiresNote && !input.hasNote) missing.push("note");
   if (input.openCheckItems > 0) missing.push("check_items");
   if (FILE_EVIDENCE_ENFORCED) {
     if (input.requiresPhoto && !input.hasPhoto) missing.push("photo");

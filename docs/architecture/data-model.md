@@ -139,6 +139,11 @@ erDiagram
   skipped | cancelled`, `waiting_reason?`, `completed_at?`, `completed_by?`, `approval_status?`);
   **kanban** (`board_column?` override, `board_sort`); **carry-over** (`rollover_count`, `last_rolled_at`);
   template tracking (`customized`, `removed_from_template`).
+  *(implemented 0004: **`snoozed_until date?`**, a Berlin calendar date. A task is snoozed while it is after today and is
+  back on the date itself (no job); the due date is untouched. Snoozed tasks are left out of the Übersicht due list and
+  KPIs, the weekend blockers, the Kalender "Aufgaben" layer, the deadline sweep (reminders, escalation) and the daily
+  digest; they stay on the board with a "Zurückgestellt bis …" badge. Set and cleared through `snoozeTask` /
+  `unsnoozeTask` (audit `task.snooze` / `task.unsnooze`, undoable).)*
   *(implemented 0002: task also has `obligation_id?` (source `obligation`), `skipped_reason`, the copied evidence
   flags `requires_photo/note/attachment`, `approver_staff_member_id?`, `completed_by_staff_member_id`; `board_column`
   is the enum `preparation | this_week | today | done`; `board_sort` is a double (fractional ordering);
@@ -146,7 +151,11 @@ erDiagram
   `(checklist_id, template_stable_key)` makes instantiation idempotent. `event_id` is nullable (company/permit tasks).)*
 - **task_check_item**, **task_dependency** (doesn't move dates), **task_comment**, **task_watcher**.
   *(implemented 0002: a comment has `author_staff_member_id?` and `author_user_id?` (an office login may have no staff
-  record), `mentioned_staff_member_ids`, `edited_at`, `archived_at`.)*
+  record), `mentioned_staff_member_ids`, `edited_at`, `archived_at`. **No UI offers comments any more** (client decision
+  2026-10-22, single user): the table and its data stay, nothing in the drawer shows or creates comments, and
+  comment/mention notifications are no longer produced from the UI. `requires_note` no longer blocks completion; when
+  marking a task done an optional note is kept in the `task.status` / `task.move` audit entry (`diff.note`) and shown
+  in the drawer ("Notiz") and the activity.)*
 
 ### Permits & logbook
 - **permit_requirement** (blueprint per venue, optionally narrowed by event type): `category` (`city | external`),

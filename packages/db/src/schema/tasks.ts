@@ -3,6 +3,7 @@ import {
   type AnyPgColumn,
   boolean,
   check,
+  date,
   doublePrecision,
   index,
   integer,
@@ -121,6 +122,12 @@ export const task = app.table(
     dueAt: timestamp({ withTimezone: true }),
     /** Set when the due date was edited by hand; anchor changes then leave it alone. */
     dueOverridden: boolean().notNull().default(false),
+
+    /**
+     * Snoozed ("Zurückgestellt") until this Berlin calendar date: hidden from due lists, KPIs, reminders and the
+     * digest while it is after today, back on the date itself. The due date is not touched.
+     */
+    snoozedUntil: date(),
 
     // effort
     estimateMinutes: integer().notNull().default(0),

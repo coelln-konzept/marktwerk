@@ -9,6 +9,7 @@ import { setDisplayPreference, setLocale } from "@/app/(app)/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { LOCALES } from "@/i18n/config";
 import { authClient } from "@/lib/auth-client";
+import { DEV_AUTO_LOGIN_OPT_OUT } from "@/server/dev-auto-login";
 
 const item =
   "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
@@ -114,6 +115,13 @@ export function ProfileMenu({
             <Menu.Item
               className={item}
               onClick={async () => {
+                // Local development: don't sign straight back in (see server/dev-auto-login.ts).
+                if (process.env.NODE_ENV === "development")
+                  await globalThis.cookieStore?.set({
+                    name: DEV_AUTO_LOGIN_OPT_OUT,
+                    value: "1",
+                    path: "/",
+                  });
                 await authClient.signOut();
                 router.replace("/login");
                 router.refresh();

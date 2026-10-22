@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useRef, useState, useTransition } from "react";
 import { saveKalenderLayers } from "@/app/(app)/kalender/actions";
 import { type EventTypeKey, EventTypeSquare } from "@/components/ui/event-type-tag";
+import { FilterGroup } from "@/components/ui/filter-bar";
 import { cn } from "@/lib/utils";
 import type { CalendarLayer } from "@/server/queries/due";
 import { LAYER_ICONS } from "./deadline-chip";
@@ -129,20 +130,21 @@ export function LayerPanel({
         ))}
         <input type="hidden" name="ebenen" value="1" />
 
-        {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of preset buttons */}
-        <div role="group" aria-label={t("presets")} className="flex flex-wrap gap-1.5">
-          {PRESETS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              aria-pressed={preset === p.key}
-              onClick={() => applyPreset(p.key)}
-              className="min-h-7 whitespace-nowrap rounded-full border border-input bg-card px-3 font-medium text-small hover:bg-hover aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background"
-            >
-              {t(`preset.${p.key}`)}
-            </button>
-          ))}
-        </div>
+        <FilterGroup label={t("presets")}>
+          <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                aria-pressed={preset === p.key}
+                onClick={() => applyPreset(p.key)}
+                className="min-h-7 whitespace-nowrap rounded-full border border-input bg-card px-3 font-medium text-small hover:bg-hover aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background"
+              >
+                {t(`preset.${p.key}`)}
+              </button>
+            ))}
+          </div>
+        </FilterGroup>
 
         <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
           <legend className="mb-1 p-0 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">

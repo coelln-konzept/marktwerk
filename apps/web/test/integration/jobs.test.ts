@@ -215,6 +215,33 @@ describe("deadline sweep: tasks", () => {
     expect(await db.select().from(outboundMessage)).toHaveLength(2);
   });
 
+  it("leaves snoozed tasks alone until their snooze date", async () => {
+    const reminded = await addTask({
+      title: "Plakate bestellen",
+      assigneeId: annaId,
+      dueAt: daysFromNow(2),
+      snoozedUntil: "2026-10-23",
+    });
+    const overdue = await addTask({
+      title: "Halteverbot aufstellen",
+      assigneeId: annaId,
+      priority: "high",
+      dueAt: daysFromNow(-2),
+      snoozedUntil: "2026-10-22",
+    });
+    expect(await deadlineSweep(db, NOW)).toEqual({ created: 0, escalated: 0, emails: 0 });
+    expect(await notificationsOf(annaId)).toHaveLength(0);
+    expect(await notificationsOf(benId)).toHaveLength(0);
+
+    // on the snooze date the next sweep picks them up (Thu 22.10. is the overdue one's date)
+    const result = await deadlineSweep(db, daysFromNow(1));
+    expect(result.created).toBeGreaterThan(0);
+    const subjects = (await notificationsOf(annaId)).map((n) => n.subjectId);
+    expect(subjects).toContain(overdue.id);
+    expect(subjects).not.toContain(reminded.id);
+    expect((await notificationsOf(benId)).map((n) => n.reason)).toEqual(["escalated"]);
+  });
+
   it("does not escalate on the day it became overdue, nor normal-priority tasks", async () => {
     await addTask({
       title: "Frisch",
@@ -415,6 +442,25 @@ describe("deadline sweep: permits", () => {
 });
 
 describe("daily digest", () => {
+  it("leaves out snoozed tasks until their snooze date", async () => {
+    await addTask({
+      title: "Zurückgestellt",
+      assigneeId: annaId,
+      dueAt: daysFromNow(-1),
+      snoozedUntil: "2026-10-22",
+    });
+    await addTask({ title: "Sichtbar", assigneeId: annaId, dueAt: daysFromNow(-1) });
+    expect((await dailyDigest(db, NOW)).queued).toBe(1);
+    const [mail] = await db.select().from(outboundMessage);
+    expect(mail?.renderedText).toContain("Sichtbar");
+    expect(mail?.renderedText).not.toContain("Zurückgestellt");
+
+    // the next morning (22.10.) it is back
+    expect((await dailyDigest(db, daysFromNow(1))).queued).toBe(1);
+    const texts = (await db.select().from(outboundMessage)).map((m) => m.renderedText ?? "");
+    expect(texts.some((t) => t.includes("Zurückgestellt"))).toBe(true);
+  });
+
   it("sends office users their overdue, today and this-week items, once a day", async () => {
     await addTask({ title: "Überfälliges", assigneeId: annaId, dueAt: daysFromNow(-1) });
     await addTask({

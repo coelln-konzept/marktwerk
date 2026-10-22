@@ -1,10 +1,10 @@
 "use client";
 
 import type { TaskStatusKey } from "@marktwerk/core";
-import { Camera, Check, NotebookPen, Paperclip, Pencil, Plus } from "lucide-react";
+import { AlarmClockOff, Camera, Check, Paperclip, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useRef, useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import {
   editTask,
   giveEffortFeedback,
@@ -22,15 +22,14 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { RolloverBadge } from "@/components/ui/status-badge";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate, REASON_STATUSES, SETTABLE_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { StaffOption, TaskDetail } from "@/server/queries/tasks";
+import { SnoozeDialog, useSnoozePresets } from "./snooze";
 import { TaskActivity } from "./task-activity";
-import { TaskComments } from "./task-comments";
 
 const FEEDBACK = ["as_planned", "longer", "shorter"] as const;
 
@@ -45,7 +44,8 @@ function Section({ title, children }: { title: React.ReactNode; children: React.
 
 /**
  * The task drawer (`?aufgabe=<id>`): status incl. "Wartet · Amt", assignee, due date, estimate with effort
- * feedback, description, check items, evidence, comments with @mention and the task's activity.
+ * feedback, snooze ("Zurückstellen"), description, check items, evidence, an optional completion note and
+ * the task's activity.
  * Changes save as they are made and confirm with a toast; moves, assignments and status changes offer undo.
  */
 export function TaskDrawer({
@@ -74,13 +74,13 @@ export function TaskDrawer({
   const [description, setDescription] = useState(task.description ?? "");
   const [reasonFor, setReasonFor] = useState<TaskStatusKey | null>(null);
   const [note, setNote] = useState("");
-  const [noteError, setNoteError] = useState(false);
-  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const [snoozeDate, setSnoozeDate] = useState(false);
+  const presets = useSnoozePresets(today);
+  const tSnooze = useTranslations("tasks.snooze");
   const [newItem, setNewItem] = useState("");
   const uid = useId();
 
   const finished = task.status === "done" || task.status === "skipped";
-  const noteMissing = task.requiresNote && task.comments.length === 0 && !finished;
   const checkDone = task.checkItems.filter((c) => c.done).length;
   const ref = { id: task.id, title: task.title, status: task.status };
 
@@ -104,12 +104,9 @@ export function TaskDrawer({
       return;
     }
     if (status === "done") {
-      if (noteMissing && note.trim() === "") {
-        setNoteError(true);
-        noteRef.current?.focus();
-        return;
-      }
+      // The note is optional: it goes with the completion and is kept in the activity.
       actions.setStatus(ref, "done", { note: note.trim() || null });
+      setNote("");
       return;
     }
     actions.setStatus(ref, status);
@@ -264,7 +261,40 @@ export function TaskDrawer({
             {task.dueOverridden && (
               <span className="text-muted-foreground text-tiny">{t("dueSetByHand")}</span>
             )}
+            {task.snoozedUntil && !finished && (
+              <span className="tabular inline-flex items-center gap-1 rounded-sm bg-sunken px-1.5 py-0.5 text-muted-foreground text-small">
+                <AlarmClockOff aria-hidden className="size-3.5" />
+                {tSnooze("until", { date: formatDateWeekdayDay(task.snoozedUntil, locale) })}
+              </span>
+            )}
           </dd>
+
+          {canWrite && !finished && (
+            <>
+              <dt className="text-muted-foreground text-small">{tSnooze("title")}</dt>
+              <dd className="m-0 flex flex-wrap items-center gap-1.5">
+                {presets.map((preset) => (
+                  <Button
+                    key={preset.key}
+                    size="sm"
+                    disabled={pending}
+                    title={preset.hint}
+                    onClick={() => actions.snooze(ref, preset.date)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+                <Button size="sm" disabled={pending} onClick={() => setSnoozeDate(true)}>
+                  {tSnooze("pickDate")}
+                </Button>
+                {task.snoozedUntil && (
+                  <Button size="sm" disabled={pending} onClick={() => actions.unsnooze(ref)}>
+                    {tSnooze("clear")}
+                  </Button>
+                )}
+              </dd>
+            </>
+          )}
 
           <dt className="text-muted-foreground text-small">
             <label htmlFor={`${uid}-est`}>{t("fields.estimate")}</label>
@@ -329,6 +359,12 @@ export function TaskDrawer({
               <dd className="m-0 text-small">
                 {locale === "en" ? task.dutyRoleName.en : task.dutyRoleName.de}
               </dd>
+            </>
+          )}
+          {task.status === "done" && task.completionNote && (
+            <>
+              <dt className="text-muted-foreground text-small">{t("completionNote.title")}</dt>
+              <dd className="m-0 whitespace-pre-wrap text-small">{task.completionNote}</dd>
             </>
           )}
           <dt className="text-muted-foreground text-small">{t("fields.source")}</dt>
@@ -461,23 +497,9 @@ export function TaskDrawer({
           )}
         </Section>
 
-        {(task.requiresNote || task.requiresPhoto || task.requiresAttachment) && (
+        {(task.requiresPhoto || task.requiresAttachment) && (
           <Section title={t("evidence.title")}>
             <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-small">
-              {task.requiresNote && (
-                <li className="flex items-center gap-2">
-                  <NotebookPen aria-hidden className="size-4 text-muted-foreground" />
-                  {t("evidence.note")}:{" "}
-                  <b
-                    className={cn(
-                      "font-semibold",
-                      noteMissing ? "text-status-warn" : "text-status-ok",
-                    )}
-                  >
-                    {noteMissing ? t("evidence.missing") : t("evidence.given")}
-                  </b>
-                </li>
-              )}
               {task.requiresPhoto && (
                 <li className="flex items-center gap-2">
                   <Camera aria-hidden className="size-4 text-muted-foreground" />
@@ -548,43 +570,22 @@ export function TaskDrawer({
                 )}
               </div>
             )}
-            {noteMissing && canWrite && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`${uid}-note`}>{t("evidence.noteLabel")}</Label>
-                <textarea
-                  ref={noteRef}
-                  id={`${uid}-note`}
-                  rows={2}
-                  value={note}
-                  maxLength={4000}
-                  aria-invalid={noteError && note.trim() === "" ? true : undefined}
-                  onChange={(e) => {
-                    setNote(e.target.value);
-                    setNoteError(false);
-                  }}
-                  className={TEXTAREA_CLASS}
-                />
-                <p
-                  className={cn(
-                    "text-tiny",
-                    noteError ? "text-status-critical" : "text-muted-foreground",
-                  )}
-                >
-                  {noteError ? t("evidence.noteNeeded") : t("evidence.noteHint")}
-                </p>
-              </div>
-            )}
           </Section>
         )}
 
-        <Section title={t("comments.title", { count: task.comments.length })}>
-          <TaskComments
-            taskId={task.id}
-            comments={task.comments}
-            staff={staff}
-            canWrite={canWrite}
-          />
-        </Section>
+        {canWrite && !finished && (
+          <Section title={t("completionNote.label")}>
+            <textarea
+              aria-label={t("completionNote.label")}
+              rows={2}
+              value={note}
+              maxLength={4000}
+              onChange={(e) => setNote(e.target.value)}
+              className={TEXTAREA_CLASS}
+            />
+            <p className="text-muted-foreground text-tiny">{t("completionNote.hint")}</p>
+          </Section>
+        )}
 
         <Section title={t("activity.title")}>
           <TaskActivity entries={task.activity} />
@@ -592,6 +593,16 @@ export function TaskDrawer({
 
         <p className="text-faint-foreground text-tiny">{tBoard("drawer.linkHint")}</p>
       </Drawer>
+      <SnoozeDialog
+        open={snoozeDate}
+        taskTitle={task.title}
+        today={today}
+        onCancel={() => setSnoozeDate(false)}
+        onSubmit={(until) => {
+          setSnoozeDate(false);
+          actions.snooze(ref, until);
+        }}
+      />
       <ReasonDialog
         status={reasonFor}
         taskTitle={task.title}
