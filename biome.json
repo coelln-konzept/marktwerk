@@ -14,7 +14,8 @@
       "!**/dist",
       "!**/.turbo",
       "!**/drizzle/meta",
-      "!docs/design"
+      "!docs/design",
+      "!.claude"
     ]
   },
   "formatter": {
