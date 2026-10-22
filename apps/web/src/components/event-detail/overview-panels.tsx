@@ -186,6 +186,9 @@ function MissingTaskRow({
  * "Was fehlt": the open tasks that are overdue, blocked / waiting or due in the next 7 days, then the
  * required permits that are not granted. Key tasks first. Quick "Erledigt" and snooze with undo toasts.
  */
+/** Rows of "Was fehlt" before the rest of the next seven days folds away. */
+const MISSING_VISIBLE_ROWS = 8;
+
 export async function MissingPanel({
   event,
   overview,
@@ -202,6 +205,27 @@ export async function MissingPanel({
   const tasks = overview.tasks?.missing ?? [];
   const permits: OverviewPermit[] = overview.permits?.missing ?? [];
   const empty = tasks.length === 0 && permits.length === 0;
+  // Urgent rows (overdue, blocked, waiting, due today) and Kernaufgaben always show; the rest of the
+  // next seven days folds away once the list gets long, so the urgent part stays on screen.
+  const urgent = tasks.filter((task) => task.reason !== "soon" || task.isKey);
+  const soon = tasks.filter((task) => task.reason === "soon" && !task.isKey);
+  const room = Math.max(0, MISSING_VISIBLE_ROWS - urgent.length);
+  const shown = [...urgent, ...soon.slice(0, room)];
+  const folded = soon.slice(room);
+  const row = (task: (typeof tasks)[number]) => {
+    const days = task.dueOn ? daysBetween(today, task.dueOn) : 0;
+    return (
+      <MissingTaskRow
+        key={task.id}
+        eventId={event.id}
+        task={task}
+        today={today}
+        canWrite={canWrite}
+        reasonText={t(`reason.${task.reason}`, { n: Math.abs(days) })}
+        dateText={task.dueOn ? formatDateShort(task.dueOn, locale) : null}
+      />
+    );
+  };
   return (
     <Panel aria-labelledby="missing-title">
       <PanelHeader>
@@ -212,20 +236,7 @@ export async function MissingPanel({
         <EmptyState icon={CircleCheck} title={t("emptyTitle")} hint={t("emptyHint")} />
       ) : (
         <ul className="m-0 flex list-none flex-col p-0">
-          {tasks.map((task) => {
-            const days = task.dueOn ? daysBetween(today, task.dueOn) : 0;
-            return (
-              <MissingTaskRow
-                key={task.id}
-                eventId={event.id}
-                task={task}
-                today={today}
-                canWrite={canWrite}
-                reasonText={t(`reason.${task.reason}`, { n: Math.abs(days) })}
-                dateText={task.dueOn ? formatDateShort(task.dueOn, locale) : null}
-              />
-            );
-          })}
+          {shown.map(row)}
           {permits.map((p) => (
             <li
               key={p.id}
@@ -247,6 +258,22 @@ export async function MissingPanel({
               )}
             </li>
           ))}
+          {folded.length > 0 && (
+            <li className="border-border-subtle border-t">
+              <details className="group">
+                <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-4 py-2 font-medium text-muted-foreground text-small outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden">
+                  <ChevronRight
+                    aria-hidden
+                    className="size-4 shrink-0 transition-transform group-open:rotate-90"
+                  />
+                  {t("more", { count: folded.length })}
+                </summary>
+                <ul className="m-0 flex list-none flex-col border-border-subtle border-t p-0">
+                  {folded.map(row)}
+                </ul>
+              </details>
+            </li>
+          )}
         </ul>
       )}
     </Panel>

@@ -121,7 +121,8 @@
         "done": "Erledigt",
         "doneLabel": "„{title}“ erledigt",
         "permitKind": "Genehmigung",
-        "permitApplyBy": "Antrag bis {date}"
+        "permitApplyBy": "Antrag bis {date}",
+        "more": "{count, plural, one {# weitere Aufgabe in den nächsten 7 Tagen} other {# weitere Aufgaben in den nächsten 7 Tagen}}"
       },
       "key": {
         "title": "Kernaufgaben",

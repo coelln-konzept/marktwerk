@@ -121,7 +121,8 @@
         "done": "Done",
         "doneLabel": "Mark “{title}” done",
         "permitKind": "Permit",
-        "permitApplyBy": "Apply by {date}"
+        "permitApplyBy": "Apply by {date}",
+        "more": "{count, plural, one {# more task in the next 7 days} other {# more tasks in the next 7 days}}"
       },
       "key": {
         "title": "Key tasks",
