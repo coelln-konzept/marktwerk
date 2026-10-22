@@ -336,7 +336,6 @@
       "status": "Status",
       "applyBy": "Apply by",
       "validity": "Valid",
-      "responsible": "Responsible",
       "covers": "Covers"
     },
     "covers": "{count, plural, one {# event} other {# events}}",
@@ -344,11 +343,9 @@
     "applied": "Decision expected {date}",
     "validity": "{from} to {until}",
     "validityUntil": "until {until}",
-    "open": "Open in logbook",
-    "openNamed": "Open {title} in logbook",
     "empty": "No permits for this event yet.",
     "emptyHint": "No requirements are set up for {venue} yet. With requirements, the permits and their tasks are created automatically.",
     "emptyAction": "Set up requirements at the venue",
-    "logbook": "To the logbook"
+    "logbook": "All permits"
   }
 }

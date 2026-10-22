@@ -1,14 +1,13 @@
 {
   "board": {
     "title": "Board",
-    "subtitle": "Aufgaben über alle Veranstaltungen",
     "tab": {
       "open": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}}"
     },
     "columns": {
-      "preparation": "Vorbereitung",
+      "preparation": "Später",
       "this_week": "Diese Woche",
-      "today": "Heute",
+      "today": "Überfällig & heute",
       "done": "Erledigt"
     },
     "doneRange": "letzte 14 Tage",
@@ -19,7 +18,6 @@
       "label": "Ansicht",
       "bereitschaft": "Bereitschaft",
       "matrix": "Matrix",
-      "gruppiert": "Gruppiert",
       "spalten": "Spalten",
       "person": "Nach Person",
       "arbeitslast": "Arbeitslast"
@@ -30,24 +28,14 @@
       "mine": "Meine",
       "unassigned": "Nicht zugewiesen",
       "category": "Kategorie",
-      "allCategories": "Alle Kategorien"
+      "allCategories": "Alle Kategorien",
+      "button": "Filter"
     },
     "tabs": {
       "label": "Aufgaben",
       "mine": "Meine Aufgaben",
       "all": "Alle",
       "unassigned": "Nicht zugewiesen"
-    },
-    "group": {
-      "label": "Gruppieren",
-      "by": {
-        "veranstaltung": "Nach Veranstaltung",
-        "tag": "Nach Tag"
-      },
-      "noEvent": "Ohne Veranstaltung",
-      "noDate": "Ohne Datum",
-      "overdue": "Überfällig",
-      "today": "Heute"
     },
     "horizon": {
       "label": "Zeitraum",
@@ -178,8 +166,7 @@
     "drawer": {
       "label": "Aufgabe",
       "notFound": "Aufgabe nicht gefunden",
-      "notFoundHint": "Sie existiert nicht mehr, oder du hast keinen Zugriff darauf.",
-      "linkHint": "Diese Ansicht lässt sich als Link weitergeben: Die Adresse enthält die Aufgabe."
+      "notFoundHint": "Sie existiert nicht mehr, oder du hast keinen Zugriff darauf."
     },
     "readiness": {
       "caption": "Bereitschaft der kommenden Veranstaltungen",
@@ -220,7 +207,8 @@
         "snoozed": "zurückgestellt",
         "absent": "nicht vorhanden"
       }
-    }
+    },
+    "afterEvent": "Nach der Veranstaltung"
   },
   "drawer": {
     "close": "Schließen"

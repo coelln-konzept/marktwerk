@@ -9,7 +9,9 @@ import {
   dueAtForDate,
   dueness,
   endOfIsoWeek,
+  isAfterEvent,
   sortBetween,
+  sortColumnByDue,
 } from "./board";
 
 /** A due instant at 09:00 Berlin on a given day (summer +02:00, winter +01:00). */
@@ -175,5 +177,39 @@ describe("compareCards", () => {
       card("z", -5, "2026-12-01T07:00:00Z"),
     ];
     expect(list.sort(compareCards).map((c) => c.id)).toEqual(["z", "a", "b", "c", "d"]);
+  });
+});
+
+describe("isAfterEvent / sortColumnByDue", () => {
+  it("flags tasks due after the last event day only", () => {
+    expect(isAfterEvent("2026-10-26", "2026-10-25")).toBe(true);
+    expect(isAfterEvent("2026-10-25", "2026-10-25")).toBe(false);
+    expect(isAfterEvent(null, "2026-10-25")).toBe(false);
+    expect(isAfterEvent("2026-10-26", null)).toBe(false);
+  });
+  it("sorts by due date, undated and follow-up tasks last, ties keep the template order", () => {
+    const list = [
+      { id: "post", dueOn: "2026-10-27" },
+      { id: "none", dueOn: null },
+      { id: "late", dueOn: "2026-10-24" },
+      { id: "early-b", dueOn: "2026-10-22" },
+      { id: "early-a", dueOn: "2026-10-22" },
+    ];
+    expect(sortColumnByDue(list, "2026-10-25").map((c) => c.id)).toEqual([
+      "early-b",
+      "early-a",
+      "late",
+      "none",
+      "post",
+    ]);
+    // without an event end the follow-up flag does not apply
+    expect(sortColumnByDue(list).map((c) => c.id)).toEqual([
+      "early-b",
+      "early-a",
+      "late",
+      "post",
+      "none",
+    ]);
+    expect(list[0]?.id).toBe("post");
   });
 });

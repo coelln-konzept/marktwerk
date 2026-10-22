@@ -34,10 +34,11 @@ export async function ReadinessList({
     );
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
-      <table className="w-full min-w-[52rem] hyphens-none border-collapse text-left">
+    <div className="relative overflow-x-auto rounded-xl border bg-card">
+      {/* Phone: every row stacks (name, date, progress, what is missing, next deadline); from sm up it is a table. */}
+      <table className="block w-full hyphens-none border-collapse text-left sm:table sm:min-w-[52rem]">
         <caption className="sr-only">{t("caption")}</caption>
-        <thead>
+        <thead className="sr-only sm:not-sr-only sm:table-header-group">
           <tr className="border-b bg-surface-2">
             {(["market", "date", "progress", "missing", "next"] as const).map((key) => (
               <th
@@ -50,7 +51,7 @@ export async function ReadinessList({
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="block sm:table-row-group">
           {rows.map((row) => {
             const attention = readinessAttention(row, row.startsOn, today);
             const running = row.daysUntil < 0;
@@ -58,23 +59,29 @@ export async function ReadinessList({
             const nothingMissing =
               row.overdue === 0 && row.missingPermits === 0 && row.openKey === 0;
             return (
-              <tr key={row.id} className="border-border-subtle border-b align-top last:border-b-0">
-                <th scope="row" className="min-w-40 px-3 py-3 text-left font-semibold">
+              <tr
+                key={row.id}
+                className="block border-border-subtle border-b align-top last:border-b-0 sm:table-row"
+              >
+                <th
+                  scope="row"
+                  className="block px-3 pt-3 pb-1 text-left font-semibold sm:table-cell sm:min-w-40 sm:py-3"
+                >
                   <Link
-                    href={`/veranstaltungen/${row.id}/board`}
+                    href={`/veranstaltungen/${row.id}`}
                     className="inline-flex items-center gap-2 rounded-sm hover:underline"
                   >
                     <MarketMarker color={row.color} typeKey={row.typeKey} />
                     {row.name}
                   </Link>
                 </th>
-                <td className="whitespace-nowrap px-3 py-3 text-small">
+                <td className="block px-3 pb-1 text-small sm:table-cell sm:whitespace-nowrap sm:py-3">
                   <div>{formatDateRange(row.startsOn, row.endsOn, locale)}</div>
                   <div className="text-muted-foreground text-tiny">
                     {running ? t("running") : t("inDays", { days: row.daysUntil })}
                   </div>
                 </td>
-                <td className="px-3 py-3">
+                <td className="block px-3 py-1 sm:table-cell sm:py-3">
                   {row.total === 0 ? (
                     <span className="text-muted-foreground text-small">{t("noTasks")}</span>
                   ) : (
@@ -98,7 +105,7 @@ export async function ReadinessList({
                     </div>
                   )}
                 </td>
-                <td className="px-3 py-3">
+                <td className="block px-3 py-1 sm:table-cell sm:py-3">
                   <ul className="flex flex-wrap gap-1.5">
                     {row.overdue > 0 && (
                       <li>
@@ -133,12 +140,12 @@ export async function ReadinessList({
                     )}
                   </ul>
                 </td>
-                <td className="px-3 py-3 text-small">
+                <td className="block px-3 pt-1 pb-3 text-small sm:table-cell sm:py-3">
                   {row.next ? (
                     <Link
                       href={taskHref(row.next.id) as never}
                       scroll={false}
-                      className="block min-w-44 max-w-[22rem] rounded-sm hover:underline"
+                      className="block max-w-[22rem] rounded-sm hover:underline sm:min-w-44"
                     >
                       <span className="line-clamp-2 font-medium">{row.next.title}</span>
                       <span className="tabular text-muted-foreground text-tiny">

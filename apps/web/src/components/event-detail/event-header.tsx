@@ -1,13 +1,12 @@
-import { can, daysBetween, isHappening } from "@marktwerk/core";
-import { CalendarDays, MapPin, Truck } from "lucide-react";
+import { can, canMoveEvent, daysBetween, isHappening } from "@marktwerk/core";
+import { CalendarDays, MapPin } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventStatusBadge } from "@/components/events/event-status";
-import { HealthSummary } from "@/components/events/health-summary";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateShort, formatDateWithWeekday, formatWeek, todayIn } from "@/lib/format";
+import { formatDateWithWeekday, formatWeek, todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
@@ -17,12 +16,15 @@ import { getEventMoney } from "@/server/queries/finance";
 import { listEventPermits } from "@/server/queries/permits";
 import { eventTaskSummary } from "@/server/queries/tasks";
 import { listVenueOptions } from "@/server/queries/venues";
-import { BasicsDialog } from "./basics-dialog";
 import { BookingMenu } from "./booking-menu";
+import { EventActions } from "./event-actions";
 import { type EventTab, EventTabs } from "./event-tabs";
-import { StatusMenu } from "./status-menu";
 
-/** Header of the event page: name, type, status, health · date, setup, venue, preset · booking flags · tabs. */
+/**
+ * Header of the event page: name, type, status and the "…" menu · date and venue · tabs. Health is shown
+ * once, on the Überblick (UX pass 2026-10-22); the preset sits in Eckdaten, the setup time in Termine, and
+ * the booking menu and flags stay hidden while `HIDDEN_MODULES.booking` is on.
+ */
 export async function EventHeader({ event, actor }: { event: EventDetail; actor: Actor }) {
   const t = await getTranslations("eventDetail");
   const tHealth = await getTranslations("health");
@@ -31,7 +33,6 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const locale = await getLocale();
   const base = `/veranstaltungen/${event.id}`;
   const multiDay = event.endsOn !== event.startsOn;
-  const setup = event.anchors.find((a) => a.key === "setup_day")?.date;
   const typeName = locale === "en" ? event.type.nameEn : event.type.nameDe;
   const assigned = event.duties.filter((d) => d.staffMemberId).length;
   const total = event.duties.length;
@@ -94,10 +95,11 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
             key: "permits",
             href: `${base}/genehmigungen`,
             label: t("tabs.permits"),
+            // A count only when something is missing; a complete "5/5" says nothing the status line doesn't.
             count:
-              permits.rows.length > 0
+              permits.required - permits.held > 0
                 ? {
-                    text: `${permits.held}/${permits.required}`,
+                    text: String(permits.required - permits.held),
                     level: permits.health ?? "none",
                     sr: `${tPermits("tabSummary", { held: permits.held, required: permits.required })}, ${tHealth(permits.health ?? "none")}`,
                   }
@@ -129,6 +131,9 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
           },
         ]
       : []),
+  ];
+
+  const more: EventTab[] = [
     {
       key: "documents",
       href: `${base}/dokumente`,
@@ -146,25 +151,38 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
 
   return (
     <header className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="flex items-center gap-2.5 font-semibold text-[22px] tracking-tight">
+          <h1 className="flex min-w-0 items-center gap-2.5 font-semibold text-[22px] tracking-tight">
             <MarketMarker
               color={event.preset?.color}
               typeKey={event.type.key}
               className={event.preset?.color ? "h-6" : "size-3"}
             />
-            {event.name}
+            <span className="min-w-0 break-words">{event.name}</span>
           </h1>
           <EventTypeTag typeKey={event.type.key}>{typeName}</EventTypeTag>
           <EventStatusBadge status={event.status} />
-          <HealthSummary health={event.health} compact />
         </div>
         {canWrite && (
-          <div className="flex flex-wrap items-center gap-2">
-            <BasicsDialog
+          <div className="flex shrink-0 items-center gap-2">
+            {isModuleVisible("booking") && (
+              <BookingMenu
+                eventId={event.id}
+                flags={{
+                  bookingOpen: event.bookingOpen,
+                  fullyBooked: event.fullyBooked,
+                  carSpacesFull: event.carSpacesFull,
+                }}
+                happening={isHappening(event, todayIn())}
+              />
+            )}
+            <EventActions
               eventId={event.id}
+              eventName={event.name}
+              status={event.status}
               startsOn={event.startsOn}
+              canMove={canMoveEvent(event.status)}
               venues={venues}
               basics={{
                 name: event.name,
@@ -172,33 +190,17 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
                 venueId: event.venueId,
               }}
             />
-            <BookingMenu
-              eventId={event.id}
-              flags={{
-                bookingOpen: event.bookingOpen,
-                fullyBooked: event.fullyBooked,
-                carSpacesFull: event.carSpacesFull,
-              }}
-              happening={isHappening(event, todayIn())}
-            />
-            <StatusMenu eventId={event.id} eventName={event.name} status={event.status} />
           </div>
         )}
       </div>
 
       <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-foreground-2 text-small">
         <li className="flex items-center gap-1.5">
-          <CalendarDays aria-hidden className="size-4 text-muted-foreground" />
+          <CalendarDays aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           {dateLine}
         </li>
-        {setup && (
-          <li className="flex items-center gap-1.5">
-            <Truck aria-hidden className="size-4 text-muted-foreground" />
-            {t("header.setup", { date: formatDateShort(setup, locale), time: event.times.setup })}
-          </li>
-        )}
         <li className="flex items-center gap-1.5">
-          <MapPin aria-hidden className="size-4 text-muted-foreground" />
+          <MapPin aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           <Link
             href={`/orte/${event.venue.id}` as never}
             className="underline-offset-2 hover:text-foreground hover:underline"
@@ -206,43 +208,33 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
             {event.venue.name}
           </Link>
         </li>
-        <li className="text-muted-foreground">
-          {event.preset ? (
-            <Link
-              href={`/einstellungen/bibliothek?vorschau=${event.preset.id}` as never}
-              className="underline-offset-2 hover:text-foreground hover:underline"
-            >
-              {t("header.preset", { name: event.preset.name })}
-            </Link>
-          ) : (
-            t("header.noPreset")
+      </ul>
+
+      {isModuleVisible("booking") && (
+        <ul className="flex flex-wrap items-center gap-2">
+          <li>
+            <StatusBadge tone={event.bookingOpen ? "ok" : "neutral"} icon={BookingIcon}>
+              {event.bookingOpen ? t("header.booking.open") : t("header.booking.closed")}
+            </StatusBadge>
+          </li>
+          {event.fullyBooked && (
+            <li>
+              <StatusBadge tone="warn" icon={BOOKING_FLAG_ICONS.full}>
+                {t("header.booking.full")}
+              </StatusBadge>
+            </li>
           )}
-        </li>
-      </ul>
+          {event.carSpacesFull && (
+            <li>
+              <StatusBadge tone="warn" icon={BOOKING_FLAG_ICONS.carsFull}>
+                {t("header.booking.carsFull")}
+              </StatusBadge>
+            </li>
+          )}
+        </ul>
+      )}
 
-      <ul className="flex flex-wrap items-center gap-2">
-        <li>
-          <StatusBadge tone={event.bookingOpen ? "ok" : "neutral"} icon={BookingIcon}>
-            {event.bookingOpen ? t("header.booking.open") : t("header.booking.closed")}
-          </StatusBadge>
-        </li>
-        {event.fullyBooked && (
-          <li>
-            <StatusBadge tone="warn" icon={BOOKING_FLAG_ICONS.full}>
-              {t("header.booking.full")}
-            </StatusBadge>
-          </li>
-        )}
-        {event.carSpacesFull && (
-          <li>
-            <StatusBadge tone="warn" icon={BOOKING_FLAG_ICONS.carsFull}>
-              {t("header.booking.carsFull")}
-            </StatusBadge>
-          </li>
-        )}
-      </ul>
-
-      <EventTabs tabs={tabs} label={t("tabs.label")} />
+      <EventTabs tabs={tabs} more={more} moreLabel={t("tabs.more")} label={t("tabs.label")} />
     </header>
   );
 }

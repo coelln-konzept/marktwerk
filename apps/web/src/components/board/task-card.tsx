@@ -16,7 +16,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
-import { RolloverBadge } from "@/components/ui/status-badge";
+import { MarketMarker } from "@/components/ui/market-marker";
 import { formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate } from "@/lib/task-ui";
@@ -30,7 +30,7 @@ import { CategoryTag, DueLine, TaskStatusBadge } from "./task-bits";
 const isFinished = (task: BoardTask) => task.status === "done" || task.status === "skipped";
 
 /**
- * Kanban card (component inventory): grip, category tag, ↻n carry-over badge, status, title (opens the
+ * Kanban card (component inventory): grip, category tag, status, title (opens the
  * drawer), tick-off, estimate, due-ness, assignee. Pointer: drag the card (ADR 0020). Keyboard: the
  * grip lifts (Space), arrows move, Space drops, Esc cancels; on the card E ticks off, A opens the menu,
  * Enter opens the drawer.
@@ -172,12 +172,6 @@ function CardContent({
         <div className="flex flex-wrap items-center gap-1">
           <CategoryTag category={task.category} />
           {task.isKey && <KeyTaskMark />}
-          {task.rolloverCount > 0 && (
-            <RolloverBadge
-              count={task.rolloverCount}
-              label={tTasks("rollover", { count: task.rolloverCount })}
-            />
-          )}
           {task.status !== "todo" && !(finished && task.status === "done") && (
             <TaskStatusBadge status={task.status} reason={task.waitingReason} />
           )}
@@ -199,11 +193,12 @@ function CardContent({
 
       {board.showEvent && !hideEvent && task.eventName && (
         <Link
-          href={`/veranstaltungen/${task.eventId}/board` as never}
+          href={`/veranstaltungen/${task.eventId}` as never}
           draggable={false}
-          className="truncate text-muted-foreground text-tiny hover:underline"
+          className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-tiny hover:underline"
         >
-          {task.eventName}
+          <MarketMarker color={task.eventColor} typeKey={task.eventTypeKey} className="h-3" />
+          <span className="truncate">{task.eventName}</span>
         </Link>
       )}
 
