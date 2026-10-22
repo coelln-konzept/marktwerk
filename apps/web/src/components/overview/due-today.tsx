@@ -1,6 +1,7 @@
 import { daysBetween } from "@marktwerk/core";
 import {
   CalendarCheck,
+  ChevronRight,
   CircleCheck,
   Clock,
   type LucideIcon,
@@ -268,16 +269,24 @@ export async function DueToday({
                             ),
                           )}
                           {!showAll && cluster.items.length > DUE_PER_MARKET && (
-                            <li className="py-1 pl-8">
-                              <Link
-                                href={cluster.event.href as never}
-                                className="inline-flex min-h-8 items-center px-4 text-muted-foreground text-small hover:text-foreground hover:underline"
-                              >
-                                {t("moreAtMarket", {
-                                  count: cluster.items.length - DUE_PER_MARKET,
-                                  name: cluster.event.name,
-                                })}
-                              </Link>
+                            <li className="pl-8">
+                              <details className="group">
+                                <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-4 text-muted-foreground text-small outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                                  <ChevronRight
+                                    aria-hidden
+                                    className="size-3.5 transition-transform group-open:rotate-90"
+                                  />
+                                  {t("moreAtMarket", {
+                                    count: cluster.items.length - DUE_PER_MARKET,
+                                    name: cluster.event.name,
+                                  })}
+                                </summary>
+                                <ul className="m-0 -ml-8 flex list-none flex-col p-0">
+                                  {cluster.items.slice(DUE_PER_MARKET).map((item) => (
+                                    <DueRow key={`${item.kind}-${item.id}`} item={item} nested />
+                                  ))}
+                                </ul>
+                              </details>
                             </li>
                           )}
                         </ul>

@@ -14,8 +14,9 @@ import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel } from "@/components/ui/panel";
+import { LinkRow } from "@/components/ui/row-link";
 import { EmptyState } from "@/components/ui/states";
-import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { RowActions, Table, TD, TH, THead } from "@/components/ui/table";
 import { formatDateRange, todayIn } from "@/lib/format";
 import { isModuleHidden, isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUSES } from "@/lib/status";
@@ -254,8 +255,9 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                   const href = `${PATH}/${r.id}`;
                   const peek = hrefWith(PATH, sp, { vorschau: r.id, erzeugen: undefined });
                   return (
-                    <TR
+                    <LinkRow
                       key={r.id}
+                      href={href}
                       tabIndex={0}
                       data-row
                       data-href={href}
@@ -272,7 +274,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                       </TD>
                       <TD>
                         <span className="inline-flex items-center gap-2">
-                          <MarketMarker color={r.color} typeKey={r.typeKey} />
+                          <MarketMarker color={r.color} typeKey={r.typeKey} size="lg" />
                           <Link
                             href={href as never}
                             tabIndex={-1}
@@ -307,7 +309,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                           </Link>
                         </RowActions>
                       </TD>
-                    </TR>
+                    </LinkRow>
                   );
                 })}
               </tbody>
