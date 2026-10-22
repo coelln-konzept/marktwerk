@@ -12,7 +12,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { TaskQuickActions } from "@/components/event-detail/overview-task-actions";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateShort } from "@/lib/format";
+import { formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { EventOverview } from "@/server/queries/event-overview";
 
@@ -89,7 +89,7 @@ export async function MarketPanel({
                 </StatusBadge>
                 {task.dueOn && (
                   <span className="tabular text-muted-foreground text-small">
-                    {formatDateShort(task.dueOn, locale)}
+                    {formatDateShortYear(task.dueOn, locale, today)}
                   </span>
                 )}
                 {canWrite && (

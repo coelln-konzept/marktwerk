@@ -140,6 +140,16 @@
     "warn": "Achtung",
     "critical": "Kritisch",
     "none": "noch offen",
+    "reason": {
+      "ok": "Im Plan",
+      "permits": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}",
+      "permitsEnding": "Genehmigung läuft vor Ende ab",
+      "tasksOverdue": "{count} überfällig",
+      "tasksBlocked": "{count} blockiert",
+      "tasksRollover": "oft verschoben",
+      "team": "Team nicht komplett",
+      "money": "Geld offen"
+    },
     "dims": {
       "permits": "Genehmigungen",
       "tasks": "Aufgaben",

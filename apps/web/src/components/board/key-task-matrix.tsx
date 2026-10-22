@@ -5,6 +5,7 @@ import {
   CircleCheck,
   CircleDashed,
   Clock,
+  Hourglass,
   Star,
   TriangleAlert,
 } from "lucide-react";
@@ -12,7 +13,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
-import { formatDateRange, formatMonthDay } from "@/lib/format";
+import { formatDateRangeYear, formatMonthDay, todayIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { KeyTaskMatrix } from "@/server/queries/board-overview";
 
@@ -21,6 +22,7 @@ const STATE_ICON = {
   open: CircleDashed,
   soon: Clock,
   overdue: TriangleAlert,
+  waiting: Hourglass,
   snoozed: BellOff,
 } as const;
 
@@ -29,10 +31,18 @@ const STATE_TONE: Record<Exclude<MatrixCellState, "absent">, string> = {
   open: "text-foreground-2",
   soon: "text-status-warn",
   overdue: "text-status-critical",
+  waiting: "text-status-waiting",
   snoozed: "text-status-waiting",
 };
 
-const LEGEND: Exclude<MatrixCellState, "absent">[] = ["done", "open", "soon", "overdue", "snoozed"];
+const LEGEND: Exclude<MatrixCellState, "absent">[] = [
+  "done",
+  "open",
+  "soon",
+  "overdue",
+  "waiting",
+  "snoozed",
+];
 
 /**
  * "Matrix": markets (rows) x Kernaufgaben (columns). A cell is the market's state of that task; every
@@ -48,6 +58,7 @@ export async function KeyTaskMatrixView({
 }) {
   const t = await getTranslations("board.matrix");
   const locale = await getLocale();
+  const today = todayIn();
 
   if (matrix.events.length === 0)
     return (
@@ -103,7 +114,7 @@ export async function KeyTaskMatrixView({
                     {event.name}
                   </Link>
                   <div className="pl-3 text-muted-foreground text-tiny">
-                    {formatDateRange(event.startsOn, event.endsOn, locale)}
+                    {formatDateRangeYear(event.startsOn, event.endsOn, locale, today)}
                   </div>
                 </th>
                 {matrix.columns.map((col) => {

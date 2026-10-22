@@ -35,6 +35,7 @@
     },
     "due": {
       "overdue": "Überfällig · {days} T",
+      "waitingSince": "Wartet seit {date}",
       "today": "Heute",
       "soon": "Fällig in {days} T",
       "none": "Kein Datum",

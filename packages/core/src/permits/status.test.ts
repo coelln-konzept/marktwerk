@@ -125,14 +125,15 @@ describe("eventPermitHealth", () => {
     expect(eventPermitHealth([pending], "2027-03-10", today)).toBe("critical");
   });
 
-  it("warns for a permit that runs out after the event and is critical if it ends before", () => {
+  it("is ok when the permit runs out after the event's last day, warns when it ends within a multi-day event, critical if it ends before the start", () => {
     const expiring = {
       status: "granted",
       applyBy: null,
       validUntil: "2027-04-15",
       required: true,
     } as const;
-    expect(eventPermitHealth([expiring], "2027-04-10", today)).toBe("warn");
+    expect(eventPermitHealth([expiring], "2027-04-10", today)).toBe("ok");
+    expect(eventPermitHealth([expiring], "2027-04-14", today, "2027-04-16")).toBe("warn");
     expect(eventPermitHealth([expiring], "2027-05-02", today)).toBe("critical");
   });
 });

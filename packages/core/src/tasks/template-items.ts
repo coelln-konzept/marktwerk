@@ -1,3 +1,4 @@
+import { PERMIT_TYPES, type PermitTypeKey } from "../permits/status";
 import { clockTime, type DayMode, MAX_OFFSET_DAYS } from "./due";
 
 export const TASK_PHASES = ["pre", "live", "post"] as const;
@@ -118,6 +119,8 @@ export type TemplateItemFields = {
   requiresAttachment: boolean;
   /** Kernaufgabe: a task every market needs (manual flag, copied to the task). */
   isKey: boolean;
+  /** The permit this item applies for ("Gehört zur Genehmigung"); its task links to the event's permit of that type. */
+  permitType: PermitTypeKey | null;
   checkItems: string[];
   approverDutyRoleId: string | null;
   dependsOnKeys: string[];
@@ -137,6 +140,7 @@ export type ItemIssueCode =
   | "invalid_estimate"
   | "invalid_check_items"
   | "invalid_depends"
+  | "invalid_permit_type"
   | "invalid_condition";
 
 export type ItemIssueField =
@@ -152,6 +156,7 @@ export type ItemIssueField =
   | "estimateMinutes"
   | "checkItems"
   | "dependsOnKeys"
+  | "permitType"
   | "condition";
 
 export type ItemIssue = { code: ItemIssueCode; field: ItemIssueField };
@@ -201,6 +206,8 @@ export function checkTemplateItem(item: TemplateItemFields): ItemIssue[] {
     add("invalid_check_items", "checkItems");
   if (!Array.isArray(item.dependsOnKeys) || item.dependsOnKeys.some((k) => typeof k !== "string"))
     add("invalid_depends", "dependsOnKeys");
+  if (item.permitType !== null && !isOneOf(PERMIT_TYPES, item.permitType))
+    add("invalid_permit_type", "permitType");
   const c = item.condition;
   if (
     c !== null &&

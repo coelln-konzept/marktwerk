@@ -35,6 +35,7 @@
     },
     "due": {
       "overdue": "Overdue · {days} d",
+      "waitingSince": "Waiting since {date}",
       "today": "Today",
       "soon": "Due in {days} d",
       "none": "No date",

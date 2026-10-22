@@ -95,8 +95,8 @@ export async function getEventOverview(
       key: keyTasks(tasks, today),
     },
     permits: permitRows && {
-      progress: permitProgress(permitRows, event.startsOn, today),
-      missing: missingPermits(permitRows, event.startsOn, today),
+      progress: permitProgress(permitRows, event.startsOn, today, event.endsOn),
+      missing: missingPermits(permitRows, event.startsOn, today, event.endsOn),
     },
   };
 }

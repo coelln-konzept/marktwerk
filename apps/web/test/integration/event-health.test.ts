@@ -88,6 +88,14 @@ describe("listEvents", () => {
     expect(health[empty]).toMatchObject({ tasks: null, money: null });
   });
 
+  it("carries the numbers behind the levels, so lists can say '5 überfällig' instead of 'Kritisch'", async () => {
+    const rows = await listEvents(owner, {});
+    const reasons = (id: string) => rows.find((r) => r.id === id)?.reasons;
+    expect(reasons(busy)).toEqual({ permitsMissing: 0, tasksOverdue: 5, tasksBlocked: 0 });
+    expect(reasons(calm)).toEqual({ permitsMissing: 0, tasksOverdue: 0, tasksBlocked: 0 });
+    expect((await getEvent(owner, busy))?.reasons).toEqual(reasons(busy));
+  });
+
   it("agrees with getEvent for the same actor", async () => {
     const listed = await healthOf(owner);
     for (const id of [busy, calm, empty]) {

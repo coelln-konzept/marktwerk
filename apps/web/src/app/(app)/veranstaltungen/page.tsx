@@ -17,7 +17,7 @@ import { Panel } from "@/components/ui/panel";
 import { LinkRow } from "@/components/ui/row-link";
 import { EmptyState } from "@/components/ui/states";
 import { RowActions, Table, TD, TH, THead } from "@/components/ui/table";
-import { formatDateRange, todayIn } from "@/lib/format";
+import { formatDateRangeYear, todayIn } from "@/lib/format";
 import { isModuleHidden, isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUSES } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
@@ -270,7 +270,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                     >
                       <TD className="tabular text-muted-foreground">{isoWeek(r.startsOn).week}</TD>
                       <TD className="tabular whitespace-nowrap font-semibold">
-                        {formatDateRange(r.startsOn, r.endsOn, locale)}
+                        {formatDateRangeYear(r.startsOn, r.endsOn, locale, today)}
                       </TD>
                       <TD>
                         <span className="inline-flex items-center gap-2">

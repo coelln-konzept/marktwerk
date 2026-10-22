@@ -153,7 +153,7 @@ function columnsOf(patch: Partial<TaskState>): Partial<typeof task.$inferInsert>
 
 async function writeAudit(
   tx: Tx,
-  actor: Actor,
+  actor: Pick<Actor, "id">,
   action: string,
   taskId: string,
   diff: unknown,
@@ -249,7 +249,7 @@ export type StatusInput = {
  */
 async function statusPatch(
   tx: Tx,
-  actor: Actor,
+  actor: Pick<Actor, "staffMemberId">,
   row: TaskRow,
   to: TaskStatusKey,
   input: StatusInput,
@@ -337,6 +337,57 @@ export async function setTaskStatus(
     });
     return { changed: true, auditId, from: row.status };
   });
+}
+
+/** Audit reason of an application task that closed because its permit is applied for / granted. */
+export const PERMIT_COVERED_REASON = "Genehmigung beantragt/erteilt";
+
+/**
+ * Completes open tasks because the permit they apply for is applied for or granted (the "beantragen" task
+ * of a template item linked to a permit). Same state change and audit entry as `setTaskStatus(…, "done")`
+ * (undoable like it, `auto: true`, reason {@link PERMIT_COVERED_REASON}), inside the caller's transaction
+ * and without the task-scope check: the permit change is the actor's business, not the task list's. A task
+ * that needs evidence (photo, open sub-steps) stays open. Returns the ids that were completed.
+ */
+export async function completeTasksForPermit(
+  tx: Tx,
+  actor: Pick<Actor, "id" | "staffMemberId">,
+  permitId: string,
+  taskIds: readonly string[],
+  at?: TaskClock,
+): Promise<string[]> {
+  if (taskIds.length === 0) return [];
+  const { now } = clock(at);
+  const rows = await tx
+    .select()
+    .from(task)
+    .where(and(inArray(task.id, [...taskIds]), inArray(task.status, [...OPEN_STATUSES])))
+    .orderBy(task.id)
+    .for("update");
+  const completed: string[] = [];
+  for (const row of rows) {
+    const before = stateOf(row);
+    let patch: Partial<TaskState>;
+    try {
+      ({ patch } = await statusPatch(tx, actor, row, "done", {}, now));
+    } catch (error) {
+      if (error instanceof TaskInputError && error.code === "evidence_missing") continue;
+      throw error;
+    }
+    const diff = stateDiff(before, { ...before, ...patch });
+    await tx.update(task).set(columnsOf(patch)).where(eq(task.id, row.id));
+    await writeAudit(tx, actor, "task.status", row.id, {
+      from: row.status,
+      to: "done",
+      before: diff.before,
+      after: diff.after,
+      auto: true,
+      reason: PERMIT_COVERED_REASON,
+      permitId,
+    });
+    completed.push(row.id);
+  }
+  return completed;
 }
 
 // ---------------------------------------------------------------------------------------------

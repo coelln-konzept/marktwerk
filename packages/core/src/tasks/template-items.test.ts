@@ -31,6 +31,7 @@ const item = (patch: Partial<TemplateItemFields> = {}): TemplateItemFields => ({
   requiresNote: false,
   requiresAttachment: false,
   isKey: false,
+  permitType: null,
   checkItems: [],
   approverDutyRoleId: null,
   dependsOnKeys: [],
@@ -102,6 +103,8 @@ describe("checkTemplateItem", () => {
     expect(codes({ category: "misc" as never })).toEqual(["invalid_category"]);
     expect(codes({ priority: "urgent" as never })).toEqual(["invalid_priority"]);
     expect(codes({ dayMode: "weekdays" as never })).toEqual(["invalid_day_mode"]);
+    expect(codes({ permitType: "visa" as never })).toEqual(["invalid_permit_type"]);
+    expect(codes({ permitType: "market_permit" })).toEqual([]);
   });
 });
 

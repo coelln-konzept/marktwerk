@@ -13,7 +13,7 @@ import { Fragment, type ReactNode } from "react";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateRange, formatDateShort } from "@/lib/format";
+import { formatDateRangeYear, formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ReadinessRow } from "@/server/queries/board-overview";
 
@@ -99,7 +99,7 @@ export async function ReadinessList({
                     </Link>
                   </th>
                   <td className="block px-3 pb-1 text-small sm:table-cell sm:whitespace-nowrap sm:py-3">
-                    <div>{formatDateRange(row.startsOn, row.endsOn, locale)}</div>
+                    <div>{formatDateRangeYear(row.startsOn, row.endsOn, locale, today)}</div>
                     <div className="text-muted-foreground text-tiny">
                       {running ? t("running") : t("inDays", { days: row.daysUntil })}
                     </div>
@@ -172,7 +172,7 @@ export async function ReadinessList({
                       >
                         <span className="line-clamp-2 font-medium">{row.next.title}</span>
                         <span className="tabular text-muted-foreground text-tiny">
-                          {t("dueOn", { date: formatDateShort(row.next.dueOn, locale) })}
+                          {t("dueOn", { date: formatDateShortYear(row.next.dueOn, locale, today) })}
                         </span>
                       </Link>
                     ) : (

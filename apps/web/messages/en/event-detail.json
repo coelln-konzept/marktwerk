@@ -119,6 +119,7 @@
           "today": "Today",
           "soon": "in {n} d"
         },
+        "waitingSince": "waiting since {date}",
         "done": "Done",
         "doneLabel": "Mark “{title}” done",
         "permitKind": "Permit",
@@ -133,8 +134,10 @@
           "open": "Open",
           "soon": "Due soon",
           "overdue": "Overdue",
+          "waiting": "Waiting",
           "snoozed": "Snoozed"
         },
+        "waitingSince": "since {date}",
         "dueOn": "due {date}",
         "snoozedUntil": "until {date}"
       },

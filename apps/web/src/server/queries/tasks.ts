@@ -12,6 +12,7 @@ import {
   type HealthLevel,
   type HiringSignal,
   hiringSignal,
+  isWaitingPastDue,
   type LoadLevel,
   loadLevel,
   loadWeekStart,
@@ -603,7 +604,7 @@ export async function eventTaskSummary(
   const [row] = await db
     .select({
       open: sql<number>`count(*)::int`,
-      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart}))::int`,
+      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart} and ${task.status} <> 'waiting_external'))::int`,
       blocked: sql<number>`(count(*) filter (where ${task.status} = 'blocked'))::int`,
       maxRollover: sql<number>`coalesce(max(${task.rolloverCount}), 0)::int`,
     })
@@ -623,21 +624,33 @@ export async function taskHealthByEvent(
   eventIds: string[],
   today: string,
 ): Promise<Map<string, HealthLevel | null>> {
-  const result = new Map<string, HealthLevel | null>(eventIds.map((id) => [id, null]));
+  const summary = await taskSummaryByEvent(actor, eventIds, today);
+  return new Map([...summary].map(([id, s]) => [id, s.health]));
+}
+
+/** Open tasks, overdue ones (waiting tasks are not overdue), blocked ones and the health per event. */
+export async function taskSummaryByEvent(
+  actor: Actor,
+  eventIds: string[],
+  today: string,
+): Promise<Map<string, EventTaskSummary>> {
+  const none: EventTaskSummary = { open: 0, overdue: 0, blocked: 0, maxRollover: 0, health: null };
+  const result = new Map<string, EventTaskSummary>(eventIds.map((id) => [id, none]));
   if (eventIds.length === 0) return result;
   const todayStart = resolveRelativeDue(today, 0, "00:00");
   const rows = await db
     .select({
       eventId: task.eventId,
       open: sql<number>`count(*)::int`,
-      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart}))::int`,
+      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart} and ${task.status} <> 'waiting_external'))::int`,
       blocked: sql<number>`(count(*) filter (where ${task.status} = 'blocked'))::int`,
       maxRollover: sql<number>`coalesce(max(${task.rolloverCount}), 0)::int`,
     })
     .from(task)
     .where(and(visibleTasks(actor), inArray(task.eventId, eventIds), inArray(task.status, OPEN)))
     .groupBy(task.eventId);
-  for (const row of rows) if (row.eventId) result.set(row.eventId, taskHealth(row));
+  for (const { eventId, ...row } of rows)
+    if (eventId) result.set(eventId, { ...row, health: taskHealth(row) });
   return result;
 }
 
@@ -799,7 +812,7 @@ export async function openTaskCounts(
   const [row] = await db
     .select({
       open: sql<number>`count(*)::int`,
-      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart}))::int`,
+      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart} and ${task.status} <> 'waiting_external'))::int`,
     })
     .from(task)
     .where(
@@ -889,6 +902,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       eventColor: eventPreset.color,
       eventStartsOn: event.startsOn,
       isKey: task.isKey,
+      status: task.status,
       assigneeName: staffMember.displayName,
     })
     .from(task)
@@ -915,8 +929,9 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       id: r.id,
       title: r.title,
       dueOn,
-      urgency:
-        dueOn < today
+      urgency: isWaitingPastDue({ status: r.status, dueOn }, today)
+        ? ("waiting" as const)
+        : dueOn < today
           ? ("overdue" as const)
           : dueOn === today
             ? ("today" as const)
@@ -948,7 +963,13 @@ export async function calendarItems(
   const start = resolveRelativeDue(from, 0, "00:00");
   const end = resolveRelativeDue(addDays(to, 1), 0, "00:00");
   const rows = await db
-    .select({ id: task.id, title: task.title, dueAt: task.dueAt, eventId: task.eventId })
+    .select({
+      id: task.id,
+      title: task.title,
+      dueAt: task.dueAt,
+      eventId: task.eventId,
+      status: task.status,
+    })
     .from(task)
     .where(
       and(
@@ -971,8 +992,9 @@ export async function calendarItems(
       date,
       title: r.title,
       href: taskLink(r.id, r.eventId),
-      tone:
-        date < today
+      tone: isWaitingPastDue({ status: r.status, dueOn: date }, today)
+        ? ("neutral" as const)
+        : date < today
           ? ("critical" as const)
           : date === today
             ? ("warn" as const)

@@ -177,7 +177,10 @@ export async function getReadinessList(
     const own = (tasksBy.get(e.id) ?? []).filter(
       (t) => scope.category === undefined || t.category === scope.category,
     );
-    return { ...e, ...summarizeReadiness(own, permitsBy.get(e.id) ?? [], e.startsOn, today) };
+    return {
+      ...e,
+      ...summarizeReadiness(own, permitsBy.get(e.id) ?? [], e.startsOn, today, e.endsOn),
+    };
   });
   return { rows, categoryCounts };
 }
