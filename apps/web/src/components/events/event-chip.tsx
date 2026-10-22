@@ -1,16 +1,22 @@
 import Link from "next/link";
-import { EventTypeSquare, eventTypeClasses } from "@/components/ui/event-type-tag";
+import { eventTypeClasses } from "@/components/ui/event-type-tag";
+import { MarketMarker } from "@/components/ui/market-marker";
 import { cn } from "@/lib/utils";
 
-/** Compact event entry for calendars: type square + name, opens the Vorschau. */
+/**
+ * Compact event entry for calendars: market marker (falls back to the type square) + name, opens the
+ * Vorschau. The chip's tint stays the event type's.
+ */
 export function EventChip({
   href,
   typeKey,
+  color,
   name,
   cancelled,
 }: {
   href: string;
   typeKey: string;
+  color?: string | null;
   name: string;
   cancelled?: boolean;
 }) {
@@ -25,7 +31,7 @@ export function EventChip({
         cancelled && "line-through opacity-70",
       )}
     >
-      <EventTypeSquare typeKey={typeKey} className="size-2" />
+      <MarketMarker color={color} typeKey={typeKey} className={color ? "h-3" : "size-2"} />
       <span className="truncate">{name}</span>
     </Link>
   );

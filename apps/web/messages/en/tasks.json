@@ -97,6 +97,10 @@
         "invalid_staff": "This person cannot be assigned."
       }
     },
+    "keyTask": {
+      "label": "Key task",
+      "hint": "A task every market needs."
+    },
     "fields": {
       "title": "Title",
       "description": "Description",

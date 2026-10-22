@@ -14,6 +14,7 @@ import { AutoSubmitSelect } from "@/components/ui/auto-submit";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
@@ -288,13 +289,16 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                           {formatDateRange(r.startsOn, r.endsOn, locale)}
                         </TD>
                         <TD>
-                          <Link
-                            href={href as never}
-                            tabIndex={-1}
-                            className="whitespace-nowrap font-semibold text-accent-soft-foreground hover:underline"
-                          >
-                            {r.name}
-                          </Link>
+                          <span className="inline-flex items-center gap-2">
+                            <MarketMarker color={r.color} typeKey={r.typeKey} />
+                            <Link
+                              href={href as never}
+                              tabIndex={-1}
+                              className="whitespace-nowrap font-semibold text-accent-soft-foreground hover:underline"
+                            >
+                              {r.name}
+                            </Link>
+                          </span>
                         </TD>
                         <TD>
                           <EventTypeTag typeKey={r.typeKey}>{typeName(r)}</EventTypeTag>
@@ -401,6 +405,7 @@ async function CalendarView({
         <EventChip
           href={hrefWith(PATH, sp, { vorschau: r.id })}
           typeKey={r.typeKey}
+          color={r.color}
           name={r.name}
           cancelled={r.status === "cancelled"}
         />

@@ -11,6 +11,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { nextMarketColor } from "@marktwerk/core";
 import { createDb, schema } from "@marktwerk/db";
 import { generateDataset } from "@marktwerk/synthetic";
 import { hashPassword } from "better-auth/crypto";
@@ -174,12 +175,14 @@ await db.transaction(async (tx) => {
     }
   }
 
-  await insertAll(
-    tx,
-    schema.eventPreset,
-    data.eventPresets.map(({ checklistTemplateId: _template, ...p }) => p),
-    "presets",
-  );
+  // Marktfarbe: assigned in creation order, each preset gets the least used colour so far.
+  const presetColors: string[] = [];
+  const presetRows = data.eventPresets.map(({ checklistTemplateId: _template, ...p }) => {
+    const color = nextMarketColor(presetColors);
+    presetColors.push(color);
+    return { ...p, color };
+  });
+  await insertAll(tx, schema.eventPreset, presetRows, "presets");
   await insertAll(
     tx,
     schema.event,

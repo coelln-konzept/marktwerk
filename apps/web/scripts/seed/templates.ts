@@ -56,6 +56,7 @@ export async function seedTemplates(tx: Tx, { data, roleIdByKey }: SeedContext) 
         priority: item.priority,
         estimateMinutes: item.estimateMinutes,
         requiresPhoto: item.requiresPhoto,
+        isKey: item.isKey,
       })),
     ),
     "template items",

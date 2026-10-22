@@ -61,6 +61,7 @@ export async function seedTasks(tx: Tx, { data }: SeedContext) {
         estimateMinutes: task.estimateMinutes,
         effortFeedback: task.effortFeedback,
         requiresPhoto: task.requiresPhoto,
+        isKey: task.isKey,
         status: task.status,
         waitingReason: task.waitingReason,
         skippedReason: task.skippedReason,

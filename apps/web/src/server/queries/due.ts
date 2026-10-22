@@ -30,6 +30,10 @@ export type DueItem = {
   eventId?: string | null;
   /** Event type key (`flea`, …) for the colour marker when items are grouped by event. */
   eventTypeKey?: string | null;
+  /** Market colour of the event's preset (`MARKET_COLORS` key), null = use the type marker. */
+  eventColor?: string | null;
+  /** Kernaufgabe: ranks first within its urgency group and gets the quiet key marker. */
+  isKey?: boolean;
   /** First day of the event (`YYYY-MM-DD`). */
   eventStartsOn?: string | null;
   /** Permits can belong to several events (the upcoming ones they are required for). */

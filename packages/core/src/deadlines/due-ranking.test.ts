@@ -53,6 +53,27 @@ describe("rankDue", () => {
     expect(ranked.map((i) => i.title)).toEqual(["Z", "A", "B"]);
   });
 
+  it("puts Kernaufgaben first inside their urgency group, never across groups", () => {
+    const key = (title: string, urgency: Rankable["urgency"], dueOn: string): Rankable => ({
+      ...item("task", urgency, dueOn, title),
+      isKey: true,
+    });
+    const ranked = rankDue([
+      item("permit", "today", "2026-10-22", "Permit"),
+      item("task", "today", "2026-10-20", "Plain, older"),
+      key("Key, newer", "today", "2026-10-22"),
+      key("Key, older", "today", "2026-10-21"),
+      key("Key but soon", "soon", "2026-10-23"),
+    ]);
+    expect(ranked.map((i) => i.title)).toEqual([
+      "Key, older",
+      "Key, newer",
+      "Permit",
+      "Plain, older",
+      "Key but soon",
+    ]);
+  });
+
   it("does not change its input", () => {
     const input = [item("task", "soon", "2026-10-25"), item("permit", "overdue", "2026-10-01")];
     rankDue(input);

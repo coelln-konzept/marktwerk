@@ -104,6 +104,7 @@
         "evidence": "Nachweis",
         "actions": "Aktionen"
       },
+      "keyTask": "Kernaufgabe",
       "count": "{count, plural, =0 {keine Aufgaben} one {# Aufgabe} other {# Aufgaben}}",
       "checkItems": "{count, plural, one {# Teilschritt} other {# Teilschritte}}",
       "dependsOn": "Hängt ab von: {titles}",
@@ -157,6 +158,8 @@
       "priority": "Priorität",
       "estimate": "Aufwand (Minuten)",
       "evidence": "Nachweis beim Erledigen",
+      "isKey": "Kernaufgabe",
+      "isKeyHint": "Jeder Markt braucht diese Aufgabe. Sie erscheint in der Kernaufgaben-Übersicht und wird bei Verzug stärker hervorgehoben.",
       "checkItems": "Teilschritte",
       "checkItemsHint": "Ein Teilschritt pro Zeile.",
       "dependsOn": "Hängt ab von",
@@ -225,6 +228,7 @@
         "priority": "Priorität",
         "estimate": "Aufwand",
         "evidence": "Nachweis",
+        "key": "Kernaufgabe",
         "duty": "Rolle",
         "due": "Fälligkeit"
       },

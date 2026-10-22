@@ -17,6 +17,7 @@ const base = {
   requiresPhoto: false,
   requiresNote: false,
   requiresAttachment: false,
+  isKey: false,
   dutyRoleId: null,
   dueAt: 1_000,
 };
@@ -135,5 +136,15 @@ describe("planPropagation", () => {
       [task("a")],
     );
     expect(plan.update[0]?.changes).toEqual(["evidence", "duty"]);
+  });
+
+  it("carries a changed Kernaufgabe flag like the other copied fields", () => {
+    const plan = planPropagation([item("a", { isKey: true })], [task("a")]);
+    expect(plan.update[0]?.changes).toEqual(["key"]);
+    const back = planPropagation([item("a")], [task("a", { isKey: true })]);
+    expect(back.update[0]?.changes).toEqual(["key"]);
+    expect(planPropagation([item("a", { isKey: true })], [task("a", { isKey: true })]).same).toBe(
+      1,
+    );
   });
 });

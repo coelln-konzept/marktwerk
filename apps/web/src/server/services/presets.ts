@@ -4,6 +4,9 @@ import {
   can,
   checkPresetFields,
   type EventTimesInput,
+  isMarketColor,
+  type MarketColor,
+  nextMarketColor,
   normalizeClockTime,
   type PresetFieldsInput,
   type PresetIssueCode,
@@ -20,6 +23,7 @@ export type PresetError =
   | PresetIssueCode
   | "not_found"
   | "invalid_type"
+  | "invalid_color"
   | "invalid_venue"
   | "invalid_duty_role"
   | "invalid_staff"
@@ -46,6 +50,11 @@ export type PresetInput = PresetFieldsInput & {
   /** duty_role.key → staff_member.id; roles that are not listed have no default person. */
   defaultDuties: Record<string, string>;
   active: boolean;
+  /**
+   * Marktfarbe (`MARKET_COLORS` key) or null (= the event type's colour). Left out: a new preset gets
+   * the least used colour, an edit keeps the stored one.
+   */
+  color?: string | null;
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -94,6 +103,8 @@ function assertShape(input: PresetInput) {
 }
 
 function checkFields(input: PresetInput) {
+  if (input.color !== undefined && input.color !== null && !isMarketColor(input.color))
+    throw new PresetInputError("invalid_color", "color");
   const [issue] = checkPresetFields(input);
   if (issue) throw new PresetInputError(issue.code, issue.field);
 }
@@ -187,6 +198,7 @@ type Fields = {
   rrule: string | null;
   defaultDuties: Record<string, string>;
   active: boolean;
+  color: string | null;
 };
 
 /** The audited fields of a stored preset. */
@@ -203,10 +215,11 @@ const storedFields = (row: typeof eventPreset.$inferSelect): Fields => ({
   rrule: row.rrule,
   defaultDuties: row.defaultDuties,
   active: row.active,
+  color: row.color,
 });
 
-/** The same fields of a (normalised) form input. */
-const inputFields = (input: PresetInput): Fields => ({
+/** The same fields of a (normalised) form input; `color` is what ends up stored. */
+const inputFields = (input: PresetInput, color: string | null): Fields => ({
   name: input.name,
   eventTypeId: input.eventTypeId,
   venueId: input.venueId,
@@ -219,6 +232,7 @@ const inputFields = (input: PresetInput): Fields => ({
   rrule: input.rrule,
   defaultDuties: input.defaultDuties,
   active: input.active,
+  color,
 });
 
 function diffOf(from: Fields | null, to: Fields) {
@@ -249,6 +263,17 @@ export async function createPreset(
 
   return db.transaction(async (tx) => {
     await checkReferences(tx, input);
+    const color: MarketColor | string | null =
+      input.color === undefined
+        ? nextMarketColor(
+            (
+              await tx
+                .select({ color: eventPreset.color })
+                .from(eventPreset)
+                .where(isNull(eventPreset.archivedAt))
+            ).map((r) => r.color),
+          )
+        : input.color;
     const base = presetKeyBase(input.name);
     let key = "";
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -280,6 +305,7 @@ export async function createPreset(
         durationDays: input.durationDays,
         defaultDuties: input.defaultDuties,
         active: input.active,
+        color,
       })
       .returning({ id: eventPreset.id });
     if (!row) throw new Error("insert failed");
@@ -288,7 +314,7 @@ export async function createPreset(
         action: "preset.create",
         entityType: "event_preset",
         entityId: row.id,
-        diff: { key, changes: diffOf(null, inputFields(input)) },
+        diff: { key, changes: diffOf(null, inputFields(input, color)) },
       },
     ]);
     return { id: row.id, key };
@@ -325,7 +351,8 @@ export async function updatePreset(
     if (current.updatedAt.getTime() !== expected.getTime()) throw new PresetInputError("conflict");
 
     await checkReferences(tx, input, current);
-    const changes = diffOf(storedFields(current), inputFields(input));
+    const color = input.color === undefined ? current.color : input.color;
+    const changes = diffOf(storedFields(current), inputFields(input, color));
     if (Object.keys(changes).length === 0) return { changed: false, updatedAt: current.updatedAt };
 
     // Strictly newer than the version the editor saw, even within the same millisecond.
@@ -345,6 +372,7 @@ export async function updatePreset(
         durationDays: input.durationDays,
         defaultDuties: input.defaultDuties,
         active: input.active,
+        color,
         updatedAt,
       })
       .where(eq(eventPreset.id, id));

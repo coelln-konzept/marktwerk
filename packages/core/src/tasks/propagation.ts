@@ -28,6 +28,8 @@ export type PropagatedFields = {
   requiresPhoto: boolean;
   requiresNote: boolean;
   requiresAttachment: boolean;
+  /** Kernaufgabe: a task every market needs (manual flag). */
+  isKey: boolean;
   dutyRoleId: string | null;
   /** Due instant in ms since epoch, null = no due date (anchor missing). */
   dueAt: number | null;
@@ -53,6 +55,7 @@ export type PropagationChange =
   | "priority"
   | "estimate"
   | "evidence"
+  | "key"
   | "duty"
   | "due"
   | "restored";
@@ -88,6 +91,7 @@ export function propagationChanges(item: PlanItem, task: PlanTask): PropagationC
     task.requiresAttachment !== item.requiresAttachment
   )
     changes.push("evidence");
+  if (task.isKey !== item.isKey) changes.push("key");
   if (task.dutyRoleId !== item.dutyRoleId) changes.push("duty");
   if (!task.dueOverridden && task.dueAt !== item.dueAt) changes.push("due");
   return changes;

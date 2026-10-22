@@ -66,6 +66,24 @@
         "active": "Active",
         "activeHint": "Inactive presets do not appear under “Generate from preset”. Tick the box to bring it back."
       },
+      "color": {
+        "legend": "Market colour",
+        "hint": "A thin colour bar next to the name so you can tell a market's dates apart at a glance. Applies to every date of this market.",
+        "none": "No colour",
+        "swatch": "Colour: {name}",
+        "names": {
+          "plum": "Plum",
+          "rose": "Rosé",
+          "brown": "Brown",
+          "sand": "Sand",
+          "olive": "Olive",
+          "petrol": "Petrol",
+          "cyan": "Cyan",
+          "slate": "Slate",
+          "indigo": "Indigo",
+          "graphite": "Graphite"
+        }
+      },
       "public": {
         "title": "Public details",
         "publicTitle": "Public title",
@@ -133,6 +151,7 @@
         "invalid_rrule": "This recurrence is not valid. Please check weekdays and months.",
         "rrule_empty": "Select at least one weekday or “No recurrence”.",
         "invalid_type": "Please choose a type.",
+        "invalid_color": "Please choose a colour from the list.",
         "invalid_venue": "Please choose a venue that is not archived.",
         "invalid_duty_role": "This duty no longer exists.",
         "invalid_staff": "This person is not (or no longer) active. Please choose somebody else.",
