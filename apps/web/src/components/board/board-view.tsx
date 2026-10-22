@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState } from
 import { SnoozeDialog } from "@/components/task/snooze";
 import { Avatar } from "@/components/ui/avatar";
 import { Kbd } from "@/components/ui/kbd";
+import { isModuleVisible } from "@/lib/modules";
 import { COLUMN_ORDER, formatHours } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { BoardTask, PeopleRail, StaffOption } from "@/server/queries/tasks";
@@ -328,7 +329,8 @@ export function BoardView(props: Props) {
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 text-small">
             <span className="tabular">
               <b className="font-semibold">
-                {t("sum.open", { count: sums.open })} · {formatHours(sums.hours, locale)}
+                {t("sum.open", { count: sums.open })}
+                {isModuleVisible("estimates") && <> · {formatHours(sums.hours, locale)}</>}
               </b>
             </span>
             <details className="text-muted-foreground">
@@ -414,7 +416,11 @@ function ColumnPanel({
           </span>
         </h3>
         <span className="tabular text-muted-foreground text-tiny">
-          {column === "done" ? t("doneRange") : hours > 0 ? formatHours(hours, locale) : ""}
+          {column === "done"
+            ? t("doneRange")
+            : hours > 0 && isModuleVisible("estimates")
+              ? formatHours(hours, locale)
+              : ""}
         </span>
       </header>
       <CardList column={column} cards={cards} lift={lift} />

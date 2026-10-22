@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { EventTypeMarker } from "@/components/ui/event-type-tag";
 import { formatDateWithWeekday } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { formatHours } from "@/lib/task-ui";
 import type { BoardTask } from "@/server/queries/tasks";
 import { TaskCard } from "./task-card";
@@ -92,7 +93,7 @@ export function GroupedCards({
               <span className="tabular inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-neutral-bg px-1 font-semibold text-[11.5px] text-foreground-2">
                 {group.cards.length}
               </span>
-              {hours > 0 && (
+              {hours > 0 && isModuleVisible("estimates") && (
                 <span className="tabular font-normal text-muted-foreground text-tiny">
                   {formatHours(hours, locale)}
                 </span>

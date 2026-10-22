@@ -296,35 +296,43 @@ export function TaskDrawer({
             </>
           )}
 
-          <dt className="text-muted-foreground text-small">
-            <label htmlFor={`${uid}-est`}>{t("fields.estimate")}</label>
-          </dt>
-          <dd className="m-0 flex items-center gap-2">
-            {canWrite ? (
-              <>
-                <Input
-                  id={`${uid}-est`}
-                  inputMode="decimal"
-                  defaultValue={
-                    task.estimateMinutes ? String(task.estimateMinutes / 60).replace(".", ",") : ""
-                  }
-                  key={task.estimateMinutes}
-                  placeholder="0"
-                  className="w-24"
-                  onBlur={(e) => {
-                    const hours =
-                      e.target.value.trim() === "" ? 0 : Number(e.target.value.replace(",", "."));
-                    const minutes = Math.round(hours * 60);
-                    if (!Number.isFinite(minutes) || minutes < 0) return;
-                    if (minutes !== task.estimateMinutes) save({ estimateMinutes: minutes });
-                  }}
-                />
-                <span className="text-muted-foreground text-small">{t("hours")}</span>
-              </>
-            ) : (
-              <span className="tabular">{formatEstimate(task.estimateMinutes, locale)}</span>
-            )}
-          </dd>
+          {isModuleVisible("estimates") && (
+            <>
+              <dt className="text-muted-foreground text-small">
+                <label htmlFor={`${uid}-est`}>{t("fields.estimate")}</label>
+              </dt>
+              <dd className="m-0 flex items-center gap-2">
+                {canWrite ? (
+                  <>
+                    <Input
+                      id={`${uid}-est`}
+                      inputMode="decimal"
+                      defaultValue={
+                        task.estimateMinutes
+                          ? String(task.estimateMinutes / 60).replace(".", ",")
+                          : ""
+                      }
+                      key={task.estimateMinutes}
+                      placeholder="0"
+                      className="w-24"
+                      onBlur={(e) => {
+                        const hours =
+                          e.target.value.trim() === ""
+                            ? 0
+                            : Number(e.target.value.replace(",", "."));
+                        const minutes = Math.round(hours * 60);
+                        if (!Number.isFinite(minutes) || minutes < 0) return;
+                        if (minutes !== task.estimateMinutes) save({ estimateMinutes: minutes });
+                      }}
+                    />
+                    <span className="text-muted-foreground text-small">{t("hours")}</span>
+                  </>
+                ) : (
+                  <span className="tabular">{formatEstimate(task.estimateMinutes, locale)}</span>
+                )}
+              </dd>
+            </>
+          )}
 
           {isModuleVisible("team") && (
             <>
@@ -380,7 +388,7 @@ export function TaskDrawer({
           )}
         </dl>
 
-        {task.status === "done" && canWrite && (
+        {task.status === "done" && canWrite && isModuleVisible("estimates") && (
           <Section title={t("feedback.title")}>
             {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of toggle buttons */}
             <div role="group" aria-label={t("feedback.title")} className="flex flex-wrap gap-1">

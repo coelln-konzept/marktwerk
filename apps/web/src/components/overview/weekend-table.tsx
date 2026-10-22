@@ -86,7 +86,9 @@ export async function WeekendTable({
                 <TH className="hidden md:table-cell">{t("cols.tasks")}</TH>
                 {showTeam && <TH>{t("cols.team")}</TH>}
                 {showMoney && <TH className="hidden md:table-cell">{t("cols.money")}</TH>}
-                <TH className="hidden text-right md:table-cell">{t("cols.effort")}</TH>
+                {isModuleVisible("estimates") && (
+                  <TH className="hidden text-right md:table-cell">{t("cols.effort")}</TH>
+                )}
               </tr>
             </THead>
             <tbody>
@@ -145,11 +147,13 @@ export async function WeekendTable({
                       </TD>
                     )}
                     {showMoney && <TD className="hidden md:table-cell">{cell(r.health.money)}</TD>}
-                    <TD className="tabular hidden text-right text-muted-foreground md:table-cell">
-                      {weekend.effortMinutes[r.id]
-                        ? formatHours(weekend.effortMinutes[r.id] as number, locale)
-                        : t("effortNone")}
-                    </TD>
+                    {isModuleVisible("estimates") && (
+                      <TD className="tabular hidden text-right text-muted-foreground md:table-cell">
+                        {weekend.effortMinutes[r.id]
+                          ? formatHours(weekend.effortMinutes[r.id] as number, locale)
+                          : t("effortNone")}
+                      </TD>
+                    )}
                   </TR>
                 );
               })}

@@ -228,11 +228,13 @@ function CardContent({
               <CircleCheck aria-hidden className="size-4" />
             </button>
           ))}
-        <span className="tabular inline-flex items-center gap-1 text-foreground-2 text-tiny">
-          <Clock aria-hidden className="size-3.5" />
-          <span className="sr-only">{tTasks("estimate")}: </span>
-          {formatEstimate(task.estimateMinutes, locale)}
-        </span>
+        {isModuleVisible("estimates") && (
+          <span className="tabular inline-flex items-center gap-1 text-foreground-2 text-tiny">
+            <Clock aria-hidden className="size-3.5" />
+            <span className="sr-only">{tTasks("estimate")}: </span>
+            {formatEstimate(task.estimateMinutes, locale)}
+          </span>
+        )}
         <DueLine
           dueOn={task.dueOn}
           today={board.today}

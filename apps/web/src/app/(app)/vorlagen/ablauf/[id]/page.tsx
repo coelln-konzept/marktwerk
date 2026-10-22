@@ -16,6 +16,7 @@ import { VersionBar } from "@/components/templates/version-bar";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { todayIn } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { db } from "@/server/db";
@@ -134,10 +135,12 @@ export default async function TemplateEditorPage({
               <span>{t("list.anyType")}</span>
             )}
             <span>
-              {t("editor.summary", {
-                count: items.length,
-                hours: Math.round((total / 60) * 10) / 10,
-              })}
+              {isModuleVisible("estimates")
+                ? t("editor.summary", {
+                    count: items.length,
+                    hours: Math.round((total / 60) * 10) / 10,
+                  })
+                : t("grid.count", { count: items.length })}
             </span>
             {template.description && <span>· {template.description}</span>}
           </span>

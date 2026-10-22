@@ -31,6 +31,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
+import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import { PHASES } from "./labels";
 import type { ItemView, RoleChoice } from "./types";
@@ -115,7 +116,9 @@ export function ItemGrid({
               <TH>{t("grid.cols.time")}</TH>
               <TH>{t("grid.cols.role")}</TH>
               <TH>{t("grid.cols.priority")}</TH>
-              <TH className="text-right">{t("grid.cols.effort")}</TH>
+              {isModuleVisible("estimates") && (
+                <TH className="text-right">{t("grid.cols.effort")}</TH>
+              )}
               <TH>{t("grid.cols.evidence")}</TH>
               <TH>
                 <span className="sr-only">{t("grid.cols.actions")}</span>
@@ -129,7 +132,7 @@ export function ItemGrid({
               <tbody key={phase}>
                 <TGroup colSpan={10}>
                   {t(`phases.${phase}`)} · {t("grid.count", { count: rows.length })}
-                  {total > 0 && <> · {minutes(total)}</>}
+                  {total > 0 && isModuleVisible("estimates") && <> · {minutes(total)}</>}
                 </TGroup>
                 {rows.map((item, indexInPhase) => {
                   number += 1;
@@ -231,9 +234,11 @@ export function ItemGrid({
                           <span className="text-muted-foreground">{t("priorities.normal")}</span>
                         )}
                       </TD>
-                      <TD className="tabular whitespace-nowrap text-right">
-                        {minutes(item.estimateMinutes)}
-                      </TD>
+                      {isModuleVisible("estimates") && (
+                        <TD className="tabular whitespace-nowrap text-right">
+                          {minutes(item.estimateMinutes)}
+                        </TD>
+                      )}
                       <TD>
                         <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                           {item.requiresPhoto && (

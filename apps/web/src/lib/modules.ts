@@ -8,7 +8,12 @@ import type { HealthDimensions } from "@marktwerk/core";
  * modules stay untouched; only the UI stops rendering them. To bring a module back, flip its flag to
  * `false` here (and nothing else): every hide in the UI is driven from this one object.
  */
-export const HIDDEN_MODULES = { team: true, finance: true } as const;
+export const HIDDEN_MODULES = {
+  team: true,
+  finance: true,
+  /** Time estimates on tasks and templates (hours per card, column and event). Data stays; needed again with team allocation. */
+  estimates: true,
+} as const;
 
 export type HiddenModule = keyof typeof HIDDEN_MODULES;
 
