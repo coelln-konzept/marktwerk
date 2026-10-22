@@ -1,19 +1,35 @@
 import { can } from "@marktwerk/core";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import {
   DatesPanel,
   FactsPanel,
-  HealthPanel,
+  KeyTasksPanel,
+  MissingPanel,
+  RulesPanel,
+  StatusLine,
   TeamSummaryPanel,
 } from "@/components/event-detail/overview-panels";
+import { TaskDrawer } from "@/components/task/task-drawer";
+import { Drawer } from "@/components/ui/drawer";
 import { todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
+import { param } from "@/lib/url";
 import { getActor } from "@/server/actor";
+import { getEventOverview } from "@/server/queries/event-overview";
 import { getEvent } from "@/server/queries/events";
+import { getTaskDetail, listStaffOptions } from "@/server/queries/tasks";
 import { requirePermission } from "@/server/session";
 
-/** Tab "Überblick": dates, key facts, health and team at a glance; dates and facts editable with event:write. */
-export default async function EventOverviewPage({ params }: PageProps<"/veranstaltungen/[id]">) {
+/**
+ * Tab "Überblick": is this market on track, and what's missing? Status line, Was fehlt, Kernaufgaben,
+ * Nächste Termine; Eckdaten and Regeln der Art stay collapsed. Task rows open the task drawer
+ * (`?aufgabe=<id>`) right here.
+ */
+export default async function EventOverviewPage({
+  params,
+  searchParams,
+}: PageProps<"/veranstaltungen/[id]">) {
   await requirePermission("event", "read");
   const { id } = await params;
   const actor = await getActor();
@@ -21,16 +37,45 @@ export default async function EventOverviewPage({ params }: PageProps<"/veransta
   if (!event) notFound();
   const today = todayIn();
   const canWrite = can(actor.role, "event", "write");
+  const canWriteTasks = can(actor.role, "task", "write");
+  const overview = await getEventOverview(actor, event, today);
+
+  const taskId = param((await searchParams).aufgabe);
+  const closeHref = `/veranstaltungen/${event.id}`;
+  let drawer: React.ReactNode = null;
+  if (taskId && can(actor.role, "task", "read")) {
+    const t = await getTranslations("board");
+    const detail = await getTaskDetail(actor, taskId, today);
+    drawer = detail ? (
+      <TaskDrawer
+        task={detail}
+        staff={await listStaffOptions()}
+        canWrite={canWriteTasks}
+        canAssign={false}
+        today={today}
+        closeHref={closeHref}
+      />
+    ) : (
+      <Drawer kind={t("drawer.label")} title={t("drawer.notFound")} closeHref={closeHref}>
+        <p className="text-muted-foreground text-small">{t("drawer.notFoundHint")}</p>
+      </Drawer>
+    );
+  }
+
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-2">
-      <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
+      <StatusLine event={event} overview={overview} />
+      <MissingPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <KeyTasksPanel event={event} overview={overview} />
         <DatesPanel event={event} today={today} canWrite={canWrite} />
+      </div>
+      <div className="flex flex-col gap-3">
         <FactsPanel event={event} canWrite={canWrite} />
+        <RulesPanel event={event} />
       </div>
-      <div className="flex flex-col gap-6">
-        <HealthPanel event={event} />
-        {isModuleVisible("team") && <TeamSummaryPanel event={event} />}
-      </div>
+      {isModuleVisible("team") && <TeamSummaryPanel event={event} />}
+      {drawer}
     </div>
   );
 }

@@ -54,11 +54,7 @@
     },
     "overview": {
       "dates": {
-        "title": "Dates & deadlines",
-        "caption": "Dates and deadlines of the event",
-        "date": "Date",
-        "what": "Date for",
-        "relative": "Distance",
+        "title": "Next dates",
         "today": "today",
         "inDays": "in {n} d",
         "daysAgo": "{n} d ago",
@@ -68,7 +64,10 @@
           "teardown_day": "Teardown day",
           "booking_cutoff": "Booking cut-off"
         },
-        "empty": "No dates yet."
+        "empty": "No dates yet.",
+        "tomorrow": "tomorrow",
+        "pastToggle": "Past dates ({count})",
+        "nothingAhead": "No more dates ahead."
       },
       "facts": {
         "title": "Key facts",
@@ -78,14 +77,14 @@
         "price": "Stall price",
         "pricePerM": "{price} per metre",
         "fee": "Booking fee",
-        "rules": "Rules of the type",
         "newGoods": "New goods max. {share} %",
         "bannedGoods": "Banned goods: {goods}",
         "noBannedGoods": "No banned goods",
         "onlineBooking": "Online booking: {value}",
         "yes": "yes",
         "no": "no",
-        "cancelledReason": "Reason for cancelling"
+        "cancelledReason": "Reason for cancelling",
+        "summary": "{venue} · {open}–{close} · {price} per metre"
       },
       "team": {
         "title": "Team",
@@ -94,16 +93,54 @@
         "allSet": "All duties are filled.",
         "link": "Go to team"
       },
-      "health": {
-        "title": "Health",
-        "permits": "Permits",
-        "tasks": "Tasks",
-        "team": "Team",
-        "money": "Money",
-        "permitsNote": "status of the permits needed",
-        "tasksNote": "overdue and blocked tasks",
-        "moneyNote": "overdue and soon-due instalments, plan against committed",
-        "teamNote": "{assigned}/{total} duties filled"
+      "status": {
+        "label": "Market status",
+        "upcoming": "in {n} days",
+        "tomorrow": "tomorrow",
+        "running": "on today",
+        "over": "over",
+        "countdownDate": "Event day: {date}",
+        "tasks": "{done}/{total} tasks done",
+        "tasksNone": "No tasks yet",
+        "permits": "{granted}/{total} permits granted",
+        "permitsNone": "No permit needed",
+        "progress": "Task progress"
+      },
+      "missing": {
+        "title": "What's missing",
+        "hint": "Overdue and blocked items, and what falls due in the next 7 days.",
+        "emptyTitle": "All on track",
+        "emptyHint": "Nothing is overdue or blocked, and no permit is missing.",
+        "reason": {
+          "overdue": "Overdue · {n} d",
+          "blocked": "Blocked",
+          "waiting": "Waiting",
+          "today": "Today",
+          "soon": "in {n} d"
+        },
+        "done": "Done",
+        "doneLabel": "Mark “{title}” done",
+        "permitKind": "Permit",
+        "permitApplyBy": "Apply by {date}"
+      },
+      "key": {
+        "title": "Key tasks",
+        "empty": "This market has no key tasks.",
+        "state": {
+          "done": "Done",
+          "open": "Open",
+          "soon": "Due soon",
+          "overdue": "Overdue",
+          "snoozed": "Snoozed"
+        },
+        "dueOn": "due {date}",
+        "snoozedUntil": "until {date}"
+      },
+      "rules": {
+        "title": "Rules of the type",
+        "summary": "New goods max. {share} % · {banned} · Online booking: {online}",
+        "bannedCount": "{count} banned goods",
+        "noBanned": "no banned goods"
       }
     },
     "team": {
