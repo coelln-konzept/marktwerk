@@ -92,6 +92,17 @@ marktwerk
 **Event page tabs:** Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf. Each tab label
 shows its count or health (e.g. "Genehmigungen 4/5 ▲", "Team 5/6").
 
+**Event Überblick** (decision 2026-10-22: an event is a bundle of to-dos; the page answers "is this market on track, and
+what's missing?"). Top to bottom: (1) **status line** with days until the market ("in 12 Tagen", "läuft heute",
+"vorbei"), tasks done x/y with a slim bar and permits granted a/b, each piece linking to what it summarises; (2) **Was
+fehlt**: open tasks that are overdue, blocked/waiting or due within 7 days (snoozed ones stay out) plus required permits
+not yet granted, Kernaufgaben first then by due date, each task row with a quick "Erledigt" tick and the snooze menu
+(undo toasts), permit rows opening the Logbuch drawer, "Alles im Plan" when empty; (3) **Kernaufgaben** checklist with
+state per row (erledigt · offen · bald fällig · überfällig · zurückgestellt), the star only in the heading;
+(4) **Nächste Termine**, upcoming dates first, past ones collapsed; (5) **Eckdaten** and **Regeln der Art**, collapsed with a
+one-line summary and editable as before. The tab bar already shows the counts, so there is no separate "Zustand" panel.
+Rules live in `packages/core/src/events/overview.ts`; task rows open the task drawer on the same page (`?aufgabe=<id>`).
+
 ### Opening things
 | Action | Mouse | Keyboard |
 |---|---|---|

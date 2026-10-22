@@ -229,3 +229,15 @@ test("Markt planen: the market list offers 'Neuen Markt anlegen'; no Vorlagen en
   await expect(sheet.getByRole("button", { name: /Neuen Markt anlegen/ })).toBeVisible();
   await expect(sheet.getByRole("searchbox")).toBeVisible();
 });
+
+test("Veranstaltung Überblick: shows Was fehlt and Kernaufgaben, no Zustand panel", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?saison=2026");
+  const href = await page.locator("tbody tr[data-row]").first().getAttribute("data-href");
+  expect(href).toMatch(/^\/veranstaltungen\/[0-9a-f-]{36}$/);
+  await page.goto(href as string);
+  await expect(page.getByRole("heading", { level: 2, name: "Was fehlt" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Kernaufgaben" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Zustand" })).toHaveCount(0);
+});
