@@ -16,6 +16,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { RolloverBadge } from "@/components/ui/status-badge";
+import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { BoardTask } from "@/server/queries/tasks";
@@ -247,7 +248,7 @@ function CardContent({ task, menu }: { task: BoardTask; menu: ReactNode }) {
               className="size-3.5 text-muted-foreground"
             />
           )}
-          {task.assigneeName ? (
+          {!isModuleVisible("team") ? null : task.assigneeName ? (
             <Avatar name={task.assigneeName} />
           ) : (
             <span

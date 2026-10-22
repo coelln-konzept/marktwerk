@@ -37,6 +37,7 @@ export type CompanySettingsInput = {
   defaultLocale: string;
   /** "HH:MM" */
   defaultDueTime: string;
+  emailEnabled: boolean;
   dailyDigestEnabled: boolean;
 };
 
@@ -131,6 +132,7 @@ export function parseCompanySettings(input: CompanySettingsInput) {
     bundesland: input.bundesland,
     defaultLocale: input.defaultLocale,
     defaultDueTime: input.defaultDueTime,
+    emailEnabled: Boolean(input.emailEnabled),
     dailyDigestEnabled: Boolean(input.dailyDigestEnabled),
   };
 }

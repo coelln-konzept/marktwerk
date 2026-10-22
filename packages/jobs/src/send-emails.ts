@@ -1,6 +1,7 @@
 import { type Database, outboundMessage } from "@marktwerk/db";
 import { and, asc, eq, lte, sql } from "drizzle-orm";
 import { createMailTransport, type MailTransport } from "./mail/transport";
+import { emailSettings } from "./shared";
 
 /** A message is tried this many times, then marked `failed`. */
 export const MAX_SEND_ATTEMPTS = 5;
@@ -14,6 +15,7 @@ export type SendResult = { sent: number; failed: number; retrying: number };
  * Delivers queued emails (`outbound_message`, channel email, status queued, `send_after` reached) through
  * the transport. Without `SMTP_HOST` the transport only logs (see `createMailTransport`). A failure keeps
  * the message queued with a growing delay; after `MAX_SEND_ATTEMPTS` it is `failed` with the error text.
+ * Does nothing while `settings.email_enabled` is off (messages stay queued).
  * A message is claimed by raising `attempts` conditionally, so two overlapping runs never send it twice.
  */
 export async function sendQueuedEmails(
@@ -22,6 +24,8 @@ export async function sendQueuedEmails(
   now: Date = new Date(),
 ): Promise<SendResult> {
   const result: SendResult = { sent: 0, failed: 0, retrying: 0 };
+  // Master switch off: deliver nothing, leave already queued messages queued.
+  if (!(await emailSettings(db)).emailEnabled) return result;
   const candidates = await db
     .select({ id: outboundMessage.id, attempts: outboundMessage.attempts })
     .from(outboundMessage)

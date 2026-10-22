@@ -15,6 +15,7 @@ import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateShort } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { hrefWith } from "@/lib/url";
 import type { DueItem, DueKind, DueUrgency } from "@/server/queries/due";
 import type { OverviewDue } from "@/server/queries/overview";
@@ -145,12 +146,19 @@ export async function DueToday({
                             {item.title}
                           </Link>
                           <span className="block truncate text-muted-foreground text-small">
-                            {[
-                              item.meta,
-                              item.assigneeName ? t("assignee", { name: item.assigneeName }) : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
+                            {item.meta && item.metaHref ? (
+                              <Link href={item.metaHref as never} className="hover:underline">
+                                {item.meta}
+                              </Link>
+                            ) : (
+                              item.meta
+                            )}
+                            {item.assigneeName && isModuleVisible("team") && (
+                              <>
+                                {item.meta && " · "}
+                                {t("assignee", { name: item.assigneeName })}
+                              </>
+                            )}
                           </span>
                         </div>
                         <StatusBadge

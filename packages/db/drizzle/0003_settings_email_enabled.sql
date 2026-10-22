@@ -1,0 +1,1 @@
+ALTER TABLE "app"."settings" ADD COLUMN "email_enabled" boolean DEFAULT false NOT NULL;

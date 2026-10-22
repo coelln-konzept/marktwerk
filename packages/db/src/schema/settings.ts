@@ -30,6 +30,11 @@ export const settings = app.table(
     defaultDueTime: time().notNull().default("09:00"),
     /** Overrides for reminder offsets, see @marktwerk/core deadlines/reminders. */
     reminderPolicy: jsonb().$type<Record<string, number[]>>(),
+    /**
+     * Master switch for outgoing email (client decision: no email for now). While off, the jobs queue
+     * nothing and the sender delivers nothing; in-app notifications are unaffected.
+     */
+    emailEnabled: boolean().notNull().default(false),
     dailyDigestEnabled: boolean().notNull().default(true),
     ...timestamps,
   },

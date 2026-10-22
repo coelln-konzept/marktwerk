@@ -21,6 +21,8 @@ export type DueItem = {
   urgency: DueUrgency;
   href: string;
   meta?: string;
+  /** Where the meta text links to (e.g. the task's event board). */
+  metaHref?: string;
   eventId?: string | null;
   assigneeName?: string | null;
 };

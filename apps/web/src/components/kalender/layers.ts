@@ -1,5 +1,6 @@
 import { can, type Role } from "@marktwerk/core";
 import { EVENT_TYPE_KEYS } from "@/components/ui/event-type-tag";
+import type { ModuleHide } from "@/lib/modules";
 import { CALENDAR_LAYERS, type CalendarLayer } from "@/server/queries/due";
 
 /**
@@ -57,15 +58,20 @@ export const FUTURE_LAYERS = { deadlines: [{ key: "returns", milestone: "M12" }]
 /**
  * The module layers a role may see (same checks as the modules' `calendarItems`): tasks for everyone,
  * permits `permit:read`, instalments `finance:read`, obligations `company:read`, shifts `team:read`
- * (field users see their own shifts when they have a staff record).
+ * (field users see their own shifts when they have a staff record). `hide` drops the layers of modules
+ * hidden in the UI (lib/modules.ts): instalments with finance, shifts with team.
  */
-export function availableLayers(role: Role, hasStaffMember: boolean): CalendarLayer[] {
+export function availableLayers(
+  role: Role,
+  hasStaffMember: boolean,
+  hide: ModuleHide = {},
+): CalendarLayer[] {
   const allowed: Record<CalendarLayer, boolean> = {
     tasks: can(role, "task", "read"),
     permits: can(role, "permit", "read"),
-    installments: can(role, "finance", "read"),
+    installments: !hide.finance && can(role, "finance", "read"),
     obligations: can(role, "company", "read"),
-    shifts: can(role, "team", "read") || (role === "field" && hasStaffMember),
+    shifts: !hide.team && (can(role, "team", "read") || (role === "field" && hasStaffMember)),
   };
   return CALENDAR_LAYERS.filter((layer) => allowed[layer]);
 }

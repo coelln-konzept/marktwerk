@@ -6,6 +6,7 @@ import {
   notificationPreference,
   outboundMessage,
   permit,
+  settings,
   staffMember,
   task,
 } from "@marktwerk/db/schema";
@@ -26,8 +27,17 @@ let benId: string;
 let olgaId: string;
 let fieldId: string;
 
+/** Writes the company settings row (the jobs read the email switches from it). */
+const setEmail = async (emailEnabled: boolean, dailyDigestEnabled = true) => {
+  await db
+    .insert(settings)
+    .values({ id: 1, companyName: "Test GmbH", emailEnabled, dailyDigestEnabled })
+    .onConflictDoUpdate({ target: settings.id, set: { emailEnabled, dailyDigestEnabled } });
+};
+
 beforeEach(async () => {
   await resetDatabase();
+  await setEmail(true);
   cat = await seedCatalogue();
   // Anna works in the office (staff), Ben is the manager, Olga the owner, Fritz is field crew.
   await createActor("staff");
@@ -567,5 +577,101 @@ describe("sending queued emails", () => {
       .from(outboundMessage)
       .where(and(eq(outboundMessage.id, m.id)));
     expect(row).toMatchObject({ status: "failed", error: "no recipient address" });
+  });
+});
+
+describe("email master switch", () => {
+  const overdueHigh = () =>
+    addTask({
+      title: "Halteverbot aufstellen",
+      assigneeId: annaId,
+      priority: "high",
+      dueAt: daysFromNow(-2),
+      eventId: null,
+    });
+  const queuedMail = (id = "anna@test.local") => ({
+    channel: "email" as const,
+    recipientStaffMemberId: annaId,
+    recipientAddress: id,
+    templateKey: "digest.daily",
+    subject: "Betreff",
+    renderedText: "Text",
+    sendAfter: new Date(NOW.getTime() - 1000),
+  });
+  const counting = () => {
+    const sent: string[] = [];
+    const transport: MailTransport = {
+      name: "fake",
+      async send(message) {
+        sent.push(message.to);
+        return { externalId: "x" };
+      },
+    };
+    return { transport, sent };
+  };
+
+  it("off: the sweep still notifies in-app but queues no email", async () => {
+    await setEmail(false);
+    await overdueHigh();
+    const result = await deadlineSweep(db, NOW);
+    expect(result).toMatchObject({ created: 2, escalated: 1, emails: 0 });
+    expect(await db.select().from(notification)).toHaveLength(2);
+    expect(await db.select().from(outboundMessage)).toHaveLength(0);
+  });
+
+  it("off: no settings row counts as off", async () => {
+    await db.delete(settings);
+    await overdueHigh();
+    expect((await deadlineSweep(db, NOW)).emails).toBe(0);
+    expect(await dailyDigest(db, NOW)).toEqual({ people: 0, queued: 0 });
+    expect(await db.select().from(outboundMessage)).toHaveLength(0);
+  });
+
+  it("off: the digest queues nothing, and turning it on later does not bring back old mails", async () => {
+    await setEmail(false);
+    await addTask({ title: "Überfälliges", assigneeId: annaId, dueAt: daysFromNow(-1) });
+    expect(await dailyDigest(db, NOW)).toEqual({ people: 0, queued: 0 });
+    expect(await db.select().from(outboundMessage)).toHaveLength(0);
+    await setEmail(true);
+    // The next day's run only queues that day's mail; nothing from the off period was held back.
+    const result = await dailyDigest(db, daysFromNow(1));
+    expect(result.queued).toBe(1);
+    const mails = await db.select().from(outboundMessage);
+    expect(mails.map((m) => m.dedupeKey)).toEqual([`digest:${annaId}:2026-10-22`]);
+  });
+
+  it("on, but the digest switch off: no digest, immediate emails still go out", async () => {
+    await setEmail(true, false);
+    await addTask({ title: "Überfälliges", assigneeId: annaId, dueAt: daysFromNow(-1) });
+    expect(await dailyDigest(db, NOW)).toEqual({ people: 0, queued: 0 });
+    await overdueHigh();
+    expect((await deadlineSweep(db, NOW)).emails).toBe(2);
+    expect(await db.select().from(outboundMessage)).toHaveLength(2);
+  });
+
+  it("on: digest and sweep queue mails as before", async () => {
+    await addTask({ title: "Überfälliges", assigneeId: annaId, dueAt: daysFromNow(-1) });
+    expect((await dailyDigest(db, NOW)).queued).toBe(1);
+    await overdueHigh();
+    expect((await deadlineSweep(db, NOW)).emails).toBe(2);
+  });
+
+  it("off: the sender delivers nothing and leaves queued messages queued; on: delivers them", async () => {
+    await db.insert(outboundMessage).values(queuedMail());
+    await setEmail(false);
+    const off = counting();
+    expect(await sendQueuedEmails(db, off.transport, NOW)).toEqual({
+      sent: 0,
+      failed: 0,
+      retrying: 0,
+    });
+    expect(off.sent).toHaveLength(0);
+    const [row] = await db.select().from(outboundMessage);
+    expect(row).toMatchObject({ status: "queued", attempts: 0 });
+
+    await setEmail(true);
+    const on = counting();
+    expect((await sendQueuedEmails(db, on.transport, NOW)).sent).toBe(1);
+    expect(on.sent).toEqual(["anna@test.local"]);
   });
 });

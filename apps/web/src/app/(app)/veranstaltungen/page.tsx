@@ -7,7 +7,7 @@ import { EventChip } from "@/components/events/event-chip";
 import { EventStatusBadge } from "@/components/events/event-status";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { GenerateSheet } from "@/components/events/generate-sheet";
-import { HealthSummary } from "@/components/events/health-summary";
+import { HEALTH_DIMS, HealthSummary } from "@/components/events/health-summary";
 import { MonthGrid } from "@/components/events/month-grid";
 import { Page, PageHeader } from "@/components/shell/page";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit";
@@ -44,6 +44,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   const sp = await searchParams;
   const t = await getTranslations("events");
   const tNav = await getTranslations("nav");
+  const tHealth = await getTranslations("health");
   const tStatus = await getTranslations("status.event");
   const locale = await getLocale();
   const today = todayIn();
@@ -304,7 +305,9 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
       )}
 
       <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-tiny">
-        <span>{t("legend")}</span>
+        <span>
+          {t("legend", { dims: HEALTH_DIMS.map((d) => tHealth(`dims.${d}`)).join(" · ") })}
+        </span>
         <span>{t("keys")}</span>
       </p>
 

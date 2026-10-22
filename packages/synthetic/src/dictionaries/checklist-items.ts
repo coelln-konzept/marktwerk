@@ -245,7 +245,7 @@ export const CHECKLIST_ITEM_BLUEPRINTS: readonly ChecklistItemBlueprint[] = [
   },
   {
     key: "platzkarten",
-    title: "Platzkarten an Händler:innen versenden",
+    title: "Platzkarten an Aussteller:innen versenden",
     phase: "pre",
     category: "office",
     anchorKey: "bookingCutoff",
@@ -512,7 +512,7 @@ export const CHECKLIST_ITEM_BLUEPRINTS: readonly ChecklistItemBlueprint[] = [
   },
   {
     key: "parkeinweisung",
-    title: "Parkeinweisung für Händler:innen-Fahrzeuge",
+    title: "Parkeinweisung für Aussteller:innen-Fahrzeuge",
     phase: "live",
     category: "logistics",
     anchorKey: "eventDay",
@@ -540,7 +540,7 @@ export const CHECKLIST_ITEM_BLUEPRINTS: readonly ChecklistItemBlueprint[] = [
   },
   {
     key: "standgespraeche",
-    title: "Standgespräche mit Händler:innen führen",
+    title: "Standgespräche mit Aussteller:innen führen",
     phase: "live",
     category: "general",
     anchorKey: "eventDay",
@@ -695,7 +695,7 @@ export const CHECKLIST_ITEM_BLUEPRINTS: readonly ChecklistItemBlueprint[] = [
   },
   {
     key: "feedback",
-    title: "Feedback der Händler:innen einholen",
+    title: "Feedback der Aussteller:innen einholen",
     phase: "post",
     category: "communication",
     anchorKey: "eventDay",

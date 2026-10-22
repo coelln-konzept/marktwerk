@@ -27,9 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("nav"))("vendors") };
 }
 
-const PATH = "/haendler";
+const PATH = "/aussteller";
 
-export default async function VendorsPage({ searchParams }: PageProps<"/haendler">) {
+export default async function VendorsPage({ searchParams }: PageProps<"/aussteller">) {
   await requirePermission("vendor", "read");
   const sp = await searchParams;
   const [t, tNav, tCat, locale] = await Promise.all([

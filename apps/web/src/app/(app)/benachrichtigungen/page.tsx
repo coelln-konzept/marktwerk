@@ -10,6 +10,7 @@ import { FilterChip } from "@/components/ui/chip";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { formatAgo } from "@/lib/format";
+import { HIDDEN_MODULES } from "@/lib/modules";
 import { isNotificationGroup, NOTIFICATION_GROUPS } from "@/lib/notification-reasons";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
@@ -44,7 +45,7 @@ export default async function NotificationsPage({
   const groupParam = param(sp.art);
   const group = isNotificationGroup(groupParam) ? groupParam : undefined;
   const now = new Date();
-  const page = await listNotifications(actor, { view, group }, now);
+  const page = await listNotifications(actor, { view, group }, now, HIDDEN_MODULES);
 
   if (!actor.staffMemberId) {
     return (

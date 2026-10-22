@@ -3,6 +3,7 @@ import { overallHealth } from "@marktwerk/core";
 import { event, eventDuty, userPreference, venue } from "@marktwerk/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { availableLayers, type Layers, sanitizeLayers } from "@/components/kalender/layers";
+import type { ModuleHide } from "@/lib/modules";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import * as company from "./company";
@@ -61,8 +62,9 @@ export async function listCalendarDeadlines(
   range: { from: string; to: string },
   layers: Pick<Layers, "deadlines" | "critical" | "mine">,
   today: string,
+  hide: ModuleHide = {},
 ): Promise<CalendarItem[]> {
-  const allowed = new Set(availableLayers(actor.role, actor.staffMemberId !== null));
+  const allowed = new Set(availableLayers(actor.role, actor.staffMemberId !== null, hide));
   const wanted = new Set(layers.deadlines.filter((l) => allowed.has(l)));
   const { from, to } = range;
   const feeds = await Promise.all([

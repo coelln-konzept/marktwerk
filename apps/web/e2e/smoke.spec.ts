@@ -30,8 +30,6 @@ test("Übersicht: Heute fällig with filter chips, KPI strip and the weekend tab
 const MODULE_PAGES = [
   { path: "/board", heading: "Board" },
   { path: "/logbuch", heading: "Logbuch" },
-  { path: "/finanzen", heading: "Finanzen" },
-  { path: "/team/stunden", heading: "Team" },
   { path: "/firma", heading: "Firma" },
   { path: "/benachrichtigungen", heading: "Benachrichtigungen" },
 ] as const;
@@ -44,20 +42,51 @@ for (const { path, heading } of MODULE_PAGES) {
   });
 }
 
+/** Team and Finance are hidden in the UI for now (src/lib/modules.ts); their data and services stay. */
+test("Team and Finanzen are hidden: no navigation entries, direct visits do not render them", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Hauptnavigation" }).first();
+  await expect(nav.getByRole("link", { name: "Team", exact: true })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: "Finanzen", exact: true })).toHaveCount(0);
+
+  for (const path of ["/team", "/team/stunden", "/finanzen", "/finanzen/neu"]) {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(404);
+  }
+});
+
+test("Event page: no Team and Geld tabs, links from the Übersicht open the Board tab", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?saison=2026");
+  const first = page.locator("tbody tr[data-row]").first();
+  const href = (await first.getAttribute("data-href")) as string;
+  await page.goto(href);
+  const tabs = page.getByRole("navigation", { name: "Bereiche der Veranstaltung" });
+  await expect(tabs.getByRole("link", { name: "Board" })).toBeVisible();
+  await expect(tabs.getByRole("link", { name: /^Team/ })).toHaveCount(0);
+  await expect(tabs.getByRole("link", { name: /^Geld/ })).toHaveCount(0);
+
+  // Direct visits to the hidden tabs land on the Board.
+  for (const tab of ["team", "geld"]) {
+    await page.goto(`${href}/${tab}`);
+    await expect(page).toHaveURL(new RegExp(`${href}/board$`));
+  }
+});
+
 test("Kalender: module layers are in the layer panel and the presets switch them", async ({
   page,
 }) => {
   await page.goto("/kalender");
   await expect(page.getByRole("heading", { level: 1, name: "Kalender" })).toBeVisible();
   const panel = page.getByRole("complementary", { name: "Ebenen" });
-  for (const layer of [
-    "Genehmigungen",
-    "Raten & Zahlungen",
-    "Aufgaben",
-    "Fahrzeuge & Pflichten",
-    "Schichten",
-  ])
+  for (const layer of ["Genehmigungen", "Aufgaben", "Fahrzeuge & Pflichten"])
     await expect(panel.getByRole("checkbox", { name: new RegExp(layer) })).toBeVisible();
+  // Finance and shift layers are hidden for now.
+  for (const layer of ["Raten & Zahlungen", "Schichten"])
+    await expect(panel.getByRole("checkbox", { name: new RegExp(layer) })).toHaveCount(0);
 
   // The preset "Märkte + Genehmigungen" keeps the permit layer and drops the other module layers.
   await panel.getByRole("button", { name: "Märkte + Genehmigungen" }).click();
@@ -69,12 +98,16 @@ test("Kalender: module layers are in the layer panel and the presets switch them
   await expect(page.getByRole("heading", { level: 1, name: "Kalender" })).toBeVisible();
 });
 
-test("+ Neu offers task, payment, permit, shift and defect to the owner", async ({ page }) => {
+test("+ Neu offers task, permit and defect to the owner (no payment or shift while hidden)", async ({
+  page,
+}) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Neu", exact: true }).click();
   const menu = page.getByRole("menu");
-  for (const entry of ["Aufgabe", "Zahlung", "Genehmigung", "Schicht", "Mangel melden"])
+  for (const entry of ["Aufgabe", "Genehmigung", "Mangel melden"])
     await expect(menu.getByRole("menuitem", { name: entry })).toBeVisible();
+  for (const entry of ["Zahlung", "Schicht"])
+    await expect(menu.getByRole("menuitem", { name: entry })).toHaveCount(0);
 
   // "Aufgabe" opens the quick-create dialog on the board.
   await menu.getByRole("menuitem", { name: "Aufgabe" }).click();
@@ -171,6 +204,7 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
 
 test("command palette finds tasks, permits and vehicles by their titles", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.keyboard.press("Control+k");
   const input = page.getByRole("combobox");
   await input.fill("genehmigung");

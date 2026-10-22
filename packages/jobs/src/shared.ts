@@ -4,6 +4,7 @@ import {
   notification,
   notificationPreference,
   outboundMessage,
+  settings,
   staffMember,
   user,
 } from "@marktwerk/db";
@@ -69,6 +70,21 @@ async function emailOptOuts(db: Database, staffIds: string[]) {
   return new Set(rows.map((r) => `${r.staffMemberId}:${r.reason}`));
 }
 
+/** Company settings that gate email (no settings row yet → everything off). */
+export async function emailSettings(db: Database) {
+  const [row] = await db
+    .select({
+      emailEnabled: settings.emailEnabled,
+      dailyDigestEnabled: settings.dailyDigestEnabled,
+    })
+    .from(settings)
+    .where(eq(settings.id, 1));
+  return {
+    emailEnabled: row?.emailEnabled ?? false,
+    dailyDigestEnabled: row?.dailyDigestEnabled ?? false,
+  };
+}
+
 export async function isEmailDisabled(db: Database, staffId: string, reasons: string[]) {
   const off = await emailOptOuts(db, [staffId]);
   return reasons.every((r) => off.has(`${staffId}:${r}`));
@@ -77,7 +93,7 @@ export async function isEmailDisabled(db: Database, staffId: string, reasons: st
 /**
  * Immediate email for notifications that must not wait for the digest (escalations, overdue critical
  * items): one `outbound_message` per notification, keyed by the notification so a repeated sweep adds
- * nothing. Skipped for people without an address or who switched this reason off. Returns how many were queued.
+ * nothing. Queues nothing while the company master switch (`settings.email_enabled`) is off. Skipped for people without an address or who switched this reason off. Returns how many were queued.
  */
 export async function queueImmediateEmails(
   db: Database,
@@ -85,6 +101,7 @@ export async function queueImmediateEmails(
   now: Date,
 ): Promise<number> {
   if (sent.length === 0) return 0;
+  if (!(await emailSettings(db)).emailEnabled) return 0;
   const rows = await db
     .select({
       id: notification.id,

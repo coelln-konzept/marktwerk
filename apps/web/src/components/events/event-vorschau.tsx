@@ -2,13 +2,25 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
 import { formatDateWithWeekday, formatMoney, formatWeek } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { getActor } from "@/server/actor";
 import { getEvent } from "@/server/queries/events";
 import { EventStatusBadge } from "./event-status";
 import { HealthSummary } from "./health-summary";
 
-/** Vorschau of one event: key facts and dates, "Öffnen" goes to the event page. */
-export async function EventVorschau({ id, closeHref }: { id: string; closeHref: string }) {
+/**
+ * Vorschau of one event: key facts and dates. "Öffnen" goes to the event page (Überblick), or to the
+ * given tab, e.g. `openTab="board"` from the Übersicht and the Kalender.
+ */
+export async function EventVorschau({
+  id,
+  closeHref,
+  openTab,
+}: {
+  id: string;
+  closeHref: string;
+  openTab?: "board";
+}) {
   const actor = await getActor();
   const event = await getEvent(actor, id);
   if (!event) return null;
@@ -22,7 +34,7 @@ export async function EventVorschau({ id, closeHref }: { id: string; closeHref: 
       kind={t("kind")}
       title={event.name}
       closeHref={closeHref}
-      openHref={`/veranstaltungen/${event.id}`}
+      openHref={`/veranstaltungen/${event.id}${openTab ? `/${openTab}` : ""}`}
       badges={
         <>
           <EventTypeTag typeKey={event.type.key}>
@@ -40,10 +52,14 @@ export async function EventVorschau({ id, closeHref }: { id: string; closeHref: 
           },
           { label: t("facts.venue"), value: event.venue.name },
           { label: t("facts.times"), value: t("facts.timesValue", event.times) },
-          {
-            label: t("facts.team"),
-            value: t("facts.teamValue", { assigned, total: event.duties.length }),
-          },
+          ...(isModuleVisible("team")
+            ? [
+                {
+                  label: t("facts.team"),
+                  value: t("facts.teamValue", { assigned, total: event.duties.length }),
+                },
+              ]
+            : []),
           { label: t("facts.price"), value: `${formatMoney(event.pricePerMCents, locale)} / m` },
           ...(cutoff
             ? [{ label: t("facts.cutoff"), value: formatDateWithWeekday(cutoff, locale) }]

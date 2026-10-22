@@ -142,7 +142,7 @@ export async function CalendarList({
                   );
                 }
                 const eventRows = events.map((r, i) => {
-                  const href = `/veranstaltungen/${r.id}`;
+                  const href = `/veranstaltungen/${r.id}/board`;
                   const peek = hrefFor(r.id);
                   return (
                     <TR

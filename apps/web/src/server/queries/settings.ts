@@ -21,6 +21,7 @@ export type CompanySettings = {
   defaultLocale: string;
   /** "HH:MM" */
   defaultDueTime: string;
+  emailEnabled: boolean;
   dailyDigestEnabled: boolean;
   /** False until the settings row exists (fresh database without a seed). */
   exists: boolean;
@@ -46,6 +47,7 @@ export async function getCompanySettings(): Promise<CompanySettings> {
     bundesland: row?.bundesland ?? "NW",
     defaultLocale: row?.defaultLocale ?? "de",
     defaultDueTime: (row?.defaultDueTime ?? "09:00").slice(0, 5),
+    emailEnabled: row?.emailEnabled ?? false,
     dailyDigestEnabled: row?.dailyDigestEnabled ?? true,
     exists: Boolean(row),
   };

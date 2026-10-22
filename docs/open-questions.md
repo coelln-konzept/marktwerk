@@ -10,6 +10,7 @@
 | 2026-10-20 | Email | Microsoft 365 (ADR 0008) |
 | 2026-10-20 | Payments | Bank transfer + cash on market day |
 | 2026-10-20 | Scale | Medium; up to 4 events per weekend |
+| 2026-10 | Team and Finance UI | Hidden for now (client feedback: a task monitoring panel for one main user). Data, services and tests stay. One switch in `apps/web/src/lib/modules.ts` (`HIDDEN_MODULES`), no user-facing setting. Team allocation returns in Phase 4, finance later. Event links from Übersicht, Board, Kalender and Logbuch open the event's Board tab. |
 | 2026-10-20 | MVP focus | Tasks, checklists, deadlines |
 | 2026-10-21 | Template propagation | **Never automatic, nothing pre-selected.** Applying a new version to events is a deliberate editor action with preview |
 | 2026-10-21 | Escalation | Overdue items escalate **only to the office manager** for now |
@@ -39,8 +40,18 @@
 | 2026-10-21 (session 2) | Kalender | Company-wide **Kalender** module after Übersicht: Monat (KW) + "Liste · 6 Wochen", layer panel, presets, narrowing, layers saved per person, ⚑ for 4+ events per weekend. M1: events + NRW holidays; other layers per module. Veranstaltungen keeps its own Liste/Kalender toggle |
 | 2026-10-21 (session 2) | Font | **Inter**, self-hosted via `@fontsource-variable/inter` (no Google request at runtime), tabular figures; system `ui-monospace` for kbd hints. Replaces Geist |
 | 2026-10-21 (session 2) | Start screen | **"Übersicht"** (`/`), one for everyone: KPI strip, season strip with hiring signal, Heute fällig, Nächstes Wochenende. **No fixed master-detail** screen. Task detail drawer and season strip restored |
-| 2026-10-21 (session 2) | Sidebar | **Orte and Kontakte: own sidebar entries** (Orte after Veranstaltungen, Kontakte after Händler). Routes `/orte`, `/orte/[id]`, `/kontakte`. The prototype's sidebar does not show them |
+| 2026-10-21 (session 2) | Sidebar | **Orte and Kontakte: own sidebar entries** (Orte after Veranstaltungen, Kontakte after Aussteller). Routes `/orte`, `/orte/[id]`, `/kontakte`. The prototype's sidebar does not show them |
 | 2026-10-21 (session 2) | Platform / shortcuts | The office mainly uses **Windows**: shortcut hints show **Strg+K** (en: Ctrl+K), not ⌘K. Ctrl+K and ⌘K both open the command palette |
+| 2026-10-22 (client feedback) | Focus until Phase 4 | A **task/to-do monitoring panel for one main user**: Übersicht, events with their tasks, Kalender. **Team** (task allocation, duties, hours) is hidden until Phase 4 and **Finanzen/Geld** until later — UI hide only, data and services stay. No user-facing module switch yet (comes when more users join) |
+| 2026-10-22 (client feedback) | Vendor term | German UI says **Aussteller** (not Händler); route `/aussteller`. Code stays `vendor` |
+| 2026-10-22 (client feedback) | Email | **No email for now**: a master switch "E-Mails versenden" in company settings, off; the daily digest also honours its own switch. In-app notifications stay |
+| 2026-10-22 (client feedback) | Event links | An event is a bundle of to-dos: links to an event from Übersicht, Board, Kalender and Logbuch open its **Board** tab |
+| 2026-10-22 (client feedback) | Task comments, snooze | **No comments** on tasks (single user); **snooze** ("Zurückstellen") is needed: hides a task from Übersicht until a date without changing its due date |
+| 2026-10-22 (client feedback) | Permits on the Übersicht | Show up **well in advance**: configurable horizon, default **30 days** (was a fixed 7) |
+| 2026-10-22 (client feedback) | Presets and templates | Presets are the company's **real markets** with their venue built in (e.g. Flohmarkt Nippes); planning a market = pick a previous market, choose dates. **One master event template** ("Grundvorlage") with the basic tasks, edited in Einstellungen → Bibliothek; a brand-new market starts as a copy of it and then shows up in the list. Replaces the per-type templates |
+| 2026-10-22 (client feedback) | Event status on creation | New events start **geplant** (they go online before permits are in); when all required permits are granted the event becomes **bestätigt** automatically |
+| 2026-10-22 (client feedback) | Permits when creating events | **No permit notice** in the creation flow (applications usually go out after planning). An existing permit for that market shows in the event's Genehmigungen and counts as done |
+| 2026-10-22 (client feedback) | Postponed | Aussteller data-collection companion; weekly report email; finance; staff assignment and staff emails; website publishing |
 
 ## Open: product owner
 1. **Backup copy target:** what is the company's own server (NAS model, reachable from the internet/VPN?), for the

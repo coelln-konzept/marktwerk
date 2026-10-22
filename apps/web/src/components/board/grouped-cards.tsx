@@ -1,6 +1,7 @@
 "use client";
 
 import { isFinishedStatus } from "@marktwerk/core";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { formatDateWithWeekday } from "@/lib/format";
@@ -23,15 +24,17 @@ export function GroupedCards({
   const groups = useMemo(() => {
     const map = new Map<
       string,
-      { key: string; label: string; first: string; cards: BoardTask[] }
+      { key: string; label: string; href?: string; first: string; cards: BoardTask[] }
     >();
     for (const card of tasks) {
       if (isFinishedStatus(card.status)) continue;
       let key: string;
       let label: string;
+      let href: string | undefined;
       if (groupBy === "event") {
         key = card.eventId ?? "none";
         label = card.eventName ?? t("group.noEvent");
+        href = card.eventId ? `/veranstaltungen/${card.eventId}/board` : undefined;
       } else if (card.dueOn === null) {
         key = "9999-none";
         label = t("group.noDate");
@@ -42,7 +45,7 @@ export function GroupedCards({
         key = card.dueOn;
         label = `${formatDateWithWeekday(card.dueOn, locale)}${card.dueOn === today ? ` · ${t("group.today")}` : ""}`;
       }
-      const group = map.get(key) ?? { key, label, first: card.dueOn ?? "9999", cards: [] };
+      const group = map.get(key) ?? { key, label, href, first: card.dueOn ?? "9999", cards: [] };
       if (card.dueOn && card.dueOn < group.first) group.first = card.dueOn;
       group.cards.push(card);
       map.set(key, group);
@@ -61,7 +64,13 @@ export function GroupedCards({
         return (
           <section key={group.key} aria-label={group.label} className="flex flex-col gap-2">
             <h3 className="flex items-center gap-2 font-semibold text-small">
-              {group.label}
+              {group.href ? (
+                <Link href={group.href as never} className="hover:underline">
+                  {group.label}
+                </Link>
+              ) : (
+                group.label
+              )}
               <span className="tabular inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-neutral-bg px-1 font-semibold text-[11.5px] text-foreground-2">
                 {group.cards.length}
               </span>

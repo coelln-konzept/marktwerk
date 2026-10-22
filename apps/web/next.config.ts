@@ -23,6 +23,13 @@ const nextConfig: NextConfig = {
     // enables forbidden()/unauthorized() used by requirePermission()
     authInterrupts: true,
   },
+  // Old German route name for vendors; keep bookmarks working.
+  async redirects() {
+    return [
+      { source: "/haendler", destination: "/aussteller", permanent: true },
+      { source: "/haendler/:path*", destination: "/aussteller/:path*", permanent: true },
+    ];
+  },
   turbopack: {
     rules: {
       "*.css": {

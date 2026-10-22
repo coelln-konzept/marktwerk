@@ -1,13 +1,13 @@
 {
   "vendors": {
-    "title": "Händler",
+    "title": "Aussteller",
     "subtitle": "{count} importiert · nur lesen",
     "banner": "Phase 1: Liste aus der alten Website, nur lesend. Buchungen kommen in Phase 2.",
     "search": "Suche nach Name, Firma, Ort oder E-Mail",
     "categories": "Kategorien",
     "filters": "Weitere Filter",
     "all": "Alle",
-    "regular": "Stammhändler",
+    "regular": "Stammaussteller",
     "withCar": "Mit Auto",
     "category": {
       "antik": "Antik",
@@ -19,7 +19,7 @@
       "design_handmade": "Design & Handgemacht",
       "food": "Food"
     },
-    "caption": "Händlerliste, Seite {page} von {pages}",
+    "caption": "Ausstellerliste, Seite {page} von {pages}",
     "cols": {
       "name": "Name",
       "kind": "Art",
@@ -27,7 +27,7 @@
       "city": "Ort",
       "length": "Standardlänge",
       "car": "Auto",
-      "regular": "Stammhändler",
+      "regular": "Stammaussteller",
       "newsletter": "Newsletter",
       "since": "Seit"
     },
@@ -38,7 +38,7 @@
     "carYes": "Auto, {length}",
     "carYesNoLength": "Auto, Länge unbekannt",
     "carNo": "kein Auto",
-    "regularBadge": "Stammhändler",
+    "regularBadge": "Stammaussteller",
     "regularSpot": "Stammplatz {spot}",
     "consent": {
       "soft_opt_in": "Soft-Opt-in",
@@ -48,7 +48,7 @@
     "noValue": "–",
     "preview": "Vorschau für {name}",
     "keys": "J/K: Zeile wechseln · Leertaste: Vorschau",
-    "emptyFiltered": "Keine Händler für diese Filter.",
+    "emptyFiltered": "Keine Aussteller für diese Filter.",
     "resetFilters": "Filter zurücksetzen",
     "pagination": {
       "label": "Seiten",
@@ -58,7 +58,7 @@
       "range": "{from}–{to} von {total}"
     },
     "vorschau": {
-      "kind": "Händler",
+      "kind": "Aussteller",
       "legacyId": "Alt-ID {id}",
       "type": "Art",
       "company": "Firma",
@@ -69,10 +69,10 @@
       "categories": "Kategorien",
       "defaultLength": "Standardlänge",
       "car": "Auto",
-      "regular": "Stammhändler",
+      "regular": "Stammaussteller",
       "regularSpot": "Stammplatz",
       "newsletter": "Newsletter",
-      "since": "Händler seit",
+      "since": "Aussteller seit",
       "imported": "Importiert am",
       "notes": "Notizen",
       "noNotes": "Keine Notizen.",

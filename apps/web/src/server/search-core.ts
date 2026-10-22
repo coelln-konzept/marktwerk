@@ -54,7 +54,13 @@ const LIMIT = 6;
  * Command palette search for an actor. Every group respects the same permissions and scopes as its page.
  * Kept apart from the server action (`./search`) so tests and other server code can pass an actor.
  */
-export async function searchAs(actor: Actor, locale: string, query: string): Promise<SearchHit[]> {
+export async function searchAs(
+  actor: Actor,
+  locale: string,
+  query: string,
+  /** Hit kinds to leave out (modules hidden in the UI, see `lib/modules.ts`). */
+  exclude: readonly SearchHit["kind"][] = [],
+): Promise<SearchHit[]> {
   const q = foldQuery(query.trim());
   if (q.length < 2) return [];
   const like = `%${q}%`;
@@ -134,7 +140,7 @@ export async function searchAs(actor: Actor, locale: string, query: string): Pro
       });
     }
   }
-  if (can(actor.role, "finance", "read")) {
+  if (can(actor.role, "finance", "read") && !exclude.includes("payable")) {
     const rows = await db
       .select({ id: payable.id, title: payable.title, counterparty: contact.name })
       .from(payable)
@@ -187,7 +193,7 @@ export async function searchAs(actor: Actor, locale: string, query: string): Pro
     for (const r of rows)
       hits.push({ kind: "venue", title: r.name, subtitle: r.city, href: `/orte/${r.id}` });
   }
-  if (can(actor.role, "event", "read") && actor.role !== "field") {
+  if (can(actor.role, "event", "read") && actor.role !== "field" && !exclude.includes("staff")) {
     const rows = await db
       .select({ id: staffMember.id, name: staffMember.displayName })
       .from(staffMember)
@@ -231,7 +237,7 @@ export async function searchAs(actor: Actor, locale: string, query: string): Pro
         kind: "vendor",
         title: r.name,
         subtitle: r.city ?? undefined,
-        href: `/haendler?vorschau=${r.id}`,
+        href: `/aussteller?vorschau=${r.id}`,
       });
     }
   }
