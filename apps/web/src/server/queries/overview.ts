@@ -64,7 +64,8 @@ export type Overview = {
     overdueTasks: number;
     /** Null for roles without `finance:read`. */
     moneyOverdue: { count: number; cents: number } | null;
-    drafts: number;
+    /** Upcoming planned events whose required permits are not all granted yet. */
+    withoutPermit: number;
   };
 };
 
@@ -175,7 +176,12 @@ export async function getOverview(
       openTasks: taskCounts.open,
       overdueTasks: taskCounts.overdue,
       moneyOverdue: money,
-      drafts: all.filter((e) => e.status === "draft" && e.endsOn >= today).length,
+      withoutPermit: all.filter(
+        (e) =>
+          e.status === "planned" &&
+          e.endsOn >= today &&
+          (e.health.permits === "warn" || e.health.permits === "critical"),
+      ).length,
     },
   };
 }

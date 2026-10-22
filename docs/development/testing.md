@@ -25,7 +25,7 @@ Vitest, node environment, config in `apps/web/vitest.config.ts`.
   `__NEXT_EXPERIMENTAL_AUTH_INTERRUPTS` is set so that `forbidden()` throws its 403 error (as with
   `experimental.authInterrupts` in `next.config.ts`). Only import modules that do not call `next/headers`
   (services take an `Actor`; build one by hand, never via `getActor()`).
-- Currently covered: `createEventsFromPreset` and `archiveDraftEvents` (`events.test.ts`).
+- Currently covered: `createEventsFromPreset` and `undoGeneratedEvents` (`events.test.ts`).
 - Test files and `vitest.config.ts` are type-checked by `pnpm typecheck` via `apps/web/test/tsconfig.json`.
 
 ## Browser smoke test (Playwright)

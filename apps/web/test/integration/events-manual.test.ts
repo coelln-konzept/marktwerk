@@ -3,10 +3,10 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import {
-  archiveDraftEvents,
   createManualEvent,
   EventInputError,
   type ManualEventInput,
+  undoGeneratedEvents,
 } from "@/server/services/events";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 
@@ -43,7 +43,7 @@ const isForbidden = (error: unknown) =>
   String((error as { digest?: unknown })?.digest ?? "").includes("403");
 
 describe("createManualEvent (Einzeltermin)", () => {
-  it("creates one draft event without a preset, with anchors and an empty team", async () => {
+  it("creates one planned event without a preset, with anchors and an empty team", async () => {
     const created = await createManualEvent(owner, input());
     expect(created.startsOn).toBe("2026-12-04");
 
@@ -55,7 +55,7 @@ describe("createManualEvent (Einzeltermin)", () => {
       venueId: cat.venue.id,
       name: "Sommerfest am See",
       season: 2026,
-      status: "draft",
+      status: "planned",
       startsOn: "2026-12-04",
       endsOn: "2026-12-04",
       pricePerMCents: 1500,
@@ -112,9 +112,9 @@ describe("createManualEvent (Einzeltermin)", () => {
     });
   });
 
-  it("can be undone like a generation run (draft is archived)", async () => {
+  it("can be undone like a generation run (freshly created, so it is archived)", async () => {
     const created = await createManualEvent(owner, input());
-    expect(await archiveDraftEvents(owner, [created.id])).toBe(1);
+    expect(await undoGeneratedEvents(owner, [created.id])).toBe(1);
     const [row] = await db.select().from(event).where(eq(event.id, created.id));
     expect(row?.archivedAt).toBeInstanceOf(Date);
   });

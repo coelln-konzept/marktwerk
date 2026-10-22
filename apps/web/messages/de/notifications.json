@@ -34,7 +34,8 @@
       "shift_request": "Schichtanfrage",
       "hours_missing": "Zeiten fehlen",
       "payroll_close": "Monatsabschluss",
-      "escalated": "Eskaliert"
+      "escalated": "Eskaliert",
+      "event_confirmed": "Bestätigt"
     },
     "severity": {
       "info": "Hinweis",

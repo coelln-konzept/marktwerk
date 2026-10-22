@@ -10,6 +10,7 @@ import {
   type ScheduledEvent,
 } from "@marktwerk/core";
 import {
+  auditLog,
   type DefaultDuties,
   dutyRole,
   type EventTimes,
@@ -130,7 +131,7 @@ export async function instantiateEvents(
         startsOn,
         endsOn,
         times: template.times,
-        status: "draft",
+        status: "planned",
         pricePerMCents: template.pricePerMCents,
         bookingFeeCents: template.bookingFeeCents,
       })
@@ -265,7 +266,7 @@ export async function manualTemplate(input: ManualEventInput): Promise<EventTemp
   };
 }
 
-/** Generation from a preset ("Aus Vorlage erzeugen"): one draft event per date. */
+/** Generation from a preset ("Aus Vorlage erzeugen"): one planned event per date. */
 export async function createEventsFromPreset(actor: Actor, presetId: string, dates: string[]) {
   if (!can(actor.role, "event", "write")) forbidden();
   const days = validateDates(dates);
@@ -273,7 +274,7 @@ export async function createEventsFromPreset(actor: Actor, presetId: string, dat
   return db.transaction((tx) => instantiateEvents(tx, actor, template, days, "preset"));
 }
 
-/** "Neue Veranstaltung ohne Vorlage" (Einzeltermin): one draft event, no preset, empty team. */
+/** "Neue Veranstaltung ohne Vorlage" (Einzeltermin): one planned event, no preset, empty team. */
 export async function createManualEvent(
   actor: Actor,
   input: ManualEventInput & { startsOn: string },
@@ -288,16 +289,61 @@ export async function createManualEvent(
   return created;
 }
 
-/** Undo of a generation run: archives events that are still drafts. Anything already worked on stays. */
-export async function archiveDraftEvents(actor: Actor, ids: string[]) {
+/** Did this audit entry belong to the creation of the event (not to later work on it)? */
+function isCreationEntry(entry: { action: string; diff: unknown }): boolean {
+  if (entry.action === "event.create") return true;
+  // Confirmed right away because existing permits already cover it (logbook fill, same transaction).
+  const diff = (entry.diff ?? {}) as { auto?: boolean; source?: string };
+  return entry.action === "event.status" && diff.auto === true && diff.source === "logbook_fill";
+}
+
+/**
+ * Undo of a generation run ("Rückgängig" toast): archives the events the run just created. Freshly
+ * created events are recognised by their audit trail, not by status (new events start as "geplant", or
+ * "bestätigt" if existing permits cover them): the event must have an `event.create` entry and nothing
+ * else except its automatic confirmation at creation. Anything anyone changed since (status, notes,
+ * dates, …) stays untouched.
+ */
+export async function undoGeneratedEvents(actor: Actor, ids: string[]) {
   if (!can(actor.role, "event", "write")) forbidden();
   if (ids.length === 0 || ids.length > MAX_DATES_PER_RUN)
     throw new EventInputError("invalid_selection");
+  const wanted = [...new Set(ids.filter((id) => UUID.test(id)))];
   return db.transaction(async (tx) => {
+    if (wanted.length === 0) return 0;
+    const rows = await tx
+      .select({ id: event.id })
+      .from(event)
+      .where(and(inArray(event.id, wanted), isNull(event.archivedAt)))
+      .orderBy(event.id)
+      .for("update");
+    if (rows.length === 0) return 0;
+    const trail = await tx
+      .select({ entityId: auditLog.entityId, action: auditLog.action, diff: auditLog.diff })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.entityType, "event"),
+          inArray(
+            auditLog.entityId,
+            rows.map((r) => r.id),
+          ),
+        ),
+      );
+    const untouched = rows.filter((r) => {
+      const own = trail.filter((t) => t.entityId === r.id);
+      return own.some((t) => t.action === "event.create") && own.every(isCreationEntry);
+    });
+    if (untouched.length === 0) return 0;
     const archived = await tx
       .update(event)
       .set({ archivedAt: new Date() })
-      .where(and(inArray(event.id, ids), eq(event.status, "draft"), isNull(event.archivedAt)))
+      .where(
+        inArray(
+          event.id,
+          untouched.map((u) => u.id),
+        ),
+      )
       .returning({ id: event.id });
     await audit(
       tx,

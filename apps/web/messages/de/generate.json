@@ -39,7 +39,7 @@
     "shiftHint": "+ Klick: gleiche Wochentage dazwischen",
     "summary": "{count, plural, =0 {Noch keine Termine gewählt} one {# Termin gewählt} other {# Termine gewählt}}",
     "warningsCount": "{count, plural, one {# Hinweis} other {# Hinweise}}",
-    "previewIntro": "{name} · {venue}. Neue Veranstaltungen starten als Entwurf.",
+    "previewIntro": "{name} · {venue}. Neue Veranstaltungen starten als geplant.",
     "cols": {
       "date": "Datum",
       "week": "KW",
@@ -54,7 +54,7 @@
       "none": "keine Hinweise"
     },
     "remove": "{date} entfernen",
-    "previewNote": "Hinweise blockieren nichts: du entscheidest. Aufgaben aus Ablaufvorlagen kommen mit M2, Genehmigungen mit M3 dazu.",
+    "previewNote": "Hinweise blockieren nichts: du entscheidest.",
     "back": "Zurück",
     "next": "Weiter",
     "create": "{count, plural, one {# Veranstaltung anlegen} other {# Veranstaltungen anlegen}}",
@@ -70,7 +70,7 @@
     },
     "single": {
       "title": "Neue Veranstaltung ohne Vorlage",
-      "subtitle": "Ein einzelner Termin mit eigenen Zeiten und Preisen. Er startet als Entwurf, das Team ist noch leer.",
+      "subtitle": "Ein einzelner Termin mit eigenen Zeiten und Preisen. Er startet als geplant, das Team ist noch leer.",
       "name": "Name",
       "type": "Art",
       "venue": "Ort",
@@ -94,7 +94,7 @@
       "cancel": "Abbrechen",
       "create": "Veranstaltung anlegen",
       "creating": "Wird angelegt …",
-      "created": "{name} angelegt (Entwurf)",
+      "created": "{name} angelegt (geplant)",
       "undo": "Rückgängig",
       "undone": "Veranstaltung wieder entfernt",
       "undoTooLate": "Nicht mehr rückgängig zu machen: die Veranstaltung wurde schon bearbeitet.",

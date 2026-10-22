@@ -34,7 +34,8 @@
       "shift_request": "Shift request",
       "hours_missing": "Hours missing",
       "payroll_close": "Month close",
-      "escalated": "Escalated"
+      "escalated": "Escalated",
+      "event_confirmed": "Confirmed"
     },
     "severity": {
       "info": "Note",

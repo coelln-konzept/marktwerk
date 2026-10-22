@@ -39,7 +39,7 @@
     "shiftHint": "+ click: same weekday in between",
     "summary": "{count, plural, =0 {No dates selected yet} one {# date selected} other {# dates selected}}",
     "warningsCount": "{count, plural, one {# note} other {# notes}}",
-    "previewIntro": "{name} · {venue}. New events start as drafts.",
+    "previewIntro": "{name} · {venue}. New events start as planned.",
     "cols": {
       "date": "Date",
       "week": "CW",
@@ -54,7 +54,7 @@
       "none": "no notes"
     },
     "remove": "Remove {date}",
-    "previewNote": "Notes never block: you decide. Tasks from timeline templates come with M2, permits with M3.",
+    "previewNote": "Notes never block: you decide.",
     "back": "Back",
     "next": "Next",
     "create": "{count, plural, one {Create # event} other {Create # events}}",
@@ -70,7 +70,7 @@
     },
     "single": {
       "title": "New event without a preset",
-      "subtitle": "A single date with its own times and prices. It starts as a draft, the team is still empty.",
+      "subtitle": "A single date with its own times and prices. It starts as planned, the team is still empty.",
       "name": "Name",
       "type": "Type",
       "venue": "Venue",
@@ -94,7 +94,7 @@
       "cancel": "Cancel",
       "create": "Create event",
       "creating": "Creating …",
-      "created": "{name} created (draft)",
+      "created": "{name} created (planned)",
       "undo": "Undo",
       "undone": "Event removed again",
       "undoTooLate": "Can no longer be undone: the event has already been worked on.",

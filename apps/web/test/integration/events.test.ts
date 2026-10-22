@@ -1,13 +1,21 @@
 import { addDays } from "@marktwerk/core";
-import { auditLog, event, eventAnchor, eventDuty, eventPreset } from "@marktwerk/db/schema";
+import {
+  auditLog,
+  event,
+  eventAnchor,
+  eventDuty,
+  eventPreset,
+  notification,
+} from "@marktwerk/db/schema";
 import { asc, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { changeEventStatus, updateEventNotes } from "@/server/services/event-lifecycle";
 import {
-  archiveDraftEvents,
   createEventsFromPreset,
   EventInputError,
   MAX_DATES_PER_RUN,
+  undoGeneratedEvents,
 } from "@/server/services/events";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 
@@ -34,7 +42,7 @@ const isForbidden = (error: unknown) =>
   String((error as { digest?: unknown })?.digest ?? "").includes("403");
 
 describe("createEventsFromPreset", () => {
-  it("creates one draft event per date, copied from the preset", async () => {
+  it("creates one planned event per date, copied from the preset", async () => {
     const created = await createEventsFromPreset(owner, cat.presets.flea.id, [
       "2026-11-14",
       "2026-11-28",
@@ -50,7 +58,7 @@ describe("createEventsFromPreset", () => {
         venueId: cat.venue.id,
         name: "Testflohmarkt",
         season: 2026,
-        status: "draft",
+        status: "planned",
         pricePerMCents: 1200,
         bookingFeeCents: 500,
         times: cat.times,
@@ -247,52 +255,78 @@ describe("createEventsFromPreset", () => {
   });
 });
 
-describe("archiveDraftEvents", () => {
-  it("archives drafts only; events that moved on stay", async () => {
+describe("undoGeneratedEvents", () => {
+  it("archives freshly created events only; events anyone changed since stay", async () => {
     const created = await createEventsFromPreset(owner, cat.presets.flea.id, [
       "2026-11-14",
       "2026-11-28",
       "2026-12-12",
+      "2026-12-19",
     ]);
-    const [draftA, planned, draftB] = created.map((c) => c.id) as [string, string, string];
-    await db.update(event).set({ status: "planned" }).where(eq(event.id, planned));
-    await db.delete(auditLog); // only look at the archive entries below
+    const [fresh, moved, fresh2, noted] = created.map((c) => c.id) as [
+      string,
+      string,
+      string,
+      string,
+    ];
+    // Someone confirmed one by hand and edited the notes of another after the run.
+    await changeEventStatus(owner, moved, "confirmed");
+    await updateEventNotes(owner, noted, "Bitte Strom klären");
+    await db.delete(notification);
+    const auditBefore = await db.select().from(auditLog);
 
-    const archived = await archiveDraftEvents(owner, [draftA, planned, draftB]);
+    const archived = await undoGeneratedEvents(owner, [fresh, moved, fresh2, noted]);
     expect(archived).toBe(2);
 
     const rows = await db
       .select()
       .from(event)
-      .where(inArray(event.id, [draftA, planned, draftB]));
+      .where(inArray(event.id, [fresh, moved, fresh2, noted]));
     const byId = new Map(rows.map((r) => [r.id, r]));
-    expect(byId.get(draftA)?.archivedAt).toBeInstanceOf(Date);
-    expect(byId.get(draftB)?.archivedAt).toBeInstanceOf(Date);
-    expect(byId.get(planned)?.archivedAt).toBeNull();
-    expect(byId.get(planned)?.status).toBe("planned");
+    expect(byId.get(fresh)?.archivedAt).toBeInstanceOf(Date);
+    expect(byId.get(fresh2)?.archivedAt).toBeInstanceOf(Date);
+    expect(byId.get(moved)?.archivedAt).toBeNull();
+    expect(byId.get(moved)?.status).toBe("confirmed");
+    expect(byId.get(noted)?.archivedAt).toBeNull();
 
-    const entries = await db.select().from(auditLog);
+    const entries = (await db.select().from(auditLog)).filter((e) => e.action === "event.archive");
     expect(entries).toHaveLength(2);
-    expect(entries.every((e) => e.action === "event.archive" && e.actorId === owner.id)).toBe(true);
+    expect(auditBefore.some((e) => e.action === "event.archive")).toBe(false);
+    expect(entries.every((e) => e.actorId === owner.id)).toBe(true);
     expect(entries.map((e) => e.diff)).toEqual([{ reason: "undo" }, { reason: "undo" }]);
-    expect(new Set(entries.map((e) => e.entityId))).toEqual(new Set([draftA, draftB]));
+    expect(new Set(entries.map((e) => e.entityId))).toEqual(new Set([fresh, fresh2]));
+  });
+
+  it("also undoes an event that was confirmed right away by an existing permit", async () => {
+    const [created] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-11-14"]);
+    const id = created?.id ?? "";
+    // Simulate the automatic confirmation of the creation run (see permits.test.ts for the real flow).
+    await db.update(event).set({ status: "confirmed" }).where(eq(event.id, id));
+    await db.insert(auditLog).values({
+      actorId: owner.id,
+      action: "event.status",
+      entityType: "event",
+      entityId: id,
+      diff: { from: "planned", to: "confirmed", auto: true, source: "logbook_fill" },
+    });
+    expect(await undoGeneratedEvents(owner, [id])).toBe(1);
   });
 
   it("is idempotent: already archived events are not archived or audited again", async () => {
     const [created] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-11-14"]);
     const ids = [created?.id ?? ""];
-    expect(await archiveDraftEvents(owner, ids)).toBe(1);
+    expect(await undoGeneratedEvents(owner, ids)).toBe(1);
     const before = await counts();
-    expect(await archiveDraftEvents(owner, ids)).toBe(0);
+    expect(await undoGeneratedEvents(owner, ids)).toBe(0);
     expect(await counts()).toEqual(before);
   });
 
   it("rejects an empty or oversized selection", async () => {
-    await expect(archiveDraftEvents(owner, [])).rejects.toThrow(
+    await expect(undoGeneratedEvents(owner, [])).rejects.toThrow(
       new EventInputError("invalid_selection"),
     );
     const many = Array.from({ length: MAX_DATES_PER_RUN + 1 }, (_, i) => String(i));
-    await expect(archiveDraftEvents(owner, many)).rejects.toThrow(
+    await expect(undoGeneratedEvents(owner, many)).rejects.toThrow(
       new EventInputError("invalid_selection"),
     );
   });
@@ -300,7 +334,7 @@ describe("archiveDraftEvents", () => {
   it("is forbidden without event:write and leaves the events alone", async () => {
     const [created] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-11-14"]);
     const staff = await createActor("staff");
-    const error = await archiveDraftEvents(staff, [created?.id ?? ""]).then(
+    const error = await undoGeneratedEvents(staff, [created?.id ?? ""]).then(
       () => null,
       (e: unknown) => e,
     );

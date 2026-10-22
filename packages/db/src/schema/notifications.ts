@@ -20,6 +20,7 @@ export const notificationReason = app.enum("notification_reason", [
   "hours_missing",
   "payroll_close",
   "escalated",
+  "event_confirmed",
 ]);
 
 /** Data model leaves the values open; colour + icon + text in the UI. */

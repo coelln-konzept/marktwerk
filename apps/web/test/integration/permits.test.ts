@@ -13,7 +13,8 @@ import {
 import { and, asc, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
-import { createEventsFromPreset } from "@/server/services/events";
+import { changeEventStatus } from "@/server/services/event-lifecycle";
+import { createEventsFromPreset, undoGeneratedEvents } from "@/server/services/events";
 import {
   archivePermit,
   createPermit,
@@ -571,5 +572,146 @@ describe("events of a permit", () => {
     const tasks = await db.select().from(task);
     expect(tasks).toHaveLength(1);
     expect(tasks[0]?.permitId).toBe(withDate.id);
+  });
+});
+
+describe("auto-confirmation of planned events", () => {
+  const statusOf = async (id: string) =>
+    (await db.select({ status: event.status }).from(event).where(eq(event.id, id)))[0]?.status;
+  const autoAudit = async () =>
+    (await db.select().from(auditLog).where(eq(auditLog.action, "event.status"))).filter(
+      (a) => (a.diff as { auto?: boolean }).auto === true,
+    );
+  const permitOf = async (title: string) =>
+    (await db.select().from(permit).where(eq(permit.title, title)))[0]?.id ?? "";
+
+  it("confirms the event when its last required permit is granted (audit + notification)", async () => {
+    await requirement();
+    const [id] = await generate("2027-05-02");
+    const permitId = (await db.select().from(permit))[0]?.id ?? "";
+    expect(await statusOf(id ?? "")).toBe("planned");
+
+    await setPermitStatus(owner, permitId, "granted");
+
+    expect(await statusOf(id ?? "")).toBe("confirmed");
+    const entries = await autoAudit();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      actorId: owner.id,
+      entityType: "event",
+      entityId: id,
+      diff: {
+        from: "planned",
+        to: "confirmed",
+        auto: true,
+        reason: "alle Genehmigungen erteilt",
+        source: "permit_status",
+      },
+    });
+    const notes = (await db.select().from(notification)).filter(
+      (n) => n.reason === "event_confirmed",
+    );
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toMatchObject({
+      recipientStaffMemberId: cat.staff.anna.id,
+      subjectType: "event",
+      subjectId: id,
+      link: `/veranstaltungen/${id}/genehmigungen`,
+    });
+  });
+
+  it("stays planned while one of two required permits is still open", async () => {
+    await requirement();
+    await requirement({ title: "Sondernutzung", permitType: "other" });
+    const [id] = await generate("2027-05-02");
+    await setPermitStatus(owner, await permitOf("Marktgenehmigung"), "granted");
+    expect(await statusOf(id ?? "")).toBe("planned");
+    expect(await autoAudit()).toHaveLength(0);
+
+    await setPermitStatus(owner, await permitOf("Sondernutzung"), "granted");
+    expect(await statusOf(id ?? "")).toBe("confirmed");
+  });
+
+  it("leaves an event without any required permit planned", async () => {
+    const [id] = await generate("2027-05-02");
+    expect(await statusOf(id ?? "")).toBe("planned");
+    const other = await createPermit(owner, {
+      venueId: cat.venue.id,
+      category: "city",
+      permitType: "other",
+      title: "Nicht verknüpft",
+      season: 2027,
+      applyBy: null,
+    });
+    await setPermitStatus(owner, other.id, "granted");
+    expect(await statusOf(id ?? "")).toBe("planned");
+    // Once linked and granted it is a required permit and confirms; "not needed" removes it again.
+    await linkEventsToPermit(owner, other.id, [id ?? ""]);
+    expect(await statusOf(id ?? "")).toBe("confirmed");
+    await db
+      .update(event)
+      .set({ status: "planned" })
+      .where(eq(event.id, id ?? ""));
+    await setEventPermitRequired(owner, other.id, id ?? "", false);
+    expect(await statusOf(id ?? "")).toBe("planned");
+  });
+
+  it("does not touch draft or cancelled events", async () => {
+    await requirement();
+    const [draftId, cancelledId] = await generate("2027-05-02", "2027-06-06");
+    await changeEventStatus(owner, draftId ?? "", "draft");
+    await changeEventStatus(owner, cancelledId ?? "", "cancelled", "Regen");
+    await setPermitStatus(owner, (await db.select().from(permit))[0]?.id ?? "", "granted");
+    expect(await statusOf(draftId ?? "")).toBe("draft");
+    expect(await statusOf(cancelledId ?? "")).toBe("cancelled");
+    expect(await autoAudit()).toHaveLength(0);
+  });
+
+  it("never moves a confirmed event back when the permit is withdrawn later", async () => {
+    await requirement();
+    const [id] = await generate("2027-05-02");
+    const permitId = (await db.select().from(permit))[0]?.id ?? "";
+    await setPermitStatus(owner, permitId, "granted");
+    await setPermitStatus(owner, permitId, "applied");
+    expect(await statusOf(id ?? "")).toBe("confirmed");
+  });
+
+  it("confirms the event of a granted permit that is linked afterwards", async () => {
+    const [id] = await generate("2027-05-02");
+    const created = await createPermit(owner, {
+      venueId: cat.venue.id,
+      category: "city",
+      permitType: "other",
+      title: "Vorab erteilt",
+      season: 2027,
+      applyBy: null,
+    });
+    await setPermitStatus(owner, created.id, "granted");
+    await linkEventsToPermit(owner, created.id, [id ?? ""]);
+    expect(await statusOf(id ?? "")).toBe("confirmed");
+    expect((await autoAudit())[0]?.diff).toMatchObject({ source: "permit_link" });
+  });
+
+  it("creates a new event as confirmed right away when an existing permit covers it", async () => {
+    await requirement();
+    await generate("2027-05-02");
+    await setPermitStatus(owner, (await db.select().from(permit))[0]?.id ?? "", "granted");
+    await db.delete(notification);
+    await db.delete(auditLog);
+
+    const [second] = await generate("2027-06-06");
+    expect(await statusOf(second ?? "")).toBe("confirmed");
+    const links = await db
+      .select()
+      .from(eventPermit)
+      .where(eq(eventPermit.eventId, second ?? ""));
+    expect(links).toHaveLength(1);
+    expect(await db.select().from(permit)).toHaveLength(1); // linked, no second application
+    expect((await autoAudit())[0]).toMatchObject({
+      entityId: second,
+      diff: { auto: true, source: "logbook_fill" },
+    });
+    // The generation can still be undone for it.
+    expect(await undoGeneratedEvents(owner, [second ?? ""])).toBe(1);
   });
 });

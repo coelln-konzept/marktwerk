@@ -423,7 +423,7 @@ describe("events and scheduling", () => {
       if (event.season === 2026) {
         expect(["completed", "closed", "confirmed", "cancelled"]).toContain(event.status);
       } else {
-        expect(["planned", "draft"]).toContain(event.status);
+        expect(event.status).toBe("planned");
         expect(event.bookingOpen).toBe(false);
       }
       if (event.endsOn < REFERENCE_DATE && event.status !== "cancelled") {

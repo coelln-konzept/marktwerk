@@ -18,6 +18,7 @@ import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDateRange, formatMonth, todayIn } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUSES } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
@@ -67,13 +68,27 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   const typeKey = param(sp.art);
   const q = param(sp.q)?.slice(0, 100);
   const view = param(sp.ansicht) === "kalender" ? "kalender" : "liste";
-  const filters = { season, typeKey, status, q };
+  // "Ohne Genehmigung" (from the Übersicht KPI): upcoming planned events whose permits are not all
+  // granted. It looks across seasons, like the KPI does.
+  const openPermits = param(sp.genehmigung) === "offen";
+  const filters = {
+    season: openPermits ? undefined : season,
+    typeKey,
+    status: openPermits ? ("planned" as const) : status,
+    q,
+  };
 
-  const [rows, counts, types] = await Promise.all([
+  const [allRows, counts, types] = await Promise.all([
     listEvents(actor, filters),
     countByType(actor, filters),
     listEventTypes(),
   ]);
+  const rows = openPermits
+    ? allRows.filter(
+        (r) =>
+          r.endsOn >= today && (r.health.permits === "warn" || r.health.permits === "critical"),
+      )
+    : allRows;
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const planned = rows.filter((r) => r.status === "planned").length;
   const vorschauId = param(sp.vorschau);
@@ -203,6 +218,18 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
             ))}
           </FilterChips>
         </FilterGroup>
+        {openPermits && (
+          <FilterGroup label={t("permitFilter.label")}>
+            <FilterChips>
+              <FilterChip
+                href={hrefWith(PATH, sp, { genehmigung: undefined, status: undefined })}
+                active
+              >
+                {t("permitFilter.open")}
+              </FilterChip>
+            </FilterChips>
+          </FilterGroup>
+        )}
       </FilterBar>
 
       {view === "liste" ? (
@@ -229,7 +256,9 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                     <TH>{t("cols.venue")}</TH>
                     <TH>{t("cols.status")}</TH>
                     <TH>{t("cols.health")}</TH>
-                    <TH className="text-right">{t("cols.effort")}</TH>
+                    {isModuleVisible("estimates") && (
+                      <TH className="text-right">{t("cols.effort")}</TH>
+                    )}
                     <TH>
                       <span className="sr-only">{t("cols.actions")}</span>
                     </TH>
@@ -279,7 +308,9 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                         <TD>
                           <HealthSummary health={r.health} />
                         </TD>
-                        <TD className="tabular text-right text-muted-foreground">–</TD>
+                        {isModuleVisible("estimates") && (
+                          <TD className="tabular text-right text-muted-foreground">–</TD>
+                        )}
                         <TD className="w-20">
                           <RowActions>
                             <Link

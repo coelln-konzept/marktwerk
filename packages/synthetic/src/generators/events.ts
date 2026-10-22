@@ -124,16 +124,14 @@ function scheduleCandidates(presets: EventPreset[]): Candidate[] {
 }
 
 /** Lifecycle status from the reference date. Booking flags are separate (see bookingFlags). */
-function lifecycleStatus(
-  endsOn: string,
-  season: number,
-  venueAppliedForSeason: boolean,
-): EventStatus {
+function lifecycleStatus(endsOn: string, season: number): EventStatus {
   if (endsOn < REFERENCE_DATE) {
     return endsOn < addDays(REFERENCE_DATE, -21) ? "closed" : "completed";
   }
   if (season === SEASONS[0]) return "confirmed";
-  return venueAppliedForSeason ? "planned" : "draft";
+  // New dates go online right away (client decision 2026-10-22): next season's events are planned,
+  // whether or not the venue has applied yet; confirmation follows the permits.
+  return "planned";
 }
 
 export interface EventsBundle {
@@ -157,7 +155,7 @@ export function buildEvents(rng: Rng, presets: EventPreset[], ctx: PresetContext
       throw new Error(`Missing type or venue for preset ${preset.key}`);
 
     const season = yearOf(candidate.startsOn);
-    const status = lifecycleStatus(candidate.endsOn, season, blueprint.permitsApplied2027);
+    const status = lifecycleStatus(candidate.endsOn, season);
     const eventId = rng.uuid();
     const setupDay = preset.durationDays > 1 ? addDays(candidate.startsOn, -1) : candidate.startsOn;
     const bookingCutoff = mondayBefore(candidate.startsOn);

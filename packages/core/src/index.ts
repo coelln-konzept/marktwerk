@@ -11,6 +11,7 @@ export * from "./deadlines/due-ranking";
 export * from "./deadlines/permit-horizon";
 export * from "./deadlines/reminders";
 export * from "./events/anchors";
+export * from "./events/auto-confirm";
 export * from "./events/details";
 export * from "./events/health";
 export * from "./events/lifecycle";

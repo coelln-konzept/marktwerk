@@ -1,6 +1,6 @@
 {
   "events": {
-    "subtitle": "Season {season} · {count} dates · {planned} planned (permit pending)",
+    "subtitle": "Season {season} · {count} dates · {planned} planned",
     "generate": "Generate from preset",
     "search": "Name or venue",
     "season": "Season",
@@ -13,6 +13,10 @@
     "views": {
       "liste": "List",
       "kalender": "Calendar"
+    },
+    "permitFilter": {
+      "label": "Permits",
+      "open": "Without permit"
     },
     "types": "Event type",
     "all": "All",
