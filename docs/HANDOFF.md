@@ -4,12 +4,11 @@
 first. Repository: [`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk). The session-3
 handoff is kept as history at the end (§12); its reading list and architecture notes still apply.
 
-> **Where things stand:** the client feedback of 2026-10-22 is built and merged (PRs #3–#8). A **UX pass** (declutter,
-> navigation, design critique with Impeccable) is on branch **`feat/ux-pass`** (pushed, **no PR yet**). Two parallel
-> agents were paused mid-way when the session ended: **P** (fix false alarms: link permit tasks to permits) and **Q**
-> (company-wide notification center). Their unfinished work is pushed as **`wip/ux-pass-p-false-alarms`** and
-> **`wip/ux-pass-q-notification-center`** (§5). A cloud session may already have continued them — check §5 first.
-> Next: finish P and Q, merge them into `feat/ux-pass`, verify, open the UX-pass PR, re-run the critique (§6).
+> **Where things stand (updated by the cloud session, 2026-10-22 evening):** the client feedback of 2026-10-22 is
+> built and merged (PRs #3–#8). The cloud session finished **P** (false alarms) and **Q** (notification center),
+> merged both into **`feat/ux-pass`** and opened **[PR #9](https://github.com/coelln-konzept/marktwerk/pull/9)**
+> `feat/ux-pass` → `main` (state in §5). Next: check PR #9 is merged, reseed locally, browser check, re-run the
+> critique (§6).
 
 ---
 
@@ -48,7 +47,7 @@ handoff is kept as history at the end (§12); its reading list and architecture 
 | #6 | New events start **geplant**, **auto-confirm** when all required permits are granted; "Ohne Genehmigung" |
 | #7 | **Einstellungen → Bibliothek** with the **Grundvorlage** (master template); **"Markt planen"**; **Kernaufgaben** (`is_key`); **Marktfarben** (market colours) |
 | #8 | **Event Überblick** redesign (status line, Was fehlt, Kernaufgaben, dates); board views **Bereitschaft** (default) and **Kernaufgaben-Matrix** |
-| `feat/ux-pass` (no PR yet) | UX pass, see §4 |
+| #9 (`feat/ux-pass`, opened by the cloud session) | UX pass (§4) + P false alarms + Q notification center, see §5 |
 
 ## 4. The UX pass (`feat/ux-pass`, pushed, 16 commits on top of `main`)
 
@@ -78,38 +77,49 @@ Design critique (Impeccable, dual-agent): **22/40 → 25/40**. Remaining finding
 5. Minor: ISO date in the task drawer date field; outline star in Bereitschaft "Kernaufgaben offen" chips; "Nächste
    Frist" shows the oldest overdue; Strg+K placeholder mentions hidden modules.
 
-## 5. In flight when session 4 ended (paused, pushed as WIP)
+## 5. State after the cloud session (2026-10-22 evening)
 
-| Agent | Pushed WIP branch | Base | State when paused | Brief |
-|---|---|---|---|---|
-| **P** false alarms | `wip/ux-pass-p-false-alarms` (`ead2fe3`, 71 files) | `6f76be8` | Implementation done (linking, `permitStateForEvent`, waiting tasks, reasons, year format, editor select, seed mapping); was writing the last tests (Bereitschaft + event-health reasons). Not yet `pnpm check`-green. | §11.1 |
-| **Q** notification center | `wip/ux-pass-q-notification-center` (`c4cb74c`, 36 files) | `6f76be8` | Core rules, sweep, queries/services, center page, bell popover, tests written; was updating the docs. Not yet `pnpm check`-green. | §11.2 |
+Both paused agents are finished and merged into `feat/ux-pass`; the UX pass is up as
+**[PR #9](https://github.com/coelln-konzept/marktwerk/pull/9)** (`feat/ux-pass` → `main`, template filled from §4 + P + Q).
 
-At the end of session 4 a **cloud session** ("Continue UX pass: P and Q") was started to finish both from these
-branches, merge them into `feat/ux-pass` and open the PR. Check its result first: `git fetch`, then
-`gh pr list --repo coelln-konzept/marktwerk --state all`, `git log --oneline origin/feat/ux-pass -5`,
-`git log --oneline origin/wip/ux-pass-p-false-alarms -3` (and the Q branch). Continue from the newest state.
+| Piece | Commits | What the cloud session did |
+|---|---|---|
+| **P** false alarms | `wip/ux-pass-p-false-alarms` `ead2fe3` + `c819cf4`, merge `7b1e230` | The WIP was already complete and green (`pnpm check`, 744 integration). Reviewed against brief §11.1 (linking in all paths incl. propagation, auto-complete + undo, no duplicate permit task, `permitStateForEvent` in tab/Überblick/health/Bereitschaft/Kalender, history permits, Wartet, reasons, Board tab label, year format, editor select, seed mapping, tests for Bereitschaft + health reasons). Added the data-model note and a Decided row "False alarms (critique P0)" in `open-questions.md` |
+| **Q** notification center | `wip/ux-pass-q-notification-center` `c4cb74c` + `92015bb`, merge `654651c` | The WIP was complete and green (docs already written); added a permission unit test (only owner/manager get `notification`). 732 integration on its own |
+| Merge fix | in `654651c` | Conflict in `open-questions.md` only (all rows kept). The company sweep now skips overdue tasks with status **Wartet** (P's rule) and `source = permit` tasks (the permit's apply-by item covers them, as in the personal sweep); test added |
 
-To finish locally: for each agent, create a worktree from its wip branch, run `pnpm install`, copy `.env` with its own
-throwaway DBs (§11), then `pnpm check` / `pnpm test:integration`, fix what fails, finish the remaining items of its
-brief, and merge the branch into `feat/ux-pass`. **Known overlap**: both touch `docs/open-questions.md`,
-`e2e/smoke.spec.ts`, `messages/*/shell.json`; P owns permits/tasks/format, Q owns notifications/jobs sweep/bell.
-The local worktrees `.claude/worktrees/agent-a837d50a5bfeb4a17` (P) and `agent-a3febeb72e20752b6` (Q) hold the same
-commits; their throwaway DBs `marktwerk_p_*`/`marktwerk_q_*` may still exist — drop them when done.
+Verified on the merged head (cloud container, local Postgres 16): `pnpm check` green, **756 integration** green,
+**28 e2e** green against `next start` after a fresh migrate + seed (the seed's sweep creates 23 company-wide
+notifications; 146/148 "Marktgenehmigung beantragen" tasks are linked to their permit, ~80 % auto-completed).
+Not done in the cloud: browser click-through / screenshots, Impeccable critique.
+
+**Open questions for the product owner** (not decided, nothing built for them):
+1. **Notification center vs. linked application tasks**: a template task linked to a permit ("Marktgenehmigung
+   beantragen", P) can appear in the center twice: as an overdue/due-soon task *and* as the permit's apply-by
+   item. Show only the permit item for linked tasks? (The sweep already hides `source = permit` tasks.)
+2. Q's implementation rules, logged in `open-questions.md` ("Notification center rules"), to confirm: due soon =
+   today/tomorrow (Kernaufgaben 3 days); no backlog cutoff for overdue items; owner/manager don't see their
+   personal notifications in the center; Zurückstellen snoozes only the notification, not the task/permit; bell
+   counts unread open items.
+3. A "Wartet" task that is due soon still appears as "bald fällig" in the center (only overdue is suppressed). OK?
+
+The local worktrees of session 4 (`.claude/worktrees/agent-a837d50a5bfeb4a17` (P), `agent-a3febeb72e20752b6` (Q))
+and their DBs `marktwerk_p_*`/`marktwerk_q_*` are obsolete — remove them. The `wip/` branches can be deleted once
+PR #9 is merged.
 
 ## 6. Next steps (in order)
-1. Collect P and Q (§5); merge both into `feat/ux-pass` (`git merge --no-ff`), resolve conflicts, `pnpm db:migrate`.
-2. Reseed the local DB if the seed changed (P changes templates): drop + create `marktwerk`, `pnpm db:migrate && pnpm
-   db:seed`, then re-create the admin login (§7). Restart the dev server (Turbopack keeps stale modules after merges).
-3. `pnpm check`, `pnpm test:integration`, e2e (§2). Browser check: Übersicht overdue count should drop a lot; event
-   Genehmigungen tab without false "Läuft ab"; `/benachrichtigungen` + bell work for the admin login.
-4. Open the PR `feat/ux-pass` → `main` (template `.github/pull_request_template.md`; summary from §4 + P/Q), watch CI,
-   **merge when green** (the product owner allowed merging once CI passes).
+1. `git fetch`; check [PR #9](https://github.com/coelln-konzept/marktwerk/pull/9): merged? (The cloud session was
+   allowed to merge once CI is green.) If still open, look at CI and fix; then `git checkout main && git pull`.
+2. Reseed the local DB (P changes templates, the seed now also runs one sweep): drop + create `marktwerk`,
+   `pnpm db:migrate && pnpm db:seed`, then re-create the admin login (§7). Restart the dev server.
+3. Browser check: Übersicht overdue count should drop a lot; event Genehmigungen tab without false "Läuft ab";
+   "wartet seit …" on waiting tasks; `/benachrichtigungen` + bell work for the admin login (owner).
+4. Answer the open questions in §5 with the product owner; log them in `open-questions.md`.
 5. Re-run the Impeccable critique (dual-agent, §4 method; snapshot via `impeccable critique-storage write`), compare
    with 25/40, then work through the remaining findings (§4 items 2–5) with the product owner.
-6. Housekeeping: remove merged agent worktrees; consider `/impeccable init` (PRODUCT.md); the CoellnKonzept convention
-   (`docs/<Tool>.md` synced to Obsidian via `scripts/sync-docs.sh` + `.githooks/post-commit`) is not set up for
-   marktwerk yet — ask before adding.
+6. Housekeeping: remove merged agent worktrees and the `wip/ux-pass-*` branches; consider `/impeccable init`
+   (PRODUCT.md); the CoellnKonzept convention (`docs/<Tool>.md` synced to Obsidian via `scripts/sync-docs.sh` +
+   `.githooks/post-commit`) is not set up for marktwerk yet — ask before adding.
 
 ## 7. Re-create the admin login after a reseed
 ```bash
@@ -147,7 +157,7 @@ weekly report email, finance, staff assignment, website publishing.
 - Infrastructure (unchanged): production URL/env vars on Vercel, `CRON_SECRET`, seed secrets for `seed-dev.yml`.
 - Client discovery: real task lists per market type (to fill the Grundvorlage), permit inventory per location.
 
-## 11. Briefs of the in-flight agents (re-run these if §5 shows no result)
+## 11. Briefs of the agents P and Q (done, kept for reference)
 
 Continue each with the Agent tool (`model: sonnet`, `isolation: worktree`, background), starting from its WIP
 branch (`git reset --hard origin/wip/ux-pass-p-false-alarms` resp. `…-q-notification-center`): finish the open
