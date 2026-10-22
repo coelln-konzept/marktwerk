@@ -13,6 +13,7 @@
 import { randomUUID } from "node:crypto";
 import { nextMarketColor } from "@marktwerk/core";
 import { createDb, schema } from "@marktwerk/db";
+import { deadlineSweep } from "@marktwerk/jobs";
 import { generateDataset } from "@marktwerk/synthetic";
 import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
@@ -229,5 +230,9 @@ await db.transaction(async (tx) => {
   await seedMoney(tx, ctx); // M5: payables, instalments, event money
   await seedStaff(tx, ctx); // M4: contracts, shifts, payroll periods
 });
+
+// One deadline sweep, so the notification center (company-wide notifications) has content right away.
+const sweep = await deadlineSweep(db);
+console.log(`✓ deadline sweep: ${sweep.company.created} company-wide notifications`);
 
 await db.$client.end();

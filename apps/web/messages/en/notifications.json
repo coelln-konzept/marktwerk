@@ -91,6 +91,116 @@
     "empty": "No new notifications.",
     "unread": "unread",
     "ago": "{when} ago",
-    "now": "just now"
+    "now": "just now",
+    "labelOpen": "Notifications, {count, plural, one {# unread} other {# unread}}",
+    "openCount": "{count, plural, =0 {Nothing open} one {# open} other {# open}}",
+    "allClear": "All under control.",
+    "done": "Done"
+  },
+  "notificationCenter": {
+    "title": "Notifications",
+    "subtitle": "Everything important in one place: overdue and soon-due tasks and permit deadlines. Later this becomes your inbox.",
+    "status": {
+      "label": "Status",
+      "open": "Open",
+      "snoozed": "Snoozed",
+      "done": "Done"
+    },
+    "art": {
+      "label": "Type",
+      "all": "All",
+      "tasks": "Tasks",
+      "permits": "Permits"
+    },
+    "market": {
+      "label": "Market",
+      "all": "All markets"
+    },
+    "sort": {
+      "label": "Sort",
+      "urgency": "Urgency",
+      "newest": "Newest"
+    },
+    "groups": {
+      "overdue": "Overdue",
+      "today": "Today",
+      "soon": "This week",
+      "later": "Later"
+    },
+    "kind": {
+      "task_overdue": "Task overdue",
+      "task_due_soon": "Task due soon",
+      "permit_apply_by": "Apply for permit",
+      "permit_decision": "Decision expected",
+      "permit_expiry": "Permit ends before the market"
+    },
+    "dateLabel": {
+      "task_overdue": "Was due {date}",
+      "task_due_soon": "Due {date}",
+      "permit_apply_by": "Apply by {date}",
+      "permit_decision": "Decision by {date}",
+      "permit_expiry": "Valid until {date}"
+    },
+    "due": {
+      "overdue": "{count, plural, one {# day overdue} other {# days overdue}}",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "inDays": "In {count} days",
+      "expired": "{count, plural, one {Expired # day ago} other {Expired # days ago}}"
+    },
+    "severity": {
+      "info": "Note",
+      "warning": "Attention",
+      "critical": "Critical"
+    },
+    "keyTask": "Key task",
+    "snoozeDialog": {
+      "title": "Snooze notification",
+      "hint": "Until then the notification is snoozed and comes back by itself. The task or permit stays unchanged."
+    },
+    "snoozedUntil": "Snoozed until {date}",
+    "resolvedNote": "Resolved on its own",
+    "unread": "unread",
+    "list": "Notifications",
+    "keys": "J and K move between rows, Enter opens.",
+    "actionsFor": "Actions for {title}",
+    "actions": {
+      "done": "Done",
+      "reopen": "Reopen",
+      "snooze": "Snooze",
+      "open": "Open",
+      "markAllRead": "Mark all read",
+      "undo": "Undo"
+    },
+    "toast": {
+      "done": "Done: {title}",
+      "snoozed": "Snoozed until {when}.",
+      "reopened": "Open again.",
+      "restored": "Restored.",
+      "markedAll": "{count, plural, one {# notification} other {# notifications}} marked as read.",
+      "nothingToMark": "Nothing unread."
+    },
+    "empty": {
+      "open": {
+        "title": "All under control.",
+        "hint": "Overdue and soon-due tasks and permit deadlines show up here as they come due."
+      },
+      "snoozed": {
+        "title": "Nothing snoozed.",
+        "hint": "What you snooze comes back by itself on the chosen day."
+      },
+      "done": {
+        "title": "Nothing done yet.",
+        "hint": "Finished notifications stay here for reference."
+      },
+      "filtered": "No notifications in this selection.",
+      "reset": "Reset filters"
+    },
+    "errors": {
+      "generic": "That did not work. Please try again.",
+      "not_found": "This notification no longer exists.",
+      "invalid_snooze": "Please pick a date after today.",
+      "forbidden": "You are not allowed to do this."
+    }
   }
 }

@@ -305,15 +305,77 @@ test("Logbuch became Genehmigungen: /logbuch redirects with the drawer link inta
   await expect(page).toHaveURL(/\/genehmigungen\?ansicht=liste&genehmigung=/);
 });
 
-test("Notifications are hidden: no bell, no sidebar entry, the page answers 404", async ({
+test("Benachrichtigungen: the bell is the way in, filters, Erledigt and Zurückstellen with undo, J/K", async ({
   page,
 }) => {
+  // Needs the seeded database after one deadline sweep (docs/development/testing.md).
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: /^Benachrichtigungen/ })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Benachrichtigungen/ })).toHaveCount(0);
-  const response = await page.goto("/benachrichtigungen");
-  expect(response?.status()).toBe(404);
+  // No sidebar entry: the bell in the top bar is the entry.
+  await expect(
+    page.getByRole("navigation").getByRole("link", { name: /^Benachrichtigungen/ }),
+  ).toHaveCount(0);
+
+  // Bell: count, the most urgent items with a quick Erledigt, "Alle anzeigen".
+  await page.getByRole("button", { name: /^Benachrichtigungen/ }).click();
+  const popover = page.getByRole("dialog", { name: "Benachrichtigungen" });
+  await expect(popover.getByRole("button", { name: /^Erledigt:/ }).first()).toBeVisible();
+  await popover.getByRole("link", { name: "Alle anzeigen" }).click();
+  await expect(page).toHaveURL(/\/benachrichtigungen$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Benachrichtigungen" })).toBeVisible();
+
+  const status = page.getByRole("group", { name: "Status" });
+  const open = async () => Number(/Offen (\d+)/.exec(await status.innerText())?.[1]);
+  const before = await open();
+  expect(before).toBeGreaterThan(0);
+
+  // Filters live in the URL: Art, Sortierung.
+  const art = page.getByRole("group", { name: "Art" });
+  await art.getByRole("link", { name: /^Aufgaben/ }).click();
+  await expect(page).toHaveURL(/art=tasks/);
+  await art.getByRole("link", { name: /^Alle/ }).click();
+  await expect(page).not.toHaveURL(/art=/);
+  await page
+    .getByRole("group", { name: "Sortierung" })
+    .getByRole("link", { name: "Neueste" })
+    .click();
+  await expect(page).toHaveURL(/sortierung=newest/);
+  await page
+    .getByRole("group", { name: "Sortierung" })
+    .getByRole("link", { name: "Dringlichkeit" })
+    .click();
+  await expect(page).not.toHaveURL(/sortierung=/);
+
+  // J/K and Enter on rows.
+  const rows = page.locator("li[data-row]");
+  await rows.first().focus();
+  await page.keyboard.press("j");
+  await expect(rows.nth(1)).toBeFocused();
+  await page.keyboard.press("k");
+  await expect(rows.first()).toBeFocused();
+
+  // Erledigt completes the task (own undo toast); the notification resolves with it.
+  await rows.first().getByRole("button", { name: "Erledigt", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Rückgängig" })).toBeVisible();
+  await expect.poll(open).toBe(before - 1);
+  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await expect.poll(open).toBe(before);
+
+  // Zurückstellen with a preset moves it to "Zurückgestellt"; undo brings it back.
+  await rows
+    .first()
+    .getByRole("button", { name: /^Zurückstellen/ })
+    .click();
+  await page.getByRole("menuitem", { name: /^Morgen/ }).click();
+  await expect(page.getByText(/^Zurückgestellt bis/).first()).toBeVisible();
+  await expect.poll(open).toBe(before - 1);
+  await expect(status).toContainText(/Zurückgestellt 1/);
+  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await expect.poll(open).toBe(before);
+
+  // The tab "Zurückgestellt" shows the empty state when nothing is snoozed.
+  await status.getByRole("link", { name: /^Zurückgestellt/ }).click();
+  await expect(page.getByText("Nichts zurückgestellt.")).toBeVisible();
 });
 
 test("+ Neu offers task, permit and defect to the owner (no payment or shift while hidden)", async ({

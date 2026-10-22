@@ -299,6 +299,15 @@ erDiagram
   `escalation_log` = `(subject_type, subject_id, level, escalated_to_staff_member_id, reason, dedupe_key unique,
   escalated_at)`; `notification_preference` = one row per `(staff_member_id, reason, channel)` with `enabled`, no row =
   default on.)*
+- **Company-wide notifications** *(0008, decision 2026-10-22)*: `recipient_staff_member_id` is **nullable**; `null` = company-wide,
+  the content of the notification center of owner and manager (every important item once, one shared state). Deduped by the
+  partial unique index `notification_company_dedupe` on `dedupe_key` where the recipient is null. The deadline sweep
+  (`packages/jobs/src/company-notifications.ts`) creates them for overdue and due-soon tasks and for permit deadlines, never with
+  email. Key: `company:<task|permit>:<subject id>:<kind>:<due date>` with kind `task_overdue | task_due_soon | permit_apply_by |
+  permit_decision | permit_expiry` (`companyDedupeKey` in @marktwerk/core), so a moved due date is a new item. State: `unread | read`
+  = open, `done`; `snoozed_until` snoozes. A notification whose subject is resolved is `done` (sweep) and treated as done at query
+  time. Changes by owner/manager go through `services/notifications-company.ts` (permission `notification:manage`, audit
+  `notification.done | reopen | read | snooze | restore | read_all`).
 
 ### UI preferences (ADR 0019)
 - **user_preference**: `user_id`, `theme` (`system | light | dark`), `density` (`standard | compact`),

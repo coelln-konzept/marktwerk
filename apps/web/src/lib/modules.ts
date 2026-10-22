@@ -14,10 +14,10 @@ export const HIDDEN_MODULES = {
   /** Time estimates on tasks and templates (hours per card, column and event). Data stays; needed again with team allocation. */
   estimates: true,
   /**
-   * The bell and Benachrichtigungen: notifications reach staff members, and the main user's login has
-   * none while Team is hidden (UX pass 2026-10-22). Back with Team in Phase 4.
+   * The bell and Benachrichtigungen. Back with the company-wide notification center (decision
+   * 2026-10-22): owner and manager see every important item once, no team set-up needed.
    */
-  notifications: true,
+  notifications: false,
   /** Vendor booking (Buchung menu, "Buchung geschlossen" chip): Phase 2. */
   booking: true,
 } as const;

@@ -1,6 +1,5 @@
 import { can } from "@marktwerk/core";
 import {
-  Bell,
   BookOpen,
   CalendarDays,
   CalendarRange,
@@ -16,9 +15,8 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { todayIn } from "@/lib/format";
-import { HIDDEN_MODULES, isModuleVisible } from "@/lib/modules";
+import { isModuleVisible } from "@/lib/modules";
 import { getActor } from "@/server/actor";
-import { unreadCount } from "@/server/queries/notifications";
 import { missingPermitCount } from "@/server/queries/permits";
 import type { CurrentUser } from "@/server/session";
 import { getUiState } from "@/server/ui-state";
@@ -30,7 +28,8 @@ type Item = NavEntry & { visible: boolean };
 /**
  * Five daily entries (Übersicht, Board, Veranstaltungen, Kalender, Genehmigungen), then the collapsible
  * Stammdaten group (Orte, Kontakte, Aussteller, Wissen, Pflichten). Einstellungen lives in the profile
- * menu. Entries of hidden modules (team, finance, notifications) are not rendered at all.
+ * menu. Entries of hidden modules (team, finance) are not rendered at all. The notification center has no entry: the bell in the top bar
+ * is the way in (decision 2026-10-22).
  */
 export async function AppSidebar({
   user,
@@ -47,11 +46,8 @@ export async function AppSidebar({
   const tRoles = await getTranslations("roles");
   const r = user.role;
   const actor = await getActor();
-  const [needsAction, unread, masterDataOpen] = await Promise.all([
+  const [needsAction, masterDataOpen] = await Promise.all([
     missingPermitCount(actor, todayIn()),
-    isModuleVisible("notifications")
-      ? unreadCount(actor, new Date(), HIDDEN_MODULES)
-      : Promise.resolve(0),
     getUiState("navMasterData"),
   ]);
   const daily: Item[] = [
@@ -88,13 +84,6 @@ export async function AppSidebar({
       label: t("finance"),
       icon: <Euro />,
       visible: isModuleVisible("finance") && can(r, "finance", "read"),
-    },
-    {
-      href: "/benachrichtigungen",
-      label: t("notifications"),
-      icon: <Bell />,
-      badge: unread,
-      visible: isModuleVisible("notifications"),
     },
   ];
   const masterData: Item[] = [

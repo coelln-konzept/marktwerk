@@ -27,6 +27,8 @@ export const PERMISSIONS = {
   vendor: ["read", "write"],
   kb: ["read", "write", "delete"],
   audit: ["read"],
+  /** The company-wide notification center (owner and manager); everybody has their personal inbox. */
+  notification: ["read", "manage"],
 } as const;
 
 export type Resource = keyof typeof PERMISSIONS;

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import type { Database } from "./index";
 import { notification } from "./schema";
 
@@ -33,6 +34,28 @@ export async function insertNotifications(db: Executor, items: NewNotification[]
     .insert(notification)
     .values(items.map((item) => ({ severity: "info" as const, ...item })))
     .onConflictDoNothing({ target: [notification.recipientStaffMemberId, notification.dedupeKey] })
+    .returning({ id: notification.id });
+  return inserted.length;
+}
+
+export type NewCompanyNotification = Omit<NewNotification, "recipientStaffMemberId">;
+
+/**
+ * Company-wide notifications (recipient null, decision 2026-10-22): one row per dedupe key, whoever looks.
+ * Deduped by the partial unique index `notification_company_dedupe`. Returns how many were new.
+ */
+export async function insertCompanyNotifications(
+  db: Executor,
+  items: NewCompanyNotification[],
+): Promise<number> {
+  if (items.length === 0) return 0;
+  const inserted = await db
+    .insert(notification)
+    .values(items.map((item) => ({ severity: "info" as const, ...item })))
+    .onConflictDoNothing({
+      target: notification.dedupeKey,
+      where: sql`${notification.recipientStaffMemberId} is null`,
+    })
     .returning({ id: notification.id });
   return inserted.length;
 }

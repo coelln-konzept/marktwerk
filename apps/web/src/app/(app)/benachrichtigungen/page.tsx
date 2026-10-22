@@ -1,8 +1,10 @@
+import { can } from "@marktwerk/core";
 import { BellOff, SearchX, UserX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
+import { CompanyCenterPage } from "@/components/notifications/company-center";
 import { MarkAllReadButton } from "@/components/notifications/mark-all-read-button";
 import { NotificationItem } from "@/components/notifications/notification-item";
 import { Page, PageHeader } from "@/components/shell/page";
@@ -42,9 +44,12 @@ const PATH = "/benachrichtigungen";
 export default async function NotificationsPage({
   searchParams,
 }: PageProps<"/benachrichtigungen">) {
-  await requireUser();
-  // Hidden module (`lib/modules.ts`): the page answers 404 like /team; the code stays for Phase 4.
+  const user = await requireUser();
+  // Hidden module (`lib/modules.ts`): the page answers 404 like /team.
   if (isModuleHidden("notifications")) notFound();
+  // Owner and manager: the company-wide notification center. Everybody else keeps their personal inbox.
+  if (can(user.role, "notification", "read"))
+    return <CompanyCenterPage searchParams={await searchParams} />;
   const actor = await getActor();
   const sp = await searchParams;
   const t = await getTranslations("notificationsPage");

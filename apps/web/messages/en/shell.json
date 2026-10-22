@@ -111,7 +111,8 @@
       "permit": "Create permit",
       "shift": "Record shift",
       "issue": "Report defect",
-      "settings": "Open settings"
+      "settings": "Open settings",
+      "notifications": "Open notifications"
     }
   },
   "vorschau": {

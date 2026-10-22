@@ -23,6 +23,7 @@ import {
   task,
 } from "@marktwerk/db";
 import { and, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { type CompanySweepResult, companySweep } from "./company-notifications";
 import {
   berlinDate,
   escalationRecipients,
@@ -38,6 +39,8 @@ export type SweepResult = {
   escalated: number;
   /** Emails queued for immediate delivery. */
   emails: number;
+  /** Company-wide notifications of the notification center (no email, see company-notifications.ts). */
+  company: CompanySweepResult;
 };
 
 /** Clock time at which a date-only deadline ("bis 30.11.") ends. */
@@ -92,7 +95,8 @@ export async function deadlineSweep(db: Database, now: Date = new Date()): Promi
       .map((s) => ({ recipientStaffMemberId: s.recipientStaffMemberId, dedupeKey: s.dedupeKey })),
     now,
   );
-  return { created, escalated, emails };
+  const company = await companySweep(db, now, today);
+  return { created, escalated, emails, company };
 }
 
 // ---------------------------------------------------------------------------------------------
