@@ -5,7 +5,6 @@ import { refresh } from "next/cache";
 import { getActor } from "@/server/actor";
 import {
   addCheckItem,
-  addComment,
   assignTask,
   createTask,
   type EffortFeedback,
@@ -16,9 +15,11 @@ import {
   setCheckItemDone,
   setEffortFeedback,
   setTaskStatus,
+  snoozeTask,
   TaskInputError,
   type TaskPatch,
   undoTaskChange,
+  unsnoozeTask,
   updateTask,
 } from "@/server/services/tasks";
 import { requirePermission } from "@/server/session";
@@ -103,10 +104,18 @@ export async function newCheckItem(taskId: string, title: string) {
   return run(() => addCheckItem(actor, taskId, title));
 }
 
-export async function postComment(taskId: string, body: string) {
+/** "Zurückstellen": hides the task from the due lists until `until` (`YYYY-MM-DD`, after today). */
+export async function snoozeCard(taskId: string, until: string) {
   await requirePermission("task", "write");
   const actor = await getActor();
-  return run(() => addComment(actor, taskId, body));
+  return run(() => snoozeTask(actor, taskId, until));
+}
+
+/** "Zurückstellung aufheben". */
+export async function unsnoozeCard(taskId: string) {
+  await requirePermission("task", "write");
+  const actor = await getActor();
+  return run(() => unsnoozeTask(actor, taskId));
 }
 
 /** "+ Aufgabe": a manual task on an event or without one. */

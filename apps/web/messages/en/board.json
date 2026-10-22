@@ -127,7 +127,9 @@
       "status": "“{title}”: {status}",
       "reverted": "Undone",
       "undo": "Undo",
-      "open": "Open"
+      "open": "Open",
+      "snoozed": "“{title}” snoozed until {date}",
+      "unsnoozed": "Snooze of “{title}” ended"
     },
     "errors": {
       "generic": "That did not work. Please try again.",

@@ -119,7 +119,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Übersicht | `/` | Start screen for everyone: KPI strip, season strip, Heute fällig, Nächstes Wochenende (below) |
 | Kalender | `/kalender` | Company-wide calendar with layers (below) |
 | Board | `/board` | Kanban across events, people rail, Nach Person, Arbeitslast toggle |
-| Aufgabe | drawer `?aufgabe=<id>` on `/board` and `/veranstaltungen/[id]/board` (M2; `?detail=task:<id>` also opens it) | Description, check items, evidence, comments with @mention, activity, status incl. "Wartet · Amt" |
+| Aufgabe | drawer `?aufgabe=<id>` on `/board` and `/veranstaltungen/[id]/board` (M2; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity, status incl. "Wartet · Amt" (no comments, client decision 2026-10-22) |
 | Veranstaltungen | `/veranstaltungen` | Liste / Kalender toggle (KW column), type filter chips, Vorschau `?vorschau=<id>`, "Aus Vorlage erzeugen" (3-step side sheet) via `?erzeugen=1[&vorlage=<presetId>]` |
 | Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`) |
 | Orte | `/orte` | Venues (list, Vorschau `?vorschau=<id>`) |

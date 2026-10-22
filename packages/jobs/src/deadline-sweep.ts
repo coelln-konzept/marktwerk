@@ -22,7 +22,7 @@ import {
   staffMember,
   task,
 } from "@marktwerk/db";
-import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import {
   berlinDate,
   escalationRecipients,
@@ -115,6 +115,8 @@ async function stageTasks(db: Database, now: Date, today: string, out: Staged[])
         inArray(task.status, [...OPEN_TASK_STATUSES]),
         isNotNull(task.dueAt),
         isNotNull(task.assigneeId),
+        // Snoozed tasks neither remind nor escalate until their snooze date.
+        or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),
       ),
@@ -320,6 +322,7 @@ async function escalate(
         inArray(task.status, [...OPEN_TASK_STATUSES]),
         eq(task.priority, "high"),
         isNotNull(task.dueAt),
+        or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),
       ),

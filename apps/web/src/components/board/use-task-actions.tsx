@@ -2,15 +2,18 @@
 
 import type { BoardColumn, TaskStatusKey } from "@marktwerk/core";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useTransition } from "react";
 import {
   assignCard,
   moveCard,
   setStatus as setStatusAction,
+  snoozeCard,
   undoChange,
+  unsnoozeCard,
 } from "@/app/(app)/board/actions";
 import { useShell } from "@/components/shell/shell-context";
+import { formatDateWeekdayDay } from "@/lib/format";
 import type { BoardTask } from "@/server/queries/tasks";
 
 /** What the actions need to know about a task (the drawer has no full card). */
@@ -20,7 +23,8 @@ type TaskRef = Pick<BoardTask, "id" | "title" | "status">;
 export type OptimisticPatch =
   | { kind: "move"; id: string; column: BoardColumn; afterId: string | null }
   | { kind: "assign"; id: string; assigneeId: string | null; assigneeName: string | null }
-  | { kind: "status"; id: string; status: TaskStatusKey };
+  | { kind: "status"; id: string; status: TaskStatusKey }
+  | { kind: "snooze"; id: string; until: string | null };
 
 type Person = { id: string; displayName: string };
 
@@ -63,6 +67,7 @@ export function useTaskActions({
 }) {
   const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
+  const locale = useLocale();
   const { showToast } = useShell();
   const router = useRouter();
   const drawer = useDrawerHrefs();
@@ -243,7 +248,30 @@ export function useTaskActions({
     [run, t, tTasks],
   );
 
-  return { pending, move, assign, moveAndAssign, setStatus, errorText, drawer };
+  /** "Zurückstellen": hides the task from due lists until `until`; the toast offers undo. */
+  const snooze = useCallback(
+    (task: TaskRef, until: string) =>
+      run(
+        { kind: "snooze", id: task.id, until },
+        task,
+        () => snoozeCard(task.id, until),
+        t("toast.snoozed", { title: task.title, date: formatDateWeekdayDay(until, locale) }),
+      ),
+    [run, t, locale],
+  );
+
+  const unsnooze = useCallback(
+    (task: TaskRef) =>
+      run(
+        { kind: "snooze", id: task.id, until: null },
+        task,
+        () => unsnoozeCard(task.id),
+        t("toast.unsnoozed", { title: task.title }),
+      ),
+    [run, t],
+  );
+
+  return { pending, move, assign, moveAndAssign, setStatus, snooze, unsnooze, errorText, drawer };
 }
 
 type Result =

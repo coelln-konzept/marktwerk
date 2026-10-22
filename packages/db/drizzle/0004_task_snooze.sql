@@ -1,0 +1,1 @@
+ALTER TABLE "app"."task" ADD COLUMN "snoozed_until" date;

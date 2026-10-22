@@ -96,7 +96,7 @@ export async function BoardScreen({
   const closeHref = hrefWith(path, sp, { aufgabe: undefined, detail: undefined });
 
   const staff = await listStaffOptions();
-  const drawer = openTaskId ? await getTaskDetail(actor, openTaskId) : null;
+  const drawer = openTaskId ? await getTaskDetail(actor, openTaskId, today) : null;
   const drawerNode = openTaskId ? (
     drawer ? (
       <TaskDrawer

@@ -2,9 +2,18 @@
 
 import { Menu } from "@base-ui/react/menu";
 import type { BoardColumn, TaskStatusKey } from "@marktwerk/core";
-import { Check, ChevronRight, Ellipsis, ExternalLink, UserMinus } from "lucide-react";
+import {
+  AlarmClockOff,
+  CalendarSearch,
+  Check,
+  ChevronRight,
+  Ellipsis,
+  ExternalLink,
+  UserMinus,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useSnoozePresets } from "@/components/task/snooze";
 import { Avatar } from "@/components/ui/avatar";
 import { Kbd } from "@/components/ui/kbd";
 import { COLUMN_ORDER, REASON_STATUSES, SETTABLE_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
@@ -34,7 +43,9 @@ export function CardMenu({
   const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
   const router = useRouter();
-  const { staff, canWrite, canAssign, actions, askReason } = useBoard();
+  const { staff, canWrite, canAssign, actions, askReason, askSnoozeDate, today } = useBoard();
+  const tSnooze = useTranslations("tasks.snooze");
+  const presets = useSnoozePresets(today);
   const finished = task.status === "done" || task.status === "skipped";
 
   function pickStatus(status: TaskStatusKey) {
@@ -175,6 +186,51 @@ export function CardMenu({
                           </Menu.Item>
                         );
                       })}
+                    </Menu.Popup>
+                  </Menu.Positioner>
+                </Menu.Portal>
+              </Menu.SubmenuRoot>
+            )}
+
+            {canWrite && !finished && (
+              <Menu.SubmenuRoot>
+                <Menu.SubmenuTrigger className={subTrigger}>
+                  <span className="flex items-center gap-2">
+                    <AlarmClockOff aria-hidden className="size-4 text-muted-foreground" />
+                    {tSnooze("title")}
+                  </span>
+                  <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
+                </Menu.SubmenuTrigger>
+                <Menu.Portal>
+                  <Menu.Positioner sideOffset={4} className="z-50">
+                    <Menu.Popup className={popup}>
+                      {presets.map((preset) => (
+                        <Menu.Item
+                          key={preset.key}
+                          className={cn(item, "justify-between gap-4")}
+                          onClick={() => actions.snooze(task, preset.date)}
+                        >
+                          {preset.label}
+                          <span className="tabular text-muted-foreground text-tiny">
+                            {preset.hint}
+                          </span>
+                        </Menu.Item>
+                      ))}
+                      <Menu.Item
+                        className={cn(item, "justify-between gap-4")}
+                        onClick={() => askSnoozeDate(task)}
+                      >
+                        {tSnooze("pickDate")}
+                        <CalendarSearch aria-hidden className="size-4 text-muted-foreground" />
+                      </Menu.Item>
+                      {task.snoozedUntil && (
+                        <>
+                          <Menu.Separator className="my-1 h-px bg-border" />
+                          <Menu.Item className={item} onClick={() => actions.unsnooze(task)}>
+                            {tSnooze("clear")}
+                          </Menu.Item>
+                        </>
+                      )}
                     </Menu.Popup>
                   </Menu.Positioner>
                 </Menu.Portal>
