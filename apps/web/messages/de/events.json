@@ -1,6 +1,6 @@
 {
   "events": {
-    "subtitle": "Saison {season} · {count} Termine · {planned} geplant (Genehmigung offen)",
+    "subtitle": "Saison {season} · {count} Termine · {planned} geplant",
     "generate": "Aus Vorlage erzeugen",
     "search": "Name oder Ort",
     "season": "Saison",
@@ -13,6 +13,10 @@
     "views": {
       "liste": "Liste",
       "kalender": "Kalender"
+    },
+    "permitFilter": {
+      "label": "Genehmigungen",
+      "open": "Ohne Genehmigung"
     },
     "types": "Veranstaltungsart",
     "all": "Alle",

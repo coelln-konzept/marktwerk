@@ -221,7 +221,7 @@ export type AgreementEventPlan =
   | { manual: Omit<ManualEventInput, "venueId"> };
 
 /**
- * "Termine erzeugen" on an agreement: creates draft events for its fixed dates that have no event
+ * "Termine erzeugen" on an agreement: creates planned events for its fixed dates that have no event
  * yet (an event of this agreement with that first day, not archived), linked via
  * `event.location_agreement_id`. `dates` narrows the run to some of the pending dates (the preview
  * lets the office untick some). Goes through the one creation path, `instantiateEvents`.

@@ -1,14 +1,17 @@
 import "server-only";
-import { can } from "@marktwerk/core";
+import { can, shouldAutoConfirm } from "@marktwerk/core";
 import {
   allowedTransitions,
+  canTransition,
   type EventStatus,
   isEventStatus,
   requiresReason,
 } from "@marktwerk/core/events/lifecycle";
-import { event } from "@marktwerk/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { insertNotifications } from "@marktwerk/db";
+import { event, eventDuty, eventPermit, permit } from "@marktwerk/db/schema";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { forbidden } from "next/navigation";
+import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
@@ -80,6 +83,111 @@ export async function changeEventStatus(
     ]);
     return { from: current.status, to, previousReason: current.cancelledReason };
   });
+}
+
+/** The reason written to the audit entry and the notification of an automatic confirmation. */
+export const AUTO_CONFIRM_REASON = "alle Genehmigungen erteilt";
+
+export type AutoConfirmSource =
+  | "permit_status"
+  | "permit_link"
+  | "permit_required"
+  | "logbook_fill";
+
+/**
+ * THE one place that confirms events automatically (client decision 2026-10-22): planned events whose
+ * required permits are all granted move to "bestätigt" (rule: `shouldAutoConfirm` in packages/core).
+ * Called inside the transaction of every change that can complete an event's permits: a permit set to
+ * granted, an event linked to a permit or marked "not needed" for a permit, and the logbook fill on
+ * creation. The transition respects the lifecycle table like a manual one, is audited as
+ * "event.status" with `auto: true` (actor = the user whose change triggered it) and notifies the
+ * event's team in-app. Never moves an event back.
+ *
+ * `source` is written to the audit diff; the generation undo accepts only "logbook_fill".
+ */
+export async function autoConfirmEvents(
+  tx: Tx,
+  actor: Pick<Actor, "id" | "staffMemberId">,
+  eventIds: readonly string[],
+  source: AutoConfirmSource,
+): Promise<string[]> {
+  const ids = [...new Set(eventIds)];
+  if (ids.length === 0) return [];
+  const planned = await tx
+    .select({ id: event.id, name: event.name, startsOn: event.startsOn, status: event.status })
+    .from(event)
+    .where(and(inArray(event.id, ids), eq(event.status, "planned"), isNull(event.archivedAt)))
+    .orderBy(event.startsOn, event.id)
+    .for("update");
+  if (planned.length === 0) return [];
+  const rows = await tx
+    .select({
+      eventId: eventPermit.eventId,
+      required: eventPermit.required,
+      status: permit.status,
+      applyBy: permit.applyBy,
+      validUntil: permit.validUntil,
+    })
+    .from(eventPermit)
+    .innerJoin(permit, eq(permit.id, eventPermit.permitId))
+    .where(
+      and(
+        inArray(
+          eventPermit.eventId,
+          planned.map((e) => e.id),
+        ),
+        isNull(permit.archivedAt),
+      ),
+    );
+  const today = todayIn();
+  const confirmed = planned.filter(
+    (e) =>
+      canTransition(e.status, "confirmed") &&
+      shouldAutoConfirm(
+        e,
+        rows.filter((r) => r.eventId === e.id),
+        today,
+      ),
+  );
+  if (confirmed.length === 0) return [];
+  const confirmedIds = confirmed.map((e) => e.id);
+  await tx.update(event).set({ status: "confirmed" }).where(inArray(event.id, confirmedIds));
+  await audit(
+    tx,
+    actor.id,
+    confirmed.map((e) => ({
+      action: "event.status",
+      entityType: "event",
+      entityId: e.id,
+      diff: { from: "planned", to: "confirmed", auto: true, reason: AUTO_CONFIRM_REASON, source },
+    })),
+  );
+  // In-app only (the e-mail master switch decides about mail separately). The event's team is told,
+  // except the person who is creating events right now (they see the result on screen).
+  const team = await tx
+    .select({ eventId: eventDuty.eventId, staffMemberId: eventDuty.staffMemberId })
+    .from(eventDuty)
+    .where(inArray(eventDuty.eventId, confirmedIds));
+  const stamp = Date.now();
+  await insertNotifications(
+    tx,
+    confirmed.flatMap((e) => {
+      const people = new Set(team.filter((t) => t.eventId === e.id).map((t) => t.staffMemberId));
+      if (source === "logbook_fill" && actor.staffMemberId) people.delete(actor.staffMemberId);
+      return [...people].map((recipientStaffMemberId) => ({
+        recipientStaffMemberId,
+        reason: "event_confirmed" as const,
+        subjectType: "event",
+        subjectId: e.id,
+        // Notification text is data in German, like the other server-written titles.
+        title: `${e.name} bestätigt`,
+        body: `Automatisch bestätigt: ${AUTO_CONFIRM_REASON}.`,
+        link: `/veranstaltungen/${e.id}/genehmigungen`,
+        dedupeKey: `event_confirmed:${e.id}:${stamp}`,
+      }));
+    }),
+  );
+  return confirmedIds;
 }
 
 /**

@@ -67,13 +67,27 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   const typeKey = param(sp.art);
   const q = param(sp.q)?.slice(0, 100);
   const view = param(sp.ansicht) === "kalender" ? "kalender" : "liste";
-  const filters = { season, typeKey, status, q };
+  // "Ohne Genehmigung" (from the Übersicht KPI): upcoming planned events whose permits are not all
+  // granted. It looks across seasons, like the KPI does.
+  const openPermits = param(sp.genehmigung) === "offen";
+  const filters = {
+    season: openPermits ? undefined : season,
+    typeKey,
+    status: openPermits ? ("planned" as const) : status,
+    q,
+  };
 
-  const [rows, counts, types] = await Promise.all([
+  const [allRows, counts, types] = await Promise.all([
     listEvents(actor, filters),
     countByType(actor, filters),
     listEventTypes(),
   ]);
+  const rows = openPermits
+    ? allRows.filter(
+        (r) =>
+          r.endsOn >= today && (r.health.permits === "warn" || r.health.permits === "critical"),
+      )
+    : allRows;
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const planned = rows.filter((r) => r.status === "planned").length;
   const vorschauId = param(sp.vorschau);
@@ -203,6 +217,18 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
             ))}
           </FilterChips>
         </FilterGroup>
+        {openPermits && (
+          <FilterGroup label={t("permitFilter.label")}>
+            <FilterChips>
+              <FilterChip
+                href={hrefWith(PATH, sp, { genehmigung: undefined, status: undefined })}
+                active
+              >
+                {t("permitFilter.open")}
+              </FilterChip>
+            </FilterChips>
+          </FilterGroup>
+        )}
       </FilterBar>
 
       {view === "liste" ? (

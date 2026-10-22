@@ -22,7 +22,7 @@ import type { VenueOption } from "@/server/queries/venues";
 /**
  * "Neue Veranstaltung ohne Vorlage" (Einzeltermin): one page because it has ~9 fields (UX concept §4).
  * Shows the generation's hints (holidays, venue booked, weekend cap) before anything is created; they
- * never block. Creates a draft with an empty team, then opens the event page; the toast offers undo.
+ * never block. Creates a planned event with an empty team, then opens the event page; the toast offers undo.
  */
 export function ManualEventForm({
   types,

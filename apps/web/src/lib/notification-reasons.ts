@@ -24,7 +24,7 @@ export const NOTIFICATION_REASON_GROUPS: Record<NotificationGroup, readonly stri
     "payroll_close",
   ],
   escalated: ["escalated"],
-  changes: ["dates_shifted", "shift_request"],
+  changes: ["dates_shifted", "shift_request", "event_confirmed"],
 };
 
 /**

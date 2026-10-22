@@ -4,12 +4,12 @@ import { addDays } from "@marktwerk/core";
 import { refresh } from "next/cache";
 import { getActor } from "@/server/actor";
 import {
-  archiveDraftEvents,
   createEventsFromPreset,
   createManualEvent,
   EventInputError,
   type ManualEventInput,
   scheduledEventsBetween,
+  undoGeneratedEvents,
 } from "@/server/services/events";
 import { requirePermission } from "@/server/session";
 
@@ -35,7 +35,7 @@ export async function createEvents(presetId: string, dates: string[]): Promise<R
   }
 }
 
-/** "Neue Veranstaltung ohne Vorlage": one draft event from typed data. */
+/** "Neue Veranstaltung ohne Vorlage": one planned event from typed data. */
 export async function createSingleEvent(
   input: ManualEventInput & { startsOn: string },
 ): Promise<Result<{ id: string; name: string }>> {
@@ -55,7 +55,7 @@ export async function undoCreateEvents(ids: string[]): Promise<Result<number>> {
   await requirePermission("event", "write");
   const actor = await getActor();
   try {
-    const n = await archiveDraftEvents(actor, ids);
+    const n = await undoGeneratedEvents(actor, ids);
     refresh();
     return { ok: true, data: n };
   } catch (error) {

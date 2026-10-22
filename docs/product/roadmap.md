@@ -89,7 +89,7 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
   share, banned goods, online booking allowed, default price/m, booking fee)
 - **Event presets** (the old website's "presets", extended): type + location + public texts + price + templates
   + permit needs + default team + optional recurrence. **Generate events from a preset** (pick dates → preview → create)
-- **Events** with lifecycle `draft → planned (announced, permit pending) → confirmed → live → completed → closed`
+- **Events** with lifecycle `planned (announced, permit pending; start state) → confirmed (automatic when all permits granted) → live → completed → closed`
   (+ `cancelled`; UI: Entwurf · geplant · bestätigt · läuft · abgeschlossen · abgesagt, "abgerechnet" from M10)
   and separate booking flags (bookable, fully booked, car spaces sold out); multi-day events (Stadtfest)
 - **Locations** with zones/rows (metres), access info, custom fields; **contacts** (authorities, landowners,

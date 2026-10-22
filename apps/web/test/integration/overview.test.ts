@@ -1,4 +1,5 @@
 import { eventPermit, obligation, permit, shift } from "@marktwerk/db/schema";
+import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
@@ -214,6 +215,18 @@ describe("KPI strip", () => {
     expect(kpis.openTasks).toBe(5);
     expect(kpis.overdueTasks).toBe(1);
     expect(kpis.moneyOverdue).toEqual({ count: 1, cents: 80_000 });
+  });
+
+  it("counts upcoming planned events whose required permits are not all granted", async () => {
+    expect((await getOverview(owner, TODAY)).kpis.withoutPermit).toBe(0); // no permit linked yet
+    const [p] = await db.select().from(permit);
+    await db.insert(eventPermit).values({ eventId: laterEvent, permitId: p?.id as string });
+    expect((await getOverview(owner, TODAY)).kpis.withoutPermit).toBe(1);
+    await db
+      .update(permit)
+      .set({ status: "granted" })
+      .where(eq(permit.id, p?.id as string));
+    expect((await getOverview(owner, TODAY)).kpis.withoutPermit).toBe(0);
   });
 
   it("staff count only their own tasks", async () => {
