@@ -29,6 +29,7 @@ export * from "./finance/installments";
 export * from "./finance/money";
 export * from "./notifications/digest";
 export * from "./permits/coverage";
+export * from "./permits/event-state";
 export * from "./permits/status";
 export * from "./staff/hours";
 export * from "./staff/minijob";

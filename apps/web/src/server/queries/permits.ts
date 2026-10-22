@@ -1,16 +1,20 @@
 import "server-only";
 import {
   can,
+  countMissingPermits,
   DISPLAY_STATE_SEVERITY,
   daysBetween,
   eventPermitHealth,
   type HealthLevel,
+  isPermitHistory,
   isUnfiled,
   PERMIT_HORIZON_DEFAULT_DAYS,
   type PermitDisplayState,
   type PermitStatus,
   permitDisplayState,
+  permitExpiryMatters,
   permitHorizonEnd,
+  permitStateForEvent,
   permitUrgency,
 } from "@marktwerk/core";
 import {
@@ -73,6 +77,11 @@ const nextEventOn = (today: string) =>
     string | null
   >`(select min(e.starts_on) from ${eventPermit} ep join ${event} e on e.id = ep.event_id
     where ep.permit_id = ${permit.id} and ep.required and e.archived_at is null and e.status <> 'cancelled' and e.ends_on >= ${today})`;
+/** Last day of the latest market (not cancelled) the permit is required for; null if none. */
+const latestEventEnd = sql<
+  string | null
+>`(select max(e.ends_on) from ${eventPermit} ep join ${event} e on e.id = ep.event_id
+    where ep.permit_id = ${permit.id} and ep.required and e.archived_at is null and e.status <> 'cancelled')`;
 const feeCents = sql<number>`coalesce((select sum(p.total_gross_cents)::int from ${payable} p
     where p.permit_id = ${permit.id} and p.archived_at is null), 0)`;
 
@@ -105,6 +114,34 @@ export type LogbookRow = {
   nextEventOn: string | null;
   conditions: number;
 };
+
+/**
+ * The state shown in the logbook: the permit's own state, except that one which only runs out after the
+ * last market it is needed for is simply "Genehmigt", and one which ran out after all its markets are over
+ * is "Vergangen" (history), not an "Abgelaufen" warning.
+ */
+function logbookState(
+  r: Pick<LogbookRow, "status" | "validUntil" | "linkedEvents" | "upcomingEvents"> & {
+    lastEventEnd: string | null;
+  },
+  today: string,
+): PermitDisplayState {
+  const state = permitDisplayState(r, today);
+  if (
+    state === "expiring" &&
+    r.validUntil !== null &&
+    r.lastEventEnd !== null &&
+    !permitExpiryMatters(r.validUntil, r.lastEventEnd)
+  )
+    return "granted";
+  return isPermitHistory({
+    state,
+    linkedEvents: r.linkedEvents,
+    upcomingEvents: r.upcomingEvents,
+  })
+    ? "past"
+    : state;
+}
 
 /** The one focus filter: permits that are missing or expired for an upcoming market (= the sidebar badge). */
 export const LOGBOOK_FOCUS = ["fehlt"] as const;
@@ -200,6 +237,7 @@ export async function listLogbook(
       upcomingEvents: upcomingCount(today),
       linkedEvents: linkedCount,
       nextEventOn: nextEventOn(today),
+      lastEventEnd: latestEventEnd,
     })
     .from(permit)
     .leftJoin(venue, eq(venue.id, permit.venueId))
@@ -209,9 +247,9 @@ export async function listLogbook(
     .where(and(...where))
     .orderBy(asc(venue.name), asc(permit.permitType), asc(permit.season), asc(permit.applyBy));
 
-  const all: LogbookRow[] = raw.map((r) => ({
+  const all: LogbookRow[] = raw.map(({ lastEventEnd, ...r }) => ({
     ...r,
-    state: permitDisplayState(r, today),
+    state: logbookState({ ...r, lastEventEnd }, today),
     feeCents: r.feeCents > 0 ? r.feeCents : null,
     stickers: r.deliverablesReceived.stickers ?? null,
   }));
@@ -352,7 +390,23 @@ export async function getPermit(actor: Actor, id: string, today: string) {
 
   return {
     ...row.permit,
-    state: permitDisplayState(row.permit, today),
+    state: logbookState(
+      {
+        status: row.permit.status,
+        validUntil: row.permit.validUntil,
+        linkedEvents: events.length,
+        upcomingEvents: events.filter(
+          (e) => e.required && e.status !== "cancelled" && e.endsOn >= today,
+        ).length,
+        lastEventEnd:
+          events
+            .filter((e) => e.required && e.status !== "cancelled")
+            .map((e) => e.endsOn)
+            .sort()
+            .at(-1) ?? null,
+      },
+      today,
+    ),
     venueName: row.venueName,
     responsibleName: row.responsibleName,
     authority: row.authorityId
@@ -417,6 +471,7 @@ export function summarizeEventPermits(
   rows: EventPermitRow[],
   startsOn: string,
   today: string,
+  endsOn: string = startsOn,
 ): Pick<EventPermits, "held" | "required" | "health"> {
   const needed = rows.filter((r) => r.required && r.status !== "not_required");
   return {
@@ -431,13 +486,14 @@ export function summarizeEventPermits(
       })),
       startsOn,
       today,
+      endsOn,
     ),
   };
 }
 
 export async function listEventPermits(
   actor: Actor,
-  event_: { id: string; startsOn: string },
+  event_: { id: string; startsOn: string; endsOn: string },
   today: string,
 ): Promise<EventPermits> {
   if (!can(actor.role, "permit", "read")) return { rows: [], held: 0, required: 0, health: null };
@@ -467,18 +523,38 @@ export async function listEventPermits(
     .orderBy(asc(permit.category), asc(permit.permitType), asc(permit.title));
   const mapped: EventPermitRow[] = rows.map(({ deliverables, ...r }) => ({
     ...r,
-    state: permitDisplayState(r, today),
+    // Judged for this event: a permit valid through the market's last day is fine for it.
+    state: permitStateForEvent(r, event_, today),
     stickers: deliverables.stickers ?? null,
   }));
-  return { rows: mapped, ...summarizeEventPermits(mapped, event_.startsOn, today) };
+  return { rows: mapped, ...summarizeEventPermits(mapped, event_.startsOn, today, event_.endsOn) };
 }
+
+export type EventPermitSummary = {
+  /** null = nothing tracked. */
+  health: HealthLevel | null;
+  /** Required permits not held for the event ("1 Genehmigung fehlt"). */
+  missing: number;
+};
 
 /** Permit health of several events at once (calendar, lists); null = nothing tracked. */
 export async function permitHealthByEvent(
-  events: { id: string; startsOn: string }[],
+  events: { id: string; startsOn: string; endsOn?: string }[],
   today: string,
 ): Promise<Map<string, HealthLevel | null>> {
-  const result = new Map<string, HealthLevel | null>();
+  const summary = await permitSummaryByEvent(
+    events.map((e) => ({ ...e, endsOn: e.endsOn ?? e.startsOn })),
+    today,
+  );
+  return new Map([...summary].map(([id, s]) => [id, s.health]));
+}
+
+/** Permit health and the number of missing permits of several events at once (reasons in lists). */
+export async function permitSummaryByEvent(
+  events: { id: string; startsOn: string; endsOn: string }[],
+  today: string,
+): Promise<Map<string, EventPermitSummary>> {
+  const result = new Map<string, EventPermitSummary>();
   if (events.length === 0) return result;
   const rows = await db
     .select({
@@ -501,7 +577,10 @@ export async function permitHealthByEvent(
     );
   for (const e of events) {
     const own = rows.filter((r) => r.eventId === e.id);
-    result.set(e.id, own.length === 0 ? null : eventPermitHealth(own, e.startsOn, today));
+    result.set(e.id, {
+      health: own.length === 0 ? null : eventPermitHealth(own, e.startsOn, today, e.endsOn),
+      missing: countMissingPermits(own, e.startsOn, today, e.endsOn),
+    });
   }
   return result;
 }
@@ -665,6 +744,7 @@ export async function calendarItems(
       expectedDecisionOn: permit.expectedDecisionOn,
       validUntil: permit.validUntil,
       venueName: venue.name,
+      lastEventEnd: latestEventEnd,
     })
     .from(permit)
     .leftJoin(venue, eq(venue.id, permit.venueId))
@@ -716,7 +796,12 @@ export async function calendarItems(
         tone: "neutral",
       });
     }
-    if (r.status === "granted" && r.validUntil) {
+    // "Läuft ab" only when the permit runs out before the last market it is needed for is over.
+    if (
+      r.status === "granted" &&
+      r.validUntil &&
+      permitExpiryMatters(r.validUntil, r.lastEventEnd)
+    ) {
       items.push({
         layer: "permits",
         id: `${r.id}:expires`,

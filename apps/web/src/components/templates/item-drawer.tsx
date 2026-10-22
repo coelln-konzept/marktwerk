@@ -7,6 +7,7 @@ import {
   dueDateForNrw,
   type ItemCondition,
   normalizeCondition,
+  PERMIT_TYPES,
   STANDARD_ANCHOR_KEYS,
   type TemplateItemFields,
 } from "@marktwerk/core";
@@ -55,6 +56,7 @@ type Form = {
   requiresNote: boolean;
   requiresAttachment: boolean;
   isKey: boolean;
+  permitType: string;
   checkItems: string;
   dependsOnKeys: string[];
   eventTypeKeys: string[];
@@ -87,6 +89,7 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
       requiresNote: false,
       requiresAttachment: false,
       isKey: false,
+      permitType: "",
       checkItems: "",
       dependsOnKeys: [],
       eventTypeKeys: [],
@@ -110,6 +113,7 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
     requiresNote: item.requiresNote,
     requiresAttachment: item.requiresAttachment,
     isKey: item.isKey,
+    permitType: item.permitType ?? "",
     checkItems: item.checkItems.join("\n"),
     dependsOnKeys: item.dependsOnKeys,
     eventTypeKeys: item.condition?.eventTypeKeys ?? [],
@@ -142,6 +146,7 @@ function toFields(form: Form): TemplateItemFields {
     requiresNote: form.requiresNote,
     requiresAttachment: form.requiresAttachment,
     isKey: form.isKey,
+    permitType: (form.permitType || null) as TemplateItemFields["permitType"],
     checkItems: form.checkItems
       .split("\n")
       .map((line) => line.trim())
@@ -189,6 +194,7 @@ export function ItemDrawer({
   closeHref: string;
 }) {
   const t = useTranslations("taskTemplates");
+  const tPermitTypes = useTranslations("permitTypes");
   const locale = useLocale();
   const router = useRouter();
   const { showToast } = useShell();
@@ -465,6 +471,26 @@ export function ItemDrawer({
                 </div>
               </div>
               <p className="-mt-2 text-muted-foreground text-tiny">{t("drawer.roleHint")}</p>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="item-permit">{t("drawer.permitType")}</Label>
+                <select
+                  id="item-permit"
+                  className={SELECT_CLASS}
+                  value={form.permitType}
+                  disabled={disabled}
+                  aria-invalid={invalid("permitType")}
+                  onChange={(e) => set({ permitType: e.target.value })}
+                >
+                  <option value="">{t("drawer.noPermitType")}</option>
+                  {PERMIT_TYPES.map((p) => (
+                    <option key={p} value={p}>
+                      {tPermitTypes(p)}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-muted-foreground text-tiny">{t("drawer.permitTypeHint")}</p>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">

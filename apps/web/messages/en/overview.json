@@ -19,7 +19,8 @@
         "overdue": "Overdue",
         "today": "Today",
         "soon": "This week",
-        "upcoming": "Upcoming permits"
+        "upcoming": "Upcoming permits",
+        "waiting": "Waiting for a reply"
       },
       "open": "Open",
       "openItem": "Open: {title}",
@@ -29,7 +30,8 @@
       "relative": {
         "overdue": "{n} d overdue",
         "today": "today",
-        "soon": "in {n} d"
+        "soon": "in {n} d",
+        "waiting": "waiting since {date}"
       },
       "kind": {
         "task": "Task",
@@ -42,7 +44,8 @@
         "overdue": "Overdue",
         "today": "Due today",
         "soon": "Due soon",
-        "upcoming": "Due later"
+        "upcoming": "Due later",
+        "waiting": "Waiting"
       },
       "eventCount": "{count, plural, one {# due} other {# due}}",
       "keyTask": "Key task – a task every market needs",

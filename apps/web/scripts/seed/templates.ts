@@ -76,6 +76,7 @@ export async function seedTemplates(tx: Tx, { data, roleIdByKey }: SeedContext) 
         estimateMinutes: item.estimateMinutes,
         requiresPhoto: item.requiresPhoto,
         isKey: item.isKey,
+        permitType: item.permitType,
       })),
     ),
     "template items",
@@ -140,6 +141,7 @@ export async function seedTemplates(tx: Tx, { data, roleIdByKey }: SeedContext) 
       priority: item.priority,
       estimateMinutes: item.estimateMinutes,
       requiresPhoto: item.requiresPhoto,
+      permitType: item.permitType,
     })),
     "master items",
   );

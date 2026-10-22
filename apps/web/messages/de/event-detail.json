@@ -119,6 +119,7 @@
           "today": "Heute",
           "soon": "in {n} T"
         },
+        "waitingSince": "wartet seit {date}",
         "done": "Erledigt",
         "doneLabel": "„{title}“ erledigt",
         "permitKind": "Genehmigung",
@@ -133,8 +134,10 @@
           "open": "Offen",
           "soon": "Bald fällig",
           "overdue": "Überfällig",
+          "waiting": "Wartet",
           "snoozed": "Zurückgestellt"
         },
+        "waitingSince": "seit {date}",
         "dueOn": "fällig {date}",
         "snoozedUntil": "bis {date}"
       },

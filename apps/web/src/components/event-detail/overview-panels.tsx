@@ -6,7 +6,7 @@ import {
   type MissingReason,
   type MissingTask,
   type OverviewPermit,
-  permitDisplayState,
+  permitStateForEvent,
   splitTimeline,
 } from "@marktwerk/core";
 import {
@@ -34,6 +34,7 @@ import { EmptyState } from "@/components/ui/states";
 import { StatusBadge, type Tone } from "@/components/ui/status-badge";
 import {
   formatDateShort,
+  formatDateShortYear,
   formatDateWithWeekday,
   formatMoney,
   formatNumber,
@@ -220,7 +221,13 @@ export async function MissingPanel({
         today={today}
         canWrite={canWrite}
         reasonText={t(`reason.${task.reason}`, { n: Math.abs(days) })}
-        dateText={task.dueOn ? formatDateShort(task.dueOn, locale) : null}
+        dateText={
+          task.dueOn
+            ? task.reason === "waiting" && task.dueOn < today
+              ? t("waitingSince", { date: formatDateShortYear(task.dueOn, locale, today) })
+              : formatDateShort(task.dueOn, locale)
+            : null
+        }
       />
     );
   };
@@ -248,7 +255,7 @@ export async function MissingPanel({
                 <span className="sr-only">{t("permitKind")}: </span>
                 {p.title}
               </Link>
-              <PermitStateBadge state={permitDisplayState(p, today)} />
+              <PermitStateBadge state={permitStateForEvent(p, event, today)} />
               {p.applyBy && (
                 <span className="tabular text-muted-foreground text-small">
                   {t("permitApplyBy", { date: formatDateShort(p.applyBy, locale) })}
@@ -286,6 +293,7 @@ const KEY_STATE_UI: Record<KeyTaskState, { tone: Tone; icon: typeof Check }> = {
   open: { tone: "neutral", icon: CircleDashed },
   soon: { tone: "warn", icon: Clock },
   overdue: { tone: "critical", icon: OctagonAlert },
+  waiting: { tone: "waiting", icon: Hourglass },
   snoozed: { tone: "neutral", icon: AlarmClockOff },
 };
 
@@ -337,9 +345,11 @@ function KeyTaskItem({
 export async function KeyTasksPanel({
   event,
   overview,
+  today,
 }: {
   event: EventDetail;
   overview: EventOverview;
+  today: string;
 }) {
   const t = await getTranslations("eventDetail.overview.key");
   const locale = await getLocale();
@@ -365,9 +375,11 @@ export async function KeyTasksPanel({
               dateText={
                 row.state === "snoozed" && row.snoozedUntil
                   ? t("snoozedUntil", { date: formatDateShort(row.snoozedUntil, locale) })
-                  : row.state !== "done" && row.dueOn
-                    ? formatDateShort(row.dueOn, locale)
-                    : null
+                  : row.state === "waiting" && row.dueOn
+                    ? t("waitingSince", { date: formatDateShortYear(row.dueOn, locale, today) })
+                    : row.state !== "done" && row.dueOn
+                      ? formatDateShort(row.dueOn, locale)
+                      : null
               }
             />
           ))}

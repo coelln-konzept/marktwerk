@@ -15,8 +15,8 @@ import { todayIn } from "@/lib/format";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import { eventMoneyHealthFor } from "./finance";
-import { permitHealthByEvent } from "./permits";
-import { taskHealthByEvent } from "./tasks";
+import { permitSummaryByEvent } from "./permits";
+import { taskSummaryByEvent } from "./tasks";
 
 export type EventStatusKey = (typeof event.status.enumValues)[number];
 
@@ -84,6 +84,7 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
   return rows.map((r) => ({
     ...r,
     health: healthOf(r.status, r.duties, required, dims.get(r.id)),
+    reasons: reasonsOf(r.status, dims.get(r.id)),
   }));
 }
 
@@ -91,7 +92,24 @@ type Dimensions = {
   permits: HealthLevel | null;
   tasks: HealthLevel | null;
   money: HealthLevel | null;
+  /** What the levels are made of, for "1 Genehmigung fehlt" / "5 überfällig" instead of "Achtung". */
+  counts: HealthCounts;
 };
+
+/** The numbers behind the permit and task health levels of one event. */
+export type HealthCounts = {
+  permitsMissing: number;
+  tasksOverdue: number;
+  tasksBlocked: number;
+};
+
+const NO_COUNTS: HealthCounts = { permitsMissing: 0, tasksOverdue: 0, tasksBlocked: 0 };
+
+/** Counts of an event that is still running; finished and cancelled events carry none. */
+function reasonsOf(status: EventStatusKey, dims?: Dimensions): HealthCounts {
+  const past = status === "completed" || status === "closed" || status === "cancelled";
+  return past || !dims ? NO_COUNTS : dims.counts;
+}
 
 /**
  * Permits, tasks and money health of many events: one query per dimension for all of them (never per
@@ -99,22 +117,27 @@ type Dimensions = {
  */
 async function dimensionHealth(
   actor: Actor,
-  events: { id: string; startsOn: string }[],
+  events: { id: string; startsOn: string; endsOn: string }[],
   today: string,
 ): Promise<Map<string, Dimensions>> {
   const ids = events.map((e) => e.id);
   const [permits, tasks, money] = await Promise.all([
-    permitHealthByEvent(events, today),
-    taskHealthByEvent(actor, ids, today),
+    permitSummaryByEvent(events, today),
+    taskSummaryByEvent(actor, ids, today),
     eventMoneyHealthFor(actor, ids, today),
   ]);
   return new Map(
     ids.map((id) => [
       id,
       {
-        permits: permits.get(id) ?? null,
-        tasks: tasks.get(id) ?? null,
+        permits: permits.get(id)?.health ?? null,
+        tasks: tasks.get(id)?.health ?? null,
         money: money.get(id) ?? null,
+        counts: {
+          permitsMissing: permits.get(id)?.missing ?? 0,
+          tasksOverdue: tasks.get(id)?.overdue ?? 0,
+          tasksBlocked: tasks.get(id)?.blocked ?? 0,
+        },
       },
     ]),
   );
@@ -129,7 +152,7 @@ function healthOf(
   status: EventStatusKey,
   duties: number,
   required: number,
-  dims: Dimensions = { permits: null, tasks: null, money: null },
+  dims: Dimensions = { permits: null, tasks: null, money: null, counts: NO_COUNTS },
 ): HealthDimensions {
   const past = status === "completed" || status === "closed" || status === "cancelled";
   return {
@@ -212,6 +235,13 @@ export const getEvent = cache(async (actor: Actor, id: string) => {
   ]);
   if (!type || !place) return null;
   const assigned = duties.filter((d) => d.staffMemberId).length;
+  const dimensions = (
+    await dimensionHealth(
+      actor,
+      [{ id, startsOn: found.startsOn, endsOn: found.endsOn }],
+      todayIn(),
+    )
+  ).get(id);
   return {
     ...found,
     type,
@@ -219,12 +249,8 @@ export const getEvent = cache(async (actor: Actor, id: string) => {
     anchors,
     duties,
     preset: preset ?? null,
-    health: healthOf(
-      found.status,
-      assigned,
-      required,
-      (await dimensionHealth(actor, [{ id, startsOn: found.startsOn }], todayIn())).get(id),
-    ),
+    health: healthOf(found.status, assigned, required, dimensions),
+    reasons: reasonsOf(found.status, dimensions),
   };
 });
 

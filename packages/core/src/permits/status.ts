@@ -17,6 +17,23 @@ export const PERMIT_STATUSES = [
 ] as const;
 export type PermitStatus = (typeof PERMIT_STATUSES)[number];
 
+/** The kinds of permit (the database enum `permit_type`). */
+export const PERMIT_TYPES = [
+  "market_permit",
+  "water",
+  "signage",
+  "no_parking",
+  "toilets",
+  "landowner_ok",
+  "gema",
+  "safety_concept",
+  "traffic_order",
+  "catering",
+  "insurance",
+  "other",
+] as const;
+export type PermitTypeKey = (typeof PERMIT_TYPES)[number];
+
 export const PERMIT_CADENCES = [
   "per_event",
   "per_season",
@@ -66,6 +83,8 @@ export type PermitDisplayState =
   | "expired"
   | "rejected"
   | "not_required"
+  /** Ran out, but only markets that are over were covered: history, not a warning (`isPermitHistory`). */
+  | "past"
   | "superseded";
 
 type StateInput = { status: PermitStatus; validUntil: string | null };
@@ -98,6 +117,29 @@ export function permitDisplayState(
   }
 }
 
+/**
+ * The state of a permit for one event. Same as `permitDisplayState`, except that a granted permit whose
+ * validity reaches the event's last day is simply "granted" for that event: "Läuft ab" (and "Abgelaufen"
+ * after the market is over) says something about the permit, not about this market. A permit that ends
+ * before the event's last day keeps the permit-wide state.
+ */
+export function permitStateForEvent(
+  permit: { status: PermitStatus; validUntil: string | null },
+  event: { endsOn: string },
+  today: string,
+  warnDays: number = PERMIT_EXPIRY_WARNING_DAYS,
+): PermitDisplayState {
+  const state = permitDisplayState(permit, today, warnDays);
+  if (
+    permit.status === "granted" &&
+    (state === "expiring" || state === "expired") &&
+    permit.validUntil !== null &&
+    permit.validUntil >= event.endsOn
+  )
+    return "granted";
+  return state;
+}
+
 /** Held = counts as "we have it" (the event may happen). */
 export function isHeld(state: PermitDisplayState): boolean {
   return state === "granted" || state === "expiring" || state === "not_required";
@@ -113,7 +155,8 @@ export const DISPLAY_STATE_SEVERITY: Record<PermitDisplayState, number> = {
   expiring: 5,
   granted: 6,
   not_required: 7,
-  superseded: 8,
+  past: 8,
+  superseded: 9,
 };
 
 /** Within this many days of the event a permit that is not granted yet is critical. */
@@ -136,13 +179,14 @@ export function eventPermitHealth(
   permits: readonly EventPermitInput[],
   eventStartsOn: string,
   today: string,
+  eventEndsOn: string = eventStartsOn,
 ): HealthLevel | null {
   const relevant = permits.filter((p) => p.required && p.status !== "not_required");
   if (relevant.length === 0) return permits.length > 0 ? "ok" : null;
   const untilEvent = daysBetween(today, eventStartsOn);
   let level: HealthLevel = "ok";
   for (const p of relevant) {
-    const state = permitDisplayState(p, today);
+    const state = permitStateForEvent(p, { endsOn: eventEndsOn }, today);
     if (state === "granted") continue;
     if (state === "expiring") {
       // Running out only matters if it ends before the event takes place.

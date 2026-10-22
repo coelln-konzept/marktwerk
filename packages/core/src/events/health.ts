@@ -34,3 +34,44 @@ export function teamHealth(assignedRoles: number, requiredRoles: number): Health
 export function issueCount(dimensions: HealthDimensions): number {
   return Object.values(dimensions).filter((l) => l === "warn" || l === "critical").length;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Reasons: say what is wrong instead of "Achtung" / "Kritisch" (UX pass 2026-10-22)
+
+export type HealthReasonKey =
+  | "ok"
+  | "permits"
+  | "permitsEnding"
+  | "tasksOverdue"
+  | "tasksBlocked"
+  | "tasksRollover";
+
+/** A reason to show instead of the level word; `count` feeds the plural message. */
+export type HealthReason = { key: HealthReasonKey; count?: number };
+
+/**
+ * Why the permit dimension has its level: "1 Genehmigung fehlt" when required permits are not held for
+ * the event, "Läuft vor Ende ab" when everything is held but a permit ends within a multi-day event, "Im
+ * Plan" when all is fine. Null when nothing is tracked.
+ */
+export function permitsReason(level: HealthLevel | null, missing: number): HealthReason | null {
+  if (level === null) return null;
+  if (level === "ok") return { key: "ok" };
+  return missing > 0 ? { key: "permits", count: missing } : { key: "permitsEnding" };
+}
+
+/**
+ * Why the task dimension has its level: "5 überfällig" first, then "2 blockiert", then "oft verschoben"
+ * (the only other way to be critical), "Im Plan" when all is fine. Null when nothing is tracked.
+ */
+export function tasksReason(
+  level: HealthLevel | null,
+  overdue: number,
+  blocked: number,
+): HealthReason | null {
+  if (level === null) return null;
+  if (level === "ok") return { key: "ok" };
+  if (overdue > 0) return { key: "tasksOverdue", count: overdue };
+  if (blocked > 0) return { key: "tasksBlocked", count: blocked };
+  return { key: "tasksRollover" };
+}

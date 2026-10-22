@@ -84,7 +84,10 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
       href: `${base}/board`,
       label: t("tabs.board"),
       count: {
-        text: String(tasks.open),
+        text:
+          tasks.overdue > 0
+            ? tBoard("tab.openOverdue", { open: tasks.open, overdue: tasks.overdue })
+            : tBoard("tab.openShort", { count: tasks.open }),
         level: tasks.health ?? undefined,
         sr: `${tBoard("tab.open", { count: tasks.open })}${tasks.health ? `, ${tHealth(tasks.health)}` : ""}`,
       },

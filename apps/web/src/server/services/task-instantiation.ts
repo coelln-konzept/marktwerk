@@ -262,6 +262,7 @@ export function desiredTask(
     requiresNote: item.requiresNote,
     requiresAttachment: item.requiresAttachment,
     isKey: item.isKey,
+    permitType: item.permitType,
     dutyRoleId: item.dutyRoleId,
     dueAt: dueAt ? dueAt.getTime() : null,
     anchorKey: item.anchorKey,

@@ -1,7 +1,8 @@
 import { addDays, daysBetween } from "../dates/calendar";
-import { type EventPermitInput, isHeld, permitDisplayState } from "../permits/status";
+import { type EventPermitInput, isHeld, permitStateForEvent } from "../permits/status";
 import { isFinishedStatus, isOpenStatus, type TaskStatusKey } from "./board";
 import { isSnoozed } from "./snooze";
+import { isOverdueTask, isWaitingPastDue } from "./waiting";
 
 /*
  * Board views across events: "Bereitschaftsliste" (one row per upcoming market) and the
@@ -35,7 +36,7 @@ export type Readiness = {
   total: number;
   /** Finished (done or skipped). */
   done: number;
-  /** Open, not snoozed, due before today. */
+  /** Open, not snoozed, due before today; tasks waiting for somebody else do not count. */
   overdue: number;
   /** Required permits that are not held for the event's first day. */
   missingPermits: number;
@@ -49,11 +50,12 @@ export function countMissingPermits(
   permits: readonly EventPermitInput[],
   eventStartsOn: string,
   today: string,
+  eventEndsOn: string = eventStartsOn,
 ): number {
   let missing = 0;
   for (const p of permits) {
     if (!p.required || p.status === "not_required" || p.status === "superseded") continue;
-    const state = permitDisplayState(p, today);
+    const state = permitStateForEvent(p, { endsOn: eventEndsOn }, today);
     if (isHeld(state) && !(p.validUntil !== null && p.validUntil < eventStartsOn)) continue;
     missing += 1;
   }
@@ -66,6 +68,7 @@ export function summarizeReadiness(
   permits: readonly EventPermitInput[],
   eventStartsOn: string,
   today: string,
+  eventEndsOn: string = eventStartsOn,
 ): Readiness {
   let total = 0;
   let done = 0;
@@ -82,7 +85,9 @@ export function summarizeReadiness(
     if (!isOpenStatus(t.status)) continue;
     if (t.isKey) openKey += 1;
     if (isSnoozed(t, today) || t.dueOn === null) continue;
-    if (t.dueOn < today) overdue += 1;
+    if (isOverdueTask(t, today)) overdue += 1;
+    // Waiting for somebody else past the date: nothing to do, so not "the next deadline" either.
+    if (isWaitingPastDue(t, today)) continue;
     if (
       next === null ||
       t.dueOn < (next.dueOn as string) ||
@@ -94,7 +99,7 @@ export function summarizeReadiness(
     total,
     done,
     overdue,
-    missingPermits: countMissingPermits(permits, eventStartsOn, today),
+    missingPermits: countMissingPermits(permits, eventStartsOn, today, eventEndsOn),
     openKey,
     next: next ? { id: next.id, title: next.title, dueOn: next.dueOn as string } : null,
   };
@@ -117,7 +122,14 @@ export function readinessAttention(
 // ---------------------------------------------------------------------------------------------
 // Matrix
 
-export type MatrixCellState = "done" | "open" | "soon" | "overdue" | "snoozed" | "absent";
+export type MatrixCellState =
+  | "done"
+  | "open"
+  | "soon"
+  | "overdue"
+  | "waiting"
+  | "snoozed"
+  | "absent";
 
 /** State of one matrix cell. `null` = the market has no such task ("–"). */
 export function matrixCellState(
@@ -128,6 +140,7 @@ export function matrixCellState(
   if (isFinishedStatus(task.status)) return "done";
   if (isSnoozed(task, today)) return "snoozed";
   if (task.dueOn === null) return "open";
+  if (isWaitingPastDue(task, today)) return "waiting";
   if (task.dueOn < today) return "overdue";
   return task.dueOn <= addDays(today, MATRIX_SOON_DAYS) ? "soon" : "open";
 }
@@ -216,10 +229,11 @@ export function shortLabel(title: string, max = 18): string {
 const CELL_RANK: Record<MatrixCellState, number> = {
   overdue: 0,
   soon: 1,
-  open: 2,
-  snoozed: 3,
-  done: 4,
-  absent: 5,
+  waiting: 2,
+  open: 3,
+  snoozed: 4,
+  done: 5,
+  absent: 6,
 };
 
 /** When an event has several tasks for one column (several checklists), the one needing attention most. */

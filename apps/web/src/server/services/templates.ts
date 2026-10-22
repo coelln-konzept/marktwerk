@@ -88,6 +88,7 @@ export function itemFields(row: ItemRow): TemplateItemFields {
     requiresNote: row.requiresNote,
     requiresAttachment: row.requiresAttachment,
     isKey: row.isKey,
+    permitType: row.permitType,
     checkItems: row.checkItems,
     approverDutyRoleId: row.approverDutyRoleId,
     dependsOnKeys: row.dependsOnKeys,
@@ -119,6 +120,7 @@ function normalizeItem(input: TemplateItemFields): TemplateItemFields {
       ? input.checkItems.map((c) => (typeof c === "string" ? c.trim() : c)).filter((c) => c !== "")
       : input.checkItems,
     dependsOnKeys: Array.isArray(input.dependsOnKeys) ? [...new Set(input.dependsOnKeys)] : [],
+    permitType: input.permitType || null,
     dutyRoleId: input.dutyRoleId || null,
     approverDutyRoleId: input.approverDutyRoleId || null,
     condition: input.condition ? normalizeCondition(input.condition) : null,

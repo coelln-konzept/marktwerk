@@ -18,6 +18,7 @@ const base = {
   requiresNote: false,
   requiresAttachment: false,
   isKey: false,
+  permitType: null,
   dutyRoleId: null,
   dueAt: 1_000,
 };
@@ -39,6 +40,23 @@ const task = (stableKey: string, patch: Partial<PlanTask> = {}): PlanTask => ({
   removedFromTemplate: false,
   dueOverridden: false,
   ...patch,
+});
+
+describe("permit type", () => {
+  it("is a change when the item starts to name a permit (or stops)", () => {
+    expect(propagationChanges(item("a", { permitType: "market_permit" }), task("a"))).toEqual([
+      "permit",
+    ]);
+    expect(propagationChanges(item("a"), task("a", { permitType: "market_permit" }))).toEqual([
+      "permit",
+    ]);
+    expect(
+      propagationChanges(
+        item("a", { permitType: "market_permit" }),
+        task("a", { permitType: "market_permit" }),
+      ),
+    ).toEqual([]);
+  });
 });
 
 describe("isOpenTask", () => {

@@ -10,7 +10,7 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
-import { formatDateShort } from "@/lib/format";
+import { formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CalendarItem } from "@/server/queries/due";
 import type { EventRow } from "@/server/queries/events";
@@ -86,8 +86,8 @@ export async function CalendarList({
       <Table>
         <caption className="sr-only">
           {t("listCaption", {
-            from: formatDateShort(from, locale),
-            to: formatDateShort(to, locale),
+            from: formatDateShortYear(from, locale, today),
+            to: formatDateShortYear(to, locale, today),
           })}
         </caption>
         <THead>
@@ -107,8 +107,8 @@ export async function CalendarList({
               <TGroup colSpan={5}>
                 {t("week", {
                   week: isoWeek(monday).week,
-                  from: formatDateShort(monday, locale),
-                  to: formatDateShort(addDays(monday, 6), locale),
+                  from: formatDateShortYear(monday, locale, today),
+                  to: formatDateShortYear(addDays(monday, 6), locale, today),
                 })}
               </TGroup>
               {weekDays.map((day) => {
@@ -125,7 +125,9 @@ export async function CalendarList({
                       holiday && "text-status-critical",
                     )}
                   >
-                    <span className="tabular font-semibold">{formatDateShort(day, locale)}</span>
+                    <span className="tabular font-semibold">
+                      {formatDateShortYear(day, locale, today)}
+                    </span>
                     <span className="block text-muted-foreground text-tiny">{relative(day)}</span>
                     {holiday && <span className="block font-semibold text-tiny">{holiday}</span>}
                   </TD>

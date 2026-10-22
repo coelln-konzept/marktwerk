@@ -2,7 +2,9 @@
   "board": {
     "title": "Board",
     "tab": {
-      "open": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}}"
+      "open": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}}",
+      "openShort": "{count} offen",
+      "openOverdue": "{open} offen · {overdue} überfällig"
     },
     "columns": {
       "preparation": "Später",
@@ -215,6 +217,7 @@
         "open": "offen",
         "soon": "bald fällig",
         "overdue": "überfällig",
+        "waiting": "wartet",
         "snoozed": "zurückgestellt",
         "absent": "nicht vorhanden"
       }

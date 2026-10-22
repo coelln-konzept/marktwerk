@@ -4,6 +4,7 @@ import {
   ChevronRight,
   CircleCheck,
   Clock,
+  Hourglass,
   type LucideIcon,
   OctagonAlert,
   ShieldCheck,
@@ -19,7 +20,7 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateShort } from "@/lib/format";
+import { formatDateShortYear } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { hrefWith } from "@/lib/url";
 import { cn } from "@/lib/utils";
@@ -34,7 +35,7 @@ const KIND_ICONS: Record<DueKind, LucideIcon> = {
   obligation: Truck,
 };
 
-const GROUPS: DueUrgency[] = ["overdue", "today", "soon", "upcoming"];
+const GROUPS: DueUrgency[] = ["overdue", "today", "soon", "upcoming", "waiting"];
 
 /**
  * Each urgency group opens with a band in its status colour (colour + icon + text), so the groups stand
@@ -48,6 +49,7 @@ const GROUP_UI: Record<DueUrgency, { icon: LucideIcon; band: string }> = {
   today: { icon: Clock, band: "border-status-warn-dot/30 bg-status-warn-bg text-status-warn" },
   soon: { icon: CalendarCheck, band: "border-border bg-status-neutral-bg text-foreground" },
   upcoming: { icon: ShieldCheck, band: "border-border bg-status-info-bg text-status-info" },
+  waiting: { icon: Hourglass, band: "border-border bg-status-neutral-bg text-foreground" },
 };
 
 /** Markets (and single items) shown per group before "+ N weitere" (the overdue group can be long). */
@@ -127,6 +129,8 @@ export async function DueToday({
   const locale = await getLocale();
   const relative = (item: DueItem) => {
     const days = daysBetween(today, item.dueOn);
+    if (item.urgency === "waiting")
+      return t("relative.waiting", { date: formatDateShortYear(item.dueOn, locale, today) });
     if (item.urgency === "today" || days === 0) return t("relative.today");
     return item.urgency === "overdue"
       ? t("relative.overdue", { n: -days })
@@ -201,12 +205,16 @@ export async function DueToday({
                 ? OctagonAlert
                 : item.urgency === "today"
                   ? Clock
-                  : CalendarCheck
+                  : item.urgency === "waiting"
+                    ? Hourglass
+                    : CalendarCheck
             }
           >
             <span className="sr-only">{t(`urgencyLabel.${item.urgency}`)}: </span>
             <span className="tabular">
-              {formatDateShort(item.dueOn, locale)} · {relative(item)}
+              {item.urgency === "waiting"
+                ? relative(item)
+                : `${formatDateShortYear(item.dueOn, locale, today)} · ${relative(item)}`}
             </span>
           </StatusBadge>
           {item.kind === "task" && canSnooze && (
@@ -278,7 +286,7 @@ export async function DueToday({
                           </Link>
                           {cluster.event.startsOn && (
                             <span className="tabular text-muted-foreground">
-                              {formatDateShort(cluster.event.startsOn, locale)}
+                              {formatDateShortYear(cluster.event.startsOn, locale, today)}
                             </span>
                           )}
                           <span className="tabular text-muted-foreground">

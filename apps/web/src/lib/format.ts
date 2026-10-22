@@ -57,6 +57,35 @@ export function formatDateRange(startsOn: string, endsOn: string, locale: string
   return `${formatDateShort(startsOn, locale)}–${formatDateShort(endsOn, locale)}`;
 }
 
+const yearSuffix = (year: string, locale: string) => (locale === "en" ? `/${year}` : year);
+
+/**
+ * "Sa 16.05." in the current year, "Sa 16.05.2027" in any other: lists where 2026 and 2027 mix need the
+ * year, lists of the running year stay short. `today` is the business date to compare with.
+ */
+export function formatDateShortYear(date: string, locale: string, today: string = todayIn()) {
+  const short = formatDateShort(date, locale);
+  return date.slice(0, 4) === today.slice(0, 4)
+    ? short
+    : `${short}${yearSuffix(date.slice(0, 4), locale)}`;
+}
+
+/** `formatDateRange` with the year appended when the range is not in the current year (see above). */
+export function formatDateRangeYear(
+  startsOn: string,
+  endsOn: string,
+  locale: string,
+  today: string = todayIn(),
+): string {
+  const year = today.slice(0, 4);
+  const startYear = startsOn.slice(0, 4);
+  const endYear = endsOn.slice(0, 4);
+  if (startYear === year && endYear === year) return formatDateRange(startsOn, endsOn, locale);
+  if (startYear === endYear)
+    return `${formatDateRange(startsOn, endsOn, locale)}${yearSuffix(startYear, locale)}`;
+  return `${formatDateShortYear(startsOn, locale, today)}–${formatDateShortYear(endsOn, locale, today)}`;
+}
+
 /** Calendar week label: "KW 20" / "CW 20". */
 export function formatWeek(date: string, locale: string): string {
   return `${locale === "en" ? "CW" : "KW"} ${isoWeek(date).week}`;
