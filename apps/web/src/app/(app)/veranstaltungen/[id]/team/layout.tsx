@@ -8,7 +8,7 @@ export default async function EventTeamTabLayout({
 }: LayoutProps<"/veranstaltungen/[id]/team">) {
   if (isModuleHidden("team")) {
     const { id } = await params;
-    redirect(`/veranstaltungen/${id}/board`);
+    redirect(`/veranstaltungen/${id}`);
   }
   return children;
 }

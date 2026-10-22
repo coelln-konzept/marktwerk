@@ -102,10 +102,10 @@ test("Event page: no Team and Geld tabs, Dokumente/Notizen/Verlauf sit under Meh
   // Dokumente, Notizen and Verlauf are not tabs of their own any more.
   await expect(tabs.getByRole("link", { name: /^Notizen/ })).toHaveCount(0);
 
-  // Direct visits to the hidden tabs land on the Board.
+  // Direct visits to the hidden tabs land on the Überblick.
   for (const tab of ["team", "geld"]) {
     await page.goto(`${href}/${tab}`);
-    await expect(page).toHaveURL(new RegExp(`${href}/board$`));
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
   }
 });
 

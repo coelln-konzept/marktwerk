@@ -120,7 +120,7 @@ export async function notifyDatesShifted(
           : `Die Veranstaltung findet jetzt am ${formatDate(next.startsOn, "de")} statt ` +
             `(vorher ${formatDate(current.startsOn, "de")}). `) +
         `${tasks === 1 ? "1 deiner Aufgaben hat" : `${tasks} deiner Aufgaben haben`} eine neue Fälligkeit.`,
-      link: `/veranstaltungen/${current.id}/board`,
+      link: `/veranstaltungen/${current.id}`,
       dedupeKey: key,
     })),
   );
