@@ -1,7 +1,7 @@
 {
   "events": {
     "subtitle": "Season {season} · {count} dates · {planned} planned",
-    "generate": "Generate from preset",
+    "generate": "Plan a market",
     "search": "Name or venue",
     "season": "Season",
     "seasonOption": "Season {season}",

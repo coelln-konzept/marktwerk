@@ -46,8 +46,9 @@
       "undo": "Undo"
     },
     "editor": {
-      "back": "Back to timeline templates",
-      "summary": "{count, plural, =0 {No tasks} one {# task} other {# tasks}} · {hours} h per event"
+      "back": "Back to the library",
+      "summary": "{count, plural, =0 {No tasks} one {# task} other {# tasks}} · {hours} h per event",
+      "master": "Master template"
     },
     "versions": {
       "label": "Versions",
@@ -184,7 +185,9 @@
       "none": "There are no event presets yet.",
       "inactive": "(inactive)",
       "save": "Save links",
-      "saved": "Links saved"
+      "saved": "Links saved",
+      "master": "The master template belongs to no single market: every new market starts with its own copy. Changes here only apply to markets you add afterwards.",
+      "owned": "This is the own task template of {name}. It started as a copy of the master template and changes only here."
     },
     "rules": {
       "title": "How it works",
@@ -330,7 +333,9 @@
       "too_many_items": "A version can have at most 300 rows.",
       "no_published_version": "There is no published version yet.",
       "no_events": "Please choose at least one event.",
-      "not_applicable": "One of the events no longer needs the version."
+      "not_applicable": "One of the events no longer needs the version.",
+      "master_exists": "There is already a master template.",
+      "master_protected": "The master template cannot be archived."
     }
   }
 }

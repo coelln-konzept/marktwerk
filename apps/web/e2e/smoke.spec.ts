@@ -213,3 +213,19 @@ test("command palette finds tasks, permits and vehicles by their titles", async 
   await expect(listbox.getByRole("group").first()).toBeVisible();
   await page.keyboard.press("Escape");
 });
+
+test("Markt planen: the market list offers 'Neuen Markt anlegen'; no Vorlagen entry in the sidebar", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?saison=2026");
+  const nav = page.getByRole("navigation", { name: "Hauptnavigation" }).first();
+  await expect(nav.getByRole("link", { name: "Vorlagen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Einzeltermin" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Markt planen" }).click();
+  const sheet = page.getByRole("dialog", { name: "Markt planen" });
+  await expect(sheet).toBeVisible();
+  await expect(page).toHaveURL(/erzeugen=1/);
+  await expect(sheet.getByRole("button", { name: /Neuen Markt anlegen/ })).toBeVisible();
+  await expect(sheet.getByRole("searchbox")).toBeVisible();
+});

@@ -209,7 +209,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
         <li className="text-muted-foreground">
           {event.preset ? (
             <Link
-              href={`/vorlagen?vorschau=${event.preset.id}` as never}
+              href={`/einstellungen/bibliothek?vorschau=${event.preset.id}` as never}
               className="underline-offset-2 hover:text-foreground hover:underline"
             >
               {t("header.preset", { name: event.preset.name })}

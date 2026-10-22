@@ -12,7 +12,6 @@
     "finance": "Finance",
     "company": "Company",
     "vendors": "Vendors",
-    "templates": "Templates",
     "knowledgeBase": "Knowledge",
     "notifications": "Notifications",
     "settings": "Settings",
@@ -74,7 +73,7 @@
     "new": "New",
     "notifications": "Notifications",
     "shortcut": "Ctrl K",
-    "newFromPreset": "Generate from preset",
+    "newFromPreset": "Plan a market",
     "newSingle": "Single event",
     "newKey": "opens this menu",
     "newTask": "Task",
@@ -105,7 +104,7 @@
       "action": "Actions"
     },
     "actions": {
-      "generate": "Generate events from a preset",
+      "generate": "Plan a market (add dates for a market)",
       "calendar": "Open calendar",
       "events": "All events",
       "single": "Create a single event (without a preset)",
