@@ -240,6 +240,23 @@ export function CompanyForm({
 
           <div className="flex items-start gap-3 sm:col-span-2">
             <input
+              id={`${formId}-email`}
+              type="checkbox"
+              checked={values.emailEnabled}
+              onChange={(e) => set("emailEnabled", e.target.checked)}
+              aria-describedby={`${formId}-email-hint`}
+              className="mt-0.5 size-4 accent-primary"
+            />
+            <div className="flex flex-col gap-1">
+              <Label htmlFor={`${formId}-email`}>{t("fields.emailEnabled")}</Label>
+              <p id={`${formId}-email-hint`} className="text-muted-foreground text-tiny">
+                {t("hints.emailEnabled")}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 sm:col-span-2">
+            <input
               id={`${formId}-digest`}
               type="checkbox"
               checked={values.dailyDigestEnabled}

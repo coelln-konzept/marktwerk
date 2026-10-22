@@ -85,6 +85,8 @@ await db.transaction(async (tx) => {
       timeZone: s.timeZone,
       bundesland: s.bundesland,
       defaultDueTime: s.defaultDueTime,
+      // Client decision: no email for now. Turn on under Einstellungen → Firma.
+      emailEnabled: false,
     })
     .onConflictDoNothing();
 

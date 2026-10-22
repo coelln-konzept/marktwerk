@@ -10,7 +10,7 @@ import {
   user,
 } from "@marktwerk/db";
 import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
-import { appUrl, berlinDate, isEmailDisabled, OPEN_TASK_STATUSES } from "./shared";
+import { appUrl, berlinDate, emailSettings, isEmailDisabled, OPEN_TASK_STATUSES } from "./shared";
 
 /** Logins that work in the office get the morning mail; the field crew does not (decision: office users). */
 const OFFICE_ROLES = ["owner", "manager", "staff"];
@@ -21,9 +21,13 @@ export type DigestResult = { people: number; queued: number };
  * 07:00 Europe/Berlin: one email per office user with their open items that are overdue, due today or due
  * in the next seven days (tasks assigned to them and permits they are responsible for). Nothing to report →
  * no email. Written as an `outbound_message` that the sender job delivers; keyed by person and day, so
- * running the job twice sends nothing twice.
+ * running the job twice sends nothing twice. Does nothing unless `settings.email_enabled` and
+ * `settings.daily_digest_enabled` are both on.
  */
 export async function dailyDigest(db: Database, now: Date = new Date()): Promise<DigestResult> {
+  // Master switch and digest switch: while either is off nothing is queued (no backlog builds up).
+  const config = await emailSettings(db);
+  if (!config.emailEnabled || !config.dailyDigestEnabled) return { people: 0, queued: 0 };
   const today = berlinDate(now);
   const people = await db
     .select({
