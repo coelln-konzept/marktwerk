@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDateWithWeekday } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { PHASES, VENUE_KINDS } from "./labels";
 import type { ItemView, RoleChoice, TypeChoice } from "./types";
 
@@ -478,20 +479,22 @@ export function ItemDrawer({
                     ))}
                   </select>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="item-estimate">{t("drawer.estimate")}</Label>
-                  <Input
-                    id="item-estimate"
-                    inputMode="numeric"
-                    value={form.estimateMinutes}
-                    disabled={disabled}
-                    className="tabular"
-                    aria-invalid={invalid("estimateMinutes")}
-                    onChange={(e) => set({ estimateMinutes: e.target.value })}
-                  />
-                </div>
+                {isModuleVisible("estimates") && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="item-estimate">{t("drawer.estimate")}</Label>
+                    <Input
+                      id="item-estimate"
+                      inputMode="numeric"
+                      value={form.estimateMinutes}
+                      disabled={disabled}
+                      className="tabular"
+                      aria-invalid={invalid("estimateMinutes")}
+                      onChange={(e) => set({ estimateMinutes: e.target.value })}
+                    />
+                  </div>
+                )}
               </div>
-              {fieldError("estimateMinutes")}
+              {isModuleVisible("estimates") && fieldError("estimateMinutes")}
 
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-1 font-semibold text-small">{t("drawer.evidence")}</legend>

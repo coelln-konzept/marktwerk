@@ -29,6 +29,8 @@ export type OverviewDue = {
   counts: Record<DueFilter, number>;
 };
 
+export type WeekendBlocker = DueItem & { eventNames: string[] };
+
 export type Overview = {
   season: SeasonSummary;
   /** Estimated effort against capacity and the hiring signal. Null for roles that do not plan the team. */
@@ -42,8 +44,11 @@ export type Overview = {
     duties: number;
     /** Estimated minutes of open tasks per event. */
     effortMinutes: Record<string, number>;
-    /** Due items of the weekend's events ("Was das Wochenende aufhält"), most urgent first. */
-    blockers: DueItem[];
+    /**
+     * Due items of the weekend's events ("Was das Wochenende aufhält"), most urgent first: open tasks of the
+     * event and permits it needs, each with the weekend events it holds up.
+     */
+    blockers: WeekendBlocker[];
   };
   nextAfterWeekend: EventRow | null;
   due: OverviewDue;
@@ -65,6 +70,18 @@ export type Overview = {
 
 /** The season is "almost over" when at most this share of its events is still ahead. */
 const SEASON_OVER_SHARE = 0.1;
+
+/** The due items that belong to a weekend event (a task's event, or any event a permit is required for). */
+function weekendBlockers(items: DueItem[], rows: EventRow[]): WeekendBlocker[] {
+  const names = new Map(rows.map((r) => [r.id, r.name]));
+  const out: WeekendBlocker[] = [];
+  for (const item of items) {
+    const ids = new Set([...(item.eventId ? [item.eventId] : []), ...(item.eventIds ?? [])]);
+    const eventNames = [...ids].flatMap((id) => names.get(id) ?? []);
+    if (eventNames.length > 0) out.push({ ...item, eventNames });
+  }
+  return out;
+}
 
 /** The five module feeds, each of which checks its own permissions and field scope. */
 export async function listDueItems(
@@ -145,7 +162,7 @@ export async function getOverview(
       rows: weekendRows,
       duties: roles?.n ?? 0,
       effortMinutes: Object.fromEntries(effort),
-      blockers: dueItems.filter((i) => i.eventId && weekendIds.has(i.eventId)),
+      blockers: weekendBlockers(dueItems, weekendRows),
     },
     nextAfterWeekend: active.find((e) => e.startsOn > sunday) ?? null,
     due: { items: dueItems, counts: countByDueFilter(dueItems) },

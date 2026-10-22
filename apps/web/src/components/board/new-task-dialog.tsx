@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { isModuleVisible } from "@/lib/modules";
 import { TASK_CATEGORIES } from "@/lib/task-ui";
 import type { EventOption, StaffOption } from "@/server/queries/tasks";
 import { useDrawerHrefs } from "./use-task-actions";
@@ -160,16 +161,18 @@ export function NewTaskButton({
                 onChange={(e) => setDue(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${uid}-hours`}>{t("fields.hours")}</Label>
-              <Input
-                id={`${uid}-hours`}
-                inputMode="decimal"
-                value={hours}
-                onChange={(e) => setHours(e.target.value)}
-                placeholder="1,5"
-              />
-            </div>
+            {isModuleVisible("estimates") && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`${uid}-hours`}>{t("fields.hours")}</Label>
+                <Input
+                  id={`${uid}-hours`}
+                  inputMode="decimal"
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                  placeholder="1,5"
+                />
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`${uid}-cat`}>{t("fields.category")}</Label>
               <select

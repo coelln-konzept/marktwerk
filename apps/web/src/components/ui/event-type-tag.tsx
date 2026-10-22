@@ -26,6 +26,23 @@ export function eventTypeClasses(typeKey: string): string {
   return isKey(typeKey) ? STYLES[typeKey] : "bg-status-neutral-bg text-foreground-2";
 }
 
+/** Just the square identity marker of an event type (e.g. before an event name in a list). */
+export function EventTypeMarker({
+  typeKey,
+  className,
+}: {
+  typeKey: string | null | undefined;
+  className?: string;
+}) {
+  if (!typeKey || !isKey(typeKey)) return null;
+  return (
+    <span
+      aria-hidden
+      className={cn("size-2.5 shrink-0 rounded-[3px]", SQUARE[typeKey], className)}
+    />
+  );
+}
+
 /** Muted identity colour with a square marker; kept apart from status colours. */
 export function EventTypeTag({
   typeKey,

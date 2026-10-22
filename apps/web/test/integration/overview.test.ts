@@ -1,4 +1,4 @@
-import { obligation, permit, shift } from "@marktwerk/db/schema";
+import { eventPermit, obligation, permit, shift } from "@marktwerk/db/schema";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
@@ -223,7 +223,7 @@ describe("KPI strip", () => {
   });
 });
 
-describe("Nächstes Wochenende", () => {
+describe("Dieses Wochenende", () => {
   it("lists the weekend's events with all four health dimensions, the open effort and its blockers", async () => {
     const { weekend } = await getOverview(owner, TODAY);
     expect(weekend.saturday).toBe("2026-10-24");
@@ -242,6 +242,47 @@ describe("Nächstes Wochenende", () => {
       "Heutige Aufgabe",
       "Bald fällige Aufgabe",
     ]);
+  });
+
+  it("also holds up with the permits an event needs, with the event named", async () => {
+    const [p] = await db
+      .insert(permit)
+      .values({
+        category: "city",
+        permitType: "water",
+        title: "Wasser Wochenende",
+        season: 2026,
+        status: "not_started",
+        applyBy: "2026-11-10",
+      })
+      .returning();
+    await db.insert(eventPermit).values({ eventId: weekendEvent, permitId: p?.id as string });
+    const { weekend } = await getOverview(owner, TODAY);
+    const blocker = weekend.blockers.find((b) => b.title === "Wasser Wochenende");
+    expect(blocker).toMatchObject({
+      kind: "permit",
+      urgency: "upcoming",
+      eventNames: ["Wochenendmarkt"],
+    });
+    expect(blocker?.href).toBe(`/logbuch?genehmigung=${p?.id}`);
+  });
+
+  it("is the Saturday and Sunday of the current week from Monday to Sunday, also on Sunday evening", async () => {
+    const at = async (instant: string, today: string) => {
+      vi.setSystemTime(new Date(instant));
+      return (await getOverview(owner, today)).weekend;
+    };
+    // Monday morning after the weekend: the weekend that just ended is gone, the next one counts.
+    const monday = await at("2026-10-26T07:00:00+01:00", "2026-10-26");
+    expect([monday.saturday, monday.sunday]).toEqual(["2026-10-31", "2026-11-01"]);
+    expect(monday.rows).toEqual([]);
+    // Sunday evening: the running weekend still counts.
+    const sunday = await at("2026-10-25T22:30:00+01:00", "2026-10-25");
+    expect([sunday.saturday, sunday.sunday]).toEqual(["2026-10-24", "2026-10-25"]);
+    expect(sunday.rows.map((r) => r.name)).toEqual(["Wochenendmarkt"]);
+    // Monday of the same week: the coming Saturday and Sunday.
+    const week = await at("2026-10-19T08:00:00+02:00", "2026-10-19");
+    expect([week.saturday, week.sunday]).toEqual(["2026-10-24", "2026-10-25"]);
   });
 
   it("field users see their own weekend event only, without money", async () => {

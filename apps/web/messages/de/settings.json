@@ -38,7 +38,8 @@
         "defaultLocale": "Standardsprache",
         "defaultDueTime": "Standard-Fälligkeitszeit",
         "emailEnabled": "E-Mails versenden",
-        "dailyDigestEnabled": "Tägliche Übersicht"
+        "dailyDigestEnabled": "Tägliche Übersicht",
+        "permitHorizonDays": "Genehmigungen vorab anzeigen"
       },
       "hints": {
         "country": "Zweistellig, zum Beispiel DE.",
@@ -48,7 +49,8 @@
         "defaultLocale": "Sprache, die für neue Logins vorgesehen ist.",
         "defaultDueTime": "Uhrzeit für Aufgaben aus Vorlagen ohne eigene Fälligkeitszeit.",
         "emailEnabled": "Solange das ausgeschaltet ist, verschickt marktwerk keine E-Mails. Benachrichtigungen in der App funktionieren weiterhin.",
-        "dailyDigestEnabled": "Täglich eine Zusammenfassung dessen, was fällig ist, per E-Mail versenden."
+        "dailyDigestEnabled": "Täglich eine Zusammenfassung dessen, was fällig ist, per E-Mail versenden.",
+        "permitHorizonDays": "So viele Tage vor dem Antragsdatum erscheinen Genehmigungen in der Übersicht."
       },
       "bundeslaender": {
         "NW": "Nordrhein-Westfalen"
@@ -57,6 +59,7 @@
         "de": "Deutsch",
         "en": "English"
       },
+      "days": "{count, plural, one {# Tag} other {# Tage}}",
       "digestOn": "an",
       "digestOff": "aus",
       "time": "{time} Uhr",
@@ -74,7 +77,8 @@
         "postalCode": "Eine deutsche PLZ hat 5 Ziffern.",
         "phone": "Das ist keine gültige Telefonnummer.",
         "country": "Zwei Buchstaben, zum Beispiel DE.",
-        "defaultDueTime": "Bitte als Uhrzeit angeben, zum Beispiel 09:00."
+        "defaultDueTime": "Bitte als Uhrzeit angeben, zum Beispiel 09:00.",
+        "permitHorizonDays": "Bitte eine ganze Zahl von 7 bis 180 angeben."
       },
       "save": "Speichern",
       "saving": "Wird gespeichert …",

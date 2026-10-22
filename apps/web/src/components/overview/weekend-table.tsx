@@ -13,7 +13,7 @@ import type { Overview } from "@/server/queries/overview";
 
 const BLOCKER_ROWS = 6;
 
-/** "Nächstes Wochenende": one row per event with the four health dimensions and the open effort, plus what holds it up. */
+/** "Dieses Wochenende": one row per event with the four health dimensions and the open effort, plus what holds it up. */
 export async function WeekendTable({
   weekend,
   next,
@@ -86,7 +86,9 @@ export async function WeekendTable({
                 <TH className="hidden md:table-cell">{t("cols.tasks")}</TH>
                 {showTeam && <TH>{t("cols.team")}</TH>}
                 {showMoney && <TH className="hidden md:table-cell">{t("cols.money")}</TH>}
-                <TH className="hidden text-right md:table-cell">{t("cols.effort")}</TH>
+                {isModuleVisible("estimates") && (
+                  <TH className="hidden text-right md:table-cell">{t("cols.effort")}</TH>
+                )}
               </tr>
             </THead>
             <tbody>
@@ -145,11 +147,13 @@ export async function WeekendTable({
                       </TD>
                     )}
                     {showMoney && <TD className="hidden md:table-cell">{cell(r.health.money)}</TD>}
-                    <TD className="tabular hidden text-right text-muted-foreground md:table-cell">
-                      {weekend.effortMinutes[r.id]
-                        ? formatHours(weekend.effortMinutes[r.id] as number, locale)
-                        : t("effortNone")}
-                    </TD>
+                    {isModuleVisible("estimates") && (
+                      <TD className="tabular hidden text-right text-muted-foreground md:table-cell">
+                        {weekend.effortMinutes[r.id]
+                          ? formatHours(weekend.effortMinutes[r.id] as number, locale)
+                          : t("effortNone")}
+                      </TD>
+                    )}
                   </TR>
                 );
               })}
@@ -184,6 +188,11 @@ export async function WeekendTable({
                   ) : (
                     <span className="text-muted-foreground text-small">{item.meta}</span>
                   ))}
+                {item.kind === "permit" && weekend.rows.length > 1 && (
+                  <span className="text-muted-foreground text-small">
+                    {t("blockerFor", { events: item.eventNames.join(", ") })}
+                  </span>
+                )}
                 <span className="tabular text-muted-foreground text-small">
                   {formatDateShort(item.dueOn, locale)}
                 </span>

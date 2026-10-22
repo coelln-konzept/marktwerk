@@ -7,7 +7,7 @@
     },
     "kpi": {
       "label": "Kennzahlen",
-      "weekend": "Nächstes Wochenende",
+      "weekend": "Dieses Wochenende",
       "weekendHint": "{count, plural, one {Veranstaltung} other {Veranstaltungen}} · {inPlan} im Plan",
       "weekendHintNone": "{count, plural, one {Veranstaltung} other {Veranstaltungen}}",
       "drafts": "Entwürfe",
@@ -47,7 +47,7 @@
     },
     "due": {
       "title": "Heute fällig",
-      "subtitle": "nach Dringlichkeit: Überfällig · Heute · Diese Woche",
+      "subtitle": "nach Dringlichkeit: Überfällig · Heute · Diese Woche · Genehmigungen demnächst",
       "filters": "Filter",
       "filter": {
         "all": "Alle",
@@ -58,11 +58,12 @@
         "company": "Firma"
       },
       "emptyTitle": "Nichts fällig.",
-      "emptyHint": "Überfälliges, Heutiges und alles der nächsten 7 Tage aus Genehmigungen, Raten, Aufgaben, Stunden und Pflichten erscheint hier.",
+      "emptyHint": "Überfälliges, Heutiges und alles der nächsten 7 Tage aus Genehmigungen, Raten, Aufgaben, Stunden und Pflichten erscheint hier. Genehmigungen kommen früher dazu (einstellbar unter Einstellungen → Firma).",
       "groups": {
         "overdue": "Überfällig",
         "today": "Heute",
-        "soon": "Diese Woche"
+        "soon": "Diese Woche",
+        "upcoming": "Genehmigungen demnächst"
       },
       "emptyFilter": "Für diesen Filter ist nichts fällig.",
       "emptyFilterReset": "Alle anzeigen",
@@ -86,14 +87,16 @@
       "urgencyLabel": {
         "overdue": "Überfällig",
         "today": "Heute fällig",
-        "soon": "Bald fällig"
-      }
+        "soon": "Bald fällig",
+        "upcoming": "Demnächst fällig"
+      },
+      "eventCount": "{count, plural, one {# fällig} other {# fällig}}"
     },
     "weekend": {
-      "title": "Nächstes Wochenende",
+      "title": "Dieses Wochenende",
       "range": "{from}–{to} · {week}",
       "all": "Alle Veranstaltungen",
-      "caption": "Veranstaltungen am nächsten Wochenende",
+      "caption": "Veranstaltungen an diesem Wochenende",
       "cols": {
         "event": "Veranstaltung",
         "permits": "Genehmigungen",
@@ -102,7 +105,7 @@
         "money": "Geld",
         "effort": "Aufwand"
       },
-      "empty": "Am nächsten Wochenende ist nichts geplant.",
+      "empty": "An diesem Wochenende ist nichts geplant.",
       "emptyNext": "Nächste Veranstaltung: {name}, {date}.",
       "emptyNone": "Es sind keine weiteren Veranstaltungen angelegt.",
       "openEvent": "Veranstaltung ansehen",
@@ -110,7 +113,8 @@
       "legendNote": "Aufwand = geschätzte Zeit der offenen Aufgaben.",
       "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
       "blockersTitle": "Was das Wochenende aufhält",
-      "blockersHint": "Offene Posten dieser Veranstaltungen, dringendste zuerst.",
+      "blockersHint": "Offene Aufgaben und fehlende Genehmigungen dieser Veranstaltungen, dringendste zuerst.",
+      "blockerFor": "für {events}",
       "effortNone": "–"
     }
   }

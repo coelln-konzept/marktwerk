@@ -32,7 +32,7 @@ and this document differ, the prototype wins unless a decision says otherwise.
 
 ```
 marktwerk
-├── Übersicht                 ← start screen for everyone (KPIs, season, Heute fällig, Nächstes Wochenende)
+├── Übersicht                 ← start screen for everyone (KPIs, season, Heute fällig, Dieses Wochenende)
 ├── Kalender                  ← company-wide calendar with layers (events, deadlines, shifts, holidays)
 ├── Board                     ← tasks across events (kanban, nach Person, Arbeitslast)
 ├── Veranstaltungen           ← list · calendar · "Aus Vorlage erzeugen"
@@ -116,7 +116,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 
 | View | Route | Purpose |
 |---|---|---|
-| Übersicht | `/` | Start screen for everyone: KPI strip, season strip, Heute fällig, Nächstes Wochenende (below) |
+| Übersicht | `/` | Start screen for everyone: KPI strip, season strip, Heute fällig, Dieses Wochenende (below) |
 | Kalender | `/kalender` | Company-wide calendar with layers (below) |
 | Board | `/board` | Kanban across events, people rail, Nach Person, Arbeitslast toggle |
 | Aufgabe | drawer `?aufgabe=<id>` on `/board` and `/veranstaltungen/[id]/board` (M2; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity, status incl. "Wartet · Amt" (no comments, client decision 2026-10-22) |
@@ -144,7 +144,7 @@ leads nowhere.
 ### Übersicht (start screen, one for everyone)
 Top to bottom, no fixed master-detail layout:
 1. **Date + KW line** and greeting "Guten Morgen, <Vorname>".
-2. **KPI strip:** Fällig bis Sonntag · Überfällig · Geld überfällig · Nächstes Wochenende ("2 von 4 im Plan").
+2. **KPI strip:** Fällig bis Sonntag · Überfällig · Geld überfällig · Dieses Wochenende ("2 von 4 im Plan").
 3. **Season strip** (the owner's view of the year): "Saison 2026 · Mär–Nov · 46 Veranstaltungen" with counts per
    event type · 3.410 h geschätzter Aufwand · Platzteam 2.380 h Bedarf · 1.170 h Kapazität · hiring signal
    "≈ 3,1 Minijobber/Monat zusätzlich". Figures come from task estimates (M2) and contracts (M4); before that the strip
@@ -152,7 +152,7 @@ Top to bottom, no fixed master-detail layout:
 4. **Heute fällig:** groups Überfällig · Heute · Diese Woche; filter chips Alle · Geld · Genehmigungen · Stunden ·
    Aufgaben with counts; **one primary action per row** (Bezahlt, Erfassen, Erledigt, Öffnen); Space = Vorschau,
    row actions open the matching drawer.
-5. **Nächstes Wochenende:** table of the coming events with columns Genehmigungen · Aufgaben · Team · Geld · Aufwand,
+5. **Dieses Wochenende:** table of the coming events with columns Genehmigungen · Aufgaben · Team · Geld · Aufwand,
    each with health ● ▲ ■, plus a list **"Was das Wochenende aufhält"** (the blocking items, each linking to its drawer).
 
 ### Kalender (module)

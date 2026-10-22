@@ -238,6 +238,43 @@ export function CompanyForm({
 
           {text("defaultDueTime", { type: "time" })}
 
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${formId}-permitHorizonDays`}>{t("fields.permitHorizonDays")}</Label>
+            <Input
+              id={`${formId}-permitHorizonDays`}
+              type="number"
+              inputMode="numeric"
+              min={7}
+              max={180}
+              step={1}
+              value={Number.isNaN(values.permitHorizonDays) ? "" : values.permitHorizonDays}
+              onChange={(e) =>
+                set(
+                  "permitHorizonDays",
+                  e.target.value === "" ? Number.NaN : Number(e.target.value),
+                )
+              }
+              aria-invalid={errors.permitHorizonDays ? true : undefined}
+              aria-describedby={`${formId}-permitHorizonDays-${errors.permitHorizonDays ? "error" : "hint"}`}
+            />
+            {errors.permitHorizonDays ? (
+              <p
+                id={`${formId}-permitHorizonDays-error`}
+                role="alert"
+                className="text-small text-status-critical"
+              >
+                {errorText("permitHorizonDays")}
+              </p>
+            ) : (
+              <p
+                id={`${formId}-permitHorizonDays-hint`}
+                className="text-muted-foreground text-tiny"
+              >
+                {t("hints.permitHorizonDays")}
+              </p>
+            )}
+          </div>
+
           <div className="flex items-start gap-3 sm:col-span-2">
             <input
               id={`${formId}-email`}

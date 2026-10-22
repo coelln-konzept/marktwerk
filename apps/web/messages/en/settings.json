@@ -38,7 +38,8 @@
         "defaultLocale": "Default language",
         "defaultDueTime": "Default due time",
         "emailEnabled": "Send emails",
-        "dailyDigestEnabled": "Daily digest"
+        "dailyDigestEnabled": "Daily digest",
+        "permitHorizonDays": "Show permits in advance"
       },
       "hints": {
         "country": "Two letters, for example DE.",
@@ -48,7 +49,8 @@
         "defaultLocale": "Language intended for new logins.",
         "defaultDueTime": "Time of day for template tasks without their own due time.",
         "emailEnabled": "While this is off, marktwerk sends no emails. In-app notifications keep working.",
-        "dailyDigestEnabled": "Send a daily email summarising what is due."
+        "dailyDigestEnabled": "Send a daily email summarising what is due.",
+        "permitHorizonDays": "This many days before the apply-by date, permits appear in the Übersicht."
       },
       "bundeslaender": {
         "NW": "North Rhine-Westphalia"
@@ -57,6 +59,7 @@
         "de": "Deutsch",
         "en": "English"
       },
+      "days": "{count, plural, one {# day} other {# days}}",
       "digestOn": "on",
       "digestOff": "off",
       "time": "{time}",
@@ -74,7 +77,8 @@
         "postalCode": "A German postcode has 5 digits.",
         "phone": "That is not a valid phone number.",
         "country": "Two letters, for example DE.",
-        "defaultDueTime": "Please enter a time, for example 09:00."
+        "defaultDueTime": "Please enter a time, for example 09:00.",
+        "permitHorizonDays": "Please enter a whole number from 7 to 180."
       },
       "save": "Save",
       "saving": "Saving …",

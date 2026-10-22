@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { SnoozeMenu } from "@/components/task/snooze";
+import { EventTypeMarker } from "@/components/ui/event-type-tag";
 import { FilterChip, FilterChips } from "@/components/ui/filter-bar";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
@@ -19,6 +20,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateShort } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { hrefWith } from "@/lib/url";
+import { cn } from "@/lib/utils";
 import type { DueItem, DueKind, DueUrgency } from "@/server/queries/due";
 import type { OverviewDue } from "@/server/queries/overview";
 
@@ -30,10 +32,53 @@ const KIND_ICONS: Record<DueKind, LucideIcon> = {
   obligation: Truck,
 };
 
-const GROUPS: DueUrgency[] = ["overdue", "today", "soon"];
+const GROUPS: DueUrgency[] = ["overdue", "today", "soon", "upcoming"];
 
 /** Rows shown before "Alle anzeigen" (the list is long in a busy season). */
 export const DUE_PREVIEW_ROWS = 20;
+
+type Cluster = {
+  event: {
+    id: string;
+    name: string;
+    href: string;
+    typeKey: string | null;
+    startsOn: string | null;
+  } | null;
+  items: DueItem[];
+};
+
+/**
+ * Items of one urgency group, clustered by event in ranking order (an event appears where its first
+ * item ranks); items without an event stay single rows.
+ */
+function clusters(rows: DueItem[]): Cluster[] {
+  const out: Cluster[] = [];
+  const byEvent = new Map<string, Cluster>();
+  for (const item of rows) {
+    if (!item.eventId || !item.meta) {
+      out.push({ event: null, items: [item] });
+      continue;
+    }
+    let cluster = byEvent.get(item.eventId);
+    if (!cluster) {
+      cluster = {
+        event: {
+          id: item.eventId,
+          name: item.meta,
+          href: item.metaHref ?? `/veranstaltungen/${item.eventId}/board`,
+          typeKey: item.eventTypeKey ?? null,
+          startsOn: item.eventStartsOn ?? null,
+        },
+        items: [],
+      };
+      byEvent.set(item.eventId, cluster);
+      out.push(cluster);
+    }
+    cluster.items.push(item);
+  }
+  return out;
+}
 
 /**
  * "Heute fällig": every module's due items, ranked (overdue · today · this week; within a group permits >
@@ -71,6 +116,78 @@ export async function DueToday({
       ? t("relative.overdue", { n: -days })
       : t("relative.soon", { n: days });
   };
+
+  /** One due item; `nested` rows sit under their event's header and leave out the event name. */
+  function DueRow({ item, nested = false }: { item: DueItem; nested?: boolean }) {
+    const Icon = KIND_ICONS[item.kind];
+    const meta = nested ? null : item.meta;
+    const assignee =
+      item.assigneeName && isModuleVisible("team")
+        ? t("assignee", { name: item.assigneeName })
+        : null;
+    return (
+      <li
+        className={cn(
+          "flex flex-wrap items-center gap-x-3 gap-y-1 px-4 hover:bg-hover",
+          nested ? "py-1 pl-8" : "border-border-subtle border-b py-2 last:border-b-0",
+        )}
+      >
+        <span
+          title={t(`kind.${item.kind}`)}
+          className="grid size-7 shrink-0 place-items-center rounded-lg bg-status-neutral-bg text-foreground-2"
+        >
+          <Icon aria-hidden className="size-4" />
+          <span className="sr-only">{t(`kind.${item.kind}`)}</span>
+        </span>
+        <div className="min-w-0 flex-1">
+          <Link
+            href={item.href as never}
+            aria-label={t("openItem", { title: item.title })}
+            className="block truncate font-semibold hover:underline"
+          >
+            {item.title}
+          </Link>
+          {(meta || assignee) && (
+            <span className="block truncate text-muted-foreground text-small">
+              {meta && item.metaHref ? (
+                <Link href={item.metaHref as never} className="hover:underline">
+                  {meta}
+                </Link>
+              ) : (
+                meta
+              )}
+              {assignee && (
+                <>
+                  {meta && " · "}
+                  {assignee}
+                </>
+              )}
+            </span>
+          )}
+        </div>
+        <StatusBadge
+          tone={
+            item.urgency === "overdue" ? "critical" : item.urgency === "today" ? "warn" : "neutral"
+          }
+          icon={
+            item.urgency === "overdue"
+              ? OctagonAlert
+              : item.urgency === "today"
+                ? Clock
+                : CalendarCheck
+          }
+        >
+          <span className="sr-only">{t(`urgencyLabel.${item.urgency}`)}: </span>
+          <span className="tabular">
+            {formatDateShort(item.dueOn, locale)} · {relative(item)}
+          </span>
+        </StatusBadge>
+        {item.kind === "task" && canSnooze && (
+          <SnoozeMenu task={{ id: item.id, title: item.title, status: "todo" }} today={today} />
+        )}
+      </li>
+    );
+  }
 
   return (
     <Panel aria-labelledby="due-title">
@@ -126,81 +243,41 @@ export async function DueToday({
                   <span className="tabular font-medium normal-case">{total}</span>
                 </h3>
                 <ul className="m-0 flex list-none flex-col p-0">
-                  {rows.map((item) => {
-                    const Icon = KIND_ICONS[item.kind];
-                    return (
+                  {clusters(rows).map((cluster) =>
+                    cluster.event ? (
                       <li
-                        key={`${item.kind}-${item.id}`}
-                        className="flex flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-2 last:border-b-0 hover:bg-hover"
+                        key={`event-${cluster.event.id}`}
+                        className="border-border-subtle border-b"
                       >
-                        <span
-                          title={t(`kind.${item.kind}`)}
-                          className="grid size-7 shrink-0 place-items-center rounded-lg bg-status-neutral-bg text-foreground-2"
-                        >
-                          <Icon aria-hidden className="size-4" />
-                          <span className="sr-only">{t(`kind.${item.kind}`)}</span>
-                        </span>
-                        <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-body">
+                          <EventTypeMarker typeKey={cluster.event.typeKey} />
                           <Link
-                            href={item.href as never}
-                            aria-label={t("openItem", { title: item.title })}
-                            className="block truncate font-semibold hover:underline"
+                            href={cluster.event.href as never}
+                            className="truncate font-semibold hover:underline"
                           >
-                            {item.title}
+                            {cluster.event.name}
                           </Link>
-                          <span className="block truncate text-muted-foreground text-small">
-                            {item.meta && item.metaHref ? (
-                              <Link href={item.metaHref as never} className="hover:underline">
-                                {item.meta}
-                              </Link>
-                            ) : (
-                              item.meta
-                            )}
-                            {item.assigneeName && isModuleVisible("team") && (
-                              <>
-                                {item.meta && " · "}
-                                {t("assignee", { name: item.assigneeName })}
-                              </>
-                            )}
+                          {cluster.event.startsOn && (
+                            <span className="tabular text-muted-foreground">
+                              {formatDateShort(cluster.event.startsOn, locale)}
+                            </span>
+                          )}
+                          <span className="tabular text-muted-foreground">
+                            · {t("eventCount", { count: cluster.items.length })}
                           </span>
                         </div>
-                        <StatusBadge
-                          tone={
-                            item.urgency === "overdue"
-                              ? "critical"
-                              : item.urgency === "today"
-                                ? "warn"
-                                : "neutral"
-                          }
-                          icon={
-                            item.urgency === "overdue"
-                              ? OctagonAlert
-                              : item.urgency === "today"
-                                ? Clock
-                                : CalendarCheck
-                          }
-                        >
-                          <span className="sr-only">{t(`urgencyLabel.${item.urgency}`)}: </span>
-                          <span className="tabular">
-                            {formatDateShort(item.dueOn, locale)} · {relative(item)}
-                          </span>
-                        </StatusBadge>
-                        {item.kind === "task" && canSnooze && (
-                          <SnoozeMenu
-                            task={{ id: item.id, title: item.title, status: "todo" }}
-                            today={today}
-                          />
-                        )}
-                        <Link
-                          href={item.href as never}
-                          tabIndex={-1}
-                          className="inline-flex min-h-8 items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover"
-                        >
-                          {t("open")}
-                        </Link>
+                        <ul className="m-0 flex list-none flex-col p-0 pb-1.5">
+                          {cluster.items.map((item) => (
+                            <DueRow key={`${item.kind}-${item.id}`} item={item} nested />
+                          ))}
+                        </ul>
                       </li>
-                    );
-                  })}
+                    ) : (
+                      cluster.items.map((item) => (
+                        <DueRow key={`${item.kind}-${item.id}`} item={item} />
+                      ))
+                    ),
+                  )}
                 </ul>
               </section>
             );
