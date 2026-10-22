@@ -41,6 +41,16 @@
 | 2026-10-21 (session 2) | Start screen | **"Übersicht"** (`/`), one for everyone: KPI strip, season strip with hiring signal, Heute fällig, Nächstes Wochenende. **No fixed master-detail** screen. Task detail drawer and season strip restored |
 | 2026-10-21 (session 2) | Sidebar | **Orte and Kontakte: own sidebar entries** (Orte after Veranstaltungen, Kontakte after Händler). Routes `/orte`, `/orte/[id]`, `/kontakte`. The prototype's sidebar does not show them |
 | 2026-10-21 (session 2) | Platform / shortcuts | The office mainly uses **Windows**: shortcut hints show **Strg+K** (en: Ctrl+K), not ⌘K. Ctrl+K and ⌘K both open the command palette |
+| 2026-10-22 (client feedback) | Focus until Phase 4 | A **task/to-do monitoring panel for one main user**: Übersicht, events with their tasks, Kalender. **Team** (task allocation, duties, hours) is hidden until Phase 4 and **Finanzen/Geld** until later — UI hide only, data and services stay. No user-facing module switch yet (comes when more users join) |
+| 2026-10-22 (client feedback) | Vendor term | German UI says **Aussteller** (not Händler); route `/aussteller`. Code stays `vendor` |
+| 2026-10-22 (client feedback) | Email | **No email for now**: a master switch "E-Mails versenden" in company settings, off; the daily digest also honours its own switch. In-app notifications stay |
+| 2026-10-22 (client feedback) | Event links | An event is a bundle of to-dos: links to an event from Übersicht, Board, Kalender and Logbuch open its **Board** tab |
+| 2026-10-22 (client feedback) | Task comments, snooze | **No comments** on tasks (single user); **snooze** ("Zurückstellen") is needed: hides a task from Übersicht until a date without changing its due date |
+| 2026-10-22 (client feedback) | Permits on the Übersicht | Show up **well in advance**: configurable horizon, default **30 days** (was a fixed 7) |
+| 2026-10-22 (client feedback) | Presets and templates | Presets are the company's **real markets** with their venue built in (e.g. Flohmarkt Nippes); planning a market = pick a previous market, choose dates. **One master event template** ("Grundvorlage") with the basic tasks, edited in Einstellungen → Bibliothek; a brand-new market starts as a copy of it and then shows up in the list. Replaces the per-type templates |
+| 2026-10-22 (client feedback) | Event status on creation | New events start **geplant** (they go online before permits are in); when all required permits are granted the event becomes **bestätigt** automatically |
+| 2026-10-22 (client feedback) | Permits when creating events | **No permit notice** in the creation flow (applications usually go out after planning). An existing permit for that market shows in the event's Genehmigungen and counts as done |
+| 2026-10-22 (client feedback) | Postponed | Aussteller data-collection companion; weekly report email; finance; staff assignment and staff emails; website publishing |
 
 ## Open: product owner
 1. **Backup copy target:** what is the company's own server (NAS model, reachable from the internet/VPN?), for the
