@@ -87,7 +87,8 @@
         "overdue": "Overdue",
         "today": "Due today",
         "soon": "Due soon"
-      }
+      },
+      "eventCount": "{count, plural, one {# due} other {# due}}"
     },
     "weekend": {
       "title": "Next weekend",

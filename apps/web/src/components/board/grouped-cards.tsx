@@ -4,6 +4,7 @@ import { isFinishedStatus } from "@marktwerk/core";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
+import { EventTypeMarker } from "@/components/ui/event-type-tag";
 import { formatDateWithWeekday } from "@/lib/format";
 import { formatHours } from "@/lib/task-ui";
 import type { BoardTask } from "@/server/queries/tasks";
@@ -24,14 +25,23 @@ export function GroupedCards({
   const groups = useMemo(() => {
     const map = new Map<
       string,
-      { key: string; label: string; href?: string; first: string; cards: BoardTask[] }
+      {
+        key: string;
+        label: string;
+        href?: string;
+        typeKey?: string | null;
+        first: string;
+        cards: BoardTask[];
+      }
     >();
     for (const card of tasks) {
       if (isFinishedStatus(card.status)) continue;
       let key: string;
       let label: string;
       let href: string | undefined;
+      let typeKey: string | null = null;
       if (groupBy === "event") {
+        typeKey = card.eventTypeKey;
         key = card.eventId ?? "none";
         label = card.eventName ?? t("group.noEvent");
         href = card.eventId ? `/veranstaltungen/${card.eventId}/board` : undefined;
@@ -45,7 +55,14 @@ export function GroupedCards({
         key = card.dueOn;
         label = `${formatDateWithWeekday(card.dueOn, locale)}${card.dueOn === today ? ` · ${t("group.today")}` : ""}`;
       }
-      const group = map.get(key) ?? { key, label, href, first: card.dueOn ?? "9999", cards: [] };
+      const group = map.get(key) ?? {
+        key,
+        label,
+        href,
+        typeKey,
+        first: card.dueOn ?? "9999",
+        cards: [],
+      };
       if (card.dueOn && card.dueOn < group.first) group.first = card.dueOn;
       group.cards.push(card);
       map.set(key, group);
@@ -64,6 +81,7 @@ export function GroupedCards({
         return (
           <section key={group.key} aria-label={group.label} className="flex flex-col gap-2">
             <h3 className="flex items-center gap-2 font-semibold text-small">
+              <EventTypeMarker typeKey={group.typeKey} />
               {group.href ? (
                 <Link href={group.href as never} className="hover:underline">
                   {group.label}
@@ -82,7 +100,7 @@ export function GroupedCards({
             </h3>
             <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {group.cards.map((card) => (
-                <TaskCard key={card.id} task={card} />
+                <TaskCard key={card.id} task={card} hideEvent={groupBy === "event"} />
               ))}
             </ul>
           </section>

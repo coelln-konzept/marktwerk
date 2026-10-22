@@ -31,6 +31,7 @@ import {
   employmentContract,
   event,
   eventDuty,
+  eventType,
   staffMember,
   task,
   taskCheckItem,
@@ -78,6 +79,8 @@ export type BoardTask = {
   source: (typeof task.source.enumValues)[number];
   eventId: string | null;
   eventName: string | null;
+  /** Event type key (`flea`, …), for the colour marker. */
+  eventTypeKey: string | null;
   dueOn: string | null;
   estimateMinutes: number;
   assigneeId: string | null;
@@ -143,6 +146,7 @@ export async function listBoardTasks(
       source: task.source,
       eventId: task.eventId,
       eventName: event.name,
+      eventTypeKey: eventType.key,
       dueAt: task.dueAt,
       estimateMinutes: task.estimateMinutes,
       assigneeId: task.assigneeId,
@@ -163,6 +167,7 @@ export async function listBoardTasks(
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
+    .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
     .where(
       and(
@@ -193,6 +198,7 @@ export async function listBoardTasks(
     source: r.source,
     eventId: r.eventId,
     eventName: r.eventName,
+    eventTypeKey: r.eventTypeKey,
     dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
     estimateMinutes: r.estimateMinutes,
     assigneeId: r.assigneeId,
@@ -810,10 +816,13 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       dueAt: task.dueAt,
       eventId: task.eventId,
       eventName: event.name,
+      eventTypeKey: eventType.key,
+      eventStartsOn: event.startsOn,
       assigneeName: staffMember.displayName,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
+    .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
     .where(
       and(
@@ -843,6 +852,8 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       meta: r.eventName ?? undefined,
       metaHref: r.eventId ? `/veranstaltungen/${r.eventId}/board` : undefined,
       eventId: r.eventId,
+      eventTypeKey: r.eventTypeKey,
+      eventStartsOn: r.eventStartsOn,
       assigneeName: r.assigneeName,
     };
   });

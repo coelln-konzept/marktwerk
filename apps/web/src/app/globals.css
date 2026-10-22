@@ -25,21 +25,21 @@
   --radius: 0.5rem;
 
   /* Neutral, slightly warm base */
-  --background: light-dark(#f7f6f3, #141412);
+  --background: light-dark(#f1efea, #141412);
   --foreground: light-dark(#1c1b19, #edebe6);
   --foreground-2: light-dark(#55524c, #bab6ae);
-  --muted-foreground: light-dark(#6b675f, #a29d95);
-  --faint-foreground: light-dark(#8e8a82, #7f7a72);
+  --muted-foreground: light-dark(#5f5b54, #a29d95);
+  --faint-foreground: light-dark(#7f7b73, #7f7a72);
   --card: light-dark(#ffffff, #1d1c1a);
   --card-foreground: var(--foreground);
   --surface-2: light-dark(#fbfaf8, #232220);
-  --sunken: light-dark(#f0eeea, #191817);
+  --sunken: light-dark(#eae7e1, #191817);
   --popover: var(--card);
   --popover-foreground: var(--foreground);
-  --border: light-dark(#e6e3dd, #35332f);
-  --border-subtle: light-dark(#efede8, #2b2a27);
-  --input: light-dark(#d9d5ce, #46433e);
-  --hover: light-dark(#f3f1ec, #272623);
+  --border: light-dark(#dbd7cf, #35332f);
+  --border-subtle: light-dark(#e8e5df, #2b2a27);
+  --input: light-dark(#cfcac2, #46433e);
+  --hover: light-dark(#f1eee8, #272623);
   --selected: light-dark(#eaf3f3, #1c3437);
   --scrim: light-dark(rgb(28 27 25 / 0.32), rgb(0 0 0 / 0.55));
   --shadow-color: light-dark(rgb(28 27 25 / 0.14), rgb(0 0 0 / 0.5));

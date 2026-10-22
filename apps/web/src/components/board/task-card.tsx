@@ -34,7 +34,14 @@ const isFinished = (task: BoardTask) => task.status === "done" || task.status ==
  * grip lifts (Space), arrows move, Space drops, Esc cancels; on the card E ticks off, A opens the menu,
  * Enter opens the drawer.
  */
-export function TaskCard({ task }: { task: BoardTask }) {
+export function TaskCard({
+  task,
+  hideEvent = false,
+}: {
+  task: BoardTask;
+  /** The card sits under its event's heading (grouped by event), so the event line would repeat it. */
+  hideEvent?: boolean;
+}) {
   const t = useTranslations("board");
   const board = useBoard();
   const { actions, lift, canWrite } = board;
@@ -118,6 +125,7 @@ export function TaskCard({ task }: { task: BoardTask }) {
       <CardContent
         task={task}
         menu={<CardMenu task={task} open={menuOpen} onOpenChange={setMenuOpen} />}
+        hideEvent={hideEvent}
       />
     </li>
   );
@@ -141,7 +149,15 @@ export function CardPreview({ task }: { task: BoardTask }) {
   );
 }
 
-function CardContent({ task, menu }: { task: BoardTask; menu: ReactNode }) {
+function CardContent({
+  task,
+  menu,
+  hideEvent = false,
+}: {
+  task: BoardTask;
+  menu: ReactNode;
+  hideEvent?: boolean;
+}) {
   const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
   const locale = useLocale();
@@ -179,7 +195,7 @@ function CardContent({ task, menu }: { task: BoardTask; menu: ReactNode }) {
         {task.title}
       </Link>
 
-      {board.showEvent && task.eventName && (
+      {board.showEvent && !hideEvent && task.eventName && (
         <Link
           href={`/veranstaltungen/${task.eventId}/board` as never}
           draggable={false}

@@ -24,6 +24,10 @@ export type DueItem = {
   /** Where the meta text links to (e.g. the task's event board). */
   metaHref?: string;
   eventId?: string | null;
+  /** Event type key (`flea`, …) for the colour marker when items are grouped by event. */
+  eventTypeKey?: string | null;
+  /** First day of the event (`YYYY-MM-DD`). */
+  eventStartsOn?: string | null;
   assigneeName?: string | null;
 };
 

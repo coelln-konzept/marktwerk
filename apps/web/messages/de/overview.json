@@ -87,7 +87,8 @@
         "overdue": "Überfällig",
         "today": "Heute fällig",
         "soon": "Bald fällig"
-      }
+      },
+      "eventCount": "{count, plural, one {# fällig} other {# fällig}}"
     },
     "weekend": {
       "title": "Nächstes Wochenende",
