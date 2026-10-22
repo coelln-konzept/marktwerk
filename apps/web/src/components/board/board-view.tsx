@@ -9,6 +9,7 @@ import {
 import { Keyboard } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState } from "react";
+import { SnoozeDialog } from "@/components/task/snooze";
 import { Avatar } from "@/components/ui/avatar";
 import { Kbd } from "@/components/ui/kbd";
 import { COLUMN_ORDER, formatHours } from "@/lib/task-ui";
@@ -39,6 +40,9 @@ function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): 
         ? { ...t, assigneeId: patch.assigneeId, assigneeName: patch.assigneeName }
         : t,
     );
+  }
+  if (patch.kind === "snooze") {
+    return state.map((t) => (t.id === patch.id ? { ...t, snoozedUntil: patch.until } : t));
   }
   if (patch.kind === "status") {
     const finished = isFinishedStatus(patch.status);
@@ -110,6 +114,7 @@ export function BoardView(props: Props) {
   const [reasonFor, setReasonFor] = useState<{ task: BoardTask; status: TaskStatusKey } | null>(
     null,
   );
+  const [snoozeFor, setSnoozeFor] = useState<BoardTask | null>(null);
   const focusAfter = useRef<string | null>(null);
 
   const cardsOf = useCallback(
@@ -208,6 +213,8 @@ export function BoardView(props: Props) {
     [],
   );
 
+  const askSnoozeDate = useCallback((task: BoardTask) => setSnoozeFor(task), []);
+
   const value = useMemo(
     () => ({
       today,
@@ -223,6 +230,7 @@ export function BoardView(props: Props) {
       drop,
       cancelLift,
       askReason,
+      askSnoozeDate,
     }),
     [
       today,
@@ -238,6 +246,7 @@ export function BoardView(props: Props) {
       drop,
       cancelLift,
       askReason,
+      askSnoozeDate,
     ],
   );
 
@@ -356,6 +365,16 @@ export function BoardView(props: Props) {
         onSubmit={(reason) => {
           if (reasonFor) actions.setStatus(reasonFor.task, reasonFor.status, { reason });
           setReasonFor(null);
+        }}
+      />
+      <SnoozeDialog
+        open={snoozeFor !== null}
+        taskTitle={snoozeFor?.title ?? ""}
+        today={today}
+        onCancel={() => setSnoozeFor(null)}
+        onSubmit={(until) => {
+          if (snoozeFor) actions.snooze(snoozeFor, until);
+          setSnoozeFor(null);
         }}
       />
     </BoardProvider>

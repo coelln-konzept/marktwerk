@@ -13,6 +13,7 @@ import {
   findMentions,
   isIsoDate,
   isOpenStatus,
+  isValidSnoozeDate,
   mentionedText,
   missingEvidence,
   sortBetween,
@@ -96,6 +97,8 @@ type TaskState = {
   completedByStaffMemberId: string | null;
   assigneeId: string | null;
   assigneeOverridden: boolean;
+  /** `YYYY-MM-DD` (Berlin) the task is snoozed until, or null. */
+  snoozedUntil: string | null;
 };
 type StateKey = keyof TaskState;
 
@@ -109,6 +112,7 @@ const STATE_KEYS: StateKey[] = [
   "completedByStaffMemberId",
   "assigneeId",
   "assigneeOverridden",
+  "snoozedUntil",
 ];
 
 function stateOf(row: TaskRow): TaskState {
@@ -122,6 +126,7 @@ function stateOf(row: TaskRow): TaskState {
     completedByStaffMemberId: row.completedByStaffMemberId,
     assigneeId: row.assigneeId,
     assigneeOverridden: row.assigneeOverridden,
+    snoozedUntil: row.snoozedUntil,
   };
 }
 
@@ -230,14 +235,14 @@ function cleanEstimate(value: unknown): number {
 export type StatusInput = {
   /** Why it waits (`waiting_external`, `blocked`) or is skipped (required). */
   reason?: string | null;
-  /** A note given while marking done; saved as a comment and counts as the required note. */
+  /** An optional note given while marking done; kept in the audit entry and shown in the activity. */
   note?: string | null;
 };
 
 /**
  * The column changes for a status change, with all rules applied: skipping needs a reason, "done"
- * needs its evidence (note, ticked check items, photo/attachment documents on the task), leaving "done"
- * reopens the task. The optional completion note is returned so the caller can store it.
+ * needs its evidence (ticked check items, photo/attachment documents on the task; never a note), leaving
+ * "done" reopens the task. The optional completion note is returned so the caller can store it.
  */
 async function statusPatch(
   tx: Tx,
@@ -269,10 +274,6 @@ async function statusPatch(
       .select({ openItems: count() })
       .from(taskCheckItem)
       .where(and(eq(taskCheckItem.taskId, row.id), eq(taskCheckItem.done, false)));
-    const [{ comments } = { comments: 0 }] = await tx
-      .select({ comments: count() })
-      .from(taskComment)
-      .where(and(eq(taskComment.taskId, row.id), isNull(taskComment.archivedAt)));
     // Photo and attachment are live documents on the task: kind "photo" = photo, any other kind = attachment.
     const files =
       row.requiresPhoto || row.requiresAttachment
@@ -282,10 +283,8 @@ async function statusPatch(
             .where(and(eq(document.taskId, row.id), isNull(document.archivedAt)))
         : [];
     const missing = missingEvidence({
-      requiresNote: row.requiresNote,
       requiresPhoto: row.requiresPhoto,
       requiresAttachment: row.requiresAttachment,
-      hasNote: note !== null || comments > 0,
       openCheckItems: openItems,
       ...fileEvidenceOf(files.map((f) => f.kind)),
     });
@@ -326,13 +325,12 @@ export async function setTaskStatus(
     if (diff.keys.length === 0) return { changed: false, auditId: null, from: row.status };
 
     await tx.update(task).set(columnsOf(patch)).where(eq(task.id, row.id));
-    if (note) await insertComment(tx, actor, row, note);
     const auditId = await writeAudit(tx, actor, "task.status", row.id, {
       from: row.status,
       to,
       before: diff.before,
       after: diff.after,
-      ...(note ? { note: true } : {}),
+      ...(note ? { note } : {}),
     });
     return { changed: true, auditId, from: row.status };
   });
@@ -422,11 +420,11 @@ export async function moveTask(
     if (diff.keys.length === 0) return { changed: false, auditId: null, column };
 
     await tx.update(task).set(columnsOf(patch)).where(eq(task.id, row.id));
-    if (note) await insertComment(tx, actor, row, note);
     const auditId = await writeAudit(tx, actor, "task.move", row.id, {
       column,
       before: diff.before,
       after: diff.after,
+      ...(note ? { note } : {}),
     });
     return { changed: true, auditId, column };
   });
@@ -543,9 +541,61 @@ export async function assignTask(
 const assignedKey = (taskId: string, auditId: string) => `task:${taskId}:assigned:${auditId}`;
 
 // ---------------------------------------------------------------------------------------------
+// snooze
+
+/**
+ * Snoozes ("Zurückstellen") an open task until `until` (`YYYY-MM-DD`, Berlin, after today): it drops out of
+ * the due lists, KPIs, reminders and the digest and is back on that date. The due date is not touched.
+ * Snoozing an already snoozed task moves the date.
+ */
+export async function snoozeTask(
+  actor: Actor,
+  taskId: string,
+  until: string,
+  at?: TaskClock,
+): Promise<TaskChange & { until: string }> {
+  need(actor, "write");
+  const { today } = clock(at);
+  if (!isValidSnoozeDate(until, today)) throw new TaskInputError("invalid_input");
+  return db.transaction(async (tx) => {
+    const row = await loadTask(tx, actor, taskId);
+    if (!isOpenStatus(row.status)) throw new TaskInputError("invalid_state");
+    if (row.snoozedUntil === until) return { changed: false, auditId: null, until };
+    const before = stateOf(row);
+    const after = { ...before, snoozedUntil: until };
+    const diff = stateDiff(before, after);
+    await tx.update(task).set({ snoozedUntil: until }).where(eq(task.id, row.id));
+    const auditId = await writeAudit(tx, actor, "task.snooze", row.id, {
+      until,
+      before: diff.before,
+      after: diff.after,
+    });
+    return { changed: true, auditId, until };
+  });
+}
+
+/** Ends the snooze early ("Zurückstellung aufheben"). */
+export async function unsnoozeTask(actor: Actor, taskId: string): Promise<TaskChange> {
+  need(actor, "write");
+  return db.transaction(async (tx) => {
+    const row = await loadTask(tx, actor, taskId);
+    if (row.snoozedUntil === null) return { changed: false, auditId: null };
+    const before = stateOf(row);
+    const after = { ...before, snoozedUntil: null };
+    const diff = stateDiff(before, after);
+    await tx.update(task).set({ snoozedUntil: null }).where(eq(task.id, row.id));
+    const auditId = await writeAudit(tx, actor, "task.unsnooze", row.id, {
+      before: diff.before,
+      after: diff.after,
+    });
+    return { changed: true, auditId };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
 // undo
 
-const UNDOABLE = ["task.move", "task.assign", "task.status"];
+const UNDOABLE = ["task.move", "task.assign", "task.status", "task.snooze", "task.unsnooze"];
 
 /**
  * Undo toast: reverts one of the actor's own moves, assignments or status changes, but only while the
@@ -767,6 +817,9 @@ export async function setCheckItemDone(
 
 // ---------------------------------------------------------------------------------------------
 // comments
+//
+// No UI offers commenting any more (client decision 2026-10-22). The service stays for the existing
+// `task_comment` data and the integration tests; a completion note lives in the audit entry instead.
 
 /** Stores a comment, resolves its @mentions and notifies the mentioned people (not the author). */
 async function insertComment(

@@ -34,7 +34,6 @@ import {
   staffMember,
   task,
   taskCheckItem,
-  taskComment,
   user,
 } from "@marktwerk/db/schema";
 import {
@@ -47,6 +46,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  lte,
   ne,
   or,
   type SQL,
@@ -60,6 +60,10 @@ import type { CalendarItem, DueItem } from "./due";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const OPEN = [...OPEN_STATUSES];
+
+/** Not snoozed on `today`: no snooze date, or the date has come (a snoozed task is back on its date). */
+const notSnoozed = (today: string): SQL =>
+  or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)) as SQL;
 
 // ---------------------------------------------------------------------------------------------
 // board
@@ -91,6 +95,8 @@ export type BoardTask = {
   requiresNote: boolean;
   requiresPhoto: boolean;
   requiresAttachment: boolean;
+  /** `YYYY-MM-DD` the card is snoozed until (still in the future), else null. */
+  snoozedUntil: string | null;
 };
 
 export type BoardScope = {
@@ -151,6 +157,7 @@ export async function listBoardTasks(
       requiresNote: task.requiresNote,
       requiresPhoto: task.requiresPhoto,
       requiresAttachment: task.requiresAttachment,
+      snoozedUntil: task.snoozedUntil,
       checkTotal,
       checkDone,
     })
@@ -201,6 +208,7 @@ export async function listBoardTasks(
     requiresNote: r.requiresNote,
     requiresPhoto: r.requiresPhoto,
     requiresAttachment: r.requiresAttachment,
+    snoozedUntil: r.snoozedUntil && r.snoozedUntil > today ? r.snoozedUntil : null,
     sortKey: r,
   }));
   cards.sort((a, b) => compareCards(a.sortKey, b.sortKey));
@@ -635,19 +643,20 @@ export type TaskDetail = {
   documents: DocumentRow[];
   hasPhoto: boolean;
   hasAttachment: boolean;
-  comments: {
-    id: string;
-    body: string;
-    at: string;
-    authorName: string | null;
-    mentioned: string[];
-  }[];
+  /** `YYYY-MM-DD` the task is snoozed until (still in the future), else null. */
+  snoozedUntil: string | null;
+  /** The optional note given when the task was marked done (from the audit entry), else null. */
+  completionNote: string | null;
   activity: { id: string; action: string; at: string; actorName: string | null; diff: unknown }[];
   link: string;
 };
 
-/** One task with check items, comments and activity (its audit entries), or null if the actor may not see it. */
-export async function getTaskDetail(actor: Actor, taskId: string): Promise<TaskDetail | null> {
+/** One task with check items and activity (its audit entries), or null if the actor may not see it. */
+export async function getTaskDetail(
+  actor: Actor,
+  taskId: string,
+  today: string = berlinDay(new Date()),
+): Promise<TaskDetail | null> {
   if (!UUID.test(taskId)) return null;
   const assignee = db
     .select({ id: staffMember.id, name: staffMember.displayName })
@@ -669,26 +678,12 @@ export async function getTaskDetail(actor: Actor, taskId: string): Promise<TaskD
   if (!row) return null;
   const t = row.t;
 
-  const [items, comments, activity, completedBy, documents] = await Promise.all([
+  const [items, activity, completedBy, documents] = await Promise.all([
     db
       .select({ id: taskCheckItem.id, title: taskCheckItem.title, done: taskCheckItem.done })
       .from(taskCheckItem)
       .where(eq(taskCheckItem.taskId, taskId))
       .orderBy(asc(taskCheckItem.sort), asc(taskCheckItem.createdAt)),
-    db
-      .select({
-        id: taskComment.id,
-        body: taskComment.body,
-        at: taskComment.createdAt,
-        authorStaff: staffMember.displayName,
-        authorUser: user.name,
-        mentioned: taskComment.mentionedStaffMemberIds,
-      })
-      .from(taskComment)
-      .leftJoin(staffMember, eq(staffMember.id, taskComment.authorStaffMemberId))
-      .leftJoin(user, eq(user.id, taskComment.authorUserId))
-      .where(and(eq(taskComment.taskId, taskId), isNull(taskComment.archivedAt)))
-      .orderBy(asc(taskComment.createdAt)),
     db
       .select({
         id: auditLog.id,
@@ -713,18 +708,13 @@ export async function getTaskDetail(actor: Actor, taskId: string): Promise<TaskD
   const files = documents.get(taskId) ?? [];
   const evidence = fileEvidenceOf(files.map((f) => f.kind));
 
-  // names for @mentions in comments
-  const mentionIds = [...new Set(comments.flatMap((c) => c.mentioned))];
-  const names = mentionIds.length
-    ? new Map(
-        (
-          await db
-            .select({ id: staffMember.id, name: staffMember.displayName })
-            .from(staffMember)
-            .where(inArray(staffMember.id, mentionIds))
-        ).map((s) => [s.id, s.name]),
-      )
-    : new Map<string, string>();
+  // The completion note sits on the audit entry that made the task done (newest first).
+  const completionNote =
+    t.status === "done"
+      ? (activity
+          .map((a) => a.diff as { note?: unknown; after?: { status?: string } } | null)
+          .find((d) => d?.after?.status === "done" && typeof d.note === "string")?.note ?? null)
+      : null;
 
   return {
     id: t.id,
@@ -755,13 +745,8 @@ export async function getTaskDetail(actor: Actor, taskId: string): Promise<TaskD
     documents: files,
     hasPhoto: evidence.hasPhoto,
     hasAttachment: evidence.hasAttachment,
-    comments: comments.map((c) => ({
-      id: c.id,
-      body: c.body,
-      at: c.at.toISOString(),
-      authorName: c.authorStaff ?? c.authorUser,
-      mentioned: c.mentioned.map((id) => names.get(id)).filter((n): n is string => !!n),
-    })),
+    snoozedUntil: t.snoozedUntil && t.snoozedUntil > today ? t.snoozedUntil : null,
+    completionNote: typeof completionNote === "string" ? completionNote : null,
     activity: activity.map((a) => ({ ...a, at: a.at.toISOString() })),
     link: taskLink(t.id, t.eventId),
   };
@@ -794,7 +779,7 @@ export async function openTaskCounts(
       overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart}))::int`,
     })
     .from(task)
-    .where(and(deadlineScope(actor), inArray(task.status, OPEN)));
+    .where(and(deadlineScope(actor), inArray(task.status, OPEN), notSnoozed(today)));
   return { open: row?.open ?? 0, overdue: row?.overdue ?? 0 };
 }
 
@@ -834,6 +819,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       and(
         deadlineScope(actor),
         inArray(task.status, OPEN),
+        notSnoozed(today),
         isNotNull(task.dueAt),
         lt(task.dueAt, until),
       ),
@@ -882,6 +868,7 @@ export async function calendarItems(
       and(
         deadlineScope(actor, mineOnly),
         inArray(task.status, OPEN),
+        notSnoozed(today),
         isNotNull(task.dueAt),
         gte(task.dueAt, start),
         lt(task.dueAt, end),

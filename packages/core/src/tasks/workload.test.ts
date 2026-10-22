@@ -87,20 +87,15 @@ describe("hiringSignal", () => {
 
 describe("missingEvidence", () => {
   const base = {
-    requiresNote: false,
     requiresPhoto: false,
     requiresAttachment: false,
-    hasNote: false,
     openCheckItems: 0,
   };
-  it("needs a note when required and open check items to be ticked", () => {
+  it("needs open check items to be ticked; a note is never required", () => {
     expect(missingEvidence(base)).toEqual([]);
-    expect(missingEvidence({ ...base, requiresNote: true })).toEqual(["note"]);
-    expect(missingEvidence({ ...base, requiresNote: true, hasNote: true })).toEqual([]);
-    expect(missingEvidence({ ...base, requiresNote: true, openCheckItems: 2 })).toEqual([
-      "note",
-      "check_items",
-    ]);
+    expect(missingEvidence({ ...base, openCheckItems: 2 })).toEqual(["check_items"]);
+    // a template item that asks for a note (requiresNote) does not block completion any more
+    expect(missingEvidence({ ...base, requiresNote: true } as typeof base)).toEqual([]);
   });
   it("blocks on a missing photo or attachment and is satisfied by the matching document", () => {
     const input = { ...base, requiresPhoto: true, requiresAttachment: true };

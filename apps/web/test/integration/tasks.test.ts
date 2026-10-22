@@ -12,8 +12,10 @@ import {
   setCheckItemDone,
   setEffortFeedback,
   setTaskStatus,
+  snoozeTask,
   TaskInputError,
   undoTaskChange,
+  unsnoozeTask,
   updateTask,
 } from "@/server/services/tasks";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -174,7 +176,7 @@ describe("moveTask", () => {
       title: "A",
       eventId,
       dueAt: dueOn("2026-10-21"),
-      requiresNote: true,
+      requiresPhoto: true,
     });
     expect(await code(moveTask(owner, t.id, "done", { index: 0 }, { eventId }, clock))).toBe(
       "evidence_missing",
@@ -305,20 +307,41 @@ describe("setTaskStatus", () => {
     expect(row.completedAt).not.toBeNull();
   });
 
-  it("enforces a required note: a note given now (saved as a comment) or an earlier comment", async () => {
+  it("completes a task that asks for a note without any note", async () => {
     const t = await insertTask({ title: "A", eventId, requiresNote: true });
-    expect(await code(setTaskStatus(owner, t.id, "done", {}, clock))).toBe("evidence_missing");
-    expect(await code(setTaskStatus(owner, t.id, "done", { note: "  " }, clock))).toBe(
-      "evidence_missing",
-    );
-    await setTaskStatus(owner, t.id, "done", { note: "Schilder stehen, Foto im Chat" }, clock);
-    const comments = await db.select().from(taskComment).where(eq(taskComment.taskId, t.id));
-    expect(comments.map((c) => c.body)).toEqual(["Schilder stehen, Foto im Chat"]);
+    await setTaskStatus(owner, t.id, "done", {}, clock);
+    expect((await getTask(t.id)).status).toBe("done");
+    const [entry] = await audits("task.status");
+    expect(entry?.diff).not.toHaveProperty("note");
 
     const u = await insertTask({ title: "B", eventId, requiresNote: true });
-    await addComment(owner, u.id, "Läuft");
-    await setTaskStatus(owner, u.id, "done", {}, clock);
+    await setTaskStatus(owner, u.id, "done", { note: "  " }, clock);
     expect((await getTask(u.id)).status).toBe("done");
+    const moved = await insertTask({
+      title: "C",
+      eventId,
+      dueAt: dueOn("2026-10-21"),
+      requiresNote: true,
+    });
+    await moveTask(owner, moved.id, "done", { index: 0 }, { eventId }, clock);
+    expect((await getTask(moved.id)).status).toBe("done");
+  });
+
+  it("keeps an optional completion note in the audit entry, not as a comment", async () => {
+    const t = await insertTask({ title: "A", eventId, requiresNote: true });
+    await setTaskStatus(owner, t.id, "done", { note: "  Schilder stehen, Foto im Chat " }, clock);
+    const entries = await db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.entityId, t.id), eq(auditLog.action, "task.status")));
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.diff).toMatchObject({
+      to: "done",
+      after: { status: "done" },
+      note: "Schilder stehen, Foto im Chat",
+    });
+    expect(await db.select().from(taskComment).where(eq(taskComment.taskId, t.id))).toHaveLength(0);
+    expect(await notifications("mentioned")).toHaveLength(0);
   });
 
   it("reports which evidence is missing, and requires every check item", async () => {
@@ -330,7 +353,7 @@ describe("setTaskStatus", () => {
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(TaskInputError);
-      expect((error as TaskInputError).detail).toEqual(["note", "check_items"]);
+      expect((error as TaskInputError).detail).toEqual(["check_items"]);
     }
     await setCheckItemDone(owner, t.id, item.id, true, clock);
     const open = await db
@@ -338,8 +361,8 @@ describe("setTaskStatus", () => {
       .from(taskCheckItem)
       .where(and(eq(taskCheckItem.taskId, t.id), eq(taskCheckItem.done, false)));
     for (const o of open) await setCheckItemDone(owner, t.id, o.id, true, clock);
-    expect(await code(setTaskStatus(owner, t.id, "done", {}, clock))).toBe("evidence_missing"); // note
-    await setTaskStatus(owner, t.id, "done", { note: "ok" }, clock);
+    // the template asks for a note, but a note never blocks completion
+    await setTaskStatus(owner, t.id, "done", {}, clock);
     expect((await getTask(t.id)).status).toBe("done");
   });
 
@@ -525,6 +548,94 @@ describe("createTask", () => {
         createTask(owner, { title: "A", assigneeId: "00000000-0000-4000-8000-000000000000" }),
       ),
     ).toBe("invalid_staff");
+  });
+});
+
+describe("snoozeTask", () => {
+  it("sets the date, leaves the due date alone and writes an audit entry", async () => {
+    const t = await insertTask({ title: "A", eventId, dueAt: dueOn("2026-10-21") });
+    const result = await snoozeTask(office, t.id, "2026-10-26", clock);
+    expect(result).toMatchObject({ changed: true, until: "2026-10-26" });
+    const row = await getTask(t.id);
+    expect(row.snoozedUntil).toBe("2026-10-26");
+    expect(row.dueAt?.toISOString()).toBe(dueOn("2026-10-21").toISOString());
+    expect(row.dueOverridden).toBe(false);
+
+    const [entry] = await audits("task.snooze");
+    expect(entry).toMatchObject({ id: result.auditId, entityId: t.id, actorId: office.id });
+    expect(entry?.diff).toMatchObject({
+      until: "2026-10-26",
+      before: { snoozedUntil: null },
+      after: { snoozedUntil: "2026-10-26" },
+    });
+  });
+
+  it("moves an existing snooze, and does nothing for the same date", async () => {
+    const t = await insertTask({ title: "A", eventId });
+    await snoozeTask(owner, t.id, "2026-10-26", clock);
+    expect(await snoozeTask(owner, t.id, "2026-10-26", clock)).toMatchObject({
+      changed: false,
+      auditId: null,
+    });
+    await snoozeTask(owner, t.id, "2026-11-02", clock);
+    expect((await getTask(t.id)).snoozedUntil).toBe("2026-11-02");
+    expect(await audits("task.snooze")).toHaveLength(2);
+  });
+
+  it("needs a real date after today", async () => {
+    const t = await insertTask({ title: "A", eventId });
+    for (const bad of [TODAY, "2026-10-20", "2026-02-30", "morgen", "", "2026-10-26T00:00"]) {
+      expect(await code(snoozeTask(owner, t.id, bad, clock))).toBe("invalid_input");
+    }
+    expect(await code(snoozeTask(owner, t.id, null as never, clock))).toBe("invalid_input");
+    expect((await getTask(t.id)).snoozedUntil).toBeNull();
+    expect(await audits("task.snooze")).toHaveLength(0);
+  });
+
+  it("only snoozes open tasks the actor can see", async () => {
+    const done = await insertTask({
+      title: "Fertig",
+      eventId,
+      status: "done",
+      completedAt: new Date(),
+    });
+    const cancelled = await insertTask({ title: "Weg", eventId, status: "cancelled" });
+    expect(await code(snoozeTask(owner, done.id, "2026-10-26", clock))).toBe("invalid_state");
+    expect(await code(snoozeTask(owner, cancelled.id, "2026-10-26", clock))).toBe("invalid_state");
+    expect(await code(snoozeTask(owner, "nope", "2026-10-26", clock))).toBe("not_found");
+    expect(
+      await code(snoozeTask(owner, "00000000-0000-4000-8000-000000000000", "2026-10-26", clock)),
+    ).toBe("not_found");
+  });
+
+  it("unsnoozes (with an audit entry) and ignores a task that is not snoozed", async () => {
+    const t = await insertTask({ title: "A", eventId });
+    expect(await unsnoozeTask(owner, t.id)).toEqual({ changed: false, auditId: null });
+    await snoozeTask(owner, t.id, "2026-10-26", clock);
+    const result = await unsnoozeTask(owner, t.id);
+    expect(result.changed).toBe(true);
+    expect((await getTask(t.id)).snoozedUntil).toBeNull();
+    const [entry] = await audits("task.unsnooze");
+    expect(entry).toMatchObject({ id: result.auditId, entityId: t.id });
+    expect(entry?.diff).toMatchObject({
+      before: { snoozedUntil: "2026-10-26" },
+      after: { snoozedUntil: null },
+    });
+  });
+
+  it("can be undone from the toast, as long as nobody changed the date since", async () => {
+    const t = await insertTask({ title: "A", eventId });
+    const snoozed = await snoozeTask(owner, t.id, "2026-10-26", clock);
+    await undoTaskChange(owner, snoozed.auditId as string);
+    expect((await getTask(t.id)).snoozedUntil).toBeNull();
+
+    const again = await snoozeTask(owner, t.id, "2026-10-26", clock);
+    const ended = await unsnoozeTask(owner, t.id);
+    await undoTaskChange(owner, ended.auditId as string);
+    expect((await getTask(t.id)).snoozedUntil).toBe("2026-10-26");
+
+    await snoozeTask(owner, t.id, "2026-11-02", clock);
+    expect(await code(undoTaskChange(owner, again.auditId as string))).toBe("conflict");
   });
 });
 

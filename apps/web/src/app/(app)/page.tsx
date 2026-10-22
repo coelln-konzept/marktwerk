@@ -1,4 +1,4 @@
-import { isDueFilter } from "@marktwerk/core";
+import { can, isDueFilter } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventVorschau } from "@/components/events/event-vorschau";
@@ -69,6 +69,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         showAll={param(sp.alle) === "1"}
         today={today}
         query={sp}
+        canSnooze={can(actor.role, "task", "write")}
       />
       <WeekendTable
         weekend={overview.weekend}

@@ -46,15 +46,11 @@
     "checks": "Checklist",
     "evidence": {
       "title": "Evidence",
-      "note": "Note",
       "photo": "Photo",
       "attachment": "Attachment",
       "check_items": "tick off the whole checklist",
       "missing": "missing",
       "given": "given",
-      "noteLabel": "Note for completing",
-      "noteNeeded": "This task needs a note.",
-      "noteHint": "Saved as a comment when you complete the task.",
       "addPhoto": "Add photo",
       "addAttachment": "Add attachment"
     },
@@ -144,20 +140,6 @@
       "shorter": "Shorter",
       "saved": "Feedback saved"
     },
-    "comments": {
-      "title": "Comments · {count}",
-      "empty": "No comments yet.",
-      "someone": "Someone",
-      "label": "Write a comment",
-      "placeholder": "Write a comment. Use @ to mention someone.",
-      "mentionList": "People",
-      "suggestions": "{count, plural, one {# suggestion. Arrow keys choose, Enter accepts.} other {# suggestions. Arrow keys choose, Enter accepts.}}",
-      "hint": "Ctrl+Enter sends",
-      "send": "Send",
-      "sent": "Comment saved",
-      "sentMentioned": "{count, plural, one {Comment saved, # person notified} other {Comment saved, # people notified}}",
-      "failed": "The comment could not be saved."
-    },
     "activity": {
       "title": "Activity",
       "empty": "No activity yet.",
@@ -178,7 +160,29 @@
       "comment": "{name} commented.",
       "effort": "{name} rated the effort.",
       "undo": "{name} undid a change.",
-      "other": "{name}: {action}"
+      "other": "{name}: {action}",
+      "snooze": "{name} snoozed the task until {date}.",
+      "unsnooze": "{name} ended the snooze.",
+      "note": "Note: {note}"
+    },
+    "snooze": {
+      "title": "Snooze",
+      "tomorrow": "Tomorrow",
+      "nextWeek": "Next week",
+      "pickDate": "Pick a date …",
+      "clear": "End snooze",
+      "until": "Snoozed until {date}",
+      "actions": "Snooze “{title}”",
+      "dialogTitle": "Snooze task",
+      "dateLabel": "Snoozed until",
+      "hint": "Until then the task stays out of due lists, figures and reminders. The due date stays as it is.",
+      "confirm": "Snooze",
+      "cancel": "Cancel"
+    },
+    "completionNote": {
+      "label": "Note when completing (optional)",
+      "hint": "Kept in the task's activity.",
+      "title": "Note"
     }
   }
 }

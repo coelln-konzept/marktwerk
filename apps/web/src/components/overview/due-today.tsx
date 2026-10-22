@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { SnoozeMenu } from "@/components/task/snooze";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -44,6 +45,7 @@ export async function DueToday({
   showAll,
   today,
   query,
+  canSnooze,
 }: {
   due: OverviewDue;
   filter: DueFilter;
@@ -51,6 +53,8 @@ export async function DueToday({
   today: string;
   /** Current search params, so chips keep e.g. an open Vorschau. */
   query: Record<string, string | string[] | undefined>;
+  /** May snooze tasks (`task:write`). */
+  canSnooze: boolean;
 }) {
   const t = await getTranslations("overview.due");
   const locale = await getLocale();
@@ -182,6 +186,12 @@ export async function DueToday({
                             {formatDateShort(item.dueOn, locale)} · {relative(item)}
                           </span>
                         </StatusBadge>
+                        {item.kind === "task" && canSnooze && (
+                          <SnoozeMenu
+                            task={{ id: item.id, title: item.title, status: "todo" }}
+                            today={today}
+                          />
+                        )}
                         <Link
                           href={item.href as never}
                           tabIndex={-1}

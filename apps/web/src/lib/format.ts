@@ -30,6 +30,12 @@ export function formatDateShort(date: string, locale: string): string {
   return `${weekday} ${dayMonth}`;
 }
 
+/** Sa, 16.05. (the "Zurückgestellt bis …" label) */
+export function formatDateWeekdayDay(date: string, locale: string): string {
+  const weekday = parts(date, locale, { weekday: "short" }).replace(/\.$/, "");
+  return `${weekday}, ${parts(date, locale, { day: "2-digit", month: "2-digit" })}`;
+}
+
 /** Sa 16.05.2026 */
 export function formatDateWithWeekday(date: string, locale: string): string {
   const weekday = parts(date, locale, { weekday: "short" }).replace(/\.$/, "");

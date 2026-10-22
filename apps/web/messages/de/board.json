@@ -127,7 +127,9 @@
       "status": "„{title}“: {status}",
       "reverted": "Rückgängig gemacht",
       "undo": "Rückgängig",
-      "open": "Öffnen"
+      "open": "Öffnen",
+      "snoozed": "„{title}“ zurückgestellt bis {date}",
+      "unsnoozed": "Zurückstellung von „{title}“ aufgehoben"
     },
     "errors": {
       "generic": "Das hat nicht geklappt. Bitte versuche es noch einmal.",

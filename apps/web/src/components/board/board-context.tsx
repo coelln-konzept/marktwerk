@@ -32,6 +32,8 @@ export type BoardContextValue = {
   cancelLift: () => void;
   /** Statuses that need a reason open a small dialog first. */
   askReason: (task: BoardTask, status: TaskStatusKey) => void;
+  /** "Zurückstellen › Datum wählen …" opens a small date dialog. */
+  askSnoozeDate: (task: BoardTask) => void;
 };
 
 const BoardContext = createContext<BoardContextValue | null>(null);

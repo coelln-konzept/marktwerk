@@ -1,12 +1,12 @@
 "use client";
 
 import {
+  AlarmClockOff,
   Camera,
   CircleCheck,
   Clock,
   GripVertical,
   ListChecks,
-  NotebookPen,
   Paperclip,
   Undo2,
   UserRound,
@@ -16,6 +16,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { RolloverBadge } from "@/components/ui/status-badge";
+import { formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
@@ -222,6 +223,12 @@ function CardContent({ task, menu }: { task: BoardTask; menu: ReactNode }) {
           status={task.status}
           completedOn={task.completedOn}
         />
+        {task.snoozedUntil && !finished && (
+          <span className="tabular inline-flex items-center gap-1 rounded-sm bg-sunken px-1.5 py-0.5 text-muted-foreground text-tiny">
+            <AlarmClockOff aria-hidden className="size-3.5" />
+            {tTasks("snooze.until", { date: formatDateWeekdayDay(task.snoozedUntil, locale) })}
+          </span>
+        )}
         <span className="ml-auto flex items-center gap-1.5">
           {task.checkTotal > 0 && (
             <span className="tabular inline-flex items-center gap-1 text-muted-foreground text-tiny">
@@ -229,12 +236,6 @@ function CardContent({ task, menu }: { task: BoardTask; menu: ReactNode }) {
               <span className="sr-only">{tTasks("checks")}: </span>
               {task.checkDone}/{task.checkTotal}
             </span>
-          )}
-          {task.requiresNote && !finished && (
-            <NotebookPen
-              aria-label={tTasks("evidence.note")}
-              className="size-3.5 text-muted-foreground"
-            />
           )}
           {task.requiresPhoto && !finished && (
             <Camera

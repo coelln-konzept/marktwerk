@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { formatInstant } from "@/components/event-detail/format-instant";
+import { formatDateWeekdayDay } from "@/lib/format";
 import type { TaskDetail } from "@/server/queries/tasks";
 
 type Entry = TaskDetail["activity"][number];
@@ -11,7 +12,8 @@ type Diff = {
   to?: string;
   fromName?: string | null;
   toName?: string | null;
-  note?: boolean;
+  note?: string;
+  until?: string;
   op?: string;
   title?: string;
   ofAction?: string;
@@ -67,6 +69,10 @@ export function TaskActivity({ entries }: { entries: Entry[] }) {
           name,
           title: d.title ?? "",
         });
+      case "task.snooze":
+        return t("snooze", { name, date: d.until ? formatDateWeekdayDay(d.until, locale) : "?" });
+      case "task.unsnooze":
+        return t("unsnooze", { name });
       case "task.comment":
         return t("comment", { name });
       case "task.effort":
@@ -84,6 +90,11 @@ export function TaskActivity({ entries }: { entries: Entry[] }) {
       {entries.map((e) => (
         <li key={e.id} className="flex flex-col text-small">
           <span>{describe(e)}</span>
+          {typeof asDiff(e.diff).note === "string" && (
+            <span className="whitespace-pre-wrap text-muted-foreground">
+              {t("note", { note: asDiff(e.diff).note as string })}
+            </span>
+          )}
           <time dateTime={e.at} className="text-muted-foreground text-tiny">
             {formatInstant(new Date(e.at), locale)}
           </time>

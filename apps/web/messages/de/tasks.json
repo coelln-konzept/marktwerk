@@ -46,15 +46,11 @@
     "checks": "Checkliste",
     "evidence": {
       "title": "Nachweis",
-      "note": "Notiz",
       "photo": "Foto",
       "attachment": "Anhang",
       "check_items": "Checkliste vollständig abhaken",
       "missing": "fehlt",
       "given": "vorhanden",
-      "noteLabel": "Notiz zum Erledigen",
-      "noteNeeded": "Für diese Aufgabe ist eine Notiz erforderlich.",
-      "noteHint": "Wird als Kommentar gespeichert, sobald du die Aufgabe erledigst.",
       "addPhoto": "Foto hinzufügen",
       "addAttachment": "Anhang hinzufügen"
     },
@@ -144,20 +140,6 @@
       "shorter": "Kürzer",
       "saved": "Rückmeldung gespeichert"
     },
-    "comments": {
-      "title": "Kommentare · {count}",
-      "empty": "Noch keine Kommentare.",
-      "someone": "Jemand",
-      "label": "Kommentar schreiben",
-      "placeholder": "Kommentar schreiben. Mit @ erwähnst du jemanden.",
-      "mentionList": "Personen",
-      "suggestions": "{count, plural, one {# Vorschlag. Pfeiltasten wählen, Enter übernimmt.} other {# Vorschläge. Pfeiltasten wählen, Enter übernimmt.}}",
-      "hint": "Strg+Enter sendet",
-      "send": "Senden",
-      "sent": "Kommentar gespeichert",
-      "sentMentioned": "{count, plural, one {Kommentar gespeichert, # Person benachrichtigt} other {Kommentar gespeichert, # Personen benachrichtigt}}",
-      "failed": "Der Kommentar konnte nicht gespeichert werden."
-    },
     "activity": {
       "title": "Aktivität",
       "empty": "Noch keine Aktivität.",
@@ -178,7 +160,29 @@
       "comment": "{name} hat kommentiert.",
       "effort": "{name} hat den Aufwand bewertet.",
       "undo": "{name} hat eine Änderung rückgängig gemacht.",
-      "other": "{name}: {action}"
+      "other": "{name}: {action}",
+      "snooze": "{name} hat die Aufgabe bis {date} zurückgestellt.",
+      "unsnooze": "{name} hat die Zurückstellung aufgehoben.",
+      "note": "Notiz: {note}"
+    },
+    "snooze": {
+      "title": "Zurückstellen",
+      "tomorrow": "Morgen",
+      "nextWeek": "Nächste Woche",
+      "pickDate": "Datum wählen …",
+      "clear": "Zurückstellung aufheben",
+      "until": "Zurückgestellt bis {date}",
+      "actions": "„{title}“ zurückstellen",
+      "dialogTitle": "Aufgabe zurückstellen",
+      "dateLabel": "Zurückgestellt bis",
+      "hint": "Bis dahin taucht die Aufgabe nicht in Fälligkeiten, Kennzahlen und Erinnerungen auf. Das Fälligkeitsdatum bleibt.",
+      "confirm": "Zurückstellen",
+      "cancel": "Abbrechen"
+    },
+    "completionNote": {
+      "label": "Notiz zum Erledigen (optional)",
+      "hint": "Wird in der Aktivität der Aufgabe festgehalten.",
+      "title": "Notiz"
     }
   }
 }
