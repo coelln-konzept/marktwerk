@@ -57,7 +57,8 @@ export function filterCategories(): (typeof TASK_CATEGORIES)[number][] {
   );
 }
 
-export const COLUMN_ORDER: BoardColumn[] = ["preparation", "this_week", "today", "done"];
+/** Most urgent first (UX pass 2026-10-22): Überfällig & heute, Diese Woche, Später, Erledigt. */
+export const COLUMN_ORDER: BoardColumn[] = ["today", "this_week", "preparation", "done"];
 
 /** "45 min", "2 h", "1,5 h" (minutes in). */
 export function formatEstimate(minutes: number, locale: string): string {

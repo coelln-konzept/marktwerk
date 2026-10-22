@@ -303,10 +303,11 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
   await grip.focus();
   await page.keyboard.press("Space");
   await expect(page.getByRole("status").filter({ hasText: "aufgenommen" }).first()).toBeVisible();
-  await page.keyboard.press("ArrowRight");
+  // Columns run most urgent first, so "Diese Woche" is the column to the left of "Später".
+  await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("Space");
 
-  // Optimistic: the card shows up in the next column at once; the undo toast offers to revert.
+  // Optimistic: the card shows up in the neighbouring column at once; the undo toast offers to revert.
   await expect(to.locator(`[data-card="${id}"]`)).toBeVisible();
   await expect(from.locator(`[data-card="${id}"]`)).toHaveCount(0);
   await page.getByRole("button", { name: "Rückgängig" }).click();
