@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { AgreementGenerateForm } from "@/components/agreements/generate-form";
 import { Page, PageHeader } from "@/components/shell/page";
+import { todayIn } from "@/lib/format";
 import { getAgreement } from "@/server/queries/agreements";
 import { listEventTypeOptions } from "@/server/queries/event-form";
 import { listPresetsForGeneration } from "@/server/queries/presets";
@@ -23,7 +24,10 @@ export default async function AgreementGeneratePage({
   if (!agreement || agreement.venueId !== id) notFound();
   const t = await getTranslations("agreements.generateForm");
   const tVenues = await getTranslations("nav");
-  const [presets, types] = await Promise.all([listPresetsForGeneration(), listEventTypeOptions()]);
+  const [presets, types] = await Promise.all([
+    listPresetsForGeneration(todayIn()),
+    listEventTypeOptions(),
+  ]);
 
   return (
     <Page

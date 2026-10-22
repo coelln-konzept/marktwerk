@@ -1,12 +1,12 @@
 {
   "generate": {
-    "title": "Aus Vorlage erzeugen",
+    "title": "Markt planen",
     "close": "Schließen",
     "steps": "Schritte",
-    "step1": "Vorlage",
+    "step1": "Markt",
     "step2": "Termine",
     "step3": "Vorschau",
-    "choosePreset": "Welche Vorlage?",
+    "choosePreset": "Welcher Markt?",
     "mode": "Auswahl",
     "modes": {
       "click": "Einzeln anklicken",
@@ -65,7 +65,7 @@
       "no_dates": "Bitte mindestens einen Termin wählen.",
       "too_many_dates": "Zu viele Termine auf einmal (höchstens 60).",
       "invalid_date": "Ein Datum ist ungültig.",
-      "preset_not_found": "Die Vorlage gibt es nicht mehr oder sie ist inaktiv.",
+      "preset_not_found": "Den Markt gibt es nicht mehr oder er ist inaktiv.",
       "invalid_selection": "Auswahl ungültig."
     },
     "single": {
@@ -111,6 +111,29 @@
         "setup_after_open": "Der Aufbau kann bei eintägigen Märkten nicht nach dem Beginn liegen.",
         "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      }
+    },
+    "search": "Markt oder Ort suchen …",
+    "searchLabel": "Märkte durchsuchen",
+    "noMarkets": "Noch keine Märkte angelegt.",
+    "noMatch": "Kein Markt passt zu „{query}“.",
+    "lastHeld": "zuletzt am {date}",
+    "neverHeld": "noch nicht stattgefunden",
+    "market": {
+      "new": "Neuen Markt anlegen",
+      "newHint": "Für einen Markt, der noch nicht in der Liste steht. Danach wählst du gleich die Termine.",
+      "title": "Neuer Markt",
+      "hint": "Name, Ort und übliche Zeiten legst du einmal fest. Der Markt startet mit den Aufgaben der Grundvorlage und steht danach in dieser Liste.",
+      "rhythm": "Rhythmus (optional)",
+      "cancel": "Abbrechen",
+      "create": "Markt anlegen",
+      "creating": "Wird angelegt …",
+      "created": "{name} angelegt, mit {count, plural, one {# Aufgabe} other {# Aufgaben}} aus der Grundvorlage",
+      "createdNoTasks": "{name} angelegt, ohne Aufgaben (es gibt noch keine Grundvorlage)",
+      "noMasterNote": "Dieser Markt hat noch keine Aufgaben, weil es keine veröffentlichte Grundvorlage gibt. Lege sie unter Einstellungen → Bibliothek an.",
+      "errors": {
+        "invalid_fee": "Bitte die Buchungsgebühr in Euro angeben, z. B. 5,00.",
+        "invalid_rrule": "Bitte mindestens einen Wochentag für den Rhythmus wählen oder „Kein Rhythmus“ ankreuzen."
       }
     }
   }

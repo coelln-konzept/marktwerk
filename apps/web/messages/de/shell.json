@@ -12,7 +12,6 @@
     "finance": "Finanzen",
     "company": "Firma",
     "vendors": "Aussteller",
-    "templates": "Vorlagen",
     "knowledgeBase": "Wissen",
     "notifications": "Benachrichtigungen",
     "settings": "Einstellungen",
@@ -74,7 +73,7 @@
     "new": "Neu",
     "notifications": "Benachrichtigungen",
     "shortcut": "Strg K",
-    "newFromPreset": "Aus Vorlage erzeugen",
+    "newFromPreset": "Markt planen",
     "newSingle": "Einzeltermin",
     "newKey": "öffnet dieses Menü",
     "newTask": "Aufgabe",
@@ -105,7 +104,7 @@
       "action": "Aktionen"
     },
     "actions": {
-      "generate": "Veranstaltungen aus Vorlage erzeugen",
+      "generate": "Markt planen (Termine für einen Markt anlegen)",
       "calendar": "Kalender öffnen",
       "events": "Alle Veranstaltungen",
       "single": "Einzeltermin (Veranstaltung ohne Vorlage) anlegen",

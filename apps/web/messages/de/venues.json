@@ -208,8 +208,8 @@
       "eventName": "Veranstaltung",
       "eventType": "Art",
       "eventStatus": "Status",
-      "presets": "Vorlagen an diesem Ort",
-      "noPresets": "Für diesen Ort gibt es keine Veranstaltungs-Vorlage.",
+      "presets": "Märkte an diesem Ort",
+      "noPresets": "Für diesen Ort gibt es keinen Markt.",
       "presetInactive": "inaktiv"
     }
   }

@@ -151,21 +151,22 @@ heute – Filter zurücksetzen".
 ```
 **Arbeitslast** toggle: people × weeks grid with estimated hours per cell and the "≈ x Minijob-Monate" season total.
 
-## W5 · Veranstaltungen + generate from a preset
+## W5 · Veranstaltungen + plan a market
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ Veranstaltungen 74   (•) Liste ( ) Kalender   [Typ ▾][Ort ▾][Status ▾]  [+ Aus Vorlage erzeugen] │
+│ Veranstaltungen 74   (•) Liste ( ) Kalender   [Typ ▾][Ort ▾][Status ▾]  [Markt planen] │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │ KW  Datum      Name                 Typ          Ort          Status     Gesundheit│
 │ 23  So 07.06.  Flohmarkt Altstadt   Flohmarkt    Köln Altst.  geplant    ▲         │
 │ 23  Sa 06.06.  Antikmarkt Linz      Antikmarkt   Linz         bestätigt  ●         │
 │ …                                                                                  │
 ```
-**Aus Vorlage erzeugen** (side sheet, 3 steps)
+**Markt planen** (side sheet, 3 steps). Step 1 is a searchable list of all markets (most recently held first, with venue and last date) with **Neuen Markt anlegen** on top; that opens a compact form (name, type, venue, times, prices, rhythm optional), creates the market with its own copy of the Grundvorlage and continues at step 2.
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────┐
-│ 1 Vorlage ▸ 2 Termine ▸ 3 Vorschau                                                   │
-│ Vorlage: [Flohmarkt Altstadt (Flohmarkt · Köln Altstadt) ▾]                           │
+│ 1 Markt ▸ 2 Termine ▸ 3 Vorschau                                                     │
+│ [🔍 Markt oder Ort suchen]  [+ Neuen Markt anlegen]                                   │
+│ ( ) Flohmarkt Altstadt · Köln Altstadt · zuletzt am 18.10.2026                        │
 │ Termine wählen: Regel [jeden 1. Sonntag ▾] [Apr 2027 – Okt 2027]  oder im Kalender:   │
 │   APRIL 2027               MAI 2027                 JUNI 2027                         │
 │   Mo Di Mi Do Fr Sa So     Mo Di Mi Do Fr Sa So     Mo Di Mi Do Fr Sa So              │

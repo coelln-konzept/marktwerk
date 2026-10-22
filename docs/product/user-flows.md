@@ -7,7 +7,7 @@ maps, communication, **P4** open up. Revised 2026-10-21 after the client meeting
 
 ```mermaid
 stateDiagram-v2
-    [*] --> planned: create / generate from preset or agreement (announced online right away)
+    [*] --> planned: create / plan a market or agreement (announced online right away)
     draft --> planned: manual
     planned --> draft: manual
     planned --> confirmed: all required permits granted (automatic) or manual
@@ -28,7 +28,8 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-    P[Event preset<br/>type · location · texts · price · templates · team] -->|pick dates → preview| E[Events]
+    P[Market (event preset)<br/>type · location · texts · price · own task template · team] -->|pick dates → preview| E[Events]
+    N[New market<br/>copy of the Grundvorlage] --> P
     A[Multi-year agreement<br/>fixed dates] --> E
     E --> AN[Anchors<br/>event day · setup · booking cut-off = Monday before]
     E --> T[Timeline tasks<br/>with estimates, duty roles → people]

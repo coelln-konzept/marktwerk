@@ -81,7 +81,11 @@ async function linkedPresets(templateIds: string[]) {
   return result;
 }
 
-/** The "Ablaufvorlagen" tab: every timeline template with its published version, draft and presets. */
+/**
+ * "Weitere Ablaufvorlagen" in the Bibliothek: the per-type timeline templates with their published
+ * version, draft and presets. Not the master and not the markets' own copies (those are listed with
+ * the master and the markets).
+ */
 export async function listEventTemplates() {
   const templates = await db
     .select({
@@ -94,7 +98,14 @@ export async function listEventTemplates() {
     })
     .from(checklistTemplate)
     .leftJoin(eventType, eq(eventType.id, checklistTemplate.eventTypeId))
-    .where(and(eq(checklistTemplate.kind, "event"), isNull(checklistTemplate.archivedAt)))
+    .where(
+      and(
+        eq(checklistTemplate.kind, "event"),
+        eq(checklistTemplate.isMaster, false),
+        isNull(checklistTemplate.ownerPresetId),
+        isNull(checklistTemplate.archivedAt),
+      ),
+    )
     .orderBy(asc(checklistTemplate.name));
   const ids = templates.map((t) => t.id);
   const [versions, presets] = await Promise.all([versionsOf(ids), linkedPresets(ids)]);
@@ -112,6 +123,21 @@ export async function listEventTemplates() {
 
 export type EventTemplateRow = Awaited<ReturnType<typeof listEventTemplates>>[number];
 
+/** The master event template ("Grundvorlage") with its versions; null if there is none yet. */
+export async function getMasterTemplate() {
+  const [row] = await db
+    .select({ id: checklistTemplate.id, name: checklistTemplate.name })
+    .from(checklistTemplate)
+    .where(and(eq(checklistTemplate.isMaster, true), isNull(checklistTemplate.archivedAt)));
+  if (!row) return null;
+  const versions = (await versionsOf([row.id])).get(row.id) ?? [];
+  return {
+    ...row,
+    published: versions.find((v) => v.status === "published") ?? null,
+    draft: versions.find((v) => v.status === "draft") ?? null,
+  };
+}
+
 /** One template with all its versions (newest first) and the presets it is linked to. */
 export async function getTemplateForEditor(id: string) {
   if (!UUID.test(id)) return null;
@@ -121,6 +147,9 @@ export async function getTemplateForEditor(id: string) {
       name: checklistTemplate.name,
       description: checklistTemplate.description,
       kind: checklistTemplate.kind,
+      isMaster: checklistTemplate.isMaster,
+      ownerPresetId: checklistTemplate.ownerPresetId,
+      ownerPresetName: eventPreset.name,
       eventTypeId: checklistTemplate.eventTypeId,
       typeKey: eventType.key,
       typeNameDe: eventType.nameDe,
@@ -129,6 +158,7 @@ export async function getTemplateForEditor(id: string) {
     })
     .from(checklistTemplate)
     .leftJoin(eventType, eq(eventType.id, checklistTemplate.eventTypeId))
+    .leftJoin(eventPreset, eq(eventPreset.id, checklistTemplate.ownerPresetId))
     .where(and(eq(checklistTemplate.id, id), isNull(checklistTemplate.archivedAt)));
   if (!template) return null;
   const [versions, presets] = await Promise.all([versionsOf([id]), linkedPresets([id])]);

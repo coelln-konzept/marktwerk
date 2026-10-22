@@ -17,7 +17,7 @@ import {
   weekday,
   weekendsTouched,
 } from "@marktwerk/core";
-import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -27,13 +27,16 @@ import {
   undoCreateEvents,
 } from "@/app/(app)/veranstaltungen/actions";
 import { CandidateNotes, candidateWarningCount } from "@/components/events/candidate-notes";
+import { NewMarketForm } from "@/components/events/new-market-form";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Kbd } from "@/components/ui/kbd";
-import { formatDateWithWeekday, formatMonth, formatWeek, todayIn } from "@/lib/format";
+import { formatDate, formatDateWithWeekday, formatMonth, formatWeek, todayIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { EventTypeOption } from "@/server/queries/event-form";
 import type { GenerationPreset } from "@/server/queries/presets";
+import type { VenueOption } from "@/server/queries/venues";
 
 const CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 const POSITIONS = [1, 2, 3, 4, -1] as const;
@@ -68,18 +71,27 @@ function ruleFromPreset(rrule: string | null, year: number) {
 }
 
 /**
- * "Aus Vorlage erzeugen" (UX concept, wireframe W5): 3 steps in a side sheet: (1) preset, (2) dates in a
- * 3-month calendar or by rule, with NRW holidays and conflict markers, (3) preview with warnings, then
- * one call to the `createEventsFromPreset` service. Warnings never block; the office decides.
+ * "Markt planen" (UX concept, wireframe W5): 3 steps in a side sheet: (1) market, searchable, with
+ * "Neuen Markt anlegen" on top, (2) dates in a 3-month calendar or by rule, with NRW holidays and conflict
+ * markers, (3) preview with warnings, then one call to the `createEventsFromPreset` service. A market
+ * that was just created continues straight at step 2. Warnings never block; the office decides.
  */
 export function GenerateSheet({
   presets,
   initialPresetId,
   closeHref,
+  canCreateMarket = false,
+  marketOptions,
+  openNewMarket = false,
 }: {
   presets: GenerationPreset[];
   initialPresetId?: string;
   closeHref: string;
+  /** template:write: shows "Neuen Markt anlegen"; `marketOptions` then holds the form's choices. */
+  canCreateMarket?: boolean;
+  marketOptions?: { types: EventTypeOption[]; venues: VenueOption[] };
+  /** Open with the new-market form (`?neu=1`). */
+  openNewMarket?: boolean;
 }) {
   const t = useTranslations("generate");
   const locale = useLocale();
@@ -88,13 +100,30 @@ export function GenerateSheet({
   const today = todayIn();
   const nextYear = Number(today.slice(0, 4)) + 1;
 
-  const [step, setStep] = useState<1 | 2 | 3>(initialPresetId ? 2 : 1);
-  const [presetId, setPresetId] = useState(
-    presets.some((p) => p.id === initialPresetId)
-      ? (initialPresetId as string)
-      : (presets[0]?.id ?? ""),
+  // Markets created in this sheet show up at once; the server list catches up after the refresh.
+  const [created, setCreated] = useState<GenerationPreset[]>([]);
+  const all = useMemo(
+    () => [...created.filter((c) => !presets.some((p) => p.id === c.id)), ...presets],
+    [created, presets],
   );
-  const preset = presets.find((p) => p.id === presetId);
+  const [step, setStep] = useState<1 | 2 | 3>(
+    initialPresetId && presets.some((p) => p.id === initialPresetId) ? 2 : 1,
+  );
+  const [presetId, setPresetId] = useState(
+    presets.some((p) => p.id === initialPresetId) ? (initialPresetId as string) : "",
+  );
+  const [query, setQuery] = useState("");
+  const [creatingMarket, setCreatingMarket] = useState(canCreateMarket && openNewMarket);
+  const [noTasksFor, setNoTasksFor] = useState<string | null>(null);
+  const preset = all.find((p) => p.id === presetId);
+  const needle = query.trim().toLocaleLowerCase(locale);
+  const shown = needle
+    ? all.filter(
+        (p) =>
+          p.name.toLocaleLowerCase(locale).includes(needle) ||
+          p.venueName.toLocaleLowerCase(locale).includes(needle),
+      )
+    : all;
   const [mode, setMode] = useState<"click" | "rule">("rule");
   const [rule, setRule] = useState(() => ruleFromPreset(preset?.rrule ?? null, nextYear));
   const [firstMonth, setFirstMonth] = useState(
@@ -167,11 +196,25 @@ export function GenerateSheet({
 
   function choosePreset(id: string) {
     setPresetId(id);
-    const next = presets.find((p) => p.id === id);
+    const next = all.find((p) => p.id === id);
     const r = ruleFromPreset(next?.rrule ?? null, nextYear);
     setRule(r);
     setFirstMonth(`${r.year}-${String(r.fromMonth).padStart(2, "0")}`);
     setSelected([]);
+  }
+
+  /** A market made in this sheet: select it and go on to its dates. */
+  function marketCreated(market: GenerationPreset, template: { items: number } | null) {
+    setCreated((list) => [market, ...list]);
+    choosePreset(market.id);
+    setNoTasksFor(template === null ? market.id : null);
+    setCreatingMarket(false);
+    setStep(2);
+    showToast({
+      message: template
+        ? t("market.created", { name: market.name, count: template.items })
+        : t("market.createdNoTasks", { name: market.name }),
+    });
   }
 
   function toggle(day: string, shift: boolean) {
@@ -224,7 +267,8 @@ export function GenerateSheet({
   }
 
   const weekdayNames = t("weekdaysShort").split(",");
-  const typeName = (p: GenerationPreset) => (locale === "en" ? p.typeNameEn : p.typeNameDe);
+  const typeName = (p: Pick<GenerationPreset, "typeNameEn" | "typeNameDe">) =>
+    locale === "en" ? p.typeNameEn : p.typeNameDe;
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && close()}>
@@ -272,39 +316,106 @@ export function GenerateSheet({
           </header>
 
           <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
-            {step === 1 && (
-              <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 font-semibold">{t("choosePreset")}</legend>
-                {presets.map((p) => (
-                  <label
-                    key={p.id}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 hover:bg-hover",
-                      presetId === p.id && "border-primary bg-selected",
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name="preset"
-                      value={p.id}
-                      checked={presetId === p.id}
-                      onChange={() => choosePreset(p.id)}
-                      className="size-4 accent-(--primary)"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-semibold">{p.name}</span>
-                      <span className="block truncate text-muted-foreground text-small">
-                        {p.venueName}
+            {step === 1 && creatingMarket && marketOptions && (
+              <NewMarketForm
+                types={marketOptions.types}
+                venues={marketOptions.venues}
+                initialName={query.trim()}
+                onCreated={marketCreated}
+                onCancel={() => setCreatingMarket(false)}
+              />
+            )}
+
+            {step === 1 && !creatingMarket && (
+              <div className="flex flex-col gap-3">
+                <div className="relative">
+                  <Search
+                    aria-hidden
+                    className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
+                  />
+                  <input
+                    type="search"
+                    // biome-ignore lint/a11y/noAutofocus: the sheet was opened to pick a market, typing starts the search
+                    autoFocus
+                    value={query}
+                    aria-label={t("searchLabel")}
+                    placeholder={t("search")}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      const first = shown[0];
+                      if (first) {
+                        choosePreset(first.id);
+                        setStep(2);
+                      } else if (canCreateMarket && marketOptions && query.trim() !== "") {
+                        setCreatingMarket(true);
+                      }
+                    }}
+                    className="min-h-(--control-h) w-full rounded-lg border border-input bg-card pr-3 pl-9"
+                  />
+                </div>
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="mb-2 font-semibold">{t("choosePreset")}</legend>
+                  {canCreateMarket && marketOptions && (
+                    <button
+                      type="button"
+                      onClick={() => setCreatingMarket(true)}
+                      className="flex items-center gap-3 rounded-lg border border-primary border-dashed px-3 py-2 text-left hover:bg-hover"
+                    >
+                      <Plus aria-hidden className="size-4 shrink-0 text-primary" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold">{t("market.new")}</span>
+                        <span className="block text-muted-foreground text-small">
+                          {t("market.newHint")}
+                        </span>
                       </span>
-                    </span>
-                    <EventTypeTag typeKey={p.typeKey}>{typeName(p)}</EventTypeTag>
-                  </label>
-                ))}
-              </fieldset>
+                    </button>
+                  )}
+                  {shown.length === 0 && (
+                    <p className="px-1 py-2 text-muted-foreground">
+                      {all.length === 0 ? t("noMarkets") : t("noMatch", { query: query.trim() })}
+                    </p>
+                  )}
+                  {shown.map((p) => (
+                    <label
+                      key={p.id}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 hover:bg-hover",
+                        presetId === p.id && "border-primary bg-selected",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="preset"
+                        value={p.id}
+                        checked={presetId === p.id}
+                        onChange={() => choosePreset(p.id)}
+                        className="size-4 accent-(--primary)"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold">{p.name}</span>
+                        <span className="block truncate text-muted-foreground text-small">
+                          {p.venueName} ·{" "}
+                          {p.lastHeldOn
+                            ? t("lastHeld", { date: formatDate(p.lastHeldOn, locale) })
+                            : t("neverHeld")}
+                        </span>
+                      </span>
+                      <EventTypeTag typeKey={p.typeKey}>{typeName(p)}</EventTypeTag>
+                    </label>
+                  ))}
+                </fieldset>
+              </div>
             )}
 
             {step === 2 && preset && (
               <>
+                {noTasksFor === preset.id && (
+                  <p role="status" className="text-muted-foreground text-small">
+                    {t("market.noMasterNote")}
+                  </p>
+                )}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of toggle buttons */}
                   <div
@@ -534,7 +645,7 @@ export function GenerateSheet({
             <span className="text-muted-foreground text-small">
               {preset ? `${preset.name} · ${preset.venueName}` : ""}
             </span>
-            <div className="flex gap-2">
+            <div className={cn("flex gap-2", step === 1 && creatingMarket && "hidden")}>
               {step > 1 && (
                 <Button onClick={() => setStep((s) => (s - 1) as 1 | 2)} disabled={pending}>
                   {t("back")}

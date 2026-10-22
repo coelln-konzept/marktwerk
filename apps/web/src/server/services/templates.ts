@@ -43,6 +43,8 @@ export type TemplateError =
   | "invalid_dependency"
   | "dependency_cycle"
   | "invalid_note"
+  | "master_exists"
+  | "master_protected"
   | "invalid_input";
 
 /** `field` names the item field (or "name", "type") the error belongs to; `key` the item. */
@@ -60,6 +62,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const UUID = /^[0-9a-f-]{36}$/i;
 export const TEMPLATE_NAME_MAX = 120;
+export const MASTER_TEMPLATE_NAME = "Grundvorlage";
 export const TEMPLATE_DESCRIPTION_MAX = 1000;
 export const CHANGE_NOTE_MAX = 500;
 /** At most this many presets can be linked to one template. */
@@ -264,6 +267,8 @@ export async function setTemplateArchived(
   if (!can(actor.role, "template", "write")) forbidden();
   return db.transaction(async (tx) => {
     const current = await lockTemplate(tx, id, { archived: true });
+    // The master is the starting point of every new market: it can be edited, not archived.
+    if (archived && current.isMaster) throw new TemplateInputError("master_protected");
     if (Boolean(current.archivedAt) === archived) return { changed: false };
     await tx
       .update(checklistTemplate)
@@ -323,23 +328,7 @@ export async function createDraft(
       .values({ templateId: template.id, version: number, status: "draft" })
       .returning({ id: templateVersion.id });
     if (!draft) throw new Error("insert failed");
-    let copied = 0;
-    if (base) {
-      const items = await tx
-        .select()
-        .from(templateItem)
-        .where(eq(templateItem.versionId, base.id))
-        .orderBy(asc(templateItem.sort));
-      if (items.length > 0) {
-        await tx.insert(templateItem).values(
-          items.map(({ id: _id, versionId: _version, createdAt: _c, updatedAt: _u, ...rest }) => ({
-            ...rest,
-            versionId: draft.id,
-          })),
-        );
-        copied = items.length;
-      }
-    }
+    const copied = base ? await copyItems(tx, base.id, draft.id) : 0;
     await audit(tx, actor.id, [
       {
         action: "template.draft",
@@ -355,6 +344,144 @@ export async function createDraft(
     ]);
     return { versionId: draft.id, version: number };
   });
+}
+
+/** Copies the items of one version into another (same order, same stable keys). Returns how many. */
+async function copyItems(tx: Tx, fromVersionId: string, toVersionId: string): Promise<number> {
+  const items = await tx
+    .select()
+    .from(templateItem)
+    .where(eq(templateItem.versionId, fromVersionId))
+    .orderBy(asc(templateItem.sort));
+  if (items.length === 0) return 0;
+  await tx.insert(templateItem).values(
+    items.map(({ id: _id, versionId: _version, createdAt: _c, updatedAt: _u, ...rest }) => ({
+      ...rest,
+      versionId: toVersionId,
+    })),
+  );
+  return items.length;
+}
+
+/**
+ * "Grundvorlage anlegen": the one master event template ("Grundvorlage", decision 2026-10-22) with an
+ * empty first draft, for a database that has none yet (the seed creates it for development data).
+ */
+export async function createMasterTemplate(
+  actor: Actor,
+): Promise<{ id: string; versionId: string }> {
+  if (!can(actor.role, "template", "write")) forbidden();
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ id: checklistTemplate.id })
+      .from(checklistTemplate)
+      .where(eq(checklistTemplate.isMaster, true));
+    if (existing) throw new TemplateInputError("master_exists");
+    const [created] = await tx
+      .insert(checklistTemplate)
+      .values({ kind: "event", name: MASTER_TEMPLATE_NAME, isMaster: true })
+      .returning({ id: checklistTemplate.id });
+    if (!created) throw new Error("insert failed");
+    const [version] = await tx
+      .insert(templateVersion)
+      .values({ templateId: created.id, version: 1, status: "draft" })
+      .returning({ id: templateVersion.id });
+    if (!version) throw new Error("insert failed");
+    await audit(tx, actor.id, [
+      {
+        action: "template.create",
+        entityType: "checklist_template",
+        entityId: created.id,
+        diff: { name: MASTER_TEMPLATE_NAME, isMaster: true },
+      },
+    ]);
+    return { id: created.id, versionId: version.id };
+  });
+}
+
+/**
+ * A new market's own task template: a copy of the master's published version, owned by the market
+ * (`owner_preset_id`), published right away and linked to the market. Called by `createMarket` inside
+ * its transaction. Returns null when there is no master (or it has no published version), in which case
+ * the market simply starts without tasks. Audited as template.create + template.publish +
+ * template.presets.
+ */
+export async function copyMasterForMarket(
+  tx: Tx,
+  actor: Actor,
+  market: { id: string; name: string; eventTypeId: string },
+): Promise<{ templateId: string; versionId: string; items: number } | null> {
+  const [master] = await tx
+    .select({ id: checklistTemplate.id })
+    .from(checklistTemplate)
+    .where(and(eq(checklistTemplate.isMaster, true), isNull(checklistTemplate.archivedAt)));
+  if (!master) return null;
+  const [source] = await tx
+    .select({ id: templateVersion.id, version: templateVersion.version })
+    .from(templateVersion)
+    .where(and(eq(templateVersion.templateId, master.id), eq(templateVersion.status, "published")));
+  if (!source) return null;
+
+  const name = `${market.name} – Aufgaben`.slice(0, TEMPLATE_NAME_MAX);
+  const [template] = await tx
+    .insert(checklistTemplate)
+    .values({
+      kind: "event",
+      name,
+      eventTypeId: market.eventTypeId,
+      ownerPresetId: market.id,
+    })
+    .returning({ id: checklistTemplate.id });
+  if (!template) throw new Error("insert failed");
+  const [version] = await tx
+    .insert(templateVersion)
+    .values({
+      templateId: template.id,
+      version: 1,
+      status: "published",
+      publishedAt: new Date(),
+      publishedById: actor.staffMemberId,
+      changeNote: `Kopie der Grundvorlage (Version ${source.version})`,
+    })
+    .returning({ id: templateVersion.id });
+  if (!version) throw new Error("insert failed");
+  const items = await copyItems(tx, source.id, version.id);
+  await tx
+    .insert(eventPresetTemplate)
+    .values({ presetId: market.id, templateId: template.id, sort: 0 });
+  await audit(tx, actor.id, [
+    {
+      action: "template.create",
+      entityType: "checklist_template",
+      entityId: template.id,
+      diff: {
+        name,
+        ownerPresetId: market.id,
+        copiedFromTemplateId: master.id,
+        copiedFromVersion: source.version,
+      },
+    },
+    {
+      action: "template.publish",
+      entityType: "template_version",
+      entityId: version.id,
+      diff: {
+        templateId: template.id,
+        templateName: name,
+        version: 1,
+        items,
+        retiredVersion: null,
+        changeNote: `Kopie der Grundvorlage (Version ${source.version})`,
+      },
+    },
+    {
+      action: "template.presets",
+      entityType: "checklist_template",
+      entityId: template.id,
+      diff: { added: [market.id], removed: [] },
+    },
+  ]);
+  return { templateId: template.id, versionId: version.id, items };
 }
 
 /** "Entwurf verwerfen": deletes the draft with its items. Published versions are never deleted. */

@@ -99,7 +99,10 @@ erDiagram
 - **event_preset** ("Vorlage", the old website's preset): `event_type_id`, `venue_id`, `name`,
   `public_title`, `public_text` (rich text, for the website later), `price_per_m_cents`, `booking_fee_cents`,
   `default_times` (setup/open/close/teardown), `rrule?`, `default_duties` (duty_role → staff_member),
-  `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M11), active.
+  `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M11), active,
+  **`color`** (market colour label: a key of the palette in `packages/core/src/events/market-colors.ts`, assigned
+  by `createMarket` as the least used one, null = fall back to the event type's colour). A preset is a real market
+  ("Flohmarkt Nippes") with its venue built in (decision 2026-10-22).
 - **location_agreement**: `venue_id`, counterparty contact, `valid_from`, `valid_until`, `fixed_dates` (date[]),
   terms, documents. Generates events. Doesn't replace permits.
 
@@ -134,6 +137,13 @@ erDiagram
   partial unique index allows **one draft** per template; `requires_approval_by` is `approver_duty_role_id` (a
   role, not a person, principle 4); the preset → templates link is the table **`event_preset_template`**
   `(preset_id, template_id, sort)` that stands for "`checklist_template_ids`".)*
+  *(0007: **`checklist_template.is_master`**, a partial unique index allows exactly one: the Grundvorlage, the basic
+  tasks every market starts with, edited in Einstellungen → Bibliothek and linked to no preset; it cannot be
+  archived. **`checklist_template.owner_preset_id`** marks a market's own template: `createMarket` copies the
+  master's published version (items with their stable keys) into a new template named "<Markt> – Aufgaben",
+  publishes it as v1 and links it through `event_preset_template`; from then on it is independent of the master
+  (no propagation). Existing presets keep their links to the per-type templates. Library lists of "other"
+  templates exclude the master and owned copies.)*
 - **checklist**: `event_id?`, `permit_id?`, `template_version_id?`, name. *(implemented 0002: + `template_id?`, `sort`,
   `archived_at`; a check forbids both `event_id` and `permit_id`.)*
 - **task**: origin (`event_id?`, `checklist_id?`, `template_item_id?`, `template_stable_key?`, `permit_id?`,

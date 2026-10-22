@@ -10,7 +10,7 @@ import { requirePermission } from "@/server/session";
 
 export async function generateMetadata({ params }: PageProps<"/vorlagen/[id]">): Promise<Metadata> {
   const preset = await getPresetForEdit((await params).id);
-  return { title: preset?.name ?? (await getTranslations("nav"))("templates") };
+  return { title: preset?.name ?? (await getTranslations("settings"))("tabs.library") };
 }
 
 /** "Vorlage bearbeiten" (template:write). Changes only apply to events generated afterwards. */
@@ -20,6 +20,8 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
   const preset = await getPresetForEdit(id);
   if (!preset) notFound();
   const t = await getTranslations("templates");
+  const tLib = await getTranslations("settings");
+  const tNav = await getTranslations("nav");
   const options = await getPresetFormOptions({
     eventTypeId: preset.eventTypeId,
     venueId: preset.venueId,
@@ -34,8 +36,9 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
   return (
     <Page
       crumbs={[
-        { label: t("title"), href: "/vorlagen" },
-        { label: preset.name, href: `/vorlagen?vorschau=${preset.id}` },
+        { label: tNav("settings"), href: "/einstellungen/firma" },
+        { label: tLib("tabs.library"), href: "/einstellungen/bibliothek" },
+        { label: preset.name, href: `/einstellungen/bibliothek?vorschau=${preset.id}` },
         { label: t("form.editCrumb") },
       ]}
     >
@@ -43,7 +46,10 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
         title={t("form.editTitle")}
         subtitle={preset.name}
         eyebrow={
-          <Link href={`/vorlagen?vorschau=${preset.id}` as never} className="hover:underline">
+          <Link
+            href={`/einstellungen/bibliothek?vorschau=${preset.id}` as never}
+            className="hover:underline"
+          >
             {t("form.back")}
           </Link>
         }

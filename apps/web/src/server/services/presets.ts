@@ -4,6 +4,7 @@ import {
   can,
   checkPresetFields,
   type EventTimesInput,
+  nextMarketColor,
   normalizeClockTime,
   type PresetFieldsInput,
   type PresetIssueCode,
@@ -15,6 +16,7 @@ import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
+import { copyMasterForMarket } from "./templates";
 
 export type PresetError =
   | PresetIssueCode
@@ -235,6 +237,65 @@ function timesOf(times: EventTimesInput): EventTimesInput {
 }
 
 /**
+ * Inserts the preset row and its audit entry inside the caller's transaction (shared by `createPreset`
+ * and `createMarket`). `input` is already normalised and checked; `color` is the market colour label.
+ */
+async function insertPreset(
+  tx: Tx,
+  actor: Actor,
+  input: PresetInput,
+  color: string | null,
+): Promise<{ id: string; key: string }> {
+  await checkReferences(tx, input);
+  const base = presetKeyBase(input.name);
+  let key = "";
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const candidate = `${base}-${randomBytes(3).toString("hex")}`;
+    const [taken] = await tx
+      .select({ id: eventPreset.id })
+      .from(eventPreset)
+      .where(eq(eventPreset.key, candidate));
+    if (!taken) {
+      key = candidate;
+      break;
+    }
+  }
+  if (!key) throw new Error("could not find a free preset key");
+
+  const [row] = await tx
+    .insert(eventPreset)
+    .values({
+      key,
+      eventTypeId: input.eventTypeId,
+      venueId: input.venueId,
+      name: input.name,
+      publicTitle: input.publicTitle,
+      publicText: input.publicText,
+      pricePerMCents: input.pricePerMCents,
+      bookingFeeCents: input.bookingFeeCents,
+      defaultTimes: timesOf(input.times),
+      rrule: input.rrule,
+      durationDays: input.durationDays,
+      defaultDuties: input.defaultDuties,
+      active: input.active,
+      ...(color === null ? {} : { color }),
+    })
+    .returning({ id: eventPreset.id });
+  if (!row) throw new Error("insert failed");
+  const changes = diffOf(null, inputFields(input));
+  if (color !== null) changes.color = { from: null, to: color };
+  await audit(tx, actor.id, [
+    {
+      action: "preset.create",
+      entityType: "event_preset",
+      entityId: row.id,
+      diff: { key, changes },
+    },
+  ]);
+  return { id: row.id, key };
+}
+
+/**
  * Creates an event preset (permission template:write). The unique key is a slug of the name plus a
  * short random suffix. Audited as "preset.create" with {key, changes: {field: {from: null, to}}}.
  */
@@ -246,52 +307,59 @@ export async function createPreset(
   assertShape(rawInput);
   const input = normalize(rawInput);
   checkFields(input);
+  return db.transaction((tx) => insertPreset(tx, actor, input, null));
+}
+
+/** What the "Neuen Markt anlegen" form asks for; everything else starts with its default. */
+export type MarketInput = Pick<
+  PresetInput,
+  "name" | "eventTypeId" | "venueId" | "times" | "pricePerMCents" | "bookingFeeCents" | "rrule"
+> & { durationDays?: number };
+
+/**
+ * "Neuen Markt anlegen" (client decision 2026-10-22: presets are the company's real markets). One
+ * transaction: the preset (same validation as `createPreset`), its own task template copied from the
+ * master ("<Markt> – Aufgaben", published, linked, see `copyMasterForMarket`) and its colour (the least
+ * used one of the existing markets). Without a master the market is created without tasks
+ * (`template: null`). Permission template:write.
+ */
+export async function createMarket(
+  actor: Actor,
+  rawInput: MarketInput,
+): Promise<{
+  id: string;
+  key: string;
+  color: string;
+  template: { templateId: string; items: number } | null;
+}> {
+  if (!can(actor.role, "template", "write")) forbidden();
+  const full: PresetInput = {
+    ...rawInput,
+    durationDays: rawInput?.durationDays ?? 1,
+    publicTitle: null,
+    publicText: null,
+    defaultDuties: {},
+    active: true,
+  };
+  assertShape(full);
+  const input = normalize(full);
+  checkFields(input);
 
   return db.transaction(async (tx) => {
-    await checkReferences(tx, input);
-    const base = presetKeyBase(input.name);
-    let key = "";
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const candidate = `${base}-${randomBytes(3).toString("hex")}`;
-      const [taken] = await tx
-        .select({ id: eventPreset.id })
-        .from(eventPreset)
-        .where(eq(eventPreset.key, candidate));
-      if (!taken) {
-        key = candidate;
-        break;
-      }
-    }
-    if (!key) throw new Error("could not find a free preset key");
-
-    const [row] = await tx
-      .insert(eventPreset)
-      .values({
-        key,
-        eventTypeId: input.eventTypeId,
-        venueId: input.venueId,
-        name: input.name,
-        publicTitle: input.publicTitle,
-        publicText: input.publicText,
-        pricePerMCents: input.pricePerMCents,
-        bookingFeeCents: input.bookingFeeCents,
-        defaultTimes: timesOf(input.times),
-        rrule: input.rrule,
-        durationDays: input.durationDays,
-        defaultDuties: input.defaultDuties,
-        active: input.active,
-      })
-      .returning({ id: eventPreset.id });
-    if (!row) throw new Error("insert failed");
-    await audit(tx, actor.id, [
-      {
-        action: "preset.create",
-        entityType: "event_preset",
-        entityId: row.id,
-        diff: { key, changes: diffOf(null, inputFields(input)) },
-      },
-    ]);
-    return { id: row.id, key };
+    const colors = await tx.select({ color: eventPreset.color }).from(eventPreset);
+    const color = nextMarketColor(colors.map((c) => c.color));
+    const { id, key } = await insertPreset(tx, actor, input, color);
+    const copy = await copyMasterForMarket(tx, actor, {
+      id,
+      name: input.name,
+      eventTypeId: input.eventTypeId,
+    });
+    return {
+      id,
+      key,
+      color,
+      template: copy ? { templateId: copy.templateId, items: copy.items } : null,
+    };
   });
 }
 

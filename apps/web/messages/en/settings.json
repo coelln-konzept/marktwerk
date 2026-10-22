@@ -1,12 +1,13 @@
 {
   "settings": {
     "title": "Settings",
-    "subtitle": "Company data, logins with roles and the legal values marktwerk calculates with.",
+    "subtitle": "Company data, logins with roles, the legal values marktwerk calculates with, and the library of markets and task templates.",
     "tabsLabel": "Settings sections",
     "tabs": {
       "company": "Company",
       "users": "Users & roles",
-      "legal": "Legal values"
+      "legal": "Legal values",
+      "library": "Library"
     },
     "noValue": "–",
     "company": {

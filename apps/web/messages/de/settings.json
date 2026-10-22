@@ -1,12 +1,13 @@
 {
   "settings": {
     "title": "Einstellungen",
-    "subtitle": "Firmendaten, Logins mit Rollen und die gesetzlichen Werte, mit denen marktwerk rechnet.",
+    "subtitle": "Firmendaten, Logins mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen.",
     "tabsLabel": "Bereiche der Einstellungen",
     "tabs": {
       "company": "Firma",
       "users": "Benutzer & Rollen",
-      "legal": "Rechtliche Werte"
+      "legal": "Rechtliche Werte",
+      "library": "Bibliothek"
     },
     "noValue": "–",
     "company": {

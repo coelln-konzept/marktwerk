@@ -7,6 +7,7 @@ import { applyTemplateVersion, TemplateApplyError } from "@/server/services/temp
 import {
   addTemplateItem,
   createDraft,
+  createMasterTemplate,
   createTemplate,
   deleteTemplateItem,
   discardDraft,
@@ -52,6 +53,11 @@ async function run<T>(work: (actor: Actor) => Promise<T>): Promise<TemplateActio
 /** "Neue Ablaufvorlage". */
 export async function createTemplateAction(input: TemplateInput) {
   return run((actor) => createTemplate(actor, input));
+}
+
+/** "Grundvorlage anlegen": the master event template, for a database that has none yet. */
+export async function createMasterAction() {
+  return run((actor) => createMasterTemplate(actor));
 }
 
 /** Name, description and event type of a template. */
