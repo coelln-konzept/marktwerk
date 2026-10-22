@@ -204,6 +204,7 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
 
 test("command palette finds tasks, permits and vehicles by their titles", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.keyboard.press("Control+k");
   const input = page.getByRole("combobox");
   await input.fill("genehmigung");
