@@ -37,6 +37,7 @@
         "bundesland": "Federal state",
         "defaultLocale": "Default language",
         "defaultDueTime": "Default due time",
+        "emailEnabled": "Send emails",
         "dailyDigestEnabled": "Daily digest"
       },
       "hints": {
@@ -46,6 +47,7 @@
         "bundesland": "Public holidays are currently only available for North Rhine-Westphalia.",
         "defaultLocale": "Language intended for new logins.",
         "defaultDueTime": "Time of day for template tasks without their own due time.",
+        "emailEnabled": "While this is off, marktwerk sends no emails. In-app notifications keep working.",
         "dailyDigestEnabled": "Send a daily email summarising what is due."
       },
       "bundeslaender": {

@@ -28,6 +28,7 @@ const valid: CompanySettingsInput = {
   bundesland: "NW",
   defaultLocale: "de",
   defaultDueTime: "09:00",
+  emailEnabled: false,
   dailyDigestEnabled: true,
 };
 

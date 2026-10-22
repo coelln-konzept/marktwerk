@@ -77,6 +77,10 @@ export async function CompanySummary({ settings }: { settings: CompanySettings }
         },
         { label: t("fields.defaultDueTime"), value: t("time", { time: settings.defaultDueTime }) },
         {
+          label: t("fields.emailEnabled"),
+          value: settings.emailEnabled ? t("digestOn") : t("digestOff"),
+        },
+        {
           label: t("fields.dailyDigestEnabled"),
           value: settings.dailyDigestEnabled ? t("digestOn") : t("digestOff"),
         },

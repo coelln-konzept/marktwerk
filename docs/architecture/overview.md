@@ -42,7 +42,7 @@ flowchart LR
 | Unit | Tech | Responsibility |
 |---|---|---|
 | `apps/web` | Next.js 16 (App Router, React 19, Server Actions), Better Auth, next-intl, Tailwind 4 + shadcn/ui (Base UI) | Back office UI, staff magic-link pages, field PWA (P3), webhooks (Graph, WhatsApp), new public booking form (P4) |
-| `apps/worker` | Node 22+/24, pg-boss 12 | Cron jobs (deadline sweep, nightly carry-over, digests, payroll reminders), async jobs (event generation, messages, PDFs, legacy-site/mailbox sync, bank import) |
+| `apps/worker` | Node 22+/24, pg-boss 12 | Cron jobs (deadline sweep, nightly carry-over, digests, payroll reminders; all email paths are gated by `settings.email_enabled`, off by default), async jobs (event generation, messages, PDFs, legacy-site/mailbox sync, bank import) |
 | PostgreSQL | v17 (Scalingo addon in prod, Docker in dev) | Single source of truth incl. job queue (`pgboss` schema) |
 
 Both units import the same internal packages, so domain rules exist exactly once.

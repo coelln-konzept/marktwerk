@@ -22,6 +22,13 @@
       "when": 1792605741125,
       "tag": "0002_phase1_modules",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792666582806,
+      "tag": "0003_settings_email_enabled",
+      "breakpoints": true
     }
   ]
 }

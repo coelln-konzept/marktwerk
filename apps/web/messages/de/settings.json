@@ -37,6 +37,7 @@
         "bundesland": "Bundesland",
         "defaultLocale": "Standardsprache",
         "defaultDueTime": "Standard-Fälligkeitszeit",
+        "emailEnabled": "E-Mails versenden",
         "dailyDigestEnabled": "Tägliche Übersicht"
       },
       "hints": {
@@ -46,6 +47,7 @@
         "bundesland": "Feiertage sind derzeit nur für Nordrhein-Westfalen hinterlegt.",
         "defaultLocale": "Sprache, die für neue Logins vorgesehen ist.",
         "defaultDueTime": "Uhrzeit für Aufgaben aus Vorlagen ohne eigene Fälligkeitszeit.",
+        "emailEnabled": "Solange das ausgeschaltet ist, verschickt marktwerk keine E-Mails. Benachrichtigungen in der App funktionieren weiterhin.",
         "dailyDigestEnabled": "Täglich eine Zusammenfassung dessen, was fällig ist, per E-Mail versenden."
       },
       "bundeslaender": {
