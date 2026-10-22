@@ -18,6 +18,7 @@ import { filterCategories } from "@/lib/task-ui";
 import { hrefWith, param } from "@/lib/url";
 import type { Actor } from "@/server/actor";
 import { getKeyTaskMatrix, getReadinessList } from "@/server/queries/board-overview";
+import { getEventOverview } from "@/server/queries/event-overview";
 import {
   type BoardTask,
   getPeopleRail,
@@ -29,6 +30,7 @@ import {
 } from "@/server/queries/tasks";
 import { BoardView } from "./board-view";
 import { KeyTaskMatrixView } from "./key-task-matrix";
+import { MarketPanel } from "./market-panel";
 import { NewTaskButton } from "./new-task-dialog";
 import { ReadinessList } from "./readiness-list";
 import { WorkloadTable } from "./workload-table";
@@ -179,6 +181,8 @@ export async function BoardScreen({
         ? await getReadinessList(actor, { horizonDays, category }, today)
         : null;
     const matrix = view === "matrix" ? await getKeyTaskMatrix(actor, { horizonDays }, today) : null;
+    // The market panel ("event manager") under a Bereitschaft row: `?markt=<eventId>`.
+    const openRow = readiness?.rows.find((r) => r.id === param(sp.markt)) ?? null;
     const categoryCounts = readiness?.categoryCounts ?? {};
     return (
       <div className="flex min-w-0 flex-col gap-4">
@@ -218,7 +222,26 @@ export async function BoardScreen({
           </FilterBar>
           {newTask}
         </div>
-        {readiness && <ReadinessList rows={readiness.rows} today={today} taskHref={taskHref} />}
+        {readiness && (
+          <ReadinessList
+            rows={readiness.rows}
+            today={today}
+            taskHref={taskHref}
+            openId={openRow?.id}
+            panel={
+              openRow ? (
+                <MarketPanel
+                  event={openRow}
+                  overview={await getEventOverview(actor, openRow, today)}
+                  today={today}
+                  canWrite={canWrite}
+                  taskHref={taskHref}
+                />
+              ) : null
+            }
+            panelHref={(id) => href({ markt: id ?? undefined, aufgabe: undefined })}
+          />
+        )}
         {matrix && <KeyTaskMatrixView matrix={matrix} taskHref={taskHref} />}
         {drawerNode}
       </div>

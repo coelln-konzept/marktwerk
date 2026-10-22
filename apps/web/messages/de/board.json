@@ -186,7 +186,18 @@
       "noDeadline": "Keine offene Frist",
       "dueOn": "fällig {date}",
       "empty": "Keine kommenden Veranstaltungen in diesem Zeitraum.",
-      "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen."
+      "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen.",
+      "panelColumn": "",
+      "panel": {
+        "toggle": "Aufgaben",
+        "showLabel": "Wichtige Aufgaben von {name} zeigen",
+        "hideLabel": "Aufgaben von {name} schließen",
+        "title": "Wichtig bei {name}",
+        "allOk": "Alles im Plan: nichts überfällig, keine fehlende Genehmigung.",
+        "permitMissing": "Genehmigung fehlt",
+        "more": "{count, plural, one {# weitere Aufgabe} other {# weitere Aufgaben}} in den nächsten 7 Tagen",
+        "openOverview": "Zum Überblick"
+      }
     },
     "matrix": {
       "caption": "Kernaufgaben der kommenden Veranstaltungen",

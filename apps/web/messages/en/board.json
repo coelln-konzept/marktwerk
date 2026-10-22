@@ -186,7 +186,18 @@
       "noDeadline": "No open deadline",
       "dueOn": "due {date}",
       "empty": "No upcoming events in this period.",
-      "emptyHint": "Choose “All” to see every upcoming event."
+      "emptyHint": "Choose “All” to see every upcoming event.",
+      "panelColumn": "",
+      "panel": {
+        "toggle": "Tasks",
+        "showLabel": "Show important tasks of {name}",
+        "hideLabel": "Close tasks of {name}",
+        "title": "Important at {name}",
+        "allOk": "All on track: nothing overdue, no missing permit.",
+        "permitMissing": "Permit missing",
+        "more": "{count, plural, one {# more task} other {# more tasks}} in the next 7 days",
+        "openOverview": "Open overview"
+      }
     },
     "matrix": {
       "caption": "Key tasks of the upcoming events",
