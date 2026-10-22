@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
   check,
@@ -65,10 +66,22 @@ export const checklistTemplate = app.table(
     eventTypeId: uuid().references(() => eventType.id, { onDelete: "restrict" }),
     name: text().notNull(),
     description: text(),
+    /**
+     * The one master event template ("Grundvorlage", client decision 2026-10-22): the basic tasks every
+     * new market starts with. Edited in Einstellungen → Bibliothek; at most one row has it set.
+     */
+    isMaster: boolean().notNull().default(false),
+    /** A market's own copy (made from the master when the market was created); null for library templates. */
+    ownerPresetId: uuid().references((): AnyPgColumn => eventPreset.id, { onDelete: "set null" }),
     ...timestamps,
     archivedAt: archivedAt(),
   },
-  (t) => [index().on(t.eventTypeId), index().on(t.kind)],
+  (t) => [
+    index().on(t.eventTypeId),
+    index().on(t.kind),
+    index().on(t.ownerPresetId),
+    uniqueIndex("checklist_template_one_master").on(t.isMaster).where(sql`${t.isMaster}`),
+  ],
 );
 
 export const templateVersionStatus = app.enum("template_version_status", [
@@ -144,6 +157,8 @@ export const templateItem = app.table(
     requiresPhoto: boolean().notNull().default(false),
     requiresNote: boolean().notNull().default(false),
     requiresAttachment: boolean().notNull().default(false),
+    /** "Kernaufgabe": a task every market needs; copied to the event's task (decision 2026-10-22). */
+    isKey: boolean().notNull().default(false),
     /** Titles of the sub-steps; become `task_check_item` rows on instantiation. */
     checkItems: jsonb().$type<string[]>().notNull().default([]),
     /** Duty role whose holder has to approve before the task counts as done. */

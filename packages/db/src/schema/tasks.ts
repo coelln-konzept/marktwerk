@@ -138,6 +138,9 @@ export const task = app.table(
     requiresNote: boolean().notNull().default(false),
     requiresAttachment: boolean().notNull().default(false),
 
+    /** "Kernaufgabe" (copied from the template item): shown in the event's checklist and the matrix, ranked first. */
+    isKey: boolean().notNull().default(false),
+
     // state
     status: taskStatus().notNull().default("todo"),
     waitingReason: text(),

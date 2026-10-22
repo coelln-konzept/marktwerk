@@ -45,6 +45,12 @@ export const eventPreset = app.table(
     durationDays: integer().notNull().default(1),
     defaultDuties: jsonb().$type<DefaultDuties>().notNull().default({}),
     active: boolean().notNull().default(true),
+    /**
+     * The market's colour label ("Marktfarbe", decision 2026-10-22): a key of the market palette in
+     * @marktwerk/core, shown as a thin bar/marker next to the market's name across the app. Null =
+     * fall back to the event type's colour.
+     */
+    color: text(),
     ...timestamps,
     archivedAt: archivedAt(),
   },
