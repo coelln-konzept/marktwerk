@@ -1,5 +1,5 @@
 import "server-only";
-import { can } from "@marktwerk/core";
+import { can, isValidPermitHorizonDays } from "@marktwerk/core";
 import {
   isValidBic,
   isValidIban,
@@ -39,6 +39,8 @@ export type CompanySettingsInput = {
   defaultDueTime: string;
   emailEnabled: boolean;
   dailyDigestEnabled: boolean;
+  /** Days before the apply-by date that permits appear in the Übersicht (7–180). */
+  permitHorizonDays: number;
 };
 
 export type CompanyField = keyof CompanySettingsInput;
@@ -113,6 +115,7 @@ export function parseCompanySettings(input: CompanySettingsInput) {
   if (!(LOCALES as readonly string[]).includes(input.defaultLocale))
     errors.defaultLocale = "unsupported";
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(input.defaultDueTime)) errors.defaultDueTime = "invalid";
+  if (!isValidPermitHorizonDays(input.permitHorizonDays)) errors.permitHorizonDays = "invalid";
 
   if (Object.keys(errors).length > 0) throw new SettingsInputError(errors);
 
@@ -134,6 +137,7 @@ export function parseCompanySettings(input: CompanySettingsInput) {
     defaultDueTime: input.defaultDueTime,
     emailEnabled: Boolean(input.emailEnabled),
     dailyDigestEnabled: Boolean(input.dailyDigestEnabled),
+    permitHorizonDays: input.permitHorizonDays,
   };
 }
 

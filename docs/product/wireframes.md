@@ -22,7 +22,7 @@ Legend: `⋯` menu · `👁` Vorschau · `›` breadcrumb · ↻n carried over n
 │                  ├──────────────────────────────────────────────────────────────────────────────────────────┤
 │ ⌂ Übersicht      │ Mittwoch, 13. Mai 2026 · KW 20                                                           │
 │ ▦ Kalender       │ Guten Morgen, Petra                                                                      │
-│ ▥ Board          │ ┌ Fällig bis So ┐ ┌ Überfällig ┐ ┌ Geld überfällig ┐ ┌ Nächstes Wochenende ┐              │
+│ ▥ Board          │ ┌ Fällig bis So ┐ ┌ Überfällig ┐ ┌ Geld überfällig ┐ ┌ Dieses Wochenende ┐              │
 │ ▤ Veranstaltungen│ │      12       │ │     2      │ │    6.000 €      │ │  2 von 4 im Plan    │              │
 │ ◎ Orte           │ └───────────────┘ └────────────┘ └─────────────────┘ └─────────────────────┘              │
 │ ▣ Logbuch      7 │ SAISON 2026 · Mär–Nov · 46 Veranstaltungen (Floh 24 · Antik 12 · Stadtfest 4 · F&W 6)    │

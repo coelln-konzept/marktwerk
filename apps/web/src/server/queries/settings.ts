@@ -1,4 +1,5 @@
 import "server-only";
+import { PERMIT_HORIZON_DEFAULT_DAYS } from "@marktwerk/core";
 import { legalParameter, session, settings, staffMember, user } from "@marktwerk/db/schema";
 import { asc, eq, isNull, max, sql } from "drizzle-orm";
 import { db } from "../db";
@@ -23,6 +24,8 @@ export type CompanySettings = {
   defaultDueTime: string;
   emailEnabled: boolean;
   dailyDigestEnabled: boolean;
+  /** Days before the apply-by date that permits appear in the Übersicht. */
+  permitHorizonDays: number;
   /** False until the settings row exists (fresh database without a seed). */
   exists: boolean;
 };
@@ -49,6 +52,7 @@ export async function getCompanySettings(): Promise<CompanySettings> {
     defaultDueTime: (row?.defaultDueTime ?? "09:00").slice(0, 5),
     emailEnabled: row?.emailEnabled ?? false,
     dailyDigestEnabled: row?.dailyDigestEnabled ?? true,
+    permitHorizonDays: row?.permitHorizonDays ?? PERMIT_HORIZON_DEFAULT_DAYS,
     exists: Boolean(row),
   };
 }

@@ -7,7 +7,7 @@
     },
     "kpi": {
       "label": "Key figures",
-      "weekend": "Next weekend",
+      "weekend": "This weekend",
       "weekendHint": "{count, plural, one {event} other {events}} · {inPlan} on track",
       "weekendHintNone": "{count, plural, one {event} other {events}}",
       "drafts": "Drafts",
@@ -47,7 +47,7 @@
     },
     "due": {
       "title": "Due today",
-      "subtitle": "by urgency: Overdue · Today · This week",
+      "subtitle": "by urgency: Overdue · Today · This week · Upcoming permits",
       "filters": "Filter",
       "filter": {
         "all": "All",
@@ -58,11 +58,12 @@
         "company": "Company"
       },
       "emptyTitle": "Nothing is due.",
-      "emptyHint": "Anything overdue, due today or within the next 7 days from permits, instalments, tasks, hours and obligations shows up here.",
+      "emptyHint": "Anything overdue, due today or within the next 7 days from permits, instalments, tasks, hours and obligations shows up here. Permits show up earlier (set under Settings → Company).",
       "groups": {
         "overdue": "Overdue",
         "today": "Today",
-        "soon": "This week"
+        "soon": "This week",
+        "upcoming": "Upcoming permits"
       },
       "emptyFilter": "Nothing is due for this filter.",
       "emptyFilterReset": "Show all",
@@ -86,15 +87,16 @@
       "urgencyLabel": {
         "overdue": "Overdue",
         "today": "Due today",
-        "soon": "Due soon"
+        "soon": "Due soon",
+        "upcoming": "Due later"
       },
       "eventCount": "{count, plural, one {# due} other {# due}}"
     },
     "weekend": {
-      "title": "Next weekend",
+      "title": "This weekend",
       "range": "{from}–{to} · {week}",
       "all": "All events",
-      "caption": "Events next weekend",
+      "caption": "Events this weekend",
       "cols": {
         "event": "Event",
         "permits": "Permits",
@@ -103,7 +105,7 @@
         "money": "Money",
         "effort": "Effort"
       },
-      "empty": "Nothing is planned for next weekend.",
+      "empty": "Nothing is planned for this weekend.",
       "emptyNext": "Next event: {name}, {date}.",
       "emptyNone": "No further events have been created.",
       "openEvent": "View event",
@@ -111,7 +113,8 @@
       "legendNote": "Effort = estimated time of the open tasks.",
       "keys": "Space: preview · Enter: open · J/K: next/previous row",
       "blockersTitle": "What is holding the weekend up",
-      "blockersHint": "Open items of these events, most urgent first.",
+      "blockersHint": "Open tasks and missing permits of these events, most urgent first.",
+      "blockerFor": "for {events}",
       "effortNone": "–"
     }
   }

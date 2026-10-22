@@ -30,6 +30,7 @@ const valid: CompanySettingsInput = {
   defaultDueTime: "09:00",
   emailEnabled: false,
   dailyDigestEnabled: true,
+  permitHorizonDays: 30,
 };
 
 beforeEach(async () => {
@@ -91,6 +92,21 @@ describe("updateCompanySettings", () => {
     });
   });
 
+  it("saves the permit horizon (7 to 180) and audits the change", async () => {
+    await updateCompanySettings(owner, valid);
+    expect((await getCompanySettings()).permitHorizonDays).toBe(30);
+    await db.delete(auditLog);
+    for (const days of [7, 180]) {
+      await updateCompanySettings(owner, { ...valid, permitHorizonDays: days });
+      expect((await getCompanySettings()).permitHorizonDays).toBe(days);
+    }
+    const entries = await audits();
+    expect(entries.map((e) => e.diff)).toEqual([
+      { changes: { permitHorizonDays: { from: 30, to: 7 } } },
+      { changes: { permitHorizonDays: { from: 7, to: 180 } } },
+    ]);
+  });
+
   it("does nothing, and audits nothing, when no value changed", async () => {
     await updateCompanySettings(owner, valid);
     await db.delete(auditLog);
@@ -119,6 +135,22 @@ describe("updateCompanySettings", () => {
       ["an unknown language", { defaultLocale: "fr" }, { defaultLocale: "unsupported" }],
       ["a due time that is not a time", { defaultDueTime: "25:00" }, { defaultDueTime: "invalid" }],
       ["a country code with 3 letters", { country: "DEU" }, { country: "invalid" }],
+      ["a permit horizon below 7 days", { permitHorizonDays: 6 }, { permitHorizonDays: "invalid" }],
+      [
+        "a permit horizon above 180 days",
+        { permitHorizonDays: 181 },
+        { permitHorizonDays: "invalid" },
+      ],
+      [
+        "a fractional permit horizon",
+        { permitHorizonDays: 30.5 },
+        { permitHorizonDays: "invalid" },
+      ],
+      [
+        "an empty permit horizon",
+        { permitHorizonDays: Number.NaN },
+        { permitHorizonDays: "invalid" },
+      ],
     ])("%s", async (_label, patch, fields) => {
       await updateCompanySettings(owner, valid);
       await db.delete(auditLog);
@@ -181,6 +213,7 @@ describe("getCompanySettings", () => {
       country: "DE",
       bundesland: "NW",
       defaultDueTime: "09:00",
+      permitHorizonDays: 30,
     });
   });
 });

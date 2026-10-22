@@ -5,6 +5,7 @@ import {
   payable,
   permit,
   permitRequirement,
+  settings,
   task,
 } from "@marktwerk/db/schema";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -315,6 +316,49 @@ describe("feeds for Übersicht and Kalender", () => {
     });
     expect(items[0]?.href).toBe(`/logbuch?genehmigung=${items[0]?.id}`);
     expect(await dueItems(field, TODAY)).toEqual([]);
+  });
+
+  describe("permit horizon (company setting, default 30 days)", () => {
+    const setHorizon = (permitHorizonDays: number) =>
+      db
+        .insert(settings)
+        .values({ id: 1, companyName: "Test GmbH", permitHorizonDays })
+        .onConflictDoUpdate({ target: settings.id, set: { permitHorizonDays } });
+
+    it("shows a permit with apply-by in 20 days by default, as upcoming and after this week's items", async () => {
+      await makePermit({ title: "Bald", status: "not_started", applyBy: "2026-10-27" });
+      await makePermit({ title: "In 20 Tagen", status: "not_started", applyBy: "2026-11-10" });
+      await makePermit({ title: "In 31 Tagen", status: "not_started", applyBy: "2026-11-21" });
+      const items = await dueItems(owner, TODAY);
+      expect(items.map((i) => [i.title, i.urgency])).toEqual([
+        ["Bald", "soon"],
+        ["In 20 Tagen", "upcoming"],
+      ]);
+    });
+
+    it("hides it with a horizon of 14 days, and a bigger horizon reaches further", async () => {
+      await makePermit({ title: "In 20 Tagen", status: "not_started", applyBy: "2026-11-10" });
+      await makePermit({
+        title: "In 60 Tagen",
+        status: "applied",
+        expectedDecisionOn: "2026-12-20",
+      });
+      await setHorizon(14);
+      expect(await dueItems(owner, TODAY)).toEqual([]);
+      await setHorizon(60);
+      expect((await dueItems(owner, TODAY)).map((i) => [i.title, i.urgency])).toEqual([
+        ["In 20 Tagen", "upcoming"],
+        ["In 60 Tagen", "upcoming"],
+      ]);
+    });
+
+    it("carries the events a permit is required for", async () => {
+      const ev = await makeEvent("2026-11-14", "Novembermarkt");
+      const p = await makePermit({ title: "Wasser", status: "not_started", applyBy: "2026-11-10" });
+      await db.insert(eventPermit).values({ eventId: ev.id, permitId: p.id });
+      const [item] = await dueItems(owner, TODAY);
+      expect(item?.eventIds).toEqual([ev.id]);
+    });
   });
 
   it("calendarItems: apply-by, decision and expiry in the range, with tones", async () => {

@@ -62,7 +62,7 @@ comes to the event (client's explicit rule, research 05).
 ## Interface
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
-| Übersicht | Overview | route `/` | Start screen, the same for everyone: KPIs, season strip, Heute fällig, Nächstes Wochenende. |
+| Übersicht | Overview | route `/` | Start screen, the same for everyone: KPIs, season strip, Heute fällig, Dieses Wochenende. |
 | Kalender (Ebenen) | Calendar (layers) | route `/kalender`, `user_preference.saved_views` | Company-wide calendar; layers (events by type, deadlines, shifts, holidays) switched on per person. |
 | Vorschau | Preview | `?vorschau=<type>:<id>` | Small read-only card for a list row (👁 or Space); Enter opens the page, Esc closes. |
 | Drawer (Detailansicht) | Detail drawer | `?detail=<type>:<id>` | Panel from the right for real work on one record (task, permit, payable) while the list stays visible. |

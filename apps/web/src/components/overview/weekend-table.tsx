@@ -13,7 +13,7 @@ import type { Overview } from "@/server/queries/overview";
 
 const BLOCKER_ROWS = 6;
 
-/** "Nächstes Wochenende": one row per event with the four health dimensions and the open effort, plus what holds it up. */
+/** "Dieses Wochenende": one row per event with the four health dimensions and the open effort, plus what holds it up. */
 export async function WeekendTable({
   weekend,
   next,
@@ -188,6 +188,11 @@ export async function WeekendTable({
                   ) : (
                     <span className="text-muted-foreground text-small">{item.meta}</span>
                   ))}
+                {item.kind === "permit" && weekend.rows.length > 1 && (
+                  <span className="text-muted-foreground text-small">
+                    {t("blockerFor", { events: item.eventNames.join(", ") })}
+                  </span>
+                )}
                 <span className="tabular text-muted-foreground text-small">
                   {formatDateShort(item.dueOn, locale)}
                 </span>

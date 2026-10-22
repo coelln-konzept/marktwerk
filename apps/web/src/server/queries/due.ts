@@ -8,7 +8,11 @@
 export const DUE_KINDS = ["task", "permit", "installment", "hours", "obligation"] as const;
 export type DueKind = (typeof DUE_KINDS)[number];
 
-export const DUE_URGENCIES = ["overdue", "today", "soon"] as const;
+/**
+ * `upcoming` is only used by permits: further out than a week but inside the company's permit horizon.
+ * The Übersicht shows it as its own group "Genehmigungen demnächst" after "Diese Woche".
+ */
+export const DUE_URGENCIES = ["overdue", "today", "soon", "upcoming"] as const;
 export type DueUrgency = (typeof DUE_URGENCIES)[number];
 
 export type DueItem = {
@@ -17,7 +21,7 @@ export type DueItem = {
   title: string;
   /** `YYYY-MM-DD` */
   dueOn: string;
-  /** `soon` = within the next 7 days. */
+  /** `soon` = within the next 7 days; `upcoming` = permits beyond that (see DUE_URGENCIES). */
   urgency: DueUrgency;
   href: string;
   meta?: string;
@@ -28,6 +32,8 @@ export type DueItem = {
   eventTypeKey?: string | null;
   /** First day of the event (`YYYY-MM-DD`). */
   eventStartsOn?: string | null;
+  /** Permits can belong to several events (the upcoming ones they are required for). */
+  eventIds?: string[];
   assigneeName?: string | null;
 };
 
