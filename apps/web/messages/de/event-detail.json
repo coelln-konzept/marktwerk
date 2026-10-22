@@ -255,7 +255,7 @@
       "what": "Termin",
       "before": "Bisher",
       "after": "Neu",
-      "announced": "Die Veranstaltung ist schon angekündigt: Händler und Website müssen den neuen Termin erfahren.",
+      "announced": "Die Veranstaltung ist schon angekündigt: Aussteller und Website müssen den neuen Termin erfahren.",
       "note": "Hinweise blockieren nichts: du entscheidest.",
       "submit": "Verschieben",
       "cancel": "Abbrechen",
@@ -302,7 +302,7 @@
       },
       "confirm": {
         "title": "Wirklich ändern?",
-        "description": "Händler, Team und Website sehen danach die neuen Angaben.",
+        "description": "Aussteller, Team und Website sehen danach die neuen Angaben.",
         "ok": "Ändern"
       },
       "errors": {

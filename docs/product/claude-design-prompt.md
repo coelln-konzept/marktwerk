@@ -22,7 +22,7 @@ start screen. Build a **clickable, mid-to-high fidelity prototype** with a clean
 ## The core idea: a customisable workspace
 The app is **one shell with dockable panes**, like VS Code or the Salesforce console but simpler:
 - **Left sidebar** (labelled, collapsible to icons): Start · Board · Veranstaltungen · Logbuch · Team · Finanzen ·
-  Firma · Händler · Vorlagen · Wissen; below them **Favoriten**; then disabled "Phase 2" entries (Buchungen,
+  Firma · Aussteller · Vorlagen · Wissen; below them **Favoriten**; then disabled "Phase 2" entries (Buchungen,
   Postfach, Inventar); at the bottom Benachrichtigungen, Einstellungen, Profil.
 - **Top bar:** a visible search field ("Suchen oder Befehl … ⌘K"), then **workspace tabs** like browser tabs
   ("Start", "Genehmigungen ×", "Geld ×", "+"), notification bell, profile.
