@@ -27,6 +27,7 @@ import {
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PermitStateBadge } from "@/components/permits/permit-state-badge";
+import { TaskCheckToggle } from "@/components/task/done-button";
 import { Health } from "@/components/ui/health";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
@@ -164,7 +165,10 @@ function MissingTaskRow({
 }) {
   const ui = REASON_UI[task.reason];
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover">
+    <li
+      data-href={taskHref(eventId, task.id)}
+      className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover"
+    >
       <Link
         href={taskHref(eventId, task.id)}
         scroll={false}
@@ -302,11 +306,13 @@ function KeyTaskItem({
   row,
   dateText,
   stateText,
+  canWrite,
 }: {
   eventId: string;
   row: KeyTaskRow;
   dateText: string | null;
   stateText: string;
+  canWrite: boolean;
 }) {
   const ui = KEY_STATE_UI[row.state];
   const Icon = ui.icon;
@@ -319,8 +325,17 @@ function KeyTaskItem({
     waiting: "text-status-waiting",
   }[ui.tone];
   return (
-    <li className="flex items-center gap-x-2.5 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover">
-      <Icon aria-hidden className={cn("size-4 shrink-0", tone)} />
+    <li
+      data-href={taskHref(eventId, row.id)}
+      className="flex cursor-pointer items-center gap-x-2.5 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover"
+    >
+      {canWrite ? (
+        <TaskCheckToggle task={row}>
+          <Icon aria-hidden className={cn("size-4 shrink-0", tone)} />
+        </TaskCheckToggle>
+      ) : (
+        <Icon aria-hidden className={cn("size-4 shrink-0", tone)} />
+      )}
       <Link
         href={taskHref(eventId, row.id)}
         scroll={false}
@@ -346,10 +361,12 @@ export async function KeyTasksPanel({
   event,
   overview,
   today,
+  canWrite,
 }: {
   event: EventDetail;
   overview: EventOverview;
   today: string;
+  canWrite: boolean;
 }) {
   const t = await getTranslations("eventDetail.overview.key");
   const locale = await getLocale();
@@ -371,6 +388,7 @@ export async function KeyTasksPanel({
               key={row.id}
               eventId={event.id}
               row={row}
+              canWrite={canWrite}
               stateText={t(`state.${row.state}`)}
               dateText={
                 row.state === "snoozed" && row.snoozedUntil

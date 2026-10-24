@@ -197,6 +197,7 @@
       "waiting": "Wartet auf Amt"
     },
     "statusMore": "Weitere Status",
-    "statusReopen": "Wieder offen"
+    "statusReopen": "Wieder offen",
+    "reopenAria": "„{title}“ wieder öffnen"
   }
 }

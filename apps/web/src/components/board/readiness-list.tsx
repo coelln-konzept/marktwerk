@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment, type ReactNode } from "react";
+import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -51,7 +52,7 @@ export async function ReadinessList({
     );
 
   return (
-    <div className="relative overflow-x-auto rounded-xl border bg-card">
+    <KeyboardRows className="relative overflow-x-auto rounded-xl border bg-card">
       {/* Phone: every row stacks (name, date, progress, what is missing, next deadline); from sm up it is a table. */}
       <table className="block w-full hyphens-none border-collapse text-left sm:table sm:min-w-[52rem]">
         <caption className="sr-only">{t("caption")}</caption>
@@ -81,8 +82,9 @@ export async function ReadinessList({
             return (
               <Fragment key={row.id}>
                 <tr
+                  data-href={`/veranstaltungen/${row.id}`}
                   className={cn(
-                    "block border-border-subtle border-b align-top last:border-b-0 sm:table-row",
+                    "block cursor-pointer border-border-subtle border-b align-top last:border-b-0 hover:bg-hover sm:table-row",
                     open && "border-b-0",
                   )}
                 >
@@ -212,6 +214,6 @@ export async function ReadinessList({
           })}
         </tbody>
       </table>
-    </div>
+    </KeyboardRows>
   );
 }

@@ -200,46 +200,52 @@ export async function WeekendTable({
             {t("blockersTitle")}
           </h3>
           <p className="m-0 mb-2 text-muted-foreground text-tiny">{t("blockersHint")}</p>
-          <ul className="m-0 flex list-none flex-col gap-1 p-0">
-            {weekend.blockers.slice(0, BLOCKER_ROWS).map((item) => (
-              <li key={`${item.kind}-${item.id}`} className="flex items-baseline gap-2">
-                <HealthShape
-                  level={
-                    item.urgency === "overdue"
-                      ? "critical"
-                      : item.urgency === "waiting"
-                        ? "none"
-                        : "warn"
-                  }
-                  className="translate-y-0.5"
-                />
-                <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                  <Link href={item.href as never} className="font-medium hover:underline">
-                    {item.title}
-                  </Link>
-                  {item.meta &&
-                    (item.metaHref ? (
-                      <Link
-                        href={item.metaHref as never}
-                        className="text-muted-foreground text-small hover:underline"
-                      >
-                        {item.meta}
-                      </Link>
-                    ) : (
-                      <span className="text-muted-foreground text-small">{item.meta}</span>
-                    ))}
-                  {item.kind === "permit" && weekend.rows.length > 1 && (
-                    <span className="text-muted-foreground text-small">
-                      {t("blockerFor", { events: item.eventNames.join(", ") })}
+          <KeyboardRows>
+            <ul className="m-0 flex list-none flex-col gap-1 p-0">
+              {weekend.blockers.slice(0, BLOCKER_ROWS).map((item) => (
+                <li
+                  key={`${item.kind}-${item.id}`}
+                  data-href={item.href}
+                  className="-mx-2 flex cursor-pointer items-baseline gap-2 rounded-md px-2 py-0.5 hover:bg-hover"
+                >
+                  <HealthShape
+                    level={
+                      item.urgency === "overdue"
+                        ? "critical"
+                        : item.urgency === "waiting"
+                          ? "none"
+                          : "warn"
+                    }
+                    className="translate-y-0.5"
+                  />
+                  <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                    <Link href={item.href as never} className="font-medium hover:underline">
+                      {item.title}
+                    </Link>
+                    {item.meta &&
+                      (item.metaHref ? (
+                        <Link
+                          href={item.metaHref as never}
+                          className="text-muted-foreground text-small hover:underline"
+                        >
+                          {item.meta}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground text-small">{item.meta}</span>
+                      ))}
+                    {item.kind === "permit" && weekend.rows.length > 1 && (
+                      <span className="text-muted-foreground text-small">
+                        {t("blockerFor", { events: item.eventNames.join(", ") })}
+                      </span>
+                    )}
+                    <span className="tabular text-muted-foreground text-small">
+                      {formatDateShortYear(item.dueOn, locale, today)}
                     </span>
-                  )}
-                  <span className="tabular text-muted-foreground text-small">
-                    {formatDateShortYear(item.dueOn, locale, today)}
                   </span>
-                </span>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          </KeyboardRows>
           {weekend.blockers.length > BLOCKER_ROWS && (
             <p className="m-0 mt-1.5 text-muted-foreground text-small">
               {t("blockersMore", { count: weekend.blockers.length - BLOCKER_ROWS })}

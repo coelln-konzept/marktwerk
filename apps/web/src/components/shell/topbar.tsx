@@ -21,6 +21,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { Kbd } from "@/components/ui/kbd";
 import type { Creatable } from "@/lib/creatable";
+import { BackButton, useVisitedPages } from "./back-button";
 import { useShell } from "./shell-context";
 
 export type Crumb = { label: string; href?: string };
@@ -139,6 +140,12 @@ function NewMenu() {
 export function Topbar({ crumbs, bell }: { crumbs: Crumb[]; bell?: React.ReactNode }) {
   const t = useTranslations("topbar");
   const { setNavOpen, setPaletteOpen, creatable } = useShell();
+  useVisitedPages();
+  // The nearest crumb above this page, for the back button when the page was opened directly.
+  const parentHref = crumbs
+    .slice(0, -1)
+    .reverse()
+    .find((crumb) => crumb.href)?.href;
   return (
     <header className="sticky top-0 z-20 flex min-h-14 flex-wrap items-center gap-3 border-b bg-card px-4 py-2 lg:px-7">
       <button
@@ -150,7 +157,8 @@ export function Topbar({ crumbs, bell }: { crumbs: Crumb[]; bell?: React.ReactNo
         <MenuIcon className="size-5" />
       </button>
       {crumbs.length > 1 ? (
-        <nav aria-label={t("breadcrumb")} className="min-w-0 flex-1">
+        <nav aria-label={t("breadcrumb")} className="flex min-w-0 flex-1 items-center gap-1.5">
+          {parentHref && <BackButton parentHref={parentHref} />}
           <ol className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
             {crumbs.map((crumb, index) => {
               const last = index === crumbs.length - 1;

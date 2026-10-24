@@ -67,6 +67,7 @@
   "topbar": {
     "menu": "Open navigation",
     "breadcrumb": "Breadcrumb",
+    "back": "Back",
     "search": "Search or command …",
     "new": "New",
     "notifications": "Notifications",

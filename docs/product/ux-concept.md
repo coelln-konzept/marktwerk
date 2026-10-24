@@ -80,10 +80,15 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
   **profile** (name, role); its menu holds **Einstellungen** (also reachable with Strg+K), Design (System / Hell /
   Dunkel), Dichte (Standard / Kompakt), Sprache and Abmelden.
 - **Top bar:** breadcrumb only below a top-level page (e.g. "Veranstaltungen › Food & Wine Neuss"; on a top-level
-  page it would repeat the H1, so it is left out), the visible search field "Suchen oder Befehl …" with Strg+K hint
+  page it would repeat the H1, so it is left out), with a small **"←"** before it: back to the page you came from in
+  this tab, with its filters (drawers, Vorschau and filter changes don't count as pages, so it never reopens a closed
+  drawer), or to the parent crumb when the page was opened directly. Then the visible search field "Suchen oder Befehl …" with Strg+K hint
   (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board, new event in
   Veranstaltungen…) and the **bell** with the number of unread open notifications (owner/manager: company-wide).
-- **Content:** one page. Vorschau and drawers open over it (§4).
+- **Content:** one page. Vorschau and drawers open over it (§4). **A row or box opens its record when clicked
+  anywhere**, not only on its title (event rows → the event Überblick, task rows → the task drawer); links and buttons
+  inside it keep their own action, Cmd/Ctrl-click opens a new tab. Checklist icons (event Überblick → Kernaufgaben,
+  Übersicht task icons) mark a task done with undo; a done Kernaufgabe's ✓ reopens it.
 - **Below 1024 px** the sidebar collapses to icons, then to a hamburger menu; pages go single-column. Staff/shift
   screens have a **390 px mobile variant** (Team · Schichten); field crew get magic-link pages in Phase 2.
 

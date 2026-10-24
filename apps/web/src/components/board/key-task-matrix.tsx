@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { formatDateRangeYear, formatMonthDay, todayIn } from "@/lib/format";
@@ -75,7 +76,7 @@ export async function KeyTaskMatrixView({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative overflow-x-auto rounded-xl border bg-card">
+      <KeyboardRows className="relative overflow-x-auto rounded-xl border bg-card">
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">{t("caption")}</caption>
           <thead>
@@ -101,7 +102,11 @@ export async function KeyTaskMatrixView({
           </thead>
           <tbody>
             {matrix.events.map((event) => (
-              <tr key={event.id} className="border-border-subtle border-b last:border-b-0">
+              <tr
+                key={event.id}
+                data-href={`/veranstaltungen/${event.id}`}
+                className="cursor-pointer border-border-subtle border-b last:border-b-0 hover:bg-hover"
+              >
                 <th
                   scope="row"
                   className="sticky left-0 z-[1] border-r bg-card px-3 py-2 text-left font-normal"
@@ -162,7 +167,7 @@ export async function KeyTaskMatrixView({
             ))}
           </tbody>
         </table>
-      </div>
+      </KeyboardRows>
       <ul
         aria-label={t("legend")}
         className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-small"

@@ -67,6 +67,7 @@
   "topbar": {
     "menu": "Navigation öffnen",
     "breadcrumb": "Brotkrumen",
+    "back": "Zurück",
     "search": "Suchen oder Befehl …",
     "new": "Neu",
     "notifications": "Benachrichtigungen",
