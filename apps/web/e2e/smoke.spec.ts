@@ -597,3 +597,56 @@ test("Veranstaltung Überblick: shows Was fehlt and Kernaufgaben, no Zustand pan
   await expect(page.getByRole("heading", { level: 2, name: "Kernaufgaben" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Zustand" })).toHaveCount(0);
 });
+
+test("Whole rows open their target: a click beside the market name opens the event Überblick", async ({
+  page,
+}) => {
+  await page.goto("/board?zeitraum=alle");
+  const row = page
+    .getByRole("table", { name: "Bereitschaft der kommenden Veranstaltungen" })
+    .locator("tbody tr[data-href]")
+    .first();
+  const href = await row.getAttribute("data-href");
+  // The progress cell has no link of its own.
+  await row.locator("td").nth(1).click();
+  await expect(page).toHaveURL(new RegExp(`${href}$`));
+});
+
+test("Back arrow: returns to the page you came from with its filters, else to the parent page", async ({
+  page,
+}) => {
+  await page.goto("/board?ansicht=matrix&zeitraum=alle");
+  const back = page.getByRole("button", { name: "Zurück", exact: true });
+  await expect(back).toHaveCount(0);
+  await page
+    .getByRole("table", { name: "Kernaufgaben der kommenden Veranstaltungen" })
+    .locator("tbody th a")
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/veranstaltungen\/[0-9a-f-]{36}$/);
+  const event = page.url();
+  await back.click();
+  await expect(page).toHaveURL(/\/board\?ansicht=matrix&zeitraum=alle$/);
+
+  // Opened directly (new tab): back goes to the parent crumb.
+  const direct = await page.context().newPage();
+  await direct.goto(event);
+  await direct.getByRole("button", { name: "Zurück", exact: true }).click();
+  await expect(direct).toHaveURL(/\/veranstaltungen$/);
+});
+
+test("Kernaufgaben: the circle marks a task done with undo", async ({ page }) => {
+  await page.goto("/veranstaltungen?saison=2026");
+  const href = await page.locator("tbody tr[data-row]").first().getAttribute("data-href");
+  await page.goto(href as string);
+  const panel = page.getByRole("region", { name: "Kernaufgaben" });
+  const open = panel.locator('button[aria-pressed="false"]').first();
+  const label = (await open.getAttribute("aria-label")) ?? "";
+  const title = label.replace(/^„/, "").replace(/“ als erledigt markieren$/, "");
+  await open.click();
+  await expect(page.getByText(`„${title}“ erledigt`)).toBeVisible();
+  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await expect(
+    panel.locator(`button[aria-pressed="false"][aria-label="${label}"]`).first(),
+  ).toBeVisible();
+});

@@ -16,6 +16,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { TaskDoneButton } from "@/components/task/done-button";
 import { SnoozeMenu } from "@/components/task/snooze";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
+import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
@@ -147,9 +148,10 @@ export async function DueToday({
         : null;
     return (
       <li
+        data-href={item.href}
         className={cn(
           // Phone: the title gets its own line, date and actions sit below it. From sm: one line.
-          "grid grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 px-4 hover:bg-hover sm:flex sm:items-center",
+          "grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 px-4 hover:bg-hover sm:flex sm:items-center",
           nested ? "py-1.5 pl-8" : "border-border-subtle border-b py-2 last:border-b-0",
         )}
       >
@@ -239,7 +241,7 @@ export async function DueToday({
       {due.items.length === 0 ? (
         <EmptyState icon={CalendarCheck} title={t("emptyTitle")} hint={t("emptyHint")} />
       ) : (
-        <div className="flex flex-col">
+        <KeyboardRows className="flex flex-col">
           {GROUPS.map((urgency) => {
             const GroupIcon = GROUP_UI[urgency].icon;
             const rows = due.items.filter((i) => i.urgency === urgency);
@@ -273,7 +275,10 @@ export async function DueToday({
                         key={`event-${cluster.event.id}`}
                         className="border-border-subtle border-b"
                       >
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-4 pt-3 pb-1 text-body">
+                        <div
+                          data-href={cluster.event.href}
+                          className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-4 pt-3 pb-1 text-body hover:bg-hover"
+                        >
                           <MarketMarker
                             color={cluster.event.color}
                             typeKey={cluster.event.typeKey}
@@ -354,7 +359,7 @@ export async function DueToday({
               </Link>
             </div>
           )}
-        </div>
+        </KeyboardRows>
       )}
     </Panel>
   );

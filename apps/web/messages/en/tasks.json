@@ -197,6 +197,7 @@
       "waiting": "Waiting for authority"
     },
     "statusMore": "More statuses",
-    "statusReopen": "Open again"
+    "statusReopen": "Open again",
+    "reopenAria": "Reopen “{title}”"
   }
 }

@@ -12,6 +12,7 @@ import {
 } from "@/components/event-detail/overview-panels";
 import { TaskDrawer } from "@/components/task/task-drawer";
 import { Drawer } from "@/components/ui/drawer";
+import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { param } from "@/lib/url";
@@ -63,11 +64,11 @@ export default async function EventOverviewPage({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <KeyboardRows className="flex flex-col gap-6">
       <StatusLine event={event} overview={overview} />
       <MissingPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2">
-        <KeyTasksPanel event={event} overview={overview} today={today} />
+        <KeyTasksPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
         <DatesPanel event={event} today={today} />
       </div>
       <div className="flex flex-col gap-3">
@@ -76,6 +77,6 @@ export default async function EventOverviewPage({
       </div>
       {isModuleVisible("team") && <TeamSummaryPanel event={event} />}
       {drawer}
-    </div>
+    </KeyboardRows>
   );
 }

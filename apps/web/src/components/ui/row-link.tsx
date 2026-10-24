@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type * as React from "react";
+import { openOnRowClick } from "./keyboard-rows";
 import { TR } from "./table";
 
 /**
@@ -19,10 +20,7 @@ export function LinkRow({
     <TR
       onClick={(event) => {
         onClick?.(event);
-        if (event.defaultPrevented) return;
-        if ((event.target as HTMLElement).closest("a, button")) return;
-        if (window.getSelection()?.toString()) return;
-        router.push(href as never);
+        openOnRowClick(event, href, (to) => router.push(to as never));
       }}
       className={`cursor-pointer ${className ?? ""}`}
       {...props}
