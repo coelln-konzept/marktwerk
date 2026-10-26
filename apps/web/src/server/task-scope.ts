@@ -1,5 +1,5 @@
 import "server-only";
-import { pastEventCutoff } from "@marktwerk/core";
+import { pastEventCutoff, resolveRelativeDue } from "@marktwerk/core";
 import { event, task } from "@marktwerk/db/schema";
 import { and, eq, exists, gte, isNull, or, type SQL, sql } from "drizzle-orm";
 import { type Actor, visibleEvents } from "./actor";
@@ -26,8 +26,9 @@ export function visibleTasks(actor: Actor): SQL {
 }
 
 /**
- * Tasks of past markets stay out of every cross-market list and KPI (Übersicht, Board, Kalender): tasks
- * without an event and tasks of an event whose last day is at most 7 days ago (`pastEventCutoff`) stay.
+ * Leftovers of past markets stay out of every cross-market list and KPI (Übersicht, Board, Kalender): tasks
+ * without an event, tasks of an event whose last day is at most 7 days ago (`pastEventCutoff`), and tasks
+ * due today or later (follow-up work of a past market, `isPastMarketLeftover`) stay.
  * Do not apply this to an event's own board or Überblick; the event page shows all of its tasks.
  */
 export function notOfPastEvent(today: string): SQL {
@@ -39,6 +40,7 @@ export function notOfPastEvent(today: string): SQL {
         .from(event)
         .where(and(eq(event.id, task.eventId), gte(event.endsOn, pastEventCutoff(today)))),
     ),
+    gte(task.dueAt, resolveRelativeDue(today, 0, "00:00")),
   ) as SQL;
 }
 

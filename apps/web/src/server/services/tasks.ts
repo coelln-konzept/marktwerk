@@ -19,6 +19,7 @@ import {
   OPEN_STATUSES,
   PAST_EVENT_SKIP_REASON,
   pastEventCutoff,
+  resolveRelativeDue,
   sortBetween,
   TASK_STATUSES,
   type TaskStatusKey,
@@ -37,7 +38,7 @@ import {
   taskComment,
   user,
 } from "@marktwerk/db/schema";
-import { and, count, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
@@ -732,7 +733,8 @@ async function undoEntry(
 // cleanup of past markets
 
 /**
- * "Aufräumen": skips the open tasks of past markets (last day more than 7 days ago, `isPastEvent`) in one
+ * "Aufräumen": skips the leftovers of past markets (last day more than 7 days ago, already due or undated,
+ * `isPastMarketLeftover`) in one
  * transaction. `eventIds` limits it to those markets (a market that is not past, or other open tasks, are
  * never touched); omitted = every past market. One `task.status` audit entry per task, so each is
  * undoable; the returned `auditIds` feed {@link undoTaskChanges} (the undo toast).
@@ -756,6 +758,8 @@ export async function skipPastEventTasks(
           deadlineScope(actor),
           inArray(task.status, [...OPEN_STATUSES]),
           lt(event.endsOn, pastEventCutoff(today)),
+          // Only leftovers: follow-up work due today or later stays open (`isPastMarketLeftover`).
+          or(isNull(task.dueAt), lt(task.dueAt, resolveRelativeDue(today, 0, "00:00"))),
           eventIds ? inArray(task.eventId, eventIds) : undefined,
         ),
       );

@@ -1,4 +1,4 @@
-import { pastEventCutoff, renderImmediate } from "@marktwerk/core";
+import { pastEventCutoff, renderImmediate, resolveRelativeDue } from "@marktwerk/core";
 import {
   type Database,
   event,
@@ -7,6 +7,7 @@ import {
   outboundMessage,
   settings,
   staffMember,
+  task,
   user,
 } from "@marktwerk/db";
 import { and, eq, gte, inArray, isNull, or, type SQL } from "drizzle-orm";
@@ -15,12 +16,17 @@ import { and, eq, gte, inArray, isNull, or, type SQL } from "drizzle-orm";
 export const OPEN_TASK_STATUSES = ["todo", "in_progress", "waiting_external", "blocked"] as const;
 
 /**
- * Tasks of past markets (last day more than 7 days ago) neither remind, escalate nor appear in the digest;
- * they are left to the cleanup on the Übersicht. Needs the `event` table left-joined on `task.event_id`;
- * tasks without an event stay.
+ * Leftovers of past markets (last day more than 7 days ago, task already due or undated) neither remind,
+ * escalate nor appear in the digest; they are left to the cleanup on the Übersicht. Follow-up work due today
+ * or later stays (`isPastMarketLeftover`). Needs the `event` table left-joined on `task.event_id`; tasks
+ * without an event stay.
  */
 export function notOfPastEvent(today: string): SQL {
-  return or(isNull(event.id), gte(event.endsOn, pastEventCutoff(today))) as SQL;
+  return or(
+    isNull(event.id),
+    gte(event.endsOn, pastEventCutoff(today)),
+    gte(task.dueAt, resolveRelativeDue(today, 0, "00:00")),
+  ) as SQL;
 }
 
 /** The business date (YYYY-MM-DD) of an instant in the company's time zone. */
