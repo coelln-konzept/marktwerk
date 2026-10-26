@@ -20,6 +20,15 @@ password (the logistics lead of the synthetic data); other seeded logins: `burak
 `natalia.schulze@example.com` and `annabel.green@example.com` (staff). On a non-local database no login is created
 without `SEED_OWNER_PASSWORD` / `SEED_STAFF_PASSWORD`.
 
+**Reset the data.** The seed generates the synthetic data as of the seed day (a handful of overdue tasks), and
+refuses to seed a database that already holds it (some ids depend on the day). For a fresh, current state:
+```bash
+docker exec marktwerk-postgres-1 psql -U marktwerk -d postgres -c "drop database marktwerk with (force)" -c "create database marktwerk owner marktwerk"
+pnpm db:migrate && pnpm db:seed
+```
+To seed "as of" a fixed day instead (e.g. to add rows to a database first seeded that day):
+`SYNTHETIC_REFERENCE_DATE=2026-10-21 pnpm db:seed`.
+
 To skip the login page locally, set `DEV_AUTO_LOGIN_EMAIL` and `DEV_AUTO_LOGIN_PASSWORD` in `.env` (see
 `.env.example`): an unauthenticated visit then signs that account in. It only works with `pnpm dev` on localhost;
 signing out pauses it until the browser closes, so other logins can still be tried.

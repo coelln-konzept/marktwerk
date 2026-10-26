@@ -20,8 +20,11 @@ pnpm --filter @marktwerk/synthetic typecheck
 
 ### Determinism
 
-- `SEED = 20261021` and `REFERENCE_DATE = "2026-10-21"` live in `src/constants.ts`. The reference date stands in for
-  "today" for every status and due date. The real clock is never read.
+- `SEED = 20261021` and `REFERENCE_DATE` live in `src/constants.ts`. The reference date stands in for "today" for
+  every status and due date; the generator never reads the real clock. It is `SYNTHETIC_REFERENCE_DATE` when set, else
+  the fixed `2026-10-21` (tests, `pnpm generate`). `pnpm db:seed` sets it to the seed day, so a fresh seed looks
+  current: past tasks are done, with exactly 4 overdue tasks on current markets and 2 forgotten ones on the last
+  market that ended more than a week ago (`OVERDUE_CURRENT`, `OVERDUE_LEFTOVERS` in `generators/tasks.ts`).
 - Every random decision goes through one seeded Faker instance (German locale stack, the same as `fakerDE`).
   All ids come from `faker.string.uuid()` after seeding.
 - Two runs produce byte-identical output. A test checks this. Changing generator code or dictionaries changes the output.
@@ -66,7 +69,7 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 - **Events**: at most 4 events touch any weekend. No venue hosts two events on the same day. Occurrences that break a
   rule are dropped, not moved. Lifecycle status follows the reference date: ended more than 21 days ago → `closed`,
   ended before today → `completed`, 2026 upcoming → `confirmed`, 2027 → `planned` (venue permit applied) or `draft`.
-- **Tasks**: past tasks are mostly `done`, some `skipped`, about 5 % still open and overdue (`rolloverCount` 1–5).
+- **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets and 2 on the last past market (`rolloverCount` 1–5); permit tasks of upcoming markets sometimes wait on an authority.
   Permit tasks of recent events may be `waiting_external`. Future tasks are `todo` or `in_progress`.
 - **Bookings**: placements are first-fit along the venue rows, so they never overlap. Car requests are placed first. A car
   is granted only if it is not longer than the booked stall and a car slot is free.

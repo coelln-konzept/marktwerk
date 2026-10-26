@@ -1,8 +1,21 @@
 /** Seed for every run. Changing it changes all generated output. */
 export const SEED = 20261021;
 
-/** "Today" for every status and due-date decision. The real clock is never read. */
-export const REFERENCE_DATE = "2026-10-21";
+/** The fixed "today" of the tests and of runs without an explicit date. */
+export const DEFAULT_REFERENCE_DATE = "2026-10-21";
+
+/**
+ * "Today" for every status and due-date decision. The generator never reads the real clock: the seed passes
+ * the seed day as `SYNTHETIC_REFERENCE_DATE` (so a fresh seed looks current), tests use the fixed default.
+ */
+export const REFERENCE_DATE = referenceDate(process.env.SYNTHETIC_REFERENCE_DATE);
+
+function referenceDate(value: string | undefined): string {
+  if (value === undefined || value === "") return DEFAULT_REFERENCE_DATE;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
+    throw new Error(`SYNTHETIC_REFERENCE_DATE must be YYYY-MM-DD, got "${value}"`);
+  return value;
+}
 
 export const COMPANY_NAME = "Demo Märkte GmbH";
 export const TIME_ZONE = "Europe/Berlin";
