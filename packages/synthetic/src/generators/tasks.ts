@@ -18,8 +18,17 @@ import type {
   TemplateItem,
 } from "../types";
 
-/** Share of past tasks left open on purpose (overdue, carried over). The rest is done or skipped. */
-export const OVERDUE_SAMPLE_SHARE = 0.05;
+/**
+ * The team stays on top of its list: past tasks are done (or skipped), except a handful left open on purpose
+ * so every view has something to show. Overdue tasks of current markets (not finished yet):
+ */
+export const OVERDUE_CURRENT = 4;
+/** Forgotten tasks of the last market that ended more than a week ago (the Übersicht's "Aufräumen" line). */
+export const OVERDUE_LEFTOVERS = 2;
+/** Days before REFERENCE_DATE an overdue sample task may be due (a team catches up within days). */
+const OVERDUE_WINDOW_DAYS = 10;
+/** Markets that ended this many days ago or more count as past (`notOfPastEvent` in the app). */
+const PAST_MARKET_DAYS = 7;
 
 export function buildChecklistTemplates(rng: Rng, eventTypes: EventType[]): ChecklistTemplate[] {
   return eventTypes.map((type) => {
@@ -78,8 +87,9 @@ interface StatusDecision {
 }
 
 /**
- * Status relative to REFERENCE_DATE. Past tasks: mostly done, some skipped, about 5 % open and overdue
- * (rolled over 1–5 times). Future tasks: todo, a few in progress or waiting on an authority.
+ * Status relative to REFERENCE_DATE. Past tasks: done, a few skipped; permit tasks of current markets may still
+ * wait on an authority. Future tasks: todo, a few in progress or waiting on an authority. The few overdue tasks
+ * are picked afterwards (`leaveSomeOverdue`).
  */
 function decideStatus(
   rng: Rng,
@@ -92,17 +102,8 @@ function decideStatus(
   if (eventStatus === "cancelled") return { ...none, status: "cancelled" };
 
   if (dueDate < REFERENCE_DATE) {
-    if (rng.chance(OVERDUE_SAMPLE_SHARE)) {
-      return {
-        ...none,
-        status: rng.chance(0.3) ? "in_progress" : "todo",
-        rolloverCount: rng.int(1, 5),
-        lastRolledAt: berlinInstant(REFERENCE_DATE, "00:05"),
-      };
-    }
-    // Waiting for an authority only makes sense while the event is still recent (or upcoming).
-    const recentEvent = eventEndsOn >= addDays(REFERENCE_DATE, -30);
-    if (item.category === "permits" && recentEvent && rng.chance(0.4)) {
+    // Waiting for an authority only makes sense while the market is still ahead.
+    if (item.category === "permits" && eventEndsOn >= REFERENCE_DATE && rng.chance(0.1)) {
       return {
         ...none,
         status: "waiting_external",
@@ -115,7 +116,7 @@ function decideStatus(
     return { ...none, status: "done" };
   }
 
-  if (item.category === "permits" && rng.chance(0.2)) {
+  if (item.category === "permits" && rng.chance(0.1)) {
     return { ...none, status: "waiting_external", waitingReason: "Antwort der Behörde ausstehend" };
   }
   if (dueDate <= addDays(REFERENCE_DATE, 7) && rng.chance(0.25))
@@ -135,6 +136,8 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
   }
 
   const tasks: Task[] = [];
+  /** Berlin due day per task id (`dueAt` is a UTC instant). */
+  const dueDates = new Map<string, string>();
   for (const event of ctx.events) {
     const template = templateByTypeId.get(event.eventTypeId);
     const anchors = anchorsByEvent.get(event.id);
@@ -156,8 +159,10 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
         ? new Date(Date.parse(dueAt) + rng.int(-3, 5) * 3_600_000).toISOString()
         : null;
 
+      const id = rng.uuid();
+      dueDates.set(id, dueDate);
       tasks.push({
-        id: rng.uuid(),
+        id,
         eventId: event.id,
         templateItemId: item.id,
         templateStableKey: item.stableKey,
@@ -184,5 +189,61 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
       });
     }
   }
+  leaveSomeOverdue(rng, tasks, ctx.events, dueDates);
   return tasks;
+}
+
+/**
+ * Reopens the few tasks the team has not caught up with yet: `OVERDUE_CURRENT` recently due tasks of markets
+ * that are not over (they show as overdue), and `OVERDUE_LEFTOVERS` tasks of the last market that ended more
+ * than a week ago (only the Übersicht's cleanup line shows them). Permit tasks stay as they are (they follow
+ * their permit).
+ */
+function leaveSomeOverdue(
+  rng: Rng,
+  tasks: Task[],
+  events: readonly Event[],
+  dueDates: ReadonlyMap<string, string>,
+): void {
+  const eventById = new Map(events.map((event) => [event.id, event]));
+  const finished = (task: Task) => task.status === "done" || task.status === "skipped";
+  const dueOn = (task: Task) => dueDates.get(task.id) ?? task.dueAt.slice(0, 10);
+  const candidate = (task: Task) =>
+    finished(task) && task.category !== "permits" && dueOn(task) < REFERENCE_DATE;
+
+  const windowStart = addDays(REFERENCE_DATE, -OVERDUE_WINDOW_DAYS);
+  const current = tasks.filter((task) => {
+    const event = eventById.get(task.eventId);
+    return (
+      candidate(task) &&
+      dueOn(task) >= windowStart &&
+      event !== undefined &&
+      event.status !== "cancelled" &&
+      event.endsOn >= REFERENCE_DATE
+    );
+  });
+
+  const pastCutoff = addDays(REFERENCE_DATE, -PAST_MARKET_DAYS);
+  const lastPast = events
+    .filter((event) => event.status !== "cancelled" && event.endsOn < pastCutoff)
+    .sort((a, b) => (a.endsOn < b.endsOn ? 1 : a.endsOn > b.endsOn ? -1 : 0))[0];
+  const leftovers = lastPast
+    ? tasks.filter((task) => task.eventId === lastPast.id && candidate(task))
+    : [];
+
+  const reopen = (task: Task) => {
+    const days = Math.max(
+      1,
+      Math.round((Date.parse(REFERENCE_DATE) - Date.parse(dueOn(task))) / 86_400_000),
+    );
+    task.status = rng.chance(0.3) ? "in_progress" : "todo";
+    task.completedAt = null;
+    task.completedById = null;
+    task.skippedReason = null;
+    task.effortFeedback = null;
+    task.rolloverCount = Math.min(days, 5);
+    task.lastRolledAt = berlinInstant(REFERENCE_DATE, "00:05");
+  };
+  for (const task of rng.shuffle(current).slice(0, OVERDUE_CURRENT)) reopen(task);
+  for (const task of rng.shuffle(leftovers).slice(0, OVERDUE_LEFTOVERS)) reopen(task);
 }

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { MAX_EVENTS_PER_WEEKEND, REFERENCE_DATE } from "./constants";
 import { generateDataset } from "./dataset";
+import { OVERDUE_CURRENT, OVERDUE_LEFTOVERS } from "./generators/tasks";
 import { EXAMPLE_DOMAINS, FICTION_PHONE_PATTERN } from "./lib/fiction";
 import type { Dataset, EmploymentContract, Event, EventType, Payable, Task } from "./types";
 
@@ -461,31 +462,39 @@ describe("tasks", () => {
   });
   const open = (task: Task): boolean => !["done", "skipped", "cancelled"].includes(task.status);
 
-  it("leaves no normal open tasks on old completed events, only the overdue sample", () => {
-    const cutoff = isoDay(Date.parse(`${REFERENCE_DATE}T00:00:00Z`) - 30 * DAY_MS);
-    const oldTasks = data.tasks.filter((task) => {
-      const event = eventById.get(task.eventId);
-      return event !== undefined && event.status !== "cancelled" && event.endsOn < cutoff;
-    });
-    expect(oldTasks.length).toBeGreaterThan(0);
-    const stray = oldTasks.filter((task) => open(task) && task.rolloverCount === 0);
-    expect(stray).toEqual([]);
+  it("leaves open only the few overdue tasks: OVERDUE_CURRENT on current markets, OVERDUE_LEFTOVERS on the last past one", () => {
+    const today = `${REFERENCE_DATE}T00:00:00.000Z`;
+    const overdue = data.tasks.filter(
+      (task) => task.dueAt < today && open(task) && task.status !== "waiting_external",
+    );
+    const current = overdue.filter(
+      (task) => (eventById.get(task.eventId)?.endsOn ?? "") >= REFERENCE_DATE,
+    );
+    const pastCutoff = isoDay(Date.parse(`${REFERENCE_DATE}T00:00:00Z`) - 7 * DAY_MS);
+    const leftovers = overdue.filter(
+      (task) => (eventById.get(task.eventId)?.endsOn ?? "") < pastCutoff,
+    );
+    expect(current).toHaveLength(OVERDUE_CURRENT);
+    expect(leftovers).toHaveLength(OVERDUE_LEFTOVERS);
+    expect(overdue).toHaveLength(OVERDUE_CURRENT + OVERDUE_LEFTOVERS);
+    // all leftovers belong to one market; nothing is carried over for long
+    expect(new Set(leftovers.map((task) => task.eventId)).size).toBe(1);
+    for (const task of overdue) {
+      expect(task.category).not.toBe("permits");
+      expect(task.rolloverCount).toBeGreaterThanOrEqual(1);
+      expect(task.rolloverCount).toBeLessThanOrEqual(5);
+      expect(task.completedAt).toBeNull();
+    }
   });
 
-  it("keeps about 5 % of past tasks overdue (rolled over 1–5 times); other open ones wait on an authority", () => {
-    const past = data.tasks.filter(
-      (task) => task.dueAt < `${REFERENCE_DATE}T00:00:00.000Z` && task.status !== "cancelled",
-    );
-    const overdue = past.filter((task) => task.rolloverCount > 0);
-    const share = overdue.length / past.length;
-    expect(share).toBeGreaterThan(0.02);
-    expect(share).toBeLessThan(0.1);
-    for (const task of overdue) {
-      expect(open(task)).toBe(true);
-      expect(task.rolloverCount).toBeLessThanOrEqual(5);
+  it("lets past permit tasks wait on an authority only while their market is still ahead", () => {
+    const today = `${REFERENCE_DATE}T00:00:00.000Z`;
+    for (const task of data.tasks) {
+      if (task.dueAt < today && task.status === "waiting_external") {
+        expect(task.category).toBe("permits");
+        expect((eventById.get(task.eventId)?.endsOn ?? "") >= REFERENCE_DATE).toBe(true);
+      }
     }
-    const otherOpen = past.filter((task) => open(task) && task.rolloverCount === 0);
-    expect(otherOpen.every((task) => task.status === "waiting_external")).toBe(true);
   });
 
   it("marks cancelled events' tasks cancelled and gives done tasks a completion time", () => {

@@ -8,7 +8,10 @@ UX testing need realistic volumes (a full season, ~1,500 vendors, booking histor
 
 ## Decision
 - `packages/synthetic` generates a **fictional but realistic dataset** with a fixed seed and reference date
-  (`2026-10-21`), so every run is identical and tests can rely on it. It was built by a low-cost model as code
+  (`2026-10-21`), so every run is identical and tests can rely on it. *Amended 2026-10-26:* `pnpm db:seed` passes the
+  seed day as the reference date (`SYNTHETIC_REFERENCE_DATE`), so a fresh seed shows a realistic current state (the
+  team is on top of its list: 4 overdue tasks, 2 forgotten on the last past market); output stays deterministic for a
+  given date. It was built by a low-cost model as code
   (curated German domain dictionaries + Faker `de`), not as hand-written rows.
 - **Privacy by construction:** fictional company; emails only at `example.com/.org/.net`; phone numbers only from
   ranges reserved for film/fiction; no real persons.
