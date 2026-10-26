@@ -4,10 +4,11 @@
 first. Repository: [`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk). Older handoffs are kept
 as history at the end (§10 session 4, §11 session 3); the session-3 reading list and architecture notes still apply.
 
-> **Where things stand:** everything is merged to `main` (PRs #9–#11), nothing in flight, no open branches besides
-> the two obsolete `wip/ux-pass-*` ones. Session 5 shipped navigation polish (#10) and the event-board **Ablauf**
-> view (#11), re-ran the design critique (**29/40**, was 25/40) and prepared the deployed login (waiting on GitHub
-> secrets from the product owner). Next: seed the deployed DB once the secrets exist, then pick critique findings
+> **Where things stand:** everything is merged to `main` (PRs #9–#14), nothing in flight, no open branches besides
+> the two obsolete `wip/ux-pass-*` ones. Session 5 shipped navigation polish (#10), the event-board **Ablauf**
+> view (#11), **realistic synthetic data generated as of the seed day** (#13) and a **hide-sidebar button** (#14),
+> re-ran the design critique (**29/40**, was 25/40) and prepared the deployed login (waiting on GitHub secrets from
+> the product owner). Next: seed the deployed DB once the secrets exist, then pick critique findings
 > with the product owner (§5).
 
 ---
@@ -29,7 +30,7 @@ as history at the end (§10 session 4, §11 session 3); the session-3 reading li
 | Postgres + Mailpit | Docker (`pnpm db:up`). **Postgres on port 5433** (a system Postgres owns 5432) via the git-excluded `docker-compose.override.yml`; `.env` has `DATABASE_URL=…:5433/marktwerk` and `TEST_DATABASE_URL=…:5433/marktwerk_test`. Only `marktwerk` and `marktwerk_test` exist now (agent DBs dropped). |
 | Dev server | **http://localhost:3001** (3000 is an `open-webui` container). `preview_start` name `marktwerk` (launch config in `~/Developer/CoellnKonzept/.claude/launch.json`). After branch jumps or merges, restart it (Turbopack keeps stale modules). |
 | Auto-login (local only) | `.env` has `DEV_AUTO_LOGIN_EMAIL=admin@marktwerk.local` / `DEV_AUTO_LOGIN_PASSWORD=admin12345` → a fresh browser on localhost is signed in (`apps/web/src/server/dev-auto-login.ts`). |
-| Admin login | `admin@marktwerk.local` / `admin12345` (owner). **Not part of the seed** — re-create it after every reseed (§6). Seeded logins: `owner@marktwerk.local` etc. / `marktwerk-dev-123`. Local DB was reseeded on 2026-10-24. |
+| Admin login | `admin@marktwerk.local` / `admin12345` (owner). **Not part of the seed** — re-create it after every reseed (§6). Seeded logins: `owner@marktwerk.local` etc. / `marktwerk-dev-123`. Local DB was reseeded on 2026-10-26 with the seed-day data (Übersicht: 5 overdue, 17 notifications). |
 | Browser checks | The in-app browser pane works, but scripted checks are more reliable with Playwright + Chrome: a script in `apps/web` (`.tmp-*.mjs`, delete afterwards) using `chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" })`. |
 | E2E | `E2E_BASE_URL=http://localhost:3001 E2E_CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" pnpm test:e2e` (32 tests). E2E runs as `owner@marktwerk.local`; earlier runs can leave saved views behind in `app.user_preference.saved_views` (e.g. Kalender layers) that break the next run — reset with `update app.user_preference set saved_views = saved_views - 'kalender' where user_id = …`. CI starts fresh. |
 | Impeccable | Installed project-locally (`.claude/skills/impeccable`, git-excluded). Critique snapshots in `apps/web/.impeccable/critique/` (excluded); CLI from `apps/web`: `../../.claude/skills/impeccable/scripts/impeccable …`. No `PRODUCT.md` yet. |
@@ -43,6 +44,9 @@ as history at the end (§10 session 4, §11 session 3); the session-3 reading li
 | #9 | (opened by the cloud session at the end of session 4, merged) UX pass + P false alarms + Q notification center |
 | #10 | **Whole rows/boxes clickable** (`KeyboardRows` opens `data-href` on a click anywhere; Übersicht, Board Bereitschaft + Matrix, Benachrichtigungen, event Überblick lists); **"←" back arrow** in the top bar (`components/shell/back-button.tsx`, path-based stack in `sessionStorage`, parent-crumb fallback); **Kernaufgaben circles** tick off (✓ reopens) with undo |
 | #11 | Event board **Ablauf** view (`?ansicht=ablauf`, `components/board/ablauf-list.tsx`, `groupAblauf` in `packages/core/src/tasks/ablauf.ts`): all tasks in one list, one line each, grouped by phase relative to the market day, sticky headers. **Spalten stays the default until the user tests are back** (product owner, 2026-10-26) |
+| #12 | This handoff |
+| #13 | **Realistic synthetic data**: `REFERENCE_DATE` comes from `SYNTHETIC_REFERENCE_DATE` (tests: fixed 2026-10-21); `pnpm db:seed` runs `apps/web/scripts/seed-today.ts`, which sets the Berlin seed day. Past tasks done, exactly 4 overdue on current markets + 2 forgotten on the last past market (`OVERDUE_CURRENT`/`OVERDUE_LEFTOVERS` in `packages/synthetic/src/generators/tasks.ts`). **The seed refuses a database that already holds synthetic data** (some ids depend on the day) unless `SYNTHETIC_REFERENCE_DATE` is set: reset first (§6). ADR 0016 amended |
+| #14 | **Hide the sidebar**: button at the sidebar's top right (wide screens; closes the menu on phones), top-bar button brings it back; cookie `mw_nav_hidden` (`lib/ui-state.ts`, `ShellProvider.sidebarHidden`) |
 
 Also in session 5:
 - **Refresh loop** reported by the product owner: dev-only. An injected script (browser tooling/extension) threw
@@ -67,7 +71,9 @@ invitations once an email provider is chosen. The product owner sets three repo 
 Connect → Session pooler, port 5432). Then run Actions → **Seed dev database** (`gh workflow run seed-dev.yml -f
 confirm=seed`), check the run, and confirm the login exists (`select email, role from app."user"` via the Supabase
 MCP, project ref `qtwwivadqeloszijsppa`). The seed finds users by email, so the new owner login sits next to
-`owner@marktwerk.local`.
+`owner@marktwerk.local`. Since #13 the data is generated as of the seed day — seed right before user tests. The
+Supabase DB is empty, so the first run passes the "already seeded" guard; a later refresh needs the `app` data
+wiped first (no workflow for that yet — ask before building one).
 
 **Critique findings to choose from (none started):**
 1. **P1** The same task stream on Übersicht ("Heute fällig"), `/benachrichtigungen` and the bell; Übersicht is
@@ -90,6 +96,12 @@ duplicated tab label text for screen readers, event-board footer band, Veranstal
    only the notification; bell counts unread open items.
 3. A "Wartet" task due soon still shows as "bald fällig" in the center. OK?
 Related: the center is filled by the sweep, the Übersicht counts live → 21 vs 22 overdue after a day passes.
+
+**Open question (raised 2026-10-26, unanswered):** the past-market rule (2026-10-22: open tasks of markets that
+ended more than 7 days ago drop out of all lists, `notOfPastEvent` / `isPastEvent`) also hides **follow-up tasks
+that are not due yet** (e.g. "Belege zuordnen", "Auflagen dokumentieren" due days after a market that ended 8+
+days ago) and counts them in the Übersicht's Aufräumen line (6 instead of the 2 intended leftovers). Proposal:
+only *overdue* tasks of past markets go to Aufräumen; not-yet-due follow-ups stay visible.
 
 **Pending decision:** Ablauf as the default event-board view, after the user tests.
 
@@ -114,7 +126,8 @@ insert into app."user" (id, name, email, email_verified, role) values ('$UID_', 
 insert into app.account (id, account_id, provider_id, user_id, password) values (gen_random_uuid()::text, '$UID_', 'credential', '$UID_', '$HASH');
 SQL
 ```
-Reseed: `docker exec marktwerk-postgres-1 psql -U marktwerk -d postgres -c "drop database marktwerk with (force)" -c "create database marktwerk owner marktwerk"`, then `pnpm db:migrate && pnpm db:seed` (the seed also runs one deadline sweep).
+Reseed: `docker exec marktwerk-postgres-1 psql -U marktwerk -d postgres -c "drop database marktwerk with (force)" -c "create database marktwerk owner marktwerk"`, then `pnpm db:migrate && pnpm db:seed` (the seed also runs one deadline sweep). The seed refuses an already seeded
+database (#13), so always drop first; `SYNTHETIC_REFERENCE_DATE=YYYY-MM-DD` seeds "as of" another day.
 
 ## 7. How the product owner likes to work
 - Plans first, approval, then build; **ask before product/architecture decisions**, log answers in
@@ -135,7 +148,8 @@ notification center for owner/manager. Postponed: Aussteller data companion, wee
 assignment, website publishing.
 2026-10-24: whole rows clickable; "←" back arrow; Kernaufgaben circles tick off; deployed login = password via the
 seed (magic link later).
-2026-10-26: event board Ablauf view (switchable, Spalten default until user tests).
+2026-10-26: event board Ablauf view (switchable, Spalten default until user tests); synthetic data as of the seed
+day with 4 overdue + 2 leftovers; hide-sidebar button.
 
 ## 9. Infrastructure and client discovery (unchanged)
 Production hosting not decided (Scalingo candidate, ADR 0006/0017); `CRON_SECRET` exists, `APP_URL` repo variable =
