@@ -120,6 +120,7 @@ export async function AppSidebar({
       brand="marktwerk"
       navLabel={t("label")}
       closeLabel={t("close")}
+      hideLabel={t("hide")}
       items={strip(daily)}
       group={{ label: t("masterData"), items: strip(masterData), defaultOpen: masterDataOpen }}
       footer={

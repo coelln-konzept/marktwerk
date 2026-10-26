@@ -9,6 +9,7 @@ import {
   Copy,
   type LucideIcon,
   Menu as MenuIcon,
+  PanelLeftOpen,
   Plus,
   Search,
   ShieldCheck,
@@ -139,7 +140,7 @@ function NewMenu() {
  */
 export function Topbar({ crumbs, bell }: { crumbs: Crumb[]; bell?: React.ReactNode }) {
   const t = useTranslations("topbar");
-  const { setNavOpen, setPaletteOpen, creatable } = useShell();
+  const { setNavOpen, setPaletteOpen, creatable, sidebarHidden, setSidebarHidden } = useShell();
   useVisitedPages();
   // The nearest crumb above this page, for the back button when the page was opened directly.
   const parentHref = crumbs
@@ -156,6 +157,17 @@ export function Topbar({ crumbs, bell }: { crumbs: Crumb[]; bell?: React.ReactNo
       >
         <MenuIcon className="size-5" />
       </button>
+      {sidebarHidden && (
+        <button
+          type="button"
+          className="hidden size-8 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-hover hover:text-foreground lg:grid"
+          aria-label={t("showSidebar")}
+          title={t("showSidebar")}
+          onClick={() => setSidebarHidden(false)}
+        >
+          <PanelLeftOpen aria-hidden className="size-4" />
+        </button>
+      )}
       {crumbs.length > 1 ? (
         <nav aria-label={t("breadcrumb")} className="flex min-w-0 flex-1 items-center gap-1.5">
           {parentHref && <BackButton parentHref={parentHref} />}

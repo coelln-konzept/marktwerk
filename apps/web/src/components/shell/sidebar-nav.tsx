@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, PanelLeftClose } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
@@ -60,6 +60,7 @@ export function SidebarNav({
   group,
   navLabel,
   closeLabel,
+  hideLabel,
   footer,
 }: {
   brand: string;
@@ -67,10 +68,12 @@ export function SidebarNav({
   group: NavGroup | null;
   navLabel: string;
   closeLabel: string;
+  /** The button at the top right: hides the sidebar on wide screens, closes it on phones. */
+  hideLabel: string;
   footer: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { navOpen, setNavOpen } = useShell();
+  const { navOpen, setNavOpen, sidebarHidden, setSidebarHidden } = useShell();
   const groupId = useId();
   const inGroup = group?.items.some((i) => isActive(pathname, i.href)) ?? false;
   const [groupOpen, setGroupOpen] = useState(group?.defaultOpen ?? false);
@@ -103,27 +106,42 @@ export function SidebarNav({
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-[232px] shrink-0 flex-col gap-0.5 border-sidebar-border border-r bg-sidebar px-2 py-3 text-sidebar-foreground transition-transform lg:sticky lg:top-0 lg:h-svh lg:translate-x-0",
           navOpen ? "translate-x-0" : "-translate-x-full",
+          sidebarHidden && "lg:hidden",
         )}
       >
-        <Link
-          href="/"
-          className="flex items-center gap-2 px-2 pt-1 pb-4 font-bold text-[15px] tracking-tight"
-        >
-          <span className="grid size-6 place-items-center rounded-md bg-primary text-primary-foreground">
-            <svg
-              aria-hidden
-              viewBox="0 0 16 16"
-              className="size-3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-            >
-              <path d="M2.5 6.5 8 2.5l5.5 4v7h-11z" />
-              <path d="M6 13.5V9.5h4v4" />
-            </svg>
-          </span>
-          {brand}
-        </Link>
+        <div className="flex items-start justify-between gap-2">
+          <Link
+            href="/"
+            className="flex items-center gap-2 px-2 pt-1 pb-4 font-bold text-[15px] tracking-tight"
+          >
+            <span className="grid size-6 place-items-center rounded-md bg-primary text-primary-foreground">
+              <svg
+                aria-hidden
+                viewBox="0 0 16 16"
+                className="size-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+              >
+                <path d="M2.5 6.5 8 2.5l5.5 4v7h-11z" />
+                <path d="M6 13.5V9.5h4v4" />
+              </svg>
+            </span>
+            {brand}
+          </Link>
+          <button
+            type="button"
+            aria-label={hideLabel}
+            title={hideLabel}
+            onClick={() => {
+              if (window.matchMedia("(min-width: 1024px)").matches) setSidebarHidden(true);
+              else setNavOpen(false);
+            }}
+            className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <PanelLeftClose aria-hidden className="size-4" />
+          </button>
+        </div>
         <nav aria-label={navLabel} className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
           {items.map((item) => (
             <NavLink key={item.href} item={item} pathname={pathname} />
