@@ -18,6 +18,7 @@ import { isModuleVisible } from "@/lib/modules";
 import { COLUMN_ORDER, formatHours } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { BoardTask, PeopleRail, StaffOption } from "@/server/queries/tasks";
+import { AblaufList } from "./ablauf-list";
 import { BoardProvider, type Lift } from "./board-context";
 import { BoardDnd, useCellDrop, useLaneDrop } from "./board-dnd";
 import { PeopleRailPanel } from "./people-rail";
@@ -75,7 +76,7 @@ function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): 
   return [...rest.slice(0, at), moved, ...rest.slice(at)];
 }
 
-export type BoardLayout = "columns" | "person";
+export type BoardLayout = "columns" | "person" | "ablauf";
 
 type Props = {
   tasks: BoardTask[];
@@ -90,6 +91,8 @@ type Props = {
   scopeEventId: string | null;
   /** Event board: last day of the event; tasks due after it sit under "Nach der Veranstaltung". */
   eventEndsOn?: string | null;
+  /** Event board: first day of the event (the "Ablauf" view groups by weeks before it). */
+  eventStartsOn?: string | null;
   layout: BoardLayout;
   /** True when filters are active (changes the empty text). */
   filtered: boolean;
@@ -229,7 +232,7 @@ export function BoardView(props: Props) {
       canWrite: props.canWrite,
       canAssign: props.canAssign,
       showEvent: props.scopeEventId === null,
-      liftable: props.canWrite,
+      liftable: props.canWrite && props.layout !== "ablauf",
       actions,
       lift,
       pick,
@@ -245,6 +248,7 @@ export function BoardView(props: Props) {
       props.canWrite,
       props.canAssign,
       props.scopeEventId,
+      props.layout,
       actions,
       lift,
       pick,
@@ -294,8 +298,16 @@ export function BoardView(props: Props) {
           </div>
 
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-            <div className="min-w-0 flex-1 overflow-x-auto pb-2">
-              {props.layout === "columns" ? (
+            <div
+              className={cn(
+                "min-w-0 flex-1 pb-2",
+                // The Ablauf list never scrolls sideways; a scroll box here would pin its sticky headers to it.
+                props.layout !== "ablauf" && "overflow-x-auto",
+              )}
+            >
+              {props.layout === "ablauf" && props.eventStartsOn && eventEndsOn ? (
+                <AblaufList tasks={tasks} startsOn={props.eventStartsOn} endsOn={eventEndsOn} />
+              ) : props.layout === "columns" ? (
                 <div className="grid min-w-[880px] grid-cols-4 items-start gap-3">
                   {COLUMN_ORDER.map((column) => (
                     <ColumnPanel

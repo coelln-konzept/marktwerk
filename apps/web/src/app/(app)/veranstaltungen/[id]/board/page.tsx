@@ -4,7 +4,7 @@ import { getActor } from "@/server/actor";
 import { getEvent } from "@/server/queries/events";
 import { requirePermission } from "@/server/session";
 
-/** Tab "Board": the tasks of this event as a kanban, with the people rail and the task drawer. */
+/** Tab "Board": the tasks of this event as a kanban ("Spalten") or one list by phase ("Ablauf"), with the task drawer. */
 export default async function EventBoardPage({
   params,
   searchParams,
@@ -17,6 +17,7 @@ export default async function EventBoardPage({
   return (
     <BoardScreen
       eventId={event.id}
+      eventStartsOn={event.startsOn}
       eventEndsOn={event.endsOn}
       path={`/veranstaltungen/${event.id}/board`}
       searchParams={await searchParams}

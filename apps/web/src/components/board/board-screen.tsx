@@ -36,7 +36,7 @@ import { ReadinessList } from "./readiness-list";
 import { WorkloadTable } from "./workload-table";
 
 type SearchParams = Record<string, string | string[] | undefined>;
-type ViewKey = "bereitschaft" | "matrix" | "spalten" | "person" | "arbeitslast";
+type ViewKey = "bereitschaft" | "matrix" | "spalten" | "ablauf" | "person" | "arbeitslast";
 
 /**
  * The board of one event (tab "Board") or across all events (`/board`): toolbar with views and
@@ -46,13 +46,15 @@ type ViewKey = "bereitschaft" | "matrix" | "spalten" | "person" | "arbeitslast";
  */
 export async function BoardScreen({
   eventId,
+  eventStartsOn,
   eventEndsOn,
   path,
   searchParams: sp,
   actor,
 }: {
   eventId?: string;
-  /** Event board: the event's last day (tasks due later are follow-up work). */
+  /** Event board: the event's first and last day (tasks due later are follow-up work). */
+  eventStartsOn?: string;
   eventEndsOn?: string;
   path: string;
   searchParams: SearchParams;
@@ -71,7 +73,7 @@ export async function BoardScreen({
 
   // ---- URL state
   const allViews: ViewKey[] = eventMode
-    ? ["spalten", "person"]
+    ? ["spalten", "ablauf", "person"]
     : ["bereitschaft", "matrix", "spalten", "person", "arbeitslast"];
   const views = teamHidden
     ? allViews.filter((v) => v !== "person" && v !== "arbeitslast")
@@ -335,7 +337,8 @@ export async function BoardScreen({
           canAssign={canAssign}
           scopeEventId={eventId ?? null}
           eventEndsOn={eventEndsOn ?? null}
-          layout={view === "person" ? "person" : "columns"}
+          eventStartsOn={eventStartsOn ?? null}
+          layout={view === "person" ? "person" : view === "ablauf" ? "ablauf" : "columns"}
           filtered={filtered}
           truncated={truncated}
         />
