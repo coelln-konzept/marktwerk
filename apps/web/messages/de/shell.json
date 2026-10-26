@@ -22,7 +22,8 @@
     "close": "Navigation schließen",
     "calendar": "Kalender",
     "venues": "Orte",
-    "contacts": "Kontakte"
+    "contacts": "Kontakte",
+    "hide": "Seitenleiste ausblenden"
   },
   "roles": {
     "owner": "Geschäftsführung",
@@ -79,7 +80,8 @@
     "newPayable": "Zahlung",
     "newPermit": "Genehmigung",
     "newShift": "Schicht",
-    "newIssue": "Mangel melden"
+    "newIssue": "Mangel melden",
+    "showSidebar": "Seitenleiste einblenden"
   },
   "palette": {
     "title": "Suchen und Befehle",

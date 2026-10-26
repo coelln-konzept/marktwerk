@@ -2,6 +2,7 @@
 
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Creatable } from "@/lib/creatable";
+import { UI_STATE_COOKIES, writeUiState } from "@/lib/ui-state";
 
 export type Toast = {
   message: string;
@@ -12,6 +13,9 @@ export type Toast = {
 type Shell = {
   navOpen: boolean;
   setNavOpen: (open: boolean) => void;
+  /** Wide screens: the sidebar is hidden (remembered per browser); the top bar then shows a button to bring it back. */
+  sidebarHidden: boolean;
+  setSidebarHidden: (hidden: boolean) => void;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
   /** What this person may create ("+ Neu" and its shortcut show when it is not empty). */
@@ -31,11 +35,19 @@ const ShellContext = createContext<Shell | null>(null);
 export function ShellProvider({
   children,
   creatable = [],
+  sidebarHidden: initialSidebarHidden = false,
 }: {
   children: React.ReactNode;
   creatable?: readonly Creatable[];
+  /** From the `navHidden` UI-state cookie, so the first render is already right. */
+  sidebarHidden?: boolean;
 }) {
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarHidden, setSidebarHiddenState] = useState(initialSidebarHidden);
+  const setSidebarHidden = useCallback((hidden: boolean) => {
+    setSidebarHiddenState(hidden);
+    writeUiState(UI_STATE_COOKIES.navHidden, hidden);
+  }, []);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -67,6 +79,8 @@ export function ShellProvider({
     () => ({
       navOpen,
       setNavOpen,
+      sidebarHidden,
+      setSidebarHidden,
       paletteOpen,
       setPaletteOpen,
       creatable,
@@ -74,7 +88,16 @@ export function ShellProvider({
       showToast,
       dismissToast,
     }),
-    [navOpen, paletteOpen, creatable, toast, showToast, dismissToast],
+    [
+      navOpen,
+      sidebarHidden,
+      setSidebarHidden,
+      paletteOpen,
+      creatable,
+      toast,
+      showToast,
+      dismissToast,
+    ],
   );
   return <ShellContext value={value}>{children}</ShellContext>;
 }

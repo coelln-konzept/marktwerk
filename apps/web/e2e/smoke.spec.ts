@@ -679,3 +679,22 @@ test("Event board: Ablauf lists every task by phase, one line each; a row opens 
   await expect(page).toHaveURL(/aufgabe=/);
   await expect(page).toHaveURL(/ansicht=ablauf/);
 });
+
+test("Sidebar: the button at its top right hides it (remembered), the top bar brings it back", async ({
+  page,
+}) => {
+  await page.goto("/board");
+  await page.waitForLoadState("networkidle"); // hydrated, so the buttons react
+  const nav = page.locator("aside").first();
+  await expect(nav).toBeVisible();
+  await page.getByRole("button", { name: "Seitenleiste ausblenden" }).click();
+  await expect(nav).toBeHidden();
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(nav).toBeHidden();
+  await page.getByRole("button", { name: "Seitenleiste einblenden" }).click();
+  await expect(nav).toBeVisible();
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(nav).toBeVisible();
+});

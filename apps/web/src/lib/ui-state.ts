@@ -1,11 +1,13 @@
 /**
  * Small per-browser UI states that the server reads to render the right initial markup (no flash):
- * the collapsed "Stammdaten" group of the sidebar and the Kalender "Ebenen" panel. Cookies, not user
+ * the collapsed "Stammdaten" group of the sidebar, the hidden sidebar and the Kalender "Ebenen" panel. Cookies, not user
  * data: they are shell preferences, written by the client on toggle and read with `cookies()`.
  */
 export const UI_STATE_COOKIES = {
   /** "1" = the Stammdaten group of the sidebar is open (default: collapsed). */
   navMasterData: "mw_nav_stammdaten",
+  /** "1" = the sidebar is hidden on wide screens (default: shown); phones always slide it in. */
+  navHidden: "mw_nav_hidden",
   /** "1" = the Kalender "Ebenen" panel is open (default: collapsed). */
   calendarLayers: "mw_kal_ebenen",
 } as const;

@@ -22,7 +22,8 @@
     "close": "Close navigation",
     "calendar": "Calendar",
     "venues": "Venues",
-    "contacts": "Contacts"
+    "contacts": "Contacts",
+    "hide": "Hide sidebar"
   },
   "roles": {
     "owner": "Owner",
@@ -79,7 +80,8 @@
     "newPayable": "Payment",
     "newPermit": "Permit",
     "newShift": "Shift",
-    "newIssue": "Report defect"
+    "newIssue": "Report defect",
+    "showSidebar": "Show sidebar"
   },
   "palette": {
     "title": "Search and commands",
