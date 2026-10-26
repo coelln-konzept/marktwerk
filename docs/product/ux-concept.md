@@ -79,6 +79,9 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
   group "SPÄTER" (Buchungen · Postfach · Inventar) and the Benachrichtigungen entry are gone. At the bottom the
   **profile** (name, role); its menu holds **Einstellungen** (also reachable with Strg+K), Design (System / Hell /
   Dunkel), Dichte (Standard / Kompakt), Sprache and Abmelden.
+  A button at the sidebar's top right **hides the sidebar** on wide screens (remembered per browser, cookie
+  `mw_nav_hidden`); the top bar then shows a button at its left to bring it back. On phones the same button closes the
+  slide-in navigation.
 - **Top bar:** breadcrumb only below a top-level page (e.g. "Veranstaltungen › Food & Wine Neuss"; on a top-level
   page it would repeat the H1, so it is left out), with a small **"←"** before it: back to the page you came from in
   this tab, with its filters (drawers, Vorschau and filter changes don't count as pages, so it never reopens a closed

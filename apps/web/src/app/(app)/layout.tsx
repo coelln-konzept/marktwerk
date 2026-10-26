@@ -9,6 +9,7 @@ import { isModuleVisible } from "@/lib/modules";
 import { getActor } from "@/server/actor";
 import { getDisplayPreferences } from "@/server/preferences";
 import type { SearchHit } from "@/server/search-core";
+import { getUiState } from "@/server/ui-state";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const actor = await getActor();
@@ -48,7 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : []),
   ];
   return (
-    <ShellProvider creatable={creatable}>
+    <ShellProvider creatable={creatable} sidebarHidden={await getUiState("navHidden")}>
       <div className="flex min-h-svh">
         <AppSidebar user={actor} displayName={actor.displayName} theme={theme} density={density} />
         <main className="min-w-0 flex-1">{children}</main>
