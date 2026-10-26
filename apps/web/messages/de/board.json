@@ -22,7 +22,8 @@
       "matrix": "Matrix",
       "spalten": "Spalten",
       "person": "Nach Person",
-      "arbeitslast": "Arbeitslast"
+      "arbeitslast": "Arbeitslast",
+      "ablauf": "Ablauf"
     },
     "filter": {
       "label": "Aufgaben filtern",
@@ -222,7 +223,27 @@
         "absent": "nicht vorhanden"
       }
     },
-    "afterEvent": "Nach der Veranstaltung"
+    "afterEvent": "Nach der Veranstaltung",
+    "ablauf": {
+      "phases": {
+        "now": "Überfällig & heute",
+        "early": "Mehr als 4 Wochen vorher",
+        "weeks_4": "3–4 Wochen vorher",
+        "weeks_2": "2 Wochen vorher",
+        "week": "Woche vor dem Markt",
+        "event": "Veranstaltungstag",
+        "eventDays": "Veranstaltungstage",
+        "after": "Nach dem Markt",
+        "undated": "Ohne Datum",
+        "done": "Erledigt"
+      },
+      "count": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
+      "until": "bis {date}",
+      "from": "ab {date}",
+      "today": "heute",
+      "tomorrow": "morgen",
+      "inDays": "in {days} Tagen"
+    }
   },
   "drawer": {
     "close": "Schließen"

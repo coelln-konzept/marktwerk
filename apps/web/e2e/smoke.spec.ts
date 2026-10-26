@@ -650,3 +650,32 @@ test("Kernaufgaben: the circle marks a task done with undo", async ({ page }) =>
     panel.locator(`button[aria-pressed="false"][aria-label="${label}"]`).first(),
   ).toBeVisible();
 });
+
+test("Event board: Ablauf lists every task by phase, one line each; a row opens the drawer", async ({
+  page,
+}) => {
+  await page.goto("/board?zeitraum=alle");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/board`);
+  await page.getByRole("group", { name: "Ansicht" }).getByRole("link", { name: "Ablauf" }).click();
+  await expect(page).toHaveURL(/ansicht=ablauf/);
+  const rows = page.locator("li[data-row]");
+  await expect(rows.first()).toBeVisible();
+  // Phase headers carry a task count; finished tasks wait collapsed at the end.
+  await expect(
+    page
+      .locator("main h3")
+      .filter({ hasText: /Aufgaben?$/ })
+      .first(),
+  ).toBeVisible();
+  const done = page
+    .locator("main details")
+    .filter({ has: page.locator("summary", { hasText: /^Erledigt/ }) });
+  if ((await done.count()) > 0) await expect(done).not.toHaveAttribute("open", /.*/);
+  // Single-line rows on desktop: much shorter than the 130 px cards.
+  const box = await rows.first().boundingBox();
+  expect(box?.height ?? 0).toBeLessThan(56);
+  await rows.first().locator("span").nth(2).click();
+  await expect(page).toHaveURL(/aufgabe=/);
+  await expect(page).toHaveURL(/ansicht=ablauf/);
+});

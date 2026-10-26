@@ -22,7 +22,8 @@
       "matrix": "Matrix",
       "spalten": "Columns",
       "person": "By person",
-      "arbeitslast": "Workload"
+      "arbeitslast": "Workload",
+      "ablauf": "Timeline"
     },
     "filter": {
       "label": "Filter tasks",
@@ -222,7 +223,27 @@
         "absent": "not present"
       }
     },
-    "afterEvent": "After the event"
+    "afterEvent": "After the event",
+    "ablauf": {
+      "phases": {
+        "now": "Overdue & today",
+        "early": "More than 4 weeks before",
+        "weeks_4": "3–4 weeks before",
+        "weeks_2": "2 weeks before",
+        "week": "Week before the market",
+        "event": "Market day",
+        "eventDays": "Market days",
+        "after": "After the market",
+        "undated": "No date",
+        "done": "Done"
+      },
+      "count": "{count, plural, one {# task} other {# tasks}}",
+      "until": "until {date}",
+      "from": "from {date}",
+      "today": "today",
+      "tomorrow": "tomorrow",
+      "inDays": "in {days} days"
+    }
   },
   "drawer": {
     "close": "Close"
