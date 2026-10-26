@@ -864,6 +864,8 @@ export async function pastEventCleanup(
         deadlineScope(actor),
         inArray(task.status, OPEN),
         lt(event.endsOn, pastEventCutoff(today)),
+        // Follow-up work due today or later is not a leftover (`isPastMarketLeftover`).
+        or(isNull(task.dueAt), lt(task.dueAt, resolveRelativeDue(today, 0, "00:00"))),
       ),
     )
     .groupBy(event.id, eventType.key, eventPreset.color)

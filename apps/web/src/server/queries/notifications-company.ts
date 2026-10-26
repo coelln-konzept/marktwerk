@@ -5,7 +5,7 @@ import {
   can,
   compareByNewest,
   compareByUrgency,
-  isPastEvent,
+  isPastMarketLeftover,
   parseCompanyDedupeKey,
   taskLink,
 } from "@marktwerk/core";
@@ -241,7 +241,7 @@ async function loadCompanyRows(
           !t.eventId ||
           (t.eventStatus !== "cancelled" &&
             !t.eventArchived &&
-            !isPastEvent(t.endsOn ?? today, today));
+            !isPastMarketLeftover(t.endsOn, currentDue, today));
         isLive = OPEN_TASK.includes(t.status) && eventOk && currentDue === key.dueOn;
         subjectSnooze = t.snoozedUntil && t.snoozedUntil > today ? t.snoozedUntil : null;
         market = marketOf(t);
