@@ -1,25 +1,16 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { daysBetween } from "@marktwerk/core";
-import {
-  AlarmClock,
-  CalendarSearch,
-  CircleCheck,
-  Clock,
-  OctagonAlert,
-  RotateCcw,
-  ShieldCheck,
-  TriangleAlert,
-} from "lucide-react";
+import { CalendarSearch, CircleCheck, Clock, RotateCcw, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { SnoozeDialog, useSnoozePresets } from "@/components/task/snooze";
 import { buttonVariants } from "@/components/ui/button";
+import { DueBadge } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
-import { StatusBadge, type Tone } from "@/components/ui/status-badge";
+import { type DueState, dueStateOf } from "@/lib/due-ui";
 import { formatDateWeekdayDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CompanyNotificationRow } from "@/server/queries/notifications";
@@ -31,21 +22,21 @@ const menuItem =
   "flex min-h-8 cursor-pointer items-center justify-between gap-4 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
 const small = cn(buttonVariants({ variant: "outline", size: "sm" }));
 
-/** The due information as colour + icon + text. */
+/**
+ * The due state of a notification in the one vocabulary (`lib/due-ui.ts`); an expired permit keeps its own
+ * word ("Abgelaufen") but the red octagon of everything overdue.
+ */
 export function useDueInfo() {
   const t = useTranslations("notificationCenter");
-  return (row: Pick<CompanyNotificationRow, "dueOn" | "kind">, today: string) => {
+  return (
+    row: Pick<CompanyNotificationRow, "dueOn" | "kind">,
+    today: string,
+  ): { state: DueState; label?: string } | null => {
     if (!row.dueOn) return null;
-    const days = daysBetween(today, row.dueOn);
-    if (days < 0)
-      return {
-        tone: "critical" as Tone,
-        icon: OctagonAlert,
-        text: t(row.kind === "permit_expiry" ? "due.expired" : "due.overdue", { count: -days }),
-      };
-    if (days === 0) return { tone: "warn" as Tone, icon: TriangleAlert, text: t("due.today") };
-    if (days === 1) return { tone: "warn" as Tone, icon: AlarmClock, text: t("due.tomorrow") };
-    return { tone: "info" as Tone, icon: Clock, text: t("due.inDays", { count: days }) };
+    const state = dueStateOf({ dueOn: row.dueOn, today });
+    if (state.kind === "overdue" && row.kind === "permit_expiry")
+      return { state, label: t("due.expired", { count: state.days }) };
+    return { state };
   };
 }
 
@@ -188,11 +179,7 @@ export function CompanyRow({ row, today }: { row: CompanyNotificationRow; today:
           {row.resolved && <span>{t("resolvedNote")}</span>}
         </div>
       </div>
-      {info && (
-        <StatusBadge tone={info.tone} icon={info.icon} className="mt-0.5">
-          {info.text}
-        </StatusBadge>
-      )}
+      {info && <DueBadge state={info.state} label={info.label} today={today} className="mt-0.5" />}
       <div
         role="toolbar"
         aria-label={t("actionsFor", { title: row.title })}

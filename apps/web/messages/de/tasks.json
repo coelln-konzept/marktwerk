@@ -34,10 +34,12 @@
       "office": "Büro"
     },
     "due": {
-      "overdue": "Überfällig · {days} T",
-      "waitingSince": "Wartet seit {date}",
+      "overdue": "Überfällig · {days, plural, one {# Tag} other {# Tage}}",
+      "overdueCount": "{count} überfällig",
       "today": "Heute",
-      "soon": "Fällig in {days} T",
+      "tomorrow": "Morgen",
+      "inDays": "in {days} Tagen",
+      "waitingSince": "Wartet seit {date}",
       "none": "Kein Datum",
       "doneOn": "Erledigt {date}",
       "finished": "Abgeschlossen"

@@ -1,11 +1,11 @@
 import type { ObligationStatus } from "@marktwerk/core";
 import {
-  CalendarClock,
+  CalendarDays,
   Check,
   CircleAlert,
   CircleDot,
+  Clock,
   Hammer,
-  Hourglass,
   type LucideIcon,
   OctagonAlert,
   TriangleAlert,
@@ -13,12 +13,14 @@ import {
 } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { StatusBadge, type Tone } from "@/components/ui/status-badge";
+import { OVERDUE_ICON } from "@/lib/due-ui";
 import { formatNumber } from "@/lib/format";
 
+/** Due states in the one vocabulary (`lib/due-ui.ts`): überfällig = red octagon, fällig = amber clock. */
 const OBLIGATION: Record<ObligationStatus, { tone: Tone; icon: LucideIcon }> = {
-  overdue: { tone: "critical", icon: CircleAlert },
-  due: { tone: "warn", icon: CalendarClock },
-  soon: { tone: "waiting", icon: Hourglass },
+  overdue: { tone: "critical", icon: OVERDUE_ICON },
+  due: { tone: "warn", icon: Clock },
+  soon: { tone: "neutral", icon: CalendarDays },
   ok: { tone: "ok", icon: Check },
 };
 

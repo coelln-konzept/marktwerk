@@ -268,13 +268,22 @@ announcements in German via `aria-live`.
 
 | Domain | States (DE) | Colour + icon |
 |---|---|---|
-| Tasks | Offen · In Arbeit · Wartet (Amt/Extern) · Blockiert · Erledigt · Übersprungen | grey ○ · blue ◐ · violet ⏸ · amber ⛔ · green ✓ · grey ⤼ |
-| Due-ness (all) | Fällig in n T · Heute · Überfällig · ↻n übertragen | neutral · amber · red · amber badge |
+| Tasks | Offen · In Arbeit · Wartet (Amt/Extern) · Blockiert · Erledigt · Übersprungen | grey ○ · blue ◐ · violet ⌛ · amber ⛔ · green ✓ · grey ⤼ |
+| Due-ness (all, decision 2026-10-26) | Überfällig · 3 Tage · Heute · Morgen · in 3 Tagen · *date* (from 8 days on) · Wartet seit Mo 19.10. · Erledigt Mo 19.10.; counts "6 überfällig" | red octagon · amber clock · neutral calendar · neutral calendar · plain · violet ⌛ · green ✓ |
+| Snoozed | Zurückgestellt bis … | crossed-out alarm clock |
 | Permits | Fehlt · In Vorbereitung · Beantragt · Genehmigt · Abgelehnt · Läuft ab · Abgelaufen · Nicht nötig | red ! · blue ◐ · violet ⏳ · green ✓ · red ✕ · amber ⚠ · red ⌛ · grey – |
 | Money | Geplant · Fällig · Teilweise bezahlt · Bezahlt · Überfällig | grey · amber · amber ◐ · green ✓ · red ! |
 | Hours | OK · Grenze nah · Über Grenze (zulässig?) · Unzulässig | green · amber · amber ⚠ · red ⛔ |
 | Health | Im Plan · Achtung · Kritisch | green ● · amber ▲ · red ■ (shape differs, too) |
+| Warning | "check this" (Minijob limit, Läuft ab, move conflicts, defects) | amber triangle ⚠, never for a date |
 | Events (lifecycle) | Entwurf (manual only) · geplant (start state of every new event) · bestätigt (automatic once all required permits are granted) · läuft · abgeschlossen · abgesagt; from M10 also abgerechnet (`closed`, after financial close-out) | label badge; health shown separately (● ▲ ■) |
+
+**Rules (decision 2026-10-26).** One meaning per symbol: the **red octagon means überfällig** on every screen (task,
+permit deadline, Pflicht, rate) and nothing else uses it; the **triangle only means a warning**; **health shapes
+(● ▲ ■ ○) only show a market's overall state**, and a count like "6 überfällig" always carries the octagon, also next to
+health. Relative dates in full words ("Morgen", "in 3 Tagen", "Überfällig · 1 Tag"); badges capitalised, lowercase
+only mid-sentence. Implemented once: `lib/due-ui.ts` (`DUE_UI`, `dueStateOf`, `OVERDUE_ICON`, `WARNING_ICON`),
+`components/ui/due-badge.tsx` (`DueBadge`, `OverdueCount`, `DueIcon`), texts in `tasks.due`.
 
 ## 8. Content & language
 

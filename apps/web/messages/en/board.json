@@ -182,7 +182,6 @@
       "running": "running now",
       "progressText": "{done} of {total} tasks done",
       "noTasks": "No tasks",
-      "overdue": "{count} overdue",
       "permits": "{count, plural, one {# permit missing} other {# permits missing}}",
       "key": "{count, plural, one {# key task open} other {# key tasks open}}",
       "ok": "On track",

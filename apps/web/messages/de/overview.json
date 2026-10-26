@@ -27,25 +27,12 @@
       "showAll": "Alle {count} anzeigen",
       "showLess": "Weniger anzeigen",
       "assignee": "zuständig: {name}",
-      "relative": {
-        "overdue": "seit {n} T",
-        "today": "heute",
-        "soon": "in {n} T",
-        "waiting": "wartet seit {date}"
-      },
       "kind": {
         "task": "Aufgabe",
         "permit": "Genehmigung",
         "installment": "Rate",
         "hours": "Stunden",
         "obligation": "Pflicht"
-      },
-      "urgencyLabel": {
-        "overdue": "Überfällig",
-        "today": "Heute fällig",
-        "soon": "Bald fällig",
-        "upcoming": "Demnächst fällig",
-        "waiting": "Wartet"
       },
       "eventCount": "{count, plural, one {# fällig} other {# fällig}}",
       "keyTask": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",

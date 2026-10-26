@@ -5,6 +5,7 @@ import { AlarmClockOff, Camera, ChevronRight, CircleCheck, Undo2 } from "lucide-
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
+import { DueBadge } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { formatDateShort, formatDateWeekdayDay } from "@/lib/format";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { BoardTask } from "@/server/queries/tasks";
 import { useBoard } from "./board-context";
 import { CardMenu } from "./card-menu";
-import { DueLine, TaskStatusBadge } from "./task-bits";
+import { TaskStatusBadge } from "./task-bits";
 
 const isFinished = (task: BoardTask) => task.status === "done" || task.status === "skipped";
 
@@ -150,7 +151,12 @@ function AblaufRow({ task }: { task: BoardTask }) {
   const showDue =
     finished || dueKind === "overdue" || dueKind === "today" || dueKind === "waiting_since";
   const due = showDue ? (
-    <DueLine dueOn={task.dueOn} today={today} status={task.status} completedOn={task.completedOn} />
+    <DueBadge
+      dueOn={task.dueOn}
+      today={today}
+      status={task.status}
+      completedOn={task.completedOn}
+    />
   ) : null;
 
   function onKeyDown(event: React.KeyboardEvent<HTMLLIElement>) {

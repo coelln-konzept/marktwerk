@@ -1,5 +1,5 @@
 import { can } from "@marktwerk/core";
-import { AlertTriangle, CalendarClock, FileWarning, Plus, SearchX, Wallet } from "lucide-react";
+import { CalendarClock, FileWarning, Plus, SearchX, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -14,6 +14,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/chip";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
+import { OVERDUE_ICON } from "@/lib/due-ui";
 import { formatDateShort, formatMoney, todayIn } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
@@ -142,7 +143,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/finanzen
             className="flex h-full flex-col gap-1 rounded-xl border bg-card p-4 hover:bg-hover"
           >
             <span className="flex items-center gap-2 text-muted-foreground text-small">
-              <AlertTriangle
+              <OVERDUE_ICON
                 aria-hidden
                 className={`size-4 ${kpis.overdueCount > 0 ? "text-status-critical" : ""}`}
               />

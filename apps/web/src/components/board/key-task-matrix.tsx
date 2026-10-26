@@ -1,30 +1,23 @@
 import type { MatrixCellState } from "@marktwerk/core";
-import {
-  BellOff,
-  CalendarX,
-  CircleCheck,
-  CircleDashed,
-  Clock,
-  Hourglass,
-  Star,
-  TriangleAlert,
-} from "lucide-react";
+import { CalendarX, CircleCheck, CircleDashed, Clock, Star } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
+import { DUE_UI, OVERDUE_ICON, SNOOZED_ICON } from "@/lib/due-ui";
 import { formatDateRangeYear, formatMonthDay, todayIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { KeyTaskMatrix } from "@/server/queries/board-overview";
 
+/** Cell icons from the one status vocabulary (`lib/due-ui.ts`); "bald" is the amber clock of "Heute". */
 const STATE_ICON = {
   done: CircleCheck,
   open: CircleDashed,
   soon: Clock,
-  overdue: TriangleAlert,
-  waiting: Hourglass,
-  snoozed: BellOff,
+  overdue: OVERDUE_ICON,
+  waiting: DUE_UI.waiting.icon ?? CircleDashed,
+  snoozed: SNOOZED_ICON,
 } as const;
 
 const STATE_TONE: Record<Exclude<MatrixCellState, "absent">, string> = {

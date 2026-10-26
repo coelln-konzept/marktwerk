@@ -5,14 +5,18 @@ import { Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type HealthLevel, HealthShape } from "@/components/ui/health";
+import { OVERDUE_ICON } from "@/lib/due-ui";
 import { cn } from "@/lib/utils";
 
 export type EventTab = {
   key: string;
   href: string;
   label: string;
-  /** Count such as "5/7" with an optional health shape. */
-  count?: { text: string; level?: HealthLevel; sr?: string };
+  /**
+   * Count such as "5/7" with an optional health shape; `overdue` shows the red octagon instead (overdue is a
+   * due state, not a health level, `lib/due-ui.ts`).
+   */
+  count?: { text: string; level?: HealthLevel; overdue?: boolean; sr?: string };
   /** Muted hint for tabs that arrive in a later milestone ("ab M2"). */
   hint?: { text: string; sr: string };
 };
@@ -28,7 +32,11 @@ const tabClass = (active: boolean) =>
 function Count({ count }: { count: NonNullable<EventTab["count"]> }) {
   return (
     <span className="tabular inline-flex items-center gap-1 text-small text-foreground-2">
-      {count.level && <HealthShape level={count.level} className="size-3" />}
+      {count.overdue ? (
+        <OVERDUE_ICON aria-hidden className="size-3.5 text-status-critical" />
+      ) : (
+        count.level && <HealthShape level={count.level} className="size-3" />
+      )}
       <span aria-hidden={count.sr ? true : undefined}>{count.text}</span>
       {count.sr && <span className="sr-only">{count.sr}</span>}
     </span>

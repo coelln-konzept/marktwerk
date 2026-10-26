@@ -1,14 +1,7 @@
-import { daysBetween } from "@marktwerk/core";
-import {
-  ArrowRight,
-  CalendarCheck,
-  CircleCheck,
-  Clock,
-  FileWarning,
-  OctagonAlert,
-} from "lucide-react";
+import { ArrowRight, CircleCheck, FileWarning } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { MissingReasonBadge } from "@/components/event-detail/missing-reason";
 import { TaskQuickActions } from "@/components/event-detail/overview-task-actions";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -39,7 +32,6 @@ export async function MarketPanel({
   taskHref: (taskId: string) => string;
 }) {
   const t = await getTranslations("board.readiness.panel");
-  const tReason = await getTranslations("eventDetail.overview.missing");
   const locale = await getLocale();
   const tasks = overview.tasks?.missing ?? [];
   const permits = overview.permits?.missing ?? [];
@@ -60,15 +52,6 @@ export async function MarketPanel({
       ) : (
         <ul className="m-0 flex list-none flex-col p-0">
           {shown.map((task) => {
-            const days = task.dueOn ? daysBetween(today, task.dueOn) : 0;
-            const tone =
-              task.reason === "overdue" ? "critical" : task.reason === "soon" ? "neutral" : "warn";
-            const icon =
-              task.reason === "overdue"
-                ? OctagonAlert
-                : task.reason === "soon"
-                  ? CalendarCheck
-                  : Clock;
             return (
               <li
                 key={task.id}
@@ -84,9 +67,7 @@ export async function MarketPanel({
                     {task.title}
                   </Link>
                 </span>
-                <StatusBadge tone={tone} icon={icon}>
-                  {tReason(`reason.${task.reason}`, { n: Math.abs(days) })}
-                </StatusBadge>
+                <MissingReasonBadge task={task} today={today} />
                 {task.dueOn && (
                   <span className="tabular text-muted-foreground text-small">
                     {formatDateShortYear(task.dueOn, locale, today)}

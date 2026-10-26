@@ -22,7 +22,7 @@ import {
   tickCheckItem,
 } from "@/app/(app)/board/actions";
 import { ReasonDialog } from "@/components/board/reason-dialog";
-import { CategoryTag, DueLine } from "@/components/board/task-bits";
+import { CategoryTag } from "@/components/board/task-bits";
 import { useTaskActions } from "@/components/board/use-task-actions";
 import { ArchiveDocumentButton } from "@/components/documents/archive-document-button";
 import { DocumentUpload } from "@/components/documents/upload";
@@ -31,6 +31,7 @@ import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
+import { DueBadge } from "@/components/ui/due-badge";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate, formatDateWeekdayDay } from "@/lib/format";
@@ -313,7 +314,7 @@ export function TaskDrawer({
                 {task.dueOn ? formatDate(task.dueOn, locale) : t("due.none")}
               </span>
             )}
-            <DueLine dueOn={task.dueOn} today={today} status={task.status} completedOn={null} />
+            <DueBadge dueOn={task.dueOn} today={today} status={task.status} completedOn={null} />
             {task.dueOverridden && (
               <span className="text-muted-foreground text-tiny">{t("dueSetByHand")}</span>
             )}

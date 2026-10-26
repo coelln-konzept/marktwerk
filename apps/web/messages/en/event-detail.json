@@ -56,8 +56,8 @@
       "dates": {
         "title": "Next dates",
         "today": "today",
-        "inDays": "in {n} d",
-        "daysAgo": "{n} d ago",
+        "inDays": "in {n, plural, one {# day} other {# days}}",
+        "daysAgo": "{n, plural, one {# day} other {# days}} ago",
         "keys": {
           "event_day": "Event day",
           "setup_day": "Setup day",
@@ -113,13 +113,9 @@
         "emptyTitle": "All on track",
         "emptyHint": "Nothing is overdue or blocked, and no permit is missing.",
         "reason": {
-          "overdue": "Overdue · {n} d",
           "blocked": "Blocked",
-          "waiting": "Waiting",
-          "today": "Today",
-          "soon": "in {n} d"
+          "waiting": "Waiting"
         },
-        "waitingSince": "waiting since {date}",
         "done": "Done",
         "doneLabel": "Mark “{title}” done",
         "permitKind": "Permit",

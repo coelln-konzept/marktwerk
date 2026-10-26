@@ -56,8 +56,8 @@
       "dates": {
         "title": "Nächste Termine",
         "today": "heute",
-        "inDays": "in {n} T",
-        "daysAgo": "vor {n} T",
+        "inDays": "in {n, plural, one {# Tag} other {# Tagen}}",
+        "daysAgo": "vor {n, plural, one {# Tag} other {# Tagen}}",
         "keys": {
           "event_day": "Veranstaltungstag",
           "setup_day": "Aufbautag",
@@ -113,13 +113,9 @@
         "emptyTitle": "Alles im Plan",
         "emptyHint": "Nichts ist überfällig oder blockiert, und es fehlt keine Genehmigung.",
         "reason": {
-          "overdue": "Überfällig · {n} T",
           "blocked": "Blockiert",
-          "waiting": "Wartet",
-          "today": "Heute",
-          "soon": "in {n} T"
+          "waiting": "Wartet"
         },
-        "waitingSince": "wartet seit {date}",
         "done": "Erledigt",
         "doneLabel": "„{title}“ erledigt",
         "permitKind": "Genehmigung",

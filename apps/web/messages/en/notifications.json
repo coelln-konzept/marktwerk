@@ -142,11 +142,7 @@
       "permit_expiry": "Valid until {date}"
     },
     "due": {
-      "overdue": "{count, plural, one {# day overdue} other {# days overdue}}",
-      "today": "Today",
-      "tomorrow": "Tomorrow",
-      "inDays": "In {count} days",
-      "expired": "{count, plural, one {Expired # day ago} other {Expired # days ago}}"
+      "expired": "Expired · {count, plural, one {# day} other {# days}}"
     },
     "severity": {
       "info": "Note",

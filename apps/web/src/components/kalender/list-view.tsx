@@ -1,15 +1,17 @@
 import { addDays, daysBetween, isoWeek, mondayOf } from "@marktwerk/core";
-import { CalendarX, Clock, Minus, OctagonAlert } from "lucide-react";
+import { CalendarX, Check, Minus } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment } from "react";
 import { EventStatusBadge } from "@/components/events/event-status";
+import { DueBadge } from "@/components/ui/due-badge";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
+import { WARNING_ICON } from "@/lib/due-ui";
 import { formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CalendarItem } from "@/server/queries/due";
@@ -221,14 +223,16 @@ export async function CalendarList({
                       </TD>
                       <TD className="hidden sm:table-cell" />
                       <TD>
-                        <StatusBadge
-                          tone={tone}
-                          icon={
-                            tone === "critical" ? OctagonAlert : tone === "warn" ? Clock : Minus
-                          }
-                        >
-                          {t(`tone.${tone}`)}
-                        </StatusBadge>
+                        {tone === "critical" ? (
+                          <DueBadge dueOn={item.date} today={today} />
+                        ) : (
+                          <StatusBadge
+                            tone={tone}
+                            icon={tone === "warn" ? WARNING_ICON : tone === "ok" ? Check : Minus}
+                          >
+                            {t(`tone.${tone}`)}
+                          </StatusBadge>
+                        )}
                       </TD>
                       <TD className="hidden w-20 text-right sm:table-cell">
                         <Link
