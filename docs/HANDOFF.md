@@ -4,12 +4,11 @@
 first. Repository: [`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk). Older handoffs are kept
 as history at the end (§10 session 4, §11 session 3); the session-3 reading list and architecture notes still apply.
 
-> **Where things stand:** everything is merged to `main` (PRs #9–#14), nothing in flight, no open branches besides
+> **Where things stand:** everything is merged to `main` (PRs #9–#16), nothing in flight, no open branches besides
 > the two obsolete `wip/ux-pass-*` ones. Session 5 shipped navigation polish (#10), the event-board **Ablauf**
-> view (#11), **realistic synthetic data generated as of the seed day** (#13) and a **hide-sidebar button** (#14),
-> re-ran the design critique (**29/40**, was 25/40) and prepared the deployed login (waiting on GitHub secrets from
-> the product owner). Next: seed the deployed DB once the secrets exist, then pick critique findings
-> with the product owner (§5).
+> view (#11), **realistic synthetic data generated as of the seed day** (#13), a **hide-sidebar button** (#14) and
+> the refined **past-market rule** (#16), re-ran the design critique (**29/40**, was 25/40) and **seeded the deployed
+> DB** with the product owner's login (2026-10-26). Next: pick critique findings with the product owner (§5).
 
 ---
 
@@ -46,6 +45,8 @@ as history at the end (§10 session 4, §11 session 3); the session-3 reading li
 | #11 | Event board **Ablauf** view (`?ansicht=ablauf`, `components/board/ablauf-list.tsx`, `groupAblauf` in `packages/core/src/tasks/ablauf.ts`): all tasks in one list, one line each, grouped by phase relative to the market day, sticky headers. **Spalten stays the default until the user tests are back** (product owner, 2026-10-26) |
 | #12 | This handoff |
 | #13 | **Realistic synthetic data**: `REFERENCE_DATE` comes from `SYNTHETIC_REFERENCE_DATE` (tests: fixed 2026-10-21); `pnpm db:seed` runs `apps/web/scripts/seed-today.ts`, which sets the Berlin seed day. Past tasks done, exactly 4 overdue on current markets + 2 forgotten on the last past market (`OVERDUE_CURRENT`/`OVERDUE_LEFTOVERS` in `packages/synthetic/src/generators/tasks.ts`). **The seed refuses a database that already holds synthetic data** (some ids depend on the day) unless `SYNTHETIC_REFERENCE_DATE` is set: reset first (§6). ADR 0016 amended |
+| #15 | Handoff update |
+| #16 | **Past markets: only overdue leftovers** — `isPastMarketLeftover` in core: of a market that ended more than 7 days ago, only tasks already due (or undated) drop out of the lists and go to Aufräumen; follow-ups due today or later stay visible (both `notOfPastEvent` helpers, Aufräumen count + action, notification center) |
 | #14 | **Hide the sidebar**: button at the sidebar's top right (wide screens; closes the menu on phones), top-bar button brings it back; cookie `mw_nav_hidden` (`lib/ui-state.ts`, `ShellProvider.sidebarHidden`) |
 
 Also in session 5:
@@ -62,18 +63,16 @@ Also in session 5:
 
 ## 4. Open items for the product owner
 
-**Deployed login (blocked on the product owner):** the deployed app `https://marktwerk-three.vercel.app` is up
-(`/api/health` ok, publicly reachable, no Vercel Authentication), all migrations are applied on Supabase
-`marktwerk-dev`, but the DB is **empty** and has only the login `owner@marktwerk.local` (keep it, product owner's
-choice). Decided 2026-10-24: email + password via the seed for now; magic link later together with user
-invitations once an email provider is chosen. The product owner sets three repo secrets (values never in chat):
-`SEED_OWNER_EMAIL=arda.kertmen@gmail.com`, `SEED_OWNER_PASSWORD` (≥ 10 chars), `DATABASE_MIGRATION_URL` (Supabase →
-Connect → Session pooler, port 5432). Then run Actions → **Seed dev database** (`gh workflow run seed-dev.yml -f
-confirm=seed`), check the run, and confirm the login exists (`select email, role from app."user"` via the Supabase
-MCP, project ref `qtwwivadqeloszijsppa`). The seed finds users by email, so the new owner login sits next to
-`owner@marktwerk.local`. Since #13 the data is generated as of the seed day — seed right before user tests. The
-Supabase DB is empty, so the first run passes the "already seeded" guard; a later refresh needs the `app` data
-wiped first (no workflow for that yet — ask before building one).
+**Deployed version (done 2026-10-26):** `https://marktwerk-three.vercel.app` (publicly reachable, no Vercel
+Authentication; Supabase `marktwerk-dev`, ref `qtwwivadqeloszijsppa`). Seeded via Actions → **Seed dev database**
+(`gh workflow run seed-dev.yml --ref main -f confirm=seed`) with the repo secrets `SEED_OWNER_EMAIL`,
+`SEED_OWNER_PASSWORD` and `DATABASE_MIGRATION_URL` (values only in GitHub/Vercel, never in chat): data as of
+2026-10-26, 148 events, 5,774 tasks, 4 overdue on current markets, 17 company notifications. Logins: the product
+owner's `arda.kertmen@gmail.com` (owner, password chosen by them) and `owner@marktwerk.local` (kept, their choice);
+staff logins were skipped (no `SEED_STAFF_PASSWORD`). Auth = email + password (decision 2026-10-24); magic link later
+with user invitations once an email provider is chosen. The data drifts (≈ a few overdue per day nobody works);
+a refresh before user tests needs the `app` data wiped first because the seed refuses a seeded database — there is
+no workflow for that yet (ask before building one; it is destructive).
 
 **Critique findings to choose from (none started):**
 1. **P1** The same task stream on Übersicht ("Heute fällig"), `/benachrichtigungen` and the bell; Übersicht is
@@ -97,17 +96,11 @@ duplicated tab label text for screen readers, event-board footer band, Veranstal
 3. A "Wartet" task due soon still shows as "bald fällig" in the center. OK?
 Related: the center is filled by the sweep, the Übersicht counts live → 21 vs 22 overdue after a day passes.
 
-**Open question (raised 2026-10-26, unanswered):** the past-market rule (2026-10-22: open tasks of markets that
-ended more than 7 days ago drop out of all lists, `notOfPastEvent` / `isPastEvent`) also hides **follow-up tasks
-that are not due yet** (e.g. "Belege zuordnen", "Auflagen dokumentieren" due days after a market that ended 8+
-days ago) and counts them in the Übersicht's Aufräumen line (6 instead of the 2 intended leftovers). Proposal:
-only *overdue* tasks of past markets go to Aufräumen; not-yet-due follow-ups stay visible.
-
 **Pending decision:** Ablauf as the default event-board view, after the user tests.
 
 ## 5. Next steps (in order)
-1. `git pull`; start the dev server. Check `gh secret list --repo coelln-konzept/marktwerk`; if the three seed
-   secrets exist, run the seed workflow and verify the login (§4). Otherwise remind the product owner.
+1. `git pull`; start the dev server. Ask the product owner whether the sign-in on the deployed version works and
+   how the user tests went (Ablauf as default?).
 2. Go through the critique findings and the notification questions (§4) with the product owner; log answers in
    `docs/open-questions.md`; build in one PR per batch, browser-checked, then re-run the critique.
 3. After the user tests: decide the Ablauf default.
@@ -149,7 +142,8 @@ assignment, website publishing.
 2026-10-24: whole rows clickable; "←" back arrow; Kernaufgaben circles tick off; deployed login = password via the
 seed (magic link later).
 2026-10-26: event board Ablauf view (switchable, Spalten default until user tests); synthetic data as of the seed
-day with 4 overdue + 2 leftovers; hide-sidebar button.
+day with 4 overdue + 2 leftovers; hide-sidebar button; past markets hide only overdue leftovers (follow-ups
+stay visible).
 
 ## 9. Infrastructure and client discovery (unchanged)
 Production hosting not decided (Scalingo candidate, ADR 0006/0017); `CRON_SECRET` exists, `APP_URL` repo variable =
