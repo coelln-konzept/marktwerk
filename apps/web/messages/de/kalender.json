@@ -57,8 +57,8 @@
     "relative": {
       "today": "heute",
       "tomorrow": "morgen",
-      "future": "in {n} T",
-      "past": "vor {n} T"
+      "future": "in {n, plural, one {# Tag} other {# Tagen}}",
+      "past": "vor {n, plural, one {# Tag} other {# Tagen}}"
     },
     "open": "Öffnen",
     "emptyList": "In diesen sechs Wochen ist nichts eingetragen.",

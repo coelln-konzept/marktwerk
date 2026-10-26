@@ -27,25 +27,12 @@
       "showAll": "Show all {count}",
       "showLess": "Show less",
       "assignee": "responsible: {name}",
-      "relative": {
-        "overdue": "{n} d overdue",
-        "today": "today",
-        "soon": "in {n} d",
-        "waiting": "waiting since {date}"
-      },
       "kind": {
         "task": "Task",
         "permit": "Permit",
         "installment": "Instalment",
         "hours": "Hours",
         "obligation": "Obligation"
-      },
-      "urgencyLabel": {
-        "overdue": "Overdue",
-        "today": "Due today",
-        "soon": "Due soon",
-        "upcoming": "Due later",
-        "waiting": "Waiting"
       },
       "eventCount": "{count, plural, one {# due} other {# due}}",
       "keyTask": "Key task – a task every market needs",

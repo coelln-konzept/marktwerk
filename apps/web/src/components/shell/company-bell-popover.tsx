@@ -8,8 +8,8 @@ import { useState } from "react";
 import { useDueInfo } from "@/components/notifications/company-row";
 import { MarkAllCompanyButton } from "@/components/notifications/mark-all-company-button";
 import { useCompanyActions } from "@/components/notifications/use-company-actions";
+import { DueBadge } from "@/components/ui/due-badge";
 import { MarketMarker } from "@/components/ui/market-marker";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import type { CompanyNotificationRow } from "@/server/queries/notifications";
 
@@ -100,11 +100,7 @@ export function CompanyBellPopover({
                               <span className="truncate">{item.market.name}</span>
                             </span>
                           )}
-                          {info && (
-                            <StatusBadge tone={info.tone} icon={info.icon}>
-                              {info.text}
-                            </StatusBadge>
-                          )}
+                          {info && <DueBadge state={info.state} label={info.label} today={today} />}
                         </div>
                       </div>
                       <button

@@ -1,6 +1,6 @@
-import { daysBetween } from "@marktwerk/core";
 import {
   CalendarCheck,
+  CalendarDays,
   ChevronRight,
   CircleCheck,
   Clock,
@@ -12,15 +12,17 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { useLocale } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { TaskDoneButton } from "@/components/task/done-button";
 import { SnoozeMenu } from "@/components/task/snooze";
+import { DueBadge } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { type DueState, dueStateOf } from "@/lib/due-ui";
 import { formatDateShortYear } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { hrefWith } from "@/lib/url";
@@ -48,7 +50,7 @@ const GROUP_UI: Record<DueUrgency, { icon: LucideIcon; band: string }> = {
     band: "border-status-critical-dot/30 bg-status-critical-bg text-status-critical",
   },
   today: { icon: Clock, band: "border-status-warn-dot/30 bg-status-warn-bg text-status-warn" },
-  soon: { icon: CalendarCheck, band: "border-border bg-status-neutral-bg text-foreground" },
+  soon: { icon: CalendarDays, band: "border-border bg-status-neutral-bg text-foreground" },
   upcoming: { icon: ShieldCheck, band: "border-border bg-status-info-bg text-status-info" },
   waiting: { icon: Hourglass, band: "border-border bg-status-neutral-bg text-foreground" },
 };
@@ -128,15 +130,6 @@ export async function DueToday({
 }) {
   const t = await getTranslations("overview.due");
   const locale = await getLocale();
-  const relative = (item: DueItem) => {
-    const days = daysBetween(today, item.dueOn);
-    if (item.urgency === "waiting")
-      return t("relative.waiting", { date: formatDateShortYear(item.dueOn, locale, today) });
-    if (item.urgency === "today" || days === 0) return t("relative.today");
-    return item.urgency === "overdue"
-      ? t("relative.overdue", { n: -days })
-      : t("relative.soon", { n: days });
-  };
 
   /** One due item; `nested` rows sit under their event's header and leave out the event name. */
   function DueRow({ item, nested = false }: { item: DueItem; nested?: boolean }) {
@@ -194,31 +187,7 @@ export async function DueToday({
           )}
         </div>
         <div className="col-start-2 flex flex-wrap items-center gap-2 sm:col-auto sm:shrink-0">
-          <StatusBadge
-            tone={
-              item.urgency === "overdue"
-                ? "critical"
-                : item.urgency === "today"
-                  ? "warn"
-                  : "neutral"
-            }
-            icon={
-              item.urgency === "overdue"
-                ? OctagonAlert
-                : item.urgency === "today"
-                  ? Clock
-                  : item.urgency === "waiting"
-                    ? Hourglass
-                    : CalendarCheck
-            }
-          >
-            <span className="sr-only">{t(`urgencyLabel.${item.urgency}`)}: </span>
-            <span className="tabular">
-              {item.urgency === "waiting"
-                ? relative(item)
-                : `${formatDateShortYear(item.dueOn, locale, today)} · ${relative(item)}`}
-            </span>
-          </StatusBadge>
+          <ItemDue item={item} today={today} />
           {item.kind === "task" && canSnooze && (
             <SnoozeMenu task={{ id: item.id, title: item.title, status: "todo" }} today={today} />
           )}
@@ -362,5 +331,24 @@ export async function DueToday({
         </KeyboardRows>
       )}
     </Panel>
+  );
+}
+
+/** Due-ness of one item: the date, then the state in the one vocabulary (`DueBadge`). */
+function ItemDue({ item, today }: { item: DueItem; today: string }) {
+  const locale = useLocale();
+  const state: DueState =
+    item.urgency === "waiting"
+      ? { kind: "waiting", since: item.dueOn }
+      : dueStateOf({ dueOn: item.dueOn, today });
+  return (
+    <>
+      {state.kind !== "later" && state.kind !== "waiting" && (
+        <span className="tabular text-muted-foreground text-small">
+          {formatDateShortYear(item.dueOn, locale, today)}
+        </span>
+      )}
+      <DueBadge state={state} dueOn={item.dueOn} today={today} />
+    </>
   );
 }

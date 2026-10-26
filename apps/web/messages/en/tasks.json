@@ -34,10 +34,12 @@
       "office": "Office"
     },
     "due": {
-      "overdue": "Overdue · {days} d",
-      "waitingSince": "Waiting since {date}",
+      "overdue": "Overdue · {days, plural, one {# day} other {# days}}",
+      "overdueCount": "{count} overdue",
       "today": "Today",
-      "soon": "Due in {days} d",
+      "tomorrow": "Tomorrow",
+      "inDays": "in {days} days",
+      "waitingSince": "Waiting since {date}",
       "none": "No date",
       "doneOn": "Done {date}",
       "finished": "Finished"

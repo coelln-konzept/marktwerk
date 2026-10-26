@@ -1,13 +1,14 @@
 import type { InstallmentState, PayableStatus } from "@marktwerk/core";
-import { AlertTriangle, Check, CircleDashed, CircleDot, ShieldAlert, X } from "lucide-react";
+import { Check, CircleDashed, CircleDot, ShieldAlert, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { StatusBadge, type Tone } from "@/components/ui/status-badge";
+import { OVERDUE_ICON } from "@/lib/due-ui";
 
 /** Status is colour + icon + text (UX concept §7). One look for rates and for the payable they belong to. */
 const UI = {
   open: { tone: "neutral", icon: CircleDashed, outline: true },
   partially_paid: { tone: "info", icon: CircleDot },
-  overdue: { tone: "critical", icon: AlertTriangle },
+  overdue: { tone: "critical", icon: OVERDUE_ICON },
   paid: { tone: "ok", icon: Check },
   cancelled: { tone: "neutral", icon: X, strike: true },
 } as const satisfies Record<

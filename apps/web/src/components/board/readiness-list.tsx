@@ -1,15 +1,9 @@
 import { readinessAttention } from "@marktwerk/core";
-import {
-  CalendarX,
-  ChevronDown,
-  CircleCheck,
-  FileWarning,
-  Star,
-  TriangleAlert,
-} from "lucide-react";
+import { CalendarX, ChevronDown, CircleCheck, FileWarning, Star } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment, type ReactNode } from "react";
+import { OverdueCount } from "@/components/ui/due-badge";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
@@ -134,9 +128,7 @@ export async function ReadinessList({
                     <ul className="flex flex-wrap gap-1.5">
                       {row.overdue > 0 && (
                         <li>
-                          <StatusBadge tone="critical" icon={TriangleAlert}>
-                            {t("overdue", { count: row.overdue })}
-                          </StatusBadge>
+                          <OverdueCount count={row.overdue} />
                         </li>
                       )}
                       {row.missingPermits > 0 && (

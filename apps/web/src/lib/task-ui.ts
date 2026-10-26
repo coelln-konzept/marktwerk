@@ -4,7 +4,7 @@ import {
   Check,
   Circle,
   CircleDot,
-  CirclePause,
+  Hourglass,
   type LucideIcon,
   SkipForward,
   X,
@@ -16,7 +16,7 @@ import { isModuleHidden } from "@/lib/modules";
 export const TASK_STATUS_UI: Record<TaskStatusKey, { tone: Tone; icon: LucideIcon }> = {
   todo: { tone: "neutral", icon: Circle },
   in_progress: { tone: "info", icon: CircleDot },
-  waiting_external: { tone: "waiting", icon: CirclePause },
+  waiting_external: { tone: "waiting", icon: Hourglass },
   blocked: { tone: "warn", icon: Ban },
   done: { tone: "ok", icon: Check },
   skipped: { tone: "neutral", icon: SkipForward },

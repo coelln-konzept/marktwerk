@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { DueBadge } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { formatDateWeekdayDay } from "@/lib/format";
@@ -25,7 +26,7 @@ import type { BoardTask } from "@/server/queries/tasks";
 import { useBoard } from "./board-context";
 import { useCardDrag } from "./board-dnd";
 import { CardMenu } from "./card-menu";
-import { CategoryTag, DueLine, TaskStatusBadge } from "./task-bits";
+import { CategoryTag, TaskStatusBadge } from "./task-bits";
 
 const isFinished = (task: BoardTask) => task.status === "done" || task.status === "skipped";
 
@@ -232,7 +233,7 @@ function CardContent({
             {formatEstimate(task.estimateMinutes, locale)}
           </span>
         )}
-        <DueLine
+        <DueBadge
           dueOn={task.dueOn}
           today={board.today}
           status={task.status}

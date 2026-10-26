@@ -8,7 +8,7 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { HealthShape } from "@/components/ui/health";
+import { OVERDUE_ICON, WARNING_ICON } from "@/lib/due-ui";
 import { cn } from "@/lib/utils";
 import type { CalendarItem, CalendarLayer } from "@/server/queries/due";
 
@@ -29,7 +29,8 @@ const TONE_CLASSES: Record<NonNullable<CalendarItem["tone"]>, string> = {
 
 /**
  * Compact entry of a module layer (task, permit, rate, shift, obligation) for the month grid. Layer =
- * icon, urgency = colour + shape + hidden text (never colour alone); it links to the thing itself.
+ * icon, urgency = colour + the vocabulary icon (red octagon = überfällig, triangle = Achtung) + hidden text
+ * (never colour alone); it links to the thing itself.
  */
 export function DeadlineChip({
   item,
@@ -52,9 +53,8 @@ export function DeadlineChip({
         TONE_CLASSES[tone],
       )}
     >
-      {(tone === "warn" || tone === "critical") && (
-        <HealthShape level={tone} className="size-2.5" />
-      )}
+      {tone === "critical" && <OVERDUE_ICON aria-hidden className="size-3 shrink-0" />}
+      {tone === "warn" && <WARNING_ICON aria-hidden className="size-3 shrink-0" />}
       <Icon aria-hidden className="size-3 shrink-0" />
       <span className="sr-only">
         {layerLabel}

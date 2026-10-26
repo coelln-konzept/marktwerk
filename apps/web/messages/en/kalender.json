@@ -57,8 +57,8 @@
     "relative": {
       "today": "today",
       "tomorrow": "tomorrow",
-      "future": "in {n} d",
-      "past": "{n} d ago"
+      "future": "in {n, plural, one {# day} other {# days}}",
+      "past": "{n, plural, one {# day} other {# days}} ago"
     },
     "open": "Open",
     "emptyList": "Nothing is scheduled in these six weeks.",

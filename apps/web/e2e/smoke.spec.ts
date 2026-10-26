@@ -53,6 +53,7 @@ test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a ma
 
   // The drawer is a linkable page state: a reload keeps it, Esc closes it.
   await page.reload();
+  await page.waitForLoadState("networkidle"); // hydrated, so Esc reaches the drawer
   await expect(drawer).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/aufraeumen=/);

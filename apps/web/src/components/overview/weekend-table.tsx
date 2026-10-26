@@ -2,13 +2,15 @@ import { type HealthReason, permitsReason, tasksReason } from "@marktwerk/core";
 import { CalendarX } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { DueIcon, OverdueCount } from "@/components/ui/due-badge";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
-import { Health, type HealthLevel, HealthShape } from "@/components/ui/health";
+import { Health, type HealthLevel } from "@/components/ui/health";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { dueStateOf } from "@/lib/due-ui";
 import {
   formatDateRangeYear,
   formatDateShort,
@@ -48,19 +50,25 @@ export async function WeekendTable({
   });
   const reasonText = (reason: HealthReason | null) =>
     reason ? tHealth(`reason.${reason.key}`, { count: reason.count ?? 0 }) : null;
-  /** Permits and tasks say why ("1 Genehmigung fehlt", "5 überfällig", "Im Plan"), the others the level. */
-  const cell = (level: HealthLevel | null, reason: HealthReason | null = null) => (
-    <Health
-      level={level ?? "none"}
-      label={
-        level ? (
-          (reasonText(reason) ?? tHealth(level))
-        ) : (
-          <span className="sr-only">{tHealth("none")}</span>
-        )
-      }
-    />
-  );
+  /**
+   * Permits and tasks say why ("1 Genehmigung fehlt", "5 überfällig", "Im Plan"), the others the level. Overdue
+   * tasks are a due state, not a health level: they get the red octagon like everywhere else (`OverdueCount`).
+   */
+  const cell = (level: HealthLevel | null, reason: HealthReason | null = null) =>
+    reason?.key === "tasksOverdue" ? (
+      <OverdueCount count={reason.count ?? 0} />
+    ) : (
+      <Health
+        level={level ?? "none"}
+        label={
+          level ? (
+            (reasonText(reason) ?? tHealth(level))
+          ) : (
+            <span className="sr-only">{tHealth("none")}</span>
+          )
+        }
+      />
+    );
   return (
     <Panel aria-labelledby="weekend-title" className="overflow-hidden">
       <PanelHeader>
@@ -156,10 +164,16 @@ export async function WeekendTable({
                           level={r.health.permits ?? "none"}
                           label={`${t("cols.permits")}: ${reasonText(permitReason) ?? tHealth("none")}`}
                         />
-                        <Health
-                          level={r.health.tasks ?? "none"}
-                          label={`${t("cols.tasks")}: ${reasonText(taskReason) ?? tHealth("none")}`}
-                        />
+                        {taskReason?.key === "tasksOverdue" ? (
+                          <span className="inline-flex items-center gap-1.5 text-small">
+                            {t("cols.tasks")}: <OverdueCount count={taskReason.count ?? 0} />
+                          </span>
+                        ) : (
+                          <Health
+                            level={r.health.tasks ?? "none"}
+                            label={`${t("cols.tasks")}: ${reasonText(taskReason) ?? tHealth("none")}`}
+                          />
+                        )}
                       </div>
                     </TD>
                     <TD className="hidden md:table-cell">{cell(r.health.permits, permitReason)}</TD>
@@ -208,14 +222,13 @@ export async function WeekendTable({
                   data-href={item.href}
                   className="-mx-2 flex cursor-pointer items-baseline gap-2 rounded-md px-2 py-0.5 hover:bg-hover"
                 >
-                  <HealthShape
-                    level={
-                      item.urgency === "overdue"
-                        ? "critical"
-                        : item.urgency === "waiting"
-                          ? "none"
-                          : "warn"
+                  <DueIcon
+                    state={
+                      item.urgency === "waiting"
+                        ? { kind: "waiting", since: item.dueOn }
+                        : dueStateOf({ dueOn: item.dueOn, today })
                     }
+                    today={today}
                     className="translate-y-0.5"
                   />
                   <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">

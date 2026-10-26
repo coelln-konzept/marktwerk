@@ -3,7 +3,6 @@ import {
   isHappening,
   type KeyTaskRow,
   type KeyTaskState,
-  type MissingReason,
   type MissingTask,
   type OverviewPermit,
   permitStateForEvent,
@@ -12,16 +11,14 @@ import {
 import {
   AlarmClockOff,
   ArrowRight,
-  Ban,
   CalendarClock,
+  CalendarDays,
   Check,
   ChevronRight,
   CircleCheck,
   CircleDashed,
-  Clock,
   Hourglass,
   ListChecks,
-  OctagonAlert,
   ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
@@ -32,7 +29,8 @@ import { Health } from "@/components/ui/health";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { StatusBadge, type Tone } from "@/components/ui/status-badge";
+import type { Tone } from "@/components/ui/status-badge";
+import { OVERDUE_ICON } from "@/lib/due-ui";
 import {
   formatDateShort,
   formatDateShortYear,
@@ -45,6 +43,7 @@ import { cn } from "@/lib/utils";
 import type { EventOverview } from "@/server/queries/event-overview";
 import type { EventDetail } from "@/server/queries/events";
 import { FactsDialog } from "./facts-dialog";
+import { MissingReasonBadge } from "./missing-reason";
 import { TaskQuickActions } from "./overview-task-actions";
 import { roleName } from "./role-name";
 
@@ -140,30 +139,19 @@ export async function StatusLine({
 // ---------------------------------------------------------------------------------------------
 // 2. Was fehlt
 
-const REASON_UI: Record<MissingReason, { tone: Tone; icon: typeof Clock }> = {
-  overdue: { tone: "critical", icon: OctagonAlert },
-  blocked: { tone: "warn", icon: Ban },
-  waiting: { tone: "waiting", icon: Hourglass },
-  today: { tone: "warn", icon: Clock },
-  soon: { tone: "neutral", icon: Clock },
-};
-
 function MissingTaskRow({
   eventId,
   task,
   today,
   canWrite,
-  reasonText,
   dateText,
 }: {
   eventId: string;
   task: MissingTask;
   today: string;
   canWrite: boolean;
-  reasonText: string;
   dateText: string | null;
 }) {
-  const ui = REASON_UI[task.reason];
   return (
     <li
       data-href={taskHref(eventId, task.id)}
@@ -176,9 +164,7 @@ function MissingTaskRow({
       >
         {task.title}
       </Link>
-      <StatusBadge tone={ui.tone} icon={ui.icon}>
-        {reasonText}
-      </StatusBadge>
+      <MissingReasonBadge task={task} today={today} />
       {dateText && <span className="tabular text-muted-foreground text-small">{dateText}</span>}
       {canWrite && <TaskQuickActions task={task} today={today} />}
     </li>
@@ -215,26 +201,16 @@ export async function MissingPanel({
   const room = Math.max(0, MISSING_VISIBLE_ROWS - urgent.length);
   const shown = [...urgent, ...soon.slice(0, room)];
   const folded = soon.slice(room);
-  const row = (task: (typeof tasks)[number]) => {
-    const days = task.dueOn ? daysBetween(today, task.dueOn) : 0;
-    return (
-      <MissingTaskRow
-        key={task.id}
-        eventId={event.id}
-        task={task}
-        today={today}
-        canWrite={canWrite}
-        reasonText={t(`reason.${task.reason}`, { n: Math.abs(days) })}
-        dateText={
-          task.dueOn
-            ? task.reason === "waiting" && task.dueOn < today
-              ? t("waitingSince", { date: formatDateShortYear(task.dueOn, locale, today) })
-              : formatDateShort(task.dueOn, locale)
-            : null
-        }
-      />
-    );
-  };
+  const row = (task: (typeof tasks)[number]) => (
+    <MissingTaskRow
+      key={task.id}
+      eventId={event.id}
+      task={task}
+      today={today}
+      canWrite={canWrite}
+      dateText={task.dueOn ? formatDateShort(task.dueOn, locale) : null}
+    />
+  );
   return (
     <Panel aria-labelledby="missing-title">
       <PanelHeader>
@@ -295,8 +271,8 @@ export async function MissingPanel({
 const KEY_STATE_UI: Record<KeyTaskState, { tone: Tone; icon: typeof Check }> = {
   done: { tone: "ok", icon: Check },
   open: { tone: "neutral", icon: CircleDashed },
-  soon: { tone: "warn", icon: Clock },
-  overdue: { tone: "critical", icon: OctagonAlert },
+  soon: { tone: "neutral", icon: CalendarDays },
+  overdue: { tone: "critical", icon: OVERDUE_ICON },
   waiting: { tone: "waiting", icon: Hourglass },
   snoozed: { tone: "neutral", icon: AlarmClockOff },
 };

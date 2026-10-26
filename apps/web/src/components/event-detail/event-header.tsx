@@ -30,6 +30,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const tHealth = await getTranslations("health");
   const tMoney = await getTranslations("eventMoney");
   const tBoard = await getTranslations("board");
+  const tDue = await getTranslations("tasks.due");
   const locale = await getLocale();
   const base = `/veranstaltungen/${event.id}`;
   const multiDay = event.endsOn !== event.startsOn;
@@ -89,7 +90,11 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
             ? tBoard("tab.openOverdue", { open: tasks.open, overdue: tasks.overdue })
             : tBoard("tab.openShort", { count: tasks.open }),
         level: tasks.health ?? undefined,
-        sr: `${tBoard("tab.open", { count: tasks.open })}${tasks.health ? `, ${tHealth(tasks.health)}` : ""}`,
+        overdue: tasks.overdue > 0,
+        sr:
+          tasks.overdue > 0
+            ? `${tBoard("tab.open", { count: tasks.open })}, ${tDue("overdueCount", { count: tasks.overdue })}`
+            : `${tBoard("tab.open", { count: tasks.open })}${tasks.health ? `, ${tHealth(tasks.health)}` : ""}`,
       },
     },
     ...(permits
