@@ -223,3 +223,35 @@ export async function getTemplateOptions() {
 }
 
 export type TemplateOptions = Awaited<ReturnType<typeof getTemplateOptions>>;
+
+/** How many existing markets there are (none follows the Grundvorlage; they all use templates of their own). */
+export async function countExistingMarkets(): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(eventPreset)
+    .where(isNull(eventPreset.archivedAt));
+  return row?.n ?? 0;
+}
+
+export type TemplateSummary = {
+  version: number | null;
+  itemCount: number;
+  hasDraft: boolean;
+};
+
+/** Published version number and task count per template, for the market table in the Bibliothek. */
+export async function getTemplateSummaries(ids: string[]): Promise<Map<string, TemplateSummary>> {
+  const versions = await versionsOf([...new Set(ids)]);
+  const result = new Map<string, TemplateSummary>();
+  for (const [id, list] of versions) {
+    const published = list.find((v) => v.status === "published");
+    const draft = list.find((v) => v.status === "draft");
+    const shown = published ?? draft;
+    result.set(id, {
+      version: published?.version ?? null,
+      itemCount: shown?.itemCount ?? 0,
+      hasDraft: draft !== undefined,
+    });
+  }
+  return result;
+}

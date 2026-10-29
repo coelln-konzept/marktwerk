@@ -1,5 +1,5 @@
 import { addDays, can, weekday } from "@marktwerk/core";
-import { Layers } from "lucide-react";
+import { Info, Layers } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -23,6 +23,7 @@ import { param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { db } from "@/server/db";
 import {
+  countExistingMarkets,
   getTemplateForEditor,
   getTemplateOptions,
   getVersionItems,
@@ -78,10 +79,11 @@ export default async function TemplateEditorPage({
   if (!selected) notFound();
   const editable = canWrite && selected.status === "draft";
 
-  const [rows, options, defaults] = await Promise.all([
+  const [rows, options, defaults, marketCount] = await Promise.all([
     getVersionItems(selected.id),
     getTemplateOptions(),
     loadDueDefaults(db),
+    template.isMaster ? countExistingMarkets() : Promise.resolve(0),
   ]);
   const items: ItemView[] = rows.map((row) => ({ key: row.stableKey, ...itemFields(row) }));
   const roles = options.roles.map((r) => ({
@@ -99,7 +101,6 @@ export default async function TemplateEditorPage({
   const drawerItem = zeile && zeile !== "neu" ? items.find((i) => i.key === zeile) : undefined;
   const newPhase = PHASES.find((p) => p === param(sp.phase)) ?? "pre";
   const drawerOpen = Boolean(drawerItem) || (editable && zeile === "neu");
-  const lastOfPhase = items.filter((i) => i.phase === newPhase).at(-1)?.key ?? null;
 
   let apply = null;
   if (canWrite && param(sp.anwenden) === "1" && selected.status === "published") {
@@ -172,6 +173,39 @@ export default async function TemplateEditorPage({
         }
       />
 
+      {template.isMaster ? (
+        <p
+          role="note"
+          className="m-0 flex flex-wrap items-start gap-2 rounded-lg bg-status-info-bg px-3 py-2 text-small text-status-info"
+        >
+          <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+          <span>
+            {t("editor.masterBanner", { count: marketCount })}{" "}
+            <Link
+              href={"/einstellungen/bibliothek" as never}
+              className="font-medium underline underline-offset-2"
+            >
+              {t("editor.masterBannerLink")}
+            </Link>
+          </span>
+        </p>
+      ) : (
+        template.presets.length > 0 && (
+          <p
+            role="note"
+            className="m-0 flex flex-wrap items-start gap-2 rounded-lg bg-status-info-bg px-3 py-2 text-small text-status-info"
+          >
+            <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span>
+              {t("editor.usedBanner", {
+                count: template.presets.length,
+                names: template.presets.map((p) => p.name).join(", "),
+              })}
+            </span>
+          </p>
+        )
+      )}
+
       <VersionBar
         templateId={template.id}
         versions={template.versions.map((v) => ({
@@ -200,9 +234,10 @@ export default async function TemplateEditorPage({
                 title: i.title,
                 phase: i.phase,
                 offsetDays: i.offsetDays,
+                dayMode: i.dayMode,
                 anchorKey: i.anchorKey,
               }))}
-              hrefFor={(key) => `${baseHref}&zeile=${encodeURIComponent(key)}`}
+              baseHref={baseHref}
             />
           </PanelBody>
         </Panel>
@@ -279,7 +314,6 @@ export default async function TemplateEditorPage({
           editable={editable}
           item={drawerItem ?? null}
           newPhase={newPhase}
-          afterKey={lastOfPhase}
           items={items}
           roles={roles}
           eventTypes={eventTypes}
@@ -296,6 +330,7 @@ export default async function TemplateEditorPage({
           templateName={template.name}
           version={{ version: apply.version.version, changeNote: apply.version.changeNote }}
           events={apply.events}
+          today={apply.today}
           closeHref={baseHref}
         />
       )}

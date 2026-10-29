@@ -88,8 +88,9 @@ export async function addItemAction(
   versionId: string,
   fields: TemplateItemFields,
   afterKey: string | null,
+  beforeKey: string | null = null,
 ) {
-  return run((actor) => addTemplateItem(actor, versionId, fields, afterKey));
+  return run((actor) => addTemplateItem(actor, versionId, fields, afterKey, beforeKey));
 }
 
 export async function updateItemAction(versionId: string, key: string, fields: TemplateItemFields) {

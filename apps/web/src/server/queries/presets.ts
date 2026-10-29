@@ -117,6 +117,32 @@ export async function listPresets() {
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
+/** The task templates of one market: its own copy of the Grundvorlage and/or the shared ones it still uses. */
+export async function getPresetTaskTemplates(presetId: string) {
+  if (!UUID.test(presetId)) return { own: null, shared: [] };
+  const rows = await db
+    .select({
+      id: checklistTemplate.id,
+      name: checklistTemplate.name,
+      ownerPresetId: checklistTemplate.ownerPresetId,
+    })
+    .from(eventPresetTemplate)
+    .innerJoin(checklistTemplate, eq(checklistTemplate.id, eventPresetTemplate.templateId))
+    .where(
+      and(
+        eq(eventPresetTemplate.presetId, presetId),
+        eq(checklistTemplate.kind, "event"),
+        isNull(checklistTemplate.archivedAt),
+      ),
+    )
+    .orderBy(asc(eventPresetTemplate.sort), asc(checklistTemplate.name));
+  const own = rows.find((r) => r.ownerPresetId === presetId) ?? null;
+  return {
+    own: own ? { id: own.id, name: own.name } : null,
+    shared: rows.filter((r) => r.ownerPresetId === null).map((r) => ({ id: r.id, name: r.name })),
+  };
+}
+
 /** One preset with everything the edit form needs; null if it doesn't exist or is archived. */
 export async function getPresetForEdit(id: string) {
   if (!UUID.test(id)) return null;

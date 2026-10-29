@@ -1,7 +1,6 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { offsetLabel } from "@marktwerk/core";
 import {
   ArrowDown,
   ArrowUp,
@@ -35,6 +34,7 @@ import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
 import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import { PHASES } from "./labels";
+import { useOffsetText } from "./offset-text";
 import type { ItemView, RoleChoice } from "./types";
 
 const MENU_ITEM =
@@ -63,6 +63,7 @@ export function ItemGrid({
   selectedKey: string | undefined;
 }) {
   const t = useTranslations("taskTemplates");
+  const offsetText = useOffsetText();
   const roleName = new Map(roles.map((r) => [r.id, r.name]));
   const titleOf = new Map(items.map((i) => [i.key, i.title]));
   const { showToast } = useShell();
@@ -212,9 +213,11 @@ export function ItemGrid({
                         </span>
                       </TD>
                       <TD className="whitespace-nowrap">{t(`categories.${item.category}`)}</TD>
-                      <TD className="whitespace-nowrap">
-                        <span className="tabular font-medium">{offsetLabel(item.offsetDays)}</span>{" "}
-                        <span className="text-muted-foreground">
+                      <TD className="min-w-40">
+                        <span className="tabular block font-medium">
+                          {offsetText.full(item.offsetDays, item.dayMode)}
+                        </span>
+                        <span className="block text-muted-foreground text-tiny">
                           {anchorName(item.anchorKey)}
                           {item.dayMode === "business" && <> · {t("grid.businessDays")}</>}
                         </span>

@@ -106,6 +106,8 @@ export function VersionBar({
       showToast({
         message: t("versions.published", { version: result.data.version }),
         actionLabel: t("versions.applyAction"),
+        // Opens the apply sheet; Strg+Z must not trigger it.
+        undoable: false,
         onAction: () => router.push(`${base}?v=${result.data.version}&anwenden=1` as never),
       });
     });
@@ -205,7 +207,9 @@ export function VersionBar({
           }}
         >
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="publish-note">{t("versions.note")}</Label>
+            <Label htmlFor="publish-note" optional>
+              {t("versions.note")}
+            </Label>
             <textarea
               id="publish-note"
               rows={3}

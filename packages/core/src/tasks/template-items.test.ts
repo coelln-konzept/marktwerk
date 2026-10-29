@@ -4,10 +4,12 @@ import {
   checkDependencies,
   checkTemplateItem,
   hasCondition,
+  insertPoint,
   itemApplies,
   itemKeyBase,
   normalizeCondition,
   offsetLabel,
+  offsetWords,
   rulerPosition,
   type TemplateItemFields,
   uniqueItemKey,
@@ -173,5 +175,57 @@ describe("rulerPosition", () => {
     const d1 = rulerPosition(-10, -30, 30) - rulerPosition(-20, -30, 30);
     const d2 = rulerPosition(0, -30, 30) - rulerPosition(-10, -30, 30);
     expect(d1).toBeCloseTo(d2, 6);
+  });
+});
+
+describe("offsetWords", () => {
+  it("speaks in weeks and months where that is exact", () => {
+    expect(offsetWords(0)).toEqual({ kind: "on" });
+    expect(offsetWords(-42)).toEqual({ kind: "weeks", count: 6, direction: "before" });
+    expect(offsetWords(7)).toEqual({ kind: "weeks", count: 1, direction: "after" });
+    expect(offsetWords(-180)).toEqual({ kind: "months", count: 6, direction: "before" });
+    expect(offsetWords(-60)).toEqual({ kind: "months", count: 2, direction: "before" });
+  });
+
+  it("falls back to days and keeps business days as working days", () => {
+    expect(offsetWords(-45)).toEqual({ kind: "days", count: 45, direction: "before" });
+    expect(offsetWords(-3)).toEqual({ kind: "days", count: 3, direction: "before" });
+    expect(offsetWords(-14, "business")).toEqual({
+      kind: "workdays",
+      count: 14,
+      direction: "before",
+    });
+  });
+});
+
+describe("insertPoint", () => {
+  const rows = [
+    { key: "a", phase: "pre" as const, anchorKey: "event_day", offsetDays: -60 },
+    { key: "b", phase: "pre" as const, anchorKey: "event_day", offsetDays: -21 },
+    { key: "c", phase: "pre" as const, anchorKey: "booking_cutoff", offsetDays: 1 },
+    { key: "d", phase: "pre" as const, anchorKey: "event_day", offsetDays: -5 },
+    { key: "e", phase: "live" as const, anchorKey: "event_day", offsetDays: 0 },
+  ];
+  const at = (
+    offsetDays: number,
+    anchorKey = "event_day",
+    phase: "pre" | "live" | "post" = "pre",
+  ) => ({ phase, anchorKey, offsetDays });
+
+  it("goes before the first later row of the same anchor", () => {
+    expect(insertPoint(rows, at(-30))).toEqual({ afterKey: null, beforeKey: "b" });
+    expect(insertPoint(rows, at(-90))).toEqual({ afterKey: null, beforeKey: "a" });
+  });
+
+  it("goes after the last row of the anchor when nothing is later", () => {
+    expect(insertPoint(rows, at(-1))).toEqual({ afterKey: "d", beforeKey: null });
+  });
+
+  it("goes to the end of the phase when the anchor is new there", () => {
+    expect(insertPoint(rows, at(2, "setup_day"))).toEqual({ afterKey: "d", beforeKey: null });
+    expect(insertPoint(rows, at(2, "event_day", "post"))).toEqual({
+      afterKey: null,
+      beforeKey: null,
+    });
   });
 });
