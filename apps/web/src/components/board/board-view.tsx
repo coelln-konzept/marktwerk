@@ -19,7 +19,7 @@ import { COLUMN_ORDER, formatHours } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { BoardTask, PeopleRail, StaffOption } from "@/server/queries/tasks";
 import { AblaufList } from "./ablauf-list";
-import { BoardProvider, type Lift } from "./board-context";
+import { type BoardActions, BoardProvider, type Lift } from "./board-context";
 import { BoardDnd, useCellDrop, useLaneDrop } from "./board-dnd";
 import { PeopleRailPanel } from "./people-rail";
 import { ReasonDialog } from "./reason-dialog";
@@ -29,6 +29,28 @@ import { type OptimisticPatch, useTaskActions } from "./use-task-actions";
 
 /** Finished cards shown before "weitere anzeigen" (the column is a collapsed list). */
 const DONE_COLLAPSED = 5;
+/**
+ * Cards shown per open column (and lane) before "weitere anzeigen": the whole season at "Alles" would
+ * otherwise put over a thousand cards (55k DOM nodes) on the page.
+ */
+const COLUMN_CAP = 30;
+
+/** The cards of a column (or of one person's lane in it) in display order. */
+function cardsIn(
+  tasks: BoardTask[],
+  column: BoardColumn,
+  lane: string | null | undefined,
+  eventEndsOn: string | null,
+): BoardTask[] {
+  const list = tasks.filter(
+    (task) => task.column === column && (lane === undefined || (task.assigneeId ?? null) === lane),
+  );
+  return column === "done"
+    ? list
+    : sortColumnByDue(list, column === "preparation" ? eventEndsOn : null);
+}
+
+type Live = ReturnType<typeof useTaskActions>;
 
 /**
  * Applies a change to the cards at once, before the server confirms it. Moving a card places it after
@@ -113,7 +135,30 @@ export function BoardView(props: Props) {
   const [tasks, apply] = useOptimistic(props.tasks, (state, patch: OptimisticPatch) =>
     applyPatch(state, patch, today),
   );
-  const actions = useTaskActions({ staff, scopeEventId: props.scopeEventId, apply });
+  const current = useTaskActions({ staff, scopeEventId: props.scopeEventId, apply });
+  // The cards (memoized) get a stable `actions` that calls the current ones, so a change to one card
+  // re-renders that card and not all of them.
+  const liveRef = useRef(current);
+  liveRef.current = current;
+  const actions = useMemo<BoardActions>(
+    () => ({
+      move: (...args: Parameters<Live["move"]>) => liveRef.current.move(...args),
+      assign: (...args: Parameters<Live["assign"]>) => liveRef.current.assign(...args),
+      moveAndAssign: (...args: Parameters<Live["moveAndAssign"]>) =>
+        liveRef.current.moveAndAssign(...args),
+      setStatus: (...args: Parameters<Live["setStatus"]>) => liveRef.current.setStatus(...args),
+      snooze: (...args: Parameters<Live["snooze"]>) => liveRef.current.snooze(...args),
+      unsnooze: (...args: Parameters<Live["unsnooze"]>) => liveRef.current.unsnooze(...args),
+      errorText: (code: string) => liveRef.current.errorText(code),
+      drawer: {
+        open: (id: string) => liveRef.current.drawer.open(id),
+        close: () => liveRef.current.drawer.close(),
+      },
+    }),
+    [],
+  );
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
   const [lift, setLift] = useState<Lift | null>(null);
   const [live, setLive] = useState("");
   const [reasonFor, setReasonFor] = useState<{ task: BoardTask; status: TaskStatusKey } | null>(
@@ -124,16 +169,14 @@ export function BoardView(props: Props) {
 
   const eventEndsOn = props.eventEndsOn ?? null;
   const cardsOf = useCallback(
-    (column: BoardColumn, lane?: string | null) => {
-      const list = tasks.filter(
-        (task) =>
-          task.column === column && (lane === undefined || (task.assigneeId ?? null) === lane),
-      );
-      return column === "done"
-        ? list
-        : sortColumnByDue(list, column === "preparation" ? eventEndsOn : null);
-    },
+    (column: BoardColumn, lane?: string | null) => cardsIn(tasks, column, lane, eventEndsOn),
     [tasks, eventEndsOn],
+  );
+  // The same for the keyboard handlers below: they read the latest cards, so they keep their identity.
+  const cardsNow = useCallback(
+    (column: BoardColumn, lane?: string | null) =>
+      cardsIn(tasksRef.current, column, lane, eventEndsOn),
+    [eventEndsOn],
   );
 
   // After a drop the card sits in another list; give focus back to its grip.
@@ -150,7 +193,7 @@ export function BoardView(props: Props) {
   const pick = useCallback(
     (task: BoardTask) => {
       const lane = props.layout === "person" ? (task.assigneeId ?? null) : undefined;
-      const list = cardsOf(task.column, lane);
+      const list = cardsNow(task.column, lane);
       const index = Math.max(
         0,
         list.findIndex((c) => c.id === task.id),
@@ -165,13 +208,13 @@ export function BoardView(props: Props) {
         }),
       );
     },
-    [cardsOf, props.layout, t, columnName],
+    [cardsNow, props.layout, t, columnName],
   );
 
   const moveLift = useCallback(
     (dx: number, dy: number) => {
       if (!lift) return;
-      const task = tasks.find((c) => c.id === lift.id);
+      const task = tasksRef.current.find((c) => c.id === lift.id);
       if (!task) return;
       let column = lift.column;
       let index = lift.index;
@@ -179,7 +222,7 @@ export function BoardView(props: Props) {
         const at = COLUMN_ORDER.indexOf(column) + dx;
         column = COLUMN_ORDER[Math.min(COLUMN_ORDER.length - 1, Math.max(0, at))] as BoardColumn;
       }
-      const others = cardsOf(column, lift.lane).filter((c) => c.id !== lift.id);
+      const others = cardsNow(column, lift.lane).filter((c) => c.id !== lift.id);
       index = Math.min(others.length, Math.max(0, dx !== 0 ? index : index + dy));
       setLift({ ...lift, column, index });
       setLive(
@@ -191,7 +234,7 @@ export function BoardView(props: Props) {
         }),
       );
     },
-    [lift, tasks, cardsOf, t, columnName],
+    [lift, cardsNow, t, columnName],
   );
 
   const cancelLift = useCallback(() => {
@@ -203,20 +246,20 @@ export function BoardView(props: Props) {
 
   const drop = useCallback(() => {
     if (!lift) return;
-    const task = tasks.find((c) => c.id === lift.id);
+    const task = tasksRef.current.find((c) => c.id === lift.id);
     setLift(null);
     if (!task) return;
     focusAfter.current = task.id;
-    const others = cardsOf(lift.column, lift.lane).filter((c) => c.id !== lift.id);
+    const others = cardsNow(lift.column, lift.lane).filter((c) => c.id !== lift.id);
     const afterId = lift.index > 0 ? (others[lift.index - 1]?.id ?? null) : null;
-    const original = cardsOf(task.column, lift.lane).findIndex((c) => c.id === task.id);
+    const original = cardsNow(task.column, lift.lane).findIndex((c) => c.id === task.id);
     if (lift.column === task.column && lift.index === original) {
       setLive(t("keys.cancelled"));
       return;
     }
     actions.move(task, lift.column, afterId);
     setLive(t("keys.dropped", { title: task.title, column: columnName(lift.column) }));
-  }, [lift, tasks, cardsOf, actions, t, columnName]);
+  }, [lift, cardsNow, actions, t, columnName]);
 
   const askReason = useCallback(
     (task: BoardTask, status: TaskStatusKey) => setReasonFor({ task, status }),
@@ -432,12 +475,12 @@ function ColumnPanel({
       )}
     >
       <header className="flex items-center justify-between gap-2 px-1.5 pt-1">
-        <h3 className="flex items-center gap-2 font-semibold text-small">
+        <h2 className="flex items-center gap-2 font-semibold text-small">
           {t(`columns.${column}`)}
           <span className="tabular inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-neutral-bg px-1 font-semibold text-[11.5px] text-foreground-2">
             {cards.length}
           </span>
-        </h3>
+        </h2>
         <span className="tabular text-muted-foreground text-tiny">
           {column === "done"
             ? t("doneRange")
@@ -472,9 +515,11 @@ function CardList({
 }) {
   const t = useTranslations("board");
   const [expanded, setExpanded] = useState(false);
-  const collapsed = column === "done" && !expanded && cards.length > DONE_COLLAPSED;
-  const shown = collapsed ? cards.slice(0, DONE_COLLAPSED) : cards;
   const marker = lift && lift.column === column && lift.lane === lane ? lift : null;
+  // Long columns show their first cards and "N weitere anzeigen"; a lifted card needs the whole list.
+  const cap = column === "done" ? DONE_COLLAPSED : COLUMN_CAP;
+  const collapsed = !expanded && !marker && cards.length > cap;
+  const shown = collapsed ? cards.slice(0, cap) : cards;
   const items: React.ReactNode[] = [];
   const others = shown.filter((c) => c.id !== marker?.id);
   let slot = 0;
@@ -508,14 +553,14 @@ function CardList({
       {cards.length === 0 && !marker && (
         <p className="px-1.5 pb-1 text-faint-foreground text-tiny">{t("emptyColumn")}</p>
       )}
-      {column === "done" && cards.length > DONE_COLLAPSED && (
+      {cards.length > cap && (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
           className="cursor-pointer rounded-md px-1.5 py-1 text-left font-medium text-muted-foreground text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
         >
-          {expanded ? t("showLess") : t("showMore", { count: cards.length - DONE_COLLAPSED })}
+          {expanded ? t("showLess") : t("showMore", { count: cards.length - cap })}
         </button>
       )}
     </>

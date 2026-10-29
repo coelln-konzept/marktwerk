@@ -130,7 +130,13 @@ export async function BoardScreen({
   // On phones the top bar's "Neu" opens the same dialog (?neu=1), so this button stays out of the filter area.
   const newTask = canWrite ? (
     <div className="hidden sm:block">
-      <NewTaskButton eventId={eventId} events={events} staff={staff} canAssign={canAssign} />
+      <NewTaskButton
+        eventId={eventId}
+        events={events}
+        staff={staff}
+        canAssign={canAssign}
+        today={today}
+      />
     </div>
   ) : null;
 

@@ -190,11 +190,13 @@
       "dueOn": "due {date}",
       "empty": "No upcoming events in this period.",
       "emptyHint": "Choose “All” to see every upcoming event.",
-      "panelColumn": "",
+      "panelColumn": "Actions",
       "panel": {
-        "toggle": "Tasks",
+        "toggle": "Details",
         "showLabel": "Show important tasks of {name}",
         "hideLabel": "Close tasks of {name}",
+        "chipShow": "{chip} at {name}: show details",
+        "chipHide": "{chip} at {name}: close details",
         "title": "Important at {name}",
         "allOk": "All on track: nothing overdue, no missing permit.",
         "permitMissing": "Permit missing",
@@ -204,6 +206,7 @@
     },
     "matrix": {
       "caption": "Key tasks of the upcoming events",
+      "scrollHint": "More key tasks to the right: scroll sideways",
       "market": "Event",
       "empty": "No upcoming events in this period.",
       "emptyHint": "Choose “All” to see every upcoming event.",
