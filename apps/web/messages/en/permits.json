@@ -157,6 +157,7 @@
       "not_started": "Not applied for yet"
     },
     "moreSteps": "More steps",
+    "back": "Back to “{status}”",
     "actions": {
       "not_started": "Back to “Not applied for yet”",
       "preparing": "Set to in preparation",

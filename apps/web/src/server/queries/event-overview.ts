@@ -58,6 +58,7 @@ export async function getEventOverview(
             dueAt: task.dueAt,
             isKey: task.isKey,
             snoozedUntil: task.snoozedUntil,
+            boardSort: task.boardSort,
           })
           .from(task)
           .where(and(visibleTasks(actor), eq(task.eventId, event.id), ne(task.status, "cancelled")))
@@ -88,6 +89,7 @@ export async function getEventOverview(
       dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
       isKey: r.isKey,
       snoozedUntil: r.snoozedUntil,
+      boardSort: r.boardSort,
     })) ?? null;
 
   return {

@@ -306,6 +306,7 @@
       "note": "Hinweise blockieren nichts: du entscheidest.",
       "submit": "Verschieben",
       "cancel": "Abbrechen",
+      "close": "Schließen",
       "moved": "Verschoben auf {date}",
       "undo": "Rückgängig",
       "reverted": "Wieder am {date}",

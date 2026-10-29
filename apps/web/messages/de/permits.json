@@ -157,6 +157,7 @@
       "not_started": "Noch nicht beantragt"
     },
     "moreSteps": "Weitere Schritte",
+    "back": "Zurück auf „{status}“",
     "actions": {
       "not_started": "Zurück auf „Noch nicht beantragt“",
       "preparing": "In Vorbereitung setzen",

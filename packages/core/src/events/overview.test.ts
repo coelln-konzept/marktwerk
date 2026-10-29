@@ -222,6 +222,18 @@ describe("missingTasks", () => {
     ]);
     expect(rows.find((r) => r.id === "blocked")?.reason).toBe("blocked");
   });
+
+  it("orders tasks of the same day by template position (Aufbau before Abbau), not by title", () => {
+    const rows = missingTasks(
+      [
+        task({ id: "abbau", title: "Abbau", dueOn: "2026-10-24", boardSort: 30 }),
+        task({ id: "aufbau", title: "Aufbau", dueOn: "2026-10-24", boardSort: 10 }),
+        task({ id: "mitte", title: "Parkeinweisung", dueOn: "2026-10-24", boardSort: 20 }),
+      ],
+      TODAY,
+    );
+    expect(rows.map((r) => r.id)).toEqual(["aufbau", "mitte", "abbau"]);
+  });
 });
 
 describe("keyTaskState", () => {

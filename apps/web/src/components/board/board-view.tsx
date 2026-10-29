@@ -34,6 +34,8 @@ const DONE_COLLAPSED = 5;
  * otherwise put over a thousand cards (55k DOM nodes) on the page.
  */
 const COLUMN_CAP = 30;
+const MORE_BUTTON =
+  "cursor-pointer rounded-md px-1.5 py-1 text-left font-medium text-muted-foreground text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring";
 
 /** The cards of a column (or of one person's lane in it) in display order. */
 function cardsIn(
@@ -514,12 +516,14 @@ function CardList({
   eventEndsOn?: string | null;
 }) {
   const t = useTranslations("board");
-  const [expanded, setExpanded] = useState(false);
-  const marker = lift && lift.column === column && lift.lane === lane ? lift : null;
-  // Long columns show their first cards and "N weitere anzeigen"; a lifted card needs the whole list.
   const cap = column === "done" ? DONE_COLLAPSED : COLUMN_CAP;
-  const collapsed = !expanded && !marker && cards.length > cap;
-  const shown = collapsed ? cards.slice(0, cap) : cards;
+  // Long columns show their first cards and grow by COLUMN_CAP per click, not all at once (1,300 cards
+  // took seconds to render); a lifted card needs the whole list.
+  const [limit, setLimit] = useState(cap);
+  const marker = lift && lift.column === column && lift.lane === lane ? lift : null;
+  const collapsed = !marker && cards.length > limit;
+  const shown = collapsed ? cards.slice(0, limit) : cards;
+  const left = cards.length - limit;
   const items: React.ReactNode[] = [];
   const others = shown.filter((c) => c.id !== marker?.id);
   let slot = 0;
@@ -554,14 +558,24 @@ function CardList({
         <p className="px-1.5 pb-1 text-faint-foreground text-tiny">{t("emptyColumn")}</p>
       )}
       {cards.length > cap && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          className="cursor-pointer rounded-md px-1.5 py-1 text-left font-medium text-muted-foreground text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
-        >
-          {expanded ? t("showLess") : t("showMore", { count: cards.length - cap })}
-        </button>
+        <div className="flex flex-wrap gap-x-3">
+          {left > 0 && (
+            <button
+              type="button"
+              onClick={() => setLimit((v) => v + COLUMN_CAP)}
+              className={MORE_BUTTON}
+            >
+              {left > COLUMN_CAP
+                ? t("showMoreLeft", { count: COLUMN_CAP, left })
+                : t("showMore", { count: left })}
+            </button>
+          )}
+          {limit > cap && (
+            <button type="button" onClick={() => setLimit(cap)} className={MORE_BUTTON}>
+              {t("showLess")}
+            </button>
+          )}
+        </div>
       )}
     </>
   );

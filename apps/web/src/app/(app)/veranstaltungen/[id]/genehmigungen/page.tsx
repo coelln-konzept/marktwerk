@@ -1,5 +1,4 @@
 import { FileCheck2 } from "lucide-react";
-import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -20,9 +19,7 @@ import { getEvent } from "@/server/queries/events";
 import { listEventPermits } from "@/server/queries/permits";
 import { requirePermission } from "@/server/session";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await getTranslations("eventPermits"))("title") };
-}
+// No own title: like the other tabs it inherits "<Name> · marktwerk" from the event layout.
 
 /**
  * Tab "Genehmigungen": the permits this event needs (`event_permit`) with their state; the whole row opens the

@@ -145,7 +145,13 @@ export function TaskDrawer({
     if (value === "" || value === (task.dueOn ?? "")) return;
     if (pending && value === dueSent.current) return;
     dueSent.current = value;
-    save({ dueOn: value }, { dueOn: task.dueOn });
+    save(
+      { dueOn: value },
+      {
+        dueOn: task.dueOn,
+        restoreFlags: { dueOverridden: task.dueOverridden, customized: task.customized },
+      },
+    );
   }
 
   /** Optimistic close: drop the drawer and the URL parameter now; the opener gets its focus back. */

@@ -41,6 +41,10 @@ export function MatrixScroll({
 
   return (
     <div>
+      {/* Above the table: below it the hint would sit under the fold of a 60-row matrix. */}
+      {overflow && (
+        <p className="m-0 border-b px-4 py-1.5 text-muted-foreground text-tiny">{hint}</p>
+      )}
       <div className="relative">
         {/* biome-ignore lint/a11y/useSemanticElements: a scrollable region, named and reachable by keyboard */}
         <div
@@ -60,9 +64,6 @@ export function MatrixScroll({
           />
         )}
       </div>
-      {overflow && (
-        <p className="m-0 border-t px-4 py-1.5 text-muted-foreground text-tiny">{hint}</p>
-      )}
     </div>
   );
 }

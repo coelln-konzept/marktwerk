@@ -24,6 +24,8 @@ export type OverviewTask = {
   dueOn: string | null;
   isKey: boolean;
   snoozedUntil: string | null;
+  /** Position in the template (`board_sort`): breaks ties on the same day so Aufbau comes before Abbau. */
+  boardSort?: number;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -130,7 +132,7 @@ export function missingReason(task: OverviewTask, today: string): MissingReason 
   return null;
 }
 
-/** Key tasks first, then earliest due date (no date last), then title. */
+/** Key tasks first, then earliest due date (no date last), then template position, then title. */
 function compareTasks(a: OverviewTask, b: OverviewTask): number {
   if (a.isKey !== b.isKey) return a.isKey ? -1 : 1;
   if (a.dueOn !== b.dueOn) {
@@ -138,6 +140,8 @@ function compareTasks(a: OverviewTask, b: OverviewTask): number {
     if (b.dueOn === null) return -1;
     return a.dueOn < b.dueOn ? -1 : 1;
   }
+  const bySort = (a.boardSort ?? 0) - (b.boardSort ?? 0);
+  if (bySort !== 0) return bySort;
   return a.title.localeCompare(b.title, "de");
 }
 

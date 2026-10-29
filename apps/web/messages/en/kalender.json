@@ -59,15 +59,15 @@
     },
     "week": "CW {week} · {from}–{to}",
     "relative": {
-      "today": "today",
-      "tomorrow": "tomorrow",
-      "future": "in {n} d",
-      "past": "{n} d ago"
+      "yesterday": "Yesterday",
+      "pastDays": "{count} days ago",
+      "pastWeeks": "{count, plural, one {# week} other {# weeks}} ago",
+      "pastMonths": "{count, plural, one {# month} other {# months}} ago"
     },
     "open": "Open",
     "todayMarker": "Today",
     "nothingToday": "Nothing is scheduled today.",
-    "moreAria": "{n} more entries on {day}, open the list from that day",
+    "moreAria": "{n, plural, one {# more entry} other {# more entries}} on {day}, open the list from that day",
     "spanDay": "Day {index}/{total}",
     "permitKind": {
       "apply": "Application due",

@@ -804,6 +804,11 @@ export type TaskPatch = {
   isKey?: boolean;
   /** `YYYY-MM-DD`, or null to clear. Editing it pins the date against anchor shifts. */
   dueOn?: string | null;
+  /**
+   * Undo of a due-date edit: puts back the flags the edit set, so a date that followed the event date
+   * keeps following it. Only honoured together with a `dueOn` change.
+   */
+  restoreFlags?: { dueOverridden: boolean; customized: boolean };
 };
 
 /** Title, description, estimate, Kernaufgabe flag and due date. Marks the task as customized and the due date as set by hand. */
@@ -867,6 +872,13 @@ export async function updateTask(
     const fields = Object.keys(after);
     if (fields.length === 0) return { changed: false, fields };
     set.customized = true;
+    const restore = patch.restoreFlags;
+    if (restore && "dueOn" in after) {
+      if (typeof restore.dueOverridden !== "boolean" || typeof restore.customized !== "boolean")
+        throw new TaskInputError("invalid_input");
+      set.dueOverridden = restore.dueOverridden;
+      set.customized = restore.customized;
+    }
     await tx.update(task).set(set).where(eq(task.id, row.id));
     await writeAudit(tx, actor, "task.update", row.id, { before, after });
     return { changed: true, fields };

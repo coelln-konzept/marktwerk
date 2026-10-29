@@ -306,6 +306,7 @@
       "note": "Hints never block: you decide.",
       "submit": "Move",
       "cancel": "Cancel",
+      "close": "Close",
       "moved": "Moved to {date}",
       "undo": "Undo",
       "reverted": "Back on {date}",

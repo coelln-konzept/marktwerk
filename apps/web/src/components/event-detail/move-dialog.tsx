@@ -10,7 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateShort, formatDateWithWeekday, formatWeek } from "@/lib/format";
+import {
+  formatDateShort,
+  formatDateShortYear,
+  formatDateWithWeekday,
+  formatWeek,
+  todayIn,
+} from "@/lib/format";
 import type { EventSchedulePreview } from "@/server/services/event-details";
 
 /**
@@ -103,6 +109,21 @@ export function MoveDialog({
   }
 
   const check = preview?.check;
+  // Years appear as soon as any date shown is not in the current year (a move across New Year, or
+  // a season in 2027): "Sa 13.03. → Fr 20.11." would be ambiguous. Passing "" as today makes every date carry its year.
+  const thisYear = todayIn().slice(0, 4);
+  const showYear =
+    !!preview &&
+    [
+      preview.from.startsOn,
+      preview.from.endsOn,
+      preview.to.startsOn,
+      preview.to.endsOn,
+      ...preview.anchors.flatMap((a) => [a.from, a.to]),
+      ...preview.shifting.flatMap((s) => [s.from, s.to]),
+    ].some((d) => d != null && d.slice(0, 4) !== thisYear);
+  const short = (d: string) =>
+    showYear ? formatDateShortYear(d, locale, "") : formatDateShort(d, locale);
   const range = (r: { startsOn: string; endsOn: string }) =>
     r.startsOn === r.endsOn
       ? formatDateWithWeekday(r.startsOn, locale)
@@ -120,7 +141,7 @@ export function MoveDialog({
       onOpenChange={(next) => !pending && onOpenChange(next)}
       title={t("title")}
       description={t("description")}
-      closeLabel={t("cancel")}
+      closeLabel={t("close")}
       className="w-[min(560px,calc(100%-2rem))]"
     >
       <form
@@ -175,9 +196,9 @@ export function MoveDialog({
                     <tr key={a.key} className="border-border-subtle border-b last:border-b-0">
                       <td className="py-1.5 pr-3 font-medium">{tKeys(a.key)}</td>
                       <td className="tabular py-1.5 pr-3 text-muted-foreground">
-                        {a.from ? formatDateShort(a.from, locale) : "–"}
+                        {a.from ? short(a.from) : "–"}
                       </td>
-                      <td className="tabular py-1.5">{formatDateShort(a.to, locale)}</td>
+                      <td className="tabular py-1.5">{short(a.to)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -212,11 +233,11 @@ export function MoveDialog({
                           <tr key={s.id} className="border-border-subtle border-t">
                             <td className="min-w-0 px-3 py-1.5 break-words">{s.title}</td>
                             <td className="tabular whitespace-nowrap px-3 py-1.5 text-muted-foreground">
-                              {s.from ? formatDateShort(s.from, locale) : "–"}
+                              {s.from ? short(s.from) : "–"}
                             </td>
                             <td className="tabular whitespace-nowrap px-3 py-1.5">
                               <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                {formatDateShort(s.to, locale)}
+                                {short(s.to)}
                                 {s.overdue && (
                                   <StatusBadge tone="critical" icon={CircleAlert}>
                                     {t("overdueShort")}
