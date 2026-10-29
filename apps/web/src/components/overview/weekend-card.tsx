@@ -10,6 +10,7 @@ import { formatDateRangeYear, formatDateShort, formatWeek } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { DueItem } from "@/server/queries/due";
 import type { Overview, WeekendBlock, WeekendMarket } from "@/server/queries/overview";
+import { MoreDisclosure } from "./due-groups";
 import { itemHref, itemPeek } from "./links";
 import { VerdictLine } from "./verdict-line";
 
@@ -92,8 +93,8 @@ async function MarketBlock({
   const { row, verdict, blockers } = market;
   const href = `/veranstaltungen/${row.id}`;
   const shown = blockers.slice(0, rows);
-  const more = blockers.length - shown.length;
-  const reserveStar = shown.some((b) => b.isKey);
+  const rest = blockers.slice(rows);
+  const reserveStar = blockers.some((b) => b.isKey);
   return (
     <section
       aria-labelledby={`weekend-${row.id}`}
@@ -136,15 +137,24 @@ async function MarketBlock({
               reserveStar={reserveStar}
             />
           ))}
-          {more > 0 && (
-            <li className="pl-7">
-              <Link
-                href={href as never}
-                aria-label={t("blockersMoreAria", { count: more, name: row.name })}
-                className="inline-flex min-h-8 items-center rounded-md px-1 font-medium text-muted-foreground text-small hover:text-foreground hover:underline"
-              >
-                {t("blockersMore", { count: more })}
-              </Link>
+          {rest.length > 0 && (
+            // Opens the remaining blockers in place (decision 2026-10-29), no jump to the market page.
+            <li className="list-none">
+              <MoreDisclosure className="pl-6" label={t("blockersMore", { count: rest.length })}>
+                <ul
+                  aria-label={t("blockers", { name: row.name })}
+                  className="m-0 -ml-6 flex list-none flex-col p-0"
+                >
+                  {rest.map((item) => (
+                    <Blocker
+                      key={`${item.kind}-${item.id}`}
+                      item={item}
+                      today={today}
+                      reserveStar={reserveStar}
+                    />
+                  ))}
+                </ul>
+              </MoreDisclosure>
             </li>
           )}
         </ul>
@@ -156,7 +166,8 @@ async function MarketBlock({
 /**
  * "Dieses Wochenende", the first of the two questions on the Übersicht ("is the weekend on track?"): per
  * market one verdict line (Im Plan · Achtung · Nicht startklar, with the reasons) and the first blockers,
- * then one compact row for the weekend after. A market's name and "+ N weitere" open its Überblick.
+ * then one compact row for the weekend after. A market's name opens its Überblick; "+ N weitere" opens the
+ * remaining blockers in place.
  */
 export async function WeekendCard({
   weekend,

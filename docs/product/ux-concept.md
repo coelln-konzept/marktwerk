@@ -191,18 +191,23 @@ leads nowhere.
 - **Zeitraum** (Bis Sonntag / 14 Tage / Alles) applies to the first day of the market; "Alles" is every upcoming market. The page has no subtitle line; on phones the "Neu" button of the top bar replaces the button next to the filters.
 
 ### Übersicht (start screen, one for everyone)
-"Zwei Fragen" (decision 2026-10-29, replaces the KPI strip, season strip and the long "Heute fällig" list): the page
-answers "is the weekend OK?" and "what is due now?" in one screen (≈ 800 px on desktop).
+Decisions 2026-10-29 ("Zwei Fragen", then the same day: per-market grouping and "Diese Woche" back): the weekend and
+what is due now side by side, the week below. No KPI strip, no season strip.
 1. **Date + KW line** and greeting.
 2. **Dieses Wochenende** (left from 1024 px, first on phones): per market of the weekend a **verdict** (Im Plan ● ·
-   Achtung ▲ · Nicht startklar ■, with the reasons, e.g. "4 überfällig · Genehmigungen ok"), at most **3 blockers**
-   (overdue, due today, missing permits; future-dated tasks don't block), "+ N weitere" linking to the market's
-   Überblick, and a compact **Nächstes Wochenende** row (on Fri–Sun the following weekend).
-3. **Heute & überfällig** (right): the top 5 by the due ranking (`rankDue`: Kernaufgaben first, then the soonest
-   market), one-click Erledigt and Zurückstellen with undo, due words from `DueBadge`, and "Alle N in
-   Benachrichtigungen". The full list lives in the notification center; "Diese Woche" is no longer on the Übersicht.
-4. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
-Rows open the task drawer on the Übersicht itself (`/?aufgabe=<id>`); J/K move, Enter opens.
+   Achtung ▲ · Nicht startklar ■, with the reasons, e.g. "4 überfällig · Genehmigungen ok"), its first blockers
+   (overdue, due today, missing permits; future-dated tasks don't block) and "+ N weitere", which **opens the rest in
+   place**; then a compact **Nächstes Wochenende** row.
+3. **Heute & überfällig** (right): **every** overdue and due-today item in the bands Überfällig · Heute, **bundled per
+   market** in ranking order (`rankDue`: Kernaufgaben first, then the soonest market), one-click Erledigt and
+   Zurückstellen with undo, due words from `DueBadge`.
+4. **Diese Woche** (full width below): the next 7 days, bundled per market, with the date next to the words
+   ("Sa 31.10. · In 2 Tagen"); then the bands "Genehmigungen demnächst" (permits within the horizon) and "Wartet auf
+   Rückmeldung".
+5. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
+In every list a market shows its first 3 items and a group its first 10 markets; **"+ N weitere bei …" / "+ N weitere
+Märkte" open the rest in place** (native disclosure, no navigation). Rows open the task drawer on the Übersicht itself
+(`/?aufgabe=<id>`); J/K move (also through opened disclosures), Enter opens.
 
 ### Benachrichtigungen (notification center, decision 2026-10-22)
 The place where the main user sees, sorts and addresses everything important; later it grows into the inbox (Phase 2).

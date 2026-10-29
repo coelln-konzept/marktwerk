@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
-import { TodayCard } from "@/components/overview/today-card";
+import { TodayCard, WeekCard } from "@/components/overview/today-card";
 import { WeekendCard } from "@/components/overview/weekend-card";
 import { Page, PageHeader } from "@/components/shell/page";
 import { TaskDrawer } from "@/components/task/task-drawer";
@@ -29,9 +29,10 @@ function berlinHour(timeZone = "Europe/Berlin"): number {
 }
 
 /**
- * The Übersicht answers two questions side by side: "is the weekend on track?" (verdict per market,
- * first blockers) and "what is due today?" (top five, Erledigt in one click). A task opens its drawer
- * here (`?aufgabe=<id>`, like on the board), a market its Vorschau (`?vorschau=<id>`).
+ * The Übersicht: "is the weekend on track?" (verdict per market, first blockers) next to "what is due
+ * now?" (everything overdue or due today, per market), and below it "Diese Woche" (the next 7 days, per
+ * market) for what the week needs. A task opens its drawer here (`?aufgabe=<id>`, like on the board), a
+ * market its Vorschau (`?vorschau=<id>`).
  */
 export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   const actor = await getActor();
@@ -86,8 +87,8 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         }
         title={t(`greeting.${part}`, { name: actor.firstName })}
       />
-      {/* One KeyboardRows around both cards: J/K walk the weekend first, then today's list. */}
-      <KeyboardRows className="grid gap-4 lg:grid-cols-2">
+      {/* One KeyboardRows around all cards: J/K walk the weekend, then today's list, then the week. */}
+      <KeyboardRows className="grid items-start gap-4 lg:grid-cols-2">
         <WeekendCard
           weekend={overview.weekend}
           next={overview.nextWeekend}
@@ -96,6 +97,9 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           vorschauId={vorschauId}
         />
         <TodayCard due={overview.due} today={today} canSnooze={canWrite} />
+        <div className="min-w-0 lg:col-span-2">
+          <WeekCard due={overview.due} today={today} canSnooze={canWrite} />
+        </div>
       </KeyboardRows>
       <p className="-mt-3 px-1 text-muted-foreground text-tiny touch:hidden">{t("keys")}</p>
       <PastMarketsLine count={overview.pastMarketTasks} query={sp} canCleanup={canWrite} />

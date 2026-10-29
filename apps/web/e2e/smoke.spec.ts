@@ -7,7 +7,7 @@ test("Übersicht loads after login", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).first()).toBeVisible();
 });
 
-test("Übersicht: the weekend comes first, then Heute & überfällig (side by side); no KPI strip, no season strip, no filter chips", async ({
+test('Übersicht: the weekend next to Heute & überfällig, Diese Woche below; "+ N weitere" opens in place; no KPI or season strip', async ({
   page,
 }) => {
   await page.goto("/");
@@ -20,6 +20,25 @@ test("Übersicht: the weekend comes first, then Heute & überfällig (side by si
   // due header carries count badges, so its heading can be a few px higher than the weekend's).
   expect(weekendBox?.x ?? 0).toBeLessThan(dueBox?.x ?? 0);
   expect(Math.abs((weekendBox?.y ?? 0) - (dueBox?.y ?? 0))).toBeLessThan(24);
+
+  // "Diese Woche" (the next 7 days, per market) runs across both columns below them.
+  const week = page.getByRole("heading", { level: 2, name: "Diese Woche" });
+  await expect(week).toBeVisible();
+  const weekBox = await week.boundingBox();
+  expect(weekBox?.y ?? 0).toBeGreaterThan(Math.max(weekendBox?.y ?? 0, dueBox?.y ?? 0));
+  expect(weekBox?.x ?? 0).toBeLessThan((dueBox?.x ?? 0) - 100);
+
+  // "+ N weitere" opens the rest in place instead of navigating away.
+  const more = page
+    .locator("main summary")
+    .filter({ hasText: /weitere/ })
+    .first();
+  if ((await more.count()) > 0) {
+    const url = page.url();
+    await more.click();
+    await expect(more.locator("xpath=..")).toHaveAttribute("open", "");
+    expect(page.url()).toBe(url);
+  }
 
   // No KPI strip (the card headers carry the counts), no season strip, no filter chips, no estimate legend.
   await expect(page.locator('dl[aria-label="Kennzahlen"]')).toHaveCount(0);
@@ -62,6 +81,8 @@ test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a ma
   // The drawer is a linkable page state: a reload keeps it, Esc closes it.
   await page.reload();
   await expect(drawer).toBeVisible();
+  // The drawer is server-rendered; its Esc handler needs the page hydrated first.
+  await page.waitForLoadState("networkidle");
   await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/aufraeumen=/);
 });

@@ -7,8 +7,6 @@
     },
     "due": {
       "title": "Today & overdue",
-      "overdueCount": "{count} overdue",
-      "todayCount": "{count} today",
       "emptyTitle": "Nothing is due.",
       "emptyHint": "Anything overdue or due today from permits, tasks and obligations shows up here.",
       "openItem": "Open: {title}",
@@ -21,8 +19,20 @@
         "obligation": "Obligation"
       },
       "keyTask": "Key task – a task every market needs",
-      "allInCenter": "All {count} in Notifications",
-      "openCenter": "Open Notifications"
+      "openCenter": "Open Notifications",
+      "subtitle": "bundled per market",
+      "groups": {
+        "overdue": "Overdue",
+        "today": "Today",
+        "soon": "This week",
+        "upcoming": "Permits coming up",
+        "waiting": "Waiting for a reply"
+      },
+      "eventCount": "{count} due",
+      "moreAtMarket": "+ {count} more at {name}",
+      "moreMarkets": "{count, plural, one {+ # more market} other {+ # more markets}}",
+      "weekSubtitle": "{count, plural, =0 {nothing in the next 7 days} one {# item in the next 7 days, bundled per market} other {# items in the next 7 days, bundled per market}}",
+      "weekEmpty": "Nothing is due in the next 7 days."
     },
     "weekend": {
       "title": "This weekend",
@@ -40,12 +50,11 @@
         "tasksBlocked": "{count} blocked",
         "tasksRollover": "often postponed",
         "permitsMissing": "{count, plural, one {# permit missing} other {# permits missing}}",
-        "permitsEnding": "Permit ends before the event does",
+        "permitsEnding": "Permit expires before the event",
         "permitsOk": "Permits ok"
       },
       "blockers": "What is holding up {name}",
       "blockersMore": "+ {count} more",
-      "blockersMoreAria": "See {count} more items for {name}",
       "permit": "Permit",
       "next": {
         "title": "Next weekend",

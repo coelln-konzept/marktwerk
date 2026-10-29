@@ -27,9 +27,6 @@ import * as hours from "./hours";
 import * as permits from "./permits";
 import * as tasks from "./tasks";
 
-/** Rows of "Heute & überfällig" on the Übersicht; the rest is one click away in Benachrichtigungen. */
-export const TODAY_CARD_ROWS = 5;
-
 /** One market of a weekend: its verdict and what holds it up. */
 export type WeekendMarket = {
   row: EventRow;
@@ -47,10 +44,15 @@ export type WeekendBlock = {
   markets: WeekendMarket[];
 };
 
-/** "Heute & überfällig": the top of every module's overdue and due-today items in ranking order. */
+/**
+ * Every module's due items in ranking order (`rankDue`), split for the two lists of the Übersicht
+ * (decision 2026-10-29, grouped per market like before the "Zwei Fragen" redesign).
+ */
 export type OverviewDue = {
-  /** The first `TODAY_CARD_ROWS` items by `rankDue`. */
+  /** "Heute & überfällig": all overdue and due-today items. */
   items: DueItem[];
+  /** "Diese Woche": due in the next 7 days, then permits within the horizon and waits for others. */
+  later: DueItem[];
   /** All overdue and due-today items. */
   total: number;
   /** Those the notification center lists (tasks and permits): the N of "Alle N in Benachrichtigungen". */
@@ -111,7 +113,7 @@ export async function listDueItems(
 }
 
 /**
- * Everything the Übersicht shows ("Zwei Fragen": is the weekend on track, what is due today). Each part
+ * Everything the Übersicht shows: is the weekend on track, what is due today, what comes this week. Each part
  * honours the actor's permissions and field scope. `hide` leaves out the modules hidden in the UI
  * (lib/modules.ts): no money/hours items and no team/money health dimension.
  */
@@ -143,7 +145,8 @@ export async function getOverview(
     nextWeekend: block(following),
     nextEvent: active.find((e) => e.startsOn > weekend.sunday) ?? null,
     due: {
-      items: urgent.slice(0, TODAY_CARD_ROWS),
+      items: urgent,
+      later: dueItems.filter((i) => i.urgency !== "overdue" && i.urgency !== "today"),
       total: urgent.length,
       inCenter: urgent.filter((i) => i.kind === "task" || i.kind === "permit").length,
       overdue: urgent.filter((i) => i.urgency === "overdue").length,

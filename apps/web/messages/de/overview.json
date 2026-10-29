@@ -7,8 +7,6 @@
     },
     "due": {
       "title": "Heute & überfällig",
-      "overdueCount": "{count} überfällig",
-      "todayCount": "{count} heute",
       "emptyTitle": "Nichts fällig.",
       "emptyHint": "Überfälliges und Heutiges aus Genehmigungen, Aufgaben und Pflichten erscheint hier.",
       "openItem": "Öffnen: {title}",
@@ -21,8 +19,20 @@
         "obligation": "Pflicht"
       },
       "keyTask": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",
-      "allInCenter": "Alle {count} in Benachrichtigungen",
-      "openCenter": "Benachrichtigungen öffnen"
+      "openCenter": "Benachrichtigungen öffnen",
+      "subtitle": "je Markt gebündelt",
+      "groups": {
+        "overdue": "Überfällig",
+        "today": "Heute",
+        "soon": "Diese Woche",
+        "upcoming": "Genehmigungen demnächst",
+        "waiting": "Wartet auf Rückmeldung"
+      },
+      "eventCount": "{count} fällig",
+      "moreAtMarket": "+ {count} weitere bei {name}",
+      "moreMarkets": "{count, plural, one {+ # weiterer Markt} other {+ # weitere Märkte}}",
+      "weekSubtitle": "{count, plural, =0 {nichts in den nächsten 7 Tagen} one {# Punkt in den nächsten 7 Tagen, je Markt gebündelt} other {# Punkte in den nächsten 7 Tagen, je Markt gebündelt}}",
+      "weekEmpty": "In den nächsten 7 Tagen ist nichts fällig."
     },
     "weekend": {
       "title": "Dieses Wochenende",
@@ -40,12 +50,11 @@
         "tasksBlocked": "{count} blockiert",
         "tasksRollover": "oft verschoben",
         "permitsMissing": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}",
-        "permitsEnding": "Genehmigung läuft vor Ende ab",
+        "permitsEnding": "Genehmigung läuft vor der Veranstaltung ab",
         "permitsOk": "Genehmigungen ok"
       },
       "blockers": "Was {name} aufhält",
       "blockersMore": "+ {count} weitere",
-      "blockersMoreAria": "{count} weitere Punkte bei {name} ansehen",
       "permit": "Genehmigung",
       "next": {
         "title": "Nächstes Wochenende",

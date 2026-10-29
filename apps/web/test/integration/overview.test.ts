@@ -155,7 +155,7 @@ describe("Heute fällig", () => {
     for (const hidden of ["Erledigt", "Ohne Datum", "Später"]) expect(titles).not.toContain(hidden);
   });
 
-  it('"Heute & überfällig" is the top five of the overdue and due-today items, in ranking order', async () => {
+  it('"Heute & überfällig" holds every overdue and due-today item, "Diese Woche" the rest, in ranking order', async () => {
     const { due } = await getOverview(owner, TODAY);
     expect(due.total).toBe(6);
     expect(due.items.map((i) => i.title)).toEqual([
@@ -164,9 +164,10 @@ describe("Heute fällig", () => {
       "Wassergenehmigung",
       "Sicherheitsdienst",
       "Heutige Aufgabe",
+      expect.any(String), // the hours deadline
     ]);
-    // Nothing due later this week is in the card.
     expect(due.items.every((i) => i.urgency === "overdue" || i.urgency === "today")).toBe(true);
+    expect(due.later.map((i) => i.title)).toEqual(["Bald fällige Aufgabe", "Brandschutzprüfung"]);
   });
 
   it("every item links somewhere (drawer or page)", async () => {
