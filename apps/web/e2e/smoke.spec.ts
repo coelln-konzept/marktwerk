@@ -227,8 +227,9 @@ test("Kalender: Ebenen collapsed by default, two presets, tasks off, full market
   const chip = page.locator("table a[href^='/veranstaltungen/']").first();
   await expect(chip).toBeVisible();
   await expect(chip).toHaveAttribute("href", /^\/veranstaltungen\/[0-9a-f-]{36}$/);
-  const name = (await chip.getAttribute("title")) as string;
-  expect((await chip.innerText()).replace(/\s+/g, " ").trim()).toBe(name);
+  // The title is "<market> · <status>"; the chip shows the whole market name.
+  const name = ((await chip.getAttribute("title")) as string).split(" · ")[0] as string;
+  expect((await chip.innerText()).replace(/\s+/g, " ").trim()).toContain(name);
 
   // The list view renders with the same selection.
   await page.goto("/kalender?ansicht=liste");
