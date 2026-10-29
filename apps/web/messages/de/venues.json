@@ -2,10 +2,12 @@
   "venues": {
     "title": "Orte",
     "subtitle": "{count, plural, one {# Ort} other {# Orte}}",
-    "search": "Name, Stadt oder Eigentümer",
+    "search": "Name, Stadt, Straße oder Eigentümer",
     "caption": "Orte",
     "emptyFiltered": "Keine Orte für diese Suche.",
     "resetFilters": "Suche zurücksetzen",
+    "resetSearch": "Suche zurücksetzen",
+    "subtitleSearch": "{count, plural, one {# Treffer} other {# Treffer}} für „{query}“",
     "cols": {
       "name": "Name",
       "city": "Stadt",
@@ -76,7 +78,8 @@
         "capacityFromRows": "Sobald Reihen angelegt sind, zählt deren Summe ({length}) statt dieses Werts.",
         "lat": "Breitengrad",
         "lng": "Längengrad",
-        "coordinatesHint": "Optional, z. B. 50,9375 und 6,9603. Entweder beide Felder oder keines.",
+        "coordinates": "Koordinaten",
+        "coordinatesHint": "z. B. 50,9375 und 6,9603. Entweder beide Felder oder keines.",
         "create": "Ort anlegen",
         "save": "Speichern",
         "created": "„{name}“ angelegt.",

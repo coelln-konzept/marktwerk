@@ -4,43 +4,53 @@ import {
   Check,
   CircleAlert,
   CircleDot,
+  Clock,
   Hammer,
-  Hourglass,
   type LucideIcon,
   OctagonAlert,
   TriangleAlert,
   Wrench,
 } from "lucide-react";
-import { getLocale, getTranslations } from "next-intl/server";
+import { useLocale, useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
+import { useDueText } from "@/components/ui/due-badge";
 import { StatusBadge, type Tone } from "@/components/ui/status-badge";
 import { formatNumber } from "@/lib/format";
 
 const OBLIGATION: Record<ObligationStatus, { tone: Tone; icon: LucideIcon }> = {
   overdue: { tone: "critical", icon: CircleAlert },
   due: { tone: "warn", icon: CalendarClock },
-  soon: { tone: "waiting", icon: Hourglass },
+  // "bald fällig" is amber with the clock like every other upcoming deadline (not the violet waiting hourglass).
+  soon: { tone: "warn", icon: Clock },
   ok: { tone: "ok", icon: Check },
 };
 
 /**
- * Status of an obligation: ok / bald / fällig / überfällig as colour + icon + text, plus how far away it is
- * ("seit 12 Tagen", "in 5 Tagen", "in 800 km") for everything that is not simply fine.
+ * Status of an obligation as colour + icon + text. The wording of a date follows the one due
+ * vocabulary (`useDueText`): an overdue date is the badge text itself ("3 Tage überfällig"), a date
+ * that is coming up sits next to the "bald fällig" badge ("In 5 Tagen"); kilometres keep their own
+ * detail ("800 km drüber", "in 800 km").
  */
-export async function ObligationStatusBadge({
+export function ObligationStatusBadge({
   status,
-  daysLeft,
+  dueOn,
+  today,
   kmLeft,
   trigger,
 }: {
   status: ObligationStatus;
-  daysLeft: number | null;
+  /** Next due date; with `today` it gives the words for the date trigger. */
+  dueOn: string | null;
+  today: string;
   kmLeft: number | null;
   trigger: "date" | "km" | null;
 }) {
-  const t = await getTranslations("company");
-  const locale = await getLocale();
+  const t = useTranslations("company");
+  const locale = useLocale();
+  const dueText = useDueText();
   const { tone, icon } = OBLIGATION[status];
 
+  let label = t(`status.${status}`);
   let detail: string | null = null;
   if (status !== "ok") {
     if (trigger === "km" && kmLeft !== null) {
@@ -48,19 +58,16 @@ export async function ObligationStatusBadge({
         kmLeft < 0
           ? t("statusDetail.overKm", { km: formatNumber(-kmLeft, locale, 0) })
           : t("statusDetail.inKm", { km: formatNumber(kmLeft, locale, 0) });
-    } else if (daysLeft !== null) {
-      detail =
-        daysLeft < 0
-          ? t("statusDetail.overdueDays", { days: -daysLeft })
-          : daysLeft === 0
-            ? t("statusDetail.today")
-            : t("statusDetail.inDays", { days: daysLeft });
+    } else if (dueOn !== null) {
+      const words = dueText(dueOn, today);
+      if (status === "overdue") label = words;
+      else if (status === "soon") detail = words;
     }
   }
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
       <StatusBadge tone={tone} icon={icon}>
-        {t(`status.${status}`)}
+        {label}
       </StatusBadge>
       {detail && status !== "due" && (
         <span className="tabular whitespace-nowrap text-muted-foreground text-small">{detail}</span>

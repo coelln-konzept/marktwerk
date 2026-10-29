@@ -241,7 +241,10 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
   );
 }
 
-/** Previous/next link; a disabled one stays in the layout as plain muted text. */
+/**
+ * Previous/next link; a disabled one stays in the layout as plain muted text. It scrolls (no
+ * `scroll={false}`) so the next page opens at the top of the table, not where the pager was.
+ */
 function PageLink({
   href,
   rel,
@@ -262,7 +265,6 @@ function PageLink({
     <Link
       href={href as never}
       rel={rel}
-      scroll={false}
       className={cn(cls, "border border-input bg-card hover:bg-hover")}
     >
       {children}

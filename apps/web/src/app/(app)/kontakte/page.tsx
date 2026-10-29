@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ContactVorschau } from "@/components/catalogue/contact-vorschau";
 import { ContactKindBadge } from "@/components/catalogue/kinds";
+import { ContactReach } from "@/components/contacts/contact-reach";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/chip";
@@ -40,7 +41,23 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
     <Page crumbs={[{ label: t("title") }]}>
       <PageHeader
         title={t("title")}
-        subtitle={t("subtitle", { count: total })}
+        subtitle={
+          q ? (
+            // A search says what it found ("0 Treffer für …") and offers the way back, instead of "0 Kontakte".
+            <>
+              {t("subtitleSearch", { count: total, query: q })}
+              {" · "}
+              <Link
+                href={hrefWith(PATH, sp, { q: undefined, vorschau: undefined }) as never}
+                className="font-medium text-accent-soft-foreground hover:underline"
+              >
+                {t("resetSearch")}
+              </Link>
+            </>
+          ) : (
+            t("subtitle", { count: total })
+          )
+        }
         actions={
           canWrite && (
             <Link
@@ -103,109 +120,141 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
             </Link>
           </EmptyState>
         ) : (
-          <KeyboardRows>
-            <Table>
-              <caption className="sr-only">{t("caption")}</caption>
-              <THead>
-                <tr>
-                  <TH>{t("cols.name")}</TH>
-                  <TH>{t("cols.kind")}</TH>
-                  <TH>{t("cols.person")}</TH>
-                  <TH>{t("cols.phone")}</TH>
-                  <TH>{t("cols.email")}</TH>
-                  <TH>{t("cols.city")}</TH>
-                  <TH>{t("cols.notes")}</TH>
-                  <TH>
-                    <span className="sr-only">{t("cols.actions")}</span>
-                  </TH>
-                </tr>
-              </THead>
-              <tbody>
-                {rows.map((r) => {
-                  const peek = hrefWith(PATH, sp, { vorschau: r.id });
-                  return (
-                    <TR
-                      key={r.id}
-                      tabIndex={0}
-                      data-row
-                      data-peek={peek}
-                      aria-selected={vorschauId === r.id}
-                      className="outline-hidden focus-visible:bg-selected"
+          <>
+            {/* Phones (< 640 px): stacked cards with Name, Art and the two actions people come here for. */}
+            <ul className="m-0 flex list-none flex-col p-0 sm:hidden">
+              {rows.map((r) => (
+                <li
+                  key={r.id}
+                  data-selected={vorschauId === r.id ? "" : undefined}
+                  className="flex flex-col gap-2 border-border-subtle border-b px-4 py-3 last:border-b-0 data-selected:bg-selected"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      href={hrefWith(PATH, sp, { vorschau: r.id }) as never}
+                      scroll={false}
+                      aria-label={t("preview", { name: r.name })}
+                      className="min-w-0 font-semibold text-accent-soft-foreground [overflow-wrap:anywhere]"
                     >
-                      <TD className="max-w-52">
-                        <Link
-                          href={peek as never}
-                          scroll={false}
-                          tabIndex={-1}
-                          className="font-semibold text-accent-soft-foreground hover:underline"
+                      {r.name}
+                    </Link>
+                    <ContactKindBadge kind={r.kind} label={t(`kinds.${r.kind}`)} />
+                  </div>
+                  {(r.contactPerson || r.city) && (
+                    <p className="text-muted-foreground text-small">
+                      {[r.contactPerson, r.city].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  <ContactReach name={r.name} phone={r.phone} email={r.email} />
+                </li>
+              ))}
+            </ul>
+            <div className="hidden sm:block">
+              <KeyboardRows>
+                <Table>
+                  <caption className="sr-only">{t("caption")}</caption>
+                  <THead>
+                    <tr>
+                      <TH>{t("cols.name")}</TH>
+                      <TH>{t("cols.kind")}</TH>
+                      <TH>{t("cols.person")}</TH>
+                      <TH>{t("cols.phone")}</TH>
+                      <TH>{t("cols.email")}</TH>
+                      <TH>{t("cols.city")}</TH>
+                      <TH>{t("cols.notes")}</TH>
+                      <TH>
+                        <span className="sr-only">{t("cols.actions")}</span>
+                      </TH>
+                    </tr>
+                  </THead>
+                  <tbody>
+                    {rows.map((r) => {
+                      const peek = hrefWith(PATH, sp, { vorschau: r.id });
+                      return (
+                        <TR
+                          key={r.id}
+                          tabIndex={0}
+                          data-row
+                          data-peek={peek}
+                          aria-selected={vorschauId === r.id}
+                          className="outline-hidden focus-visible:bg-selected"
                         >
-                          {r.name}
-                        </Link>
-                      </TD>
-                      <TD>
-                        <ContactKindBadge kind={r.kind} label={t(`kinds.${r.kind}`)} />
-                      </TD>
-                      <TD>
-                        {r.contactPerson ?? (
-                          <span className="text-faint-foreground">{t("none")}</span>
-                        )}
-                      </TD>
-                      <TD>
-                        {r.phone ? (
-                          <PhoneLink phone={r.phone} />
-                        ) : (
-                          <span className="text-faint-foreground">{t("none")}</span>
-                        )}
-                      </TD>
-                      <TD className="max-w-44 truncate">
-                        {r.email ? (
-                          <MailLink email={r.email} />
-                        ) : (
-                          <span className="text-faint-foreground">{t("none")}</span>
-                        )}
-                      </TD>
-                      <TD>
-                        {r.city ?? <span className="text-faint-foreground">{t("none")}</span>}
-                      </TD>
-                      <TD
-                        className="max-w-36 truncate text-muted-foreground"
-                        title={r.notes ?? undefined}
-                      >
-                        {r.notes ?? ""}
-                      </TD>
-                      <TD className="w-20">
-                        <RowActions>
-                          <Link
-                            href={peek as never}
-                            scroll={false}
-                            tabIndex={-1}
-                            aria-label={t("preview", { name: r.name })}
-                            className="grid size-7 place-items-center rounded-md hover:bg-hover"
-                          >
-                            <Eye className="size-4" />
-                          </Link>
-                          {canWrite && (
+                          <TD className="min-w-44 max-w-64">
                             <Link
-                              href={`/kontakte/${r.id}/bearbeiten` as never}
+                              href={peek as never}
+                              scroll={false}
                               tabIndex={-1}
-                              aria-label={t("editRow", { name: r.name })}
-                              className="grid size-7 place-items-center rounded-md hover:bg-hover"
+                              className="font-semibold text-accent-soft-foreground hover:underline"
                             >
-                              <Pencil className="size-4" />
+                              {r.name}
                             </Link>
-                          )}
-                        </RowActions>
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </tbody>
-            </Table>
-          </KeyboardRows>
+                          </TD>
+                          <TD>
+                            <ContactKindBadge kind={r.kind} label={t(`kinds.${r.kind}`)} />
+                          </TD>
+                          <TD>
+                            {r.contactPerson ?? (
+                              <span className="text-faint-foreground">{t("none")}</span>
+                            )}
+                          </TD>
+                          <TD>
+                            {r.phone ? (
+                              <PhoneLink phone={r.phone} />
+                            ) : (
+                              <span className="text-faint-foreground">{t("none")}</span>
+                            )}
+                          </TD>
+                          <TD className="max-w-56">
+                            {r.email ? (
+                              <MailLink email={r.email} />
+                            ) : (
+                              <span className="text-faint-foreground">{t("none")}</span>
+                            )}
+                          </TD>
+                          <TD>
+                            {r.city ?? <span className="text-faint-foreground">{t("none")}</span>}
+                          </TD>
+                          <TD
+                            className="max-w-36 truncate text-muted-foreground"
+                            title={r.notes ?? undefined}
+                          >
+                            {r.notes ?? ""}
+                          </TD>
+                          <TD className="w-20">
+                            <RowActions>
+                              <Link
+                                href={peek as never}
+                                scroll={false}
+                                tabIndex={-1}
+                                aria-label={t("preview", { name: r.name })}
+                                className="grid size-7 place-items-center rounded-md hover:bg-hover"
+                              >
+                                <Eye className="size-4" />
+                              </Link>
+                              {canWrite && (
+                                <Link
+                                  href={`/kontakte/${r.id}/bearbeiten` as never}
+                                  tabIndex={-1}
+                                  aria-label={t("editRow", { name: r.name })}
+                                  className="grid size-7 place-items-center rounded-md hover:bg-hover"
+                                >
+                                  <Pencil className="size-4" />
+                                </Link>
+                              )}
+                            </RowActions>
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              </KeyboardRows>
+            </div>
+          </>
         )}
       </Panel>
 
-      <p className="text-muted-foreground text-tiny">{t("keys")}</p>
+      <p className="touch:hidden text-muted-foreground text-tiny">{t("keys")}</p>
 
       {vorschauId && (
         <ContactVorschau id={vorschauId} closeHref={hrefWith(PATH, sp, { vorschau: undefined })} />

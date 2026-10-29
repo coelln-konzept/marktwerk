@@ -36,11 +36,13 @@ export function CompleteButton({
   today,
   size = "default",
   variant = "outline",
+  className,
 }: {
   target: CompleteTarget;
   today: string;
   size?: "default" | "sm";
   variant?: "outline" | "default";
+  className?: string;
 }) {
   const t = useTranslations("company");
   const tc = useTranslations("company.complete");
@@ -136,6 +138,7 @@ export function CompleteButton({
       <Button
         size={size}
         variant={variant}
+        className={className}
         aria-label={t("obligations.doneFor", { title: target.title })}
         onClick={openDialog}
       >

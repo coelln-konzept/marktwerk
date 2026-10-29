@@ -186,7 +186,28 @@ export default async function VehiclePage({ params }: PageProps<"/firma/fahrzeug
         </div>
         <Panel className="overflow-hidden">
           {obligations.length === 0 ? (
-            <PanelBody className="text-muted-foreground">{tv("noObligations")}</PanelBody>
+            <PanelBody className="flex flex-col items-start gap-3">
+              <p className="text-muted-foreground">{tv("noObligations")}</p>
+              {/* A vehicle without any Pflicht has no HU/insurance tracking yet: one click starts it. */}
+              {canWrite && (
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/firma/pflichten/neu?fahrzeug=${v.id}&vorlage=hu` as never}
+                    className={buttonVariants({ variant: "outline" })}
+                  >
+                    <Plus aria-hidden />
+                    {tv("addHu")}
+                  </Link>
+                  <Link
+                    href={`/firma/pflichten/neu?fahrzeug=${v.id}&vorlage=vehicleInsurance` as never}
+                    className={buttonVariants({ variant: "outline" })}
+                  >
+                    <Plus aria-hidden />
+                    {tv("addInsurance")}
+                  </Link>
+                </div>
+              )}
+            </PanelBody>
           ) : (
             <Table>
               <caption className="sr-only">{tv("obligationsCaption")}</caption>
@@ -210,7 +231,8 @@ export default async function VehiclePage({ params }: PageProps<"/firma/fahrzeug
                     <TD>
                       <ObligationStatusBadge
                         status={o.status}
-                        daysLeft={o.daysLeft}
+                        dueOn={o.nextDueOn}
+                        today={today}
                         kmLeft={o.kmLeft}
                         trigger={o.trigger}
                       />

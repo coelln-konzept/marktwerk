@@ -68,7 +68,8 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
           ) : (
             <ObligationStatusBadge
               status={o.status}
-              daysLeft={o.daysLeft}
+              dueOn={o.nextDueOn}
+              today={today}
               kmLeft={o.kmLeft}
               trigger={o.trigger}
             />

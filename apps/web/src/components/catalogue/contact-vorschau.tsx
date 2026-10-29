@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { ContactActions } from "@/components/contacts/contact-actions";
+import { ContactReach } from "@/components/contacts/contact-reach";
 import { addressLine, MailLink, PhoneLink } from "@/components/ui/phone";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
 import { getActor } from "@/server/actor";
@@ -49,6 +50,7 @@ export async function ContactVorschau({ id, closeHref }: { id: string; closeHref
           },
         ]}
       />
+      <ContactReach name={contact.name} phone={contact.phone} email={contact.email} primary />
       <section aria-labelledby="vorschau-venues">
         <h3
           id="vorschau-venues"

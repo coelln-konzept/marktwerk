@@ -1,6 +1,6 @@
 {
   "company": {
-    "title": "Pflichten & Fahrzeuge",
+    "title": "Pflichten",
     "subtitle": "Wiederkehrende Pflichten, Fahrzeuge und Mängel.",
     "tabs": {
       "label": "Bereiche der Firma",
@@ -23,9 +23,6 @@
       "overdue": "überfällig"
     },
     "statusDetail": {
-      "inDays": "in {days, plural, one {# Tag} other {# Tagen}}",
-      "today": "heute",
-      "overdueDays": "seit {days, plural, one {# Tag} other {# Tagen}}",
       "inKm": "in {km} km",
       "overKm": "{km} km drüber"
     },
@@ -230,6 +227,8 @@
       "obligations": "Pflichten",
       "obligationsCaption": "Pflichten dieses Fahrzeugs",
       "noObligations": "Für dieses Fahrzeug gibt es noch keine Pflichten.",
+      "addHu": "HU/TÜV anlegen",
+      "addInsurance": "Versicherung anlegen",
       "newObligation": "Pflicht anlegen",
       "issues": "Mängel",
       "noIssues": "Keine Mängel gemeldet.",
@@ -237,7 +236,7 @@
     },
     "vehicleForm": {
       "newTitle": "Fahrzeug anlegen",
-      "newSubtitle": "Kennzeichen und Gewicht sind die wichtigsten Angaben. Alles Weitere kannst du später ergänzen.",
+      "newSubtitle": "Name und Kennzeichen sind nötig, alles Weitere kannst du später ergänzen. Mit dem zulässigen Gesamtgewicht wird das HU-Intervall richtig vorgeschlagen.",
       "editTitle": "Fahrzeug bearbeiten",
       "editSubtitle": "Den Kilometerstand trägst du am besten über „Kilometerstand eintragen“ ein; hier kannst du einen Tippfehler korrigieren.",
       "basics": "Fahrzeug",
@@ -351,6 +350,9 @@
       "not_found": "Das gibt es nicht mehr. Die Seite wird aktualisiert.",
       "conflict": "Das wurde inzwischen geändert. Die Seite wird aktualisiert.",
       "invalid_name": "Bitte einen Namen eingeben (höchstens 120 Zeichen).",
+      "plate_required": "Bitte ein Kennzeichen angeben.",
+      "title_required": "Bitte eine Bezeichnung angeben.",
+      "responsible_required": "Bitte auswählen, wer verantwortlich ist.",
       "invalid_plate": "Das Kennzeichen sieht nicht richtig aus.",
       "plate_taken": "Dieses Kennzeichen gibt es schon.",
       "invalid_vin": "Die Fahrgestellnummer sieht nicht richtig aus (11 bis 17 Zeichen, ohne I, O, Q).",

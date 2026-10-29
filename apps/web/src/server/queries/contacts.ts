@@ -1,5 +1,5 @@
 import "server-only";
-import { foldIncludes } from "@marktwerk/core/text/fold";
+import { matchesAllWords } from "@marktwerk/core/text/search";
 import { contact, locationAgreement, venue } from "@marktwerk/db/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "../db";
@@ -28,7 +28,8 @@ const columns = {
 export type ContactRow = Awaited<ReturnType<typeof listContacts>>["rows"][number];
 
 /**
- * All contacts matching the search (name, contact person, city; umlaut-insensitive), plus the count per
+ * All contacts matching the search (every word must match name, contact person, city, postcode, e-mail or
+ * the phone number's digits, in any order; umlaut-insensitive), plus the count per
  * kind within that search, so the chips stay correct while searching. `kind` narrows only the rows.
  */
 export async function listContacts(q?: string, kind?: ContactKind) {
@@ -37,7 +38,11 @@ export async function listContacts(q?: string, kind?: ContactKind) {
     .from(contact)
     .where(isNull(contact.archivedAt))
     .orderBy(asc(contact.name));
-  const matching = q ? all.filter((c) => foldIncludes([c.name, c.contactPerson, c.city], q)) : all;
+  const matching = q
+    ? all.filter((c) =>
+        matchesAllWords([c.name, c.contactPerson, c.city, c.postalCode, c.email], q, [c.phone]),
+      )
+    : all;
   const counts: Record<string, number> = {};
   for (const c of matching) counts[c.kind] = (counts[c.kind] ?? 0) + 1;
   return {

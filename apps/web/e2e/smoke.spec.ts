@@ -62,7 +62,7 @@ test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a ma
 const MODULE_PAGES = [
   { path: "/board", heading: "Board" },
   { path: "/genehmigungen", heading: "Genehmigungen" },
-  { path: "/firma", heading: "Pflichten & Fahrzeuge" },
+  { path: "/firma", heading: "Pflichten" },
 ] as const;
 
 for (const { path, heading } of MODULE_PAGES) {
@@ -271,9 +271,7 @@ test("Sidebar: five daily entries, Stammdaten collapsed and remembered, Einstell
   );
   await nav.getByRole("link", { name: "Pflichten", exact: true }).click();
   await expect(page).toHaveURL(/\/firma\/pflichten$/);
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Pflichten & Fahrzeuge" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Pflichten" })).toBeVisible();
 
   // Einstellungen: profile menu (bottom left).
   await page.getByRole("button", { name: /Geschäftsführung/ }).click();
