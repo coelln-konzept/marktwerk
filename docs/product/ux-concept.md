@@ -190,18 +190,18 @@ leads nowhere.
 - **Zeitraum** (Bis Sonntag / 14 Tage / Alles) applies to the first day of the market; "Alles" is every upcoming market. The page has no subtitle line; on phones the "Neu" button of the top bar replaces the button next to the filters.
 
 ### Übersicht (start screen, one for everyone)
-Top to bottom, no fixed master-detail layout:
-1. **Date + KW line** and greeting "Guten Morgen, <Vorname>".
-2. **KPI strip:** Fällig bis Sonntag · Überfällig · Geld überfällig · Dieses Wochenende ("2 von 4 im Plan").
-3. **Season strip** (the owner's view of the year): "Saison 2026 · Mär–Nov · 46 Veranstaltungen" with counts per
-   event type · 3.410 h geschätzter Aufwand · Platzteam 2.380 h Bedarf · 1.170 h Kapazität · hiring signal
-   "≈ 3,1 Minijobber/Monat zusätzlich". Figures come from task estimates (M2) and contracts (M4); before that the strip
-   shows what exists (event counts).
-4. **Heute fällig:** groups Überfällig · Heute · Diese Woche; filter chips Alle · Geld · Genehmigungen · Stunden ·
-   Aufgaben with counts; **one primary action per row** (Bezahlt, Erfassen, Erledigt, Öffnen); Space = Vorschau,
-   row actions open the matching drawer.
-5. **Dieses Wochenende:** table of the coming events with columns Genehmigungen · Aufgaben · Team · Geld · Aufwand,
-   each with health ● ▲ ■, plus a list **"Was das Wochenende aufhält"** (the blocking items, each linking to its drawer).
+"Zwei Fragen" (decision 2026-10-29, replaces the KPI strip, season strip and the long "Heute fällig" list): the page
+answers "is the weekend OK?" and "what is due now?" in one screen (≈ 800 px on desktop).
+1. **Date + KW line** and greeting.
+2. **Dieses Wochenende** (left from 1024 px, first on phones): per market of the weekend a **verdict** (Im Plan ● ·
+   Achtung ▲ · Nicht startklar ■, with the reasons, e.g. "4 überfällig · Genehmigungen ok"), at most **3 blockers**
+   (overdue, due today, missing permits; future-dated tasks don't block), "+ N weitere" linking to the market's
+   Überblick, and a compact **Nächstes Wochenende** row (on Fri–Sun the following weekend).
+3. **Heute & überfällig** (right): the top 5 by the due ranking (`rankDue`: Kernaufgaben first, then the soonest
+   market), one-click Erledigt and Zurückstellen with undo, due words from `DueBadge`, and "Alle N in
+   Benachrichtigungen". The full list lives in the notification center; "Diese Woche" is no longer on the Übersicht.
+4. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
+Rows open the task drawer on the Übersicht itself (`/?aufgabe=<id>`); J/K move, Enter opens.
 
 ### Benachrichtigungen (notification center, decision 2026-10-22)
 The place where the main user sees, sorts and addresses everything important; later it grows into the inbox (Phase 2).
@@ -219,7 +219,7 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
   the due information as colour + icon + text ("185 Tage überfällig"), and **Erledigt** · **Zurückstellen** (Morgen,
   Nächste Woche, Datum wählen) · **Öffnen**. Every change shows an undo toast. J/K move between rows, Enter opens.
 - **Erledigt** on a task completes the task itself (tasks service, its own undo) and the notification resolves with it; on a
-  permit it only marks the notification done. **Zurückstellen** snoozes the notification, not the task or permit.
+  permit it only marks the notification done. **Zurückstellen** on a task snoozes the task itself (decision 2026-10-29), so it leaves Übersicht, center and bell together; on a permit it snoozes only the notification.
 - **Auto-resolve:** a notification whose subject is resolved (task done/skipped/cancelled/archived, market over, permit
   filed/granted/not required, due date moved) is never shown as open: the query treats it as done at once and the
   deadline sweep writes `done` afterwards. A task snoozed on the Übersicht shows as zurückgestellt until its date.
@@ -269,7 +269,7 @@ announcements in German via `aria-live`.
 | Domain | States (DE) | Colour + icon |
 |---|---|---|
 | Tasks | Offen · In Arbeit · Wartet (Amt/Extern) · Blockiert · Erledigt · Übersprungen | grey ○ · blue ◐ · violet ⏸ · amber ⛔ · green ✓ · grey ⤼ |
-| Due-ness (all) | Fällig in n T · Heute · Überfällig · ↻n übertragen | neutral · amber · red · amber badge |
+| Due-ness (all, `DueBadge`) | Heute · Morgen · In 3 Tagen (later: the date) · 3 Tage überfällig / Gestern fällig (weeks after 14 days, months after 59) · Wartet seit 5 Tagen | amber clock · neutral · neutral calendar · red circle-! · neutral hourglass (decision 2026-10-29; "3 T" only in matrix cells) |
 | Permits | Fehlt · In Vorbereitung · Beantragt · Genehmigt · Abgelehnt · Läuft ab · Abgelaufen · Nicht nötig | red ! · blue ◐ · violet ⏳ · green ✓ · red ✕ · amber ⚠ · red ⌛ · grey – |
 | Money | Geplant · Fällig · Teilweise bezahlt · Bezahlt · Überfällig | grey · amber · amber ◐ · green ✓ · red ! |
 | Hours | OK · Grenze nah · Über Grenze (zulässig?) · Unzulässig | green · amber · amber ⚠ · red ⛔ |
