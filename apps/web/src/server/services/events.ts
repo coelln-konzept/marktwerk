@@ -43,12 +43,19 @@ export class EventInputError extends Error {}
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/** A scheduled event plus its market (preset), so "Markt planen" can spot dates that exist already. */
+export type ScheduleContextEvent = ScheduledEvent & { presetId: string | null };
+
 /** Existing (not cancelled, not archived) events in a date window, for conflict checks. */
-export async function scheduledEventsBetween(from: string, to: string): Promise<ScheduledEvent[]> {
+export async function scheduledEventsBetween(
+  from: string,
+  to: string,
+): Promise<ScheduleContextEvent[]> {
   return db
     .select({
       id: event.id,
       name: event.name,
+      presetId: event.presetId,
       venueId: event.venueId,
       startsOn: event.startsOn,
       endsOn: event.endsOn,

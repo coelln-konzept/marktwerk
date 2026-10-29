@@ -30,12 +30,18 @@
     },
     "preview": "Preview: {name}",
     "keys": "Space: preview · Enter: open · J/K: next/previous row",
-    "weekendFlag": "⚑ Weekend with 4+ events",
     "single": "Single event",
     "statusOver": "over",
     "subtitleUpcoming": "{count} current and upcoming dates · {planned} planned",
     "seasonAny": "All seasons",
-    "statusCurrent": "Current & upcoming"
+    "statusCurrent": "Current & upcoming",
+    "filter": "Filter",
+    "statusActiveShort": "excluding cancelled",
+    "groupCount": "{count, plural, one {# event} other {# events}}",
+    "created": {
+      "banner": "{count, plural, one {# newly created event} other {# newly created events}}",
+      "showAll": "Show all events"
+    }
   },
   "eventPage": {
     "kind": "Event",

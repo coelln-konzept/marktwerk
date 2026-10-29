@@ -3,6 +3,7 @@
 import { addDays } from "@marktwerk/core";
 import { refresh } from "next/cache";
 import { getActor } from "@/server/actor";
+import { type GenerationPreview, previewGeneration } from "@/server/queries/generation-preview";
 import {
   createEventsFromPreset,
   createManualEvent,
@@ -21,6 +22,23 @@ export async function loadScheduleContext(from: string, to: string) {
   await requirePermission("event", "write");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return [];
   return scheduledEventsBetween(addDays(from, -7), addDays(to, 7));
+}
+
+/**
+ * Step 3 of "Markt planen": what the chosen dates would bring (tasks, tasks due on day one, permits
+ * covered or new). Read-only; the same calculation the creation uses.
+ */
+export async function previewGeneratedEvents(
+  presetId: string,
+  dates: string[],
+): Promise<Result<GenerationPreview>> {
+  await requirePermission("event", "write");
+  try {
+    return { ok: true, data: await previewGeneration(presetId, dates) };
+  } catch (error) {
+    if (error instanceof EventInputError) return { ok: false, error: error.message };
+    throw error;
+  }
 }
 
 export async function createEvents(presetId: string, dates: string[]): Promise<Result<string[]>> {

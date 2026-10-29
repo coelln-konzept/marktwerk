@@ -24,7 +24,8 @@
       "fromMonth": "Erster Monat",
       "toMonth": "Letzter Monat",
       "year": "Jahr",
-      "apply": "Übernehmen"
+      "apply": "Übernehmen",
+      "replaces": "Ersetzt deine {count, plural, one {# gewählten Termin} other {# gewählten Termine}}."
     },
     "weekShort": "KW",
     "weekdaysShort": "Mo,Di,Mi,Do,Fr,Sa,So",
@@ -48,10 +49,15 @@
     },
     "warn": {
       "holiday": "{name} (Feiertag)",
-      "weekend": "{n}. Veranstaltung an diesem Wochenende",
+      "weekend": "{n}. Veranstaltung an diesem Wochenende (mehr als {max})",
       "venue": "Ort belegt: {name}",
       "overlap": "überschneidet sich mit einem anderen gewählten Termin",
-      "none": "keine Hinweise"
+      "none": "keine Hinweise",
+      "weekendFull": "{n}. Veranstaltung an diesem Wochenende, damit ist es voll (Maximum {max})",
+      "weekendWith": "dort schon: {names}",
+      "past": "liegt in der Vergangenheit – alle Aufgaben wären sofort überfällig",
+      "checking": "wird geprüft …",
+      "unchecked": "konnte nicht geprüft werden"
     },
     "remove": "{date} entfernen",
     "previewNote": "Hinweise blockieren nichts: du entscheidest.",
@@ -111,7 +117,8 @@
         "setup_after_open": "Der Aufbau kann bei eintägigen Märkten nicht nach dem Beginn liegen.",
         "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
-      }
+      },
+      "hintsRetry": "Erneut prüfen"
     },
     "search": "Markt oder Ort suchen …",
     "searchLabel": "Märkte durchsuchen",
@@ -124,7 +131,7 @@
       "newHint": "Für einen Markt, der noch nicht in der Liste steht. Danach wählst du gleich die Termine.",
       "title": "Neuer Markt",
       "hint": "Name, Ort und übliche Zeiten legst du einmal fest. Der Markt startet mit den Aufgaben der Grundvorlage und steht danach in dieser Liste.",
-      "rhythm": "Rhythmus (optional)",
+      "rhythm": "Rhythmus",
       "cancel": "Abbrechen",
       "create": "Markt anlegen",
       "creating": "Wird angelegt …",
@@ -135,6 +142,37 @@
         "invalid_fee": "Bitte die Buchungsgebühr in Euro angeben, z. B. 5,00.",
         "invalid_rrule": "Bitte mindestens einen Wochentag für den Rhythmus wählen oder „Kein Rhythmus“ ankreuzen."
       }
+    },
+    "plannedIn": "{year}: {count, plural, =0 {noch nichts geplant} one {# Termin geplant} other {# Termine geplant}}",
+    "calendarLabel": "Kalender: Tage wählen",
+    "keysHint": "Pfeiltasten: Tag wählen · Bild auf/ab: Monat · Leertaste: an/aus",
+    "skippedCount": "{count} gibt es schon",
+    "allExist": "Alle gewählten Termine gibt es schon. Mit „Doch anlegen“ legst du einzelne trotzdem an.",
+    "createWithSkipped": "{count} neue · {skipped} gibt es schon",
+    "day": {
+      "busy": "Ort belegt",
+      "weekendFull": "Wochenende voll"
+    },
+    "context": {
+      "loading": "Belegung wird geladen …",
+      "failed": "Belegung konnte nicht geladen werden. Hinweise zu belegten Orten, vollen Wochenenden und Terminen, die es schon gibt, fehlen.",
+      "retry": "Erneut versuchen"
+    },
+    "dup": {
+      "exists": "Gibt es schon",
+      "addedAgain": "Wird trotzdem angelegt",
+      "addAnyway": "Doch anlegen",
+      "skip": "Doch nicht",
+      "detail": "„{name}“ ist an diesem Tag schon angelegt. Der Termin wird übersprungen."
+    },
+    "preview": {
+      "tasks": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
+      "dueNow": "{count} sofort fällig",
+      "permits": "Genehmigungen: {covered} gedeckt · {fresh} neu",
+      "permitsNone": "Keine Genehmigungen nötig",
+      "loading": "Aufgaben und Genehmigungen werden berechnet …",
+      "failed": "Aufgaben und Genehmigungen konnten nicht berechnet werden. Du kannst trotzdem anlegen.",
+      "noTemplate": "Dieser Markt hat keine veröffentlichte Aufgabenvorlage: die Termine starten ohne Aufgaben."
     }
   }
 }

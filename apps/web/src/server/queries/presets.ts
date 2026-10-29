@@ -9,7 +9,7 @@ import {
   staffMember,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, isNull, lte, max, ne } from "drizzle-orm";
+import { and, asc, count, eq, gte, isNull, lte, max, ne } from "drizzle-orm";
 import { db } from "../db";
 
 /**
@@ -43,14 +43,32 @@ export async function listPresetsForGeneration(today: string) {
     .innerJoin(venue, eq(venue.id, eventPreset.venueId))
     .leftJoin(lastHeld, eq(lastHeld.presetId, eventPreset.id))
     .where(and(isNull(eventPreset.archivedAt), eq(eventPreset.active, true)));
-  return rows.sort((a, b) => {
-    if (a.lastHeldOn !== b.lastHeldOn) {
-      if (!a.lastHeldOn) return 1;
-      if (!b.lastHeldOn) return -1;
-      return a.lastHeldOn < b.lastHeldOn ? 1 : -1;
-    }
-    return a.name.localeCompare(b.name, "de");
-  });
+  // Dates already planned per market and season (this year on): step 1 says "2027: 7 Termine geplant".
+  const planned = await db
+    .select({ presetId: event.presetId, season: event.season, n: count() })
+    .from(event)
+    .where(
+      and(
+        gte(event.season, Number(today.slice(0, 4))),
+        ne(event.status, "cancelled"),
+        isNull(event.archivedAt),
+      ),
+    )
+    .groupBy(event.presetId, event.season);
+  const plannedOf = new Map<string, Record<number, number>>();
+  for (const p of planned) {
+    if (p.presetId) plannedOf.set(p.presetId, { ...plannedOf.get(p.presetId), [p.season]: p.n });
+  }
+  return rows
+    .map((r) => ({ ...r, plannedBySeason: plannedOf.get(r.id) ?? ({} as Record<number, number>) }))
+    .sort((a, b) => {
+      if (a.lastHeldOn !== b.lastHeldOn) {
+        if (!a.lastHeldOn) return 1;
+        if (!b.lastHeldOn) return -1;
+        return a.lastHeldOn < b.lastHeldOn ? 1 : -1;
+      }
+      return a.name.localeCompare(b.name, "de");
+    });
 }
 
 export type GenerationPreset = Awaited<ReturnType<typeof listPresetsForGeneration>>[number];
