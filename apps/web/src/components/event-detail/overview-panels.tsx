@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PermitStateBadge } from "@/components/permits/permit-state-badge";
+import { formatPermitTitle } from "@/components/permits/permit-title";
 import { useDueText } from "@/components/ui/due-badge";
 import { Health } from "@/components/ui/health";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
@@ -35,7 +36,6 @@ import type { EventOverview } from "@/server/queries/event-overview";
 import type { EventDetail } from "@/server/queries/events";
 import { FactsDialog } from "./facts-dialog";
 import { KeyTaskItem, MissingTaskRow } from "./overview-rows";
-import { permitTitle } from "./permit-title";
 import { roleName } from "./role-name";
 
 const ANCHOR_ORDER = ["event_day", "setup_day", "teardown_day", "booking_cutoff"] as const;
@@ -205,7 +205,7 @@ export async function MissingPanel({
                 >
                   <ShieldCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                   <span className="sr-only">{t("permitKind")}: </span>
-                  {permitTitle(p.title, locale)}
+                  {formatPermitTitle(p.title, locale)}
                 </Link>
                 <PermitStateBadge state={permitStateForEvent(p, event, today)} />
                 {p.applyBy && (

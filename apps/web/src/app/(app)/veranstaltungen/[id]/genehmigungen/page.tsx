@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { permitTitle } from "@/components/event-detail/permit-title";
 import { PermitDrawer } from "@/components/permits/permit-drawer";
 import { PermitStateBadge } from "@/components/permits/permit-state-badge";
+import { formatPermitTitle } from "@/components/permits/permit-title";
 import { buttonVariants } from "@/components/ui/button";
 import { Health } from "@/components/ui/health";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
@@ -125,7 +125,7 @@ export default async function EventPermitsPage({
                         scroll={false}
                         className="font-semibold text-accent-soft-foreground hover:underline"
                       >
-                        {permitTitle(r.title, locale)}
+                        {formatPermitTitle(r.title, locale)}
                       </Link>
                       <div className="text-muted-foreground text-tiny">
                         {tTypes(r.permitType)}
