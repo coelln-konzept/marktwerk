@@ -56,7 +56,9 @@ export function MonthGrid({
   for (const entry of entries) byDay.set(entry.date, [...(byDay.get(entry.date) ?? []), entry]);
 
   return (
-    <div className="overflow-x-auto">
+    // relative: the chips' sr-only status spans are absolutely positioned and would otherwise escape the
+    // scroller and widen the page on phones.
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[760px] table-fixed border-collapse md:min-w-[640px]">
         <colgroup>
           <col className="w-12" />

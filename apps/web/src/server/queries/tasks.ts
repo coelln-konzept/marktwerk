@@ -687,6 +687,8 @@ export type TaskDetail = {
   isKey: boolean;
   dueOn: string | null;
   dueOverridden: boolean;
+  /** Hand-edited at all (carried so an undo can restore it together with `dueOverridden`). */
+  customized: boolean;
   estimateMinutes: number;
   effortFeedback: "as_planned" | "longer" | "shorter" | null;
   assigneeId: string | null;
@@ -793,6 +795,7 @@ export async function getTaskDetail(
     isKey: t.isKey,
     dueOn: t.dueAt ? berlinDay(t.dueAt) : null,
     dueOverridden: t.dueOverridden,
+    customized: t.customized,
     estimateMinutes: t.estimateMinutes,
     effortFeedback: t.effortFeedback,
     assigneeId: t.assigneeId,

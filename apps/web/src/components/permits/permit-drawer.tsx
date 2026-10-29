@@ -191,14 +191,14 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
               value:
                 permit.fees.length > 0 ? (
                   <span className="tabular">{formatMoney(permit.feeCents, locale)}</span>
-                ) : permit.requirement?.typicalFeeCents != null ? (
+                ) : permit.requirement?.typicalFeeCents ? (
                   <span className="tabular text-muted-foreground">
                     {t("feeTypical", {
                       amount: formatMoney(permit.requirement.typicalFeeCents, locale),
                     })}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground">{t("feeNone")}</span>
+                  none
                 ),
             },
             { label: t("stickers"), value: stickers ?? none },

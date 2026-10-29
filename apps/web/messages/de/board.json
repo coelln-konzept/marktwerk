@@ -15,6 +15,7 @@
     "doneRange": "letzte 14 Tage",
     "emptyColumn": "Keine Aufgaben",
     "showMore": "{count} weitere anzeigen",
+    "showMoreLeft": "{count} weitere anzeigen ({left} übrig)",
     "showLess": "Weniger anzeigen",
     "view": {
       "label": "Ansicht",

@@ -59,15 +59,15 @@
     },
     "week": "KW {week} · {from}–{to}",
     "relative": {
-      "today": "heute",
-      "tomorrow": "morgen",
-      "future": "in {n} T",
-      "past": "vor {n} T"
+      "yesterday": "Gestern",
+      "pastDays": "Vor {count} Tagen",
+      "pastWeeks": "Vor {count, plural, one {# Woche} other {# Wochen}}",
+      "pastMonths": "Vor {count, plural, one {# Monat} other {# Monaten}}"
     },
     "open": "Öffnen",
     "todayMarker": "Heute",
     "nothingToday": "Heute ist nichts eingetragen.",
-    "moreAria": "{n} weitere Einträge am {day}, Liste ab diesem Tag öffnen",
+    "moreAria": "{n, plural, one {# weiterer Eintrag} other {# weitere Einträge}} am {day}, Liste ab diesem Tag öffnen",
     "spanDay": "Tag {index}/{total}",
     "permitKind": {
       "apply": "Antrag fällig",

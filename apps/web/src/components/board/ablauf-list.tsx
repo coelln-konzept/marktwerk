@@ -121,14 +121,14 @@ export function AblaufList({
             aria-label={label}
             className="border-border-subtle border-t first:border-t-0"
           >
-            <h3
+            <h2
               className={cn(
                 "sticky top-14 z-[1] m-0 flex min-h-10 flex-wrap items-baseline gap-x-3 border-border-subtle border-b bg-card px-4 py-2",
                 phase === "now" && "text-status-critical",
               )}
             >
               {header}
-            </h3>
+            </h2>
             {list}
           </section>
         );

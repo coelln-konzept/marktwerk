@@ -1,4 +1,4 @@
-import { addDays, daysBetween, isoWeek, mondayOf } from "@marktwerk/core";
+import { addDays, dayDistance, isoWeek, mondayOf } from "@marktwerk/core";
 import { CalendarX, Clock, Minus, OctagonAlert } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -78,11 +78,27 @@ export async function CalendarList({
   const weeks = new Map<string, string[]>();
   for (const d of days) weeks.set(mondayOf(d), [...(weeks.get(mondayOf(d)) ?? []), d]);
 
+  // Words, not "in 47 T" (decision 2026-10-29): the due vocabulary for what is ahead, the same shape for the past.
+  const tDue = await getTranslations("due");
   const relative = (day: string) => {
-    const n = daysBetween(today, day);
-    if (n === 0) return t("relative.today");
-    if (n === 1) return t("relative.tomorrow");
-    return n > 0 ? t("relative.future", { n }) : t("relative.past", { n: -n });
+    const distance = dayDistance(day, today);
+    if (distance.when === "today") return tDue("today");
+    if (distance.when === "future") {
+      if (distance.unit === "day" && distance.count === 1) return tDue("tomorrow");
+      return tDue(
+        distance.unit === "day" ? "inDays" : distance.unit === "week" ? "inWeeks" : "inMonths",
+        { count: distance.count },
+      );
+    }
+    if (distance.unit === "day" && distance.count === 1) return t("relative.yesterday");
+    return t(
+      distance.unit === "day"
+        ? "relative.pastDays"
+        : distance.unit === "week"
+          ? "relative.pastWeeks"
+          : "relative.pastMonths",
+      { count: distance.count },
+    );
   };
 
   return (

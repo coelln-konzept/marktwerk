@@ -90,10 +90,10 @@ export async function LogbookList({
                 <TH>{t("cols.permit")}</TH>
                 <TH className="max-md:hidden">{t("cols.status")}</TH>
                 <TH className="max-md:hidden">{t("cols.applyBy")}</TH>
-                <TH className="max-md:hidden">{t("cols.decision")}</TH>
+                <TH className="max-2xl:hidden">{t("cols.decision")}</TH>
                 <TH className="max-md:hidden">{t("cols.validity")}</TH>
                 <TH className="text-right max-md:hidden">{t("cols.fee")}</TH>
-                <TH className="text-right max-md:hidden">{t("cols.stickers")}</TH>
+                <TH className="text-right max-2xl:hidden">{t("cols.stickers")}</TH>
                 <TH className="max-md:hidden">{t("cols.responsible")}</TH>
                 <TH className="max-md:hidden">{t("cols.events")}</TH>
               </tr>
@@ -165,12 +165,13 @@ export async function LogbookList({
                           dash
                         )}
                       </TD>
-                      <TD className="tabular whitespace-nowrap max-md:hidden">
+                      <TD className="tabular whitespace-nowrap max-2xl:hidden">
                         {r.expectedDecisionOn
                           ? formatDateShortYear(r.expectedDecisionOn, locale, today)
                           : dash}
                       </TD>
-                      <TD className="tabular whitespace-nowrap max-md:hidden">
+                      {/* May wrap ("01.01.2027 bis / 31.12.2027"): nowrap made the table wider than its panel at 1440 px. */}
+                      <TD className="tabular min-w-28 max-md:hidden">
                         {r.validFrom && r.validUntil
                           ? t("validity", {
                               from: formatDate(r.validFrom, locale),
@@ -193,7 +194,7 @@ export async function LogbookList({
                           dash
                         )}
                       </TD>
-                      <TD className="tabular text-right max-md:hidden">{r.stickers ?? dash}</TD>
+                      <TD className="tabular text-right max-2xl:hidden">{r.stickers ?? dash}</TD>
                       <TD className="whitespace-nowrap max-md:hidden">
                         {r.responsibleName ?? dash}
                       </TD>

@@ -15,6 +15,7 @@
     "doneRange": "last 14 days",
     "emptyColumn": "No tasks",
     "showMore": "Show {count} more",
+    "showMoreLeft": "Show {count} more ({left} left)",
     "showLess": "Show fewer",
     "view": {
       "label": "View",

@@ -143,35 +143,64 @@ export async function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
       {entries.length === 0 ? (
         <EmptyState icon={History} title={t("empty")} hint={t("emptyHint")} />
       ) : (
-        <Table>
-          <caption className="sr-only">{t("caption")}</caption>
-          <THead>
-            <TR className="hover:bg-transparent">
-              <TH>{t("when")}</TH>
-              <TH>{t("who")}</TH>
-              <TH>{t("what")}</TH>
-            </TR>
-          </THead>
-          <tbody>
+        <>
+          {/* Phones: one stacked entry each (when · who, then the change); a 3-column table would
+              hide the change in a side-scrolling box. */}
+          <ul aria-label={t("caption")} className="m-0 flex list-none flex-col p-0 sm:hidden">
             {entries.map((entry) => {
               const { text, reason } = describe(entry);
               return (
-                <TR key={entry.id}>
-                  <TD className="tabular whitespace-nowrap text-foreground-2">
-                    <time dateTime={entry.at.toISOString()}>{formatInstant(entry.at, locale)}</time>
-                  </TD>
-                  <TD className="whitespace-nowrap">{entry.actorName ?? t("unknownActor")}</TD>
-                  <TD>
-                    <span className="font-medium">{text}</span>
-                    {reason && (
-                      <span className="block text-muted-foreground text-small">{reason}</span>
-                    )}
-                  </TD>
-                </TR>
+                <li
+                  key={entry.id}
+                  className="flex flex-col gap-0.5 border-border-subtle border-b px-4 py-2.5 last:border-b-0"
+                >
+                  <span className="text-foreground-2 text-small">
+                    <time dateTime={entry.at.toISOString()} className="tabular">
+                      {formatInstant(entry.at, locale)}
+                    </time>
+                    {" · "}
+                    {entry.actorName ?? t("unknownActor")}
+                  </span>
+                  <span className="font-medium">{text}</span>
+                  {reason && <span className="text-muted-foreground text-small">{reason}</span>}
+                </li>
               );
             })}
-          </tbody>
-        </Table>
+          </ul>
+          <div className="hidden sm:block">
+            <Table>
+              <caption className="sr-only">{t("caption")}</caption>
+              <THead>
+                <TR className="hover:bg-transparent">
+                  <TH>{t("when")}</TH>
+                  <TH>{t("who")}</TH>
+                  <TH>{t("what")}</TH>
+                </TR>
+              </THead>
+              <tbody>
+                {entries.map((entry) => {
+                  const { text, reason } = describe(entry);
+                  return (
+                    <TR key={entry.id}>
+                      <TD className="tabular whitespace-nowrap text-foreground-2">
+                        <time dateTime={entry.at.toISOString()}>
+                          {formatInstant(entry.at, locale)}
+                        </time>
+                      </TD>
+                      <TD className="whitespace-nowrap">{entry.actorName ?? t("unknownActor")}</TD>
+                      <TD>
+                        <span className="font-medium">{text}</span>
+                        {reason && (
+                          <span className="block text-muted-foreground text-small">{reason}</span>
+                        )}
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </div>
+        </>
       )}
     </Panel>
   );

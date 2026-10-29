@@ -39,6 +39,13 @@ export function PermitStatusFlow({
   const index = (STEPS as readonly PermitStatus[]).indexOf(status);
   // "Fehlt" is the alarm word of the matrix; in the flow the first step is just "not applied for yet".
   const label = (s: PermitStatus) => (s === "not_started" ? t("steps.not_started") : tState(s));
+  // A step back in the flow reads "Zurück auf „Beantragt“", a step forward "Als … markieren".
+  const actionLabel = (to: PermitStatus) => {
+    const target = (STEPS as readonly PermitStatus[]).indexOf(to);
+    return index >= 0 && target >= 0 && target < index
+      ? t("back", { status: label(to) })
+      : t(`actions.${to}` as never);
+  };
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
@@ -113,7 +120,7 @@ export function PermitStatusFlow({
                 aria-busy={pending}
                 onClick={() => move(primary)}
               >
-                {t(`actions.${primary}` as never)}
+                {actionLabel(primary)}
               </Button>
             )}
             {secondary.map((to) => (
@@ -125,7 +132,7 @@ export function PermitStatusFlow({
                 aria-busy={pending}
                 onClick={() => move(to)}
               >
-                {t(`actions.${to}` as never)}
+                {actionLabel(to)}
               </Button>
             ))}
             {menu.length > 0 && (
@@ -142,7 +149,7 @@ export function PermitStatusFlow({
                     <Menu.Popup className={MENU_POPUP}>
                       {menu.map((to) => (
                         <Menu.Item key={to} className={MENU_ITEM} onClick={() => move(to)}>
-                          {t(`actions.${to}` as never)}
+                          {actionLabel(to)}
                         </Menu.Item>
                       ))}
                     </Menu.Popup>
