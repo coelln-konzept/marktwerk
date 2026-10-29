@@ -99,7 +99,7 @@
     },
     "keyTask": {
       "label": "Key task",
-      "hint": "Every market needs it – shown in the overview, the matrix and at the top of the Übersicht.",
+      "hint": "Every market needs it – shown in the overview, the matrix and at the top of the overview.",
       "tooltip": "Key task – a task every market needs",
       "toggle": "Key task"
     },

@@ -90,7 +90,7 @@
       "reverted": "Undone",
       "undoFailed": "Undo is no longer possible, a task has changed since.",
       "nothingToSkip": "Nothing is open here any more.",
-      "error": "That did not work. Please try again.",
+      "error": "That didn't work. Please try again.",
       "empty": "All tidy. Nothing is open from past markets."
     }
   }

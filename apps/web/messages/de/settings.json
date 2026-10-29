@@ -68,7 +68,7 @@
       "errors": {
         "required": "Bitte ausfüllen.",
         "too_long": "Das ist zu lang (höchstens {max} Zeichen).",
-        "invalid": "Bitte prüfe die Eingabe.",
+        "invalid": "Bitte die Eingabe prüfen.",
         "unsupported": "Dieser Wert ist nicht möglich."
       },
       "fieldInvalid": {
@@ -86,8 +86,8 @@
       "saving": "Wird gespeichert …",
       "saved": "Firmendaten gespeichert.",
       "unchanged": "Keine Änderungen.",
-      "failed": "Das Speichern hat nicht geklappt. Bitte versuche es noch einmal.",
-      "errorSummary": "Bitte prüfe die markierten Felder.",
+      "failed": "Das Speichern hat nicht geklappt. Bitte noch einmal versuchen.",
+      "errorSummary": "Bitte die markierten Felder prüfen.",
       "bankSummary": "Steuernummer, IBAN, BIC",
       "units": {
         "days": "Tage"
@@ -139,7 +139,7 @@
         "reactivated": "{name} ist wieder aktiv.",
         "linked": "{name} ist mit {staff} verknüpft.",
         "unlinked": "Die Verknüpfung von {name} ist gelöst.",
-        "relinkReverted": "Verknüpfung von {name} zurückgesetzt."
+        "relinkReverted": "Verknüpfung von {name} rückgängig gemacht."
       },
       "errors": {
         "not_found": "Dieses Login gibt es nicht mehr.",
@@ -147,7 +147,7 @@
         "last_owner": "Es muss mindestens eine aktive Geschäftsführung bleiben.",
         "staff_not_found": "Diese Person gibt es nicht mehr.",
         "staff_taken": "Diese Person gehört schon zu einem anderen Login.",
-        "generic": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
       }
     },
     "legal": {

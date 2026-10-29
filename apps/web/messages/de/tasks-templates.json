@@ -42,7 +42,7 @@
       "archive": "Ablaufvorlage archivieren",
       "archiveHint": "Archivierte Ablaufvorlagen erzeugen keine Aufgaben mehr. Bestehende Aufgaben bleiben.",
       "archived": "„{name}“ archiviert",
-      "restored": "„{name}“ wieder da",
+      "restored": "„{name}“ wiederhergestellt",
       "undo": "Rückgängig"
     },
     "editor": {
@@ -82,7 +82,7 @@
       "retires": "Die bisherige Version v{version} wird zurückgezogen.",
       "publishConfirm": "Veröffentlichen",
       "published": "Version {version} veröffentlicht. Bestehende Veranstaltungen sind unverändert.",
-      "applyAction": "Auf Veranstaltungen anwenden…"
+      "applyAction": "Auf Veranstaltungen anwenden …"
     },
     "ruler": {
       "caption": "Zeitstrahl (nur Ansicht): jeder Punkt ist eine Aufgabe, T ist der Anker",
@@ -196,11 +196,11 @@
       "title": "So funktioniert es",
       "published": "Veröffentlichte Versionen sind unveränderlich; Änderungen entstehen in einem Entwurf.",
       "newEvents": "Neue Veranstaltungen bekommen die Aufgaben der veröffentlichten Version.",
-      "apply": "Bestehende Veranstaltungen ändern sich nur über „Auf Veranstaltungen anwenden…“, nach Vorschau und ohne Vorauswahl.",
+      "apply": "Bestehende Veranstaltungen ändern sich nur über „Auf Veranstaltungen anwenden …“, nach Vorschau und ohne Vorauswahl.",
       "followAnchors": "Verschiebt sich eine Veranstaltung, ziehen offene Aufgaben mit; erledigte nie. Ohne eigene Uhrzeit sind Aufgaben um {time} Uhr fällig."
     },
     "apply": {
-      "open": "Auf Veranstaltungen anwenden…",
+      "open": "Auf Veranstaltungen anwenden …",
       "title": "Auf Veranstaltungen anwenden",
       "subtitle": "{name}, Version {version}",
       "close": "Schließen",

@@ -78,7 +78,7 @@
     "noStaffHint": "Notifications go to team members. Link your login to a person and they will show up here.",
     "more": "There are older notifications. Done ones disappear from “Open”.",
     "errors": {
-      "generic": "That did not work. Please try again.",
+      "generic": "That didn't work. Please try again.",
       "not_found": "This notification no longer exists."
     }
   },
@@ -132,7 +132,7 @@
       "task_due_soon": "Task due soon",
       "permit_apply_by": "Apply for permit",
       "permit_decision": "Decision expected",
-      "permit_expiry": "Permit ends before the market"
+      "permit_expiry": "Permit expires before the event"
     },
     "dateLabel": {
       "task_overdue": "Was due {date}",
@@ -197,7 +197,7 @@
       "reset": "Reset filters"
     },
     "errors": {
-      "generic": "That did not work. Please try again.",
+      "generic": "That didn't work. Please try again.",
       "not_found": "This notification no longer exists.",
       "invalid_snooze": "Please pick a date after today.",
       "forbidden": "You are not allowed to do this."

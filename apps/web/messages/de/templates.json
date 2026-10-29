@@ -58,7 +58,7 @@
         "retired": "(nicht mehr aktiv)",
         "duration": "Dauer (Tage)",
         "active": "Aktiv",
-        "activeHint": "Inaktive Märkte erscheinen nicht unter „Markt planen“. Mit dem Haken ist er wieder da."
+        "activeHint": "Inaktive Märkte erscheinen nicht unter „Markt planen“. Mit dem Haken erscheint er wieder."
       },
       "color": {
         "legend": "Farbe des Markts",
@@ -131,7 +131,7 @@
         "overwrite": "Meine Änderungen trotzdem speichern"
       },
       "errors": {
-        "summary": "{count, plural, one {Bitte prüfe das markierte Feld.} other {Bitte prüfe die # markierten Felder.}}",
+        "summary": "{count, plural, one {Bitte das markierte Feld prüfen.} other {Bitte die # markierten Felder prüfen.}}",
         "invalid_name": "Bitte einen Namen angeben (höchstens 120 Zeichen).",
         "invalid_duration": "Bitte 1 bis 14 Tage angeben.",
         "invalid_public_title": "Der öffentliche Titel darf höchstens 200 Zeichen lang sein.",

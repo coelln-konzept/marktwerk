@@ -147,7 +147,7 @@
     "reason": {
       "ok": "Im Plan",
       "permits": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}",
-      "permitsEnding": "Genehmigung läuft vor Ende ab",
+      "permitsEnding": "Genehmigung läuft vor der Veranstaltung ab",
       "tasksOverdue": "{count} überfällig",
       "tasksBlocked": "{count} blockiert",
       "tasksRollover": "oft verschoben",

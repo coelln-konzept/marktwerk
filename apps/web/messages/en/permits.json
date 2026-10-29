@@ -87,7 +87,7 @@
     "emptyFiltered": "No matches for these filters.",
     "keys": "Enter: open permit",
     "errors": {
-      "generic": "That did not work. Please try again.",
+      "generic": "That didn't work. Please try again.",
       "invalid_title": "Please enter a name (200 characters at most).",
       "invalid_venue": "Please choose a venue.",
       "invalid_category": "Please choose a category.",
@@ -220,7 +220,7 @@
     "unchanged": "Nothing changed.",
     "savedUndone": "Change reverted.",
     "errors": {
-      "generic": "That did not work. Please try again.",
+      "generic": "That didn't work. Please try again.",
       "not_found": "This permit no longer exists.",
       "invalid_title": "Please enter a name (200 characters at most).",
       "invalid_date": "Please enter a valid date.",
@@ -311,7 +311,7 @@
       "reverted": "Change reverted."
     },
     "errors": {
-      "generic": "That did not work. Please try again.",
+      "generic": "That didn't work. Please try again.",
       "not_found": "This requirement no longer exists.",
       "invalid_title": "Please enter a name (200 characters at most).",
       "invalid_category": "Please choose a category.",

@@ -69,7 +69,7 @@
       "saved": "Gemerkt.",
       "reopened": "Wieder offen.",
       "snoozed": "Erinnerung am {when}.",
-      "restored": "Zurückgesetzt."
+      "restored": "Rückgängig gemacht."
     },
     "empty": "Alles erledigt.",
     "emptyHint": "Hinweise zu Fristen, Zuweisungen und Eskalationen erscheinen hier.",
@@ -78,7 +78,7 @@
     "noStaffHint": "Benachrichtigungen gehen an Personen aus dem Team. Verknüpfe deinen Login mit einer Person, dann erscheinen sie hier.",
     "more": "Es gibt ältere Hinweise. Erledigte Hinweise verschwinden aus „Offen“.",
     "errors": {
-      "generic": "Das hat nicht geklappt. Bitte versuche es erneut.",
+      "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
       "not_found": "Diesen Hinweis gibt es nicht mehr."
     }
   },
@@ -132,11 +132,11 @@
       "task_due_soon": "Aufgabe bald fällig",
       "permit_apply_by": "Antrag stellen",
       "permit_decision": "Entscheidung erwartet",
-      "permit_expiry": "Genehmigung läuft vor dem Markt ab"
+      "permit_expiry": "Genehmigung läuft vor der Veranstaltung ab"
     },
     "dateLabel": {
-      "task_overdue": "Fällig war {date}",
-      "task_due_soon": "Fällig {date}",
+      "task_overdue": "Fällig seit {date}",
+      "task_due_soon": "Fällig am {date}",
       "permit_apply_by": "Antrag bis {date}",
       "permit_decision": "Entscheidung bis {date}",
       "permit_expiry": "Gültig bis {date}"
@@ -176,7 +176,7 @@
       "done": "Erledigt: {title}",
       "snoozed": "Zurückgestellt bis {when}.",
       "reopened": "Wieder offen.",
-      "restored": "Zurückgesetzt.",
+      "restored": "Rückgängig gemacht.",
       "markedAll": "{count, plural, one {# Hinweis} other {# Hinweise}} als gelesen markiert.",
       "nothingToMark": "Es gibt nichts Ungelesenes."
     },
@@ -197,9 +197,9 @@
       "reset": "Filter zurücksetzen"
     },
     "errors": {
-      "generic": "Das hat nicht geklappt. Bitte versuche es erneut.",
+      "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
       "not_found": "Diesen Hinweis gibt es nicht mehr.",
-      "invalid_snooze": "Bitte wähle ein Datum nach heute.",
+      "invalid_snooze": "Bitte ein Datum nach heute wählen.",
       "forbidden": "Dafür fehlt die Berechtigung."
     }
   }

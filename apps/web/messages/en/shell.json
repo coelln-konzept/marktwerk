@@ -147,7 +147,7 @@
     "reason": {
       "ok": "On track",
       "permits": "{count, plural, one {# permit missing} other {# permits missing}}",
-      "permitsEnding": "Permit ends before the end",
+      "permitsEnding": "Permit expires before the event",
       "tasksOverdue": "{count} overdue",
       "tasksBlocked": "{count} blocked",
       "tasksRollover": "often postponed",

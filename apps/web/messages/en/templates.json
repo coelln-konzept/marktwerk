@@ -151,7 +151,7 @@
         "invalid_staff": "This person is not (or no longer) active. Please choose somebody else.",
         "not_found": "This preset no longer exists.",
         "invalid_input": "The details are incomplete. Please reload the page.",
-        "generic": "That did not work. Please try again."
+        "generic": "That didn't work. Please try again."
       }
     }
   },

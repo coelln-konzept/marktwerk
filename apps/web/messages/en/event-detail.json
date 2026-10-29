@@ -41,7 +41,7 @@
         "invalid_transition": "This change is not possible from the current status. The page was refreshed.",
         "reason_required": "Please give a reason for the cancellation.",
         "conflict": "The status was changed in the meantime. Nothing was reverted.",
-        "generic": "That did not work. Please try again."
+        "generic": "That didn't work. Please try again."
       }
     },
     "cancel": {
@@ -196,7 +196,7 @@
       "unchanged": "No changes to save.",
       "readOnly": "You can read the notes but not change them.",
       "tooLong": "The notes are too long (at most {max} characters).",
-      "failed": "Saving did not work. Please try again.",
+      "failed": "Saving didn't work. Please try again.",
       "chars": "{count} characters"
     },
     "history": {
