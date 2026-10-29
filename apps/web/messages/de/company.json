@@ -130,10 +130,10 @@
       "km": "Kilometerstand",
       "kmHint": "Aktueller Stand des Fahrzeugs; daraus wird die nächste Fälligkeit nach Kilometern berechnet.",
       "kmUnit": "km",
-      "cost": "Kosten (optional)",
+      "cost": "Kosten",
       "checker": "Geprüft von",
       "checkerHint": "Nur Datum und Name werden gespeichert, keine Kopie des Führerscheins.",
-      "notes": "Notiz (optional)",
+      "notes": "Notiz",
       "save": "Als erledigt eintragen",
       "saved": "Erledigt eingetragen. Nächste Fälligkeit: {next}.",
       "savedNoNext": "Erledigt eingetragen. Keine weitere Fälligkeit.",
@@ -330,7 +330,7 @@
       "severity": "Schwere",
       "severityHint": "Kritisch: das Fahrzeug sollte nicht mehr eingesetzt werden.",
       "issueTitle": "Kurzbeschreibung",
-      "details": "Details (optional)",
+      "details": "Details",
       "reporter": "Gemeldet von",
       "photo": "Foto",
       "photoPlaceholder": "Ein Foto hängst du gleich nach dem Melden an.",
@@ -342,7 +342,7 @@
     },
     "resolveDialog": {
       "title": "Mangel als behoben eintragen",
-      "note": "Was wurde gemacht? (optional)",
+      "note": "Was wurde gemacht?",
       "save": "Als behoben eintragen"
     },
     "errors": {

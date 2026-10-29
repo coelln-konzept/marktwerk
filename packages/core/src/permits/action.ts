@@ -1,5 +1,12 @@
-import { permitUrgency } from "../deadlines/permit-horizon";
-import type { PermitDisplayState } from "./status";
+import { daysBetween } from "../dates/calendar";
+import { PERMIT_HORIZON_DEFAULT_DAYS, permitUrgency } from "../deadlines/permit-horizon";
+import {
+  type EventPermitInput,
+  isHeld,
+  PERMIT_CRITICAL_DAYS,
+  type PermitDisplayState,
+  permitStateForEvent,
+} from "./status";
 
 /**
  * When a permit needs the office, judged by its apply-by date (product owner, 2026-10-29: replaces the
@@ -47,4 +54,39 @@ export function permitNeedsActionNow(
 ): boolean {
   const tier = permitActionTier(permit, today, horizonDays);
   return tier === "overdue" || tier === "apply_now";
+}
+
+/**
+ * Does a required permit count as "fehlt" for one event (Was fehlt, the readiness chip, "1 Genehmigung
+ * fehlt")? Only if the office has to act, the same reading as `eventPermitHealth`:
+ * - not in hand for the event (not granted, or granted but ending before the first day), and
+ * - rejected / expired, or the market is within `PERMIT_CRITICAL_DAYS` days, or
+ * - not filed yet with the apply-by date passed or within the permit horizon (`permitNeedsActionNow`), or
+ * - filed (Beantragt) but the expected decision date has passed.
+ * A filed permit that is just waiting for the authority, and one whose apply-by date lies beyond the
+ * horizon, are not missing yet (product owner, 2026-10-29).
+ */
+export function permitNeedsActionForEvent(
+  permit: EventPermitInput,
+  event: { startsOn: string; endsOn?: string },
+  today: string,
+  horizonDays: number = PERMIT_HORIZON_DEFAULT_DAYS,
+): boolean {
+  if (!permit.required || permit.status === "not_required" || permit.status === "superseded")
+    return false;
+  const state = permitStateForEvent(permit, { endsOn: event.endsOn ?? event.startsOn }, today);
+  if (isHeld(state)) return permit.validUntil !== null && permit.validUntil < event.startsOn;
+  if (daysBetween(today, event.startsOn) <= PERMIT_CRITICAL_DAYS) return true;
+  switch (state) {
+    case "rejected":
+    case "expired":
+      return true;
+    case "applied":
+      return permit.expectedDecisionOn != null && permit.expectedDecisionOn < today;
+    case "missing":
+    case "preparing":
+      return permitNeedsActionNow({ state, applyBy: permit.applyBy }, today, horizonDays);
+    default:
+      return false;
+  }
 }

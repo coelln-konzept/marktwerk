@@ -141,7 +141,7 @@ export async function BoardScreen({
   ) : null;
 
   const viewSwitch = views.length > 1 && (
-    <FilterGroup label={t("view.label")}>
+    <FilterGroup label={t("view.label")} hideLabel={eventMode && scopeKeys.length === 1}>
       <Segments
         items={views.map((key) => ({
           key,
@@ -200,6 +200,7 @@ export async function BoardScreen({
             {horizonSwitch}
             {readiness && (
               <FilterDisclosure
+                inline
                 label={t("filter.button")}
                 summary={category ? tTasks(`categories.${category}`) : null}
               >
@@ -301,6 +302,7 @@ export async function BoardScreen({
           )}
           {horizonSwitch}
           <FilterDisclosure
+            inline
             label={t("filter.button")}
             summary={category ? tTasks(`categories.${category}`) : null}
           >

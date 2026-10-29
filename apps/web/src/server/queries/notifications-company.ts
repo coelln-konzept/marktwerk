@@ -6,7 +6,6 @@ import {
   compareByNewest,
   compareCenterOrder,
   isPastMarketLeftover,
-  isPermitMarketInReach,
   isSupersededNotification,
   latestPerSubject,
   parseCompanyDedupeKey,
@@ -284,10 +283,9 @@ async function loadCompanyRows(
             e.endsOn !== null &&
             e.endsOn >= today,
         );
-        // Events come ordered by start, so upcoming[0] is the next market (the 6-month rule).
-        const relevant =
-          evs.length === 0 ||
-          (upcoming.length > 0 && isPermitMarketInReach(upcoming[0]?.startsOn ?? null, today));
+        // Events come ordered by start, so upcoming[0] is the next market. A permit counts by its own dates
+        // (apply-by within the horizon, decision, expiry), not by how far away the market is (2026-10-29).
+        const relevant = evs.length === 0 || upcoming.length > 0;
         let current: string | null = null;
         if (key.kind === "permit_apply_by")
           current = p.status === "not_started" || p.status === "preparing" ? p.applyBy : null;

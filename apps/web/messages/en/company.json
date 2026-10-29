@@ -130,10 +130,10 @@
       "km": "Odometer",
       "kmHint": "Current reading of the vehicle; the next due km is calculated from it.",
       "kmUnit": "km",
-      "cost": "Cost (optional)",
+      "cost": "Cost",
       "checker": "Checked by",
       "checkerHint": "Only the date and the name are stored, no copy of the licence.",
-      "notes": "Note (optional)",
+      "notes": "Note",
       "save": "Mark as done",
       "saved": "Marked as done. Next due: {next}.",
       "savedNoNext": "Marked as done. Nothing further due.",
@@ -330,7 +330,7 @@
       "severity": "Severity",
       "severityHint": "Critical: the vehicle should no longer be used.",
       "issueTitle": "Short description",
-      "details": "Details (optional)",
+      "details": "Details",
       "reporter": "Reported by",
       "photo": "Photo",
       "photoPlaceholder": "You can attach a photo right after reporting.",
@@ -342,7 +342,7 @@
     },
     "resolveDialog": {
       "title": "Mark defect as fixed",
-      "note": "What was done? (optional)",
+      "note": "What was done?",
       "save": "Mark as fixed"
     },
     "errors": {
