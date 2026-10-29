@@ -43,7 +43,19 @@
     "forbidden": "Dafür fehlt dir die Berechtigung.",
     "back": "Zur Übersicht",
     "notFoundTitle": "Nicht gefunden",
-    "notFoundHint": "Diesen Eintrag gibt es nicht (mehr), oder der Link ist unvollständig."
+    "notFoundHint": "Diesen Eintrag gibt es nicht (mehr), oder der Link ist unvollständig.",
+    "failedTitle": "Hier ist etwas schiefgelaufen",
+    "failedHint": "Die Seite konnte nicht geladen werden oder eine Änderung ist nicht angekommen. Bitte versuche es noch einmal.",
+    "retry": "Erneut versuchen",
+    "network": "Keine Verbindung zum Server. Bitte versuche es noch einmal."
+  },
+  "states": {
+    "loading": "Lädt …"
+  },
+  "toasts": {
+    "region": "Hinweise",
+    "close": "Hinweis schließen",
+    "undoKey": "Strg Z"
   },
   "language": {
     "label": "Sprache",
