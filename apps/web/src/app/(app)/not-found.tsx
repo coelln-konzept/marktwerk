@@ -11,7 +11,7 @@ export default async function NotFound() {
   return (
     <Page crumbs={[{ label: t("notFoundTitle") }]}>
       {/* React hoists <title> into <head>; the tab no longer shows the bare URL. */}
-      <title>{t("notFoundTitle")}</title>
+      <title>{`${t("notFoundTitle")} · marktwerk`}</title>
       <PageHeader title={t("notFoundTitle")} />
       <Panel>
         {/* The explanation comes first, then the way out. */}

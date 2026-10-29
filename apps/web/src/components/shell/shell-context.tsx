@@ -136,6 +136,9 @@ export function ShellProvider({
         setBusyToastIds(next);
       };
       setBusy(true);
+      // Leave the stack first: the action's own toast ("Rückgängig gemacht") must not push out an older
+      // toast that can still be undone.
+      dismissToastById(id);
       try {
         await entry.toast.onAction();
       } catch {
@@ -143,8 +146,6 @@ export function ShellProvider({
         showToast({ message: tErrors("network"), tone: "error" });
       } finally {
         setBusy(false);
-        // An action may show its own toast (e.g. "Status zurückgesetzt"); keep that one.
-        dismissToastById(id);
       }
     },
     [showToast, dismissToastById, tErrors],

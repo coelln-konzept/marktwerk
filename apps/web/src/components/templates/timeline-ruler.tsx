@@ -123,7 +123,8 @@ function Strip({
   const offsetText = useOffsetText();
   const min = Math.min(...items.map((i) => i.offsetDays));
   const max = Math.max(...items.map((i) => i.offsetDays));
-  const x = (offset: number) => rulerPosition(offset, min, max) * 100;
+  // Rounded: server and client must print the same style string (hydration).
+  const x = (offset: number) => Math.round(rulerPosition(offset, min, max) * 100_000) / 1000;
 
   const byOffset = new Map<number, RulerItem[]>();
   for (const item of items)

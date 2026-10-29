@@ -272,7 +272,7 @@ export function CommandPalette({ actions }: { actions: SearchHit[] }) {
             {status}
           </p>
           {/* A scroll container is a tab stop in some browsers; focus belongs in the input. */}
-          <div tabIndex={-1} className="max-h-[440px] overflow-auto px-2 pt-1 pb-2">
+          <div tabIndex={0} className="max-h-[440px] overflow-auto px-2 pt-1 pb-2">
             {options.length === 0 && (
               <p aria-hidden className="px-2 py-6 text-center text-muted-foreground text-small">
                 {failed

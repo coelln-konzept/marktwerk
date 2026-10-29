@@ -138,7 +138,10 @@ export function SidebarNav({
     if (!mobileOpen) return;
     const panel = panelRef.current;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    (panel?.querySelector<HTMLElement>("nav a") ?? panel)?.focus({ preventScroll: true });
+    // The panel is still `visibility: hidden` in this frame (it transitions in); focus the next one.
+    const frame = requestAnimationFrame(() =>
+      (panel?.querySelector<HTMLElement>("nav a") ?? panel)?.focus({ preventScroll: true }),
+    );
     function onKey(event: KeyboardEvent) {
       // An open menu (profile) and a key it already used are not ours.
       if (event.defaultPrevented || document.querySelector("[role=menu]")) return;
@@ -161,6 +164,7 @@ export function SidebarNav({
     }
     window.addEventListener("keydown", onKey);
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener("keydown", onKey);
       if (opener?.isConnected) opener.focus({ preventScroll: true });
     };
@@ -183,15 +187,15 @@ export function SidebarNav({
           onClick={() => setNavOpen(false)}
         />
       )}
-      {/* Not an <aside>: the navigation inside is labelled, the page's landmarks stay banner + main. */}
+      {/* A labelled complementary landmark (a dialog while the phone panel is open), so the logo row is inside a landmark too. */}
       {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: a dialog only while the phone panel is open */}
       <div
         ref={panelRef}
         tabIndex={-1}
         inert={!isDesktop && !navOpen}
-        role={mobileOpen ? "dialog" : undefined}
+        role={mobileOpen ? "dialog" : "complementary"}
         aria-modal={mobileOpen ? true : undefined}
-        aria-label={mobileOpen ? navLabel : undefined}
+        aria-label={navLabel}
         data-closed={navOpen ? undefined : ""}
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-[232px] shrink-0 flex-col gap-0.5 border-sidebar-border border-r bg-sidebar px-2 py-3 text-sidebar-foreground transition-[transform,visibility] focus:outline-none max-lg:data-[closed]:invisible lg:sticky lg:top-0 lg:h-svh lg:translate-x-0",

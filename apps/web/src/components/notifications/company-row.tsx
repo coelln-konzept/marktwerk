@@ -70,11 +70,10 @@ export function CompanyRow({
       </span>
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex items-center gap-2">
-          {row.unread && (
-            <span className="size-2 shrink-0 rounded-full bg-primary">
-              <span className="sr-only">{t("unread")}</span>
-            </span>
-          )}
+          {/* The dot keeps its slot on read rows too, so titles line up. */}
+          <span className={cn("size-2 shrink-0 rounded-full", row.unread && "bg-primary")}>
+            {row.unread && <span className="sr-only">{t("unread")}</span>}
+          </span>
           {row.isKey && <KeyTaskMark label={t("keyTask")} />}
           <Link
             href={openHref as never}
