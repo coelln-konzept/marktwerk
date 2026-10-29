@@ -87,9 +87,9 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
     >
       <PermitStatusFlow permitId={permit.id} status={permit.status} canWrite={canWrite} />
 
-      <section aria-labelledby="facts-title" className="flex flex-col gap-3">
+      <section aria-labelledby="permit-facts-title" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 id="facts-title" className="font-semibold text-foreground-2 text-small">
+          <h3 id="permit-facts-title" className="font-semibold text-foreground-2 text-small">
             {t("facts")}
           </h3>
           {canWrite && (
@@ -230,8 +230,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         />
       </section>
 
-      <section aria-labelledby="conditions-title" className="flex flex-col gap-2">
-        <h3 id="conditions-title" className="font-semibold text-foreground-2 text-small">
+      <section aria-labelledby="permit-conditions-title" className="flex flex-col gap-2">
+        <h3 id="permit-conditions-title" className="font-semibold text-foreground-2 text-small">
           {t("conditions")}
         </h3>
         {permit.conditions.length === 0 ? (
@@ -258,8 +258,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         canOpenEvents={canOpenEvents}
       />
 
-      <section aria-labelledby="tasks-title" className="flex flex-col gap-2">
-        <h3 id="tasks-title" className="font-semibold text-foreground-2 text-small">
+      <section aria-labelledby="permit-tasks-title" className="flex flex-col gap-2">
+        <h3 id="permit-tasks-title" className="font-semibold text-foreground-2 text-small">
           {t("tasks")}
         </h3>
         {permit.tasks.length === 0 ? (
@@ -301,8 +301,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         )}
       </section>
 
-      <section aria-labelledby="fees-title" className="flex flex-col gap-2">
-        <h3 id="fees-title" className="font-semibold text-foreground-2 text-small">
+      <section aria-labelledby="permit-fees-title" className="flex flex-col gap-2">
+        <h3 id="permit-fees-title" className="font-semibold text-foreground-2 text-small">
           {t("fees")}
         </h3>
         {permit.fees.length === 0 ? (
@@ -319,8 +319,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         )}
       </section>
 
-      <section aria-labelledby="documents-title" className="flex flex-col gap-2">
-        <h3 id="documents-title" className="font-semibold text-foreground-2 text-small">
+      <section aria-labelledby="permit-documents-title" className="flex flex-col gap-2">
+        <h3 id="permit-documents-title" className="font-semibold text-foreground-2 text-small">
           {t("documents")}
         </h3>
         {documents.length === 0 && (

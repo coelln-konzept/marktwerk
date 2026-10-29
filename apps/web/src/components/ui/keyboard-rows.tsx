@@ -66,7 +66,7 @@ export function focusNeighbourRow(from: HTMLElement | null): boolean {
 
 /**
  * Keyboard support for list rows (UX concept §6): J/K or ↑/↓ move, Space opens the Vorschau,
- * Enter opens the record. Rows opt in with `data-row`, `data-href` and `data-peek`.
+ * Enter opens the record (the Vorschau when the row has no `data-href`). Rows opt in with `data-row`, `data-href` and `data-peek`.
  * A mouse click anywhere in an element with `data-href` opens it, too (no `data-row` needed).
  *
  * The rows of one list are ONE tab stop (roving tabindex): only the active row (the one focused last,
@@ -177,6 +177,10 @@ export function KeyboardRows({
     } else if (key === "Enter" && row.dataset.href) {
       event.preventDefault();
       router.push(row.dataset.href as never);
+    } else if (key === "Enter" && row.dataset.peek) {
+      // Rows without a record page of their own (Kontakte): Enter opens the Vorschau, like Space.
+      event.preventDefault();
+      router.replace(row.dataset.peek as never, { scroll: false });
     }
   }
 

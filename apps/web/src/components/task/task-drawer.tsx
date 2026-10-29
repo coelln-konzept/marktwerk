@@ -35,6 +35,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
+import { OptionalMark } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate, formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
@@ -781,7 +782,13 @@ export function TaskDrawer({
         )}
 
         {canWrite && !finished && (
-          <Section title={t("completionNote.label")}>
+          <Section
+            title={
+              <>
+                {t("completionNote.label")} <OptionalMark />
+              </>
+            }
+          >
             <textarea
               aria-label={t("completionNote.label")}
               rows={2}

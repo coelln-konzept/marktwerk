@@ -203,6 +203,7 @@ export async function CompanyCenterPage({
         subtitle={<span className="max-sm:hidden">{t("subtitle")}</span>}
         actions={
           <MarkAllCompanyButton
+            iconOnlyOnPhone
             art={art}
             markt={markt}
             disabled={status !== "open" || !center.rows.some((r) => r.unread)}
@@ -224,7 +225,7 @@ export async function CompanyCenterPage({
         <Panel>{empty}</Panel>
       ) : (
         <KeyboardRows className="flex flex-col gap-4">
-          <p className="touch:hidden text-muted-foreground text-tiny">{t("keys")}</p>
+          <p className="max-md:hidden touch:hidden text-muted-foreground text-tiny">{t("keys")}</p>
           {groups.map((group) => {
             const band = grouped ? BAND[group.key as Group] : null;
             return (

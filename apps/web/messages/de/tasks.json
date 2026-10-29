@@ -188,7 +188,7 @@
       "cancel": "Abbrechen"
     },
     "completionNote": {
-      "label": "Notiz zum Erledigen (optional)",
+      "label": "Notiz zum Erledigen",
       "hint": "Wird in der Aktivität der Aufgabe festgehalten.",
       "title": "Notiz"
     },

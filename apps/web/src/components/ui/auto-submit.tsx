@@ -89,6 +89,23 @@ export function AutoSubmitSelect({
     if (select.value !== value) select.value = value;
   });
 
+  // The same for the form's text inputs (search box): after "Filter zurücksetzen" the URL has no `q`
+  // any more but the box still showed the old text. React keeps the DOM `defaultValue` in step with the
+  // page's `defaultValue` prop, so a changed URL value is visible there. Only a *change* of it re-syncs,
+  // and never into a focused box: text typed but not submitted yet survives unrelated re-renders.
+  const seenDefaults = useRef(new WeakMap<HTMLInputElement, string>());
+  useEffect(() => {
+    const form = ref.current?.form;
+    if (pending || !form) return;
+    for (const el of form.elements) {
+      if (!(el instanceof HTMLInputElement) || !/^(text|search)$/.test(el.type)) continue;
+      const before = seenDefaults.current.get(el);
+      seenDefaults.current.set(el, el.defaultValue);
+      if (before === undefined || before === el.defaultValue) continue;
+      if (document.activeElement !== el && el.value !== el.defaultValue) el.value = el.defaultValue;
+    }
+  });
+
   return (
     <NativeSelect
       {...props}
