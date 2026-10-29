@@ -1,16 +1,18 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { Check, ChevronDown, LogOut, SlidersHorizontal } from "lucide-react";
+import { Check, ChevronDown, Keyboard, LogOut, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useTransition } from "react";
 import { setDisplayPreference, setLocale } from "@/app/(app)/actions";
 import { Avatar } from "@/components/ui/avatar";
+import { Kbd } from "@/components/ui/kbd";
 import { LOCALES } from "@/i18n/config";
 import { authClient } from "@/lib/auth-client";
 import { DEV_AUTO_LOGIN_OPT_OUT } from "@/server/dev-auto-login";
+import { SHORTCUTS_EVENT } from "./shortcuts-dialog";
 
 const item =
   "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover";
@@ -43,7 +45,10 @@ export function ProfileMenu({
   return (
     <Menu.Root>
       <Menu.Trigger className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-2 text-left hover:bg-hover">
-        <Avatar name={name} size="lg" />
+        {/* The avatar repeats the name; hidden so the button is not read as "Name Name Rolle". */}
+        <span aria-hidden className="inline-flex">
+          <Avatar name={name} size="lg" />
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">{name}</span>
           <span className="block truncate text-muted-foreground text-tiny">{role}</span>
@@ -125,6 +130,14 @@ export function ProfileMenu({
               </Menu.RadioGroup>
             </Menu.Group>
             <Menu.Separator className="my-1 border-border-subtle border-t" />
+            <Menu.Item
+              className={item}
+              onClick={() => window.dispatchEvent(new Event(SHORTCUTS_EVENT))}
+            >
+              <Keyboard aria-hidden className="size-4 text-muted-foreground" />
+              {t("shortcuts")}
+              <Kbd className="ml-auto touch:hidden">?</Kbd>
+            </Menu.Item>
             <Menu.Item
               className={item}
               onClick={async () => {
