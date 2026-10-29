@@ -13,6 +13,7 @@ import {
   unsnoozeCard,
 } from "@/app/(app)/board/actions";
 import { useShell } from "@/components/shell/shell-context";
+import { callAction, NETWORK_ERROR } from "@/lib/call-action";
 import { formatDateWeekdayDay } from "@/lib/format";
 import type { BoardTask } from "@/server/queries/tasks";
 
@@ -67,6 +68,7 @@ export function useTaskActions({
 }) {
   const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
+  const tShell = useTranslations("errors");
   const locale = useLocale();
   const { showToast } = useShell();
   const router = useRouter();
@@ -74,9 +76,11 @@ export function useTaskActions({
   const [pending, startTransition] = useTransition();
 
   const errorText = useCallback(
-    (code: string) =>
-      t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic"),
-    [t],
+    (code: string) => {
+      if (code === NETWORK_ERROR) return tShell("network");
+      return t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
+    },
+    [t, tShell],
   );
 
   const evidenceText = useCallback(
@@ -95,15 +99,23 @@ export function useTaskActions({
         message,
         actionLabel: t("toast.undo"),
         onAction: async () => {
-          const result = await undoChange(auditId);
-          showToast({ message: result.ok ? t("toast.reverted") : errorText(result.error) });
+          const result = await callAction(() => undoChange(auditId));
+          showToast(
+            result.ok
+              ? { message: t("toast.reverted") }
+              : { message: errorText(result.error), tone: "error" },
+          );
         },
       });
     },
     [showToast, t, errorText],
   );
 
-  /** A failed call: evidence that is still missing opens the task, everything else is a message. */
+  /**
+   * A failed call: evidence that is still missing opens the task, everything else is a message. Both
+   * are error toasts (red, stay until closed); the optimistic change reverts when the transition ends,
+   * because nothing on the server changed.
+   */
   const fail = useCallback(
     (result: Extract<Result, { ok: false }>, task: TaskRef) => {
       if (result.error === "evidence_missing") {
@@ -112,12 +124,15 @@ export function useTaskActions({
             title: task.title,
             what: evidenceText(result.detail),
           }),
+          tone: "error",
           actionLabel: t("toast.open"),
+          // "Öffnen" goes somewhere; Strg+Z must not trigger it.
+          undoable: false,
           onAction: () => router.push(drawer.open(task.id) as never),
         });
         return;
       }
-      showToast({ message: errorText(result.error) });
+      showToast({ message: errorText(result.error), tone: "error" });
     },
     [showToast, t, evidenceText, errorText, router, drawer],
   );
@@ -131,7 +146,7 @@ export function useTaskActions({
     ) => {
       startTransition(async () => {
         if (patch) apply?.(patch);
-        const result = await call();
+        const result = await callAction(call);
         if (result.ok) {
           if (result.data.changed) showUndo(success, result.data.auditId);
           return;
@@ -190,14 +205,11 @@ export function useTaskActions({
           assigneeId: person?.id ?? null,
           assigneeName: person?.displayName ?? null,
         });
-        const moved = await moveCard(
-          task.id,
-          column,
-          { after: afterId },
-          { eventId: scopeEventId ?? null },
+        const moved = await callAction(() =>
+          moveCard(task.id, column, { after: afterId }, { eventId: scopeEventId ?? null }),
         );
         if (!moved.ok) return fail(moved, task);
-        const assigned = await assignCard(task.id, staffMemberId);
+        const assigned = await callAction(() => assignCard(task.id, staffMemberId));
         if (!assigned.ok) return fail(assigned, task);
         const audits = [assigned.data.auditId, moved.data.auditId].filter((id) => id !== null);
         const message = person
@@ -215,13 +227,17 @@ export function useTaskActions({
             // newest change first, so each undo still finds the state it expects
             let failure: string | null = null;
             for (const auditId of audits) {
-              const result = await undoChange(auditId);
+              const result = await callAction(() => undoChange(auditId));
               if (!result.ok) {
                 failure = result.error;
                 break;
               }
             }
-            showToast({ message: failure ? errorText(failure) : t("toast.reverted") });
+            showToast(
+              failure
+                ? { message: errorText(failure), tone: "error" }
+                : { message: t("toast.reverted") },
+            );
           },
         });
       });

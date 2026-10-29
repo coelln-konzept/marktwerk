@@ -43,7 +43,19 @@
     "forbidden": "You don't have permission to do that.",
     "back": "Back to overview",
     "notFoundTitle": "Not found",
-    "notFoundHint": "This record doesn't exist (any more), or the link is incomplete."
+    "notFoundHint": "This record doesn't exist (any more), or the link is incomplete.",
+    "failedTitle": "Something went wrong",
+    "failedHint": "The page could not be loaded or a change did not go through. Please try again.",
+    "retry": "Try again",
+    "network": "No connection to the server. Please try again."
+  },
+  "states": {
+    "loading": "Loading …"
+  },
+  "toasts": {
+    "region": "Notices",
+    "close": "Close notice",
+    "undoKey": "Ctrl Z"
   },
   "language": {
     "label": "Language",
