@@ -1,41 +1,30 @@
 import {
   daysBetween,
   isHappening,
-  type KeyTaskRow,
-  type KeyTaskState,
-  type MissingReason,
-  type MissingTask,
   type OverviewPermit,
   permitStateForEvent,
   splitTimeline,
 } from "@marktwerk/core";
 import {
-  AlarmClockOff,
   ArrowRight,
-  Ban,
   CalendarClock,
-  Check,
   ChevronRight,
   CircleCheck,
-  CircleDashed,
-  Clock,
-  Hourglass,
   ListChecks,
-  OctagonAlert,
+  NotebookText,
   ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PermitStateBadge } from "@/components/permits/permit-state-badge";
-import { TaskCheckToggle } from "@/components/task/done-button";
+import { useDueText } from "@/components/ui/due-badge";
 import { Health } from "@/components/ui/health";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { StatusBadge, type Tone } from "@/components/ui/status-badge";
 import {
   formatDateShort,
-  formatDateShortYear,
   formatDateWithWeekday,
   formatMoney,
   formatNumber,
@@ -45,19 +34,34 @@ import { cn } from "@/lib/utils";
 import type { EventOverview } from "@/server/queries/event-overview";
 import type { EventDetail } from "@/server/queries/events";
 import { FactsDialog } from "./facts-dialog";
-import { TaskQuickActions } from "./overview-task-actions";
+import { KeyTaskItem, MissingTaskRow } from "./overview-rows";
+import { permitTitle } from "./permit-title";
 import { roleName } from "./role-name";
 
 const ANCHOR_ORDER = ["event_day", "setup_day", "teardown_day", "booking_cutoff"] as const;
 
-const taskHref = (eventId: string, taskId: string) =>
-  `/veranstaltungen/${eventId}?aufgabe=${taskId}` as never;
-
 // ---------------------------------------------------------------------------------------------
 // 1. Status line
 
+// Each cell: a title line and a support line (date, progress bar), the same height in all three.
 const statusLink =
-  "group flex min-w-0 flex-col gap-1.5 rounded-lg px-3 py-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring";
+  "group flex min-w-0 flex-col justify-between gap-1.5 px-4 py-3 hover:bg-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
+
+function ProgressBar({ label, ratio }: { label: string; ratio: number }) {
+  const percent = Math.round(ratio * 100);
+  return (
+    <span
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
+      className="block h-1.5 overflow-hidden rounded-full bg-status-neutral-bg"
+    >
+      <span className="block h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+    </span>
+  );
+}
 
 /**
  * Status line: days until the market, tasks done with a slim bar, permits granted. Every piece links to
@@ -86,7 +90,7 @@ export async function StatusLine({
   const ratio = tasks && tasks.progress.total > 0 ? tasks.progress.ratio : 0;
   return (
     <Panel aria-label={t("label")}>
-      <div className="grid divide-y divide-border-subtle p-1 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+      <div className="grid divide-y divide-border-subtle overflow-hidden rounded-xl sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <Link href={"#termine" as never} className={statusLink}>
           <span className="flex items-center gap-2 font-semibold text-[17px]">
             <CalendarClock aria-hidden className="size-4 text-muted-foreground" />
@@ -104,19 +108,7 @@ export async function StatusLine({
                 ? t("tasksNone")
                 : t("tasks", { done: tasks.progress.done, total: tasks.progress.total })}
             </span>
-            <span
-              role="progressbar"
-              aria-label={t("progress")}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(ratio * 100)}
-              className="block h-1.5 overflow-hidden rounded-full bg-status-neutral-bg"
-            >
-              <span
-                className="block h-full rounded-full bg-primary"
-                style={{ width: `${Math.round(ratio * 100)}%` }}
-              />
-            </span>
+            <ProgressBar label={t("progress")} ratio={ratio} />
           </Link>
         )}
         {permits && (
@@ -130,6 +122,12 @@ export async function StatusLine({
                     total: permits.progress.total,
                   })}
             </span>
+            <ProgressBar
+              label={t("permitsProgress")}
+              ratio={
+                permits.progress.total > 0 ? permits.progress.granted / permits.progress.total : 0
+              }
+            />
           </Link>
         )}
       </div>
@@ -139,51 +137,6 @@ export async function StatusLine({
 
 // ---------------------------------------------------------------------------------------------
 // 2. Was fehlt
-
-const REASON_UI: Record<MissingReason, { tone: Tone; icon: typeof Clock }> = {
-  overdue: { tone: "critical", icon: OctagonAlert },
-  blocked: { tone: "warn", icon: Ban },
-  waiting: { tone: "waiting", icon: Hourglass },
-  today: { tone: "warn", icon: Clock },
-  soon: { tone: "neutral", icon: Clock },
-};
-
-function MissingTaskRow({
-  eventId,
-  task,
-  today,
-  canWrite,
-  reasonText,
-  dateText,
-}: {
-  eventId: string;
-  task: MissingTask;
-  today: string;
-  canWrite: boolean;
-  reasonText: string;
-  dateText: string | null;
-}) {
-  const ui = REASON_UI[task.reason];
-  return (
-    <li
-      data-href={taskHref(eventId, task.id)}
-      className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover"
-    >
-      <Link
-        href={taskHref(eventId, task.id)}
-        scroll={false}
-        className="min-w-0 basis-full font-medium hover:underline sm:basis-0 sm:flex-1 sm:truncate"
-      >
-        {task.title}
-      </Link>
-      <StatusBadge tone={ui.tone} icon={ui.icon}>
-        {reasonText}
-      </StatusBadge>
-      {dateText && <span className="tabular text-muted-foreground text-small">{dateText}</span>}
-      {canWrite && <TaskQuickActions task={task} today={today} />}
-    </li>
-  );
-}
 
 /**
  * "Was fehlt": the open tasks that are overdue, blocked / waiting or due in the next 7 days, then the
@@ -215,26 +168,15 @@ export async function MissingPanel({
   const room = Math.max(0, MISSING_VISIBLE_ROWS - urgent.length);
   const shown = [...urgent, ...soon.slice(0, room)];
   const folded = soon.slice(room);
-  const row = (task: (typeof tasks)[number]) => {
-    const days = task.dueOn ? daysBetween(today, task.dueOn) : 0;
-    return (
-      <MissingTaskRow
-        key={task.id}
-        eventId={event.id}
-        task={task}
-        today={today}
-        canWrite={canWrite}
-        reasonText={t(`reason.${task.reason}`, { n: Math.abs(days) })}
-        dateText={
-          task.dueOn
-            ? task.reason === "waiting" && task.dueOn < today
-              ? t("waitingSince", { date: formatDateShortYear(task.dueOn, locale, today) })
-              : formatDateShort(task.dueOn, locale)
-            : null
-        }
-      />
-    );
-  };
+  const row = (task: (typeof tasks)[number]) => (
+    <MissingTaskRow
+      key={task.id}
+      eventId={event.id}
+      task={task}
+      today={today}
+      canWrite={canWrite}
+    />
+  );
   return (
     <Panel aria-labelledby="missing-title">
       <PanelHeader>
@@ -246,27 +188,34 @@ export async function MissingPanel({
       ) : (
         <ul className="m-0 flex list-none flex-col p-0">
           {shown.map(row)}
-          {permits.map((p) => (
-            <li
-              key={p.id}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover"
-            >
-              <Link
-                href={`/logbuch?genehmigung=${p.id}` as never}
-                className="flex min-w-0 basis-full items-center gap-2 font-medium hover:underline sm:basis-0 sm:flex-1 sm:truncate"
+          {permits.map((p) => {
+            // The permit opens in its drawer on this page (`?genehmigung=`), so the event stays in view.
+            const href = `/veranstaltungen/${event.id}?genehmigung=${p.id}` as never;
+            return (
+              <li
+                key={p.id}
+                data-row
+                data-href={href}
+                className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
               >
-                <ShieldCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                <span className="sr-only">{t("permitKind")}: </span>
-                {p.title}
-              </Link>
-              <PermitStateBadge state={permitStateForEvent(p, event, today)} />
-              {p.applyBy && (
-                <span className="tabular text-muted-foreground text-small">
-                  {t("permitApplyBy", { date: formatDateShort(p.applyBy, locale) })}
-                </span>
-              )}
-            </li>
-          ))}
+                <Link
+                  href={href}
+                  scroll={false}
+                  className="flex min-w-0 basis-full items-center gap-2 font-medium hover:underline sm:basis-0 sm:flex-1 sm:truncate"
+                >
+                  <ShieldCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="sr-only">{t("permitKind")}: </span>
+                  {permitTitle(p.title, locale)}
+                </Link>
+                <PermitStateBadge state={permitStateForEvent(p, event, today)} />
+                {p.applyBy && (
+                  <span className="tabular text-muted-foreground text-small">
+                    {t("permitApplyBy", { date: formatDateShort(p.applyBy, locale) })}
+                  </span>
+                )}
+              </li>
+            );
+          })}
           {folded.length > 0 && (
             <li className="border-border-subtle border-t">
               <details className="group">
@@ -292,70 +241,6 @@ export async function MissingPanel({
 // ---------------------------------------------------------------------------------------------
 // 3. Kernaufgaben
 
-const KEY_STATE_UI: Record<KeyTaskState, { tone: Tone; icon: typeof Check }> = {
-  done: { tone: "ok", icon: Check },
-  open: { tone: "neutral", icon: CircleDashed },
-  soon: { tone: "warn", icon: Clock },
-  overdue: { tone: "critical", icon: OctagonAlert },
-  waiting: { tone: "waiting", icon: Hourglass },
-  snoozed: { tone: "neutral", icon: AlarmClockOff },
-};
-
-function KeyTaskItem({
-  eventId,
-  row,
-  dateText,
-  stateText,
-  canWrite,
-}: {
-  eventId: string;
-  row: KeyTaskRow;
-  dateText: string | null;
-  stateText: string;
-  canWrite: boolean;
-}) {
-  const ui = KEY_STATE_UI[row.state];
-  const Icon = ui.icon;
-  const tone = {
-    ok: "text-status-ok",
-    warn: "text-status-warn",
-    critical: "text-status-critical",
-    neutral: "text-muted-foreground",
-    info: "text-status-info",
-    waiting: "text-status-waiting",
-  }[ui.tone];
-  return (
-    <li
-      data-href={taskHref(eventId, row.id)}
-      className="flex cursor-pointer items-center gap-x-2.5 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover"
-    >
-      {canWrite ? (
-        <TaskCheckToggle task={row}>
-          <Icon aria-hidden className={cn("size-4 shrink-0", tone)} />
-        </TaskCheckToggle>
-      ) : (
-        <Icon aria-hidden className={cn("size-4 shrink-0", tone)} />
-      )}
-      <Link
-        href={taskHref(eventId, row.id)}
-        scroll={false}
-        className={cn(
-          "min-w-0 flex-1 truncate hover:underline",
-          row.state === "done" && "text-muted-foreground",
-        )}
-      >
-        {row.title}
-      </Link>
-      <span className={cn("whitespace-nowrap font-medium text-small", tone)}>{stateText}</span>
-      {dateText && (
-        <span className="tabular whitespace-nowrap text-muted-foreground text-small">
-          {dateText}
-        </span>
-      )}
-    </li>
-  );
-}
-
 /** "Kernaufgaben": a compact checklist of the event's key tasks; the star marks the heading only. */
 export async function KeyTasksPanel({
   event,
@@ -369,7 +254,6 @@ export async function KeyTasksPanel({
   canWrite: boolean;
 }) {
   const t = await getTranslations("eventDetail.overview.key");
-  const locale = await getLocale();
   const rows = overview.tasks?.key ?? [];
   return (
     <Panel aria-labelledby="key-title">
@@ -388,17 +272,8 @@ export async function KeyTasksPanel({
               key={row.id}
               eventId={event.id}
               row={row}
+              today={today}
               canWrite={canWrite}
-              stateText={t(`state.${row.state}`)}
-              dateText={
-                row.state === "snoozed" && row.snoozedUntil
-                  ? t("snoozedUntil", { date: formatDateShort(row.snoozedUntil, locale) })
-                  : row.state === "waiting" && row.dueOn
-                    ? t("waitingSince", { date: formatDateShortYear(row.dueOn, locale, today) })
-                    : row.state !== "done" && row.dueOn
-                      ? formatDateShort(row.dueOn, locale)
-                      : null
-              }
             />
           ))}
         </ul>
@@ -409,6 +284,14 @@ export async function KeyTasksPanel({
 
 // ---------------------------------------------------------------------------------------------
 // 4. Nächste Termine
+
+/** "Morgen", "In 3 Tagen", "Heute"; a past date reads "vor 3 Tagen" (it is not overdue, it happened). */
+function RelativeDay({ date, today }: { date: string; today: string }) {
+  const t = useTranslations("eventDetail.overview.dates");
+  const dueText = useDueText();
+  const n = daysBetween(today, date);
+  return <>{n < 0 ? t("daysAgo", { n: -n }) : dueText(date, today)}</>;
+}
 
 /** "Nächste Termine": the named dates of the event, upcoming first; past ones muted and collapsed. */
 export async function DatesPanel({ event, today }: { event: EventDetail; today: string }) {
@@ -427,12 +310,6 @@ export async function DatesPanel({ event, today }: { event: EventDetail; today: 
     today,
   );
 
-  const relative = (date: string) => {
-    const n = daysBetween(today, date);
-    if (n === 0) return t("today");
-    if (n === 1) return t("tomorrow");
-    return n > 0 ? t("inDays", { n }) : t("daysAgo", { n: -n });
-  };
   const label = (key: string) => (t.has(`keys.${key}` as never) ? t(`keys.${key}` as never) : key);
   const row = (d: { key: string; date: string }, muted: boolean) => (
     <li
@@ -446,8 +323,8 @@ export async function DatesPanel({ event, today }: { event: EventDetail; today: 
       <span className="tabular whitespace-nowrap text-small">
         {formatDateWithWeekday(d.date, locale)}
       </span>
-      <span className="tabular w-16 whitespace-nowrap text-right text-small text-foreground-2">
-        {relative(d.date)}
+      <span className="tabular whitespace-nowrap text-right text-small text-foreground-2 sm:w-28">
+        <RelativeDay date={d.date} today={today} />
       </span>
     </li>
   );
@@ -484,6 +361,44 @@ export async function DatesPanel({ event, today }: { event: EventDetail; today: 
           )}
         </>
       )}
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// 4b. Notiz
+
+/** Longest note shown on the Überblick; the rest is behind the link to Notizen. */
+const NOTE_EXCERPT_CHARS = 280;
+
+/**
+ * "Notiz": what the team should know about this market, so a note is not hidden two clicks away
+ * (Mehr → Notizen). Nothing is shown while there is no note.
+ */
+export async function NotesExcerpt({ event }: { event: EventDetail }) {
+  const text = event.notes?.trim();
+  if (!text) return null;
+  const t = await getTranslations("eventDetail.overview.notes");
+  const excerpt =
+    text.length > NOTE_EXCERPT_CHARS ? `${text.slice(0, NOTE_EXCERPT_CHARS).trimEnd()} …` : text;
+  return (
+    <Panel aria-labelledby="note-title">
+      <PanelHeader>
+        <PanelTitle id="note-title" className="flex items-center gap-2">
+          <NotebookText aria-hidden className="size-4 text-muted-foreground" />
+          {t("title")}
+        </PanelTitle>
+        <Link
+          href={`/veranstaltungen/${event.id}/notizen` as never}
+          className="inline-flex items-center gap-1 text-accent-soft-foreground text-small hover:underline"
+        >
+          {t("link")}
+          <ArrowRight aria-hidden className="size-3.5" />
+        </Link>
+      </PanelHeader>
+      <PanelBody className="line-clamp-4 whitespace-pre-line break-words text-foreground-2">
+        {excerpt}
+      </PanelBody>
     </Panel>
   );
 }

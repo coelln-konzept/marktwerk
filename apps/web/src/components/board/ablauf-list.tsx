@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
-import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { focusNeighbourRow, KeyboardRows } from "@/components/ui/keyboard-rows";
 import { formatDateShort, formatDateWeekdayDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BoardTask } from "@/server/queries/tasks";
@@ -51,9 +51,11 @@ export function AblaufList({
       const last = formatDateShort(addDays(startsOn, -from), locale);
       if (to === null) return t("until", { date: last });
       // Days up to today are in "Überfällig & heute", so the range starts tomorrow at the earliest.
-      const first = addDays(startsOn, -to);
+      const start = addDays(startsOn, -to);
       const tomorrow = addDays(today, 1);
-      return `${formatDateShort(first < tomorrow ? tomorrow : first, locale)} – ${last}`;
+      const first = formatDateShort(start < tomorrow ? tomorrow : start, locale);
+      // One day left of the range: a single date, not "Fr 30.10. – Fr 30.10.".
+      return first === last ? last : `${first} – ${last}`;
     }
     if (phase === "event") {
       const days = daysBetween(today, startsOn);
@@ -158,6 +160,8 @@ function AblaufRow({ task }: { task: BoardTask }) {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key === "e" && canWrite && !finished) {
       event.preventDefault();
+      // The row moves to the collapsed "Erledigt" group: keep focus in the list, on the next row.
+      focusNeighbourRow(event.currentTarget);
       actions.setStatus(task, "done");
     } else if (event.key === "a" && canWrite) {
       event.preventDefault();
@@ -173,7 +177,7 @@ function AblaufRow({ task }: { task: BoardTask }) {
       tabIndex={0}
       onKeyDown={onKeyDown}
       className={cn(
-        "grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-x-2 border-border-subtle border-b px-2 py-1.5 outline-hidden last:border-b-0 hover:bg-hover focus-visible:bg-selected sm:grid-cols-[2rem_minmax(0,1fr)_8rem_10rem_6rem_2rem] sm:py-1",
+        "scroll-mt-28 grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-x-2 border-border-subtle border-b px-2 py-1.5 last:border-b-0 hover:bg-hover focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:grid-cols-[2rem_minmax(0,1fr)_8rem_10rem_6rem_2rem] sm:py-1",
         finished && "text-foreground-2",
       )}
     >
@@ -182,7 +186,10 @@ function AblaufRow({ task }: { task: BoardTask }) {
           finished ? (
             <button
               type="button"
-              onClick={() => actions.setStatus(task, "todo")}
+              onClick={(event) => {
+                focusNeighbourRow(event.currentTarget);
+                actions.setStatus(task, "todo");
+              }}
               aria-label={t("card.reopen", { title: task.title })}
               title={t("menu.reopen")}
               className="grid size-7 cursor-pointer place-items-center rounded-full text-status-ok hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
@@ -192,7 +199,10 @@ function AblaufRow({ task }: { task: BoardTask }) {
           ) : (
             <button
               type="button"
-              onClick={() => actions.setStatus(task, "done")}
+              onClick={(event) => {
+                focusNeighbourRow(event.currentTarget);
+                actions.setStatus(task, "done");
+              }}
               aria-label={t("card.complete", { title: task.title })}
               title={t("card.completeHint")}
               className="grid size-7 cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"

@@ -19,6 +19,8 @@ type DutyDiff = {
 type UpdateDiff = { changes?: Record<string, unknown>; undo?: boolean };
 type BookingDiff = { flag?: string; to?: boolean };
 type MoveDiff = { from?: { startsOn?: string }; to?: { startsOn?: string }; undo?: boolean };
+type TaskStatusDiff = { from?: string; to?: string; reason?: string; note?: string };
+type SnoozeDiff = { until?: string };
 
 function asObject<T>(value: unknown): T {
   return (value && typeof value === "object" ? value : {}) as T;
@@ -29,6 +31,7 @@ export async function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
   const t = await getTranslations("eventDetail.history");
   const tStatus = await getTranslations("status.event");
   const tFlag = await getTranslations("eventDetail.booking.flag");
+  const tTaskStatus = await getTranslations("tasks.status");
   const locale = await getLocale();
 
   const status = (key: string | undefined) =>
@@ -92,6 +95,41 @@ export async function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
       }
       case "event.archive":
         return { text: t("archived") };
+      case "task.status": {
+        const d = asObject<TaskStatusDiff>(entry.diff);
+        const title = entry.subject ?? "?";
+        const reopened = d.to === "todo" && (d.from === "done" || d.from === "skipped");
+        const status =
+          d.to && tTaskStatus.has(d.to as never) ? tTaskStatus(d.to as never) : (d.to ?? "?");
+        return {
+          text:
+            d.to === "done"
+              ? t("taskDone", { title })
+              : reopened
+                ? t("taskReopened", { title })
+                : t("taskStatus", { title, status }),
+          reason: d.reason ? t("reason", { reason: d.reason }) : undefined,
+        };
+      }
+      case "task.snooze": {
+        const until = asObject<SnoozeDiff>(entry.diff).until;
+        return {
+          text: t("taskSnoozed", {
+            title: entry.subject ?? "?",
+            date: until ? formatDateShort(until, locale) : "?",
+          }),
+        };
+      }
+      case "task.unsnooze":
+        return { text: t("taskUnsnoozed", { title: entry.subject ?? "?" }) };
+      case "task.undo":
+        return { text: t("taskUndone", { title: entry.subject ?? "?" }) };
+      case "document.upload":
+        return { text: t("documentUploaded", { file: entry.subject ?? "?" }) };
+      case "document.archive":
+        return { text: t("documentArchived", { file: entry.subject ?? "?" }) };
+      case "document.restore":
+        return { text: t("documentRestored", { file: entry.subject ?? "?" }) };
       default:
         return { text: t("other", { action: entry.action }) };
     }
