@@ -186,8 +186,8 @@ export async function TodayCard({
             href="/benachrichtigungen"
             className="inline-flex min-h-8 items-center rounded-lg px-2 font-medium hover:bg-hover"
           >
-            {due.total > due.items.length
-              ? t("allInCenter", { count: due.total })
+            {due.inCenter > due.items.length
+              ? t("allInCenter", { count: due.inCenter })
               : t("openCenter")}
           </Link>
         </div>

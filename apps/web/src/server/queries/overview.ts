@@ -51,8 +51,10 @@ export type WeekendBlock = {
 export type OverviewDue = {
   /** The first `TODAY_CARD_ROWS` items by `rankDue`. */
   items: DueItem[];
-  /** All overdue and due-today items (the card says "Alle N in Benachrichtigungen"). */
+  /** All overdue and due-today items. */
   total: number;
+  /** Those the notification center lists (tasks and permits): the N of "Alle N in Benachrichtigungen". */
+  inCenter: number;
   overdue: number;
   dueToday: number;
 };
@@ -143,6 +145,7 @@ export async function getOverview(
     due: {
       items: urgent.slice(0, TODAY_CARD_ROWS),
       total: urgent.length,
+      inCenter: urgent.filter((i) => i.kind === "task" || i.kind === "permit").length,
       overdue: urgent.filter((i) => i.urgency === "overdue").length,
       dueToday: urgent.filter((i) => i.urgency === "today").length,
     },

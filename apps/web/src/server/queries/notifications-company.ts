@@ -263,6 +263,9 @@ async function loadCompanyRows(
           (t.eventStatus !== "cancelled" &&
             !t.eventArchived &&
             !isPastMarketLeftover(t.endsOn, currentDue, today));
+        // An open task of a past (or cancelled) market is not "erledigt": it belongs to "Aufräumen" on
+        // the Übersicht and stays out of the center altogether.
+        if (OPEN_TASK.includes(t.status) && !eventOk) continue;
         subjectActive = OPEN_TASK.includes(t.status) && eventOk;
         keyCurrent = currentDue === key.dueOn;
         isLive = subjectActive && keyCurrent;
