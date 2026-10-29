@@ -44,7 +44,7 @@ marktwerk
 │   ├── Kontakte              ← authorities, landowners, suppliers, services
 │   ├── Aussteller            ← vendor list (read-only import)
 │   ├── Wissen                ← knowledge base
-│   └── Pflichten             ← recurring obligations · vehicles · defects (`/firma`, page title "Pflichten & Fahrzeuge")
+│   └── Pflichten             ← recurring obligations · vehicles · defects (`/firma`, page title "Pflichten")
 ├── (hidden for now, `lib/modules.ts`: Team · Finanzen · Buchungen; Benachrichtigungen is reached by the bell, not the sidebar)
 └── (bottom) Profil: Einstellungen · Design (System/Hell/Dunkel) · Dichte (Standard/Kompakt) · Sprache · Abmelden
       Einstellungen ← Firma (company data) · Benutzer & Rollen · [Rechtliche Werte with Team] · **Bibliothek**
@@ -70,9 +70,10 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
 ```
 - **Sidebar** (232 px): logo "marktwerk", then **five daily entries**: Übersicht · Board · Veranstaltungen · Kalender ·
   Genehmigungen (UX pass, product owner 2026-10-22). Team and Finanzen join them when their modules return. The red
-  badge on Genehmigungen is the number "Fehlt/abgelaufen für kommende Märkte": permits that are missing, not yet
-  applied for, rejected or expired and that an upcoming market needs; it is the same number as the focus chip of that
-  name on the Genehmigungen page (one definition, `missingPermitCount` / `Logbook.needsAction`). Below, the
+  badge on Genehmigungen is the number "Jetzt zu tun" (decision 2026-10-29): permits whose apply-by date has passed
+  without an application, or falls within `permit_horizon_days`, plus rejected and expired ones; later ones are "noch
+  nicht fällig" and don't count. It is the same number as the focus chip of that name on the Genehmigungen page (one
+  rule, core `permitActionTier`). Below, the
   collapsible group **Stammdaten** (Orte · Kontakte · Aussteller · Wissen · Pflichten), collapsed by default; the
   state is remembered per browser (cookie `mw_nav_stammdaten`) and the group opens by itself when the current page is
   inside it. Entries a role may not read are hidden (`can()`), as are the entries of hidden modules. The former
@@ -159,12 +160,12 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`); Dokumente, Notizen and Verlauf sit under "Mehr". Every link to a market opens its Überblick |
 | Orte | `/orte` | Venues: Name, Stadt, kommende Termine (zones, rows, capacity, landowner in the Vorschau `?vorschau=<id>`) |
 | Ort | `/orte/[id]` | One venue: zones and rows, location agreements |
-| Genehmigungen | `/genehmigungen` (was `/logbuch`, permanent redirect) | Permit matrix (locations × permit types) or list; one status row incl. "Fehlt/abgelaufen für kommende Märkte"; cells open the permit drawer `?genehmigung=<id>` |
+| Genehmigungen | `/genehmigungen` (was `/logbuch`, permanent redirect) | Opens on **Kommend** (permits covering upcoming markets). List sorted by Antrag bis in groups "Jetzt beantragen (bis …)" · "Später beantragen" · "Beantragt und erledigt" (phones open the list), or the matrix (locations × permit types; open cells show "bis dd.mm.", granted cells the coverage "7/7", with a legend); focus chip "Jetzt zu tun"; cells and rows open the permit drawer `?genehmigung=<id>`, whose primary button is the next forward step |
 | Genehmigung | drawer `?detail=permit:<id>` (M3); page `/genehmigungen/[id]` planned | One permit (documents, conditions, fees) |
 | Team · Stunden | `/team` | Staff list (M1), Vorschau `?person=<id>`; month grid hours, remaining allowance, month-close stepper and Schichten je Veranstaltung from M4 |
 | Person | `?person=<id>` on `/team`; page `/team/[id]` planned (M4) | Contract, hours history, shifts |
 | Finanzen · Zahlungen | `/finanzen` | Payables with inline instalments, receipts; drawer `?detail=payable:<id>` (M5) |
-| Pflichten & Fahrzeuge | `/firma` (sidebar: Pflichten) | Obligations, vehicles, defects (tabs); one filter row, no column prints over another |
+| Pflichten | `/firma` (sidebar and page title: Pflichten) | Obligations, vehicles, defects (tabs); one filter row, no column prints over another |
 | Aussteller | `/aussteller` | Vendor list (read-only): Name, Sortiment, Stadt, Stammaussteller; the rest in the Vorschau |
 | Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`) |
 | Einstellungen → Bibliothek | `/einstellungen/bibliothek` | Grundvorlage (master task template), Märkte (presets with venue, rhythm, own task template; Vorschau `?vorschau=<id>`), "Weitere Ablaufvorlagen" (collapsed, the old per-type templates). There is no "Vorlagen" sidebar entry; `/vorlagen` redirects here |
@@ -226,7 +227,7 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
 - **Bell:** unread open count, popover with the five most urgent open items (quick Erledigt) and "Alle anzeigen".
 
 ### Kalender (module)
-- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**. Veranstaltungen keeps its own Liste/Kalender toggle;
+- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**; phones open the Liste (decision 2026-10-28, cookie `mw_kal_phone`), an explicit `?ansicht=` wins. Same-day deadlines of one kind collapse into one entry ("65 Genehmigungen: Entscheidung erwartet"), "+ N weitere" links to the list from that day, ←/→ change the month, the month title opens a month/year jump. Veranstaltungen keeps its own Liste/Kalender toggle;
   the Kalender module is the company-wide view across modules.
 - **Layer panel ("Ebenen"):** collapsed behind an "Ebenen" button (state remembered, cookie `mw_kal_ebenen`).
   *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*: Genehmigungen, Raten &
