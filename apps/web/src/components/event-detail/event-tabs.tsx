@@ -19,7 +19,7 @@ export type EventTab = {
 
 const tabClass = (active: boolean) =>
   cn(
-    "-mb-px flex min-h-10 cursor-pointer items-center gap-2 whitespace-nowrap border-b-2 px-3 text-body outline-none hover:text-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
+    "-mb-px flex min-h-10 cursor-pointer items-center gap-2 whitespace-nowrap border-b-2 px-3 text-body hover:text-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
     active
       ? "border-primary font-semibold text-foreground"
       : "border-transparent text-foreground-2",
@@ -94,7 +94,7 @@ export function EventTabs({
               </Menu.Trigger>
               <Menu.Portal>
                 <Menu.Positioner side="bottom" align="start" sideOffset={4} className="z-50">
-                  <Menu.Popup className="flex min-w-[180px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+                  <Menu.Popup className="flex min-w-[180px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
                     {more.map((tab) => {
                       const active = activeMore?.key === tab.key;
                       return (
@@ -102,7 +102,7 @@ export function EventTabs({
                           key={tab.key}
                           render={<Link href={tab.href as never} />}
                           aria-current={active ? "page" : undefined}
-                          className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover"
+                          className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover"
                         >
                           <span className="grid size-4 place-items-center">
                             {active && <Check aria-hidden className="size-4" />}

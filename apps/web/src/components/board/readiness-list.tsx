@@ -190,7 +190,7 @@ export async function ReadinessList({
                         name: row.name,
                       })}
                       className={cn(
-                        "inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 font-medium text-small outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring",
+                        "inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 font-medium text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring",
                         open ? "border-foreground bg-hover" : "border-input bg-card",
                       )}
                     >

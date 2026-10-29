@@ -263,7 +263,7 @@ export function ItemDrawer({
     <Dialog.Root open onOpenChange={(open) => !open && !pending && close()}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-scrim" />
-        <Dialog.Popup className="fixed inset-y-0 right-0 z-40 flex w-[min(540px,100%)] flex-col border-l bg-card shadow-overlay outline-none">
+        <Dialog.Popup className="fixed inset-y-0 right-0 z-40 flex w-[min(540px,100%)] flex-col border-l bg-card shadow-overlay outline-hidden">
           <header className="flex items-start justify-between gap-3 border-border-subtle border-b px-5 py-4">
             <div className="min-w-0">
               <Dialog.Title className="font-semibold text-lg">

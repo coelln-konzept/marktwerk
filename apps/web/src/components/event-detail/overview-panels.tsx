@@ -57,7 +57,7 @@ const taskHref = (eventId: string, taskId: string) =>
 // 1. Status line
 
 const statusLink =
-  "group flex min-w-0 flex-col gap-1.5 rounded-lg px-3 py-2 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring";
+  "group flex min-w-0 flex-col gap-1.5 rounded-lg px-3 py-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring";
 
 /**
  * Status line: days until the market, tasks done with a slim bar, permits granted. Every piece links to
@@ -270,7 +270,7 @@ export async function MissingPanel({
           {folded.length > 0 && (
             <li className="border-border-subtle border-t">
               <details className="group">
-                <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-4 py-2 font-medium text-muted-foreground text-small outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden">
+                <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-4 py-2 font-medium text-muted-foreground text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden">
                   <ChevronRight
                     aria-hidden
                     className="size-4 shrink-0 transition-transform group-open:rotate-90"
@@ -505,7 +505,7 @@ function Disclosure({
   return (
     <Panel aria-labelledby={id}>
       <details className="group">
-        <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2 outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden">
           <ChevronRight
             aria-hidden
             className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"

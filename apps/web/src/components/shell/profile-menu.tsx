@@ -13,7 +13,7 @@ import { authClient } from "@/lib/auth-client";
 import { DEV_AUTO_LOGIN_OPT_OUT } from "@/server/dev-auto-login";
 
 const item =
-  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover";
 const label =
   "px-2 pt-2 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider";
 
@@ -52,7 +52,7 @@ export function ProfileMenu({
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner side="top" align="start" sideOffset={6} className="z-50">
-          <Menu.Popup className="flex min-w-[220px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+          <Menu.Popup className="flex min-w-[220px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
             {showSettings && (
               <>
                 <Menu.LinkItem render={<Link href={"/einstellungen" as never} />} className={item}>

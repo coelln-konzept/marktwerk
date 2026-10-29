@@ -28,7 +28,7 @@ import { useShell } from "./shell-context";
 export type Crumb = { label: string; href?: string };
 
 const MENU_ITEM =
-  "flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
+  "flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover";
 const VENUE_PAGE = /^\/orte\/([0-9a-f-]{36})(?:\/|$)/i;
 /** The boards (all events or one event) bring their own "C = Aufgabe anlegen". */
 const BOARD_PAGE = /^(?:\/veranstaltungen\/[0-9a-f-]{36})?\/board(?:\/|$)/i;
@@ -85,7 +85,7 @@ function NewMenu() {
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
-          <Menu.Popup className="flex min-w-[240px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+          <Menu.Popup className="flex min-w-[240px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
             {creatable.includes("event") && (
               <>
                 <Menu.LinkItem

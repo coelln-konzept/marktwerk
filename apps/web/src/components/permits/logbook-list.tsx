@@ -94,7 +94,7 @@ export async function LogbookList({
                           data-peek={peek}
                           data-href={peek}
                           aria-selected={selectedId === r.id}
-                          className="outline-none focus-visible:bg-selected"
+                          className="outline-hidden focus-visible:bg-selected"
                         >
                           <TD className="max-w-64">
                             <Link

@@ -103,7 +103,7 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
                       data-href={href}
                       data-peek={peek}
                       aria-selected={vorschauId === r.id}
-                      className={cn("outline-none focus-visible:bg-selected")}
+                      className={cn("outline-hidden focus-visible:bg-selected")}
                     >
                       <TD className="max-w-72 truncate" title={r.name}>
                         <Link

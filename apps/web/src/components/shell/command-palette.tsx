@@ -97,7 +97,7 @@ export function CommandPalette({ actions }: { actions: SearchHit[] }) {
     <Dialog.Root open={paletteOpen} onOpenChange={setPaletteOpen}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-scrim" />
-        <Dialog.Popup className="fixed top-[88px] left-1/2 z-50 flex w-[min(640px,calc(100%-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-overlay outline-none">
+        <Dialog.Popup className="fixed top-[88px] left-1/2 z-50 flex w-[min(640px,calc(100%-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-overlay outline-hidden">
           <Dialog.Title className="sr-only">{t("title")}</Dialog.Title>
           <div className="flex items-center gap-3 border-border-subtle border-b px-4 py-3">
             <Search aria-hidden className="size-4 text-muted-foreground" />
@@ -123,7 +123,7 @@ export function CommandPalette({ actions }: { actions: SearchHit[] }) {
                   go(all[active]);
                 }
               }}
-              className="min-w-0 flex-1 bg-transparent text-base outline-none"
+              className="min-w-0 flex-1 bg-transparent text-base outline-hidden"
             />
             <Kbd>Esc</Kbd>
           </div>

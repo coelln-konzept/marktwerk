@@ -160,7 +160,7 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
                       data-href={peek}
                       data-peek={peek}
                       aria-selected={vorschauId === v.id}
-                      className="outline-none focus-visible:bg-selected"
+                      className="outline-hidden focus-visible:bg-selected"
                     >
                       <TD className="min-w-44">
                         <Link

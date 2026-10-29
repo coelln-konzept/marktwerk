@@ -168,5 +168,26 @@
     "week": "KW",
     "weekdays": "Mo,Di,Mi,Do,Fr,Sa,So",
     "more": "+ {n} weitere"
+  },
+  "due": {
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "inDays": "In {count, plural, one {# Tag} other {# Tagen}}",
+    "inWeeks": "In {count, plural, one {# Woche} other {# Wochen}}",
+    "inMonths": "In {count, plural, one {# Monat} other {# Monaten}}",
+    "overdueDays": "{count, plural, one {Gestern fällig} other {# Tage überfällig}}",
+    "overdueWeeks": "{count, plural, one {# Woche überfällig} other {# Wochen überfällig}}",
+    "overdueMonths": "{count, plural, one {# Monat überfällig} other {# Monate überfällig}}",
+    "waitingDays": "{count, plural, one {Wartet seit gestern} other {Wartet seit # Tagen}}",
+    "waitingWeeks": "Wartet seit {count, plural, one {# Woche} other {# Wochen}}",
+    "waitingMonths": "Wartet seit {count, plural, one {# Monat} other {# Monaten}}",
+    "compactDays": "{count} T",
+    "compactWeeks": "{count} Wo.",
+    "compactMonths": "{count} Mon.",
+    "withDate": "{date} · {relative}",
+    "none": "Kein Datum"
+  },
+  "form": {
+    "optional": "(optional)"
   }
 }

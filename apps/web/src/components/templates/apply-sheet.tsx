@@ -126,7 +126,7 @@ export function ApplySheet({
     <Dialog.Root open onOpenChange={(open) => !open && !pending && close()}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-scrim" />
-        <Dialog.Popup className="fixed inset-y-0 right-0 z-40 flex w-[min(720px,100%)] flex-col border-l bg-card shadow-overlay outline-none">
+        <Dialog.Popup className="fixed inset-y-0 right-0 z-40 flex w-[min(720px,100%)] flex-col border-l bg-card shadow-overlay outline-hidden">
           <header className="flex flex-col gap-3 border-border-subtle border-b px-5 pt-4 pb-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -150,7 +150,7 @@ export function ApplySheet({
                     className={cn(
                       "grid size-6 place-items-center rounded-full font-semibold text-tiny",
                       n < step
-                        ? "bg-status-ok-dot text-white"
+                        ? "bg-status-ok-dot text-on-ok"
                         : n === step
                           ? "bg-primary text-primary-foreground"
                           : "bg-status-neutral-bg text-foreground-2",

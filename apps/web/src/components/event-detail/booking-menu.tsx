@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 
 const item =
-  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover";
 
 type Flags = { bookingOpen: boolean; fullyBooked: boolean; carSpacesFull: boolean };
 const FLAGS = ["bookingOpen", "fullyBooked", "carSpacesFull"] as const;
@@ -69,7 +69,7 @@ export function BookingMenu({
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
-            <Menu.Popup className="flex min-w-[240px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+            <Menu.Popup className="flex min-w-[240px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
               {FLAGS.map((flag) => (
                 <Menu.CheckboxItem
                   key={flag}

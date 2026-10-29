@@ -43,7 +43,7 @@ export async function PayableCard({
       open={p.status === "overdue"}
       className="group/card border-border-subtle border-b last:border-b-0"
     >
-      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 outline-none hover:bg-hover focus-visible:bg-hover [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 outline-hidden hover:bg-hover focus-visible:bg-hover [&::-webkit-details-marker]:hidden">
         <ChevronRight
           aria-hidden
           className="size-4 shrink-0 text-muted-foreground transition-transform group-open/card:rotate-90"

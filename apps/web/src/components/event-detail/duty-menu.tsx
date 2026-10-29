@@ -12,7 +12,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import type { AssignableStaff } from "@/server/queries/team";
 
 const item =
-  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[disabled]:cursor-default data-[highlighted]:bg-hover";
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[highlighted]:bg-hover";
 const groupLabel =
   "px-2 pt-2 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider";
 
@@ -140,7 +140,7 @@ export function DutyMenu({
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
-            <Menu.Popup className="flex max-h-[min(420px,var(--available-height))] min-w-[260px] flex-col overflow-y-auto rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+            <Menu.Popup className="flex max-h-[min(420px,var(--available-height))] min-w-[260px] flex-col overflow-y-auto rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
               {preferred.length > 0 && (
                 <Menu.Group>
                   <Menu.GroupLabel className={groupLabel}>

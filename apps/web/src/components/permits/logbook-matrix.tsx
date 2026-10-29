@@ -134,7 +134,7 @@ export function LogbookMatrix({
                             aria-current={
                               cell.some((c) => c.id === selectedId) ? "true" : undefined
                             }
-                            className="inline-flex items-center gap-1.5 rounded-full outline-none focus-visible:outline-2 focus-visible:outline-ring aria-[current=true]:ring-2 aria-[current=true]:ring-ring"
+                            className="inline-flex items-center gap-1.5 rounded-full focus-visible:outline-2 focus-visible:outline-ring aria-[current=true]:ring-2 aria-[current=true]:ring-ring"
                           >
                             <PermitStateBadge state={worst(cell).state} />
                             {cell.length > 1 && (

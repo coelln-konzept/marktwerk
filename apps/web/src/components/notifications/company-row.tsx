@@ -26,9 +26,9 @@ import type { CompanyNotificationRow } from "@/server/queries/notifications";
 import { useCompanyActions } from "./use-company-actions";
 
 const menuPopup =
-  "flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none";
+  "flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden";
 const menuItem =
-  "flex min-h-8 cursor-pointer items-center justify-between gap-4 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
+  "flex min-h-8 cursor-pointer items-center justify-between gap-4 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover";
 const small = cn(buttonVariants({ variant: "outline", size: "sm" }));
 
 /** The due information as colour + icon + text. */
@@ -134,7 +134,7 @@ export function CompanyRow({ row, today }: { row: CompanyNotificationRow; today:
       tabIndex={0}
       aria-label={row.title}
       className={cn(
-        "flex flex-wrap items-start gap-x-3 gap-y-2 border-border-subtle border-b px-4 py-3 outline-none last:border-b-0 focus-visible:bg-hover focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
+        "flex flex-wrap items-start gap-x-3 gap-y-2 border-border-subtle border-b px-4 py-3 last:border-b-0 focus-visible:bg-hover focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
         row.unread && "bg-selected/40",
         closed && "text-muted-foreground",
       )}
@@ -157,7 +157,7 @@ export function CompanyRow({ row, today }: { row: CompanyNotificationRow; today:
             href={row.href as never}
             onClick={() => row.unread && actions.markRead(row.id)}
             className={cn(
-              "min-w-0 rounded-sm outline-none hover:text-accent-soft-foreground focus-visible:outline-2 focus-visible:outline-ring",
+              "min-w-0 rounded-sm hover:text-accent-soft-foreground focus-visible:outline-2 focus-visible:outline-ring",
               row.unread ? "font-semibold" : "font-medium",
             )}
           >

@@ -139,7 +139,7 @@ export function TaskDrawer({
   const doneNow = task.status === "done";
   const waitingNow = task.status === "waiting_external";
   const buttonBase =
-    "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 font-medium text-small outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-60";
+    "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-60";
 
   // Primary: Erledigt. Toggle: Wartet auf Amt. Everything else (In Arbeit, Blockiert, Übersprungen, wieder
   // Offen) sits in the "…" menu. The current state is always spelled out as a badge (colour + icon + text).
@@ -182,13 +182,13 @@ export function TaskDrawer({
           <Menu.Root>
             <Menu.Trigger
               aria-label={t("statusMore")}
-              className="grid size-8 cursor-pointer place-items-center rounded-lg border border-input bg-card text-foreground-2 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
+              className="grid size-8 cursor-pointer place-items-center rounded-lg border border-input bg-card text-foreground-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
             >
               <Ellipsis aria-hidden className="size-4" />
             </Menu.Trigger>
             <Menu.Portal>
               <Menu.Positioner side="bottom" align="start" sideOffset={4} className="z-50">
-                <Menu.Popup className="flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+                <Menu.Popup className="flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
                   {MENU_STATUSES.map((status) => {
                     const Icon = TASK_STATUS_UI[status].icon;
                     const on = task.status === status;
@@ -197,7 +197,7 @@ export function TaskDrawer({
                         key={status}
                         disabled={on}
                         onClick={() => pickStatus(status)}
-                        className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[disabled]:cursor-default data-[highlighted]:bg-hover"
+                        className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[highlighted]:bg-hover"
                       >
                         <Icon aria-hidden className="size-4 text-muted-foreground" />
                         {status === "todo" ? t("statusReopen") : t(`statusLong.${status}`)}
@@ -475,7 +475,7 @@ export function TaskDrawer({
                   disabled={pending}
                   onClick={() => feedback(value)}
                   className={cn(
-                    "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 font-medium text-small outline-none focus-visible:outline-2 focus-visible:outline-ring",
+                    "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring",
                     task.effortFeedback === value
                       ? "border-foreground bg-foreground text-background"
                       : "border-input bg-card hover:bg-hover",
@@ -671,7 +671,7 @@ export function TaskDrawer({
         )}
 
         <details className="group">
-          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded-md font-semibold text-small outline-none focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded-md font-semibold text-small focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
             <ChevronRight
               aria-hidden
               className="size-4 text-muted-foreground transition-transform group-open:rotate-90"

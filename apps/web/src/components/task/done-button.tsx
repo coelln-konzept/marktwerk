@@ -23,7 +23,7 @@ export function TaskDoneButton({
       title={t("label")}
       aria-label={t("aria", { title: task.title })}
       onClick={() => actions.setStatus(task, "done")}
-      className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg bg-status-neutral-bg text-foreground-2 outline-none hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
+      className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg bg-status-neutral-bg text-foreground-2 hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
     >
       <CircleCheck aria-hidden className="size-4" />
     </button>
@@ -55,7 +55,7 @@ export function TaskCheckToggle({
       }
       aria-pressed={done}
       onClick={() => actions.setStatus(task, done ? "todo" : "done")}
-      className="group/check -m-1.5 grid size-7 shrink-0 cursor-pointer place-items-center rounded-md outline-none hover:bg-status-ok-bg focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
+      className="group/check -m-1.5 grid size-7 shrink-0 cursor-pointer place-items-center rounded-md hover:bg-status-ok-bg focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
     >
       {done ? (
         children

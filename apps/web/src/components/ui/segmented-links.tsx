@@ -21,7 +21,7 @@ export function Segments({ items }: { items: SegmentItem[] }) {
           scroll={false}
           aria-current={item.active ? "true" : undefined}
           className={cn(
-            "inline-flex min-h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-3 font-medium text-small outline-none focus-visible:outline-2 focus-visible:outline-ring",
+            "inline-flex min-h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-3 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring",
             item.active
               ? "bg-foreground text-background shadow-card"
               : "text-foreground-2 hover:bg-hover",

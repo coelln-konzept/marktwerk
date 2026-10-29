@@ -103,7 +103,7 @@ export function AblaufList({
         if (phase === "done")
           return (
             <details key={phase} className="group border-border-subtle border-t">
-              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-3 px-4 py-2 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-3 px-4 py-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
                 <ChevronRight
                   aria-hidden
                   className="size-4 text-muted-foreground transition-transform group-open:rotate-90"
@@ -173,7 +173,7 @@ function AblaufRow({ task }: { task: BoardTask }) {
       tabIndex={0}
       onKeyDown={onKeyDown}
       className={cn(
-        "grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-x-2 border-border-subtle border-b px-2 py-1.5 outline-none last:border-b-0 hover:bg-hover focus-visible:bg-selected sm:grid-cols-[2rem_minmax(0,1fr)_8rem_10rem_6rem_2rem] sm:py-1",
+        "grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-x-2 border-border-subtle border-b px-2 py-1.5 outline-hidden last:border-b-0 hover:bg-hover focus-visible:bg-selected sm:grid-cols-[2rem_minmax(0,1fr)_8rem_10rem_6rem_2rem] sm:py-1",
         finished && "text-foreground-2",
       )}
     >
@@ -185,7 +185,7 @@ function AblaufRow({ task }: { task: BoardTask }) {
               onClick={() => actions.setStatus(task, "todo")}
               aria-label={t("card.reopen", { title: task.title })}
               title={t("menu.reopen")}
-              className="grid size-7 cursor-pointer place-items-center rounded-full text-status-ok outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+              className="grid size-7 cursor-pointer place-items-center rounded-full text-status-ok hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
             >
               <Undo2 aria-hidden className="size-4" />
             </button>
@@ -195,7 +195,7 @@ function AblaufRow({ task }: { task: BoardTask }) {
               onClick={() => actions.setStatus(task, "done")}
               aria-label={t("card.complete", { title: task.title })}
               title={t("card.completeHint")}
-              className="grid size-7 cursor-pointer place-items-center rounded-full text-muted-foreground outline-none hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"
+              className="grid size-7 cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"
             >
               <CircleCheck aria-hidden className="size-4" />
             </button>
@@ -212,7 +212,7 @@ function AblaufRow({ task }: { task: BoardTask }) {
             tabIndex={-1}
             title={task.title}
             className={cn(
-              "line-clamp-2 break-words rounded-sm font-medium outline-none hover:underline sm:line-clamp-1",
+              "line-clamp-2 break-words rounded-sm font-medium hover:underline sm:line-clamp-1",
               finished && "line-through decoration-foreground-2/50",
             )}
           >

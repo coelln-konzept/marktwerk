@@ -166,7 +166,7 @@ export default async function LibraryPage({
                       data-peek={peek}
                       aria-selected={vorschauId === m.id}
                       className={cn(
-                        "outline-none focus-visible:bg-selected",
+                        "outline-hidden focus-visible:bg-selected",
                         !m.active && "text-muted-foreground",
                       )}
                     >

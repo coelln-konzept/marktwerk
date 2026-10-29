@@ -40,7 +40,7 @@ function NavLink({ item, pathname }: { item: NavEntry; pathname: string }) {
       {item.icon}
       <span className="truncate">{item.label}</span>
       {item.badge ? (
-        <span className="tabular ml-auto inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-critical-dot px-1.5 font-bold text-[11px] text-white">
+        <span className="tabular ml-auto inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-critical-dot px-1.5 font-bold text-[11px] text-on-critical">
           {item.badge}
           {item.badgeLabel && <span className="sr-only"> {item.badgeLabel}</span>}
         </span>
@@ -137,7 +137,7 @@ export function SidebarNav({
               if (window.matchMedia("(min-width: 1024px)").matches) setSidebarHidden(true);
               else setNavOpen(false);
             }}
-            className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
           >
             <PanelLeftClose aria-hidden className="size-4" />
           </button>

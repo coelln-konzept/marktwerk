@@ -264,7 +264,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                       data-peek={peek}
                       aria-selected={vorschauId === r.id}
                       className={cn(
-                        "outline-none focus-visible:bg-selected",
+                        "outline-hidden focus-visible:bg-selected",
                         r.status === "cancelled" && "text-muted-foreground",
                       )}
                     >

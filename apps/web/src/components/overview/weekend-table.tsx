@@ -129,7 +129,7 @@ export async function WeekendTable({
                     data-href={href}
                     data-peek={peek}
                     aria-selected={vorschauId === r.id}
-                    className="cursor-pointer outline-none focus-visible:bg-selected"
+                    className="cursor-pointer outline-hidden focus-visible:bg-selected"
                   >
                     <TD className="py-2">
                       <span className="inline-flex items-center gap-2">

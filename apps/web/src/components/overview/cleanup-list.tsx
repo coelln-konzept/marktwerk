@@ -59,7 +59,7 @@ export function CleanupList({ events }: { events: PastEventCleanupRow[] }) {
           type="button"
           disabled={pending}
           onClick={() => skip()}
-          className="inline-flex min-h-8 cursor-pointer items-center rounded-lg border border-input bg-card px-3 font-medium outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
+          className="inline-flex min-h-8 cursor-pointer items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
         >
           {t("skipAll")}
         </button>
@@ -90,7 +90,7 @@ export function CleanupList({ events }: { events: PastEventCleanupRow[] }) {
               disabled={pending}
               aria-label={t("skipOne", { name: e.name })}
               onClick={() => skip([e.id])}
-              className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 font-medium outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
+              className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 font-medium hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
             >
               <CircleCheck aria-hidden className="size-4 text-foreground-2" />
               {t("skip")}

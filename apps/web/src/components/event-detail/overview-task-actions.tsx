@@ -27,7 +27,7 @@ export function TaskQuickActions({
         title={t("done")}
         aria-label={t("doneLabel", { title: task.title })}
         onClick={() => actions.setStatus(task, "done")}
-        className="inline-grid size-8 cursor-pointer place-items-center rounded-lg text-muted-foreground outline-none hover:bg-hover hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
+        className="inline-grid size-8 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-hover hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
       >
         <Check aria-hidden className="size-4" />
       </button>

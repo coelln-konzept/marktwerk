@@ -151,7 +151,7 @@ export async function CalendarList({
                       data-row
                       data-href={href}
                       className={cn(
-                        "cursor-pointer outline-none focus-visible:bg-selected",
+                        "cursor-pointer outline-hidden focus-visible:bg-selected",
                         r.status === "cancelled" && "text-muted-foreground",
                       )}
                     >
@@ -203,7 +203,7 @@ export async function CalendarList({
                       tabIndex={0}
                       data-row
                       data-href={item.href}
-                      className="cursor-pointer outline-none focus-visible:bg-selected"
+                      className="cursor-pointer outline-hidden focus-visible:bg-selected"
                     >
                       {events.length + i === 0 && dateCell}
                       <TD>

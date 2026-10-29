@@ -4,6 +4,7 @@ export * from "./company/input";
 export * from "./company/obligations";
 export * from "./dates/business-date";
 export * from "./dates/calendar";
+export * from "./dates/distance";
 export * from "./dates/holidays";
 export * from "./dates/relative";
 export * from "./dates/weekend";

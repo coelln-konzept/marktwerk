@@ -307,7 +307,7 @@ export async function DueToday({
                           {!showAll && cluster.items.length > DUE_PER_MARKET && (
                             <li className="pl-8">
                               <details className="group">
-                                <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-4 text-muted-foreground text-small outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                                <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-4 text-muted-foreground text-small hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
                                   <ChevronRight
                                     aria-hidden
                                     className="size-3.5 transition-transform group-open:rotate-90"

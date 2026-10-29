@@ -355,7 +355,7 @@ export function BoardView(props: Props) {
               </b>
             </span>
             <details className="text-muted-foreground">
-              <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 outline-none focus-visible:outline-2 focus-visible:outline-ring">
+              <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 focus-visible:outline-2 focus-visible:outline-ring">
                 <Keyboard aria-hidden className="size-4" />
                 {t("keys.title")}
               </summary>
@@ -513,7 +513,7 @@ function CardList({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="cursor-pointer rounded-md px-1.5 py-1 text-left font-medium text-muted-foreground text-small outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+          className="cursor-pointer rounded-md px-1.5 py-1 text-left font-medium text-muted-foreground text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
         >
           {expanded ? t("showLess") : t("showMore", { count: cards.length - DONE_COLLAPSED })}
         </button>

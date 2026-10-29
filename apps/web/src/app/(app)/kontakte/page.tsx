@@ -130,7 +130,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                       data-row
                       data-peek={peek}
                       aria-selected={vorschauId === r.id}
-                      className="outline-none focus-visible:bg-selected"
+                      className="outline-hidden focus-visible:bg-selected"
                     >
                       <TD className="max-w-52">
                         <Link

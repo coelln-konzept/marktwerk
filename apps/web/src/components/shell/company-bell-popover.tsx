@@ -37,13 +37,13 @@ export function CompanyBellPopover({
     <Popover.Root open={isOpen} onOpenChange={setOpen}>
       <Popover.Trigger
         aria-label={unread > 0 ? t("labelOpen", { count: unread }) : t("label")}
-        className="relative grid size-8 cursor-pointer place-items-center rounded-lg outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+        className="relative grid size-8 cursor-pointer place-items-center rounded-lg hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
       >
         <Bell aria-hidden className="size-4" />
         {unread > 0 && (
           <span
             aria-hidden
-            className="tabular -top-0.5 -right-0.5 absolute inline-grid h-4 min-w-4 place-items-center rounded-full bg-status-critical-dot px-1 font-bold text-[10px] text-white leading-none"
+            className="tabular -top-0.5 -right-0.5 absolute inline-grid h-4 min-w-4 place-items-center rounded-full bg-status-critical-dot px-1 font-bold text-[10px] text-on-critical leading-none"
           >
             {unread > 99 ? "99+" : unread}
           </span>
@@ -51,7 +51,7 @@ export function CompanyBellPopover({
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
-          <Popover.Popup className="flex max-h-[min(560px,calc(100svh-96px))] w-[min(420px,calc(100vw-24px))] flex-col rounded-xl border bg-popover text-popover-foreground shadow-pop outline-none">
+          <Popover.Popup className="flex max-h-[min(560px,calc(100svh-96px))] w-[min(420px,calc(100vw-24px))] flex-col rounded-xl border bg-popover text-popover-foreground shadow-pop outline-hidden">
             <div className="flex items-center justify-between gap-2 border-border-subtle border-b px-4 py-2">
               <div className="min-w-0">
                 <Popover.Title className="font-semibold text-[15px]">{t("title")}</Popover.Title>
@@ -80,7 +80,7 @@ export function CompanyBellPopover({
                         <Link
                           href={item.href as never}
                           className={cn(
-                            "block rounded-sm text-small outline-none hover:text-accent-soft-foreground focus-visible:outline-2 focus-visible:outline-ring",
+                            "block rounded-sm text-small hover:text-accent-soft-foreground focus-visible:outline-2 focus-visible:outline-ring",
                             item.unread ? "font-semibold" : "font-medium",
                           )}
                           onClick={() => {

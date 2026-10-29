@@ -116,7 +116,7 @@ export function TaskCard({
           aria-label={t("card.grip", { title: task.title })}
           title={t("card.gripHint")}
           onKeyDown={onGripKey}
-          className="grid w-5 shrink-0 cursor-grab place-items-start rounded pt-0.5 text-faint-foreground outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          className="grid w-5 shrink-0 cursor-grab place-items-start rounded pt-0.5 text-faint-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
         >
           <GripVertical aria-hidden className="size-4" />
         </button>
@@ -184,7 +184,7 @@ function CardContent({
         scroll={false}
         draggable={false}
         className={cn(
-          "rounded-sm text-left font-medium text-body leading-snug outline-none hover:underline focus-visible:outline-2 focus-visible:outline-ring",
+          "rounded-sm text-left font-medium text-body leading-snug hover:underline focus-visible:outline-2 focus-visible:outline-ring",
           finished && "text-foreground-2",
         )}
       >
@@ -210,7 +210,7 @@ function CardContent({
               onClick={() => actions.setStatus(task, "todo")}
               aria-label={t("card.reopen", { title: task.title })}
               title={t("menu.reopen")}
-              className="grid size-6 cursor-pointer place-items-center rounded-full text-status-ok outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+              className="grid size-6 cursor-pointer place-items-center rounded-full text-status-ok hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
             >
               <Undo2 aria-hidden className="size-4" />
             </button>
@@ -220,7 +220,7 @@ function CardContent({
               onClick={() => actions.setStatus(task, "done")}
               aria-label={t("card.complete", { title: task.title })}
               title={t("card.completeHint")}
-              className="grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground outline-none hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"
+              className="grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"
             >
               <CircleCheck aria-hidden className="size-4" />
             </button>

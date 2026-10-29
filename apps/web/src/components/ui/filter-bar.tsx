@@ -82,7 +82,7 @@ export function FilterDisclosure({
 }) {
   return (
     <details className="group basis-full">
-      <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-lg border border-input bg-card px-3 font-medium text-small outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring group-open:bg-sunken [&::-webkit-details-marker]:hidden">
+      <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-lg border border-input bg-card px-3 font-medium text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring group-open:bg-sunken [&::-webkit-details-marker]:hidden">
         <ListFilter aria-hidden className="size-4 text-muted-foreground" />
         {label}
         {summary && <span className="font-semibold text-accent-soft-foreground">: {summary}</span>}
