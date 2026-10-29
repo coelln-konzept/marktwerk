@@ -244,7 +244,13 @@ describe("event permits and health", () => {
       title: "Markt",
       permitType: "market_permit",
     });
-    const applied = await makePermit({ status: "applied", title: "Wasser", applyBy: "2026-09-01" });
+    // Filed, but the expected decision has passed: somebody has to ask (warn; just waiting would be ok).
+    const applied = await makePermit({
+      status: "applied",
+      title: "Wasser",
+      applyBy: "2026-09-01",
+      expectedDecisionOn: "2026-10-01",
+    });
     await db.insert(eventPermit).values([
       { eventId: ev.id, permitId: granted.id },
       { eventId: ev.id, permitId: applied.id },
@@ -361,23 +367,29 @@ describe("feeds for Übersicht and Kalender", () => {
     });
   });
 
-  describe("markets more than 6 months away (decision 2026-10-28)", () => {
-    it("leave the Übersicht, but stay on the Genehmigungen page (the badge counts by apply-by)", async () => {
-      // Today is 2026-10-21, so the cutoff is 2027-04-21.
+  describe("market distance no longer matters (decision 2026-10-29)", () => {
+    it("the Übersicht lists a permit by its apply-by date, whatever the market date", async () => {
+      // Today is 2026-10-21, default horizon 30 days: up to 2026-11-20.
       const near = await makeEvent("2027-04-21", "Im April");
-      const far = await makeEvent("2027-04-24", "Später im April");
+      const far = await makeEvent("2027-09-05", "Spätsommer");
       const p1 = await makePermit({ title: "Nah", status: "not_started", applyBy: "2026-10-19" });
       const p2 = await makePermit({ title: "Fern", status: "not_started", applyBy: "2026-10-19" });
+      const p3 = await makePermit({
+        title: "Später",
+        status: "not_started",
+        applyBy: "2026-11-21",
+      });
       await db.insert(eventPermit).values([
         { eventId: near.id, permitId: p1.id },
         { eventId: far.id, permitId: p2.id },
+        { eventId: far.id, permitId: p3.id },
       ]);
 
-      expect((await dueItems(owner, TODAY)).map((i) => i.title)).toEqual(["Nah"]);
-      // Both are overdue, so both count for the badge, whatever the market date.
+      // Same set as the badge: overdue, or apply-by within the horizon; "Später" stays quiet.
+      expect((await dueItems(owner, TODAY)).map((i) => i.title).sort()).toEqual(["Fern", "Nah"]);
       expect(await missingPermitCount(owner, TODAY)).toBe(2);
       const logbook = await listLogbook(owner, { season: null }, TODAY);
-      expect(logbook.rows.map((r) => r.title).sort()).toEqual(["Fern", "Nah"]);
+      expect(logbook.rows.map((r) => r.title).sort()).toEqual(["Fern", "Nah", "Später"]);
     });
   });
 

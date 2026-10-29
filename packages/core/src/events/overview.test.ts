@@ -119,7 +119,15 @@ describe("permits", () => {
     const rows: OverviewPermit[] = [
       { id: "z", title: "Zebra", ...permit({ status: "not_started" }) },
       { id: "a", title: "Alpha", ...permit({ status: "preparing", applyBy: "2026-11-01" }) },
-      { id: "b", title: "Beta", ...permit({ status: "applied", applyBy: "2026-10-01" }) },
+      // filed and waiting: not missing; once the expected decision has passed: missing
+      { id: "w", title: "Wartet", ...permit({ status: "applied", applyBy: "2026-10-01" }) },
+      {
+        id: "b",
+        title: "Beta",
+        ...permit({ status: "applied", applyBy: "2026-10-01", expectedDecisionOn: "2026-10-20" }),
+      },
+      // unfiled but not due yet (apply-by beyond the 30-day horizon): not missing
+      { id: "l", title: "Später", ...permit({ status: "preparing", applyBy: "2026-12-30" }) },
       { id: "ok", title: "Fertig", ...permit({}) },
       { id: "no", title: "Optional", ...permit({ required: false, status: "not_started" }) },
       { id: "x", title: "Abgelaufen", ...permit({ validUntil: "2026-10-01" }) },

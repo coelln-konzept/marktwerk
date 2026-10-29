@@ -11,7 +11,8 @@ import { Kbd } from "./kbd";
  * Detail drawer (UX concept §4): real work on one record while the list stays visible. Slides in from
  * the right, full width below 1024 px. Addressed by the URL (`?aufgabe=<id>`), so a copied link
  * reopens it; Esc or × closes (the URL is replaced, no history entry piles up) and focus goes back to
- * where it came from. Not modal: the board behind it stays usable.
+ * where it came from. A non-modal dialog (`aria-modal="false"`, like the Vorschau): the board behind it
+ * stays usable.
  */
 export function Drawer({
   kind,
@@ -55,7 +56,9 @@ export function Drawer({
   }, [closeHref, router]);
 
   return (
-    <aside
+    <section
+      role="dialog"
+      aria-modal="false"
       aria-labelledby="drawer-title"
       className="fixed inset-y-0 right-0 z-30 flex w-full flex-col border-l bg-popover shadow-overlay sm:w-[min(540px,100%)]"
     >
@@ -65,7 +68,7 @@ export function Drawer({
             {kind}
           </span>
           <span className="flex items-center gap-1">
-            <Kbd>Esc</Kbd>
+            <Kbd className="touch:hidden">Esc</Kbd>
             <Link
               ref={closeRef}
               href={closeHref as never}
@@ -88,6 +91,6 @@ export function Drawer({
         {header}
       </header>
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">{children}</div>
-    </aside>
+    </section>
   );
 }

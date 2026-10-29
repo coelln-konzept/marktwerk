@@ -185,7 +185,9 @@ export function ReportIssueButton({
                 />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <Label htmlFor="issue-description">{ti("details")}</Label>
+                <Label htmlFor="issue-description" optional>
+                  {ti("details")}
+                </Label>
                 <textarea
                   id="issue-description"
                   value={description}

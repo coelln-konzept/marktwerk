@@ -7,7 +7,6 @@ import {
   eventPermitHealth,
   type HealthLevel,
   isPermitHistory,
-  isPermitMarketInReach,
   isUnfiled,
   PERMIT_HORIZON_DEFAULT_DAYS,
   type PermitActionTier,
@@ -651,7 +650,7 @@ export async function permitSummaryByEvent(
     result.set(e.id, {
       health:
         own.length === 0 ? null : eventPermitHealth(own, e.startsOn, today, e.endsOn, horizonDays),
-      missing: countMissingPermits(own, e.startsOn, today, e.endsOn),
+      missing: countMissingPermits(own, e.startsOn, today, e.endsOn, horizonDays),
     });
   }
   return result;
@@ -778,9 +777,6 @@ export async function dueItems(
   const items: DueItem[] = [];
   for (const r of rows) {
     if (r.linked > 0 && r.upcoming === 0) continue;
-    // Übersicht and notifications still hold back markets > 6 months out (2026-10-28), in step with
-    // each other; the badge counts by apply-by only (2026-10-29).
-    if (!isPermitMarketInReach(r.nextEventOn, today)) continue;
     const unfiled = isUnfiled(r.status);
     const dueOn = unfiled ? r.applyBy : r.expectedDecisionOn;
     if (!dueOn) continue;

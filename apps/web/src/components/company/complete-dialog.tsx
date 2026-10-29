@@ -210,7 +210,9 @@ export function CompleteButton({
               </div>
             )}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor={f("cost")}>{tc("cost")}</Label>
+              <Label htmlFor={f("cost")} optional>
+                {tc("cost")}
+              </Label>
               <div className="relative">
                 <Input
                   id={f("cost")}
@@ -232,7 +234,9 @@ export function CompleteButton({
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={f("notes")}>{tc("notes")}</Label>
+            <Label htmlFor={f("notes")} optional>
+              {tc("notes")}
+            </Label>
             <textarea
               id={f("notes")}
               value={notes}
