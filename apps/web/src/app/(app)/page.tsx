@@ -2,16 +2,19 @@ import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventVorschau } from "@/components/events/event-vorschau";
-import { DueToday } from "@/components/overview/due-today";
-import { KpiStrip } from "@/components/overview/kpi-strip";
 import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
-import { WeekendTable } from "@/components/overview/weekend-table";
+import { TodayCard } from "@/components/overview/today-card";
+import { WeekendCard } from "@/components/overview/weekend-card";
 import { Page, PageHeader } from "@/components/shell/page";
+import { TaskDrawer } from "@/components/task/task-drawer";
+import { Drawer } from "@/components/ui/drawer";
+import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { formatDate, formatWeek, todayIn } from "@/lib/format";
-import { HIDDEN_MODULES } from "@/lib/modules";
-import { param } from "@/lib/url";
+import { HIDDEN_MODULES, isModuleHidden } from "@/lib/modules";
+import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { getOverview } from "@/server/queries/overview";
+import { getTaskDetail, listStaffOptions } from "@/server/queries/tasks";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("nav"))("overview") };
@@ -25,11 +28,17 @@ function berlinHour(timeZone = "Europe/Berlin"): number {
   return Number(hour ?? 12);
 }
 
+/**
+ * The Übersicht answers two questions side by side: "is the weekend on track?" (verdict per market,
+ * first blockers) and "what is due today?" (top five, Erledigt in one click). A task opens its drawer
+ * here (`?aufgabe=<id>`, like on the board), a market its Vorschau (`?vorschau=<id>`).
+ */
 export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   const actor = await getActor();
   const sp = await searchParams;
   const t = await getTranslations("overview");
   const tNav = await getTranslations("nav");
+  const tBoard = await getTranslations("board");
   const locale = await getLocale();
   const today = todayIn();
   const hour = berlinHour();
@@ -40,7 +49,32 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   }).format(new Date(`${today}T12:00:00Z`));
   const overview = await getOverview(actor, today, HIDDEN_MODULES);
   const vorschauId = param(sp.vorschau);
+  const taskId = param(sp.aufgabe);
   const canWrite = can(actor.role, "task", "write");
+
+  // The task drawer, as on the board; Esc or × returns to the row it was opened from.
+  const closeHref = hrefWith("/", sp, { aufgabe: undefined });
+  const canReadTasks = can(actor.role, "task", "read");
+  const [staff, detail] =
+    taskId && canReadTasks
+      ? await Promise.all([listStaffOptions(), getTaskDetail(actor, taskId, today)])
+      : [[], null];
+  const taskDrawer = taskId ? (
+    detail ? (
+      <TaskDrawer
+        task={detail}
+        staff={staff}
+        canWrite={canWrite}
+        canAssign={!isModuleHidden("team") && can(actor.role, "task", "assign")}
+        today={today}
+        closeHref={closeHref}
+      />
+    ) : (
+      <Drawer kind={tBoard("drawer.label")} title={tBoard("drawer.notFound")} closeHref={closeHref}>
+        <p className="text-muted-foreground text-small">{tBoard("drawer.notFoundHint")}</p>
+      </Drawer>
+    )
+  ) : null;
 
   return (
     <Page crumbs={[{ label: tNav("overview") }]}>
@@ -51,22 +85,22 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           </span>
         }
         title={t(`greeting.${part}`, { name: actor.firstName })}
-        actions={<KpiStrip kpis={overview.kpis} />}
       />
-      <WeekendTable
-        weekend={overview.weekend}
-        next={overview.nextAfterWeekend}
-        vorschauId={vorschauId}
-      />
+      {/* One KeyboardRows around both cards: J/K walk the weekend first, then today's list. */}
+      <KeyboardRows className="grid gap-4 lg:grid-cols-2">
+        <WeekendCard
+          weekend={overview.weekend}
+          next={overview.nextWeekend}
+          nextEvent={overview.nextEvent}
+          today={today}
+          vorschauId={vorschauId}
+        />
+        <TodayCard due={overview.due} today={today} canSnooze={canWrite} />
+      </KeyboardRows>
+      <p className="-mt-3 px-1 text-muted-foreground text-tiny touch:hidden">{t("keys")}</p>
       <PastMarketsLine count={overview.pastMarketTasks} query={sp} canCleanup={canWrite} />
-      <DueToday
-        due={overview.due}
-        showAll={param(sp.alle) === "1"}
-        today={today}
-        query={sp}
-        canSnooze={canWrite}
-      />
       {vorschauId && <EventVorschau id={vorschauId} closeHref="/" />}
+      {taskDrawer}
       {canWrite && param(sp.aufraeumen) === "1" && (
         <PastMarketsDrawer actor={actor} today={today} query={sp} />
       )}

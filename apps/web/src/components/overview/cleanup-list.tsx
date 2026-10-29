@@ -6,20 +6,29 @@ import { useLocale, useTranslations } from "next-intl";
 import { useTransition } from "react";
 import { skipPastMarkets, undoPastMarketCleanup } from "@/app/(app)/overview-actions";
 import { useShell } from "@/components/shell/shell-context";
+import { DueBadge } from "@/components/ui/due-badge";
+import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
-import { formatDateRange } from "@/lib/format";
+import { formatDateRange, todayIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { CleanupTask } from "@/server/queries/overview";
 import type { PastEventCleanupRow } from "@/server/queries/tasks";
+
+/** A past market with the titles of its open tasks (the first ones; `hiddenTasks` is the rest). */
+export type CleanupEvent = PastEventCleanupRow & { tasks: CleanupTask[]; hiddenTasks: number };
 
 /**
  * The cleanup view: past markets with their open task counts, newest first. "Überspringen" skips that
- * market's open tasks, "Alle überspringen" all of them; each is one transaction and answered by an undo
- * toast that restores the previous statuses (no confirmation dialog, UX concept §6).
+ * market's open tasks, "Alle überspringen" (only with several markets) all of them; each is one
+ * transaction and answered by an undo toast that restores the previous statuses (no confirmation dialog,
+ * UX concept §6). Every market lists the tasks it would skip, so nothing goes blind.
  */
-export function CleanupList({ events }: { events: PastEventCleanupRow[] }) {
+export function CleanupList({ events }: { events: CleanupEvent[] }) {
   const t = useTranslations("overview.cleanup");
   const locale = useLocale();
+  const tDue = useTranslations("due");
   const { showToast } = useShell();
+  const today = todayIn();
   const [pending, startTransition] = useTransition();
 
   function skip(eventIds?: string[]) {
@@ -30,12 +39,21 @@ export function CleanupList({ events }: { events: PastEventCleanupRow[] }) {
         return;
       }
       const { skipped, auditIds } = result.data;
+      // One market: the toast names it.
+      const only =
+        eventIds?.length === 1
+          ? events.find((e) => e.id === eventIds[0])
+          : events.length === 1
+            ? events[0]
+            : undefined;
       if (skipped === 0) {
         showToast({ message: t("nothingToSkip") });
         return;
       }
       showToast({
-        message: t("skipped", { count: skipped }),
+        message: only
+          ? t("skippedIn", { count: skipped, name: only.name })
+          : t("skipped", { count: skipped }),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoPastMarketCleanup(auditIds);
@@ -55,14 +73,16 @@ export function CleanupList({ events }: { events: PastEventCleanupRow[] }) {
         <p className="m-0 text-muted-foreground text-small">
           {t("summary", { tasks: total, markets: events.length })}
         </p>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => skip()}
-          className="inline-flex min-h-8 cursor-pointer items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
-        >
-          {t("skipAll")}
-        </button>
+        {events.length > 1 && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => skip()}
+            className="inline-flex min-h-8 cursor-pointer items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
+          >
+            {t("skipAll")}
+          </button>
+        )}
       </div>
       <ul className={cn("m-0 flex list-none flex-col p-0", pending && "opacity-70")}>
         {events.map((e) => (
@@ -95,6 +115,34 @@ export function CleanupList({ events }: { events: PastEventCleanupRow[] }) {
               <CircleCheck aria-hidden className="size-4 text-foreground-2" />
               {t("skip")}
             </button>
+            <div className="basis-full">
+              <ul
+                aria-label={t("tasksOf", { name: e.name })}
+                className="m-0 flex list-none flex-col gap-1 p-0 pl-1"
+              >
+                {e.tasks.map((task) => (
+                  <li
+                    key={task.id}
+                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5"
+                  >
+                    <span className="flex min-w-0 items-start gap-1.5 text-small">
+                      {task.isKey && <KeyTaskMark className="mt-0.5" />}
+                      <span className="min-w-0 break-words">{task.title}</span>
+                    </span>
+                    {task.dueOn ? (
+                      <DueBadge dueOn={task.dueOn} today={today} />
+                    ) : (
+                      <span className="text-muted-foreground text-tiny">{tDue("none")}</span>
+                    )}
+                  </li>
+                ))}
+                {e.hiddenTasks > 0 && (
+                  <li className="text-muted-foreground text-small">
+                    {t("moreTasks", { count: e.hiddenTasks })}
+                  </li>
+                )}
+              </ul>
+            </div>
           </li>
         ))}
       </ul>

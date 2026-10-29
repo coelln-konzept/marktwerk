@@ -7,22 +7,21 @@ test("Übersicht loads after login", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).first()).toBeVisible();
 });
 
-test("Übersicht: the weekend comes first, then Heute fällig; no season strip, no filter chips", async ({
+test("Übersicht: the weekend comes first, then Heute & überfällig (side by side); no KPI strip, no season strip, no filter chips", async ({
   page,
 }) => {
   await page.goto("/");
   const weekend = page.getByRole("heading", { level: 2, name: "Dieses Wochenende" });
-  const due = page.getByRole("heading", { level: 2, name: "Heute fällig" });
+  const due = page.getByRole("heading", { level: 2, name: "Heute & überfällig" });
   await expect(weekend).toBeVisible();
   await expect(due).toBeVisible();
   const [weekendY, dueY] = await Promise.all([weekend.boundingBox(), due.boundingBox()]);
-  expect((weekendY?.y ?? 0) < (dueY?.y ?? 0)).toBe(true);
+  // Two cards: the weekend is first, in reading order (left of, or above, the due card).
+  expect((weekendY?.y ?? 0) <= (dueY?.y ?? 0)).toBe(true);
+  expect((weekendY?.x ?? 0) <= (dueY?.x ?? 0)).toBe(true);
 
-  // Two numbers only; no season strip, no filter chips, no estimate legend.
-  const kpis = page.locator('dl[aria-label="Kennzahlen"]');
-  await expect(kpis).toContainText("Heute fällig");
-  await expect(kpis).toContainText("Überfällig");
-  await expect(kpis.getByText("Offene Aufgaben")).toHaveCount(0);
+  // No KPI strip (the card headers carry the counts), no season strip, no filter chips, no estimate legend.
+  await expect(page.locator('dl[aria-label="Kennzahlen"]')).toHaveCount(0);
   await expect(page.getByText(/^Saison 2026/)).toHaveCount(0);
   await expect(page.getByRole("group", { name: "Filter" })).toHaveCount(0);
   await expect(page.getByText(/Aufwand =/)).toHaveCount(0);
