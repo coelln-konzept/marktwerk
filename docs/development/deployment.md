@@ -11,6 +11,11 @@
 Vercel environment variables: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
 (the production `*.vercel.app` URL), `APP_URL` (same), `CRON_SECRET`, `APP_TIMEZONE=Europe/Berlin`.
 
+Sign-in origins: Better Auth accepts `BETTER_AUTH_URL`, `APP_URL` and the deployment's own Vercel URLs
+(`VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_PROJECT_PRODUCTION_URL`, set by Vercel automatically), so preview and
+hash links can sign in. No wildcard: `marktwerk-*.vercel.app` would also match other people's projects. A rejected
+address shows its own message on the login page ("Von dieser Adresse aus ist keine Anmeldung möglich").
+
 ### Seeding the dev database (GitHub Actions)
 The sandbox and most laptops cannot reach the Supabase pooler directly, so the synthetic development dataset
 ([ADR 0016](../architecture/adr/0016-synthetic-development-data.md): 148 events, 12 venues, 14 presets, 1,500 vendors, …)
@@ -24,8 +29,12 @@ is loaded by the manual workflow `.github/workflows/seed-dev.yml`.
    changed, only linked to their staff record).
 3. GitHub → Actions → **Seed dev database** → *Run workflow* → type `seed` in the `confirm` field. Any other value
    skips the job.
-4. The seed is idempotent (`ON CONFLICT DO NOTHING`, fixed ids), so a second run changes nothing. It does **not**
-   migrate: migrations run in the Vercel build (`vercel.json`), so deploy first when the schema changed.
+4. Leave `reference_date` empty on an empty database: the data is generated as of today. Some ids depend on that
+   day, so the seed **refuses a database that already holds synthetic data** ("The database already holds synthetic
+   data…"). To run it again, enter the original seed day as `reference_date` (the deployed DB: `2026-10-26`); then
+   the run is idempotent (`ON CONFLICT DO NOTHING`, fixed ids) and changes nothing that exists. Fresh data as of
+   today needs the `app` data wiped first. Re-running never changes existing logins or passwords. The seed does
+   **not** migrate: migrations run in the Vercel build (`vercel.json`), so deploy first when the schema changed.
 
 Locally the same thing is `pnpm db:seed` (reads the root `.env` if there is one; in CI the variables come from the
 environment).
