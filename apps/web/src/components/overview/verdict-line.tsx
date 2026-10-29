@@ -39,9 +39,17 @@ export function VerdictLine({
       className={cn("inline-flex flex-wrap items-center gap-x-1.5 text-small", className)}
     >
       <HealthShape level={verdict.level} />
-      <span className={cn("font-semibold", WORD_TONE[verdict.level])}>{t(verdict.level)}</span>
+      <span className={cn("font-semibold", WORD_TONE[verdict.level])}>
+        {t(verdict.level)}
+        {/* The separator stays with the word, so a wrapped reason line never starts with "·". */}
+        {!compact && reasons.length > 0 && (
+          <span aria-hidden className="font-normal text-muted-foreground">
+            {" ·"}
+          </span>
+        )}
+      </span>
       {!compact && reasons.length > 0 && (
-        <span className="text-muted-foreground">· {reasons.join(" · ")}</span>
+        <span className="text-muted-foreground">{reasons.join(" · ")}</span>
       )}
     </span>
   );
