@@ -4,6 +4,7 @@ import { Menu } from "@base-ui/react/menu";
 import { Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { type HealthLevel, HealthShape } from "@/components/ui/health";
 import { cn } from "@/lib/utils";
 
@@ -11,8 +12,8 @@ export type EventTab = {
   key: string;
   href: string;
   label: string;
-  /** Count such as "5/7" with an optional health shape. */
-  count?: { text: string; level?: HealthLevel; sr?: string };
+  /** Count such as "5/7" with an optional health shape; `short` replaces the text below the sm breakpoint. */
+  count?: { text: string; short?: string; level?: HealthLevel; sr?: string };
   /** Muted hint for tabs that arrive in a later milestone ("ab M2"). */
   hint?: { text: string; sr: string };
 };
@@ -29,7 +30,16 @@ function Count({ count }: { count: NonNullable<EventTab["count"]> }) {
   return (
     <span className="tabular inline-flex items-center gap-1 text-small text-foreground-2">
       {count.level && <HealthShape level={count.level} className="size-3" />}
-      <span aria-hidden={count.sr ? true : undefined}>{count.text}</span>
+      <span aria-hidden={count.sr ? true : undefined}>
+        {count.short ? (
+          <>
+            <span className="sm:hidden">{count.short}</span>
+            <span className="max-sm:hidden">{count.text}</span>
+          </>
+        ) : (
+          count.text
+        )}
+      </span>
       {count.sr && <span className="sr-only">{count.sr}</span>}
     </span>
   );
@@ -57,8 +67,24 @@ export function EventTabs({
     tab.href !== base && (pathname === tab.href || pathname.startsWith(`${tab.href}/`));
   const activeMore = more.find(matches);
   const activeKey = activeMore ? null : (tabs.find(matches)?.key ?? tabs[0]?.key);
+  const nav = useRef<HTMLElement>(null);
+
+  // On a phone the bar scrolls sideways: bring the open tab (or "Mehr") into view, so one always reads as active.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run when the open tab changes
+  useEffect(() => {
+    const bar = nav.current;
+    const current = bar?.querySelector<HTMLElement>("[aria-current=page]");
+    if (!bar || !current) return;
+    const left = current.offsetLeft - (bar.clientWidth - current.offsetWidth) / 2;
+    bar.scrollTo({ left: Math.max(0, left) });
+  }, [pathname]);
+
   return (
-    <nav aria-label={label} className="-mx-4 overflow-x-auto border-b px-4 lg:-mx-7 lg:px-7">
+    <nav
+      ref={nav}
+      aria-label={label}
+      className="relative -mx-4 overflow-x-auto border-b px-4 lg:-mx-7 lg:px-7"
+    >
       <ul className="flex min-w-max gap-1">
         {tabs.map((tab) => {
           const active = tab.key === activeKey;
@@ -88,8 +114,15 @@ export function EventTabs({
                 aria-current={activeMore ? "page" : undefined}
                 className={cn(tabClass(activeMore !== undefined), "bg-transparent")}
               >
-                {moreLabel}
-                {activeMore && <span className="sr-only">: {activeMore.label}</span>}
+                {/* The open sub-page names the button, so it is clear which of the three you are on. */}
+                {activeMore ? (
+                  <>
+                    <span className="sr-only">{moreLabel}: </span>
+                    {activeMore.label}
+                  </>
+                ) : (
+                  moreLabel
+                )}
                 <ChevronDown aria-hidden className="-ml-1 size-4 text-muted-foreground" />
               </Menu.Trigger>
               <Menu.Portal>

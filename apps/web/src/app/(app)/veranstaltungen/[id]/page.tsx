@@ -6,16 +6,18 @@ import {
   FactsPanel,
   KeyTasksPanel,
   MissingPanel,
+  NotesExcerpt,
   RulesPanel,
   StatusLine,
   TeamSummaryPanel,
 } from "@/components/event-detail/overview-panels";
+import { PermitDrawer } from "@/components/permits/permit-drawer";
 import { TaskDrawer } from "@/components/task/task-drawer";
 import { Drawer } from "@/components/ui/drawer";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
-import { param } from "@/lib/url";
+import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { getEventOverview } from "@/server/queries/event-overview";
 import { getEvent } from "@/server/queries/events";
@@ -25,7 +27,7 @@ import { requirePermission } from "@/server/session";
 /**
  * Tab "Überblick": is this market on track, and what's missing? Status line, Was fehlt, Kernaufgaben,
  * Nächste Termine; Eckdaten and Regeln der Art stay collapsed. Task rows open the task drawer
- * (`?aufgabe=<id>`) right here.
+ * (`?aufgabe=<id>`), permit rows the permit drawer (`?genehmigung=<id>`), both right here.
  */
 export default async function EventOverviewPage({
   params,
@@ -41,10 +43,16 @@ export default async function EventOverviewPage({
   const canWriteTasks = can(actor.role, "task", "write");
   const overview = await getEventOverview(actor, event, today);
 
-  const taskId = param((await searchParams).aufgabe);
+  const sp = await searchParams;
+  const taskId = param(sp.aufgabe);
+  const permitId = param(sp.genehmigung);
   const closeHref = `/veranstaltungen/${event.id}`;
   let drawer: React.ReactNode = null;
-  if (taskId && can(actor.role, "task", "read")) {
+  if (permitId && can(actor.role, "permit", "read")) {
+    drawer = (
+      <PermitDrawer id={permitId} closeHref={hrefWith(closeHref, sp, { genehmigung: undefined })} />
+    );
+  } else if (taskId && can(actor.role, "task", "read")) {
     const t = await getTranslations("board");
     const detail = await getTaskDetail(actor, taskId, today);
     drawer = detail ? (
@@ -66,6 +74,7 @@ export default async function EventOverviewPage({
   return (
     <KeyboardRows className="flex flex-col gap-6">
       <StatusLine event={event} overview={overview} />
+      <NotesExcerpt event={event} />
       <MissingPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2">
         <KeyTasksPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />

@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 /**
@@ -20,11 +21,17 @@ export type DocumentUploadLink = Record<string, string>;
  * camera) or drop files. Posts to /api/documents one file at a time, shows progress and the reason when
  * a file is refused, and refreshes the page when done. Any module can use it by passing its link column.
  *
- * `compact` renders a small "Beleg" button for table rows; the default is a drop area.
+ * `compact` renders a small "Beleg" button for table rows; the default is a drop area. The photo button only
+ * shows on touch screens (a desktop browser would just open a second file dialog).
+ *
+ * `kinds` adds a choice of document kind next to the buttons (labels from `documents.kinds`, the field
+ * label from `kindLabel`); `kind` is then the preselected one.
  */
 export function DocumentUpload({
   link,
   kind,
+  kinds,
+  kindLabel,
   compact = false,
   label,
   className,
@@ -32,6 +39,10 @@ export function DocumentUpload({
   link: DocumentUploadLink;
   /** `document_kind` to store; omitted = receipt on a rate or expense, invoice on a payable. */
   kind?: string;
+  /** Let the user pick the `document_kind` among these (the first one, or `kind`, is preselected). */
+  kinds?: readonly string[];
+  /** Label of the kind choice; needed with `kinds`. */
+  kindLabel?: string;
   compact?: boolean;
   /** Replaces the default button text (for example the file's role: "Rechnung hinzufügen"). */
   label?: string;
@@ -46,6 +57,8 @@ export function DocumentUpload({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [pickedKind, setPickedKind] = useState(kind && kinds?.includes(kind) ? kind : kinds?.[0]);
+  const sentKind = kinds ? pickedKind : kind;
 
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
@@ -64,7 +77,7 @@ export function DocumentUpload({
         const body = new FormData();
         body.set("file", file);
         body.set("link", JSON.stringify(link));
-        if (kind) body.set("kind", kind);
+        if (sentKind) body.set("kind", sentKind);
         let response: Response;
         try {
           response = await fetch("/api/documents", { method: "POST", body });
@@ -166,10 +179,34 @@ export function DocumentUpload({
           <Upload aria-hidden />
           {busy ? t("saving") : pickLabel}
         </Button>
-        <Button aria-busy={busy} disabled={busy} onClick={() => cameraInput.current?.click()}>
+        <Button
+          aria-busy={busy}
+          disabled={busy}
+          onClick={() => cameraInput.current?.click()}
+          className="hidden touch:inline-flex"
+        >
           <Camera aria-hidden />
           {t("photo")}
         </Button>
+        {kinds && kinds.length > 1 && (
+          <div className="flex items-center gap-2">
+            <Label htmlFor={`${uid}-kind`} className="font-normal text-muted-foreground">
+              {kindLabel}
+            </Label>
+            <select
+              id={`${uid}-kind`}
+              value={pickedKind}
+              onChange={(event) => setPickedKind(event.target.value)}
+              className="min-h-(--control-h) rounded-lg border border-input bg-card px-3 py-1"
+            >
+              {kinds.map((key) => (
+                <option key={key} value={key}>
+                  {t(`kinds.${key}` as never)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
       <p className="text-muted-foreground text-small">{t("hint")}</p>
       <p aria-live="polite" className="sr-only">

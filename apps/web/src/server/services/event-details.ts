@@ -2,6 +2,7 @@ import "server-only";
 import {
   type AnchorKey,
   addDays,
+  berlinDay,
   type CandidateCheck,
   can,
   canMoveEvent,
@@ -18,6 +19,7 @@ import type { EventStatus } from "@marktwerk/core/events/lifecycle";
 import { event, eventAnchor, venue } from "@marktwerk/db/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { forbidden } from "next/navigation";
+import { todayIn } from "../../lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
@@ -207,6 +209,10 @@ export type EventSchedulePreview = {
   check: CandidateCheck | null;
   /** Open tasks (not done, due date not set by hand) whose due date moves with the named dates. */
   tasksShifting: number;
+  /** Those tasks with their due day before and after (new day first), for the preview list. */
+  shifting: { id: string; title: string; from: string | null; to: string; overdue: boolean }[];
+  /** How many of them would be overdue after the change (new due day before today). */
+  tasksOverdueAfter: number;
 };
 
 type EventRow = typeof event.$inferSelect;
@@ -274,6 +280,23 @@ export async function previewEventSchedule(
         existing,
       );
 
+  const shifted = unchanged
+    ? []
+    : await planTaskShift(db, id, new Map([...old, ...Object.entries(anchors)]));
+  const today = todayIn();
+  const shifting = shifted
+    .map((s) => {
+      const to = berlinDay(s.to);
+      return {
+        id: s.id,
+        title: s.title,
+        from: s.from ? berlinDay(s.from) : null,
+        to,
+        overdue: to < today,
+      };
+    })
+    .sort((a, b) => a.to.localeCompare(b.to) || a.title.localeCompare(b.title, "de"));
+
   return {
     status: current.status,
     movable: canMoveEvent(current.status),
@@ -282,9 +305,9 @@ export async function previewEventSchedule(
     to: { startsOn: next.startsOn, endsOn: next.endsOn },
     anchors: MOVED_ANCHORS.map((key) => ({ key, from: old.get(key) ?? null, to: anchors[key] })),
     check: check ?? null,
-    tasksShifting: unchanged
-      ? 0
-      : (await planTaskShift(db, id, new Map([...old, ...Object.entries(anchors)]))).length,
+    tasksShifting: shifting.length,
+    shifting,
+    tasksOverdueAfter: shifting.filter((s) => s.overdue).length,
   };
 }
 
