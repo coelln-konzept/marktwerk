@@ -141,6 +141,29 @@ describe("sweep: company-wide generation", () => {
     expect(open[0]?.dueOn).toBe("2026-10-18");
   });
 
+  it("does not list a rotated notification of a task that is still open as Erledigt", async () => {
+    // due tomorrow: "bald fällig" today, "überfällig" the day after; the sweep rotates the notification
+    const t = await addTask({ title: "Rotiert", dueAt: daysFromNow(1) });
+    await deadlineSweep(db, NOW);
+    expect(await companyRows()).toHaveLength(1);
+
+    const later = new Date(NOW.getTime() + 2 * DAY);
+    const rotated = await deadlineSweep(db, later);
+    expect(rotated.company).toEqual({ created: 1, resolved: 1 });
+    expect(await companyRows()).toHaveLength(2);
+
+    const open = await listCompanyNotifications(owner, OPEN, later);
+    expect(open.rows.map((r) => r.subjectId)).toEqual([t.id]);
+    expect(open.statusCounts).toEqual({ open: 1, snoozed: 0, done: 0 });
+    const done = await listCompanyNotifications(owner, { status: "done", sort: "newest" }, later);
+    expect(done.rows).toHaveLength(0);
+
+    // once the task is done, the subject shows up once in Erledigt
+    await setTaskStatus(owner, t.id, "done", {}, { now: later, today: "2026-10-23" });
+    const after = await listCompanyNotifications(owner, { status: "done", sort: "newest" }, later);
+    expect(after.rows.map((r) => r.subjectId)).toEqual([t.id]);
+  });
+
   it("lists permits by apply-by within the horizon, decisions due and permits ending before a market", async () => {
     const applyBy = await addPermit({
       title: "Antrag",

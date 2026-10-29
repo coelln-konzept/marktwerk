@@ -319,8 +319,10 @@ test("Benachrichtigungen: the bell is the way in, filters, Erledigt and Zurücks
   // Bell: count, the most urgent items with a quick Erledigt, "Alle anzeigen".
   await page.getByRole("button", { name: /^Benachrichtigungen/ }).click();
   const popover = page.getByRole("dialog", { name: "Benachrichtigungen" });
-  await expect(popover.getByRole("button", { name: /^Erledigt:/ }).first()).toBeVisible();
-  await popover.getByRole("link", { name: "Alle anzeigen" }).click();
+  await expect(
+    popover.getByRole("button", { name: "Erledigt", exact: true }).first(),
+  ).toBeVisible();
+  await popover.getByRole("link", { name: /^Alle \d+ anzeigen$/ }).click();
   await expect(page).toHaveURL(/\/benachrichtigungen$/);
   await expect(page.getByRole("heading", { level: 1, name: "Benachrichtigungen" })).toBeVisible();
 
@@ -361,13 +363,13 @@ test("Benachrichtigungen: the bell is the way in, filters, Erledigt and Zurücks
   await page.getByRole("button", { name: "Rückgängig" }).click();
   await expect.poll(open).toBe(before);
 
-  // Zurückstellen with a preset moves it to "Zurückgestellt"; undo brings it back.
+  // Zurückstellen (in the "…" menu) with a preset moves it to "Zurückgestellt"; undo brings it back.
   await rows
     .first()
-    .getByRole("button", { name: /^Zurückstellen/ })
+    .getByRole("button", { name: /^Weitere Aktionen/ })
     .click();
   await page.getByRole("menuitem", { name: /^Morgen/ }).click();
-  await expect(page.getByText(/^Zurückgestellt bis/).first()).toBeVisible();
+  await expect(page.getByText(/zurückgestellt bis/).first()).toBeVisible();
   await expect.poll(open).toBe(before - 1);
   await expect(status).toContainText(/Zurückgestellt 1/);
   await page.getByRole("button", { name: "Rückgängig" }).click();

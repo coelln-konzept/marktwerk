@@ -88,18 +88,19 @@
     "title": "Benachrichtigungen",
     "markAll": "Alle gelesen",
     "viewAll": "Alle anzeigen",
+    "viewAllCount": "Alle {count} anzeigen",
     "empty": "Keine neuen Hinweise.",
     "unread": "ungelesen",
     "ago": "vor {when}",
     "now": "gerade eben",
-    "labelOpen": "Benachrichtigungen, {count, plural, one {# ungelesen} other {# ungelesen}}",
+    "labelOpen": "Benachrichtigungen, {count, plural, one {# offen} other {# offen}}",
     "openCount": "{count, plural, =0 {Nichts offen} one {# offen} other {# offen}}",
     "allClear": "Alles im Griff.",
     "done": "Erledigt"
   },
   "notificationCenter": {
     "title": "Benachrichtigungen",
-    "subtitle": "Alles Wichtige an einem Ort: überfällige und bald fällige Aufgaben und Fristen bei Genehmigungen. Später wird daraus dein Posteingang.",
+    "subtitle": "Überfällige und bald fällige Aufgaben und Fristen bei Genehmigungen, jede nur einmal.",
     "status": {
       "label": "Status",
       "open": "Offen",
@@ -124,8 +125,15 @@
     "groups": {
       "overdue": "Überfällig",
       "today": "Heute",
-      "soon": "Diese Woche",
+      "soon": "Nächste 7 Tage",
       "later": "Später"
+    },
+    "filter": {
+      "button": "Filter"
+    },
+    "subject": {
+      "task": "Aufgabe",
+      "permit": "Genehmigung"
     },
     "kind": {
       "task_overdue": "Aufgabe überfällig",
@@ -141,13 +149,6 @@
       "permit_decision": "Entscheidung bis {date}",
       "permit_expiry": "Gültig bis {date}"
     },
-    "due": {
-      "overdue": "{count, plural, one {# Tag überfällig} other {# Tage überfällig}}",
-      "today": "Heute",
-      "tomorrow": "Morgen",
-      "inDays": "In {count} Tagen",
-      "expired": "{count, plural, one {Seit # Tag abgelaufen} other {Seit # Tagen abgelaufen}}"
-    },
     "severity": {
       "info": "Hinweis",
       "warning": "Achtung",
@@ -162,21 +163,29 @@
     "resolvedNote": "Von selbst erledigt",
     "unread": "ungelesen",
     "list": "Benachrichtigungen",
-    "keys": "J und K wechseln die Zeile, Enter öffnet.",
+    "keys": "J und K wechseln die Zeile, Enter öffnet die Aufgabe.",
     "actionsFor": "Aktionen für {title}",
     "actions": {
       "done": "Erledigt",
       "reopen": "Wieder öffnen",
-      "snooze": "Zurückstellen",
+      "unsnooze": "Zurückstellung aufheben",
       "open": "Öffnen",
+      "more": "Weitere Aktionen: {title}",
       "markAllRead": "Alle als gelesen",
       "undo": "Rückgängig"
     },
+    "snoozeMenu": {
+      "task": "Aufgabe zurückstellen",
+      "taskHint": "Verschwindet bis dahin aus Übersicht, Benachrichtigungen und Glocke.",
+      "permit": "Meldung zurückstellen",
+      "permitHint": "Nur die Meldung; die Genehmigung bleibt unverändert."
+    },
     "toast": {
-      "done": "Erledigt: {title}",
-      "snoozed": "Zurückgestellt bis {when}.",
-      "reopened": "Wieder offen.",
-      "restored": "Zurückgesetzt.",
+      "done": "„{title}“ erledigt",
+      "snoozed": "„{title}“ zurückgestellt bis {date}",
+      "unsnoozed": "Zurückstellung von „{title}“ aufgehoben",
+      "reopened": "„{title}“ wieder geöffnet",
+      "restored": "Rückgängig gemacht",
       "markedAll": "{count, plural, one {# Hinweis} other {# Hinweise}} als gelesen markiert.",
       "nothingToMark": "Es gibt nichts Ungelesenes."
     },
