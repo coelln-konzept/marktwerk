@@ -1,15 +1,9 @@
-import { readinessAttention } from "@marktwerk/core";
-import {
-  CalendarX,
-  ChevronDown,
-  CircleCheck,
-  FileWarning,
-  Star,
-  TriangleAlert,
-} from "lucide-react";
+import { PERMIT_CLOSE_DAYS } from "@marktwerk/core";
+import { CalendarX, ChevronDown, CircleCheck, FileWarning, Star } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment, type ReactNode } from "react";
+import { dueLook } from "@/components/ui/due-badge";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
@@ -18,10 +12,38 @@ import { formatDateRangeYear, formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ReadinessRow } from "@/server/queries/board-overview";
 
+const OverdueIcon = dueLook("overdue").icon;
+
+/** A "Fehlt" chip: opens (or closes) the market's panel, which lists the tasks behind the number. */
+function ChipLink({
+  href,
+  open,
+  label,
+  children,
+}: {
+  href: string;
+  open: boolean;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href as never}
+      scroll={false}
+      aria-expanded={open}
+      aria-label={label}
+      className="inline-flex rounded-full hover:brightness-95 focus-visible:outline-2 focus-visible:outline-ring dark:hover:brightness-125"
+    >
+      {children}
+    </Link>
+  );
+}
+
 /**
  * "Bereitschaft": one row per upcoming market. Columns: market, date, progress, what is missing (chips,
- * worst first, only non-zero) and the next deadline (opens the task drawer). Attention is shown by the
- * chips (colour + icon + text), never by row backgrounds.
+ * worst first, only non-zero; they open the market panel) and the next deadline (opens the task drawer).
+ * Attention is shown by the chips (colour + icon + text), never by row backgrounds. The permit chip is
+ * critical only within `PERMIT_CLOSE_DAYS` of the first day, whatever else is overdue.
  */
 export async function ReadinessList({
   rows,
@@ -65,7 +87,8 @@ export async function ReadinessList({
                   scope="col"
                   className="h-9 whitespace-nowrap px-3 py-1 font-semibold text-muted-foreground text-tiny"
                 >
-                  {t(key)}
+                  {/* the last column only holds the Details button: its header is for screen readers */}
+                  {key === "panelColumn" ? <span className="sr-only">{t(key)}</span> : t(key)}
                 </th>
               ),
             )}
@@ -73,12 +96,16 @@ export async function ReadinessList({
         </thead>
         <tbody className="block sm:table-row-group">
           {rows.map((row) => {
-            const attention = readinessAttention(row, row.startsOn, today);
             const running = row.daysUntil < 0;
+            // A missing permit is about the date of the market only, not about unrelated overdue tasks.
+            const permitClose = row.daysUntil <= PERMIT_CLOSE_DAYS;
             const percent = row.total === 0 ? 0 : Math.round((row.done / row.total) * 100);
             const nothingMissing =
               row.overdue === 0 && row.missingPermits === 0 && row.openKey === 0;
             const open = row.id === openId;
+            const chipHref = panelHref(open ? null : row.id);
+            const chipLabel = (chip: string) =>
+              t(open ? "panel.chipHide" : "panel.chipShow", { chip, name: row.name });
             return (
               <Fragment key={row.id}>
                 <tr
@@ -134,26 +161,44 @@ export async function ReadinessList({
                     <ul className="flex flex-wrap gap-1.5">
                       {row.overdue > 0 && (
                         <li>
-                          <StatusBadge tone="critical" icon={TriangleAlert}>
-                            {t("overdue", { count: row.overdue })}
-                          </StatusBadge>
+                          <ChipLink
+                            href={chipHref}
+                            open={open}
+                            label={chipLabel(t("overdue", { count: row.overdue }))}
+                          >
+                            <StatusBadge tone="critical" icon={OverdueIcon}>
+                              {t("overdue", { count: row.overdue })}
+                            </StatusBadge>
+                          </ChipLink>
                         </li>
                       )}
                       {row.missingPermits > 0 && (
                         <li>
-                          <StatusBadge
-                            tone={attention === "critical" ? "critical" : "warn"}
-                            icon={FileWarning}
+                          <ChipLink
+                            href={chipHref}
+                            open={open}
+                            label={chipLabel(t("permits", { count: row.missingPermits }))}
                           >
-                            {t("permits", { count: row.missingPermits })}
-                          </StatusBadge>
+                            <StatusBadge
+                              tone={permitClose ? "critical" : "warn"}
+                              icon={FileWarning}
+                            >
+                              {t("permits", { count: row.missingPermits })}
+                            </StatusBadge>
+                          </ChipLink>
                         </li>
                       )}
                       {row.openKey > 0 && (
                         <li>
-                          <StatusBadge tone="neutral" icon={Star}>
-                            {t("key", { count: row.openKey })}
-                          </StatusBadge>
+                          <ChipLink
+                            href={chipHref}
+                            open={open}
+                            label={chipLabel(t("key", { count: row.openKey }))}
+                          >
+                            <StatusBadge tone="neutral" icon={Star}>
+                              {t("key", { count: row.openKey })}
+                            </StatusBadge>
+                          </ChipLink>
                         </li>
                       )}
                       {nothingMissing && (
@@ -183,7 +228,7 @@ export async function ReadinessList({
                   </td>
                   <td className="block px-3 pb-3 sm:table-cell sm:py-3 sm:text-right">
                     <Link
-                      href={panelHref(open ? null : row.id) as never}
+                      href={chipHref as never}
                       scroll={false}
                       aria-expanded={open}
                       aria-label={t(open ? "panel.hideLabel" : "panel.showLabel", {

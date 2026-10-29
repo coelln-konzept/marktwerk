@@ -13,7 +13,7 @@
     "statusLong": {
       "todo": "Offen",
       "in_progress": "In Arbeit",
-      "waiting_external": "Wartet · Amt/Extern",
+      "waiting_external": "Wartet",
       "blocked": "Blockiert",
       "done": "Erledigt",
       "skipped": "Übersprungen",
@@ -90,9 +90,12 @@
         "assignee": "Zuweisen an",
         "description": "Beschreibung"
       },
+      "duePast": "Das Datum liegt in der Vergangenheit: Die Aufgabe ist sofort überfällig.",
       "errors": {
         "generic": "Die Aufgabe konnte nicht angelegt werden.",
-        "invalid_input": "Bitte einen Titel angeben sowie Datum und Stunden prüfen.",
+        "title_required": "Bitte einen Titel angeben.",
+        "hours_invalid": "Bitte die Schätzung in Stunden prüfen.",
+        "invalid_input": "Bitte Titel und Datum prüfen.",
         "invalid_event": "Diese Veranstaltung ist nicht verfügbar.",
         "invalid_staff": "Diese Person kann nicht zugewiesen werden."
       }
@@ -101,7 +104,7 @@
       "label": "Kernaufgabe",
       "hint": "Braucht jeder Markt – steht im Überblick, in der Matrix und ganz oben in der Übersicht.",
       "tooltip": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",
-      "toggle": "Kernaufgabe"
+      "toggle": "Als Kernaufgabe markieren"
     },
     "fields": {
       "title": "Titel",
@@ -194,10 +197,13 @@
       "aria": "„{title}“ als erledigt markieren"
     },
     "statusToggle": {
-      "waiting": "Wartet auf Amt"
+      "waiting": "Wartet"
     },
     "statusMore": "Weitere Status",
     "statusReopen": "Wieder offen",
+    "reopen": "Wieder öffnen",
+    "removedFromTemplate": "Nicht mehr in der Vorlage",
+    "removedFromTemplateHint": "Die Vorlage enthält diese Aufgabe nicht mehr. Sie bleibt offen, bis du sie erledigst oder überspringst.",
     "reopenAria": "„{title}“ wieder öffnen"
   }
 }

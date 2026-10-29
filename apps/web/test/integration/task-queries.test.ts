@@ -94,15 +94,18 @@ describe("listBoardTasks", () => {
     expect(tasks.find((t) => t.title === "neu erledigt")?.completedOn).toBe("2026-10-15");
   });
 
-  it("limits the cross-event view by horizon, keeps undated tasks, and filters by event", async () => {
+  it("limits the cross-event view by the market's first day, keeps undated tasks, and filters by event", async () => {
     const other = (await insertEvent(cat, "Anderer", "2026-12-05")).id;
-    await insertTask({ title: "nah", eventId, dueAt: dueOn("2026-10-30") });
-    await insertTask({ title: "fern", eventId: other, dueAt: dueOn("2026-12-01") });
+    const soon = (await insertEvent(cat, "Bald", "2026-11-02")).id;
+    // Zeitraum = first day of the market (as in Bereitschaft and Matrix), not the task's own due date.
+    await insertTask({ title: "nah", eventId: soon, dueAt: dueOn("2026-10-30") });
+    await insertTask({ title: "nah, spät fällig", eventId: soon, dueAt: dueOn("2026-11-20") });
+    await insertTask({ title: "fern", eventId: other, dueAt: dueOn("2026-10-25") });
     await insertTask({ title: "undatiert" });
     const near = await listBoardTasks(owner, { horizonDays: 14 }, TODAY);
-    expect(near.tasks.map((t) => t.title).sort()).toEqual(["nah", "undatiert"]);
+    expect(near.tasks.map((t) => t.title).sort()).toEqual(["nah", "nah, spät fällig", "undatiert"]);
     const all = await listBoardTasks(owner, {}, TODAY);
-    expect(all.tasks).toHaveLength(3);
+    expect(all.tasks).toHaveLength(4);
     const one = await listBoardTasks(owner, { eventId: other }, TODAY);
     expect(one.tasks.map((t) => t.title)).toEqual(["fern"]);
     expect((await listBoardTasks(owner, { eventId: "nope" }, TODAY)).tasks).toEqual([]);

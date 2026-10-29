@@ -13,7 +13,7 @@
     "statusLong": {
       "todo": "Open",
       "in_progress": "In progress",
-      "waiting_external": "Waiting · authority/external",
+      "waiting_external": "Waiting",
       "blocked": "Blocked",
       "done": "Done",
       "skipped": "Skipped",
@@ -90,9 +90,12 @@
         "assignee": "Assign to",
         "description": "Description"
       },
+      "duePast": "The date is in the past: the task will be overdue right away.",
       "errors": {
         "generic": "The task could not be created.",
-        "invalid_input": "Please give a title and check the date and hours.",
+        "title_required": "Please give a title.",
+        "hours_invalid": "Please check the estimate in hours.",
+        "invalid_input": "Please check the title and the date.",
         "invalid_event": "This event is not available.",
         "invalid_staff": "This person cannot be assigned."
       }
@@ -101,7 +104,7 @@
       "label": "Key task",
       "hint": "Every market needs it – shown in the overview, the matrix and at the top of the overview.",
       "tooltip": "Key task – a task every market needs",
-      "toggle": "Key task"
+      "toggle": "Mark as key task"
     },
     "fields": {
       "title": "Title",
@@ -194,10 +197,13 @@
       "aria": "Mark “{title}” as done"
     },
     "statusToggle": {
-      "waiting": "Waiting for authority"
+      "waiting": "Waiting"
     },
     "statusMore": "More statuses",
     "statusReopen": "Open again",
+    "reopen": "Reopen",
+    "removedFromTemplate": "No longer in the template",
+    "removedFromTemplateHint": "The template no longer contains this task. It stays open until you complete or skip it.",
     "reopenAria": "Reopen “{title}”"
   }
 }

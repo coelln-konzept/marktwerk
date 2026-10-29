@@ -190,11 +190,13 @@
       "dueOn": "fällig am {date}",
       "empty": "Keine kommenden Veranstaltungen in diesem Zeitraum.",
       "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen.",
-      "panelColumn": "",
+      "panelColumn": "Aktionen",
       "panel": {
-        "toggle": "Aufgaben",
+        "toggle": "Details",
         "showLabel": "Wichtige Aufgaben von {name} zeigen",
         "hideLabel": "Aufgaben von {name} schließen",
+        "chipShow": "{chip} bei {name}: Details zeigen",
+        "chipHide": "{chip} bei {name}: Details schließen",
         "title": "Wichtig bei {name}",
         "allOk": "Alles im Plan: nichts überfällig, keine fehlende Genehmigung.",
         "permitMissing": "Genehmigung fehlt",
@@ -204,6 +206,7 @@
     },
     "matrix": {
       "caption": "Kernaufgaben der kommenden Veranstaltungen",
+      "scrollHint": "Weitere Kernaufgaben rechts: seitlich scrollen",
       "market": "Veranstaltung",
       "empty": "Keine kommenden Veranstaltungen in diesem Zeitraum.",
       "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen.",
