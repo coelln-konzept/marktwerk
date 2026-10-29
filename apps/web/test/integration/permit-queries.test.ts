@@ -362,7 +362,7 @@ describe("feeds for Übersicht and Kalender", () => {
   });
 
   describe("markets more than 6 months away (decision 2026-10-28)", () => {
-    it("leave the Übersicht and the badge, but stay on the Genehmigungen page", async () => {
+    it("leave the Übersicht, but stay on the Genehmigungen page (the badge counts by apply-by)", async () => {
       // Today is 2026-10-21, so the cutoff is 2027-04-21.
       const near = await makeEvent("2027-04-21", "Im April");
       const far = await makeEvent("2027-04-24", "Später im April");
@@ -374,10 +374,35 @@ describe("feeds for Übersicht and Kalender", () => {
       ]);
 
       expect((await dueItems(owner, TODAY)).map((i) => i.title)).toEqual(["Nah"]);
-      expect(await missingPermitCount(owner, TODAY)).toBe(1);
+      // Both are overdue, so both count for the badge, whatever the market date.
+      expect(await missingPermitCount(owner, TODAY)).toBe(2);
       const logbook = await listLogbook(owner, { season: null }, TODAY);
-      expect(logbook.needsAction).toBe(1);
       expect(logbook.rows.map((r) => r.title).sort()).toEqual(["Fern", "Nah"]);
+    });
+  });
+
+  describe("badge and chip count by apply-by date (decision 2026-10-29)", () => {
+    it("counts overdue and within the horizon, not later ones, whatever the market date", async () => {
+      // Today is 2026-10-21; the default horizon is 30 days, i.e. up to 2026-11-20.
+      const ev = await makeEvent("2027-09-05", "Spätsommer");
+      const rows = [
+        ["Überfällig", "2026-10-19"],
+        ["Grenze", "2026-11-20"],
+        ["Später", "2026-11-21"],
+      ] as const;
+      for (const [title, applyBy] of rows) {
+        const p = await makePermit({ title, status: "not_started", applyBy });
+        await db.insert(eventPermit).values({ eventId: ev.id, permitId: p.id });
+      }
+      expect(await missingPermitCount(owner, TODAY)).toBe(2);
+      expect(await missingPermitCount(owner, TODAY, 7)).toBe(1);
+      expect(await missingPermitCount(owner, TODAY, 60)).toBe(3);
+      const book = await listLogbook(owner, { season: null, focus: "fehlt" }, TODAY);
+      expect(book.rows.map((r) => r.title).sort()).toEqual(["Grenze", "Überfällig"]);
+      expect(book.needsAction).toBe(2);
+      expect(book.notDue).toBe(1);
+      // "Kommend": all three cover an upcoming market, whatever their season.
+      expect((await listLogbook(owner, { season: "upcoming" }, TODAY)).rows).toHaveLength(3);
     });
   });
 

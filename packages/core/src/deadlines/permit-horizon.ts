@@ -21,9 +21,10 @@ export function isValidPermitHorizonDays(value: unknown): value is number {
 }
 
 /**
- * Permits whose next market is further out than this many months stay out of notifications, the
- * Genehmigungen badge and the Übersicht; the Genehmigungen page still lists them (product owner,
- * 2026-10-28, to confirm with the users). Measured from the market's first day, not the apply-by date.
+ * Permits whose next market is further out than this many months stay out of notifications and the
+ * Übersicht (product owner, 2026-10-28). Measured from the market's first day, not the apply-by date.
+ * Not used for the Genehmigungen badge and chip any more: since 2026-10-29 they count by apply-by date
+ * within the permit horizon (`permitActionTier` in `permits/action.ts`).
  */
 export const PERMIT_NOTIFY_MONTHS = 6;
 

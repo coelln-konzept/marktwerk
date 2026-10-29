@@ -99,6 +99,7 @@ export function DocumentUpload({
         ref={fileInput}
         id={`${uid}-file`}
         type="file"
+        aria-label={pickLabel}
         accept={DOCUMENT_ACCEPT}
         multiple={!compact}
         className="sr-only"
@@ -109,6 +110,7 @@ export function DocumentUpload({
         ref={cameraInput}
         id={`${uid}-camera`}
         type="file"
+        aria-label={t("photo")}
         accept="image/*"
         capture="environment"
         className="sr-only"

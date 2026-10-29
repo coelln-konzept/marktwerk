@@ -292,7 +292,7 @@ test("Logbuch became Genehmigungen: /logbuch redirects with the drawer link inta
   const filters = page.getByRole("group", { name: "Status" });
   await expect(filters).toHaveCount(1);
   await expect(page.getByRole("group", { name: "Fokus" })).toHaveCount(0);
-  const focus = filters.getByRole("link", { name: /Fehlt\/abgelaufen für kommende Märkte/ });
+  const focus = filters.getByRole("link", { name: /Jetzt zu tun/ });
   const chipCount = (await focus.innerText()).match(/(\d+)\s*$/)?.[1];
   const badge = page
     .getByRole("navigation", { name: "Hauptnavigation" })
