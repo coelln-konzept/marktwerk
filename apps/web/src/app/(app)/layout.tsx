@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShellProvider } from "@/components/shell/shell-context";
+import { ShortcutsDialog } from "@/components/shell/shortcuts-dialog";
 import { ToastRegion } from "@/components/shell/toast-region";
 import { type Creatable, creatableFor } from "@/lib/creatable";
 import { isModuleVisible } from "@/lib/modules";
@@ -15,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const actor = await getActor();
   const { theme, density } = await getDisplayPreferences();
   const t = await getTranslations("palette.actions");
+  const tTop = await getTranslations("topbar");
   const creatable = creatableFor(actor.role);
   const can = (kind: Creatable) => creatable.includes(kind);
   const actions: SearchHit[] = [
@@ -43,6 +45,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : []),
     { kind: "action", title: t("calendar"), href: "/kalender" },
     { kind: "action", title: t("events"), href: "/veranstaltungen" },
+    // "Händler" and "Beschicker" are what other tools call the Aussteller: they find this entry, too.
+    ...(roleCan(actor.role, "vendor", "read")
+      ? [
+          {
+            kind: "action" as const,
+            title: t("vendors"),
+            href: "/aussteller",
+            keywords: [t("vendorsKeywords")],
+          },
+        ]
+      : []),
     // Einstellungen is not in the sidebar any more (profile menu); Strg+K finds it too.
     ...(roleCan(actor.role, "settings", "read")
       ? [{ kind: "action" as const, title: t("settings"), href: "/einstellungen" }]
@@ -50,11 +63,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ];
   return (
     <ShellProvider creatable={creatable} sidebarHidden={await getUiState("navHidden")}>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:rounded-lg focus:bg-card focus:px-3 focus:py-2 focus:font-medium focus:shadow-pop"
+      >
+        {tTop("skip")}
+      </a>
       <div className="flex min-h-svh">
         <AppSidebar user={actor} displayName={actor.displayName} theme={theme} density={density} />
-        <main className="min-w-0 flex-1">{children}</main>
+        {/* The page renders its own top bar (banner) and <main id="main"> inside this column. */}
+        <div className="min-w-0 flex-1">{children}</div>
       </div>
       <CommandPalette actions={actions} />
+      <ShortcutsDialog />
       <ToastRegion />
     </ShellProvider>
   );

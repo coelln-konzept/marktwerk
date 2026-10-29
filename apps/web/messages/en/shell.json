@@ -23,7 +23,8 @@
     "calendar": "Calendar",
     "venues": "Venues",
     "contacts": "Contacts",
-    "hide": "Hide sidebar"
+    "hide": "Hide sidebar",
+    "masterDataActive": "contains the current page"
   },
   "roles": {
     "owner": "Owner",
@@ -63,7 +64,8 @@
       "compact": "Compact"
     },
     "signOut": "Sign out",
-    "settings": "Settings"
+    "settings": "Settings",
+    "shortcuts": "Keyboard shortcuts"
   },
   "topbar": {
     "menu": "Open navigation",
@@ -81,7 +83,8 @@
     "newPermit": "Permit",
     "newShift": "Shift",
     "newIssue": "Report defect",
-    "showSidebar": "Show sidebar"
+    "showSidebar": "Show sidebar",
+    "skip": "Skip to content"
   },
   "palette": {
     "title": "Search and commands",
@@ -89,6 +92,10 @@
     "hint": "Type at least two characters.",
     "searching": "Searching …",
     "empty": "No results.",
+    "error": "Search is not available right now.",
+    "resultsCount": "{count, plural, one {# result} other {# results}}",
+    "showAll": "Show all {count}",
+    "shownOf": "{shown} of {total}",
     "select": "select",
     "open": "open",
     "umlauts": "Accents don't matter: “koln” finds Köln",
@@ -108,6 +115,8 @@
       "generate": "Plan a market (add dates for a market)",
       "calendar": "Open calendar",
       "events": "All events",
+      "vendors": "Open vendors",
+      "vendorsKeywords": "Beschicker Händler stallholders",
       "single": "Create a single event (without a preset)",
       "task": "Create task",
       "payable": "Create payment",
@@ -116,6 +125,34 @@
       "issue": "Report defect",
       "settings": "Open settings",
       "notifications": "Open notifications"
+    }
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "hint": "These keys work as long as you are not typing in a field.",
+    "close": "Close keyboard shortcuts",
+    "ctrl": "Ctrl",
+    "space": "Space",
+    "groups": {
+      "everywhere": "Everywhere",
+      "lists": "In lists",
+      "board": "On the board",
+      "calendar": "In the calendar"
+    },
+    "what": {
+      "search": "Search and commands",
+      "create": "Create new (menu “+ New”, on a board: create task)",
+      "overview": "This overview",
+      "undo": "Undo the last action",
+      "close": "Close a preview, window or side panel",
+      "move": "Move between rows",
+      "peek": "Open the preview",
+      "open": "Open the record",
+      "done": "Mark task as done",
+      "assign": "Assign task",
+      "today": "Jump to today",
+      "month": "Month view",
+      "list": "List view"
     }
   },
   "vorschau": {

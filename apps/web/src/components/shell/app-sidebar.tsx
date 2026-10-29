@@ -122,7 +122,12 @@ export async function AppSidebar({
       closeLabel={t("close")}
       hideLabel={t("hide")}
       items={strip(daily)}
-      group={{ label: t("masterData"), items: strip(masterData), defaultOpen: masterDataOpen }}
+      group={{
+        label: t("masterData"),
+        items: strip(masterData),
+        defaultOpen: masterDataOpen,
+        activeLabel: t("masterDataActive"),
+      }}
       footer={
         <ProfileMenu
           name={displayName}

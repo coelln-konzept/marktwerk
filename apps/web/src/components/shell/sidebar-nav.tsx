@@ -1,9 +1,9 @@
 "use client";
 
 import { ChevronRight, PanelLeftClose } from "lucide-react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { UI_STATE_COOKIES, writeUiState } from "@/lib/ui-state";
 import { cn } from "@/lib/utils";
 import { useShell } from "./shell-context";
@@ -18,10 +18,51 @@ export type NavEntry = {
 };
 
 /** A collapsible group of less frequent entries (Stammdaten). */
-export type NavGroup = { label: string; items: NavEntry[]; defaultOpen: boolean };
+export type NavGroup = {
+  label: string;
+  items: NavEntry[];
+  defaultOpen: boolean;
+  /** Spoken on the collapsed group when the current page is inside it. */
+  activeLabel: string;
+};
+
+const DESKTOP = "(min-width: 1024px)";
+
+/** From 1024 px the sidebar is a fixed column; below that it is a panel over the page. */
+function useIsDesktop(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia(DESKTOP);
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(DESKTOP).matches,
+    () => true,
+  );
+}
+
+/** Focusable, visible controls of the panel, for the focus trap. */
+function tabStops(panel: HTMLElement): HTMLElement[] {
+  return [...panel.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")].filter(
+    (el) => el.getClientRects().length > 0 && el.tabIndex >= 0,
+  );
+}
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** The icon of a link; it pulses while the page behind the link loads (so it must sit inside the Link). */
+function NavIcon({ icon }: { icon: React.ReactNode }) {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      data-pending={pending ? "" : undefined}
+      className={cn("inline-grid place-items-center", pending && "animate-pulse")}
+    >
+      {icon}
+    </span>
+  );
 }
 
 function NavLink({ item, pathname }: { item: NavEntry; pathname: string }) {
@@ -32,12 +73,12 @@ function NavLink({ item, pathname }: { item: NavEntry; pathname: string }) {
       aria-current={active ? "page" : undefined}
       title={item.badge && item.badgeLabel ? `${item.label}: ${item.badgeLabel}` : undefined}
       className={cn(
-        "flex min-h-8 items-center gap-3 rounded-lg px-2 py-1 font-medium text-foreground-2 hover:bg-hover [&_svg]:size-4 [&_svg]:text-muted-foreground",
+        "flex min-h-8 items-center gap-3 rounded-lg px-2 py-1 font-medium text-foreground-2 hover:bg-hover has-data-[pending]:bg-hover [&_svg]:size-4 [&_svg]:text-muted-foreground",
         active &&
           "bg-card font-semibold text-foreground shadow-[0_0_0_1px_var(--border)] [&_svg]:text-accent-soft-foreground",
       )}
     >
-      {item.icon}
+      <NavIcon icon={item.icon} />
       <span className="truncate">{item.label}</span>
       {item.badge ? (
         <span className="tabular ml-auto inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-critical-dot px-1.5 font-bold text-[11px] text-on-critical">
@@ -51,7 +92,8 @@ function NavLink({ item, pathname }: { item: NavEntry; pathname: string }) {
 
 /**
  * Labelled module navigation. Fixed 232 px column from 1024 px; below that it slides in over the page
- * from the top bar's menu button. Five daily entries, then one collapsible group (Stammdaten) whose
+ * from the top bar's menu button (a dialog while open: focus moves in and stays, Esc closes and hands
+ * focus back; inert while closed). Five daily entries, then one collapsible group (Stammdaten) whose
  * state is remembered; it opens by itself when the current page is inside it.
  */
 export function SidebarNav({
@@ -77,6 +119,11 @@ export function SidebarNav({
   const groupId = useId();
   const inGroup = group?.items.some((i) => isActive(pathname, i.href)) ?? false;
   const [groupOpen, setGroupOpen] = useState(group?.defaultOpen ?? false);
+  // The group is collapsed but the page you are on is inside it: the group row says so.
+  const collapsedActive = inGroup && !groupOpen;
+  const isDesktop = useIsDesktop();
+  const mobileOpen = navOpen && !isDesktop;
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Close the mobile navigation after navigating.
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs on route change only
@@ -85,6 +132,39 @@ export function SidebarNav({
   useEffect(() => {
     if (inGroup) setGroupOpen(true);
   }, [inGroup]);
+
+  // Opening the panel moves focus in and keeps it there; Esc or closing hands it back to the menu button.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const panel = panelRef.current;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    (panel?.querySelector<HTMLElement>("nav a") ?? panel)?.focus({ preventScroll: true });
+    function onKey(event: KeyboardEvent) {
+      // An open menu (profile) and a key it already used are not ours.
+      if (event.defaultPrevented || document.querySelector("[role=menu]")) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setNavOpen(false);
+      } else if (event.key === "Tab" && panel) {
+        const stops = tabStops(panel);
+        const first = stops[0];
+        const last = stops.at(-1);
+        const inside = panel.contains(document.activeElement);
+        if (event.shiftKey && (document.activeElement === first || !inside)) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [mobileOpen, setNavOpen]);
 
   function toggleGroup() {
     const next = !groupOpen;
@@ -98,13 +178,23 @@ export function SidebarNav({
         <button
           type="button"
           aria-label={closeLabel}
+          tabIndex={-1}
           className="fixed inset-0 z-30 bg-scrim lg:hidden"
           onClick={() => setNavOpen(false)}
         />
       )}
-      <aside
+      {/* Not an <aside>: the navigation inside is labelled, the page's landmarks stay banner + main. */}
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: a dialog only while the phone panel is open */}
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        inert={!isDesktop && !navOpen}
+        role={mobileOpen ? "dialog" : undefined}
+        aria-modal={mobileOpen ? true : undefined}
+        aria-label={mobileOpen ? navLabel : undefined}
+        data-closed={navOpen ? undefined : ""}
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-[232px] shrink-0 flex-col gap-0.5 border-sidebar-border border-r bg-sidebar px-2 py-3 text-sidebar-foreground transition-transform lg:sticky lg:top-0 lg:h-svh lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-[232px] shrink-0 flex-col gap-0.5 border-sidebar-border border-r bg-sidebar px-2 py-3 text-sidebar-foreground transition-[transform,visibility] focus:outline-none max-lg:data-[closed]:invisible lg:sticky lg:top-0 lg:h-svh lg:translate-x-0",
           navOpen ? "translate-x-0" : "-translate-x-full",
           sidebarHidden && "lg:hidden",
         )}
@@ -133,9 +223,15 @@ export function SidebarNav({
             type="button"
             aria-label={hideLabel}
             title={hideLabel}
+            data-sidebar-hide
             onClick={() => {
-              if (window.matchMedia("(min-width: 1024px)").matches) setSidebarHidden(true);
-              else setNavOpen(false);
+              if (window.matchMedia(DESKTOP).matches) {
+                setSidebarHidden(true);
+                // The button disappears with the sidebar: focus goes to its counterpart in the top bar.
+                requestAnimationFrame(() =>
+                  document.querySelector<HTMLElement>("[data-sidebar-show]")?.focus(),
+                );
+              } else setNavOpen(false);
             }}
             className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
           >
@@ -153,7 +249,11 @@ export function SidebarNav({
                 onClick={toggleGroup}
                 aria-expanded={groupOpen}
                 aria-controls={groupId}
-                className="flex min-h-8 w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-1 text-left font-medium text-foreground-2 hover:bg-hover"
+                className={cn(
+                  "flex min-h-8 w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-1 text-left font-medium text-foreground-2 hover:bg-hover",
+                  collapsedActive &&
+                    "bg-card font-semibold text-foreground shadow-[0_0_0_1px_var(--border)]",
+                )}
               >
                 <ChevronRight
                   aria-hidden
@@ -163,6 +263,15 @@ export function SidebarNav({
                   )}
                 />
                 <span className="truncate">{group.label}</span>
+                {collapsedActive && (
+                  <>
+                    <span
+                      aria-hidden
+                      className="ml-auto size-1.5 shrink-0 rounded-full bg-accent-soft-foreground"
+                    />
+                    <span className="sr-only">{group.activeLabel}</span>
+                  </>
+                )}
               </button>
               <div id={groupId} className={cn("flex-col gap-0.5", groupOpen ? "flex" : "hidden")}>
                 {group.items.map((item) => (
@@ -173,7 +282,7 @@ export function SidebarNav({
           )}
         </nav>
         <div className="border-sidebar-border border-t pt-2">{footer}</div>
-      </aside>
+      </div>
     </>
   );
 }
