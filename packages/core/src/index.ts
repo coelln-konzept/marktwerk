@@ -29,6 +29,7 @@ export * from "./finance/files";
 export * from "./finance/installments";
 export * from "./finance/money";
 export * from "./notifications/company";
+export * from "./notifications/company-order";
 export * from "./notifications/digest";
 export * from "./permits/coverage";
 export * from "./permits/event-state";
