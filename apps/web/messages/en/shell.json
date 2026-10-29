@@ -8,7 +8,7 @@
     "board": "Board",
     "events": "Events",
     "permits": "Permits",
-    "permitsBadge": "missing or expired for upcoming markets",
+    "permitsBadge": "permits to apply for now (application overdue or due soon)",
     "masterData": "Master data",
     "duties": "Duties",
     "team": "Team",

@@ -1,5 +1,5 @@
 import { can } from "@marktwerk/core";
-import { Check, Pencil } from "lucide-react";
+import { Check, FileCheck2, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -39,6 +39,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
   const t = await getTranslations("venues");
   const td = await getTranslations("venues.detail");
   const tm = await getTranslations("venues.manage");
+  const tp = await getTranslations("requirements");
   const locale = await getLocale();
   const today = todayIn();
   const canWrite = can(actor.role, "venue", "write");
@@ -91,6 +92,16 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
           </span>
         }
       />
+
+      {can(actor.role, "permit", "read") && (
+        <Link
+          href={`/genehmigungen?ort=${venue.id}` as never}
+          className="inline-flex w-fit items-center gap-1.5 font-medium text-accent-soft-foreground text-small hover:underline"
+        >
+          <FileCheck2 aria-hidden className="size-4" />
+          {tp("venuePermits")}
+        </Link>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel>
