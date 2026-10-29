@@ -73,14 +73,14 @@
       "cancel": "Abbrechen",
       "reload": "Neu laden",
       "errors": {
-        "name_required": "Bitte gib einen Namen ein.",
-        "invalid_kind": "Bitte wähle eine Art.",
-        "invalid_email": "Bitte gib eine gültige E-Mail-Adresse ein.",
-        "invalid_phone": "Bitte gib eine gültige Telefonnummer ein.",
+        "name_required": "Bitte einen Namen eingeben.",
+        "invalid_kind": "Bitte eine Art wählen.",
+        "invalid_email": "Bitte eine gültige E-Mail-Adresse eingeben.",
+        "invalid_phone": "Bitte eine gültige Telefonnummer eingeben.",
         "too_long": "Ein Feld ist zu lang.",
         "conflict": "Jemand anderes hat diesen Kontakt in der Zwischenzeit geändert. Lade die Seite neu, um den aktuellen Stand zu sehen.",
         "not_found": "Dieser Kontakt existiert nicht mehr.",
-        "generic": "Das hat leider nicht geklappt. Bitte versuche es noch einmal."
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
       }
     },
     "toast": {
@@ -90,7 +90,7 @@
       "archived": "{name} archiviert.",
       "undo": "Rückgängig",
       "restored": "{name} wiederhergestellt.",
-      "failed": "Das hat leider nicht geklappt."
+      "failed": "Das hat nicht geklappt."
     }
   }
 }

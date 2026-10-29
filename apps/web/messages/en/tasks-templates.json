@@ -252,7 +252,7 @@
       "confirm": "{count, plural, one {Apply to # event} other {Apply to # events}}",
       "done": "{events, plural, one {# event} other {# events}} updated: {added} new, {updated} changed, {removed} removed tasks",
       "errors": {
-        "generic": "That did not work. Please try again.",
+        "generic": "That didn't work. Please try again.",
         "not_found": "This timeline template no longer exists.",
         "no_published_version": "There is no published version yet.",
         "no_events": "Please choose at least one event.",
@@ -305,7 +305,7 @@
       "hoursMinutes": "{h} h {m} min"
     },
     "errors": {
-      "generic": "That did not work. Please try again.",
+      "generic": "That didn't work. Please try again.",
       "invalid_title": "Please enter a title (at most 200 characters).",
       "invalid_description": "The description is too long.",
       "invalid_phase": "Please choose a phase.",

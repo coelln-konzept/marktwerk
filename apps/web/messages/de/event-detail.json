@@ -50,7 +50,7 @@
       "reason": "Grund der Absage",
       "placeholder": "z. B. Genehmigung nicht erteilt, Wetterwarnung …",
       "submit": "Absagen",
-      "cancel": "Abbrechen"
+      "cancel": "Nicht absagen"
     },
     "overview": {
       "dates": {
@@ -138,11 +138,11 @@
           "snoozed": "Zurückgestellt"
         },
         "waitingSince": "seit {date}",
-        "dueOn": "fällig {date}",
+        "dueOn": "fällig am {date}",
         "snoozedUntil": "bis {date}"
       },
       "rules": {
-        "title": "Regeln der Art",
+        "title": "Regeln der Veranstaltungsart",
         "summary": "Neuware max. {share} % · {banned} · Online-Buchung: {online}",
         "bannedCount": "{count} verbotene Waren",
         "noBanned": "keine verbotenen Waren"
@@ -191,7 +191,7 @@
       "placeholder": "Was sollte das Team zu dieser Veranstaltung wissen?",
       "empty": "Noch keine Notizen.",
       "save": "Speichern",
-      "saving": "wird gespeichert…",
+      "saving": "wird gespeichert …",
       "saved": "Notizen gespeichert",
       "unchanged": "Keine Änderungen zu speichern.",
       "readOnly": "Du kannst die Notizen lesen, aber nicht ändern.",
@@ -211,7 +211,7 @@
       "created": "Angelegt aus Vorlage",
       "createdManual": "Angelegt",
       "statusChanged": "Status geändert: {from} → {to}",
-      "statusUndone": "Status zurückgesetzt: {from} → {to}",
+      "statusUndone": "Statusänderung rückgängig gemacht: {from} → {to}",
       "reason": "Grund: {reason}",
       "notes": "Notizen geändert",
       "archived": "Archiviert",
@@ -255,7 +255,7 @@
       "saved": "Eckdaten gespeichert",
       "unchanged": "Keine Änderungen zu speichern.",
       "undo": "Rückgängig",
-      "reverted": "Eckdaten zurückgesetzt",
+      "reverted": "Änderung an den Eckdaten rückgängig gemacht",
       "errors": {
         "invalid_time": "Bitte alle Zeiten als HH:MM angeben.",
         "open_after_close": "Das Ende muss nach dem Beginn liegen.",

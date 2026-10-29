@@ -86,7 +86,7 @@
       "archive": {
         "button": "Archivieren",
         "toast": "„{name}“ archiviert.",
-        "restored": "„{name}“ ist wieder da."
+        "restored": "„{name}“ wiederhergestellt."
       },
       "zone": {
         "add": "Zone hinzufügen",
@@ -108,7 +108,7 @@
         "notMoved": "„{zone}“ steht schon ganz {direction, select, up {oben} other {unten}}.",
         "deleted": "Zone „{zone}“ gelöscht.",
         "deletedWithRows": "Zone „{zone}“ mit {rows, plural, one {# Reihe} other {# Reihen}} gelöscht.",
-        "restored": "Zone „{zone}“ ist wieder da."
+        "restored": "Zone „{zone}“ wiederhergestellt."
       },
       "row": {
         "add": "Reihe hinzufügen",
@@ -133,28 +133,28 @@
         "saved": "Reihe „{row}“ gespeichert.",
         "unchanged": "Keine Änderungen.",
         "deleted": "Reihe „{row}“ gelöscht.",
-        "restored": "Reihe „{row}“ ist wieder da."
+        "restored": "Reihe „{row}“ wiederhergestellt."
       },
       "errors": {
-        "generic": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
         "not_found": "Das gibt es nicht mehr. Die Seite wurde aktualisiert.",
         "conflict": "Das wurde zwischenzeitlich geändert. Die Seite wurde aktualisiert.",
         "nothing_to_restore": "Das lässt sich nicht mehr rückgängig machen.",
-        "invalid_name": "Bitte gib einen Namen an (höchstens 120 Zeichen).",
-        "invalid_kind": "Bitte wähle eine Art.",
+        "invalid_name": "Bitte einen Namen angeben (höchstens 120 Zeichen).",
+        "invalid_kind": "Bitte eine Art wählen.",
         "invalid_street": "Die Straße ist zu lang (höchstens 120 Zeichen).",
         "invalid_postal_code": "Die PLZ hat fünf Ziffern.",
-        "invalid_city": "Bitte gib eine Stadt an (höchstens 80 Zeichen).",
-        "invalid_bundesland": "Bitte wähle ein Bundesland.",
+        "invalid_city": "Bitte eine Stadt angeben (höchstens 80 Zeichen).",
+        "invalid_bundesland": "Bitte ein Bundesland wählen.",
         "invalid_access_info": "Die Zufahrtsinfo ist zu lang (höchstens 2.000 Zeichen).",
-        "invalid_capacity": "Bitte gib die Kapazität in Metern an, z. B. 450 oder 450,5 (größer als 0).",
-        "invalid_coordinates": "Bitte gib Breiten- und Längengrad an, z. B. 50,9375 und 6,9603, oder lass beide Felder leer.",
+        "invalid_capacity": "Bitte die Kapazität in Metern angeben, z. B. 450 oder 450,5 (größer als 0).",
+        "invalid_coordinates": "Bitte Breiten- und Längengrad angeben, z. B. 50,9375 und 6,9603, oder beide Felder leer lassen.",
         "invalid_landowner": "Dieser Eigentümer steht nicht (mehr) zur Auswahl.",
-        "invalid_zone_name": "Bitte gib einen Namen an (höchstens 60 Zeichen).",
-        "invalid_row_label": "Bitte gib eine Bezeichnung an (höchstens 40 Zeichen).",
-        "invalid_length": "Bitte gib die Länge in Metern an, z. B. 12,5 (größer als 0).",
-        "invalid_depth": "Bitte gib die Tiefe in Metern an, z. B. 3 oder 3,5 (größer als 0).",
-        "invalid_car_slots": "Bitte gib eine ganze Zahl von 0 bis 999 an."
+        "invalid_zone_name": "Bitte einen Namen angeben (höchstens 60 Zeichen).",
+        "invalid_row_label": "Bitte eine Bezeichnung angeben (höchstens 40 Zeichen).",
+        "invalid_length": "Bitte die Länge in Metern angeben, z. B. 12,5 (größer als 0).",
+        "invalid_depth": "Bitte die Tiefe in Metern angeben, z. B. 3 oder 3,5 (größer als 0).",
+        "invalid_car_slots": "Bitte eine ganze Zahl von 0 bis 999 angeben."
       }
     },
     "vorschau": {

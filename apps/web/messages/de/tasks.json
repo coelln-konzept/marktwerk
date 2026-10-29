@@ -92,7 +92,7 @@
       },
       "errors": {
         "generic": "Die Aufgabe konnte nicht angelegt werden.",
-        "invalid_input": "Bitte gib einen Titel an und prüfe Datum und Stunden.",
+        "invalid_input": "Bitte einen Titel angeben sowie Datum und Stunden prüfen.",
         "invalid_event": "Diese Veranstaltung ist nicht verfügbar.",
         "invalid_staff": "Diese Person kann nicht zugewiesen werden."
       }

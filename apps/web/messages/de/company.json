@@ -272,7 +272,7 @@
       "on": "Gelesen am",
       "save": "Eintragen",
       "saved": "Kilometerstand {km} km eingetragen.",
-      "reverted": "Kilometerstand zurückgesetzt."
+      "reverted": "Änderung rückgängig gemacht."
     },
     "issues": {
       "title": "Mängel",
@@ -320,7 +320,7 @@
       },
       "actFor": "{action}: {title}",
       "changed": "„{title}“: {status}.",
-      "reverted": "Status zurückgesetzt.",
+      "reverted": "Statusänderung rückgängig gemacht.",
       "addPhoto": "Foto hinzufügen"
     },
     "issueDialog": {
@@ -347,10 +347,10 @@
       "save": "Als behoben eintragen"
     },
     "errors": {
-      "generic": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
       "not_found": "Das gibt es nicht mehr. Die Seite wird aktualisiert.",
       "conflict": "Das wurde inzwischen geändert. Die Seite wird aktualisiert.",
-      "invalid_name": "Bitte gib einen Namen ein (höchstens 120 Zeichen).",
+      "invalid_name": "Bitte einen Namen eingeben (höchstens 120 Zeichen).",
       "invalid_plate": "Das Kennzeichen sieht nicht richtig aus.",
       "plate_taken": "Dieses Kennzeichen gibt es schon.",
       "invalid_vin": "Die Fahrgestellnummer sieht nicht richtig aus (11 bis 17 Zeichen, ohne I, O, Q).",
@@ -360,16 +360,16 @@
       "invalid_odometer": "Der Kilometerstand muss eine ganze Zahl sein.",
       "odometer_lower": "Der neue Stand liegt unter dem bisherigen. Einen Tippfehler korrigierst du über „Fahrzeug bearbeiten“.",
       "invalid_text": "Der Text ist zu lang.",
-      "invalid_kind": "Bitte wähle eine Art.",
-      "invalid_scope": "Bitte wähle den Bezug.",
-      "invalid_vehicle": "Bitte wähle ein Fahrzeug.",
-      "invalid_venue": "Bitte wähle einen Ort.",
+      "invalid_kind": "Bitte eine Art wählen.",
+      "invalid_scope": "Bitte den Bezug wählen.",
+      "invalid_vehicle": "Bitte ein Fahrzeug wählen.",
+      "invalid_venue": "Bitte einen Ort wählen.",
       "invalid_interval": "Das Intervall muss eine positive ganze Zahl sein. Kilometer gibt es nur bei Fahrzeugen.",
       "invalid_due": "Die Fälligkeit ist ungültig. Kilometer gibt es nur bei Fahrzeugen.",
       "invalid_lead_days": "Der Vorlauf muss eine ganze Zahl von 0 bis 365 sein.",
-      "invalid_staff": "Bitte wähle eine aktive Person aus dem Team.",
+      "invalid_staff": "Bitte eine aktive Person aus dem Team wählen.",
       "invalid_cost": "Die Kosten sind ungültig.",
-      "invalid_severity": "Bitte wähle die Schwere.",
+      "invalid_severity": "Bitte die Schwere wählen.",
       "invalid_status": "Der Status ist ungültig.",
       "future_date": "Das Datum liegt in der Zukunft.",
       "km_required": "Für diese Pflicht brauchst du den Kilometerstand.",
