@@ -159,3 +159,31 @@ export function activePreset(
     )?.key ?? null
   );
 }
+
+/**
+ * Cookie that remembers whether this browser last showed a phone-sized viewport ("1") or a wider one
+ * ("0"). The Kalender opens in Liste on phones (decision 2026-10-28); the server cannot see the width,
+ * so a small client component (`ViewDefault`) keeps this cookie in step and the page reads it.
+ */
+export const KAL_PHONE_COOKIE = "mw_kal_phone";
+
+/**
+ * How many layers differ from `DEFAULT_LAYERS` (every layer switched differently counts one, every
+ * active narrowing counts one). Only layers the person can see are compared, so a role without
+ * finance access never sees a change it cannot make.
+ */
+export function layersChangedCount(
+  layers: Layers,
+  available: readonly CalendarLayer[] = CALENDAR_LAYERS,
+): number {
+  let n = 0;
+  for (const k of EVENT_TYPE_KEYS)
+    if (layers.types.includes(k) !== DEFAULT_LAYERS.types.includes(k)) n++;
+  for (const l of available)
+    if (layers.deadlines.includes(l) !== DEFAULT_LAYERS.deadlines.includes(l)) n++;
+  if (layers.holidays !== DEFAULT_LAYERS.holidays) n++;
+  if (layers.critical) n++;
+  if (layers.mine) n++;
+  if (layers.venue) n++;
+  return n;
+}

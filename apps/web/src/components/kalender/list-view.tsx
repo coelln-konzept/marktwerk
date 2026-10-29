@@ -12,9 +12,9 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
 import { formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { CalendarItem } from "@/server/queries/due";
 import type { EventRow } from "@/server/queries/events";
 import { LAYER_ICONS } from "./deadline-chip";
+import type { DisplayItem } from "./group-deadlines";
 
 /** "Liste · 6 Wochen": the same entries as the month view, grouped by KW with one block per day. */
 export async function CalendarList({
@@ -32,7 +32,7 @@ export async function CalendarList({
   today: string;
   rows: EventRow[];
   /** Entries of the module layers (Aufgaben, Genehmigungen, …). */
-  deadlines: CalendarItem[];
+  deadlines: DisplayItem[];
   holidays: Map<string, string>;
   /** Link to an event (its Überblick). */
   hrefFor: (id: string) => string;
@@ -51,14 +51,18 @@ export async function CalendarList({
       byDay.set(d, [...(byDay.get(d) ?? []), r]);
     }
   }
-  const itemsByDay = new Map<string, CalendarItem[]>();
+  const itemsByDay = new Map<string, DisplayItem[]>();
   for (const item of deadlines)
     itemsByDay.set(item.date, [...(itemsByDay.get(item.date) ?? []), item]);
   const days: string[] = [];
+  let hasEntries = false;
   for (let d = from; d <= to; d = addDays(d, 1)) {
-    if (byDay.has(d) || itemsByDay.has(d) || holidays.has(d)) days.push(d);
+    const busy = byDay.has(d) || itemsByDay.has(d) || holidays.has(d);
+    if (busy) hasEntries = true;
+    // Today is always a row (even when nothing happens), so the list shows where "now" is.
+    if (busy || d === today) days.push(d);
   }
-  if (days.length === 0) {
+  if (!hasEntries) {
     return (
       <EmptyState icon={CalendarX} title={t("emptyList")} hint={t("emptyListHint")}>
         <Link
@@ -92,7 +96,7 @@ export async function CalendarList({
         </caption>
         <THead>
           <tr>
-            <TH className="w-44">{t("cols.date")}</TH>
+            <TH className="w-28 sm:w-44">{t("cols.date")}</TH>
             <TH>{t("cols.entry")}</TH>
             <TH className="hidden sm:table-cell">{t("cols.venue")}</TH>
             <TH>{t("cols.status")}</TH>
@@ -120,7 +124,7 @@ export async function CalendarList({
                     key="date"
                     rowSpan={Math.max(events.length + items.length, 1)}
                     className={cn(
-                      "w-44 whitespace-nowrap align-top",
+                      "w-28 align-top sm:w-44 sm:whitespace-nowrap",
                       day === today && "bg-selected",
                       holiday && "text-status-critical",
                     )}
@@ -128,7 +132,14 @@ export async function CalendarList({
                     <span className="tabular font-semibold">
                       {formatDateShortYear(day, locale, today)}
                     </span>
-                    <span className="block text-muted-foreground text-tiny">{relative(day)}</span>
+                    {day === today ? (
+                      <span className="mt-0.5 flex items-center gap-1 font-semibold text-accent-soft-foreground text-tiny">
+                        <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+                        {t("todayMarker")}
+                      </span>
+                    ) : (
+                      <span className="block text-muted-foreground text-tiny">{relative(day)}</span>
+                    )}
                     {holiday && <span className="block font-semibold text-tiny">{holiday}</span>}
                   </TD>
                 );
@@ -137,7 +148,7 @@ export async function CalendarList({
                     <TR key={day}>
                       {dateCell}
                       <TD colSpan={4} className="text-muted-foreground">
-                        {t("legend.holiday")}
+                        {holiday ? t("legend.holiday") : t("nothingToday")}
                       </TD>
                     </TR>
                   );
@@ -172,7 +183,7 @@ export async function CalendarList({
                         >
                           {r.name}
                         </Link>
-                        <EventTypeTag typeKey={r.typeKey}>
+                        <EventTypeTag typeKey={r.typeKey} className="max-sm:hidden">
                           {locale === "en" ? r.typeNameEn : r.typeNameDe}
                         </EventTypeTag>
                       </TD>
@@ -213,10 +224,11 @@ export async function CalendarList({
                           className="mr-2 inline-flex items-center gap-1.5 font-semibold hover:underline"
                         >
                           <Icon aria-hidden className="size-4 shrink-0 text-foreground-2" />
-                          {item.title}
+                          {item.text}
                         </Link>
                         <span className="text-muted-foreground text-tiny">
                           {t(`layers.deadline.${item.layer}`)}
+                          {item.kindLabel && !item.group ? ` · ${item.kindLabel}` : ""}
                         </span>
                       </TD>
                       <TD className="hidden sm:table-cell" />
