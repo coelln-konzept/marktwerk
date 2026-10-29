@@ -76,5 +76,5 @@ export function formatHours(hours: number, locale: string): string {
   const text = new Intl.NumberFormat(locale === "en" ? "en-GB" : "de-DE", {
     maximumFractionDigits: 1,
   }).format(hours);
-  return `${text} h`;
+  return `${text} ${locale === "en" ? "h" : "Std."}`;
 }
