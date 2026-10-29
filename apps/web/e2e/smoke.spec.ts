@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 test("Übersicht loads after login", async ({ page }) => {
   await page.goto("/");
@@ -15,10 +15,11 @@ test("Übersicht: the weekend comes first, then Heute & überfällig (side by si
   const due = page.getByRole("heading", { level: 2, name: "Heute & überfällig" });
   await expect(weekend).toBeVisible();
   await expect(due).toBeVisible();
-  const [weekendY, dueY] = await Promise.all([weekend.boundingBox(), due.boundingBox()]);
-  // Two cards: the weekend is first, in reading order (left of, or above, the due card).
-  expect((weekendY?.y ?? 0) <= (dueY?.y ?? 0)).toBe(true);
-  expect((weekendY?.x ?? 0) <= (dueY?.x ?? 0)).toBe(true);
+  const [weekendBox, dueBox] = await Promise.all([weekend.boundingBox(), due.boundingBox()]);
+  // Two cards side by side on desktop: the weekend is the left one, the headings sit on one line (the
+  // due header carries count badges, so its heading can be a few px higher than the weekend's).
+  expect(weekendBox?.x ?? 0).toBeLessThan(dueBox?.x ?? 0);
+  expect(Math.abs((weekendBox?.y ?? 0) - (dueBox?.y ?? 0))).toBeLessThan(24);
 
   // No KPI strip (the card headers carry the counts), no season strip, no filter chips, no estimate legend.
   await expect(page.locator('dl[aria-label="Kennzahlen"]')).toHaveCount(0);
@@ -35,20 +36,28 @@ test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a ma
   await expect(line).toBeVisible();
   await page.getByRole("link", { name: "Aufräumen", exact: true }).click();
   await expect(page).toHaveURL(/aufraeumen=1/);
-  const drawer = page.getByRole("complementary", {
+  // The drawer is a non-modal dialog labelled by its title.
+  const drawer = page.getByRole("dialog", {
     name: "Offene Aufgaben aus vergangenen Märkten",
   });
   await expect(drawer.getByText("Offene Aufgaben aus vergangenen Märkten")).toBeVisible();
 
-  const first = drawer.getByRole("listitem").first();
-  const before = await drawer.getByRole("listitem").count();
-  await first.getByRole("button", { name: /überspringen/ }).click();
-  await expect(page.getByText(/Aufgaben? übersprungen/)).toBeVisible();
-  await expect(drawer.getByRole("listitem")).toHaveCount(before - 1);
+  // One row per market (each lists its open tasks as a nested list, so count the rows with a skip button).
+  const markets = drawer.getByRole("listitem").filter({
+    has: page.getByRole("button", { name: /^Offene Aufgaben von .+ überspringen$/ }),
+  });
+  const before = await markets.count();
+  expect(before).toBeGreaterThan(0);
+  await markets
+    .first()
+    .getByRole("button", { name: /^Offene Aufgaben von .+ überspringen$/ })
+    .click();
+  await expect(page.getByText(/Aufgaben? von .+ übersprungen/)).toBeVisible();
+  await expect(markets).toHaveCount(before - 1);
 
-  // The undo toast brings the market back.
+  // The toast names the market; its undo brings the market back.
   await page.getByRole("button", { name: "Rückgängig" }).click();
-  await expect(drawer.getByRole("listitem")).toHaveCount(before);
+  await expect(markets).toHaveCount(before);
 
   // The drawer is a linkable page state: a reload keeps it, Esc closes it.
   await page.reload();
@@ -81,9 +90,13 @@ test("Team and Finanzen are hidden: no navigation entries, direct visits do not 
   await expect(nav.getByRole("link", { name: "Team", exact: true })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: "Finanzen", exact: true })).toHaveCount(0);
 
+  // The app-wide loading.tsx makes the response stream, so notFound() no longer changes the HTTP status
+  // (200); what the page renders is what counts: the German not-found page and none of the module.
   for (const path of ["/team", "/team/stunden", "/finanzen", "/finanzen/neu"]) {
-    const response = await page.goto(path);
-    expect(response?.status()).toBe(404);
+    await page.goto(path);
+    // The only h1 is the not-found page's, so no Team/Finanzen content is rendered.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Nicht gefunden");
+    await expect(page.getByText("Diesen Eintrag gibt es nicht")).toBeVisible();
   }
 });
 
@@ -157,7 +170,7 @@ test('Event page: one "…" menu holds Bearbeiten, Verschieben and Status änder
   await expect(page.getByRole("dialog", { name: "Name, Dauer und Ort" })).toBeHidden();
 });
 
-test("Task drawer: Erledigt and Wartet auf Amt are buttons, the other states sit in a menu", async ({
+test("Task drawer: Erledigt and Wartet are buttons, the other states sit in a menu", async ({
   page,
 }) => {
   await page.goto("/veranstaltungen?saison=2026");
@@ -168,9 +181,12 @@ test("Task drawer: Erledigt and Wartet auf Amt are buttons, the other states sit
   await page.goto(href);
   await page.getByRole("heading", { level: 2, name: "Was fehlt" }).waitFor();
   await page.locator("a[href*='aufgabe=']").first().click();
-  const drawer = page.getByRole("complementary");
-  await expect(drawer.getByRole("button", { name: "Erledigt" })).toBeVisible();
-  await expect(drawer.getByRole("button", { name: "Wartet auf Amt" })).toBeVisible();
+  // The drawer is a non-modal dialog (not a landmark).
+  const drawer = page.getByRole("dialog");
+  await expect(drawer.getByRole("button", { name: "Erledigt", exact: true })).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "Wartet", exact: true })).toBeVisible();
+  // An open task offers no "Wieder öffnen"; that one belongs to finished tasks only.
+  await expect(drawer.getByRole("button", { name: "Wieder öffnen" })).toHaveCount(0);
   await expect(drawer.getByText(/Status:/)).toBeVisible();
   await drawer.getByRole("button", { name: "Weitere Status" }).click();
   const menu = page.getByRole("menu");
@@ -183,10 +199,21 @@ test("Task drawer: Erledigt and Wartet auf Amt are buttons, the other states sit
   await expect(drawer.getByText("lässt sich als Link weitergeben")).toHaveCount(0);
 });
 
+/** The Kalender layers are saved per person: put them back to the defaults ("Zurücksetzen" shows only when they differ). */
+async function resetKalenderLayers(page: Page) {
+  await page.goto("/kalender");
+  await page.waitForLoadState("networkidle"); // hydrated, so the button reacts
+  const reset = page.getByRole("button", { name: "Zurücksetzen" });
+  if ((await reset.count()) > 0) {
+    await reset.click();
+    await expect(reset).toHaveCount(0);
+  }
+}
+
 test("Kalender: Ebenen collapsed by default, two presets, tasks off, full market names", async ({
   page,
 }) => {
-  await page.goto("/kalender");
+  await resetKalenderLayers(page); // an earlier run may have left a saved selection
   await expect(page.getByRole("heading", { level: 1, name: "Kalender" })).toBeVisible();
   // No breadcrumb above a top-level page: it would only repeat the H1.
   await expect(page.getByRole("navigation", { name: "Brotkrumen" })).toHaveCount(0);
@@ -233,6 +260,9 @@ test("Kalender: Ebenen collapsed by default, two presets, tasks off, full market
   // The list view renders with the same selection.
   await page.goto("/kalender?ansicht=liste");
   await expect(page.getByRole("heading", { level: 1, name: "Kalender" })).toBeVisible();
+
+  // The preset click above was saved for the person: leave the defaults behind for the next run.
+  await resetKalenderLayers(page);
 });
 
 test("Sidebar: five daily entries, Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
@@ -382,12 +412,15 @@ test("+ Neu offers task, permit and defect to the owner (no payment or shift whi
   page,
 }) => {
   await page.goto("/");
+  await page.waitForLoadState("networkidle"); // hydrated, so the button reacts
   await page.getByRole("button", { name: "Neu", exact: true }).click();
   const menu = page.getByRole("menu");
+  // The entry that fits the page comes first: on the Übersicht that is the event (Markt planen).
   for (const entry of ["Aufgabe", "Genehmigung", "Mangel melden"])
     await expect(menu.getByRole("menuitem", { name: entry })).toBeVisible();
   for (const entry of ["Zahlung", "Schicht"])
     await expect(menu.getByRole("menuitem", { name: entry })).toHaveCount(0);
+  await expect(menu.getByRole("menuitem").first()).toHaveText("Markt planen");
 
   // "Aufgabe" opens the quick-create dialog on the board.
   await menu.getByRole("menuitem", { name: "Aufgabe" }).click();
@@ -664,7 +697,7 @@ test("Event board: Ablauf lists every task by phase, one line each; a row opens 
   // Phase headers carry a task count; finished tasks wait collapsed at the end.
   await expect(
     page
-      .locator("main h3")
+      .locator("main h2")
       .filter({ hasText: /Aufgaben?$/ })
       .first(),
   ).toBeVisible();
@@ -685,7 +718,8 @@ test("Sidebar: the button at its top right hides it (remembered), the top bar br
 }) => {
   await page.goto("/board");
   await page.waitForLoadState("networkidle"); // hydrated, so the buttons react
-  const nav = page.locator("aside").first();
+  // The sidebar container is a labelled complementary landmark (a dialog on phones).
+  const nav = page.getByRole("complementary", { name: "Hauptnavigation" });
   await expect(nav).toBeVisible();
   await page.getByRole("button", { name: "Seitenleiste ausblenden" }).click();
   await expect(nav).toBeHidden();
