@@ -14,6 +14,10 @@
     "layers": {
       "title": "Layers",
       "visible": "{count} visible",
+      "updating": "Updating …",
+      "changed": "{count} changed",
+      "reset": "Reset",
+      "close": "Close layers",
       "presets": "Presets",
       "preset": {
         "markets": "Markets",
@@ -61,6 +65,26 @@
       "past": "{n} d ago"
     },
     "open": "Open",
+    "todayMarker": "Today",
+    "nothingToday": "Nothing is scheduled today.",
+    "moreAria": "{n} more entries on {day}, open the list from that day",
+    "spanDay": "Day {index}/{total}",
+    "permitKind": {
+      "apply": "Application due",
+      "decision": "Decision expected",
+      "expires": "Expires"
+    },
+    "group": {
+      "permits": "{count, plural, one {# permit} other {# permits}}: {kind}",
+      "permitsAny": "{count, plural, one {# permit} other {# permits}}",
+      "tasks": "{count, plural, one {# task} other {# tasks}}"
+    },
+    "jump": {
+      "open": "{title}, choose month or year",
+      "prevYear": "Previous year",
+      "nextYear": "Next year",
+      "today": "Today"
+    },
     "emptyList": "Nothing is scheduled in these six weeks.",
     "emptyListHint": "Change the selection under “Layers”, or page on with ›.",
     "emptyMonth": "Nothing matches this selection in this month.",
@@ -70,7 +94,7 @@
       "holiday": "Public holiday NRW",
       "cancelled": "struck through = cancelled"
     },
-    "keys": "Click an entry to open it · <k>T</k> today · <k>M</k> month · <k>L</k> list",
+    "keys": "Click an entry to open it · <k>T</k> today · <k>M</k> month · <k>L</k> list · <k>←</k> <k>→</k> browse",
     "tone": {
       "ok": "On track",
       "warn": "Attention",

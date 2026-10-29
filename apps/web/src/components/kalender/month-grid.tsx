@@ -1,4 +1,5 @@
 import { addDays, daysInMonth, isoDate, isoWeek, mondayOf, weekday } from "@marktwerk/core";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export type CalendarEntry = {
@@ -9,7 +10,9 @@ export type CalendarEntry = {
 
 /**
  * Month grid with a KW column, weeks starting Monday (UX concept §8). Days outside the month are
- * dimmed, holidays tinted, today outlined, weekends with 4+ events flagged.
+ * dimmed, holidays tinted, today outlined, weekends with 4+ events flagged. Saturday and Sunday get
+ * wider columns (that is where the markets are). From `md` the grid shrinks to the available width
+ * (768 px tablets show Sunday); below it the grid scrolls sideways inside its panel.
  */
 export function MonthGrid({
   month,
@@ -21,6 +24,8 @@ export function MonthGrid({
   flaggedSaturdays = new Set(),
   flagLabel,
   moreLabel,
+  moreAria,
+  moreHref,
   maxPerDay = 4,
 }: {
   /** "YYYY-MM" */
@@ -33,6 +38,10 @@ export function MonthGrid({
   flaggedSaturdays?: Set<string>;
   flagLabel?: string;
   moreLabel: (n: number) => string;
+  /** Accessible name of the "weitere" link, which names the day ("3 weitere am 7. Dezember"). */
+  moreAria: (n: number, day: string) => string;
+  /** The list starting at that day: where "+ N weitere" leads. */
+  moreHref: (day: string) => string;
   maxPerDay?: number;
 }) {
   const [y, m] = month.split("-").map(Number) as [number, number];
@@ -48,7 +57,13 @@ export function MonthGrid({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] table-fixed border-collapse">
+      <table className="w-full min-w-[760px] table-fixed border-collapse md:min-w-[640px]">
+        <colgroup>
+          <col className="w-12" />
+          {weekdays.map((d, i) => (
+            <col key={d} className={i >= 5 ? "w-[17%]" : undefined} />
+          ))}
+        </colgroup>
         <thead>
           <tr className="bg-surface-2 text-left text-muted-foreground text-tiny">
             <th scope="col" className="w-12 border-b px-2 py-1.5 font-semibold">
@@ -66,7 +81,7 @@ export function MonthGrid({
             <tr key={week[0]}>
               <th
                 scope="row"
-                className="border-b px-2 py-1.5 text-left align-top font-semibold text-muted-foreground text-tiny"
+                className="tabular border-b px-2 py-1.5 text-left align-top font-semibold text-muted-foreground text-tiny"
               >
                 {isoWeek(week[0] as string).week}
               </th>
@@ -100,13 +115,20 @@ export function MonthGrid({
                         </span>
                       )}
                     </div>
-                    <ul className="flex flex-col gap-0.5">
+                    <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
                       {items.slice(0, maxPerDay).map((item) => (
                         <li key={item.key}>{item.node}</li>
                       ))}
                       {items.length > maxPerDay && (
-                        <li className="px-1 text-muted-foreground text-tiny">
-                          {moreLabel(items.length - maxPerDay)}
+                        <li>
+                          <Link
+                            href={moreHref(day) as never}
+                            aria-label={moreAria(items.length - maxPerDay, day)}
+                            scroll={false}
+                            className="block rounded-md px-1 py-0.5 font-medium text-accent-soft-foreground text-tiny hover:underline"
+                          >
+                            {moreLabel(items.length - maxPerDay)}
+                          </Link>
                         </li>
                       )}
                     </ul>
