@@ -159,7 +159,9 @@ export function AgreementDialog({
           }}
         >
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="agreement-contact">{t("counterparty")}</Label>
+            <Label htmlFor="agreement-contact" optional>
+              {t("counterparty")}
+            </Label>
             <select
               id="agreement-contact"
               value={contactId}
@@ -202,7 +204,9 @@ export function AgreementDialog({
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="agreement-date">{t("fixedDates")}</Label>
+            <Label htmlFor="agreement-date" optional>
+              {t("fixedDates")}
+            </Label>
             <div className="flex gap-2">
               <Input
                 id="agreement-date"
@@ -248,7 +252,9 @@ export function AgreementDialog({
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="agreement-terms">{t("terms")}</Label>
+            <Label htmlFor="agreement-terms" optional>
+              {t("terms")}
+            </Label>
             <textarea
               id="agreement-terms"
               rows={3}

@@ -1,6 +1,6 @@
 {
   "company": {
-    "title": "Duties & vehicles",
+    "title": "Duties",
     "subtitle": "Recurring obligations, vehicles and defects.",
     "tabs": {
       "label": "Company sections",
@@ -23,9 +23,6 @@
       "overdue": "overdue"
     },
     "statusDetail": {
-      "inDays": "in {days, plural, one {# day} other {# days}}",
-      "today": "today",
-      "overdueDays": "for {days, plural, one {# day} other {# days}}",
       "inKm": "in {km} km",
       "overKm": "{km} km over"
     },
@@ -230,6 +227,8 @@
       "obligations": "Obligations",
       "obligationsCaption": "Obligations of this vehicle",
       "noObligations": "There are no obligations for this vehicle yet.",
+      "addHu": "Add HU/TÜV inspection",
+      "addInsurance": "Add insurance",
       "newObligation": "Add obligation",
       "issues": "Defects",
       "noIssues": "No defects reported.",
@@ -237,7 +236,7 @@
     },
     "vehicleForm": {
       "newTitle": "Add vehicle",
-      "newSubtitle": "Plate and weight matter most. You can add the rest later.",
+      "newSubtitle": "Name and plate are required; you can add the rest later. With the gross weight the HU interval is suggested correctly.",
       "editTitle": "Edit vehicle",
       "editSubtitle": "Best enter the odometer through “Enter odometer reading”; here you can fix a typo.",
       "basics": "Vehicle",
@@ -351,6 +350,9 @@
       "not_found": "That no longer exists. The page is refreshed.",
       "conflict": "That was changed in the meantime. The page is refreshed.",
       "invalid_name": "Please enter a name (at most 120 characters).",
+      "plate_required": "Please enter a plate.",
+      "title_required": "Please enter a title.",
+      "responsible_required": "Please choose who is responsible.",
       "invalid_plate": "The plate doesn't look right.",
       "plate_taken": "This plate already exists.",
       "invalid_vin": "The VIN doesn't look right (11 to 17 characters, no I, O, Q).",
