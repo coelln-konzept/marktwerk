@@ -24,10 +24,22 @@ const roles = {
   field: noAdminRights,
 } satisfies Record<Role, unknown>;
 
+/**
+ * Exact origins only: a pattern like `marktwerk-*.vercel.app` would also match other people's
+ * Vercel projects. The Vercel URLs let a deployment's own hash and branch links sign in.
+ */
+const trustedOrigins = [
+  env.BETTER_AUTH_URL,
+  env.APP_URL,
+  ...[env.VERCEL_URL, env.VERCEL_BRANCH_URL, env.VERCEL_PROJECT_PRODUCTION_URL]
+    .filter((host) => host !== undefined && host !== "")
+    .map((host) => `https://${host}`),
+];
+
 export const auth = betterAuth({
   appName: "marktwerk",
   baseURL: env.BETTER_AUTH_URL,
-  trustedOrigins: [env.BETTER_AUTH_URL, env.APP_URL],
+  trustedOrigins,
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "pg",

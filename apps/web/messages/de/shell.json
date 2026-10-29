@@ -37,7 +37,11 @@
     "password": "Passwort",
     "submit": "Anmelden",
     "submitting": "Anmelden …",
-    "error": "E-Mail oder Passwort ist falsch."
+    "error": "E-Mail oder Passwort ist falsch.",
+    "errorOrigin": "Von dieser Adresse aus ist keine Anmeldung möglich. Bitte öffne die Hauptadresse von marktwerk.",
+    "errorBanned": "Dieses Konto ist gesperrt. Bitte wende dich an die Geschäftsführung.",
+    "errorRateLimit": "Zu viele Anmeldeversuche. Bitte warte einen Moment und versuche es erneut.",
+    "errorUnknown": "Die Anmeldung ist gerade nicht möglich. Bitte versuche es später erneut."
   },
   "errors": {
     "forbidden": "Dafür fehlt dir die Berechtigung.",
