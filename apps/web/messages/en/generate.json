@@ -24,7 +24,8 @@
       "fromMonth": "First month",
       "toMonth": "Last month",
       "year": "Year",
-      "apply": "Apply"
+      "apply": "Apply",
+      "replaces": "Replaces your {count, plural, one {# selected date} other {# selected dates}}."
     },
     "weekShort": "CW",
     "weekdaysShort": "Mo,Tu,We,Th,Fr,Sa,Su",
@@ -48,10 +49,15 @@
     },
     "warn": {
       "holiday": "{name} (holiday)",
-      "weekend": "event no. {n} that weekend",
+      "weekend": "event no. {n} that weekend (more than {max})",
       "venue": "Venue booked: {name}",
       "overlap": "overlaps another selected date",
-      "none": "no notes"
+      "none": "no notes",
+      "weekendFull": "event no. {n} that weekend, which fills it (maximum {max})",
+      "weekendWith": "already there: {names}",
+      "past": "is in the past – all tasks would be overdue at once",
+      "checking": "checking …",
+      "unchecked": "could not be checked"
     },
     "remove": "Remove {date}",
     "previewNote": "Notes never block: you decide.",
@@ -111,7 +117,8 @@
         "setup_after_open": "On single-day markets setup cannot be after the start.",
         "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most 10,000 €).",
         "generic": "That didn't work. Please try again."
-      }
+      },
+      "hintsRetry": "Check again"
     },
     "search": "Search market or venue …",
     "searchLabel": "Search markets",
@@ -124,7 +131,7 @@
       "newHint": "For a market that is not in the list yet. You pick its dates right after.",
       "title": "New market",
       "hint": "Set name, venue and the usual times once. The market starts with the tasks of the master template and is in this list from then on.",
-      "rhythm": "Rhythm (optional)",
+      "rhythm": "Rhythm",
       "cancel": "Cancel",
       "create": "Add market",
       "creating": "Adding …",
@@ -135,6 +142,37 @@
         "invalid_fee": "Please enter the booking fee in euros, e.g. 5.00.",
         "invalid_rrule": "Please pick at least one weekday for the rhythm or tick “No rhythm”."
       }
+    },
+    "plannedIn": "{year}: {count, plural, =0 {nothing planned yet} one {# date planned} other {# dates planned}}",
+    "calendarLabel": "Calendar: choose days",
+    "keysHint": "Arrow keys: choose day · Page up/down: month · Space: toggle",
+    "skippedCount": "{count} already exist",
+    "allExist": "All selected dates exist already. Use “Add anyway” to create some of them regardless.",
+    "createWithSkipped": "{count} new · {skipped} already exist",
+    "day": {
+      "busy": "venue booked",
+      "weekendFull": "weekend full"
+    },
+    "context": {
+      "loading": "Loading bookings …",
+      "failed": "Bookings could not be loaded. Notes about booked venues, full weekends and dates that already exist are missing.",
+      "retry": "Try again"
+    },
+    "dup": {
+      "exists": "Already exists",
+      "addedAgain": "Will be created anyway",
+      "addAnyway": "Add anyway",
+      "skip": "Skip it",
+      "detail": "“{name}” is already planned on this day. The date is skipped."
+    },
+    "preview": {
+      "tasks": "{count, plural, one {# task} other {# tasks}}",
+      "dueNow": "{count} due right away",
+      "permits": "Permits: {covered} covered · {fresh} new",
+      "permitsNone": "No permits needed",
+      "loading": "Working out tasks and permits …",
+      "failed": "Tasks and permits could not be worked out. You can still create the events.",
+      "noTemplate": "This market has no published task template: the events start without tasks."
     }
   }
 }
