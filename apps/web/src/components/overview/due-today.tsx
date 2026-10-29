@@ -106,8 +106,8 @@ function clusters(rows: DueItem[]): Cluster[] {
 }
 
 /**
- * "Heute fällig": every module's due items, ranked (overdue · today · this week · permits soon; within a
- * group permits > instalments > tasks > hours > obligations) and grouped by market. Only current
+ * "Heute fällig": every module's due items, ranked (overdue · today · this week · permits soon; Kernaufgaben
+ * first, overdue then by market with the soonest on top; see `rankDue`) and grouped by market. Only current
  * markets: tasks of past markets are handled by the "Aufräumen" line. Each group shows its first markets;
  * the rest sits behind `?alle=1` (a plain link, works without JavaScript).
  */

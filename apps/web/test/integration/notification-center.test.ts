@@ -1,6 +1,7 @@
 import { companyDedupeKey } from "@marktwerk/core";
 import {
   auditLog,
+  event,
   eventPermit,
   notification,
   outboundMessage,
@@ -179,6 +180,29 @@ describe("sweep: company-wide generation", () => {
     expect(center.rows.find((r) => r.kind === "permit_expiry")?.market?.name).toBe(
       "Markt im November",
     );
+  });
+
+  it("leaves out permits whose next market is more than 6 months away (decision 2026-10-28)", async () => {
+    const near = await insertEvent(cat, "Markt im April", "2027-04-21");
+    const far = await insertEvent(cat, "Markt im Mai", "2027-05-01");
+    const nah = await addPermit({ title: "Nah", status: "not_started", applyBy: "2026-10-19" });
+    const fern = await addPermit({ title: "Fern", status: "not_started", applyBy: "2026-10-19" });
+    await db.insert(eventPermit).values([
+      { eventId: near.id, permitId: nah.id, required: true },
+      { eventId: far.id, permitId: fern.id, required: true },
+    ]);
+
+    await deadlineSweep(db, NOW);
+    expect((await companyRows()).map((r) => r.subjectId)).toEqual([nah.id]);
+
+    // A notification written before the market moved out of reach is no longer shown, and the sweep
+    // closes it.
+    await db
+      .update(event)
+      .set({ startsOn: "2027-05-02", endsOn: "2027-05-02" })
+      .where(eq(event.id, near.id));
+    expect((await listCompanyNotifications(owner, OPEN, NOW)).rows).toHaveLength(0);
+    expect((await deadlineSweep(db, NOW)).company.resolved).toBe(1);
   });
 });
 

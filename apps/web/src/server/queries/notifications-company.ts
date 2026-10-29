@@ -6,6 +6,7 @@ import {
   compareByNewest,
   compareByUrgency,
   isPastMarketLeftover,
+  isPermitMarketInReach,
   parseCompanyDedupeKey,
   taskLink,
 } from "@marktwerk/core";
@@ -161,6 +162,7 @@ async function loadCompanyRows(
   const marketCols = {
     eventId: event.id,
     eventName: event.name,
+    startsOn: event.startsOn,
     endsOn: event.endsOn,
     eventStatus: event.status,
     eventArchived: event.archivedAt,
@@ -260,7 +262,10 @@ async function loadCompanyRows(
             e.endsOn !== null &&
             e.endsOn >= today,
         );
-        const relevant = evs.length === 0 || upcoming.length > 0;
+        // Events come ordered by start, so upcoming[0] is the next market (the 6-month rule).
+        const relevant =
+          evs.length === 0 ||
+          (upcoming.length > 0 && isPermitMarketInReach(upcoming[0]?.startsOn ?? null, today));
         let current: string | null = null;
         if (key.kind === "permit_apply_by")
           current = p.status === "not_started" || p.status === "preparing" ? p.applyBy : null;
