@@ -48,6 +48,7 @@ export const EMPTY_VEHICLE: VehicleFormValues = {
 const FIELD_OF: Record<string, string> = {
   invalid_name: "name",
   invalid_plate: "plate",
+  plate_required: "plate",
   plate_taken: "plate",
   invalid_vin: "vin",
   vin_taken: "vin",
@@ -111,6 +112,9 @@ export function VehicleForm({
 
   function submit() {
     setError(null);
+    // Required fields are answered on the spot (no round trip); the first wrong field gets the focus.
+    if (name.trim() === "") return fail("invalid_name");
+    if (plate.trim() === "") return fail("plate_required");
     const grossWeightKg = whole(weight);
     if (grossWeightKg === undefined) return fail("invalid_weight");
     const odometerKm = whole(odometer);
@@ -197,7 +201,9 @@ export function VehicleForm({
                 />
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
-                <Label htmlFor={f("make")}>{tf("make")}</Label>
+                <Label htmlFor={f("make")} optional>
+                  {tf("make")}
+                </Label>
                 <Input
                   id={f("make")}
                   value={make}
@@ -207,7 +213,9 @@ export function VehicleForm({
                 />
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
-                <Label htmlFor={f("model")}>{tf("model")}</Label>
+                <Label htmlFor={f("model")} optional>
+                  {tf("model")}
+                </Label>
                 <Input
                   id={f("model")}
                   value={model}
@@ -217,7 +225,9 @@ export function VehicleForm({
                 />
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
-                <Label htmlFor={f("vin")}>{tf("vin")}</Label>
+                <Label htmlFor={f("vin")} optional>
+                  {tf("vin")}
+                </Label>
                 <Input
                   id={f("vin")}
                   value={vin}
@@ -229,7 +239,9 @@ export function VehicleForm({
                 />
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
-                <Label htmlFor={f("firstRegistration")}>{tf("firstRegistration")}</Label>
+                <Label htmlFor={f("firstRegistration")} optional>
+                  {tf("firstRegistration")}
+                </Label>
                 <Input
                   id={f("firstRegistration")}
                   type="date"
@@ -240,7 +252,9 @@ export function VehicleForm({
                 />
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
-                <Label htmlFor={f("weight")}>{tf("weight")}</Label>
+                <Label htmlFor={f("weight")} optional>
+                  {tf("weight")}
+                </Label>
                 <Input
                   id={f("weight")}
                   value={weight}
@@ -262,7 +276,9 @@ export function VehicleForm({
             <legend className={legend}>{tf("odometerSection")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
-                <Label htmlFor={f("odometer")}>{tf("odometer")}</Label>
+                <Label htmlFor={f("odometer")} optional>
+                  {tf("odometer")}
+                </Label>
                 <div className="relative">
                   <Input
                     id={f("odometer")}
@@ -279,7 +295,9 @@ export function VehicleForm({
                 </div>
               </div>
               <div className={cell}>
-                <Label htmlFor={f("odometerOn")}>{tf("odometerOn")}</Label>
+                <Label htmlFor={f("odometerOn")} optional>
+                  {tf("odometerOn")}
+                </Label>
                 <Input
                   id={f("odometerOn")}
                   type="date"
@@ -295,7 +313,9 @@ export function VehicleForm({
             <legend className={legend}>{tf("insuranceSection")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
-                <Label htmlFor={f("insurer")}>{tf("insurer")}</Label>
+                <Label htmlFor={f("insurer")} optional>
+                  {tf("insurer")}
+                </Label>
                 <Input
                   id={f("insurer")}
                   value={insurer}
@@ -305,7 +325,9 @@ export function VehicleForm({
                 />
               </div>
               <div className={cell}>
-                <Label htmlFor={f("policy")}>{tf("policy")}</Label>
+                <Label htmlFor={f("policy")} optional>
+                  {tf("policy")}
+                </Label>
                 <Input
                   id={f("policy")}
                   value={policy}
@@ -316,7 +338,9 @@ export function VehicleForm({
                 />
               </div>
               <div className={cn(cell, "sm:col-span-2")}>
-                <Label htmlFor={f("notes")}>{tf("notes")}</Label>
+                <Label htmlFor={f("notes")} optional>
+                  {tf("notes")}
+                </Label>
                 <textarea
                   id={f("notes")}
                   value={notes}

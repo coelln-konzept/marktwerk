@@ -112,7 +112,7 @@ export default async function TeamPage({ searchParams }: PageProps<"/team">) {
                         data-peek={p.peek}
                         aria-selected={personId === p.id}
                         className={cn(
-                          "outline-none focus-visible:bg-selected",
+                          "outline-hidden focus-visible:bg-selected",
                           !p.active && "text-muted-foreground",
                         )}
                       >

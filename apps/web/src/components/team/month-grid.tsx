@@ -192,7 +192,7 @@ export async function MonthGrid({
                       data-href={peek}
                       aria-selected={personId === row.staffMemberId}
                       className={cn(
-                        "group/row border-border-subtle border-b outline-none hover:bg-hover focus-visible:bg-selected aria-selected:bg-selected",
+                        "group/row border-border-subtle border-b outline-hidden hover:bg-hover focus-visible:bg-selected aria-selected:bg-selected",
                         !row.active && "text-muted-foreground",
                       )}
                     >

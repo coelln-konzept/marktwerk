@@ -4,9 +4,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
+import { Fragment } from "react";
 import { EventStatusBadge } from "@/components/events/event-status";
 import { EventVorschau } from "@/components/events/event-vorschau";
+import { FilterToggle } from "@/components/events/filter-toggle";
 import { GenerateSheet } from "@/components/events/generate-sheet";
+import { SearchHotkey } from "@/components/events/search-hotkey";
 import { Page, PageHeader } from "@/components/shell/page";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
@@ -16,8 +19,8 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel } from "@/components/ui/panel";
 import { LinkRow } from "@/components/ui/row-link";
 import { EmptyState } from "@/components/ui/states";
-import { RowActions, Table, TD, TH, THead } from "@/components/ui/table";
-import { formatDateRangeYear, todayIn } from "@/lib/format";
+import { RowActions, Table, TD, TGroup, TH, THead } from "@/components/ui/table";
+import { formatDateRangeYear, formatMonth, todayIn } from "@/lib/format";
 import { isModuleHidden, isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUSES } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
@@ -78,30 +81,42 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   const openPermits = param(sp.genehmigung) === "offen";
   // While finance is hidden "abgeschlossen" and "abgerechnet" are one state ("vorbei"): filter after the query.
   const overFilter = financeHidden && statusKey === "completed";
+  // "Neu angelegt" (landing after "Markt planen" with several dates): only those events, whatever the
+  // other filters say. New dates are in the future, so one query from today finds them.
+  const createdIds = (param(sp.angelegt) ?? "")
+    .split(",")
+    .filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+    .slice(0, 60);
+  const justCreated = createdIds.length > 0;
   const filters = {
-    season: openPermits ? undefined : season,
-    status: openPermits
-      ? ("planned" as const)
-      : upcomingOnly || statusKey === "aktiv"
-        ? ("active" as const)
-        : statusKey === "alle" || overFilter
-          ? undefined
-          : statusKey,
-    from: upcomingOnly && !openPermits ? today : undefined,
-    q,
+    season: openPermits || justCreated ? undefined : season,
+    status: justCreated
+      ? undefined
+      : openPermits
+        ? ("planned" as const)
+        : upcomingOnly || statusKey === "aktiv"
+          ? ("active" as const)
+          : statusKey === "alle" || overFilter
+            ? undefined
+            : statusKey,
+    from: justCreated || (upcomingOnly && !openPermits) ? today : undefined,
+    q: justCreated ? undefined : q,
   };
 
   // One query without the type filter: the type chips count from it, the table narrows it by type.
-  const [fetched, types] = await Promise.all([listEvents(actor, filters), listEventTypes()]);
-  const byStatus = overFilter
-    ? fetched.filter((r) => r.status === "completed" || r.status === "closed")
-    : fetched;
-  const byPermit = openPermits
-    ? byStatus.filter(
-        (r) =>
-          r.endsOn >= today && (r.health.permits === "warn" || r.health.permits === "critical"),
-      )
-    : byStatus;
+  const [fetchedAll, types] = await Promise.all([listEvents(actor, filters), listEventTypes()]);
+  const fetched = justCreated ? fetchedAll.filter((r) => createdIds.includes(r.id)) : fetchedAll;
+  const byStatus =
+    overFilter && !justCreated
+      ? fetched.filter((r) => r.status === "completed" || r.status === "closed")
+      : fetched;
+  const byPermit =
+    openPermits && !justCreated
+      ? byStatus.filter(
+          (r) =>
+            r.endsOn >= today && (r.health.permits === "warn" || r.health.permits === "critical"),
+        )
+      : byStatus;
   const counts: Record<string, number> = {};
   for (const r of byPermit) counts[r.typeKey] = (counts[r.typeKey] ?? 0) + 1;
   const rows = typeKey ? byPermit.filter((r) => r.typeKey === typeKey) : byPermit;
@@ -117,6 +132,33 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
     : undefined;
   const typeName = (r: { typeNameDe: string; typeNameEn: string }) =>
     locale === "en" ? r.typeNameEn : r.typeNameDe;
+  // The active filters as text for the phone's "Filter" button (the search text is visible anyway).
+  const activeType = typeKey ? types.find((x) => x.key === typeKey) : undefined;
+  const filterSummary = [
+    activeType ? (locale === "en" ? activeType.nameEn : activeType.nameDe) : null,
+    season ? t("seasonOption", { season }) : null,
+    statusKey === "aktuell"
+      ? null
+      : statusKey === "alle"
+        ? t("statusAll")
+        : statusKey === "aktiv"
+          ? t("statusActiveShort")
+          : t("statusOnly", {
+              status:
+                financeHidden && statusKey === "completed" ? t("statusOver") : tStatus(statusKey),
+            }),
+    openPermits ? t("permitFilter.open") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  // Month headers ("März 2027 · 12 Termine"): the rows are sorted by date, so a header opens each month.
+  const perMonth = new Map<string, number>();
+  for (const r of rows) {
+    const key = r.startsOn.slice(0, 7);
+    perMonth.set(key, (perMonth.get(key) ?? 0) + 1);
+  }
+  const columns = isModuleVisible("estimates") ? 8 : 7;
+  let openMonth = "";
 
   return (
     <Page crumbs={[{ label: tNav("events") }]}>
@@ -141,7 +183,8 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
         }
       />
 
-      <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
+      {/* Phones: search stays visible, season/status and the type chips sit behind one "Filter" button. */}
+      <form method="get" action={PATH} className="flex flex-wrap items-center gap-x-2 gap-y-3">
         {typeKey && <input type="hidden" name="art" value={typeKey} />}
         <label className="sr-only" htmlFor="q">
           {t("search")}
@@ -152,73 +195,93 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
           type="search"
           defaultValue={q}
           placeholder={t("search")}
-          className="min-h-(--control-h) w-64 rounded-lg border border-input bg-card px-3"
+          aria-keyshortcuts="/"
+          className="min-h-(--control-h) w-64 rounded-lg border border-input bg-card px-3 max-sm:w-full"
         />
-        <label className="sr-only" htmlFor="saison">
-          {t("season")}
-        </label>
-        <AutoSubmitSelect id="saison" name="saison" defaultValue={season ? String(season) : ""}>
-          {upcomingOnly && <option value="">{t("seasonAny")}</option>}
-          {seasons.map((s) => (
-            <option key={s} value={s}>
-              {t("seasonOption", { season: s })}
-            </option>
-          ))}
-        </AutoSubmitSelect>
-        <label className="sr-only" htmlFor="status">
-          {t("status")}
-        </label>
-        <AutoSubmitSelect id="status" name="status" defaultValue={statusKey}>
-          <option value="aktuell">{t("statusCurrent")}</option>
-          <option value="aktiv">{t("statusActive")}</option>
-          <option value="alle">{t("statusAll")}</option>
-          {EVENT_STATUSES.filter((s) => !(financeHidden && s === "closed")).map((s) => (
-            <option key={s} value={s}>
-              {t("statusOnly", {
-                status: financeHidden && s === "completed" ? t("statusOver") : tStatus(s),
-              })}
-            </option>
-          ))}
-        </AutoSubmitSelect>
+        <FilterToggle label={t("filter")} summary={filterSummary || null}>
+          <label className="sr-only" htmlFor="saison">
+            {t("season")}
+          </label>
+          <AutoSubmitSelect id="saison" name="saison" defaultValue={season ? String(season) : ""}>
+            {upcomingOnly && <option value="">{t("seasonAny")}</option>}
+            {seasons.map((s) => (
+              <option key={s} value={s}>
+                {t("seasonOption", { season: s })}
+              </option>
+            ))}
+          </AutoSubmitSelect>
+          <label className="sr-only" htmlFor="status">
+            {t("status")}
+          </label>
+          <AutoSubmitSelect id="status" name="status" defaultValue={statusKey}>
+            <option value="aktuell">{t("statusCurrent")}</option>
+            <option value="aktiv">{t("statusActive")}</option>
+            <option value="alle">{t("statusAll")}</option>
+            {EVENT_STATUSES.filter((s) => !(financeHidden && s === "closed")).map((s) => (
+              <option key={s} value={s}>
+                {t("statusOnly", {
+                  status: financeHidden && s === "completed" ? t("statusOver") : tStatus(s),
+                })}
+              </option>
+            ))}
+          </AutoSubmitSelect>
+          <FilterBar className="basis-full">
+            <FilterGroup label={t("types")} wide>
+              <FilterChips>
+                <FilterChip
+                  href={hrefWith(PATH, sp, { art: undefined, vorschau: undefined })}
+                  active={!typeKey}
+                  count={total}
+                >
+                  {t("all")}
+                </FilterChip>
+                {types.map((type) => (
+                  <FilterChip
+                    key={type.key}
+                    href={hrefWith(PATH, sp, { art: type.key, vorschau: undefined })}
+                    active={typeKey === type.key}
+                    count={counts[type.key] ?? 0}
+                  >
+                    <EventTypeTag
+                      typeKey={type.key}
+                      className="h-auto bg-transparent p-0 text-inherit"
+                    >
+                      {locale === "en" ? type.nameEn : type.nameDe}
+                    </EventTypeTag>
+                  </FilterChip>
+                ))}
+              </FilterChips>
+            </FilterGroup>
+            {openPermits && (
+              <FilterGroup label={t("permitFilter.label")}>
+                <FilterChips>
+                  <FilterChip
+                    href={hrefWith(PATH, sp, { genehmigung: undefined, status: undefined })}
+                    active
+                  >
+                    {t("permitFilter.open")}
+                  </FilterChip>
+                </FilterChips>
+              </FilterGroup>
+            )}
+          </FilterBar>
+        </FilterToggle>
       </form>
 
-      <FilterBar>
-        <FilterGroup label={t("types")} wide>
-          <FilterChips>
-            <FilterChip
-              href={hrefWith(PATH, sp, { art: undefined, vorschau: undefined })}
-              active={!typeKey}
-              count={total}
-            >
-              {t("all")}
-            </FilterChip>
-            {types.map((type) => (
-              <FilterChip
-                key={type.key}
-                href={hrefWith(PATH, sp, { art: type.key, vorschau: undefined })}
-                active={typeKey === type.key}
-                count={counts[type.key] ?? 0}
-              >
-                <EventTypeTag typeKey={type.key} className="h-auto bg-transparent p-0 text-inherit">
-                  {locale === "en" ? type.nameEn : type.nameDe}
-                </EventTypeTag>
-              </FilterChip>
-            ))}
-          </FilterChips>
-        </FilterGroup>
-        {openPermits && (
-          <FilterGroup label={t("permitFilter.label")}>
-            <FilterChips>
-              <FilterChip
-                href={hrefWith(PATH, sp, { genehmigung: undefined, status: undefined })}
-                active
-              >
-                {t("permitFilter.open")}
-              </FilterChip>
-            </FilterChips>
-          </FilterGroup>
-        )}
-      </FilterBar>
+      {justCreated && (
+        <p
+          role="status"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-status-info-bg px-3 py-2 text-status-info"
+        >
+          <strong>{t("created.banner", { count: rows.length })}</strong>
+          <Link
+            href={PATH as never}
+            className="font-medium underline underline-offset-2 hover:no-underline"
+          >
+            {t("created.showAll")}
+          </Link>
+        </p>
+      )}
 
       <Panel className="overflow-hidden">
         {rows.length === 0 ? (
@@ -232,9 +295,10 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
           </EmptyState>
         ) : (
           <KeyboardRows>
-            <Table>
+            {/* Below 640 px every row becomes a 2-line card: name + status, then date · KW · Ort. */}
+            <Table className="max-sm:block">
               <caption className="sr-only">{t("caption")}</caption>
-              <THead>
+              <THead className="max-sm:sr-only">
                 <tr>
                   <TH className="w-14">{t("cols.week")}</TH>
                   <TH>{t("cols.date")}</TH>
@@ -250,66 +314,86 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                   </TH>
                 </tr>
               </THead>
-              <tbody>
+              <tbody className="max-sm:block">
                 {rows.map((r) => {
                   const href = `${PATH}/${r.id}`;
                   const peek = hrefWith(PATH, sp, { vorschau: r.id, erzeugen: undefined });
+                  const month = r.startsOn.slice(0, 7);
+                  const header =
+                    month !== openMonth ? (
+                      <TGroup colSpan={columns}>
+                        {formatMonth(r.startsOn, locale)} ·{" "}
+                        {t("groupCount", { count: perMonth.get(month) ?? 0 })}
+                      </TGroup>
+                    ) : null;
+                  openMonth = month;
                   return (
-                    <LinkRow
-                      key={r.id}
-                      href={href}
-                      tabIndex={0}
-                      data-row
-                      data-href={href}
-                      data-peek={peek}
-                      aria-selected={vorschauId === r.id}
-                      className={cn(
-                        "outline-none focus-visible:bg-selected",
-                        r.status === "cancelled" && "text-muted-foreground",
-                      )}
-                    >
-                      <TD className="tabular text-muted-foreground">{isoWeek(r.startsOn).week}</TD>
-                      <TD className="tabular whitespace-nowrap font-semibold">
-                        {formatDateRangeYear(r.startsOn, r.endsOn, locale, today)}
-                      </TD>
-                      <TD>
-                        <span className="inline-flex items-center gap-2">
-                          <MarketMarker color={r.color} typeKey={r.typeKey} size="lg" />
-                          <Link
-                            href={href as never}
-                            tabIndex={-1}
-                            className="whitespace-nowrap font-semibold text-accent-soft-foreground hover:underline"
-                          >
-                            {r.name}
-                          </Link>
-                        </span>
-                      </TD>
-                      <TD>
-                        <EventTypeTag typeKey={r.typeKey}>{typeName(r)}</EventTypeTag>
-                      </TD>
-                      <TD className="max-w-64 truncate" title={r.venueName}>
-                        {r.venueName}
-                      </TD>
-                      <TD>
-                        <EventStatusBadge status={r.status} />
-                      </TD>
-                      {isModuleVisible("estimates") && (
-                        <TD className="tabular text-right text-muted-foreground">–</TD>
-                      )}
-                      <TD className="w-20">
-                        <RowActions>
-                          <Link
-                            href={peek as never}
-                            scroll={false}
-                            tabIndex={-1}
-                            aria-label={t("preview", { name: r.name })}
-                            className="grid size-7 place-items-center rounded-md hover:bg-hover"
-                          >
-                            <Eye className="size-4" />
-                          </Link>
-                        </RowActions>
-                      </TD>
-                    </LinkRow>
+                    <Fragment key={r.id}>
+                      {header}
+                      <LinkRow
+                        href={href}
+                        tabIndex={0}
+                        data-row
+                        data-href={href}
+                        data-peek={peek}
+                        aria-selected={vorschauId === r.id}
+                        className={cn(
+                          "outline-hidden focus-visible:bg-selected",
+                          "max-sm:grid max-sm:grid-cols-[auto_auto_1fr_auto] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-0.5 max-sm:px-3 max-sm:py-2.5",
+                          r.status === "cancelled" && "text-muted-foreground",
+                        )}
+                      >
+                        <TD className="tabular text-muted-foreground max-sm:col-start-2 max-sm:row-start-2 max-sm:h-auto max-sm:p-0 max-sm:text-small">
+                          <span className="sm:hidden">{t("cols.week")} </span>
+                          {isoWeek(r.startsOn).week}
+                        </TD>
+                        <TD className="tabular whitespace-nowrap font-semibold max-sm:col-start-1 max-sm:row-start-2 max-sm:h-auto max-sm:p-0 max-sm:text-small">
+                          {formatDateRangeYear(r.startsOn, r.endsOn, locale, today)}
+                        </TD>
+                        <TD className="max-sm:col-span-3 max-sm:col-start-1 max-sm:row-start-1 max-sm:h-auto max-sm:min-w-0 max-sm:p-0">
+                          <span className="inline-flex items-center gap-2">
+                            <MarketMarker color={r.color} typeKey={r.typeKey} size="lg" />
+                            <Link
+                              href={href as never}
+                              tabIndex={-1}
+                              className="whitespace-nowrap font-semibold text-accent-soft-foreground hover:underline max-sm:whitespace-normal"
+                            >
+                              {r.name}
+                            </Link>
+                          </span>
+                        </TD>
+                        <TD className="max-sm:hidden">
+                          <EventTypeTag typeKey={r.typeKey}>{typeName(r)}</EventTypeTag>
+                        </TD>
+                        <TD
+                          className="max-w-64 truncate max-sm:col-start-3 max-sm:row-start-2 max-sm:h-auto max-sm:min-w-0 max-sm:max-w-none max-sm:p-0 max-sm:text-small max-sm:text-muted-foreground max-sm:before:mr-2 max-sm:before:content-['·']"
+                          title={r.venueName}
+                        >
+                          {r.venueName}
+                        </TD>
+                        <TD className="max-sm:col-start-4 max-sm:row-start-1 max-sm:h-auto max-sm:p-0">
+                          <EventStatusBadge status={r.status} />
+                        </TD>
+                        {isModuleVisible("estimates") && (
+                          <TD className="tabular text-right text-muted-foreground max-sm:hidden">
+                            –
+                          </TD>
+                        )}
+                        <TD className="w-20 max-sm:hidden">
+                          <RowActions>
+                            <Link
+                              href={peek as never}
+                              scroll={false}
+                              tabIndex={-1}
+                              aria-label={t("preview", { name: r.name })}
+                              className="grid size-7 place-items-center rounded-md hover:bg-hover"
+                            >
+                              <Eye className="size-4" />
+                            </Link>
+                          </RowActions>
+                        </TD>
+                      </LinkRow>
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -318,7 +402,8 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
         )}
       </Panel>
 
-      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-tiny">
+      <SearchHotkey inputId="q" />
+      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-tiny touch:hidden">
         <span>{t("keys")}</span>
       </p>
 

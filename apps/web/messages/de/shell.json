@@ -8,7 +8,7 @@
     "board": "Board",
     "events": "Veranstaltungen",
     "permits": "Genehmigungen",
-    "permitsBadge": "fehlen oder sind abgelaufen für kommende Märkte",
+    "permitsBadge": "Genehmigungen jetzt zu beantragen (Antrag überfällig oder bald fällig)",
     "masterData": "Stammdaten",
     "duties": "Pflichten",
     "team": "Team",
@@ -23,7 +23,8 @@
     "calendar": "Kalender",
     "venues": "Orte",
     "contacts": "Kontakte",
-    "hide": "Seitenleiste ausblenden"
+    "hide": "Seitenleiste ausblenden",
+    "masterDataActive": "enthält die aktuelle Seite"
   },
   "roles": {
     "owner": "Geschäftsführung",
@@ -43,7 +44,19 @@
     "forbidden": "Dafür fehlt dir die Berechtigung.",
     "back": "Zur Übersicht",
     "notFoundTitle": "Nicht gefunden",
-    "notFoundHint": "Diesen Eintrag gibt es nicht (mehr), oder der Link ist unvollständig."
+    "notFoundHint": "Diesen Eintrag gibt es nicht (mehr), oder der Link ist unvollständig.",
+    "failedTitle": "Hier ist etwas schiefgelaufen",
+    "failedHint": "Die Seite konnte nicht geladen werden oder eine Änderung ist nicht angekommen. Bitte versuche es noch einmal.",
+    "retry": "Erneut versuchen",
+    "network": "Keine Verbindung zum Server. Bitte versuche es noch einmal."
+  },
+  "states": {
+    "loading": "Lädt …"
+  },
+  "toasts": {
+    "region": "Hinweise",
+    "close": "Hinweis schließen",
+    "undoKey": "Strg Z"
   },
   "language": {
     "label": "Sprache",
@@ -63,7 +76,8 @@
       "compact": "Kompakt"
     },
     "signOut": "Abmelden",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "shortcuts": "Tastenkürzel"
   },
   "topbar": {
     "menu": "Navigation öffnen",
@@ -81,7 +95,8 @@
     "newPermit": "Genehmigung",
     "newShift": "Schicht",
     "newIssue": "Mangel melden",
-    "showSidebar": "Seitenleiste einblenden"
+    "showSidebar": "Seitenleiste einblenden",
+    "skip": "Zum Inhalt springen"
   },
   "palette": {
     "title": "Suchen und Befehle",
@@ -89,6 +104,10 @@
     "hint": "Mindestens zwei Zeichen eingeben.",
     "searching": "Suche läuft …",
     "empty": "Keine Treffer.",
+    "error": "Suche gerade nicht möglich.",
+    "resultsCount": "{count, plural, one {# Treffer} other {# Treffer}}",
+    "showAll": "Alle {count} anzeigen",
+    "shownOf": "{shown} von {total}",
     "select": "auswählen",
     "open": "öffnen",
     "umlauts": "Umlaute egal: „koln“ findet Köln",
@@ -108,6 +127,8 @@
       "generate": "Markt planen (Termine für einen Markt anlegen)",
       "calendar": "Kalender öffnen",
       "events": "Alle Veranstaltungen",
+      "vendors": "Aussteller öffnen",
+      "vendorsKeywords": "Beschicker Händler",
       "single": "Einzeltermin (Veranstaltung ohne Vorlage) anlegen",
       "task": "Aufgabe anlegen",
       "payable": "Zahlung anlegen",
@@ -116,6 +137,34 @@
       "issue": "Mangel melden",
       "settings": "Einstellungen öffnen",
       "notifications": "Benachrichtigungen öffnen"
+    }
+  },
+  "shortcuts": {
+    "title": "Tastenkürzel",
+    "hint": "Diese Tasten funktionieren, solange du nicht in einem Eingabefeld schreibst.",
+    "close": "Tastenkürzel schließen",
+    "ctrl": "Strg",
+    "space": "Leertaste",
+    "groups": {
+      "everywhere": "Überall",
+      "lists": "In Listen",
+      "board": "Auf dem Board",
+      "calendar": "Im Kalender"
+    },
+    "what": {
+      "search": "Suchen und Befehle",
+      "create": "Neu anlegen (Menü „+ Neu“, auf einem Board: Aufgabe anlegen)",
+      "overview": "Diese Übersicht",
+      "undo": "Letzte Aktion rückgängig machen",
+      "close": "Vorschau, Fenster oder Seitenfenster schließen",
+      "move": "Zeile wechseln",
+      "peek": "Vorschau öffnen",
+      "open": "Eintrag öffnen",
+      "done": "Aufgabe erledigen",
+      "assign": "Aufgabe zuweisen",
+      "today": "Zu heute springen",
+      "month": "Monatsansicht",
+      "list": "Listenansicht"
     }
   },
   "vorschau": {
@@ -147,7 +196,7 @@
     "reason": {
       "ok": "Im Plan",
       "permits": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}",
-      "permitsEnding": "Genehmigung läuft vor Ende ab",
+      "permitsEnding": "Genehmigung läuft vor der Veranstaltung ab",
       "tasksOverdue": "{count} überfällig",
       "tasksBlocked": "{count} blockiert",
       "tasksRollover": "oft verschoben",
@@ -168,5 +217,26 @@
     "week": "KW",
     "weekdays": "Mo,Di,Mi,Do,Fr,Sa,So",
     "more": "+ {n} weitere"
+  },
+  "due": {
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "inDays": "In {count, plural, one {# Tag} other {# Tagen}}",
+    "inWeeks": "In {count, plural, one {# Woche} other {# Wochen}}",
+    "inMonths": "In {count, plural, one {# Monat} other {# Monaten}}",
+    "overdueDays": "{count, plural, one {Gestern fällig} other {# Tage überfällig}}",
+    "overdueWeeks": "{count, plural, one {# Woche überfällig} other {# Wochen überfällig}}",
+    "overdueMonths": "{count, plural, one {# Monat überfällig} other {# Monate überfällig}}",
+    "waitingDays": "{count, plural, one {Wartet seit gestern} other {Wartet seit # Tagen}}",
+    "waitingWeeks": "Wartet seit {count, plural, one {# Woche} other {# Wochen}}",
+    "waitingMonths": "Wartet seit {count, plural, one {# Monat} other {# Monaten}}",
+    "compactDays": "{count} T",
+    "compactWeeks": "{count} Wo.",
+    "compactMonths": "{count} Mon.",
+    "withDate": "{date} · {relative}",
+    "none": "Kein Datum"
+  },
+  "form": {
+    "optional": "(optional)"
   }
 }

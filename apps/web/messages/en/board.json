@@ -15,6 +15,7 @@
     "doneRange": "last 14 days",
     "emptyColumn": "No tasks",
     "showMore": "Show {count} more",
+    "showMoreLeft": "Show {count} more ({left} left)",
     "showLess": "Show fewer",
     "view": {
       "label": "View",
@@ -125,7 +126,7 @@
       "unsnoozed": "Snooze of “{title}” ended"
     },
     "errors": {
-      "generic": "That did not work. Please try again.",
+      "generic": "That didn't work. Please try again.",
       "not_found": "The task no longer exists or you cannot see it.",
       "invalid_input": "The input is not valid.",
       "invalid_status": "That status is not possible.",
@@ -190,11 +191,13 @@
       "dueOn": "due {date}",
       "empty": "No upcoming events in this period.",
       "emptyHint": "Choose “All” to see every upcoming event.",
-      "panelColumn": "",
+      "panelColumn": "Actions",
       "panel": {
-        "toggle": "Tasks",
+        "toggle": "Details",
         "showLabel": "Show important tasks of {name}",
         "hideLabel": "Close tasks of {name}",
+        "chipShow": "{chip} at {name}: show details",
+        "chipHide": "{chip} at {name}: close details",
         "title": "Important at {name}",
         "allOk": "All on track: nothing overdue, no missing permit.",
         "permitMissing": "Permit missing",
@@ -204,6 +207,7 @@
     },
     "matrix": {
       "caption": "Key tasks of the upcoming events",
+      "scrollHint": "More key tasks to the right: scroll sideways",
       "market": "Event",
       "empty": "No upcoming events in this period.",
       "emptyHint": "Choose “All” to see every upcoming event.",

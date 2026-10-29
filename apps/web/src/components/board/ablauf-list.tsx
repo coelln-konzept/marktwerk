@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
-import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { focusNeighbourRow, KeyboardRows } from "@/components/ui/keyboard-rows";
 import { formatDateShort, formatDateWeekdayDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BoardTask } from "@/server/queries/tasks";
@@ -51,9 +51,11 @@ export function AblaufList({
       const last = formatDateShort(addDays(startsOn, -from), locale);
       if (to === null) return t("until", { date: last });
       // Days up to today are in "Überfällig & heute", so the range starts tomorrow at the earliest.
-      const first = addDays(startsOn, -to);
+      const start = addDays(startsOn, -to);
       const tomorrow = addDays(today, 1);
-      return `${formatDateShort(first < tomorrow ? tomorrow : first, locale)} – ${last}`;
+      const first = formatDateShort(start < tomorrow ? tomorrow : start, locale);
+      // One day left of the range: a single date, not "Fr 30.10. – Fr 30.10.".
+      return first === last ? last : `${first} – ${last}`;
     }
     if (phase === "event") {
       const days = daysBetween(today, startsOn);
@@ -103,7 +105,7 @@ export function AblaufList({
         if (phase === "done")
           return (
             <details key={phase} className="group border-border-subtle border-t">
-              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-3 px-4 py-2 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-3 px-4 py-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
                 <ChevronRight
                   aria-hidden
                   className="size-4 text-muted-foreground transition-transform group-open:rotate-90"
@@ -119,14 +121,14 @@ export function AblaufList({
             aria-label={label}
             className="border-border-subtle border-t first:border-t-0"
           >
-            <h3
+            <h2
               className={cn(
                 "sticky top-14 z-[1] m-0 flex min-h-10 flex-wrap items-baseline gap-x-3 border-border-subtle border-b bg-card px-4 py-2",
                 phase === "now" && "text-status-critical",
               )}
             >
               {header}
-            </h3>
+            </h2>
             {list}
           </section>
         );
@@ -158,6 +160,8 @@ function AblaufRow({ task }: { task: BoardTask }) {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key === "e" && canWrite && !finished) {
       event.preventDefault();
+      // The row moves to the collapsed "Erledigt" group: keep focus in the list, on the next row.
+      focusNeighbourRow(event.currentTarget);
       actions.setStatus(task, "done");
     } else if (event.key === "a" && canWrite) {
       event.preventDefault();
@@ -173,7 +177,7 @@ function AblaufRow({ task }: { task: BoardTask }) {
       tabIndex={0}
       onKeyDown={onKeyDown}
       className={cn(
-        "grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-x-2 border-border-subtle border-b px-2 py-1.5 outline-none last:border-b-0 hover:bg-hover focus-visible:bg-selected sm:grid-cols-[2rem_minmax(0,1fr)_8rem_10rem_6rem_2rem] sm:py-1",
+        "scroll-mt-28 grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-x-2 border-border-subtle border-b px-2 py-1.5 last:border-b-0 hover:bg-hover focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:grid-cols-[2rem_minmax(0,1fr)_8rem_10rem_6rem_2rem] sm:py-1",
         finished && "text-foreground-2",
       )}
     >
@@ -182,20 +186,26 @@ function AblaufRow({ task }: { task: BoardTask }) {
           finished ? (
             <button
               type="button"
-              onClick={() => actions.setStatus(task, "todo")}
+              onClick={(event) => {
+                focusNeighbourRow(event.currentTarget);
+                actions.setStatus(task, "todo");
+              }}
               aria-label={t("card.reopen", { title: task.title })}
               title={t("menu.reopen")}
-              className="grid size-7 cursor-pointer place-items-center rounded-full text-status-ok outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+              className="grid size-7 cursor-pointer place-items-center rounded-full text-status-ok hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
             >
               <Undo2 aria-hidden className="size-4" />
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => actions.setStatus(task, "done")}
+              onClick={(event) => {
+                focusNeighbourRow(event.currentTarget);
+                actions.setStatus(task, "done");
+              }}
               aria-label={t("card.complete", { title: task.title })}
               title={t("card.completeHint")}
-              className="grid size-7 cursor-pointer place-items-center rounded-full text-muted-foreground outline-none hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"
+              className="grid size-7 cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"
             >
               <CircleCheck aria-hidden className="size-4" />
             </button>
@@ -212,7 +222,7 @@ function AblaufRow({ task }: { task: BoardTask }) {
             tabIndex={-1}
             title={task.title}
             className={cn(
-              "line-clamp-2 break-words rounded-sm font-medium outline-none hover:underline sm:line-clamp-1",
+              "line-clamp-2 break-words rounded-sm font-medium hover:underline sm:line-clamp-1",
               finished && "line-through decoration-foreground-2/50",
             )}
           >

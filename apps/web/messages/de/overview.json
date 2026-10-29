@@ -5,34 +5,12 @@
       "day": "Hallo, {name}",
       "evening": "Guten Abend, {name}"
     },
-    "kpi": {
-      "label": "Kennzahlen",
-      "dueToday": "Heute fällig",
-      "overdue": "Überfällig"
-    },
     "due": {
-      "title": "Heute fällig",
-      "subtitle": "nach Dringlichkeit, je Markt gebündelt",
+      "title": "Heute & überfällig",
       "emptyTitle": "Nichts fällig.",
-      "emptyHint": "Überfälliges, Heutiges und alles der nächsten 7 Tage aus Genehmigungen, Aufgaben und Pflichten erscheint hier. Genehmigungen kommen früher dazu (einstellbar unter Einstellungen → Firma).",
-      "groups": {
-        "overdue": "Überfällig",
-        "today": "Heute",
-        "soon": "Diese Woche",
-        "upcoming": "Genehmigungen demnächst",
-        "waiting": "Wartet auf Rückmeldung"
-      },
-      "open": "Öffnen",
+      "emptyHint": "Überfälliges und Heutiges aus Genehmigungen, Aufgaben und Pflichten erscheint hier.",
       "openItem": "Öffnen: {title}",
-      "showAll": "Alle {count} anzeigen",
-      "showLess": "Weniger anzeigen",
       "assignee": "zuständig: {name}",
-      "relative": {
-        "overdue": "seit {n} T",
-        "today": "heute",
-        "soon": "in {n} T",
-        "waiting": "wartet seit {date}"
-      },
       "kind": {
         "task": "Aufgabe",
         "permit": "Genehmigung",
@@ -40,40 +18,54 @@
         "hours": "Stunden",
         "obligation": "Pflicht"
       },
-      "urgencyLabel": {
-        "overdue": "Überfällig",
-        "today": "Heute fällig",
-        "soon": "Bald fällig",
-        "upcoming": "Demnächst fällig",
-        "waiting": "Wartet"
-      },
-      "eventCount": "{count, plural, one {# fällig} other {# fällig}}",
       "keyTask": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",
-      "more": "+ {count} weitere",
-      "moreAtMarket": "+ {count} weitere bei {name}"
+      "openCenter": "Benachrichtigungen öffnen",
+      "subtitle": "je Markt gebündelt",
+      "groups": {
+        "overdue": "Überfällig",
+        "today": "Heute",
+        "soon": "Diese Woche",
+        "upcoming": "Genehmigungen demnächst",
+        "waiting": "Wartet auf Rückmeldung"
+      },
+      "eventCount": "{count} fällig",
+      "moreAtMarket": "+ {count} weitere bei {name}",
+      "moreMarkets": "{count, plural, one {+ # weiterer Markt} other {+ # weitere Märkte}}",
+      "weekSubtitle": "{count, plural, =0 {nichts in den nächsten 7 Tagen} one {# Punkt in den nächsten 7 Tagen, je Markt gebündelt} other {# Punkte in den nächsten 7 Tagen, je Markt gebündelt}}",
+      "weekEmpty": "In den nächsten 7 Tagen ist nichts fällig."
     },
     "weekend": {
       "title": "Dieses Wochenende",
       "range": "{from}–{to} · {week}",
       "all": "Alle Veranstaltungen",
-      "caption": "Veranstaltungen an diesem Wochenende",
-      "cols": {
-        "event": "Veranstaltung",
-        "permits": "Genehmigungen",
-        "tasks": "Aufgaben",
-        "team": "Team",
-        "money": "Geld"
+      "verdict": {
+        "ok": "Im Plan",
+        "warn": "Achtung",
+        "critical": "Nicht startklar",
+        "none": "Noch offen"
+      },
+      "reason": {
+        "tasksOverdue": "{count} überfällig",
+        "tasksToday": "{count} heute fällig",
+        "tasksBlocked": "{count} blockiert",
+        "tasksRollover": "oft verschoben",
+        "permitsMissing": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}",
+        "permitsEnding": "Genehmigung läuft vor der Veranstaltung ab",
+        "permitsOk": "Genehmigungen ok"
+      },
+      "blockers": "Was {name} aufhält",
+      "blockersMore": "+ {count} weitere",
+      "permit": "Genehmigung",
+      "next": {
+        "title": "Nächstes Wochenende",
+        "empty": "Nichts geplant"
       },
       "empty": "An diesem Wochenende ist nichts geplant.",
       "emptyNext": "Nächste Veranstaltung: {name}, {date}.",
       "emptyNone": "Es sind keine weiteren Veranstaltungen angelegt.",
-      "openEvent": "Veranstaltung ansehen",
-      "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
-      "blockersTitle": "Was das Wochenende aufhält",
-      "blockersHint": "Offene Aufgaben und fehlende Genehmigungen dieser Veranstaltungen, dringendste zuerst.",
-      "blockerFor": "für {events}",
-      "blockersMore": "+ {count} weitere"
+      "openEvent": "Veranstaltung ansehen"
     },
+    "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
     "cleanup": {
       "line": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}} aus vergangenen Märkten",
       "action": "Aufräumen",
@@ -82,15 +74,18 @@
       "intro": "Diese Märkte sind länger als 7 Tage vorbei. Ihre offenen Aufgaben stehen nicht mehr in Übersicht, Board und Kalender. Überspringen setzt sie auf „Übersprungen“; Rückgängig stellt sie wieder her.",
       "summary": "{tasks, plural, one {# offene Aufgabe} other {# offene Aufgaben}} in {markets, plural, one {# Markt} other {# Märkten}}",
       "open": "{count} offen",
+      "tasksOf": "Offene Aufgaben von {name}",
+      "moreTasks": "+ {count} weitere",
       "skip": "Überspringen",
       "skipOne": "Offene Aufgaben von {name} überspringen",
       "skipAll": "Alle überspringen",
       "skipped": "{count, plural, one {# Aufgabe übersprungen} other {# Aufgaben übersprungen}}",
+      "skippedIn": "{count, plural, one {# Aufgabe} other {# Aufgaben}} von {name} übersprungen",
       "undo": "Rückgängig",
       "reverted": "Rückgängig gemacht",
       "undoFailed": "Rückgängig ist nicht mehr möglich, eine Aufgabe wurde inzwischen geändert.",
       "nothingToSkip": "Hier ist nichts mehr offen.",
-      "error": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "error": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
       "empty": "Alles aufgeräumt. Aus vergangenen Märkten ist nichts mehr offen."
     }
   }

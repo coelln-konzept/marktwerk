@@ -4,6 +4,7 @@ import {
   BUNDESLAENDER,
   formatCoordinate,
   formatMetres,
+  isPostalCode,
   parseCoordinate,
   parseMetresToCm,
 } from "@marktwerk/core";
@@ -16,7 +17,7 @@ import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label, OptionalMark } from "@/components/ui/label";
 import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
 import { formatLength } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,12 @@ export function VenueForm({
 
   function submit() {
     setError(null);
+    // Required fields and obvious format mistakes are answered on the spot (no round trip), in field
+    // order, so the focus lands on the first wrong field.
+    if (name.trim() === "") return fail("invalid_name");
+    if (postalCode.trim() !== "" && !isPostalCode(postalCode.trim()))
+      return fail("invalid_postal_code");
+    if (city.trim() === "") return fail("invalid_city");
     const capacityText = capacity.trim();
     const capacityCm = capacityText === "" ? null : parseMetresToCm(capacityText);
     if (capacityText !== "" && !capacityCm) return fail("invalid_capacity");
@@ -180,7 +187,9 @@ export function VenueForm({
             <legend className={legend}>{tf("address")}</legend>
             <div className="grid gap-4 sm:grid-cols-6">
               <div className={cn(cell, "sm:col-span-6")}>
-                <Label htmlFor={f("street")}>{tf("street")}</Label>
+                <Label htmlFor={f("street")} optional>
+                  {tf("street")}
+                </Label>
                 <Input
                   id={f("street")}
                   value={street}
@@ -191,7 +200,9 @@ export function VenueForm({
                 />
               </div>
               <div className={cn(cell, "sm:col-span-2")}>
-                <Label htmlFor={f("postal")}>{tf("postalCode")}</Label>
+                <Label htmlFor={f("postal")} optional>
+                  {tf("postalCode")}
+                </Label>
                 <Input
                   id={f("postal")}
                   value={postalCode}
@@ -242,7 +253,9 @@ export function VenueForm({
             <legend className={legend}>{tf("access")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cn(cell, "sm:col-span-2")}>
-                <Label htmlFor={f("access")}>{tf("accessInfo")}</Label>
+                <Label htmlFor={f("access")} optional>
+                  {tf("accessInfo")}
+                </Label>
                 <textarea
                   id={f("access")}
                   value={accessInfo}
@@ -258,7 +271,9 @@ export function VenueForm({
                 </p>
               </div>
               <div className={cell}>
-                <Label htmlFor={f("landowner")}>{tf("landowner")}</Label>
+                <Label htmlFor={f("landowner")} optional>
+                  {tf("landowner")}
+                </Label>
                 <select
                   id={f("landowner")}
                   value={landowner}
@@ -283,9 +298,11 @@ export function VenueForm({
 
           <fieldset className="m-0 min-w-0 border-0 p-0">
             <legend className={legend}>{tf("capacitySection")}</legend>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
-                <Label htmlFor={f("capacity")}>{tf("capacity")}</Label>
+                <Label htmlFor={f("capacity")} optional>
+                  {tf("capacity")}
+                </Label>
                 <div className="relative">
                   <Input
                     id={f("capacity")}
@@ -311,36 +328,44 @@ export function VenueForm({
                     ` ${tf("capacityFromRows", { length: formatLength(rowLengthCm, locale) })}`}
                 </p>
               </div>
-              <div className={cell}>
-                <Label htmlFor={f("lat")}>{tf("lat")}</Label>
-                <Input
-                  id={f("lat")}
-                  value={lat}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  aria-describedby={`${uid}-coordinates`}
-                  className="tabular"
-                  onChange={(e) => setLat(e.target.value)}
-                  {...invalid(f("lat"))}
-                />
-              </div>
-              <div className={cell}>
-                <Label htmlFor={f("lng")}>{tf("lng")}</Label>
-                <Input
-                  id={f("lng")}
-                  value={lng}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  aria-describedby={`${uid}-coordinates`}
-                  className="tabular"
-                  onChange={(e) => setLng(e.target.value)}
-                  {...invalid(f("lng"))}
-                />
-              </div>
-              <p id={`${uid}-coordinates`} className={cn(hint, "sm:col-span-3")}>
-                {tf("coordinatesHint")}
-              </p>
             </div>
+            {/* The coordinates are their own group, so the hint belongs to Breite/Länge and not to the capacity. */}
+            <fieldset className="m-0 mt-4 min-w-0 border-0 p-0">
+              <legend className="mb-1.5 flex items-center gap-2 font-medium text-small">
+                {tf("coordinates")} <OptionalMark />
+              </legend>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className={cell}>
+                  <Label htmlFor={f("lat")}>{tf("lat")}</Label>
+                  <Input
+                    id={f("lat")}
+                    value={lat}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    aria-describedby={`${uid}-coordinates`}
+                    className="tabular"
+                    onChange={(e) => setLat(e.target.value)}
+                    {...invalid(f("lat"))}
+                  />
+                </div>
+                <div className={cell}>
+                  <Label htmlFor={f("lng")}>{tf("lng")}</Label>
+                  <Input
+                    id={f("lng")}
+                    value={lng}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    aria-describedby={`${uid}-coordinates`}
+                    className="tabular"
+                    onChange={(e) => setLng(e.target.value)}
+                    {...invalid(f("lng"))}
+                  />
+                </div>
+                <p id={`${uid}-coordinates`} className={cn(hint, "sm:col-span-2")}>
+                  {tf("coordinatesHint")}
+                </p>
+              </div>
+            </fieldset>
           </fieldset>
         </PanelBody>
         <PanelFooter className="justify-between">

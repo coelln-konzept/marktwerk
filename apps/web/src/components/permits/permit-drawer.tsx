@@ -1,13 +1,14 @@
-import { can } from "@marktwerk/core";
+import { can, isUnfiled } from "@marktwerk/core";
 import { Building2, FileQuestion, Landmark } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { DocumentList } from "@/components/documents/document-list";
 import { DocumentUpload } from "@/components/documents/upload";
+import { DueBadge } from "@/components/ui/due-badge";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Facts } from "@/components/ui/vorschau";
-import { formatDate, formatMoney, todayIn } from "@/lib/format";
+import { formatDate, formatDateShort, formatMoney, todayIn } from "@/lib/format";
 import { getActor } from "@/server/actor";
 import { listContactOptions } from "@/server/queries/contacts";
 import { listLinkedDocuments } from "@/server/queries/documents";
@@ -18,6 +19,7 @@ import { PermitEditForm } from "./permit-edit-form";
 import { PermitEvents } from "./permit-events";
 import { PermitStateBadge } from "./permit-state-badge";
 import { PermitStatusFlow } from "./permit-status-flow";
+import { formatPermitTitle } from "./permit-title";
 
 /**
  * Permit drawer (`?genehmigung=<id>` on the Logbuch): status flow, details, conditions, the events it
@@ -30,7 +32,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
   const tCat = await getTranslations("permitCategories");
   const tCad = await getTranslations("permitCadences");
   const locale = await getLocale();
-  const permit = await getPermit(actor, id, todayIn());
+  const today = todayIn();
+  const permit = await getPermit(actor, id, today);
 
   if (!permit) {
     return (
@@ -65,11 +68,12 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
           ? formatDate(permit.validFrom, locale)
           : null;
   const stickers = permit.deliverablesReceived.stickers;
+  const title = formatPermitTitle(permit.title, locale);
 
   return (
     <DrawerFrame
       label={t("label")}
-      title={permit.title}
+      title={title}
       closeHref={closeHref}
       closeLabel={t("close")}
       badges={
@@ -83,9 +87,9 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
     >
       <PermitStatusFlow permitId={permit.id} status={permit.status} canWrite={canWrite} />
 
-      <section aria-labelledby="facts-title" className="flex flex-col gap-3">
+      <section aria-labelledby="permit-facts-title" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 id="facts-title" className="font-semibold text-foreground-2 text-small">
+          <h3 id="permit-facts-title" className="font-semibold text-foreground-2 text-small">
             {t("facts")}
           </h3>
           {canWrite && (
@@ -150,7 +154,18 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
               label: t("cadence"),
               value: permit.requirement ? tCad(permit.requirement.cadence) : none,
             },
-            { label: t("applyBy"), value: <span className="tabular">{date(permit.applyBy)}</span> },
+            {
+              label: t("applyBy"),
+              value:
+                permit.applyBy && isUnfiled(permit.status) ? (
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="tabular">{date(permit.applyBy)}</span>
+                    <DueBadge dueOn={permit.applyBy} today={today} />
+                  </span>
+                ) : (
+                  <span className="tabular">{date(permit.applyBy)}</span>
+                ),
+            },
             {
               label: t("appliedAt"),
               value: <span className="tabular">{date(permit.appliedAt)}</span>,
@@ -176,14 +191,14 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
               value:
                 permit.fees.length > 0 ? (
                   <span className="tabular">{formatMoney(permit.feeCents, locale)}</span>
-                ) : permit.requirement?.typicalFeeCents != null ? (
+                ) : permit.requirement?.typicalFeeCents ? (
                   <span className="tabular text-muted-foreground">
                     {t("feeTypical", {
                       amount: formatMoney(permit.requirement.typicalFeeCents, locale),
                     })}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground">{t("feeNone")}</span>
+                  none
                 ),
             },
             { label: t("stickers"), value: stickers ?? none },
@@ -215,8 +230,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         />
       </section>
 
-      <section aria-labelledby="conditions-title" className="flex flex-col gap-2">
-        <h3 id="conditions-title" className="font-semibold text-foreground-2 text-small">
+      <section aria-labelledby="permit-conditions-title" className="flex flex-col gap-2">
+        <h3 id="permit-conditions-title" className="font-semibold text-foreground-2 text-small">
           {t("conditions")}
         </h3>
         {permit.conditions.length === 0 ? (
@@ -243,8 +258,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         canOpenEvents={canOpenEvents}
       />
 
-      <section aria-labelledby="tasks-title" className="flex flex-col gap-2">
-        <h3 id="tasks-title" className="font-semibold text-foreground-2 text-small">
+      <section aria-labelledby="permit-tasks-title" className="flex flex-col gap-2">
+        <h3 id="permit-tasks-title" className="font-semibold text-foreground-2 text-small">
           {t("tasks")}
         </h3>
         {permit.tasks.length === 0 ? (
@@ -254,18 +269,25 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
             {permit.tasks.map((task) => (
               <li
                 key={task.id}
-                className="flex flex-wrap items-baseline justify-between gap-2 border-border-subtle border-b py-1.5 text-small last:border-b-0"
+                className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 border-border-subtle border-b py-1.5 text-small last:border-b-0"
               >
-                <Link
-                  href={
-                    (task.eventId
-                      ? `/veranstaltungen/${task.eventId}/board?detail=task:${task.id}`
-                      : `/board?detail=task:${task.id}`) as never
-                  }
-                  className="font-medium text-accent-soft-foreground hover:underline"
-                >
-                  {task.title}
-                </Link>
+                <span className="flex min-w-0 flex-col">
+                  <Link
+                    href={
+                      (task.eventId
+                        ? `/veranstaltungen/${task.eventId}/board?detail=task:${task.id}`
+                        : `/board?detail=task:${task.id}`) as never
+                    }
+                    className="font-medium text-accent-soft-foreground hover:underline"
+                  >
+                    {task.title}
+                  </Link>
+                  {task.eventName && task.eventStartsOn && (
+                    <span className="text-muted-foreground text-tiny">
+                      {task.eventName} · {formatDateShort(task.eventStartsOn, locale)}
+                    </span>
+                  )}
+                </span>
                 <span className="tabular text-muted-foreground text-tiny">
                   {t(`taskStatus.${task.status}` as never)} ·{" "}
                   {task.dueAt
@@ -279,8 +301,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         )}
       </section>
 
-      <section aria-labelledby="fees-title" className="flex flex-col gap-2">
-        <h3 id="fees-title" className="font-semibold text-foreground-2 text-small">
+      <section aria-labelledby="permit-fees-title" className="flex flex-col gap-2">
+        <h3 id="permit-fees-title" className="font-semibold text-foreground-2 text-small">
           {t("fees")}
         </h3>
         {permit.fees.length === 0 ? (
@@ -297,8 +319,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         )}
       </section>
 
-      <section aria-labelledby="documents-title" className="flex flex-col gap-2">
-        <h3 id="documents-title" className="font-semibold text-foreground-2 text-small">
+      <section aria-labelledby="permit-documents-title" className="flex flex-col gap-2">
+        <h3 id="permit-documents-title" className="font-semibold text-foreground-2 text-small">
           {t("documents")}
         </h3>
         {documents.length === 0 && (
@@ -312,7 +334,7 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
 
       {canDelete && (
         <div className="border-border-subtle border-t pt-3">
-          <ArchivePermitButton permitId={permit.id} title={permit.title} closeHref={closeHref} />
+          <ArchivePermitButton permitId={permit.id} title={title} closeHref={closeHref} />
         </div>
       )}
     </DrawerFrame>

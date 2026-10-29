@@ -106,7 +106,7 @@ describe("summarizeReadiness", () => {
 });
 
 describe("countMissingPermits", () => {
-  it("counts required permits that are not granted", () => {
+  it("counts required permits that are not granted and need action", () => {
     expect(
       countMissingPermits(
         [
@@ -121,7 +121,29 @@ describe("countMissingPermits", () => {
         "2026-11-14",
         TODAY,
       ),
-    ).toBe(3);
+    ).toBe(2); // the filed one is just waiting
+  });
+  it("a filed permit counts once its expected decision has passed, or the market is close", () => {
+    const filed = permit({ status: "applied", expectedDecisionOn: "2026-11-30" });
+    expect(countMissingPermits([filed], "2026-11-14", TODAY)).toBe(0);
+    expect(
+      countMissingPermits(
+        [permit({ status: "applied", expectedDecisionOn: "2026-10-21" })],
+        "2026-11-14",
+        TODAY,
+      ),
+    ).toBe(1);
+    expect(countMissingPermits([filed], "2026-11-05", TODAY)).toBe(1); // 14 days: critical
+  });
+  it("an unfiled permit counts by its apply-by date: overdue or within the horizon, not later", () => {
+    const at = (applyBy: string) => permit({ status: "preparing", applyBy });
+    // Market far away (not close), horizon 30 days from 2026-10-22 = 2026-11-21.
+    expect(countMissingPermits([at("2026-10-01")], "2027-03-06", TODAY)).toBe(1);
+    expect(countMissingPermits([at("2026-11-21")], "2027-03-06", TODAY)).toBe(1);
+    expect(countMissingPermits([at("2026-11-22")], "2027-03-06", TODAY)).toBe(0);
+    expect(countMissingPermits([at("2026-11-22")], "2027-03-06", TODAY, "2027-03-06", 60)).toBe(1);
+    // ... but anything missing within 14 days of the market stays critical.
+    expect(countMissingPermits([at("2026-12-30")], "2026-11-05", TODAY)).toBe(1);
   });
   it("a granted permit that ends before the first day is missing, one ending on it is not", () => {
     const granted = { status: "granted" as const };

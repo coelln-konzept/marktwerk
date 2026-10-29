@@ -1,6 +1,6 @@
 "use client";
 
-import { Flag, Megaphone, TriangleAlert, XCircle } from "lucide-react";
+import { ChevronRight, CircleAlert, Flag, Megaphone, TriangleAlert, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { moveToDate, previewMove, undoMove } from "@/app/(app)/veranstaltungen/[id]/actions";
@@ -9,7 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import { formatDateShort, formatDateWithWeekday, formatWeek } from "@/lib/format";
+import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  formatDateShort,
+  formatDateShortYear,
+  formatDateWithWeekday,
+  formatWeek,
+  todayIn,
+} from "@/lib/format";
 import type { EventSchedulePreview } from "@/server/services/event-details";
 
 /**
@@ -102,12 +109,28 @@ export function MoveDialog({
   }
 
   const check = preview?.check;
+  // Years appear as soon as any date shown is not in the current year (a move across New Year, or
+  // a season in 2027): "Sa 13.03. → Fr 20.11." would be ambiguous. Passing "" as today makes every date carry its year.
+  const thisYear = todayIn().slice(0, 4);
+  const showYear =
+    !!preview &&
+    [
+      preview.from.startsOn,
+      preview.from.endsOn,
+      preview.to.startsOn,
+      preview.to.endsOn,
+      ...preview.anchors.flatMap((a) => [a.from, a.to]),
+      ...preview.shifting.flatMap((s) => [s.from, s.to]),
+    ].some((d) => d != null && d.slice(0, 4) !== thisYear);
+  const short = (d: string) =>
+    showYear ? formatDateShortYear(d, locale, "") : formatDateShort(d, locale);
   const range = (r: { startsOn: string; endsOn: string }) =>
     r.startsOn === r.endsOn
       ? formatDateWithWeekday(r.startsOn, locale)
       : `${formatDateWithWeekday(r.startsOn, locale)} – ${formatDateWithWeekday(r.endsOn, locale)}`;
   const hints =
     (preview?.announced ? 1 : 0) +
+    (preview && preview.tasksOverdueAfter > 0 ? 1 : 0) +
     (check
       ? check.holidays.length + check.venueConflicts.length + (check.overWeekendCap ? 1 : 0)
       : 0);
@@ -118,7 +141,7 @@ export function MoveDialog({
       onOpenChange={(next) => !pending && onOpenChange(next)}
       title={t("title")}
       description={t("description")}
-      closeLabel={t("cancel")}
+      closeLabel={t("close")}
       className="w-[min(560px,calc(100%-2rem))]"
     >
       <form
@@ -173,9 +196,9 @@ export function MoveDialog({
                     <tr key={a.key} className="border-border-subtle border-b last:border-b-0">
                       <td className="py-1.5 pr-3 font-medium">{tKeys(a.key)}</td>
                       <td className="tabular py-1.5 pr-3 text-muted-foreground">
-                        {a.from ? formatDateShort(a.from, locale) : "–"}
+                        {a.from ? short(a.from) : "–"}
                       </td>
-                      <td className="tabular py-1.5">{formatDateShort(a.to, locale)}</td>
+                      <td className="tabular py-1.5">{short(a.to)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -186,7 +209,56 @@ export function MoveDialog({
                 </span>{" "}
                 <span className="text-muted-foreground">{t("tasksShiftingNote")}</span>
               </p>
+              {preview.shifting.length > 0 && (
+                <details className="group rounded-lg border border-border-subtle">
+                  <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 px-3 text-small hover:bg-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                    <ChevronRight
+                      aria-hidden
+                      className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
+                    />
+                    {t("tasksShow", { count: preview.shifting.length })}
+                  </summary>
+                  <div className="max-h-56 overflow-y-auto border-border-subtle border-t">
+                    <table className="w-full border-collapse text-small">
+                      <caption className="sr-only">{t("tasksCaption")}</caption>
+                      <thead>
+                        <tr className="text-left text-muted-foreground">
+                          <th className="px-3 py-1.5 font-medium">{t("task")}</th>
+                          <th className="px-3 py-1.5 font-medium">{t("before")}</th>
+                          <th className="px-3 py-1.5 font-medium">{t("after")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.shifting.map((s) => (
+                          <tr key={s.id} className="border-border-subtle border-t">
+                            <td className="min-w-0 px-3 py-1.5 break-words">{s.title}</td>
+                            <td className="tabular whitespace-nowrap px-3 py-1.5 text-muted-foreground">
+                              {s.from ? short(s.from) : "–"}
+                            </td>
+                            <td className="tabular whitespace-nowrap px-3 py-1.5">
+                              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                {short(s.to)}
+                                {s.overdue && (
+                                  <StatusBadge tone="critical" icon={CircleAlert}>
+                                    {t("overdueShort")}
+                                  </StatusBadge>
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
               <ul className="flex flex-col gap-1 text-small">
+                {preview.tasksOverdueAfter > 0 && (
+                  <li className="flex items-start gap-1.5 text-status-critical">
+                    <CircleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+                    {t("overdueAfter", { count: preview.tasksOverdueAfter })}
+                  </li>
+                )}
                 {preview.announced && (
                   <li className="flex items-start gap-1.5 text-status-warn">
                     <Megaphone aria-hidden className="mt-0.5 size-3.5 shrink-0" />

@@ -68,7 +68,7 @@ export type ApplyEventPlan = {
   /** null = the event has no checklist from this template yet (linked through its preset). */
   checklistId: string | null;
   fromVersion: number | null;
-  add: { key: string; title: string }[];
+  add: { key: string; title: string; dueAt: number | null }[];
   update: { taskId: string; key: string; title: string; changes: PropagationChange[] }[];
   remove: { taskId: string; title: string }[];
   keep: { taskId: string; title: string; reason: KeepReason }[];
@@ -81,11 +81,13 @@ export type ApplyEventPlan = {
 export type ApplyPreview = {
   templateId: string;
   templateName: string;
+  /** Business date of today in the company time zone (for "wäre sofort überfällig"). */
+  today: string;
   version: { id: string; version: number; publishedAt: Date | null; changeNote: string | null };
   events: ApplyEventPlan[];
 };
 
-type Computed = { version: TemplateVersionContent; plans: Plan[] };
+type Computed = { version: TemplateVersionContent; plans: Plan[]; today: string };
 type Plan = {
   summary: ApplyEventPlan;
   checklistId: string | null;
@@ -230,7 +232,7 @@ async function computePlans(
         status: statusOf.get(ev.id) ?? "draft",
         checklistId: candidate.checklistId,
         fromVersion: candidate.fromVersion,
-        add: plan.add.map((i) => ({ key: i.stableKey, title: i.title })),
+        add: plan.add.map((i) => ({ key: i.stableKey, title: i.title, dueAt: i.dueAt })),
         update: plan.update.map((u) => ({
           taskId: u.task.id,
           key: u.item.stableKey,
@@ -244,7 +246,7 @@ async function computePlans(
       },
     });
   }
-  return { version, plans };
+  return { version, plans, today };
 }
 
 /**
@@ -263,7 +265,7 @@ export async function previewTemplateApplication(
         .where(eq(checklistTemplate.id, templateId))
     : [];
   if (!meta) throw new TemplateApplyError("not_found");
-  const { version, plans } = await db.transaction((tx) => computePlans(tx, templateId));
+  const { version, plans, today } = await db.transaction((tx) => computePlans(tx, templateId));
   const [published] = await db
     .select({ publishedAt: templateVersion.publishedAt, changeNote: templateVersion.changeNote })
     .from(templateVersion)
@@ -271,6 +273,7 @@ export async function previewTemplateApplication(
   return {
     templateId,
     templateName: meta.name,
+    today,
     version: {
       id: version.versionId,
       version: version.version,

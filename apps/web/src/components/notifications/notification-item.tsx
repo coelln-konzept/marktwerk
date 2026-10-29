@@ -37,7 +37,7 @@ const SEVERITY = {
 const iconButton =
   "grid size-8 cursor-pointer place-items-center rounded-md hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45 [&_svg]:size-4";
 const menuItem =
-  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover";
 
 /**
  * One notification in the centre: unread dot, severity (colour + icon + word), reason, title and detail,
@@ -133,7 +133,7 @@ export function NotificationItem({
             onClick={() => {
               if (unread) void setNotificationStateAction(row.id, "read");
             }}
-            className="rounded-sm outline-none hover:text-accent-soft-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            className="rounded-sm hover:text-accent-soft-foreground focus-visible:outline-2 focus-visible:outline-ring"
           >
             {body}
           </Link>
@@ -180,7 +180,7 @@ export function NotificationItem({
           </Menu.Trigger>
           <Menu.Portal>
             <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
-              <Menu.Popup className="flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+              <Menu.Popup className="flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
                 {SNOOZE_CHOICES.map((choice) => (
                   <Menu.Item key={choice} className={menuItem} onClick={() => snooze(choice)}>
                     {t(`snoozeChoices.${choice}` as never)}

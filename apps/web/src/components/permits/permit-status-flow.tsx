@@ -1,7 +1,8 @@
 "use client";
 
-import { PERMIT_TRANSITIONS, type PermitStatus } from "@marktwerk/core";
-import { Check, Circle, CircleDot } from "lucide-react";
+import { Menu } from "@base-ui/react/menu";
+import { PERMIT_FLOW_STEPS, type PermitStatus, splitPermitTransitions } from "@marktwerk/core";
+import { Check, Circle, CircleDot, Ellipsis } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
 import { changePermitStatus, undoPermitStatus } from "@/app/(app)/genehmigungen/actions";
@@ -9,17 +10,16 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/** not_started → preparing → applied → granted (rejected / not_required / superseded branch off). */
-const STEPS = [
-  { status: "not_started", label: "missing" },
-  { status: "preparing", label: "preparing" },
-  { status: "applied", label: "applied" },
-  { status: "granted", label: "granted" },
-] as const satisfies readonly { status: PermitStatus; label: string }[];
+const STEPS = PERMIT_FLOW_STEPS;
+
+const MENU_POPUP =
+  "flex min-w-[240px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden";
+const MENU_ITEM =
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[disabled]:opacity-50 data-[highlighted]:bg-hover";
 
 /**
- * The status flow of a permit: where it stands and the allowed next steps as buttons. Every change shows
- * an undo toast (UX concept §6) instead of asking for confirmation.
+ * The status flow of a permit: where it stands and the allowed next steps. Every change shows an undo
+ * toast (UX concept §6) instead of asking for confirmation.
  */
 export function PermitStatusFlow({
   permitId,
@@ -34,9 +34,18 @@ export function PermitStatusFlow({
   const tState = useTranslations("permitStatus");
   const { showToast } = useShell();
   const [pending, startTransition] = useTransition();
-  const next = PERMIT_TRANSITIONS[status];
-  const index = STEPS.findIndex((s) => s.status === status);
-  const label = (s: PermitStatus) => tState(s === "not_started" ? "missing" : s);
+  const { primary, secondary, menu } = splitPermitTransitions(status);
+  const none = !primary && secondary.length === 0 && menu.length === 0;
+  const index = (STEPS as readonly PermitStatus[]).indexOf(status);
+  // "Fehlt" is the alarm word of the matrix; in the flow the first step is just "not applied for yet".
+  const label = (s: PermitStatus) => (s === "not_started" ? t("steps.not_started") : tState(s));
+  // A step back in the flow reads "Zurück auf „Beantragt“", a step forward "Als … markieren".
+  const actionLabel = (to: PermitStatus) => {
+    const target = (STEPS as readonly PermitStatus[]).indexOf(to);
+    return index >= 0 && target >= 0 && target < index
+      ? t("back", { status: label(to) })
+      : t(`actions.${to}` as never);
+  };
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
@@ -67,12 +76,13 @@ export function PermitStatusFlow({
       </h3>
       <ol className="m-0 flex list-none items-start justify-between gap-1 p-0">
         {STEPS.map((step, i) => {
-          const done = index > i || status === "granted";
+          const passed = index > i || status === "granted";
           const current = index === i;
-          const Icon = done ? Check : current ? CircleDot : Circle;
+          // The first step is where every permit starts: passing it is no achievement worth a check mark.
+          const Icon = passed && i > 0 ? Check : current ? CircleDot : Circle;
           return (
             <li
-              key={step.status}
+              key={step}
               aria-current={current ? "step" : undefined}
               className={cn(
                 "flex min-w-0 flex-1 flex-col items-center gap-1 text-center text-tiny",
@@ -83,11 +93,11 @@ export function PermitStatusFlow({
                 aria-hidden
                 className={cn(
                   "size-4",
-                  done && "text-status-ok",
+                  passed && i > 0 && "text-status-ok",
                   current && "text-accent-soft-foreground",
                 )}
               />
-              <span>{tState(step.label)}</span>
+              <span>{label(step)}</span>
             </li>
           );
         })}
@@ -98,22 +108,55 @@ export function PermitStatusFlow({
         </p>
       )}
       {canWrite &&
-        (next.length === 0 ? (
+        (none ? (
           <p className="text-muted-foreground text-small">{t("noNextStep")}</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {next.map((to, i) => (
+          <div className="flex flex-wrap items-center gap-2">
+            {primary && (
+              <Button
+                size="sm"
+                variant="default"
+                disabled={pending}
+                aria-busy={pending}
+                onClick={() => move(primary)}
+              >
+                {actionLabel(primary)}
+              </Button>
+            )}
+            {secondary.map((to) => (
               <Button
                 key={to}
                 size="sm"
-                variant={i === 0 ? "default" : "outline"}
+                variant="outline"
                 disabled={pending}
                 aria-busy={pending}
                 onClick={() => move(to)}
               >
-                {t(`actions.${to}` as never)}
+                {actionLabel(to)}
               </Button>
             ))}
+            {menu.length > 0 && (
+              <Menu.Root>
+                <Menu.Trigger
+                  aria-label={t("moreSteps")}
+                  disabled={pending}
+                  className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-md border border-input bg-card text-muted-foreground hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 data-[popup-open]:bg-hover"
+                >
+                  <Ellipsis aria-hidden className="size-4" />
+                </Menu.Trigger>
+                <Menu.Portal>
+                  <Menu.Positioner side="bottom" align="start" sideOffset={4} className="z-50">
+                    <Menu.Popup className={MENU_POPUP}>
+                      {menu.map((to) => (
+                        <Menu.Item key={to} className={MENU_ITEM} onClick={() => move(to)}>
+                          {actionLabel(to)}
+                        </Menu.Item>
+                      ))}
+                    </Menu.Popup>
+                  </Menu.Positioner>
+                </Menu.Portal>
+              </Menu.Root>
+            )}
           </div>
         ))}
     </section>

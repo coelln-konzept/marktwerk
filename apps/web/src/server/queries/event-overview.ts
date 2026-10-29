@@ -21,6 +21,7 @@ import { and, eq, isNull, ne } from "drizzle-orm";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { visibleTasks } from "../task-scope";
+import { getPermitHorizonDays } from "./permits";
 
 export type EventOverview = {
   countdown: EventCountdown;
@@ -47,7 +48,7 @@ export async function getEventOverview(
   event: { id: string; startsOn: string; endsOn: string },
   today: string,
 ): Promise<EventOverview> {
-  const [taskRows, permitRows] = await Promise.all([
+  const [taskRows, permitRows, horizonDays] = await Promise.all([
     can(actor.role, "task", "read")
       ? db
           .select({
@@ -57,6 +58,7 @@ export async function getEventOverview(
             dueAt: task.dueAt,
             isKey: task.isKey,
             snoozedUntil: task.snoozedUntil,
+            boardSort: task.boardSort,
           })
           .from(task)
           .where(and(visibleTasks(actor), eq(task.eventId, event.id), ne(task.status, "cancelled")))
@@ -69,12 +71,14 @@ export async function getEventOverview(
             status: permit.status,
             applyBy: permit.applyBy,
             validUntil: permit.validUntil,
+            expectedDecisionOn: permit.expectedDecisionOn,
             required: eventPermit.required,
           })
           .from(eventPermit)
           .innerJoin(permit, eq(permit.id, eventPermit.permitId))
           .where(and(eq(eventPermit.eventId, event.id), isNull(permit.archivedAt)))
       : null,
+    getPermitHorizonDays(),
   ]);
 
   const tasks: OverviewTask[] | null =
@@ -85,6 +89,7 @@ export async function getEventOverview(
       dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
       isKey: r.isKey,
       snoozedUntil: r.snoozedUntil,
+      boardSort: r.boardSort,
     })) ?? null;
 
   return {
@@ -96,7 +101,7 @@ export async function getEventOverview(
     },
     permits: permitRows && {
       progress: permitProgress(permitRows, event.startsOn, today, event.endsOn),
-      missing: missingPermits(permitRows, event.startsOn, today, event.endsOn),
+      missing: missingPermits(permitRows, event.startsOn, today, event.endsOn, horizonDays),
     },
   };
 }

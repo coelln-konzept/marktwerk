@@ -67,7 +67,7 @@ export function BackButton({ parentHref }: { parentHref: string }) {
         const previous = stack.at(-1)?.path === pathname ? stack.at(-2) : stack.at(-1);
         router.push((previous?.url ?? parentHref) as never);
       }}
-      className="-ml-1 grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      className="-ml-1 grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
     >
       <ArrowLeft aria-hidden className="size-4" />
     </button>

@@ -9,7 +9,7 @@ import {
   staffMember,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, isNull, lte, max, ne } from "drizzle-orm";
+import { and, asc, count, eq, gte, isNull, lte, max, ne } from "drizzle-orm";
 import { db } from "../db";
 
 /**
@@ -43,14 +43,32 @@ export async function listPresetsForGeneration(today: string) {
     .innerJoin(venue, eq(venue.id, eventPreset.venueId))
     .leftJoin(lastHeld, eq(lastHeld.presetId, eventPreset.id))
     .where(and(isNull(eventPreset.archivedAt), eq(eventPreset.active, true)));
-  return rows.sort((a, b) => {
-    if (a.lastHeldOn !== b.lastHeldOn) {
-      if (!a.lastHeldOn) return 1;
-      if (!b.lastHeldOn) return -1;
-      return a.lastHeldOn < b.lastHeldOn ? 1 : -1;
-    }
-    return a.name.localeCompare(b.name, "de");
-  });
+  // Dates already planned per market and season (this year on): step 1 says "2027: 7 Termine geplant".
+  const planned = await db
+    .select({ presetId: event.presetId, season: event.season, n: count() })
+    .from(event)
+    .where(
+      and(
+        gte(event.season, Number(today.slice(0, 4))),
+        ne(event.status, "cancelled"),
+        isNull(event.archivedAt),
+      ),
+    )
+    .groupBy(event.presetId, event.season);
+  const plannedOf = new Map<string, Record<number, number>>();
+  for (const p of planned) {
+    if (p.presetId) plannedOf.set(p.presetId, { ...plannedOf.get(p.presetId), [p.season]: p.n });
+  }
+  return rows
+    .map((r) => ({ ...r, plannedBySeason: plannedOf.get(r.id) ?? ({} as Record<number, number>) }))
+    .sort((a, b) => {
+      if (a.lastHeldOn !== b.lastHeldOn) {
+        if (!a.lastHeldOn) return 1;
+        if (!b.lastHeldOn) return -1;
+        return a.lastHeldOn < b.lastHeldOn ? 1 : -1;
+      }
+      return a.name.localeCompare(b.name, "de");
+    });
 }
 
 export type GenerationPreset = Awaited<ReturnType<typeof listPresetsForGeneration>>[number];
@@ -116,6 +134,32 @@ export async function listPresets() {
 }
 
 const UUID = /^[0-9a-f-]{36}$/i;
+
+/** The task templates of one market: its own copy of the Grundvorlage and/or the shared ones it still uses. */
+export async function getPresetTaskTemplates(presetId: string) {
+  if (!UUID.test(presetId)) return { own: null, shared: [] };
+  const rows = await db
+    .select({
+      id: checklistTemplate.id,
+      name: checklistTemplate.name,
+      ownerPresetId: checklistTemplate.ownerPresetId,
+    })
+    .from(eventPresetTemplate)
+    .innerJoin(checklistTemplate, eq(checklistTemplate.id, eventPresetTemplate.templateId))
+    .where(
+      and(
+        eq(eventPresetTemplate.presetId, presetId),
+        eq(checklistTemplate.kind, "event"),
+        isNull(checklistTemplate.archivedAt),
+      ),
+    )
+    .orderBy(asc(eventPresetTemplate.sort), asc(checklistTemplate.name));
+  const own = rows.find((r) => r.ownerPresetId === presetId) ?? null;
+  return {
+    own: own ? { id: own.id, name: own.name } : null,
+    shared: rows.filter((r) => r.ownerPresetId === null).map((r) => ({ id: r.id, name: r.name })),
+  };
+}
 
 /** One preset with everything the edit form needs; null if it doesn't exist or is archived. */
 export async function getPresetForEdit(id: string) {

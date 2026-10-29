@@ -12,7 +12,7 @@ import { useErrorText } from "./shared";
 import { ZoneDialog } from "./zone-dialog";
 
 const item =
-  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[disabled]:cursor-default data-[disabled]:opacity-45 data-[highlighted]:bg-hover";
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[disabled]:opacity-45 data-[highlighted]:bg-hover";
 
 /** "Zone hinzufügen" above the zone list. */
 export function AddZoneButton({ venueId }: { venueId: string }) {
@@ -118,7 +118,7 @@ export function ZoneControls({
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
-            <Menu.Popup className="flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+            <Menu.Popup className="flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
               <Menu.Item className={item} onClick={() => setRenaming(true)}>
                 <Pencil aria-hidden className="size-4 text-muted-foreground" />
                 {t("zone.rename")}

@@ -102,7 +102,20 @@ export async function PresetVorschau({
             </Link>
           </>
         ) : preset.sharedTemplates.length > 0 ? (
-          t("vorschau.tasksShared", { names: preset.sharedTemplates.map((x) => x.name).join(", ") })
+          <>
+            {t("vorschau.tasksShared")}{" "}
+            {preset.sharedTemplates.map((x, i) => (
+              <span key={x.id}>
+                {i > 0 && ", "}
+                <Link
+                  href={`/vorlagen/ablauf/${x.id}` as never}
+                  className="text-accent-soft-foreground hover:underline"
+                >
+                  {x.name}
+                </Link>
+              </span>
+            ))}
+          </>
         ) : (
           t("vorschau.tasksNone")
         )}

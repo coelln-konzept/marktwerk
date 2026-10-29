@@ -8,8 +8,9 @@ import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 import { asStaff, dueOn, insertEvent, insertTask, TODAY } from "../helpers/tasks";
 
 /**
- * Übersicht aggregation: the due items of all modules in one ranked list, the chip counts, the KPI strip
- * and the weekend table, for the roles that see different parts of it.
+ * Übersicht aggregation ("Zwei Fragen"): the due items of all modules in one ranked list, the top of it for
+ * "Heute & überfällig", and the weekend card with verdict and blockers per market, for the roles that see
+ * different parts of it.
  *
  * Business "today" is Wednesday 21 Oct 2026, so the coming weekend is 24/25 Oct.
  */
@@ -154,9 +155,19 @@ describe("Heute fällig", () => {
     for (const hidden of ["Erledigt", "Ohne Datum", "Später"]) expect(titles).not.toContain(hidden);
   });
 
-  it("lists every item once, grouped by urgency by the page", async () => {
+  it('"Heute & überfällig" holds every overdue and due-today item, "Diese Woche" the rest, in ranking order', async () => {
     const { due } = await getOverview(owner, TODAY);
-    expect(due.items).toHaveLength(8);
+    expect(due.total).toBe(6);
+    expect(due.items.map((i) => i.title)).toEqual([
+      "Toiletten",
+      "Überfällige Aufgabe",
+      "Wassergenehmigung",
+      "Sicherheitsdienst",
+      "Heutige Aufgabe",
+      expect.any(String), // the hours deadline
+    ]);
+    expect(due.items.every((i) => i.urgency === "overdue" || i.urgency === "today")).toBe(true);
+    expect(due.later.map((i) => i.title)).toEqual(["Bald fällige Aufgabe", "Brandschutzprüfung"]);
   });
 
   it("every item links somewhere (drawer or page)", async () => {
@@ -199,61 +210,71 @@ describe("Heute fällig", () => {
   });
 });
 
-describe("KPI strip", () => {
-  it("counts what is due today and what is overdue, from the Heute-fällig list", async () => {
-    const { kpis } = await getOverview(owner, TODAY);
-    expect(kpis.overdue).toBe(3);
+describe("Heute & überfällig counts", () => {
+  it("counts what is overdue and what is due today, from the same list", async () => {
+    const { due } = await getOverview(owner, TODAY);
+    expect(due.overdue).toBe(3);
     // Today: the rate "Sicherheitsdienst", the task "Heutige Aufgabe" and the shift without times.
-    expect(kpis.dueToday).toBe(3);
+    expect(due.dueToday).toBe(3);
   });
 
   it("staff count only their own items", async () => {
-    const { kpis } = await getOverview(staffActor, TODAY);
-    expect(kpis.overdue).toBe(2); // the permit and Anna's overdue task
-    expect(kpis.dueToday).toBe(1);
+    const { due } = await getOverview(staffActor, TODAY);
+    expect(due.overdue).toBe(2); // the permit and Anna's overdue task
+    expect(due.dueToday).toBe(1);
   });
 });
 
 describe("Dieses Wochenende", () => {
-  it("lists the weekend's events with all four health dimensions and its blockers", async () => {
+  it("lists the weekend's markets with a verdict and the items that hold them up", async () => {
     const { weekend } = await getOverview(owner, TODAY);
     expect(weekend.saturday).toBe("2026-10-24");
-    expect(weekend.rows.map((r) => r.name)).toEqual(["Wochenendmarkt"]);
-    const [row] = weekend.rows;
-    // Tasks: one overdue → Achtung; money: an overdue rate; team: 1 of 2 duties.
-    expect(row?.health.tasks).toBe("warn");
-    expect(row?.health.money).not.toBeNull();
-    expect(row?.health.team).not.toBeNull();
-    expect(weekend.blockers.map((b) => b.title)).toEqual([
-      "Toiletten",
+    expect(weekend.markets.map((m) => m.row.name)).toEqual(["Wochenendmarkt"]);
+    const [market] = weekend.markets;
+    // Tasks: one overdue → Achtung (health), but the verdict is critical, like Board > Bereitschaft.
+    expect(market?.row.health.tasks).toBe("warn");
+    expect(market?.verdict.level).toBe("critical");
+    expect(market?.verdict.reasons).toContainEqual({ key: "tasksOverdue", count: 1 });
+    expect(market?.verdict.reasons).toContainEqual({ key: "tasksToday", count: 1 });
+    // Overdue and due today only: no instalments, nothing dated later this week.
+    expect(market?.blockers.map((b) => b.title)).toEqual([
       "Überfällige Aufgabe",
-      "Sicherheitsdienst",
       "Heutige Aufgabe",
-      "Bald fällige Aufgabe",
     ]);
   });
 
-  it("also holds up with the permits an event needs, with the event named", async () => {
-    const [p] = await db
+  it("a permit whose deadline has passed holds the market up, a later one does not", async () => {
+    const [late, later] = await db
       .insert(permit)
-      .values({
-        category: "city",
-        permitType: "water",
-        title: "Wasser Wochenende",
-        season: 2026,
-        status: "not_started",
-        applyBy: "2026-11-10",
-      })
+      .values([
+        {
+          category: "city",
+          permitType: "water",
+          title: "Wasser Wochenende",
+          season: 2026,
+          status: "not_started",
+          applyBy: "2026-10-20",
+        },
+        {
+          category: "city",
+          permitType: "other",
+          title: "Lärm Wochenende",
+          season: 2026,
+          status: "not_started",
+          applyBy: "2026-11-10",
+        },
+      ])
       .returning();
-    await db.insert(eventPermit).values({ eventId: weekendEvent, permitId: p?.id as string });
+    await db.insert(eventPermit).values([
+      { eventId: weekendEvent, permitId: late?.id as string },
+      { eventId: weekendEvent, permitId: later?.id as string },
+    ]);
     const { weekend } = await getOverview(owner, TODAY);
-    const blocker = weekend.blockers.find((b) => b.title === "Wasser Wochenende");
-    expect(blocker).toMatchObject({
-      kind: "permit",
-      urgency: "upcoming",
-      eventNames: ["Wochenendmarkt"],
-    });
-    expect(blocker?.href).toBe(`/genehmigungen?genehmigung=${p?.id}`);
+    const blockers = weekend.markets[0]?.blockers ?? [];
+    const blocker = blockers.find((b) => b.title === "Wasser Wochenende");
+    expect(blocker).toMatchObject({ kind: "permit", urgency: "overdue" });
+    expect(blocker?.href).toBe(`/genehmigungen?genehmigung=${late?.id}`);
+    expect(blockers.map((b) => b.title)).not.toContain("Lärm Wochenende");
   });
 
   it("is the Saturday and Sunday of the current week from Monday to Sunday, also on Sunday evening", async () => {
@@ -264,20 +285,30 @@ describe("Dieses Wochenende", () => {
     // Monday morning after the weekend: the weekend that just ended is gone, the next one counts.
     const monday = await at("2026-10-26T07:00:00+01:00", "2026-10-26");
     expect([monday.saturday, monday.sunday]).toEqual(["2026-10-31", "2026-11-01"]);
-    expect(monday.rows).toEqual([]);
+    expect(monday.markets).toEqual([]);
     // Sunday evening: the running weekend still counts.
     const sunday = await at("2026-10-25T22:30:00+01:00", "2026-10-25");
     expect([sunday.saturday, sunday.sunday]).toEqual(["2026-10-24", "2026-10-25"]);
-    expect(sunday.rows.map((r) => r.name)).toEqual(["Wochenendmarkt"]);
+    expect(sunday.markets.map((m) => m.row.name)).toEqual(["Wochenendmarkt"]);
     // Monday of the same week: the coming Saturday and Sunday.
     const week = await at("2026-10-19T08:00:00+02:00", "2026-10-19");
     expect([week.saturday, week.sunday]).toEqual(["2026-10-24", "2026-10-25"]);
   });
 
+  it('also gives the weekend after that, for the compact row "Nächstes Wochenende"', async () => {
+    const { nextWeekend } = await getOverview(owner, TODAY);
+    expect([nextWeekend.saturday, nextWeekend.sunday]).toEqual(["2026-10-31", "2026-11-01"]);
+    expect(nextWeekend.markets).toEqual([]);
+    vi.setSystemTime(new Date("2026-11-04T08:00:00+01:00"));
+    const later = await getOverview(owner, "2026-11-04");
+    expect(later.nextWeekend.saturday).toBe("2026-11-14");
+    expect(later.nextWeekend.markets.map((m) => m.row.name)).toEqual(["Novembermarkt"]);
+  });
+
   it("field users see their own weekend event only, without money", async () => {
     const { weekend } = await getOverview(fieldActor, TODAY);
-    expect(weekend.rows.map((r) => r.name)).toEqual(["Wochenendmarkt"]);
-    expect(weekend.rows[0]?.health.money).toBeNull();
-    expect(weekend.blockers.every((b) => b.kind === "task")).toBe(true);
+    expect(weekend.markets.map((m) => m.row.name)).toEqual(["Wochenendmarkt"]);
+    expect(weekend.markets[0]?.row.health.money).toBeNull();
+    expect(weekend.markets[0]?.blockers.every((b) => b.kind === "task")).toBe(true);
   });
 });

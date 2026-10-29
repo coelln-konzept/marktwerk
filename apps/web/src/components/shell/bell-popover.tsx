@@ -35,13 +35,13 @@ export function BellPopover({ count, items }: { count: number; items: Item[] }) 
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         aria-label={count > 0 ? t("labelUnread", { count }) : t("label")}
-        className="relative grid size-8 cursor-pointer place-items-center rounded-lg outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+        className="relative grid size-8 cursor-pointer place-items-center rounded-lg hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
       >
         <Bell aria-hidden className="size-4" />
         {count > 0 && (
           <span
             aria-hidden
-            className="tabular -top-0.5 -right-0.5 absolute inline-grid h-4 min-w-4 place-items-center rounded-full bg-status-critical-dot px-1 font-bold text-[10px] text-white leading-none"
+            className="tabular -top-0.5 -right-0.5 absolute inline-grid h-4 min-w-4 place-items-center rounded-full bg-status-critical-dot px-1 font-bold text-[10px] text-on-critical leading-none"
           >
             {count > 99 ? "99+" : count}
           </span>
@@ -49,7 +49,7 @@ export function BellPopover({ count, items }: { count: number; items: Item[] }) 
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
-          <Popover.Popup className="flex max-h-[min(560px,calc(100svh-96px))] w-[min(380px,calc(100vw-24px))] flex-col rounded-xl border bg-popover text-popover-foreground shadow-pop outline-none">
+          <Popover.Popup className="flex max-h-[min(560px,calc(100svh-96px))] w-[min(380px,calc(100vw-24px))] flex-col rounded-xl border bg-popover text-popover-foreground shadow-pop outline-hidden">
             <div className="flex items-center justify-between gap-2 border-border-subtle border-b px-4 py-2">
               <Popover.Title className="font-semibold text-[15px]">{t("title")}</Popover.Title>
               <MarkAllReadButton compact disabled={count === 0} />
@@ -80,7 +80,7 @@ export function BellPopover({ count, items }: { count: number; items: Item[] }) 
                     </>
                   );
                   const cls =
-                    "flex items-start gap-2 border-border-subtle border-b px-4 py-2.5 outline-none last:border-b-0 hover:bg-hover focus-visible:bg-hover";
+                    "flex items-start gap-2 border-border-subtle border-b px-4 py-2.5 outline-hidden last:border-b-0 hover:bg-hover focus-visible:bg-hover";
                   return (
                     <li key={item.id}>
                       {item.link ? (

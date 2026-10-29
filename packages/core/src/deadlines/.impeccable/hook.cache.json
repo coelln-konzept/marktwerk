@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "sessions": {
+    "19cb3b37-c8a3-465a-970e-0ba3fb76a3a0": {
+      "updatedAt": 1793195280971,
+      "files": {
+        "C:\\Users\\Arda\\Documents\\Vibe Projects\\Marketwerk\\packages\\core\\src\\deadlines\\due-ranking.test.ts": {
+          "editCount": 1,
+          "findings": []
+        },
+        "C:\\Users\\Arda\\Documents\\Vibe Projects\\Marketwerk\\apps\\web\\src\\server\\queries\\overview.ts": {
+          "editCount": 1,
+          "findings": []
+        }
+      }
+    }
+  }
+}

@@ -22,9 +22,9 @@ import type { BoardTask } from "@/server/queries/tasks";
 import { useBoard } from "./board-context";
 
 const popup =
-  "flex max-h-[min(420px,var(--available-height))] min-w-[220px] flex-col overflow-y-auto rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none";
+  "flex max-h-[min(420px,var(--available-height))] min-w-[220px] flex-col overflow-y-auto rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden";
 const item =
-  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[disabled]:cursor-default data-[disabled]:opacity-50 data-[highlighted]:bg-hover";
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[disabled]:opacity-50 data-[highlighted]:bg-hover";
 const subTrigger = cn(item, "justify-between data-[popup-open]:bg-hover");
 
 /**
@@ -57,7 +57,7 @@ export function CardMenu({
     <Menu.Root open={open} onOpenChange={onOpenChange}>
       <Menu.Trigger
         aria-label={t("card.actions", { title: task.title })}
-        className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
+        className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
       >
         <Ellipsis aria-hidden className="size-4" />
       </Menu.Trigger>

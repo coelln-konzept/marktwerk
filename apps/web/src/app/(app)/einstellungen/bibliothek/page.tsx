@@ -27,6 +27,7 @@ import { listPresets } from "@/server/queries/presets";
 import {
   getMasterTemplate,
   getTemplateOptions,
+  getTemplateSummaries,
   listEventTemplates,
 } from "@/server/queries/templates";
 import { requirePermission } from "@/server/session";
@@ -62,6 +63,23 @@ export default async function LibraryPage({
     listEventTemplates(),
     getTemplateOptions(),
   ]);
+  const summaries = await getTemplateSummaries(
+    markets.flatMap((m) => [
+      ...(m.ownTemplate ? [m.ownTemplate.id] : []),
+      ...m.sharedTemplates.map((x) => x.id),
+    ]),
+  );
+  // Templates that markets actually use are the working ones; the rest is parked in a closed section.
+  const inUse = templates.filter((tpl) => tpl.presets.length > 0);
+  const unused = templates.filter((tpl) => tpl.presets.length === 0);
+  const templateMeta = (id: string, kind: "own" | "shared") => {
+    const sum = summaries.get(id);
+    return t("markets.tplMeta", {
+      kind: t(kind === "own" ? "markets.tplOwn" : "markets.tplShared"),
+      version: sum?.version ? `v${sum.version}` : t("markets.tplDraft"),
+      count: sum?.itemCount ?? 0,
+    });
+  };
   const vorschauId = param(sp.vorschau);
   const selected = markets.find((m) => m.id === vorschauId);
   const shown = master?.published ?? master?.draft ?? null;
@@ -127,6 +145,18 @@ export default async function LibraryPage({
         </PanelBody>
       </Panel>
 
+      {inUse.length > 0 && (
+        <section aria-labelledby="library-inuse-title" className="flex flex-col gap-2">
+          <div>
+            <h2 id="library-inuse-title" className="m-0 font-semibold text-[15px]">
+              {t("inUse.title")}
+            </h2>
+            <p className="m-0 max-w-3xl text-muted-foreground text-small">{t("inUse.hint")}</p>
+          </div>
+          <TimelineTable templates={inUse} />
+        </section>
+      )}
+
       <Panel aria-labelledby="library-markets-title" className="overflow-hidden">
         <PanelHeader>
           <PanelTitle id="library-markets-title">{t("markets.title")}</PanelTitle>
@@ -149,6 +179,7 @@ export default async function LibraryPage({
                   <TH>{tTpl("cols.type")}</TH>
                   <TH>{tTpl("cols.venue")}</TH>
                   <TH>{tTpl("cols.rhythm")}</TH>
+                  <TH>{t("markets.cols.tasks")}</TH>
                   <TH>{tTpl("cols.status")}</TH>
                   <TH>
                     <span className="sr-only">{tTpl("cols.actions")}</span>
@@ -166,7 +197,7 @@ export default async function LibraryPage({
                       data-peek={peek}
                       aria-selected={vorschauId === m.id}
                       className={cn(
-                        "outline-none focus-visible:bg-selected",
+                        "outline-hidden focus-visible:bg-selected",
                         !m.active && "text-muted-foreground",
                       )}
                     >
@@ -198,6 +229,39 @@ export default async function LibraryPage({
                         </Link>
                       </TD>
                       <TD className="max-w-60">{rruleText(m.rrule, locale)}</TD>
+                      <TD className="min-w-44">
+                        {m.ownTemplate ? (
+                          <>
+                            <Link
+                              href={`/vorlagen/ablauf/${m.ownTemplate.id}` as never}
+                              tabIndex={-1}
+                              className="font-medium text-accent-soft-foreground hover:underline"
+                            >
+                              {t("markets.tplOwn")}
+                            </Link>
+                            <span className="block text-muted-foreground text-tiny">
+                              {templateMeta(m.ownTemplate.id, "own")}
+                            </span>
+                          </>
+                        ) : m.sharedTemplates.length > 0 ? (
+                          m.sharedTemplates.map((x) => (
+                            <span key={x.id} className="block">
+                              <Link
+                                href={`/vorlagen/ablauf/${x.id}` as never}
+                                tabIndex={-1}
+                                className="font-medium text-accent-soft-foreground hover:underline"
+                              >
+                                {x.name}
+                              </Link>
+                              <span className="block text-muted-foreground text-tiny">
+                                {templateMeta(x.id, "shared")}
+                              </span>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-faint-foreground">–</span>
+                        )}
+                      </TD>
                       <TD>
                         <PresetStatusBadge active={m.active} />
                       </TD>
@@ -250,7 +314,7 @@ export default async function LibraryPage({
         <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 px-4 py-3">
           <span className="font-semibold text-[15px]">{t("others.title")}</span>
           <span className="text-muted-foreground text-small">
-            {t("others.summary", { count: templates.length })}
+            {t("others.summary", { count: unused.length })}
           </span>
         </summary>
         <div className="flex flex-col gap-3 border-border-subtle border-t p-4">
@@ -260,7 +324,7 @@ export default async function LibraryPage({
               <NewTemplateButton types={options.types} />
             </div>
           )}
-          <TimelineTable templates={templates} />
+          <TimelineTable templates={unused} />
         </div>
       </details>
 

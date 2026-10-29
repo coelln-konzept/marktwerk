@@ -71,10 +71,10 @@ export function formatEstimate(minutes: number, locale: string): string {
   return `${text} h`;
 }
 
-/** Hours with at most one decimal: "12,5 h". */
+/** Hours with at most one decimal: "12,5 Std.". */
 export function formatHours(hours: number, locale: string): string {
   const text = new Intl.NumberFormat(locale === "en" ? "en-GB" : "de-DE", {
     maximumFractionDigits: 1,
   }).format(hours);
-  return `${text} h`;
+  return `${text} ${locale === "en" ? "h" : "Std."}`;
 }

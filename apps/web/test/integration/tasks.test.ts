@@ -436,6 +436,29 @@ describe("updateTask", () => {
     expect((await getTask(t.id)).dueAt).toBeNull();
   });
 
+  it("undoes a due-date edit with the previous flags, so the task follows the event date again", async () => {
+    const t = await insertTask({ title: "A", eventId, dueAt: new Date("2026-10-27T13:30:00Z") });
+    const before = await getTask(t.id);
+    expect(before).toMatchObject({ dueOverridden: false, customized: false });
+    await updateTask(owner, t.id, { dueOn: "2026-10-30" });
+    expect(await getTask(t.id)).toMatchObject({ dueOverridden: true, customized: true });
+    await updateTask(owner, t.id, {
+      dueOn: "2026-10-27",
+      restoreFlags: { dueOverridden: false, customized: false },
+    });
+    const row = await getTask(t.id);
+    expect(row).toMatchObject({ dueOverridden: false, customized: false });
+    expect(row.dueAt?.toISOString()).toBe("2026-10-27T13:30:00.000Z");
+    expect(
+      await code(
+        updateTask(owner, t.id, {
+          dueOn: "2026-10-31",
+          restoreFlags: { dueOverridden: "no" as never, customized: false },
+        }),
+      ),
+    ).toBe("invalid_input");
+  });
+
   it("validates and ignores no-op edits", async () => {
     const t = await insertTask({ title: "A", eventId, estimateMinutes: 30 });
     expect(await code(updateTask(owner, t.id, { title: "   " }))).toBe("invalid_input");

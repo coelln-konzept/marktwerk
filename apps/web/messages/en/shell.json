@@ -8,7 +8,7 @@
     "board": "Board",
     "events": "Events",
     "permits": "Permits",
-    "permitsBadge": "missing or expired for upcoming markets",
+    "permitsBadge": "permits to apply for now (application overdue or due soon)",
     "masterData": "Master data",
     "duties": "Duties",
     "team": "Team",
@@ -23,7 +23,8 @@
     "calendar": "Calendar",
     "venues": "Venues",
     "contacts": "Contacts",
-    "hide": "Hide sidebar"
+    "hide": "Hide sidebar",
+    "masterDataActive": "contains the current page"
   },
   "roles": {
     "owner": "Owner",
@@ -43,7 +44,19 @@
     "forbidden": "You don't have permission to do that.",
     "back": "Back to overview",
     "notFoundTitle": "Not found",
-    "notFoundHint": "This record doesn't exist (any more), or the link is incomplete."
+    "notFoundHint": "This record doesn't exist (any more), or the link is incomplete.",
+    "failedTitle": "Something went wrong",
+    "failedHint": "The page could not be loaded or a change did not go through. Please try again.",
+    "retry": "Try again",
+    "network": "No connection to the server. Please try again."
+  },
+  "states": {
+    "loading": "Loading …"
+  },
+  "toasts": {
+    "region": "Notices",
+    "close": "Close notice",
+    "undoKey": "Ctrl Z"
   },
   "language": {
     "label": "Language",
@@ -63,7 +76,8 @@
       "compact": "Compact"
     },
     "signOut": "Sign out",
-    "settings": "Settings"
+    "settings": "Settings",
+    "shortcuts": "Keyboard shortcuts"
   },
   "topbar": {
     "menu": "Open navigation",
@@ -81,7 +95,8 @@
     "newPermit": "Permit",
     "newShift": "Shift",
     "newIssue": "Report defect",
-    "showSidebar": "Show sidebar"
+    "showSidebar": "Show sidebar",
+    "skip": "Skip to content"
   },
   "palette": {
     "title": "Search and commands",
@@ -89,6 +104,10 @@
     "hint": "Type at least two characters.",
     "searching": "Searching …",
     "empty": "No results.",
+    "error": "Search is not available right now.",
+    "resultsCount": "{count, plural, one {# result} other {# results}}",
+    "showAll": "Show all {count}",
+    "shownOf": "{shown} of {total}",
     "select": "select",
     "open": "open",
     "umlauts": "Accents don't matter: “koln” finds Köln",
@@ -108,6 +127,8 @@
       "generate": "Plan a market (add dates for a market)",
       "calendar": "Open calendar",
       "events": "All events",
+      "vendors": "Open vendors",
+      "vendorsKeywords": "Beschicker Händler stallholders",
       "single": "Create a single event (without a preset)",
       "task": "Create task",
       "payable": "Create payment",
@@ -116,6 +137,34 @@
       "issue": "Report defect",
       "settings": "Open settings",
       "notifications": "Open notifications"
+    }
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "hint": "These keys work as long as you are not typing in a field.",
+    "close": "Close keyboard shortcuts",
+    "ctrl": "Ctrl",
+    "space": "Space",
+    "groups": {
+      "everywhere": "Everywhere",
+      "lists": "In lists",
+      "board": "On the board",
+      "calendar": "In the calendar"
+    },
+    "what": {
+      "search": "Search and commands",
+      "create": "Create new (menu “+ New”, on a board: create task)",
+      "overview": "This overview",
+      "undo": "Undo the last action",
+      "close": "Close a preview, window or side panel",
+      "move": "Move between rows",
+      "peek": "Open the preview",
+      "open": "Open the record",
+      "done": "Mark task as done",
+      "assign": "Assign task",
+      "today": "Jump to today",
+      "month": "Month view",
+      "list": "List view"
     }
   },
   "vorschau": {
@@ -147,7 +196,7 @@
     "reason": {
       "ok": "On track",
       "permits": "{count, plural, one {# permit missing} other {# permits missing}}",
-      "permitsEnding": "Permit ends before the end",
+      "permitsEnding": "Permit expires before the event",
       "tasksOverdue": "{count} overdue",
       "tasksBlocked": "{count} blocked",
       "tasksRollover": "often postponed",
@@ -168,5 +217,26 @@
     "week": "CW",
     "weekdays": "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
     "more": "+ {n} more"
+  },
+  "due": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "inDays": "In {count, plural, one {# day} other {# days}}",
+    "inWeeks": "In {count, plural, one {# week} other {# weeks}}",
+    "inMonths": "In {count, plural, one {# month} other {# months}}",
+    "overdueDays": "{count, plural, one {Due yesterday} other {# days overdue}}",
+    "overdueWeeks": "{count, plural, one {# week overdue} other {# weeks overdue}}",
+    "overdueMonths": "{count, plural, one {# month overdue} other {# months overdue}}",
+    "waitingDays": "{count, plural, one {Waiting since yesterday} other {Waiting for # days}}",
+    "waitingWeeks": "Waiting for {count, plural, one {# week} other {# weeks}}",
+    "waitingMonths": "Waiting for {count, plural, one {# month} other {# months}}",
+    "compactDays": "{count} d",
+    "compactWeeks": "{count} wk",
+    "compactMonths": "{count} mo",
+    "withDate": "{date} · {relative}",
+    "none": "No date"
+  },
+  "form": {
+    "optional": "(optional)"
   }
 }

@@ -109,7 +109,9 @@ export function IssueActions({
           }}
         >
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`resolve-${issueId}`}>{tr("note")}</Label>
+            <Label htmlFor={`resolve-${issueId}`} optional>
+              {tr("note")}
+            </Label>
             <textarea
               id={`resolve-${issueId}`}
               value={note}

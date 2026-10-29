@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { createObligationAction, updateObligationAction } from "@/app/(app)/firma/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
@@ -47,6 +47,8 @@ export type LegalMonths = {
 const FIELD_OF: Record<string, string> = {
   invalid_kind: "kind",
   invalid_name: "title",
+  title_required: "title",
+  responsible_required: "responsible",
   invalid_scope: "scope",
   invalid_vehicle: "vehicle",
   invalid_venue: "venue",
@@ -71,6 +73,7 @@ export function ObligationForm({
   staff,
   legal,
   today,
+  initialPreset,
 }: {
   /** Set when editing; without it the form creates an obligation. */
   obligationId?: string;
@@ -80,6 +83,8 @@ export function ObligationForm({
   staff: { id: string; name: string }[];
   legal: LegalMonths;
   today: string;
+  /** Preset to apply on first render (links such as "HU anlegen" on a new vehicle); create mode only. */
+  initialPreset?: string;
 }) {
   const t = useTranslations("company");
   const tf = useTranslations("company.form");
@@ -148,6 +153,13 @@ export function ObligationForm({
     setTitleAuto(true);
   }
 
+  // A link with a preset ("HU/TÜV anlegen" on a new vehicle) opens the form already filled in; the
+  // person can still change everything. Runs once on mount.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deliberately once, with the first state
+  useEffect(() => {
+    if (initialPreset && !editing) choosePreset(initialPreset);
+  }, []);
+
   function chooseVehicle(id: string) {
     setVehicleId(id);
     if (!preset || editing) return;
@@ -172,6 +184,11 @@ export function ObligationForm({
 
   function submit() {
     setError(null);
+    // Required fields are answered on the spot (no round trip), in field order; the first wrong field
+    // gets the focus.
+    if (title.trim() === "") return fail("title_required");
+    if (scope === "vehicle" && vehicleId === "") return fail("invalid_vehicle");
+    if (scope === "venue" && venueId === "") return fail("invalid_venue");
     const intervalMonths = whole(months);
     if (intervalMonths === undefined) return fail("invalid_interval", "intervalMonths");
     const intervalKm = whole(km);
@@ -180,6 +197,7 @@ export function ObligationForm({
     if (nextDueKm === undefined) return fail("invalid_due", "nextDueKm");
     const lead = whole(leadDays);
     if (lead === undefined || lead === null) return fail("invalid_lead_days");
+    if (responsible === "") return fail("responsible_required");
 
     const input = {
       kind,
@@ -236,7 +254,9 @@ export function ObligationForm({
           {!editing && (
             <fieldset className="m-0 min-w-0 border-0 p-0">
               <div className={cn(cell, "max-w-md")}>
-                <Label htmlFor={f("preset")}>{tf("preset")}</Label>
+                <Label htmlFor={f("preset")} optional>
+                  {tf("preset")}
+                </Label>
                 <select
                   id={f("preset")}
                   value={presetKey}
@@ -353,7 +373,9 @@ export function ObligationForm({
             <legend className={legend}>{tf("schedule")}</legend>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className={cell}>
-                <Label htmlFor={f("intervalMonths")}>{tf("intervalMonths")}</Label>
+                <Label htmlFor={f("intervalMonths")} optional>
+                  {tf("intervalMonths")}
+                </Label>
                 <Input
                   id={f("intervalMonths")}
                   value={months}
@@ -376,7 +398,9 @@ export function ObligationForm({
               </div>
               {scope === "vehicle" && (
                 <div className={cell}>
-                  <Label htmlFor={f("intervalKm")}>{tf("intervalKm")}</Label>
+                  <Label htmlFor={f("intervalKm")} optional>
+                    {tf("intervalKm")}
+                  </Label>
                   <Input
                     id={f("intervalKm")}
                     value={km}
@@ -393,7 +417,9 @@ export function ObligationForm({
                 </div>
               )}
               <div className={cell}>
-                <Label htmlFor={f("nextDueOn")}>{tf("nextDueOn")}</Label>
+                <Label htmlFor={f("nextDueOn")} optional>
+                  {tf("nextDueOn")}
+                </Label>
                 <Input
                   id={f("nextDueOn")}
                   type="date"
@@ -405,7 +431,9 @@ export function ObligationForm({
               </div>
               {scope === "vehicle" && (
                 <div className={cell}>
-                  <Label htmlFor={f("nextDueKm")}>{tf("nextDueKm")}</Label>
+                  <Label htmlFor={f("nextDueKm")} optional>
+                    {tf("nextDueKm")}
+                  </Label>
                   <Input
                     id={f("nextDueKm")}
                     value={dueKm}
@@ -463,7 +491,9 @@ export function ObligationForm({
                 {tf("createsPayable")}
               </label>
               <div className={cn(cell, "sm:col-span-2")}>
-                <Label htmlFor={f("notes")}>{tf("notes")}</Label>
+                <Label htmlFor={f("notes")} optional>
+                  {tf("notes")}
+                </Label>
                 <textarea
                   id={f("notes")}
                   value={notes}

@@ -892,6 +892,10 @@ export async function setPermitStatus(
     const set: Partial<typeof permit.$inferInsert> = { status: to };
     if (to === "applied" && !current.appliedAt) set.appliedAt = today;
     if (to === "granted" && !current.grantedAt) set.grantedAt = today;
+    // Back from "Genehmigt": the permit was not granted after all, "Erteilt am" would be stale (a
+    // replaced permit keeps it: it was granted). Undo writes `previous.grantedAt` back.
+    if (current.status === "granted" && to !== "granted" && to !== "superseded")
+      set.grantedAt = null;
     await tx.update(permit).set(set).where(eq(permit.id, id));
 
     let closedTaskIds: string[] = [];

@@ -1,169 +1,92 @@
 "use client";
 
-import { Menu } from "@base-ui/react/menu";
-import { daysBetween } from "@marktwerk/core";
-import {
-  AlarmClock,
-  CalendarSearch,
-  CircleCheck,
-  Clock,
-  OctagonAlert,
-  RotateCcw,
-  ShieldCheck,
-  TriangleAlert,
-} from "lucide-react";
+import { ClipboardList, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
-import { SnoozeDialog, useSnoozePresets } from "@/components/task/snooze";
-import { buttonVariants } from "@/components/ui/button";
+import { DueBadge } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
-import { StatusBadge, type Tone } from "@/components/ui/status-badge";
 import { formatDateWeekdayDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CompanyNotificationRow } from "@/server/queries/notifications";
+import { CompanyRowActions } from "./company-row-actions";
 import { useCompanyActions } from "./use-company-actions";
 
-const menuPopup =
-  "flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none";
-const menuItem =
-  "flex min-h-8 cursor-pointer items-center justify-between gap-4 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
-const small = cn(buttonVariants({ variant: "outline", size: "sm" }));
-
-/** The due information as colour + icon + text. */
-export function useDueInfo() {
-  const t = useTranslations("notificationCenter");
-  return (row: Pick<CompanyNotificationRow, "dueOn" | "kind">, today: string) => {
-    if (!row.dueOn) return null;
-    const days = daysBetween(today, row.dueOn);
-    if (days < 0)
-      return {
-        tone: "critical" as Tone,
-        icon: OctagonAlert,
-        text: t(row.kind === "permit_expiry" ? "due.expired" : "due.overdue", { count: -days }),
-      };
-    if (days === 0) return { tone: "warn" as Tone, icon: TriangleAlert, text: t("due.today") };
-    if (days === 1) return { tone: "warn" as Tone, icon: AlarmClock, text: t("due.tomorrow") };
-    return { tone: "info" as Tone, icon: Clock, text: t("due.inDays", { count: days }) };
-  };
-}
-
-/** "Zurückstellen": presets (Morgen, Nächste Woche) and a date, like the task snooze. */
-export function CompanySnoozeMenu({
+/**
+ * One row of the notification center: kind icon (a plain glyph, not a button), title (a task opens its
+ * drawer in place), market with its colour marker, the due badge, and one primary action plus a "…" menu.
+ * The row is the tab stop and takes part in J/K/Enter navigation (`KeyboardRows`); the title link and the
+ * menu's "Öffnen" are the same target and stay out of the tab order.
+ */
+export function CompanyRow({
   row,
   today,
-  compact,
+  openHref,
 }: {
-  row: Pick<CompanyNotificationRow, "id" | "title">;
+  row: CompanyNotificationRow;
   today: string;
-  compact?: boolean;
+  /** `?aufgabe=<id>` on this page for a task, the permit page for a permit. */
+  openHref: string;
 }) {
   const t = useTranslations("notificationCenter");
-  const tSnooze = useTranslations("tasks.snooze");
-  const actions = useCompanyActions();
-  const presets = useSnoozePresets(today);
-  const [pickDate, setPickDate] = useState(false);
-  return (
-    <>
-      <Menu.Root>
-        <Menu.Trigger
-          disabled={actions.pending}
-          aria-label={`${t("actions.snooze")}: ${row.title}`}
-          className={cn(small, "data-[popup-open]:bg-hover", compact && "px-2")}
-        >
-          <Clock aria-hidden className="size-4" />
-          <span className={compact ? "sr-only" : undefined}>{t("actions.snooze")}</span>
-        </Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
-            <Menu.Popup className={menuPopup}>
-              {presets.map((preset) => (
-                <Menu.Item
-                  key={preset.key}
-                  className={menuItem}
-                  onClick={() => actions.snooze(row, preset.date)}
-                >
-                  {preset.label}
-                  <span className="tabular text-muted-foreground text-tiny">{preset.hint}</span>
-                </Menu.Item>
-              ))}
-              <Menu.Item className={menuItem} onClick={() => setPickDate(true)}>
-                {tSnooze("pickDate")}
-                <CalendarSearch aria-hidden className="size-4 text-muted-foreground" />
-              </Menu.Item>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-      <SnoozeDialog
-        open={pickDate}
-        taskTitle={row.title}
-        title={t("snoozeDialog.title")}
-        hint={t("snoozeDialog.hint")}
-        today={today}
-        onCancel={() => setPickDate(false)}
-        onSubmit={(until) => {
-          setPickDate(false);
-          actions.snooze(row, until);
-        }}
-      />
-    </>
-  );
-}
-
-/**
- * One row of the notification center: kind icon, title (opens the task drawer or the permit), market with
- * its colour marker, the due information, and Erledigt · Zurückstellen · Öffnen. Rows take part in the
- * J/K/Enter navigation (`data-row`).
- */
-export function CompanyRow({ row, today }: { row: CompanyNotificationRow; today: string }) {
-  const t = useTranslations("notificationCenter");
   const locale = useLocale();
-  const dueInfo = useDueInfo();
+  const router = useRouter();
   const actions = useCompanyActions();
-  const KindIcon = row.subjectType === "task" ? CircleCheck : ShieldCheck;
-  const info = row.status === "open" ? dueInfo(row, today) : null;
+  const isTask = row.subjectType === "task";
+  const KindIcon = isTask ? ClipboardList : ShieldCheck;
   const closed = row.status === "done";
+  const markRead = () => row.unread && actions.markRead(row.id);
 
   return (
     <li
       data-row
-      data-href={row.href}
+      data-href={openHref}
+      data-peek={isTask ? openHref : undefined}
+      data-task={isTask ? row.subjectId : undefined}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter (KeyboardRows)
       tabIndex={0}
+      // Enter opens a task's drawer without jumping to the top of the page (KeyboardRows would scroll).
+      onKeyDown={(event) => {
+        if (!isTask || event.key !== "Enter" || event.target !== event.currentTarget) return;
+        event.preventDefault();
+        event.stopPropagation();
+        markRead();
+        router.push(openHref as never, { scroll: false });
+      }}
       aria-label={row.title}
       className={cn(
-        "flex flex-wrap items-start gap-x-3 gap-y-2 border-border-subtle border-b px-4 py-3 outline-none last:border-b-0 focus-visible:bg-hover focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
+        "grid cursor-pointer grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-border-subtle border-b px-4 py-3 last:border-b-0 hover:bg-hover focus-visible:bg-hover focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2 sm:grid-cols-[1.25rem_minmax(0,1fr)_auto_auto] sm:items-center",
         row.unread && "bg-selected/40",
         closed && "text-muted-foreground",
       )}
     >
       <span
-        className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-status-neutral-bg text-foreground-2"
-        title={t(`kind.${row.kind}`)}
+        className="mt-0.5 text-muted-foreground sm:mt-0"
+        title={t(`subject.${row.subjectType}`)}
       >
-        <KindIcon aria-hidden className="size-4" />
-        <span className="sr-only">{t(`kind.${row.kind}`)}</span>
+        <KindIcon aria-hidden className="size-5" />
+        <span className="sr-only">{t(`subject.${row.subjectType}`)}</span>
       </span>
-      <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <div className="flex items-center gap-2">
-          {row.unread && (
-            <span className="size-2 shrink-0 rounded-full bg-primary">
-              <span className="sr-only">{t("unread")}</span>
-            </span>
-          )}
+          {/* The dot keeps its slot on read rows too, so titles line up. */}
+          <span className={cn("size-2 shrink-0 rounded-full", row.unread && "bg-primary")}>
+            {row.unread && <span className="sr-only">{t("unread")}</span>}
+          </span>
+          {row.isKey && <KeyTaskMark label={t("keyTask")} />}
           <Link
-            href={row.href as never}
-            onClick={() => row.unread && actions.markRead(row.id)}
+            href={openHref as never}
+            scroll={!isTask}
+            tabIndex={-1}
+            onClick={markRead}
             className={cn(
-              "min-w-0 rounded-sm outline-none hover:text-accent-soft-foreground focus-visible:outline-2 focus-visible:outline-ring",
+              "min-w-0 break-words rounded-sm hover:text-accent-soft-foreground hover:underline",
               row.unread ? "font-semibold" : "font-medium",
             )}
           >
             {row.title}
           </Link>
-          {row.isKey && <KeyTaskMark label={t("keyTask")} />}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-small">
           {row.market && (
@@ -172,12 +95,7 @@ export function CompanyRow({ row, today }: { row: CompanyNotificationRow; today:
               <span className="truncate text-foreground-2">{row.market.name}</span>
             </span>
           )}
-          <span>{t(`kind.${row.kind}`)}</span>
-          {row.dueOn && (
-            <span className="tabular">
-              {t(`dateLabel.${row.kind}`, { date: formatDateWeekdayDay(row.dueOn, locale) })}
-            </span>
-          )}
+          {!isTask && <span>{t(`kind.${row.kind}`)}</span>}
           {row.status === "snoozed" && row.snoozedUntil && (
             <span className="tabular">
               {t("snoozedUntil", {
@@ -188,59 +106,13 @@ export function CompanyRow({ row, today }: { row: CompanyNotificationRow; today:
           {row.resolved && <span>{t("resolvedNote")}</span>}
         </div>
       </div>
-      {info && (
-        <StatusBadge tone={info.tone} icon={info.icon} className="mt-0.5">
-          {info.text}
-        </StatusBadge>
+      {row.status === "open" && row.dueOn && (
+        <div className="col-start-2 sm:col-start-3">
+          <DueBadge dueOn={row.dueOn} today={today} withDate />
+        </div>
       )}
-      <div
-        role="toolbar"
-        aria-label={t("actionsFor", { title: row.title })}
-        className="flex shrink-0 flex-wrap items-center gap-1.5"
-      >
-        {closed ? (
-          <button
-            type="button"
-            disabled={actions.pending}
-            className={small}
-            onClick={() => actions.reopen(row)}
-          >
-            <RotateCcw aria-hidden className="size-4" />
-            {t("actions.reopen")}
-          </button>
-        ) : (
-          <>
-            <button
-              type="button"
-              disabled={actions.pending}
-              className={small}
-              onClick={() => actions.done(row)}
-            >
-              <CircleCheck aria-hidden className="size-4" />
-              {t("actions.done")}
-            </button>
-            {row.status === "snoozed" ? (
-              <button
-                type="button"
-                disabled={actions.pending}
-                className={small}
-                onClick={() => actions.reopen(row)}
-              >
-                <RotateCcw aria-hidden className="size-4" />
-                {t("actions.reopen")}
-              </button>
-            ) : (
-              <CompanySnoozeMenu row={row} today={today} />
-            )}
-          </>
-        )}
-        <Link
-          href={row.href as never}
-          onClick={() => row.unread && actions.markRead(row.id)}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-        >
-          {t("actions.open")}
-        </Link>
+      <div className="col-start-2 sm:col-start-4">
+        <CompanyRowActions row={row} today={today} open={{ href: openHref, onOpen: markRead }} />
       </div>
     </li>
   );

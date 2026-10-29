@@ -311,3 +311,47 @@ export function rulerPosition(offsetDays: number, min: number, max: number): num
   const hi = compress(Math.max(max, near));
   return (compress(offsetDays) - lo) / (hi - lo);
 }
+
+/** An offset in the words people use ("6 Wochen vorher"); the UI adds the unit names and "(T-42)". */
+export type OffsetWords =
+  | { kind: "on" }
+  | {
+      kind: "days" | "workdays" | "weeks" | "months";
+      count: number;
+      direction: "before" | "after";
+    };
+
+/**
+ * "T-42" in the units the office thinks in (client meeting §5): whole weeks from one week on, whole
+ * months (30 days, so approximate) from two months on, otherwise days. Business-day offsets stay in
+ * working days, since a week of them is not seven. Only for display; the stored value is always days.
+ */
+export function offsetWords(offsetDays: number, dayMode: DayMode = "calendar"): OffsetWords {
+  if (offsetDays === 0) return { kind: "on" };
+  const direction = offsetDays < 0 ? "before" : "after";
+  const abs = Math.abs(offsetDays);
+  if (dayMode === "business") return { kind: "workdays", count: abs, direction };
+  if (abs >= 60 && abs % 30 === 0) return { kind: "months", count: abs / 30, direction };
+  if (abs >= 7 && abs % 7 === 0) return { kind: "weeks", count: abs / 7, direction };
+  return { kind: "days", count: abs, direction };
+}
+
+/** Where a new row goes: before/after an existing row (neither = end of the list). */
+export type InsertPoint = { afterKey: string | null; beforeKey: string | null };
+
+/**
+ * Where a new row belongs so its phase stays in due-date order: before the first row of the same phase
+ * and anchor that is due later, otherwise after the last row of that anchor, otherwise at the end of the
+ * phase (offsets of different anchors cannot be compared). `items` are in list order.
+ */
+export function insertPoint(
+  items: { key: string; phase: TaskPhase; anchorKey: string; offsetDays: number }[],
+  at: { phase: TaskPhase; anchorKey: string; offsetDays: number },
+): InsertPoint {
+  const inPhase = items.filter((i) => i.phase === at.phase);
+  const same = inPhase.filter((i) => i.anchorKey === at.anchorKey);
+  const later = same.find((i) => i.offsetDays > at.offsetDays);
+  if (later) return { afterKey: null, beforeKey: later.key };
+  const last = same.at(-1) ?? inPhase.at(-1);
+  return { afterKey: last?.key ?? null, beforeKey: null };
+}

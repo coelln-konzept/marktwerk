@@ -7,11 +7,12 @@ import {
   eventPermitHealth,
   type HealthLevel,
   isPermitHistory,
-  isPermitMarketInReach,
   isUnfiled,
   PERMIT_HORIZON_DEFAULT_DAYS,
+  type PermitActionTier,
   type PermitDisplayState,
   type PermitStatus,
+  permitActionTier,
   permitDisplayState,
   permitExpiryMatters,
   permitHorizonEnd,
@@ -114,6 +115,8 @@ export type LogbookRow = {
   linkedEvents: number;
   nextEventOn: string | null;
   conditions: number;
+  /** By apply-by date: overdue / apply now / not due yet; null when the permit needs nothing from us. */
+  tier: PermitActionTier | null;
 };
 
 /**
@@ -144,33 +147,34 @@ function logbookState(
     : state;
 }
 
-/** The one focus filter: permits that are missing or expired for an upcoming market (= the sidebar badge). */
+/** The one focus filter: permits to act on now (= the sidebar badge, "Jetzt zu tun"). */
 export const LOGBOOK_FOCUS = ["fehlt"] as const;
 export type LogbookFocus = (typeof LOGBOOK_FOCUS)[number];
 
-/** States that need action: nothing in hand and nothing applied for, or out of date. */
-const MISSING_STATES: PermitDisplayState[] = ["missing", "preparing", "rejected", "expired"];
-
 /**
- * "Fehlt oder abgelaufen für kommende Märkte": a permit in a missing state that at least one upcoming
- * (not cancelled) event requires, and whose next market starts within 6 months (`isPermitMarketInReach`).
- * One definition for the sidebar badge and the Genehmigungen focus chip.
+ * "Jetzt zu tun": a permit in a missing state that at least one upcoming (not cancelled) event requires
+ * and whose application is overdue or due within the company's permit horizon (`permitActionTier`,
+ * product owner 2026-10-29). Later ones are "noch nicht fällig". One definition for the sidebar badge
+ * and the Genehmigungen focus chip.
  */
-const needsAction = (
-  row: Pick<LogbookRow, "state" | "upcomingEvents" | "nextEventOn">,
-  today: string,
-) =>
-  MISSING_STATES.includes(row.state) &&
-  row.upcomingEvents > 0 &&
-  isPermitMarketInReach(row.nextEventOn, today);
+const needsAction = (row: Pick<LogbookRow, "tier" | "upcomingEvents">) =>
+  row.upcomingEvents > 0 && (row.tier === "overdue" || row.tier === "apply_now");
+/** Still to be applied for, but later than the horizon: shown, not counted. */
+const notDue = (row: Pick<LogbookRow, "tier" | "upcomingEvents">) =>
+  row.upcomingEvents > 0 && row.tier === "not_due";
 
 export type LogbookFilters = {
   venueId?: string;
   category?: Category;
-  /** null = every season. */
-  season?: number | null;
+  /**
+   * null / undefined = every season; a year = that season; "upcoming" = "Kommend": the permits that
+   * cover an upcoming market, whatever their season (and open ones no market uses yet).
+   */
+  season?: number | null | "upcoming";
   state?: PermitDisplayState;
   focus?: LogbookFocus;
+  /** A permit the drawer is open for: `drawerHidden` tells when the filters hide it. */
+  revealId?: string;
 };
 
 const yearStart = (y: number) => `${y}-01-01`;
@@ -185,6 +189,12 @@ function inSeason(row: Pick<LogbookRow, "season" | "validFrom" | "validUntil">, 
   );
 }
 
+/** "Kommend": a permit some upcoming market needs, or an open one no market uses (yet). */
+function isUpcoming(row: Pick<LogbookRow, "upcomingEvents" | "linkedEvents" | "state">) {
+  if (row.upcomingEvents > 0) return true;
+  return row.linkedEvents === 0 && !["past", "superseded", "not_required"].includes(row.state);
+}
+
 export type Logbook = {
   rows: LogbookRow[];
   /** Counts over the rows that pass venue / category / season (not the state filter). */
@@ -192,8 +202,14 @@ export type Logbook = {
   seasons: number[];
   venues: { id: string; name: string }[];
   total: number;
-  /** Permits missing or expired for upcoming markets, across seasons (venue and category narrowing apply). */
+  /** Permits to act on now (apply-by overdue or within the horizon), across seasons (venue and category narrowing apply). */
   needsAction: number;
+  /** Permits for upcoming markets still to be applied for, but not due yet (no badge). */
+  notDue: number;
+  /** The permit horizon the tiers were judged with (days). */
+  horizonDays: number;
+  /** `filters.revealId` exists but the filters hide it: the page should show everything. */
+  drawerHidden: boolean;
 };
 
 /** Everything the Genehmigungen page shows: permits with their derived state, filtered, plus counts. */
@@ -201,6 +217,7 @@ export async function listLogbook(
   actor: Actor,
   filters: LogbookFilters,
   today: string,
+  horizonDays?: number,
 ): Promise<Logbook> {
   const empty: Logbook = {
     rows: [],
@@ -211,8 +228,13 @@ export async function listLogbook(
     venues: [],
     total: 0,
     needsAction: 0,
+    notDue: 0,
+    horizonDays: horizonDays ?? PERMIT_HORIZON_DEFAULT_DAYS,
+    drawerHidden: false,
   };
   if (!can(actor.role, "permit", "read")) return empty;
+  const horizon = horizonDays ?? (await getPermitHorizonDays());
+  empty.horizonDays = horizon;
 
   const where: (SQL | undefined)[] = [isNull(permit.archivedAt), ne(permit.status, "superseded")];
   if (filters.venueId) where.push(eq(permit.venueId, filters.venueId));
@@ -254,12 +276,16 @@ export async function listLogbook(
     .where(and(...where))
     .orderBy(asc(venue.name), asc(permit.permitType), asc(permit.season), asc(permit.applyBy));
 
-  const all: LogbookRow[] = raw.map(({ lastEventEnd, ...r }) => ({
-    ...r,
-    state: logbookState({ ...r, lastEventEnd }, today),
-    feeCents: r.feeCents > 0 ? r.feeCents : null,
-    stickers: r.deliverablesReceived.stickers ?? null,
-  }));
+  const all: LogbookRow[] = raw.map(({ lastEventEnd, ...r }) => {
+    const state = logbookState({ ...r, lastEventEnd }, today);
+    return {
+      ...r,
+      state,
+      tier: permitActionTier({ state, applyBy: r.applyBy }, today, horizon),
+      feeCents: r.feeCents > 0 ? r.feeCents : null,
+      stickers: r.deliverablesReceived.stickers ?? null,
+    };
+  });
 
   const seasons = [
     ...new Set(all.map((r) => r.season).filter((s): s is number => s !== null)),
@@ -270,51 +296,68 @@ export async function listLogbook(
     ).entries(),
   ].map(([id, name]) => ({ id: id as string, name: name as string }));
 
-  const bySeason =
+  const scoped =
     filters.season === null || filters.season === undefined
       ? all
-      : all.filter((r) => inSeason(r, filters.season as number));
+      : filters.season === "upcoming"
+        ? all.filter(isUpcoming)
+        : all.filter((r) => inSeason(r, filters.season as number));
   // A permit that only concerns events long gone is history; it stays out of the "all seasons" noise
-  // only when the person narrows to a season.
+  // only when the person narrows to a scope.
   const counts = { ...empty.counts };
-  for (const r of bySeason) counts[r.state] += 1;
+  for (const r of scoped) counts[r.state] += 1;
 
   // Needing action depends on upcoming markets, not on the season, so this focus looks across seasons.
-  const urgent = all.filter((r) => needsAction(r, today));
-  let rows = filters.focus === "fehlt" ? urgent : bySeason;
+  const urgent = all.filter(needsAction);
+  let rows = filters.focus === "fehlt" ? urgent : scoped;
   if (filters.state) rows = rows.filter((r) => r.state === filters.state);
-  return { rows, counts, seasons, venues, total: bySeason.length, needsAction: urgent.length };
+  const drawerHidden =
+    filters.revealId !== undefined &&
+    all.some((r) => r.id === filters.revealId) &&
+    !rows.some((r) => r.id === filters.revealId);
+  return {
+    rows,
+    counts,
+    seasons,
+    venues,
+    total: scoped.length,
+    needsAction: urgent.length,
+    notDue: all.filter(notDue).length,
+    horizonDays: horizon,
+    drawerHidden,
+  };
 }
 
 /**
- * The sidebar badge: permits missing or expired for upcoming markets. Equals the "Fehlt/abgelaufen für
- * kommende Märkte" chip on the Genehmigungen page (`Logbook.needsAction`), same definition.
+ * The sidebar badge: permits to act on now, i.e. an application that is overdue or due within the permit
+ * horizon (`permitActionTier`). Equals the "Jetzt zu tun" chip on the Genehmigungen page
+ * (`Logbook.needsAction`), same definition.
  */
-export async function missingPermitCount(actor: Actor, today: string): Promise<number> {
+export async function missingPermitCount(
+  actor: Actor,
+  today: string,
+  horizonDays?: number,
+): Promise<number> {
   if (!can(actor.role, "permit", "read")) return 0;
+  const horizon = horizonDays ?? (await getPermitHorizonDays());
   const raw = await db
     .select({
       status: permit.status,
       validUntil: permit.validUntil,
+      applyBy: permit.applyBy,
       upcoming: upcomingCount(today),
-      nextEventOn: nextEventOn(today),
     })
     .from(permit)
     // The join makes Drizzle qualify `permit.id` inside the correlated subquery of upcomingCount.
     .leftJoin(venue, eq(venue.id, permit.venueId))
     .where(and(isNull(permit.archivedAt), ne(permit.status, "superseded")));
-  return raw.filter(
-    (r) =>
-      r.upcoming > 0 &&
-      needsAction(
-        {
-          state: permitDisplayState(r, today),
-          upcomingEvents: r.upcoming,
-          nextEventOn: r.nextEventOn,
-        },
-        today,
-      ),
-  ).length;
+  return raw.filter((r) => {
+    const state = permitDisplayState(r, today);
+    return needsAction({
+      tier: permitActionTier({ state, applyBy: r.applyBy }, today, horizon),
+      upcomingEvents: r.upcoming,
+    });
+  }).length;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -368,10 +411,13 @@ export async function getPermit(actor: Actor, id: string, today: string) {
         source: task.source,
         dueAt: task.dueAt,
         eventId: task.eventId,
+        eventName: event.name,
+        eventStartsOn: event.startsOn,
         assigneeName: staffMember.displayName,
       })
       .from(task)
       .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
+      .leftJoin(event, eq(event.id, task.eventId))
       .where(eq(task.permitId, id))
       .orderBy(asc(task.dueAt), asc(task.title)),
     db
@@ -487,6 +533,7 @@ export function summarizeEventPermits(
   startsOn: string,
   today: string,
   endsOn: string = startsOn,
+  horizonDays: number = PERMIT_HORIZON_DEFAULT_DAYS,
 ): Pick<EventPermits, "held" | "required" | "health"> {
   const needed = rows.filter((r) => r.required && r.status !== "not_required");
   return {
@@ -498,10 +545,12 @@ export function summarizeEventPermits(
         applyBy: r.applyBy,
         validUntil: r.validUntil,
         required: r.required,
+        expectedDecisionOn: r.expectedDecisionOn,
       })),
       startsOn,
       today,
       endsOn,
+      horizonDays,
     ),
   };
 }
@@ -512,6 +561,7 @@ export async function listEventPermits(
   today: string,
 ): Promise<EventPermits> {
   if (!can(actor.role, "permit", "read")) return { rows: [], held: 0, required: 0, health: null };
+  const horizonDays = await getPermitHorizonDays();
   const rows = await db
     .select({
       permitId: permit.id,
@@ -542,7 +592,10 @@ export async function listEventPermits(
     state: permitStateForEvent(r, event_, today),
     stickers: deliverables.stickers ?? null,
   }));
-  return { rows: mapped, ...summarizeEventPermits(mapped, event_.startsOn, today, event_.endsOn) };
+  return {
+    rows: mapped,
+    ...summarizeEventPermits(mapped, event_.startsOn, today, event_.endsOn, horizonDays),
+  };
 }
 
 export type EventPermitSummary = {
@@ -571,12 +624,14 @@ export async function permitSummaryByEvent(
 ): Promise<Map<string, EventPermitSummary>> {
   const result = new Map<string, EventPermitSummary>();
   if (events.length === 0) return result;
+  const horizonDays = await getPermitHorizonDays();
   const rows = await db
     .select({
       eventId: eventPermit.eventId,
       required: eventPermit.required,
       status: permit.status,
       applyBy: permit.applyBy,
+      expectedDecisionOn: permit.expectedDecisionOn,
       validUntil: permit.validUntil,
     })
     .from(eventPermit)
@@ -593,8 +648,9 @@ export async function permitSummaryByEvent(
   for (const e of events) {
     const own = rows.filter((r) => r.eventId === e.id);
     result.set(e.id, {
-      health: own.length === 0 ? null : eventPermitHealth(own, e.startsOn, today, e.endsOn),
-      missing: countMissingPermits(own, e.startsOn, today, e.endsOn),
+      health:
+        own.length === 0 ? null : eventPermitHealth(own, e.startsOn, today, e.endsOn, horizonDays),
+      missing: countMissingPermits(own, e.startsOn, today, e.endsOn, horizonDays),
     });
   }
   return result;
@@ -721,7 +777,6 @@ export async function dueItems(
   const items: DueItem[] = [];
   for (const r of rows) {
     if (r.linked > 0 && r.upcoming === 0) continue;
-    if (!isPermitMarketInReach(r.nextEventOn, today)) continue;
     const unfiled = isUnfiled(r.status);
     const dueOn = unfiled ? r.applyBy : r.expectedDecisionOn;
     if (!dueOn) continue;

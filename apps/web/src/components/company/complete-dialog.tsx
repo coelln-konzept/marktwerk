@@ -36,11 +36,13 @@ export function CompleteButton({
   today,
   size = "default",
   variant = "outline",
+  className,
 }: {
   target: CompleteTarget;
   today: string;
   size?: "default" | "sm";
   variant?: "outline" | "default";
+  className?: string;
 }) {
   const t = useTranslations("company");
   const tc = useTranslations("company.complete");
@@ -136,6 +138,7 @@ export function CompleteButton({
       <Button
         size={size}
         variant={variant}
+        className={className}
         aria-label={t("obligations.doneFor", { title: target.title })}
         onClick={openDialog}
       >
@@ -207,7 +210,9 @@ export function CompleteButton({
               </div>
             )}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor={f("cost")}>{tc("cost")}</Label>
+              <Label htmlFor={f("cost")} optional>
+                {tc("cost")}
+              </Label>
               <div className="relative">
                 <Input
                   id={f("cost")}
@@ -229,7 +234,9 @@ export function CompleteButton({
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={f("notes")}>{tc("notes")}</Label>
+            <Label htmlFor={f("notes")} optional>
+              {tc("notes")}
+            </Label>
             <textarea
               id={f("notes")}
               value={notes}

@@ -14,6 +14,10 @@
     "layers": {
       "title": "Ebenen",
       "visible": "{count} sichtbar",
+      "updating": "Wird aktualisiert …",
+      "changed": "{count} geändert",
+      "reset": "Zurücksetzen",
+      "close": "Ebenen schließen",
       "presets": "Voreinstellungen",
       "preset": {
         "markets": "Märkte",
@@ -55,12 +59,32 @@
     },
     "week": "KW {week} · {from}–{to}",
     "relative": {
-      "today": "heute",
-      "tomorrow": "morgen",
-      "future": "in {n} T",
-      "past": "vor {n} T"
+      "yesterday": "Gestern",
+      "pastDays": "Vor {count} Tagen",
+      "pastWeeks": "Vor {count, plural, one {# Woche} other {# Wochen}}",
+      "pastMonths": "Vor {count, plural, one {# Monat} other {# Monaten}}"
     },
     "open": "Öffnen",
+    "todayMarker": "Heute",
+    "nothingToday": "Heute ist nichts eingetragen.",
+    "moreAria": "{n, plural, one {# weiterer Eintrag} other {# weitere Einträge}} am {day}, Liste ab diesem Tag öffnen",
+    "spanDay": "Tag {index}/{total}",
+    "permitKind": {
+      "apply": "Antrag fällig",
+      "decision": "Entscheidung erwartet",
+      "expires": "Läuft ab"
+    },
+    "group": {
+      "permits": "{count, plural, one {# Genehmigung} other {# Genehmigungen}}: {kind}",
+      "permitsAny": "{count, plural, one {# Genehmigung} other {# Genehmigungen}}",
+      "tasks": "{count, plural, one {# Aufgabe} other {# Aufgaben}}"
+    },
+    "jump": {
+      "open": "{title}, Monat oder Jahr wählen",
+      "prevYear": "Vorheriges Jahr",
+      "nextYear": "Nächstes Jahr",
+      "today": "Heute"
+    },
     "emptyList": "In diesen sechs Wochen ist nichts eingetragen.",
     "emptyListHint": "Über „Ebenen“ änderst du die Auswahl, oder blättere mit › weiter.",
     "emptyMonth": "Für diese Auswahl gibt es in diesem Monat keine Einträge.",
@@ -70,7 +94,7 @@
       "holiday": "Feiertag NRW",
       "cancelled": "durchgestrichen = abgesagt"
     },
-    "keys": "Klick auf einen Eintrag öffnet ihn · <k>T</k> heute · <k>M</k> Monat · <k>L</k> Liste",
+    "keys": "Klick auf einen Eintrag öffnet ihn · <k>T</k> heute · <k>M</k> Monat · <k>L</k> Liste · <k>←</k> <k>→</k> blättern",
     "tone": {
       "ok": "Im Plan",
       "warn": "Achtung",

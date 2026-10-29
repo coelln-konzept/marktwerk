@@ -87,7 +87,7 @@ afterAll(async () => {
   await db.$client.end();
 });
 
-const search = (actor: Actor, q: string) => searchAs(actor, "de", q);
+const search = async (actor: Actor, q: string) => (await searchAs(actor, "de", q)).hits;
 const kinds = (hits: { kind: string }[]) => hits.map((h) => h.kind);
 
 describe("searchAs", () => {
@@ -146,6 +146,56 @@ describe("searchAs", () => {
     // Events are scoped the same way.
     expect((await search(field, "markt")).filter((h) => h.kind === "event")).toHaveLength(1);
     expect((await search(owner, "markt")).filter((h) => h.kind === "event")).toHaveLength(2);
+  });
+
+  it("matches every word, in any order, with the year", async () => {
+    const tasks = (await search(owner, "köln plakate")).filter((h) => h.kind === "task");
+    expect(tasks.map((h) => h.title).sort()).toEqual([
+      "Plakate für Köln aufhängen",
+      "Plakate für Köln drucken",
+    ]);
+    // The year (and a dd.mm. date) belong to the event's date.
+    expect((await search(owner, "markt 2026")).some((h) => h.kind === "event")).toBe(true);
+    expect((await search(owner, "markt 2027")).some((h) => h.kind === "event")).toBe(false);
+    expect((await search(owner, "markt 14.11.")).filter((h) => h.kind === "event")).toHaveLength(1);
+  });
+
+  it("shows the year of events outside the running one", async () => {
+    await insertEvent(cat, "Jahrmarkt Fernstadt", "2031-05-10");
+    const hit = (await search(owner, "fernstadt")).find((h) => h.kind === "event");
+    expect(hit?.subtitle).toContain("2031");
+  });
+
+  it("leaves out fragments inside words when words start with the query, and counts the real total", async () => {
+    await insertTask({ title: "Newsletter an Abonnenten" });
+    for (let i = 1; i <= 8; i++) await insertTask({ title: `Bonn aufräumen ${i}` });
+    const result = await searchAs(owner, "de", "bonn");
+    const tasks = result.hits.filter((h) => h.kind === "task");
+    expect(tasks).toHaveLength(6);
+    expect(tasks.every((h) => h.title.startsWith("Bonn"))).toBe(true);
+    expect(result.groups.task?.total).toBe(8);
+    // Without a word-start match the fragment is better than nothing.
+    expect((await search(owner, "bonnenten")).some((h) => h.title.includes("Abonnenten"))).toBe(
+      true,
+    );
+  });
+
+  it("links the full list where there is one", async () => {
+    const result = await searchAs(owner, "de", "markt");
+    expect(result.groups.event).toMatchObject({ total: 2, href: "/veranstaltungen?q=markt" });
+    expect(result.groups.task?.href).toBeUndefined();
+  });
+
+  it("shows permit dates as dates", async () => {
+    await db.insert(permit).values({
+      venueId: cat.venue.id,
+      category: "city",
+      permitType: "water",
+      title: "Halteverbot – 2026-04-18",
+      season: 2026,
+    });
+    const hit = (await search(owner, "halteverbot")).find((h) => h.kind === "permit");
+    expect(hit?.title).toBe("Halteverbot – 18.04.2026");
   });
 
   it("an archived permit is not found", async () => {

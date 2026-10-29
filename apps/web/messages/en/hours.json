@@ -166,7 +166,7 @@
       "otherMinijobHint": "The earnings limit then applies across all employers.",
       "endPrevious": "End the current contract (since {date}) the day before",
       "errors": {
-        "generic": "That did not work. Check the entries and try again.",
+        "generic": "That didn't work. Check the entries and try again.",
         "invalid_type": "Choose a type.",
         "invalid_dates": "The dates are wrong: \"valid until\" is before \"valid from\" or a date is missing.",
         "invalid_amount": "Amounts and hours must be numbers, for example 13.90.",
@@ -266,7 +266,7 @@
       "minijob_red": "{earned} is no longer allowed with the Minijob limit of {limit}"
     },
     "errors": {
-      "generic": "That did not work. Check the entries and try again.",
+      "generic": "That didn't work. Check the entries and try again.",
       "not_found": "The entry was not found.",
       "invalid_person": "Choose a person.",
       "invalid_event": "The event was not found.",

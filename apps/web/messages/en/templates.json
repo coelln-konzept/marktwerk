@@ -40,15 +40,15 @@
       "edit": "Edit",
       "tasksOwn": "Tasks: copy of the master template.",
       "tasksOpen": "View",
-      "tasksShared": "Tasks: {names}",
+      "tasksShared": "Tasks from:",
       "tasksNone": "Tasks: no template yet."
     },
     "editLabel": "Edit: {name}",
     "form": {
-      "editTitle": "Edit preset",
+      "editTitle": "Edit market",
       "editCrumb": "Edit",
       "back": "Back to the library",
-      "propagationHint": "Changes to the preset only apply to events you generate afterwards. Events that already exist stay as they are.",
+      "propagationHint": "Changes to the market only apply to events you generate afterwards. Events that already exist stay unchanged.",
       "basics": {
         "title": "Basics",
         "name": "Name",
@@ -121,10 +121,10 @@
         "noRoles": "No duties set up yet."
       },
       "save": "Save",
-      "create": "Create preset",
+      "create": "Create market",
       "cancel": "Cancel",
-      "saved": "Preset saved",
-      "created": "Preset created",
+      "saved": "Market saved",
+      "created": "Market created",
       "unchanged": "Nothing to save.",
       "conflict": {
         "text": "Somebody else changed this preset in the meantime. Your entries stay here.",
@@ -151,12 +151,14 @@
         "invalid_staff": "This person is not (or no longer) active. Please choose somebody else.",
         "not_found": "This preset no longer exists.",
         "invalid_input": "The details are incomplete. Please reload the page.",
-        "generic": "That did not work. Please try again."
-      }
+        "generic": "That didn't work. Please try again."
+      },
+      "tasksLink": "Tasks of this market:",
+      "tasksOwn": "Own task template"
     }
   },
   "library": {
-    "subtitle": "The master template with the tasks every market starts with, the markets themselves and the older timeline templates.",
+    "subtitle": "The master template every new market starts with, the timeline templates the existing markets work from, and the markets themselves.",
     "master": {
       "title": "Master template",
       "description": "The tasks every market needs. A new market starts with its own copy of it and adjusts it for itself.",
@@ -166,7 +168,7 @@
       "items": "{count, plural, =0 {No tasks} one {# task} other {# tasks}}",
       "edit": "Edit master template",
       "view": "View master template",
-      "rule": "Changes only apply to markets you add afterwards. Existing markets and events stay as they are.",
+      "rule": "Changes only apply to markets you add afterwards. Existing markets and events do not change: they use the timeline templates below.",
       "none": "There is no master template yet.",
       "noneHint": "Without one, new markets start without tasks.",
       "create": "Create master template"
@@ -178,12 +180,23 @@
       "emptyHint": "Add a market under Events → Plan a market.",
       "tasksLabel": "Task template of {name}",
       "hint": "Add new markets under Events → Plan a market.",
-      "count": "{count, plural, one {# market} other {# markets}} · {active} active"
+      "count": "{count, plural, one {# market} other {# markets}} · {active} active",
+      "cols": {
+        "tasks": "Task template"
+      },
+      "tplOwn": "Own template",
+      "tplShared": "shared",
+      "tplDraft": "draft",
+      "tplMeta": "{kind} · {version} · {count, plural, one {# task} other {# tasks}}"
     },
     "others": {
-      "title": "More timeline templates",
-      "summary": "{count, plural, =0 {none} one {# template} other {# templates}} · existing markets still use them",
-      "hint": "The older timeline templates per event type. Markets that existed before the master template keep their tasks from here."
+      "title": "Unused timeline templates",
+      "summary": "{count, plural, =0 {none} one {# template} other {# templates}} without a market",
+      "hint": "Timeline templates no market uses yet. You can also create a new one here."
+    },
+    "inUse": {
+      "title": "Timeline templates in use",
+      "hint": "The existing markets work from these templates. Add a new task for all flea markets here, then “Apply to events…”."
     }
   }
 }

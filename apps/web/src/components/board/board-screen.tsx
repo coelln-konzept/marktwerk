@@ -130,12 +130,18 @@ export async function BoardScreen({
   // On phones the top bar's "Neu" opens the same dialog (?neu=1), so this button stays out of the filter area.
   const newTask = canWrite ? (
     <div className="hidden sm:block">
-      <NewTaskButton eventId={eventId} events={events} staff={staff} canAssign={canAssign} />
+      <NewTaskButton
+        eventId={eventId}
+        events={events}
+        staff={staff}
+        canAssign={canAssign}
+        today={today}
+      />
     </div>
   ) : null;
 
   const viewSwitch = views.length > 1 && (
-    <FilterGroup label={t("view.label")}>
+    <FilterGroup label={t("view.label")} hideLabel={eventMode && scopeKeys.length === 1}>
       <Segments
         items={views.map((key) => ({
           key,
@@ -194,6 +200,7 @@ export async function BoardScreen({
             {horizonSwitch}
             {readiness && (
               <FilterDisclosure
+                inline
                 label={t("filter.button")}
                 summary={category ? tTasks(`categories.${category}`) : null}
               >
@@ -295,6 +302,7 @@ export async function BoardScreen({
           )}
           {horizonSwitch}
           <FilterDisclosure
+            inline
             label={t("filter.button")}
             summary={category ? tTasks(`categories.${category}`) : null}
           >

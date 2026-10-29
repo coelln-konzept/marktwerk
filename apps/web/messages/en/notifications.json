@@ -78,7 +78,7 @@
     "noStaffHint": "Notifications go to team members. Link your login to a person and they will show up here.",
     "more": "There are older notifications. Done ones disappear from “Open”.",
     "errors": {
-      "generic": "That did not work. Please try again.",
+      "generic": "That didn't work. Please try again.",
       "not_found": "This notification no longer exists."
     }
   },
@@ -88,18 +88,19 @@
     "title": "Notifications",
     "markAll": "Mark all read",
     "viewAll": "View all",
+    "viewAllCount": "View all {count}",
     "empty": "No new notifications.",
     "unread": "unread",
     "ago": "{when} ago",
     "now": "just now",
-    "labelOpen": "Notifications, {count, plural, one {# unread} other {# unread}}",
+    "labelOpen": "Notifications, {count} open",
     "openCount": "{count, plural, =0 {Nothing open} one {# open} other {# open}}",
     "allClear": "All under control.",
     "done": "Done"
   },
   "notificationCenter": {
     "title": "Notifications",
-    "subtitle": "Everything important in one place: overdue and soon-due tasks and permit deadlines. Later this becomes your inbox.",
+    "subtitle": "Overdue and soon-due tasks and permit deadlines, each one only once.",
     "status": {
       "label": "Status",
       "open": "Open",
@@ -124,15 +125,22 @@
     "groups": {
       "overdue": "Overdue",
       "today": "Today",
-      "soon": "This week",
+      "soon": "Next 7 days",
       "later": "Later"
+    },
+    "filter": {
+      "button": "Filter"
+    },
+    "subject": {
+      "task": "Task",
+      "permit": "Permit"
     },
     "kind": {
       "task_overdue": "Task overdue",
       "task_due_soon": "Task due soon",
       "permit_apply_by": "Apply for permit",
       "permit_decision": "Decision expected",
-      "permit_expiry": "Permit ends before the market"
+      "permit_expiry": "Permit expires before the event"
     },
     "dateLabel": {
       "task_overdue": "Was due {date}",
@@ -140,13 +148,6 @@
       "permit_apply_by": "Apply by {date}",
       "permit_decision": "Decision by {date}",
       "permit_expiry": "Valid until {date}"
-    },
-    "due": {
-      "overdue": "{count, plural, one {# day overdue} other {# days overdue}}",
-      "today": "Today",
-      "tomorrow": "Tomorrow",
-      "inDays": "In {count} days",
-      "expired": "{count, plural, one {Expired # day ago} other {Expired # days ago}}"
     },
     "severity": {
       "info": "Note",
@@ -162,21 +163,29 @@
     "resolvedNote": "Resolved on its own",
     "unread": "unread",
     "list": "Notifications",
-    "keys": "J and K move between rows, Enter opens.",
+    "keys": "J and K move between rows, Enter opens the task.",
     "actionsFor": "Actions for {title}",
     "actions": {
       "done": "Done",
       "reopen": "Reopen",
-      "snooze": "Snooze",
+      "unsnooze": "End snooze",
       "open": "Open",
+      "more": "More actions: {title}",
       "markAllRead": "Mark all read",
       "undo": "Undo"
     },
+    "snoozeMenu": {
+      "task": "Snooze task",
+      "taskHint": "Hidden until then from Overview, Notifications and the bell.",
+      "permit": "Snooze notification",
+      "permitHint": "Only the notification; the permit stays unchanged."
+    },
     "toast": {
-      "done": "Done: {title}",
-      "snoozed": "Snoozed until {when}.",
-      "reopened": "Open again.",
-      "restored": "Restored.",
+      "done": "“{title}” done",
+      "snoozed": "“{title}” snoozed until {date}",
+      "unsnoozed": "Snooze of “{title}” ended",
+      "reopened": "“{title}” reopened",
+      "restored": "Undone",
       "markedAll": "{count, plural, one {# notification} other {# notifications}} marked as read.",
       "nothingToMark": "Nothing unread."
     },
@@ -197,7 +206,7 @@
       "reset": "Reset filters"
     },
     "errors": {
-      "generic": "That did not work. Please try again.",
+      "generic": "That didn't work. Please try again.",
       "not_found": "This notification no longer exists.",
       "invalid_snooze": "Please pick a date after today.",
       "forbidden": "You are not allowed to do this."

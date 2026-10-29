@@ -16,11 +16,14 @@ export function MarkAllCompanyButton({
   markt,
   disabled,
   compact,
+  iconOnlyOnPhone,
 }: {
   art?: string;
   markt?: string;
   disabled?: boolean;
   compact?: boolean;
+  /** Below sm only the icon shows (the page header keeps one line); the label stays the accessible name. */
+  iconOnlyOnPhone?: boolean;
 }) {
   const t = useTranslations("notificationCenter");
   const { showToast } = useShell();
@@ -49,10 +52,14 @@ export function MarkAllCompanyButton({
       variant={compact ? "ghost" : "outline"}
       disabled={disabled || pending}
       aria-busy={pending}
+      title={iconOnlyOnPhone ? t("actions.markAllRead") : undefined}
+      className={iconOnlyOnPhone ? "max-sm:w-8 max-sm:px-0" : undefined}
       onClick={run}
     >
       <CheckCheck aria-hidden />
-      {t("actions.markAllRead")}
+      <span className={iconOnlyOnPhone ? "max-sm:sr-only" : undefined}>
+        {t("actions.markAllRead")}
+      </span>
     </Button>
   );
 }

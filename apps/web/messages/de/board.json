@@ -15,6 +15,7 @@
     "doneRange": "letzte 14 Tage",
     "emptyColumn": "Keine Aufgaben",
     "showMore": "{count} weitere anzeigen",
+    "showMoreLeft": "{count} weitere anzeigen ({left} übrig)",
     "showLess": "Weniger anzeigen",
     "view": {
       "label": "Ansicht",
@@ -100,11 +101,11 @@
     },
     "menu": {
       "open": "Öffnen",
-      "assign": "Zuweisen an…",
+      "assign": "Zuweisen an …",
       "assignTo": "Zuweisen an",
       "current": "Aktuell",
       "unassign": "Niemandem zuweisen",
-      "move": "Verschieben nach…",
+      "move": "Verschieben nach …",
       "status": "Status",
       "reopen": "Wieder öffnen",
       "done": "Erledigt"
@@ -125,7 +126,7 @@
       "unsnoozed": "Zurückstellung von „{title}“ aufgehoben"
     },
     "errors": {
-      "generic": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
       "not_found": "Die Aufgabe gibt es nicht mehr oder du siehst sie nicht.",
       "invalid_input": "Die Eingabe ist nicht gültig.",
       "invalid_status": "Dieser Status ist nicht möglich.",
@@ -133,7 +134,7 @@
       "invalid_staff": "Diese Person kann nicht zugewiesen werden.",
       "invalid_event": "Diese Veranstaltung ist nicht verfügbar.",
       "invalid_state": "Das geht bei diesem Stand der Aufgabe nicht.",
-      "reason_required": "Bitte nenne einen Grund.",
+      "reason_required": "Bitte einen Grund angeben.",
       "evidence_missing": "„{title}“ kann noch nicht erledigt werden. Es fehlt: {what}.",
       "not_undoable": "Das lässt sich nicht mehr rückgängig machen.",
       "conflict": "Die Aufgabe wurde inzwischen geändert. Rückgängig ist nicht mehr möglich."
@@ -187,14 +188,16 @@
       "key": "{count, plural, one {# Kernaufgabe offen} other {# Kernaufgaben offen}}",
       "ok": "Im Plan",
       "noDeadline": "Keine offene Frist",
-      "dueOn": "fällig {date}",
+      "dueOn": "fällig am {date}",
       "empty": "Keine kommenden Veranstaltungen in diesem Zeitraum.",
       "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen.",
-      "panelColumn": "",
+      "panelColumn": "Aktionen",
       "panel": {
-        "toggle": "Aufgaben",
+        "toggle": "Details",
         "showLabel": "Wichtige Aufgaben von {name} zeigen",
         "hideLabel": "Aufgaben von {name} schließen",
+        "chipShow": "{chip} bei {name}: Details zeigen",
+        "chipHide": "{chip} bei {name}: Details schließen",
         "title": "Wichtig bei {name}",
         "allOk": "Alles im Plan: nichts überfällig, keine fehlende Genehmigung.",
         "permitMissing": "Genehmigung fehlt",
@@ -204,6 +207,7 @@
     },
     "matrix": {
       "caption": "Kernaufgaben der kommenden Veranstaltungen",
+      "scrollHint": "Weitere Kernaufgaben rechts: seitlich scrollen",
       "market": "Veranstaltung",
       "empty": "Keine kommenden Veranstaltungen in diesem Zeitraum.",
       "emptyHint": "Wähle „Alles“, um alle kommenden Veranstaltungen zu sehen.",

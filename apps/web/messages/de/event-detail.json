@@ -50,14 +50,12 @@
       "reason": "Grund der Absage",
       "placeholder": "z. B. Genehmigung nicht erteilt, Wetterwarnung …",
       "submit": "Absagen",
-      "cancel": "Abbrechen"
+      "cancel": "Nicht absagen"
     },
     "overview": {
       "dates": {
         "title": "Nächste Termine",
-        "today": "heute",
-        "inDays": "in {n} T",
-        "daysAgo": "vor {n} T",
+        "daysAgo": "vor {n, plural, one {# Tag} other {# Tagen}}",
         "keys": {
           "event_day": "Veranstaltungstag",
           "setup_day": "Aufbautag",
@@ -65,9 +63,12 @@
           "booking_cutoff": "Buchungsschluss"
         },
         "empty": "Noch keine Termine hinterlegt.",
-        "tomorrow": "morgen",
         "pastToggle": "Vergangene Termine ({count})",
         "nothingAhead": "Keine weiteren Termine."
+      },
+      "notes": {
+        "title": "Notiz",
+        "link": "Alle Notizen"
       },
       "facts": {
         "title": "Eckdaten",
@@ -105,7 +106,8 @@
         "tasksNone": "Noch keine Aufgaben",
         "permits": "{granted}/{total} Genehmigungen erteilt",
         "permitsNone": "Keine Genehmigung nötig",
-        "progress": "Fortschritt der Aufgaben"
+        "progress": "Fortschritt der Aufgaben",
+        "permitsProgress": "Fortschritt der Genehmigungen"
       },
       "missing": {
         "title": "Was fehlt",
@@ -119,7 +121,6 @@
           "today": "Heute",
           "soon": "in {n} T"
         },
-        "waitingSince": "wartet seit {date}",
         "done": "Erledigt",
         "doneLabel": "„{title}“ erledigt",
         "permitKind": "Genehmigung",
@@ -132,17 +133,12 @@
         "state": {
           "done": "Erledigt",
           "open": "Offen",
-          "soon": "Bald fällig",
-          "overdue": "Überfällig",
-          "waiting": "Wartet",
           "snoozed": "Zurückgestellt"
         },
-        "waitingSince": "seit {date}",
-        "dueOn": "fällig {date}",
         "snoozedUntil": "bis {date}"
       },
       "rules": {
-        "title": "Regeln der Art",
+        "title": "Regeln der Veranstaltungsart",
         "summary": "Neuware max. {share} % · {banned} · Online-Buchung: {online}",
         "bannedCount": "{count} verbotene Waren",
         "noBanned": "keine verbotenen Waren"
@@ -191,7 +187,7 @@
       "placeholder": "Was sollte das Team zu dieser Veranstaltung wissen?",
       "empty": "Noch keine Notizen.",
       "save": "Speichern",
-      "saving": "wird gespeichert…",
+      "saving": "wird gespeichert …",
       "saved": "Notizen gespeichert",
       "unchanged": "Keine Änderungen zu speichern.",
       "readOnly": "Du kannst die Notizen lesen, aber nicht ändern.",
@@ -201,17 +197,17 @@
     },
     "history": {
       "title": "Verlauf",
-      "caption": "Änderungen an dieser Veranstaltung",
+      "caption": "Änderungen an dieser Veranstaltung und ihren Aufgaben",
       "when": "Zeitpunkt",
       "who": "Wer",
       "what": "Änderung",
       "empty": "Noch keine Änderungen seit dem Import.",
-      "emptyHint": "Statuswechsel, geänderte Notizen, Zuständigkeiten und weitere Änderungen erscheinen hier.",
+      "emptyHint": "Statuswechsel, erledigte Aufgaben, hochgeladene Dokumente, geänderte Notizen und weitere Änderungen erscheinen hier.",
       "unknownActor": "System",
       "created": "Angelegt aus Vorlage",
       "createdManual": "Angelegt",
       "statusChanged": "Status geändert: {from} → {to}",
-      "statusUndone": "Status zurückgesetzt: {from} → {to}",
+      "statusUndone": "Statusänderung rückgängig gemacht: {from} → {to}",
       "reason": "Grund: {reason}",
       "notes": "Notizen geändert",
       "archived": "Archiviert",
@@ -233,7 +229,16 @@
       "bookingOff": "{flag}: nein",
       "moved": "Verschoben: {from} → {to}",
       "undone": "Rückgängig gemacht",
-      "createdAgreement": "Angelegt aus Vereinbarung"
+      "createdAgreement": "Angelegt aus Vereinbarung",
+      "taskDone": "Aufgabe erledigt: {title}",
+      "taskReopened": "Aufgabe wieder geöffnet: {title}",
+      "taskStatus": "Aufgabe „{title}“: {status}",
+      "taskSnoozed": "Aufgabe zurückgestellt bis {date}: {title}",
+      "taskUnsnoozed": "Zurückstellung aufgehoben: {title}",
+      "taskUndone": "Rückgängig gemacht: {title}",
+      "documentUploaded": "Dokument hochgeladen: {file}",
+      "documentArchived": "Dokument entfernt: {file}",
+      "documentRestored": "Dokument wiederhergestellt: {file}"
     },
     "facts": {
       "edit": "Bearbeiten",
@@ -255,7 +260,7 @@
       "saved": "Eckdaten gespeichert",
       "unchanged": "Keine Änderungen zu speichern.",
       "undo": "Rückgängig",
-      "reverted": "Eckdaten zurückgesetzt",
+      "reverted": "Änderung an den Eckdaten rückgängig gemacht",
       "errors": {
         "invalid_time": "Bitte alle Zeiten als HH:MM angeben.",
         "open_after_close": "Das Ende muss nach dem Beginn liegen.",
@@ -301,6 +306,7 @@
       "note": "Hinweise blockieren nichts: du entscheidest.",
       "submit": "Verschieben",
       "cancel": "Abbrechen",
+      "close": "Schließen",
       "moved": "Verschoben auf {date}",
       "undo": "Rückgängig",
       "reverted": "Wieder am {date}",
@@ -313,7 +319,12 @@
       },
       "tasksShifting": "{count, plural, =0 {Keine Aufgabe verschiebt sich.} one {1 Aufgabe verschiebt sich.} other {# Aufgaben verschieben sich.}}",
       "tasksShiftingNote": "Erledigte Aufgaben und von Hand gesetzte Fälligkeiten bleiben.",
-      "movedTasks": "{count, plural, one {1 Aufgabe verschoben} other {# Aufgaben verschoben}}"
+      "movedTasks": "{count, plural, one {1 Aufgabe verschoben} other {# Aufgaben verschoben}}",
+      "tasksShow": "{count, plural, one {# Aufgabe anzeigen} other {# Aufgaben anzeigen}}",
+      "tasksCaption": "Aufgaben mit bisherigem und neuem Fälligkeitstag",
+      "task": "Aufgabe",
+      "overdueShort": "Überfällig",
+      "overdueAfter": "{count, plural, one {# Aufgabe wäre danach überfällig.} other {# Aufgaben wären danach überfällig.}}"
     },
     "happening": {
       "title": "Die Veranstaltung läuft gerade",
@@ -365,7 +376,8 @@
       "empty": "Noch nichts abgelegt. Hier stehen Bescheide, Pläne und Verträge dieser Veranstaltung.",
       "add": "Dokument hinzufügen",
       "readOnly": "Du kannst Dokumente ansehen, aber nicht hinzufügen.",
-      "count": "{count, plural, one {# Dokument} other {# Dokumente}}"
+      "count": "{count, plural, one {# Dokument} other {# Dokumente}}",
+      "kind": "Art"
     }
   }
 }
