@@ -36,7 +36,7 @@ export type DueItem = {
   eventColor?: string | null;
   /** Kernaufgabe: ranks first within its urgency group and gets the quiet key marker. */
   isKey?: boolean;
-  /** First day of the event (`YYYY-MM-DD`). */
+  /** First day of the event (`YYYY-MM-DD`); for a permit the next market that needs it. Orders "Überfällig". */
   eventStartsOn?: string | null;
   /** Permits can belong to several events (the upcoming ones they are required for). */
   eventIds?: string[];

@@ -134,12 +134,13 @@ afterAll(async () => {
 });
 
 describe("Heute fällig", () => {
-  it("merges every module and ranks: overdue, today, soon; within a group permits > instalments > tasks > hours > obligations", async () => {
+  it("merges every module and ranks: overdue, today, soon; overdue by market (none last), then permits > instalments > tasks > hours > obligations", async () => {
     const items = await listDueItems(owner, TODAY);
     expect(items.map((i) => `${i.urgency}:${i.kind}:${i.title}`)).toEqual([
-      "overdue:permit:Wassergenehmigung",
+      // The weekend market first; the permit no market needs comes after it.
       "overdue:installment:Toiletten",
       "overdue:task:Überfällige Aufgabe",
+      "overdue:permit:Wassergenehmigung",
       "today:installment:Sicherheitsdienst",
       "today:task:Heutige Aufgabe",
       expect.stringMatching(/^today:hours:/),
@@ -173,8 +174,8 @@ describe("Heute fällig", () => {
   it("staff see no money and no hours, and only the tasks assigned to them", async () => {
     const items = await listDueItems(staffActor, TODAY);
     expect(items.map((i) => `${i.kind}:${i.title}`)).toEqual([
-      "permit:Wassergenehmigung",
       "task:Überfällige Aufgabe",
+      "permit:Wassergenehmigung",
       "task:Heutige Aufgabe",
       "obligation:Brandschutzprüfung",
     ]);

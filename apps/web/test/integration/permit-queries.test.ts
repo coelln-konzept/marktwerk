@@ -361,6 +361,26 @@ describe("feeds for Übersicht and Kalender", () => {
     });
   });
 
+  describe("markets more than 6 months away (decision 2026-10-28)", () => {
+    it("leave the Übersicht and the badge, but stay on the Genehmigungen page", async () => {
+      // Today is 2026-10-21, so the cutoff is 2027-04-21.
+      const near = await makeEvent("2027-04-21", "Im April");
+      const far = await makeEvent("2027-04-24", "Später im April");
+      const p1 = await makePermit({ title: "Nah", status: "not_started", applyBy: "2026-10-19" });
+      const p2 = await makePermit({ title: "Fern", status: "not_started", applyBy: "2026-10-19" });
+      await db.insert(eventPermit).values([
+        { eventId: near.id, permitId: p1.id },
+        { eventId: far.id, permitId: p2.id },
+      ]);
+
+      expect((await dueItems(owner, TODAY)).map((i) => i.title)).toEqual(["Nah"]);
+      expect(await missingPermitCount(owner, TODAY)).toBe(1);
+      const logbook = await listLogbook(owner, { season: null }, TODAY);
+      expect(logbook.needsAction).toBe(1);
+      expect(logbook.rows.map((r) => r.title).sort()).toEqual(["Fern", "Nah"]);
+    });
+  });
+
   it("calendarItems: apply-by, decision and expiry in the range, with tones", async () => {
     await makePermit({ title: "A", status: "not_started", applyBy: "2026-11-05" });
     await makePermit({ title: "B", status: "applied", expectedDecisionOn: "2026-11-10" });

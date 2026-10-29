@@ -71,7 +71,7 @@ export async function listDueItems(
     hide.team ? [] : hours.dueItems(actor, today),
     company.dueItems(actor, today),
   ]);
-  return rankDue(feeds.flat());
+  return rankDue(feeds.flat(), today);
 }
 
 /**

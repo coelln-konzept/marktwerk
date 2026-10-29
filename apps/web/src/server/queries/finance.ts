@@ -90,11 +90,13 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       paidAmountCents: installment.paidAmountCents,
       status: installment.status,
       eventId: payable.eventId,
+      eventStartsOn: event.startsOn,
       counterparty: contact.name,
     })
     .from(installment)
     .innerJoin(payable, eq(payable.id, installment.payableId))
     .leftJoin(contact, eq(contact.id, payable.counterpartyContactId))
+    .leftJoin(event, eq(event.id, payable.eventId))
     .where(and(unpaidRate, lte(installment.dueOn, addDays(today, 7))))
     .orderBy(asc(installment.dueOn), desc(payable.critical), asc(payable.title));
   if (rows.length === 0) return [];
@@ -113,6 +115,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
         href: payableHref(r.payableId),
         meta: `${r.sort}/${totals.get(r.payableId) ?? r.sort} · ${formatMoney(open, actor.locale)}`,
         eventId: r.eventId,
+        eventStartsOn: r.eventStartsOn,
         assigneeName: null,
       },
     ];

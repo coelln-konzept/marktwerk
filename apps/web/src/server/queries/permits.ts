@@ -7,6 +7,7 @@ import {
   eventPermitHealth,
   type HealthLevel,
   isPermitHistory,
+  isPermitMarketInReach,
   isUnfiled,
   PERMIT_HORIZON_DEFAULT_DAYS,
   type PermitDisplayState,
@@ -152,10 +153,16 @@ const MISSING_STATES: PermitDisplayState[] = ["missing", "preparing", "rejected"
 
 /**
  * "Fehlt oder abgelaufen für kommende Märkte": a permit in a missing state that at least one upcoming
- * (not cancelled) event requires. One definition for the sidebar badge and the Genehmigungen focus chip.
+ * (not cancelled) event requires, and whose next market starts within 6 months (`isPermitMarketInReach`).
+ * One definition for the sidebar badge and the Genehmigungen focus chip.
  */
-const needsAction = (row: Pick<LogbookRow, "state" | "upcomingEvents">) =>
-  MISSING_STATES.includes(row.state) && row.upcomingEvents > 0;
+const needsAction = (
+  row: Pick<LogbookRow, "state" | "upcomingEvents" | "nextEventOn">,
+  today: string,
+) =>
+  MISSING_STATES.includes(row.state) &&
+  row.upcomingEvents > 0 &&
+  isPermitMarketInReach(row.nextEventOn, today);
 
 export type LogbookFilters = {
   venueId?: string;
@@ -273,7 +280,7 @@ export async function listLogbook(
   for (const r of bySeason) counts[r.state] += 1;
 
   // Needing action depends on upcoming markets, not on the season, so this focus looks across seasons.
-  const urgent = all.filter(needsAction);
+  const urgent = all.filter((r) => needsAction(r, today));
   let rows = filters.focus === "fehlt" ? urgent : bySeason;
   if (filters.state) rows = rows.filter((r) => r.state === filters.state);
   return { rows, counts, seasons, venues, total: bySeason.length, needsAction: urgent.length };
@@ -290,6 +297,7 @@ export async function missingPermitCount(actor: Actor, today: string): Promise<n
       status: permit.status,
       validUntil: permit.validUntil,
       upcoming: upcomingCount(today),
+      nextEventOn: nextEventOn(today),
     })
     .from(permit)
     // The join makes Drizzle qualify `permit.id` inside the correlated subquery of upcomingCount.
@@ -298,7 +306,14 @@ export async function missingPermitCount(actor: Actor, today: string): Promise<n
   return raw.filter(
     (r) =>
       r.upcoming > 0 &&
-      needsAction({ state: permitDisplayState(r, today), upcomingEvents: r.upcoming }),
+      needsAction(
+        {
+          state: permitDisplayState(r, today),
+          upcomingEvents: r.upcoming,
+          nextEventOn: r.nextEventOn,
+        },
+        today,
+      ),
   ).length;
 }
 
@@ -680,6 +695,7 @@ export async function dueItems(
       upcoming: upcomingCount(today),
       linked: linkedCount,
       eventIds: upcomingEventIds(today),
+      nextEventOn: nextEventOn(today),
     })
     .from(permit)
     .leftJoin(venue, eq(venue.id, permit.venueId))
@@ -705,6 +721,7 @@ export async function dueItems(
   const items: DueItem[] = [];
   for (const r of rows) {
     if (r.linked > 0 && r.upcoming === 0) continue;
+    if (!isPermitMarketInReach(r.nextEventOn, today)) continue;
     const unfiled = isUnfiled(r.status);
     const dueOn = unfiled ? r.applyBy : r.expectedDecisionOn;
     if (!dueOn) continue;
@@ -720,6 +737,7 @@ export async function dueItems(
       meta: [unfiled ? "Antrag" : "Entscheidung erwartet", r.venueName].filter(Boolean).join(" · "),
       assigneeName: r.responsibleName,
       eventIds: r.eventIds ?? [],
+      eventStartsOn: r.nextEventOn,
     });
   }
   return items.sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.title.localeCompare(b.title));
