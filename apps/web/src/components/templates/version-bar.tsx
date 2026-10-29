@@ -205,7 +205,9 @@ export function VersionBar({
           }}
         >
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="publish-note">{t("versions.note")}</Label>
+            <Label htmlFor="publish-note" optional>
+              {t("versions.note")}
+            </Label>
             <textarea
               id="publish-note"
               rows={3}

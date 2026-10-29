@@ -93,12 +93,17 @@ export async function TimelineTable({ templates }: { templates: EventTemplateRow
                     {tpl.presets.length === 0 ? (
                       <span className="text-muted-foreground">{t("list.noPresets")}</span>
                     ) : (
-                      <span
-                        className="line-clamp-2"
-                        title={tpl.presets.map((p) => p.name).join(", ")}
-                      >
-                        {tpl.presets.map((p) => p.name).join(", ")}
-                      </span>
+                      <>
+                        <span className="block font-medium">
+                          {t("list.usedBy", { count: tpl.presets.length })}
+                        </span>
+                        <span
+                          className="line-clamp-2 text-muted-foreground text-tiny"
+                          title={tpl.presets.map((p) => p.name).join(", ")}
+                        >
+                          {tpl.presets.map((p) => p.name).join(", ")}
+                        </span>
+                      </>
                     )}
                   </TD>
                   <TD className="w-12">

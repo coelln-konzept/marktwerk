@@ -6,6 +6,7 @@ import {
   defaultAnchors,
   dueDateForNrw,
   type ItemCondition,
+  insertPoint,
   normalizeCondition,
   PERMIT_TYPES,
   STANDARD_ANCHOR_KEYS,
@@ -20,10 +21,11 @@ import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label, OptionalMark } from "@/components/ui/label";
 import { formatDateWithWeekday } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { PHASES, VENUE_KINDS } from "./labels";
+import { useOffsetText } from "./offset-text";
 import type { ItemView, RoleChoice, TypeChoice } from "./types";
 
 const SELECT_CLASS =
@@ -167,7 +169,6 @@ export function ItemDrawer({
   editable,
   item,
   newPhase,
-  afterKey,
   items,
   roles,
   eventTypes,
@@ -181,8 +182,6 @@ export function ItemDrawer({
   /** null = a new row */
   item: ItemView | null;
   newPhase: TemplateItemFields["phase"];
-  /** New rows go below this row (the last one of their phase). */
-  afterKey: string | null;
   items: ItemView[];
   roles: RoleChoice[];
   eventTypes: TypeChoice[];
@@ -195,6 +194,7 @@ export function ItemDrawer({
 }) {
   const t = useTranslations("taskTemplates");
   const tPermitTypes = useTranslations("permitTypes");
+  const offsetText = useOffsetText();
   const locale = useLocale();
   const router = useRouter();
   const { showToast } = useShell();
@@ -226,6 +226,13 @@ export function ItemDrawer({
       ? dueDateForNrw(anchorDay, fields.offsetDays, form.dayMode)
       : null;
 
+  // A new row goes where its due date puts it, so the phase stays in order (A7-05).
+  const point = insertPoint(items, {
+    phase: form.phase,
+    anchorKey: form.anchorKey,
+    offsetDays: Number.isInteger(fields.offsetDays) ? fields.offsetDays : 0,
+  });
+
   function submit() {
     setError(null);
     if (issue) {
@@ -235,7 +242,7 @@ export function ItemDrawer({
     startTransition(async () => {
       const result = item
         ? await updateItemAction(versionId, item.key, fields)
-        : await addItemAction(versionId, fields, afterKey);
+        : await addItemAction(versionId, fields, point.afterKey, point.beforeKey);
       if (!result.ok) {
         setError({ text: errorText(result.error), field: result.field });
         return;
@@ -273,11 +280,6 @@ export function ItemDrawer({
                     : t("drawer.viewTitle")
                   : t("drawer.newTitle")}
               </Dialog.Title>
-              {item && (
-                <Dialog.Description className="mt-0.5 truncate text-muted-foreground text-tiny">
-                  {t("drawer.key", { key: item.key })}
-                </Dialog.Description>
-              )}
             </div>
             <Dialog.Close
               aria-label={t("drawer.close")}
@@ -311,10 +313,12 @@ export function ItemDrawer({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="item-description">{t("drawer.description")}</Label>
+                <Label htmlFor="item-description" optional>
+                  {t("drawer.description")}
+                </Label>
                 <textarea
                   id="item-description"
-                  rows={3}
+                  rows={2}
                   className={TEXTAREA_CLASS}
                   value={form.description}
                   disabled={disabled}
@@ -357,6 +361,20 @@ export function ItemDrawer({
                 </div>
               </div>
 
+              <div className="flex flex-col gap-1">
+                <label className="flex items-center gap-2 font-semibold text-small">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-(--primary)"
+                    checked={form.isKey}
+                    disabled={disabled}
+                    onChange={(e) => set({ isKey: e.target.checked })}
+                  />
+                  {t("drawer.isKey")}
+                </label>
+                <p className="text-muted-foreground text-tiny">{t("drawer.isKeyHint")}</p>
+              </div>
+
               <fieldset className="flex flex-col gap-3 rounded-lg border p-3">
                 <legend className="px-1 font-semibold text-small">{t("drawer.dueLegend")}</legend>
                 <div className="grid grid-cols-[1fr_7rem] gap-3">
@@ -392,6 +410,13 @@ export function ItemDrawer({
                 </div>
                 {fieldError("anchorKey")}
                 {fieldError("offsetDays")}
+                {Number.isInteger(fields.offsetDays) && (
+                  <p className="tabular font-medium text-small" aria-live="polite">
+                    {t("drawer.offsetNow", {
+                      text: offsetText.full(fields.offsetDays, form.dayMode),
+                    })}
+                  </p>
+                )}
                 <p className="text-muted-foreground text-tiny">{t("drawer.offsetHint")}</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
@@ -408,7 +433,9 @@ export function ItemDrawer({
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="item-time">{t("drawer.time")}</Label>
+                    <Label htmlFor="item-time" optional>
+                      {t("drawer.time")}
+                    </Label>
                     <Input
                       id="item-time"
                       type="time"
@@ -436,7 +463,9 @@ export function ItemDrawer({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="item-role">{t("drawer.role")}</Label>
+                  <Label htmlFor="item-role" optional>
+                    {t("drawer.role")}
+                  </Label>
                   <select
                     id="item-role"
                     className={SELECT_CLASS}
@@ -453,7 +482,9 @@ export function ItemDrawer({
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="item-approver">{t("drawer.approver")}</Label>
+                  <Label htmlFor="item-approver" optional>
+                    {t("drawer.approver")}
+                  </Label>
                   <select
                     id="item-approver"
                     className={SELECT_CLASS}
@@ -473,7 +504,9 @@ export function ItemDrawer({
               <p className="-mt-2 text-muted-foreground text-tiny">{t("drawer.roleHint")}</p>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="item-permit">{t("drawer.permitType")}</Label>
+                <Label htmlFor="item-permit" optional>
+                  {t("drawer.permitType")}
+                </Label>
                 <select
                   id="item-permit"
                   className={SELECT_CLASS}
@@ -526,22 +559,11 @@ export function ItemDrawer({
               </div>
               {isModuleVisible("estimates") && fieldError("estimateMinutes")}
 
-              <div className="flex flex-col gap-1">
-                <label className="flex items-center gap-2 font-semibold text-small">
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-(--primary)"
-                    checked={form.isKey}
-                    disabled={disabled}
-                    onChange={(e) => set({ isKey: e.target.checked })}
-                  />
-                  {t("drawer.isKey")}
-                </label>
-                <p className="text-muted-foreground text-tiny">{t("drawer.isKeyHint")}</p>
-              </div>
-
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-1 font-semibold text-small">{t("drawer.evidence")}</legend>
+                <legend className="mb-1 flex gap-2 font-semibold text-small">
+                  {t("drawer.evidence")}
+                  <OptionalMark />
+                </legend>
                 {(
                   [
                     ["requiresPhoto", "photo"],
@@ -563,7 +585,9 @@ export function ItemDrawer({
               </fieldset>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="item-steps">{t("drawer.checkItems")}</Label>
+                <Label htmlFor="item-steps" optional>
+                  {t("drawer.checkItems")}
+                </Label>
                 <textarea
                   id="item-steps"
                   rows={4}
@@ -579,7 +603,10 @@ export function ItemDrawer({
 
               {items.filter((i) => i.key !== item?.key).length > 0 && (
                 <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-1 font-semibold text-small">{t("drawer.dependsOn")}</legend>
+                  <legend className="mb-1 flex gap-2 font-semibold text-small">
+                    {t("drawer.dependsOn")}
+                    <OptionalMark />
+                  </legend>
                   <div className="flex max-h-44 flex-col gap-1.5 overflow-y-auto rounded-lg border p-2">
                     {items
                       .filter((i) => i.key !== item?.key)
@@ -604,8 +631,9 @@ export function ItemDrawer({
               )}
 
               <fieldset className="flex flex-col gap-2 rounded-lg border p-3">
-                <legend className="px-1 font-semibold text-small">
+                <legend className="flex gap-2 px-1 font-semibold text-small">
                   {t("drawer.conditionLegend")}
+                  <OptionalMark />
                 </legend>
                 <p className="text-muted-foreground text-tiny">{t("drawer.conditionHint")}</p>
                 <div className="flex flex-col gap-1">

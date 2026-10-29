@@ -3,6 +3,7 @@
 import { addDays } from "@marktwerk/core";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
+import { OptionalMark } from "@/components/ui/label";
 import { formatDateRange, formatWeek, todayIn } from "@/lib/format";
 import { rruleText } from "@/lib/rrule-text";
 import { cn } from "@/lib/utils";
@@ -145,7 +146,10 @@ export function RhythmBuilder({
         </div>
 
         <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-          <legend className="mb-2 p-0 font-medium text-small">{t("months")}</legend>
+          <legend className="mb-2 flex gap-2 p-0 font-medium text-small">
+            {t("months")}
+            <OptionalMark />
+          </legend>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
               <Check
