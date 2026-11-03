@@ -39,7 +39,7 @@ type SearchParams = Record<string, string | string[] | undefined>;
 type ViewKey = "bereitschaft" | "matrix" | "spalten" | "ablauf" | "person" | "arbeitslast";
 
 /**
- * The board of one event (tab "Board") or across all events (`/board`): toolbar with views and
+ * The board of one event (tab "Checkliste") or across all events (`/board`): toolbar with views and
  * filters, the readiness list, matrix, kanban / swimlanes or the workload table, the people rail, and the
  * task drawer when `?aufgabe=<id>` is set. All state is in the URL, so every view is linkable. Old
  * `?ansicht=gruppiert|gruppen` links land on the default view (Bereitschaft).
@@ -72,8 +72,10 @@ export async function BoardScreen({
   const me = actor.staffMemberId;
 
   // ---- URL state
+  // The event tab is a Checkliste (user test 2026-11): Ablauf first, no Spalten; old `?ansicht=spalten`
+  // links land on it.
   const allViews: ViewKey[] = eventMode
-    ? ["spalten", "ablauf", "person"]
+    ? ["ablauf", "person"]
     : ["bereitschaft", "matrix", "spalten", "person", "arbeitslast"];
   // The Matrix is markets x Kernaufgaben, so it goes with them (lib/modules.ts `keyTasks`).
   const views = allViews.filter(

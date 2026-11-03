@@ -181,13 +181,18 @@ leads nowhere.
 ### Board views (across events, decision 2026-10-22)
 - **Bereitschaft** (default, `/board`): one row per upcoming market (running ones included), by date. Columns: market (colour marker, links to its Überblick) · date and "in N Tagen" · progress bar and x/y · **Fehlt** (chips, worst first, only non-zero: überfällig, Genehmigungen fehlen, Kernaufgaben offen; "Im Plan" when none) · **Nächste Frist** (opens the task drawer). Attention is status colour + icon + text in the chips, never a row background; a missing permit turns critical within 14 days of the first day. The category chips sit behind a **Filter** button (closed by default, the active category reads out next to it; Team and Finanzen are not offered while those modules are hidden). On phones every row stacks, so "Fehlt" stays visible.
 - **Matrix** (`?ansicht=matrix`): the same markets x Kernaufgaben (at most 10 columns, matched by the template item's stable key, title as fallback, in their usual due order). Cell = erledigt / offen / bald fällig (due within 7 days) / überfällig / zurückgestellt / "–" (no such task), always icon + colour + date, with a legend below; every cell with a task opens the drawer (`?aufgabe=`). The market column sticks, the table scrolls sideways inside its container (never the page); long titles wrap to up to three lines with the full title as tooltip.
-- **Spalten** (`?ansicht=spalten`): the kanban across markets, cards with the market colour marker next to the market name (linking to its Überblick); no carried-over badge, a small category tag. Columns: **Später · Diese Woche · Überfällig & heute · Erledigt**, each sorted by due date. On the event's own Board tab the tasks due after the last event day sit at the end of "Später" under "Nach der Veranstaltung".
-- **Ablauf** (`?ansicht=ablauf`, event Board tab only; decision 2026-10-26): every task of the event in one list, one line
-  per task with aligned columns (tick · title with ★ and status when not "offen" · category · due-ness only for
-  overdue/today/waiting · date · "…"), grouped by phase relative to the market day: Überfällig & heute, Mehr als 4 / 3–4 /
-  2 Wochen vorher, Woche vor dem Markt, Veranstaltungstag(e), Nach dem Markt, Ohne Datum, Erledigt (collapsed). Sticky
-  phase headers with date range and count; hairline separators instead of cards. Click/Enter opens the drawer, J/K move,
-  E ticks off. On phones category and date move under the title, titles wrap to two lines.
+- **Spalten** (`?ansicht=spalten`): the kanban across markets, cards with the market colour marker next to the market name (linking to its Überblick); no carried-over badge, a small category tag. Columns: **Später · Diese Woche · Überfällig & heute · Erledigt**, each sorted by due date. Only on `/board`: the event's Checkliste tab has no Spalten (user test 2026-11), an old `?ansicht=spalten` link there lands on the Checkliste.
+- **Checkliste** (the event's Checkliste tab, its only view while the team module is hidden; decisions 2026-10-26
+  and 2026-11-03): every task of the event in one list, one line per task with aligned columns (tick · title with status
+  when not "offen" · category · due-ness only for overdue/today/waiting, "Erledigt <Datum>" when done · date · "…"),
+  grouped by phase relative to the market day: Überfällig & heute, Mehr als 4 / 3–4 / 2 Wochen vorher, Woche vor dem
+  Markt, Veranstaltungstag(e), Nach dem Markt, Ohne Datum. **Finished tasks stay in place**: in the phase of their due
+  date (one ticked off today stays in "Überfällig & heute" until tomorrow, so the row never jumps), and every finished
+  task of the event is listed, not only the last 14 days. Done and open must differ at a glance: done = filled green tick
+  (skipped: grey dash), tinted row, struck-through dimmed title; open = empty ring, full-contrast title. The same tick
+  unticks (undo toast either way, no confirmation since nothing disappears, decision D1). Sticky phase headers with date
+  range and "x von y erledigt"; hairline separators instead of cards. Click/Enter opens the drawer, J/K move, E ticks
+  off or unticks. On phones category and date move under the title, titles wrap to two lines.
 - **Zeitraum** (Bis Sonntag / 14 Tage / Alles) applies to the first day of the market; "Alles" is every upcoming market. The page has no subtitle line; on phones the "Neu" button of the top bar replaces the button next to the filters.
 
 ### Übersicht (start screen, one for everyone)

@@ -24,7 +24,7 @@
       "spalten": "Spalten",
       "person": "Nach Person",
       "arbeitslast": "Arbeitslast",
-      "ablauf": "Ablauf"
+      "ablauf": "Checkliste"
     },
     "filter": {
       "label": "Aufgaben filtern",
@@ -238,10 +238,10 @@
         "event": "Veranstaltungstag",
         "eventDays": "Veranstaltungstage",
         "after": "Nach dem Markt",
-        "undated": "Ohne Datum",
-        "done": "Erledigt"
+        "undated": "Ohne Datum"
       },
       "count": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
+      "countDone": "{done} von {count} erledigt",
       "until": "bis {date}",
       "from": "ab {date}",
       "today": "heute",

@@ -78,7 +78,11 @@ function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): 
       : task.column === "done"
         ? derivedColumn(task.dueOn, today)
         : task.column;
-    return state.map((t) => (t.id === patch.id ? { ...t, status: patch.status, column } : t));
+    // completedOn too, so the Checkliste keeps a row ticked off today in place (core `ablaufPhase`).
+    const completedOn = finished ? (task.completedOn ?? today) : null;
+    return state.map((t) =>
+      t.id === patch.id ? { ...t, status: patch.status, column, completedOn } : t,
+    );
   }
   const status: TaskStatusKey =
     patch.column === "done" ? "done" : isFinishedStatus(task.status) ? "todo" : task.status;

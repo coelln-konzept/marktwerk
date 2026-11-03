@@ -684,33 +684,38 @@ test("Back arrow: returns to the page you came from with its filters, else to th
   await expect(direct).toHaveURL(/\/veranstaltungen$/);
 });
 
-test("Event board: Ablauf lists every task by phase, one line each; a row opens the drawer", async ({
+test("Event Checkliste: every task by phase, one line each; ticked rows stay crossed out and untick", async ({
   page,
 }) => {
   await page.goto("/board?zeitraum=alle");
   const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
-  await page.goto(`${href}/board`);
-  await page.getByRole("group", { name: "Ansicht" }).getByRole("link", { name: "Ablauf" }).click();
-  await expect(page).toHaveURL(/ansicht=ablauf/);
+  // An old Spalten link lands on the Checkliste; there is no view switch left.
+  await page.goto(`${href}/board?ansicht=spalten`);
+  await expect(page.getByRole("group", { name: "Ansicht" })).toHaveCount(0);
   const rows = page.locator("li[data-row]");
   await expect(rows.first()).toBeVisible();
-  // Phase headers carry a task count; finished tasks wait collapsed at the end.
+  // Phase headers carry a count; finished tasks stay in their phase, no collapsed "Erledigt" group.
+  await expect(page.locator("main h2").first()).toContainText(/Aufgaben?$|erledigt$/);
   await expect(
-    page
-      .locator("main h2")
-      .filter({ hasText: /Aufgaben?$/ })
-      .first(),
-  ).toBeVisible();
-  const done = page
-    .locator("main details")
-    .filter({ has: page.locator("summary", { hasText: /^Erledigt/ }) });
-  if ((await done.count()) > 0) await expect(done).not.toHaveAttribute("open", /.*/);
+    page.locator("main details").filter({ has: page.locator("summary", { hasText: /^Erledigt/ }) }),
+  ).toHaveCount(0);
   // Single-line rows on desktop: much shorter than the 130 px cards.
   const box = await rows.first().boundingBox();
   expect(box?.height ?? 0).toBeLessThan(56);
+
+  // Tick an open row: it stays where it is, crossed out, and the same button unticks it.
+  const row = rows.filter({ has: page.locator('button[aria-pressed="false"]') }).first();
+  const title = (await row.locator("a").first().textContent()) ?? "";
+  await page.waitForLoadState("networkidle");
+  await row.locator("button[aria-pressed]").click();
+  const same = rows.filter({ has: page.getByRole("link", { name: title, exact: true }) }).first();
+  await expect(same.locator("button[aria-pressed]")).toHaveAttribute("aria-pressed", "true");
+  await expect(same.locator("a").first()).toHaveCSS("text-decoration-line", "line-through");
+  await same.locator("button[aria-pressed]").click();
+  await expect(same.locator("button[aria-pressed]")).toHaveAttribute("aria-pressed", "false");
+
   await rows.first().locator("span").nth(2).click();
   await expect(page).toHaveURL(/aufgabe=/);
-  await expect(page).toHaveURL(/ansicht=ablauf/);
 });
 
 test("Sidebar: the button at its top right hides it (remembered), the top bar brings it back", async ({

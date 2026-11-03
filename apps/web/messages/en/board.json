@@ -24,7 +24,7 @@
       "spalten": "Columns",
       "person": "By person",
       "arbeitslast": "Workload",
-      "ablauf": "Timeline"
+      "ablauf": "Checklist"
     },
     "filter": {
       "label": "Filter tasks",
@@ -238,10 +238,10 @@
         "event": "Market day",
         "eventDays": "Market days",
         "after": "After the market",
-        "undated": "No date",
-        "done": "Done"
+        "undated": "No date"
       },
       "count": "{count, plural, one {# task} other {# tasks}}",
+      "countDone": "{done} of {count} done",
       "until": "until {date}",
       "from": "from {date}",
       "today": "today",

@@ -1,12 +1,12 @@
 "use client";
 
 import { type AblaufPhase, addDays, daysBetween, groupAblauf, taskDueness } from "@marktwerk/core";
-import { AlarmClockOff, Camera, ChevronRight, CircleCheck, Undo2 } from "lucide-react";
+import { AlarmClockOff, Camera, Check, Minus } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
-import { focusNeighbourRow, KeyboardRows } from "@/components/ui/keyboard-rows";
+import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { formatDateShort, formatDateWeekdayDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BoardTask } from "@/server/queries/tasks";
@@ -25,10 +25,12 @@ const BEFORE_RANGE: Partial<Record<AblaufPhase, [number, number | null]>> = {
 };
 
 /**
- * "Ablauf" view of one event's tasks (UX decision 2026-10-24): every task in one list, single-line rows with
- * aligned columns (tick, title, category, due, date, menu), grouped by phase relative to the market day
- * with sticky headers. Finished tasks sit collapsed at the end. Click a row (or Enter) for the drawer,
- * J/K move, E ticks off; all changes go through the board's task actions (undo toasts).
+ * The event's Checkliste ("Ablauf" view, UX decision 2026-10-24; user test 2026-11): every task in one
+ * list, single-line rows with aligned columns (tick, title, category, due, date, menu), grouped by phase
+ * relative to the market day with sticky headers. Finished tasks stay in place and must read as done at a
+ * glance: filled green tick, tinted row, struck-through dimmed title. Open ones keep an empty circle and
+ * full-contrast text. Click a row (or Enter) for the drawer, J/K move, E ticks off or unticks; all changes
+ * go through the board's task actions (undo toasts).
  */
 export function AblaufList({
   tasks,
@@ -50,10 +52,8 @@ export function AblaufList({
       const [from, to] = range;
       const last = formatDateShort(addDays(startsOn, -from), locale);
       if (to === null) return t("until", { date: last });
-      // Days up to today are in "Überfällig & heute", so the range starts tomorrow at the earliest.
-      const start = addDays(startsOn, -to);
-      const tomorrow = addDays(today, 1);
-      const first = formatDateShort(start < tomorrow ? tomorrow : start, locale);
+      // Finished tasks keep their place, so the range is the whole phase, past days included.
+      const first = formatDateShort(addDays(startsOn, -to), locale);
       // One day left of the range: a single date, not "Fr 30.10. – Fr 30.10.".
       return first === last ? last : `${first} – ${last}`;
     }
@@ -78,6 +78,7 @@ export function AblaufList({
   }
 
   if (tasks.length === 0) return null;
+  const done = (rows: BoardTask[]) => rows.filter(isFinished).length;
 
   return (
     <KeyboardRows className="rounded-xl border bg-card">
@@ -91,7 +92,9 @@ export function AblaufList({
               <span className="tabular text-muted-foreground text-small">{rangeOf(phase)}</span>
             )}
             <span className="tabular ml-auto text-muted-foreground text-small">
-              {t("count", { count: rows.length })}
+              {done(rows) > 0
+                ? t("countDone", { done: done(rows), count: rows.length })
+                : t("count", { count: rows.length })}
             </span>
           </>
         );
@@ -102,19 +105,6 @@ export function AblaufList({
             ))}
           </ul>
         );
-        if (phase === "done")
-          return (
-            <details key={phase} className="group border-border-subtle border-t">
-              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-3 px-4 py-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-                <ChevronRight
-                  aria-hidden
-                  className="size-4 text-muted-foreground transition-transform group-open:rotate-90"
-                />
-                {header}
-              </summary>
-              {list}
-            </details>
-          );
         return (
           <section
             key={phase}
@@ -158,11 +148,10 @@ function AblaufRow({ task }: { task: BoardTask }) {
   function onKeyDown(event: React.KeyboardEvent<HTMLLIElement>) {
     if (event.target !== event.currentTarget) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === "e" && canWrite && !finished) {
+    if (event.key === "e" && canWrite) {
       event.preventDefault();
-      // The row moves to the collapsed "Erledigt" group: keep focus in the list, on the next row.
-      focusNeighbourRow(event.currentTarget);
-      actions.setStatus(task, "done");
+      // The row stays where it is (Checkliste), so focus stays on it too.
+      actions.setStatus(task, finished ? "todo" : "done");
     } else if (event.key === "a" && canWrite) {
       event.preventDefault();
       setMenuOpen(true);
@@ -178,39 +167,28 @@ function AblaufRow({ task }: { task: BoardTask }) {
       onKeyDown={onKeyDown}
       className={cn(
         "scroll-mt-28 grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-x-2 border-border-subtle border-b px-2 py-1.5 last:border-b-0 hover:bg-hover focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:grid-cols-[2rem_minmax(0,1fr)_8rem_10rem_6rem_2rem] sm:py-1",
-        finished && "text-foreground-2",
+        finished && "bg-sunken",
       )}
     >
       <span className="grid place-items-center">
         {canWrite ? (
-          finished ? (
-            <button
-              type="button"
-              onClick={(event) => {
-                focusNeighbourRow(event.currentTarget);
-                actions.setStatus(task, "todo");
-              }}
-              aria-label={t("card.reopen", { title: task.title })}
-              title={t("menu.reopen")}
-              className="grid size-7 cursor-pointer place-items-center rounded-full text-status-ok hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              <Undo2 aria-hidden className="size-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={(event) => {
-                focusNeighbourRow(event.currentTarget);
-                actions.setStatus(task, "done");
-              }}
-              aria-label={t("card.complete", { title: task.title })}
-              title={t("card.completeHint")}
-              className="grid size-7 cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              <CircleCheck aria-hidden className="size-4" />
-            </button>
-          )
-        ) : null}
+          <button
+            type="button"
+            onClick={() => actions.setStatus(task, finished ? "todo" : "done")}
+            aria-label={
+              finished
+                ? t("card.reopen", { title: task.title })
+                : t("card.complete", { title: task.title })
+            }
+            aria-pressed={finished}
+            title={finished ? t("menu.reopen") : t("card.completeHint")}
+            className="group/tick grid size-7 cursor-pointer place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <Tick status={task.status} />
+          </button>
+        ) : (
+          <Tick status={task.status} />
+        )}
       </span>
 
       <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
@@ -223,7 +201,7 @@ function AblaufRow({ task }: { task: BoardTask }) {
             title={task.title}
             className={cn(
               "line-clamp-2 break-words rounded-sm font-medium hover:underline sm:line-clamp-1",
-              finished && "line-through decoration-foreground-2/50",
+              finished && "text-muted-foreground line-through decoration-muted-foreground",
             )}
           >
             {task.title}
@@ -267,5 +245,29 @@ function AblaufRow({ task }: { task: BoardTask }) {
         <CardMenu task={task} open={menuOpen} onOpenChange={setMenuOpen} />
       </span>
     </li>
+  );
+}
+
+/**
+ * The checkbox of a row. Done: a filled green circle with a tick; skipped: a filled grey one with a dash;
+ * open: an empty ring that previews the tick on hover. Shape and fill differ, not only the colour.
+ */
+function Tick({ status }: { status: BoardTask["status"] }) {
+  if (status === "done")
+    return (
+      <span className="grid size-5 place-items-center rounded-full bg-status-ok-dot text-card group-hover/tick:opacity-80">
+        <Check aria-hidden strokeWidth={3} className="size-3.5" />
+      </span>
+    );
+  if (status === "skipped")
+    return (
+      <span className="grid size-5 place-items-center rounded-full bg-muted-foreground text-card group-hover/tick:opacity-80">
+        <Minus aria-hidden strokeWidth={3} className="size-3.5" />
+      </span>
+    );
+  return (
+    <span className="grid size-5 place-items-center rounded-full border-2 border-muted-foreground text-transparent group-hover/tick:border-status-ok group-hover/tick:text-status-ok">
+      <Check aria-hidden strokeWidth={3} className="size-3" />
+    </span>
   );
 }
