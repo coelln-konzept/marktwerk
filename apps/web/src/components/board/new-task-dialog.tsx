@@ -29,6 +29,8 @@ type FormError = { text: string; field: "title" | "hours" | null };
  * (UX concept §4); opens the new task in the drawer afterwards. The event defaults to the one in
  * context: `?veranstaltung=<id>` (the top bar's "+ Neu" on a market page) or the open market panel
  * (`?markt=<id>`). Required is the default, optional fields say so; one error, shown in one place.
+ * `urlOnly` (the Übersicht, for "+ Neu › Aufgabe" outside an event page): no button and no C shortcut, the
+ * dialog opens from `?neu=1` only, and the new task opens on its event's page.
  */
 export function NewTaskButton({
   eventId,
@@ -36,6 +38,7 @@ export function NewTaskButton({
   staff,
   canAssign,
   today,
+  urlOnly = false,
 }: {
   /** Fixed event (event board). */
   eventId?: string;
@@ -44,6 +47,7 @@ export function NewTaskButton({
   staff: StaffOption[];
   canAssign: boolean;
   today: string;
+  urlOnly?: boolean;
 }) {
   const t = useTranslations("tasks.create");
   const tCat = useTranslations("tasks.categories");
@@ -96,21 +100,26 @@ export function NewTaskButton({
   // "+ Neu › Aufgabe" in the top bar links here with ?neu=1 (and ?veranstaltung=<id>); both parameters are
   // dropped again so reload and back do not reopen it.
   const requested = params.get("neu") === "1";
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only the request itself should re-run this
-  useEffect(() => {
-    if (!requested) return;
-    openDialog(params);
+  const withoutRequest = () => {
     const rest = new URLSearchParams(params);
     rest.delete("neu");
     rest.delete("veranstaltung");
     const query = rest.toString();
-    router.replace((query ? `${pathname}?${query}` : pathname) as never, { scroll: false });
+    return query ? `${pathname}?${query}` : pathname;
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only the request itself should re-run this
+  useEffect(() => {
+    if (!requested) return;
+    openDialog(params);
+    // `urlOnly` lives only while `?neu=1` is set (the page renders it then): the URL is cleaned on close.
+    if (!urlOnly) router.replace(withoutRequest() as never, { scroll: false });
   }, [requested]);
 
   // The "C" shortcut calls the latest `openDialog` (it reads the current events and URL).
   const openRef = useRef(openDialog);
   openRef.current = openDialog;
   useEffect(() => {
+    if (urlOnly) return;
     function onKey(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== "c" || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
@@ -120,7 +129,7 @@ export function NewTaskButton({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [urlOnly]);
 
   function reset() {
     setTitle("");
@@ -136,6 +145,7 @@ export function NewTaskButton({
     setOpen(next);
     // Cancel or Esc: the next dialog starts clean.
     if (!next) reset();
+    if (!next && urlOnly) router.replace(withoutRequest() as never, { scroll: false });
   }
 
   function fail(text: string, field: FormError["field"]) {
@@ -171,7 +181,11 @@ export function NewTaskButton({
       setOpen(false);
       reset();
       showToast({ message: t("created", { title: title.trim() }) });
-      router.push(drawer.open(result.data.id) as never);
+      router.push(
+        (urlOnly && forEvent
+          ? `/veranstaltungen/${forEvent}?aufgabe=${result.data.id}`
+          : drawer.open(result.data.id)) as never,
+      );
     });
   }
 
@@ -179,11 +193,13 @@ export function NewTaskButton({
 
   return (
     <>
-      <Button variant="default" onClick={() => openDialog()}>
-        <Plus aria-hidden />
-        {t("button")}
-        <Kbd className="border-white/40 bg-transparent text-inherit">C</Kbd>
-      </Button>
+      {!urlOnly && (
+        <Button variant="default" onClick={() => openDialog()}>
+          <Plus aria-hidden />
+          {t("button")}
+          <Kbd className="border-white/40 bg-transparent text-inherit">C</Kbd>
+        </Button>
+      )}
       <Modal open={open} onOpenChange={changeOpen} title={t("title")} closeLabel={t("cancel")}>
         <form noValidate onSubmit={submit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">

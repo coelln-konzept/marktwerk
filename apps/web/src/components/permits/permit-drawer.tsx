@@ -281,7 +281,7 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
                     href={
                       (task.eventId
                         ? `/veranstaltungen/${task.eventId}/board?detail=task:${task.id}`
-                        : `/board?detail=task:${task.id}`) as never
+                        : `/?aufgabe=${task.id}`) as never
                     }
                     className="font-medium text-accent-soft-foreground hover:underline"
                   >

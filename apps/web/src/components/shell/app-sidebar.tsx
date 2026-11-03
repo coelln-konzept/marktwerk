@@ -52,7 +52,12 @@ export async function AppSidebar({
   ]);
   const daily: Item[] = [
     { href: "/", label: t("overview"), icon: <Home />, visible: true },
-    { href: "/board", label: t("board"), icon: <KanbanSquare />, visible: can(r, "task", "read") },
+    {
+      href: "/board",
+      label: t("board"),
+      icon: <KanbanSquare />,
+      visible: isModuleVisible("globalBoard") && can(r, "task", "read"),
+    },
     {
       href: "/veranstaltungen",
       label: t("events"),

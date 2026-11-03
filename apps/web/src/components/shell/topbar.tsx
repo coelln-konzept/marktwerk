@@ -92,7 +92,7 @@ function NewMenu() {
     ? `${pathname}?neu=1`
     : eventId
       ? `/veranstaltungen/${eventId}/board?neu=1`
-      : "/board?neu=1";
+      : "/?neu=1";
   const entries: {
     id: string;
     group: "event" | Creatable;

@@ -197,9 +197,9 @@ test('Event page: one "…" menu holds Bearbeiten, Verschieben and Status änder
   await expect(menu.getByRole("menuitem", { name: "Verschieben" })).toBeVisible();
   await expect(menu.getByText("Status ändern")).toBeVisible();
   await menu.getByRole("menuitem", { name: "Bearbeiten" }).click();
-  await expect(page.getByRole("dialog", { name: "Name, Dauer und Ort" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Name, Art, Dauer und Ort" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: "Name, Dauer und Ort" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Name, Art, Dauer und Ort" })).toBeHidden();
 });
 
 test("Task drawer: Erledigt and Wartet are buttons, the status badge opens every state", async ({
@@ -361,15 +361,65 @@ test('Permit: "Als ersetzt markieren" toggles back; the top bar\'s Rückgängig 
   await expect(drawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
 });
 
-test("Sidebar: five daily entries, Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
+test("Veranstaltungen: sortable columns, the Ort chip filters, the row menu edits the type too", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?status=alle");
+  const names = () => page.locator("tbody tr[data-row] td:nth-child(3) a").allInnerTexts();
+
+  // Name ascending, then descending; month headers only when sorted by date.
+  await page.getByRole("columnheader", { name: "Veranstaltung" }).getByRole("link").click();
+  await expect(page).toHaveURL(/sortierung=name/);
+  const asc = await names();
+  expect(asc).toEqual([...asc].sort((a, b) => a.localeCompare(b, "de")));
+  await expect(page.getByRole("columnheader", { name: "Veranstaltung" })).toHaveAttribute(
+    "aria-sort",
+    "ascending",
+  );
+  await page.getByRole("columnheader", { name: "Veranstaltung" }).getByRole("link").click();
+  await expect(page).toHaveURL(/richtung=ab/);
+  await expect(page.getByRole("columnheader", { name: "Veranstaltung" })).toHaveAttribute(
+    "aria-sort",
+    "descending",
+  );
+
+  // The Ort chip narrows the list to that venue and shows as a removable filter.
+  const chip = page.locator('a[title^="Nur Veranstaltungen an"]').first();
+  const venue = ((await chip.getAttribute("title")) as string).match(/„(.+)“/)?.[1] as string;
+  await chip.click();
+  await expect(page).toHaveURL(/[?&]ort=/);
+  const venues = await page.locator("tbody tr[data-row] td:nth-child(5)").allInnerTexts();
+  expect(venues.length).toBeGreaterThan(0);
+  for (const v of venues) expect(v.trim()).toBe(venue);
+
+  // The row's "…" menu holds Bearbeiten; the dialog has the type, with the hint when it changes.
+  await page.waitForLoadState("networkidle");
+  await page.locator("tbody tr[data-row]").first().hover();
+  await page
+    .getByRole("button", { name: /^Weitere Aktionen für / })
+    .first()
+    .click();
+  await page.getByRole("menuitem", { name: "Bearbeiten" }).click();
+  const dialog = page.getByRole("dialog", { name: "Name, Art, Dauer und Ort" });
+  const type = dialog.getByLabel("Art");
+  await expect(type).toBeVisible();
+  const other = await type.locator("option:not(:checked)").first().getAttribute("value");
+  await type.selectOption(other as string);
+  await expect(dialog.getByText("Aufgaben und Genehmigungen bleiben, wie sie sind.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+
+test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
   page,
 }) => {
   await page.goto("/");
   const nav = page.getByRole("navigation", { name: "Hauptnavigation" }).first();
-  for (const entry of ["Übersicht", "Board", "Veranstaltungen", "Kalender", "Genehmigungen"])
+  for (const entry of ["Übersicht", "Veranstaltungen", "Kalender", "Genehmigungen"])
     await expect(nav.getByRole("link", { name: new RegExp(`^${entry}`) })).toBeVisible();
-  // Gone: Logbuch, the "Später" group, Benachrichtigungen, Einstellungen, Firma.
+  // Gone: Board, Logbuch, the "Später" group, Benachrichtigungen, Einstellungen, Firma.
   for (const entry of [
+    "Board",
     "Logbuch",
     "Buchungen",
     "Postfach",
@@ -520,10 +570,25 @@ test("+ Neu offers task, permit and defect to the owner (no payment or shift whi
     await expect(menu.getByRole("menuitem", { name: entry })).toHaveCount(0);
   await expect(menu.getByRole("menuitem").first()).toHaveText("Markt planen");
 
-  // "Aufgabe" opens the quick-create dialog on the board.
+  // "Aufgabe" opens the quick-create dialog on the Übersicht (the global Board is hidden), with the event to
+  // pick; Esc closes it and cleans the URL.
   await menu.getByRole("menuitem", { name: "Aufgabe" }).click();
-  await expect(page).toHaveURL(/\/board/);
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page).toHaveURL(/\/\?neu=1$/);
+  const dialog = page.getByRole("dialog", { name: "Neue Aufgabe" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("Veranstaltung")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/$/);
+
+  // Strg+K "Aufgabe anlegen" leads to the same dialog.
+  await page.keyboard.press("Control+k");
+  await page.keyboard.type("Aufgabe anlegen");
+  await page
+    .getByRole("option", { name: /Aufgabe anlegen/ })
+    .first()
+    .click();
+  await expect(page.getByRole("dialog", { name: "Neue Aufgabe" })).toBeVisible();
 });
 
 test("Veranstaltungen: Space previews a row, Enter opens it, back returns to the list", async ({
