@@ -16,7 +16,7 @@ import {
   MAX_PRICE_CENTS,
 } from "@marktwerk/core";
 import type { EventStatus } from "@marktwerk/core/events/lifecycle";
-import { event, eventAnchor, venue } from "@marktwerk/db/schema";
+import { event, eventAnchor, eventType, venue } from "@marktwerk/db/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "../../lib/format";
@@ -38,6 +38,7 @@ export type EventDetailsError =
   | "invalid_duration"
   | "invalid_name"
   | "invalid_venue"
+  | "invalid_type"
   | "not_movable"
   | "conflict";
 
@@ -412,10 +413,17 @@ export async function moveEvent(
 
 export const MAX_NAME_LENGTH = 120;
 
-export type EventBasics = { name: string; durationDays: number; venueId: string };
+export type EventBasics = {
+  name: string;
+  durationDays: number;
+  venueId: string;
+  /** The type is a label: changing it keeps the event's tasks and permits (decision 2026-11-03). */
+  eventTypeId: string;
+};
 
 /**
- * "Name, Dauer, Ort" of this event only (the preset stays). A new length keeps the first day and
+ * "Name, Dauer, Ort, Art" of this event only (the preset stays). A new type relabels the event and keeps
+ * its tasks and permits as they are (templates never propagate automatically). A new length keeps the first day and
  * recomputes the named dates through the same path as "Verschieben". `expected` (undo toast) applies the
  * change only while the event still has those values. Audited as "event.update"; the venue change keeps
  * both names so the Verlauf stays readable after a venue is renamed.
@@ -431,6 +439,7 @@ export async function updateEventBasics(
   if (name === "" || name.length > MAX_NAME_LENGTH)
     throw new EventDetailsInputError("invalid_name");
   if (!UUID.test(next.venueId)) throw new EventDetailsInputError("invalid_venue");
+  if (!UUID.test(next.eventTypeId)) throw new EventDetailsInputError("invalid_type");
 
   return db.transaction(async (tx) => {
     const current = await lockEvent(tx, id);
@@ -438,12 +447,14 @@ export async function updateEventBasics(
       name: current.name,
       durationDays: durationOf(current),
       venueId: current.venueId,
+      eventTypeId: current.eventTypeId,
     };
     if (
       expected &&
       (expected.name !== previous.name ||
         expected.durationDays !== previous.durationDays ||
-        expected.venueId !== previous.venueId)
+        expected.venueId !== previous.venueId ||
+        expected.eventTypeId !== previous.eventTypeId)
     )
       throw new EventDetailsInputError("conflict");
 
@@ -468,9 +479,26 @@ export async function updateEventBasics(
         fromName: venues.find((v) => v.id === current.venueId)?.name ?? null,
         toName: newVenue.name,
       };
+    if (next.eventTypeId !== current.eventTypeId) {
+      const types = await tx
+        .select({ id: eventType.id, nameDe: eventType.nameDe, archivedAt: eventType.archivedAt })
+        .from(eventType)
+        .where(inArray(eventType.id, [current.eventTypeId, next.eventTypeId]));
+      const newType = types.find((x) => x.id === next.eventTypeId);
+      if (!newType || newType.archivedAt) throw new EventDetailsInputError("invalid_type");
+      changes.eventTypeId = {
+        from: current.eventTypeId,
+        to: next.eventTypeId,
+        fromName: types.find((x) => x.id === current.eventTypeId)?.nameDe ?? null,
+        toName: newType.nameDe,
+      };
+    }
     if (Object.keys(changes).length === 0) return { changed: false, previous, tasksShifted: 0 };
 
-    await tx.update(event).set({ name, venueId: schedule.venueId }).where(eq(event.id, id));
+    await tx
+      .update(event)
+      .set({ name, venueId: schedule.venueId, eventTypeId: next.eventTypeId })
+      .where(eq(event.id, id));
     const applied = changes.durationDays ? await applySchedule(tx, current, schedule) : undefined;
     const anchors = applied?.anchors;
     const shifted = applied?.shifted ?? [];

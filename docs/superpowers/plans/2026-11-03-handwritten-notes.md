@@ -143,7 +143,12 @@ open in place as today. Above 10, the button links to the event's Checkliste fil
 instead of opening. First check on the deployed dev app whether it really didn't react (the in-place
 opening shipped in `49e1f92`; the note may predate it) and record the result in the PR.
 
-### WP5: Veranstaltungen list: location chip, sorting, edit (HN-07, HN-08, HN-09)
+### WP5: Veranstaltungen list: location chip, sorting, edit (HN-07, HN-08, HN-09) (done 2026-11-03)
+
+> Built: sorting and the Ort filter in the page (rows are already loaded), `TH sort`, the event page's
+> `EventActions` reused per row (so UT-14's status items come along), `EventBasics.eventTypeId` with an
+> `invalid_type` check; decided: a type change keeps tasks and permits. Also hidden: the Board's sidebar entry
+> (`HIDDEN_MODULES.globalBoard`), product owner 2026-11-03.
 
 **Files:**
 - Modify: `apps/web/src/app/(app)/veranstaltungen/page.tsx` (location chip → `?ort=<id>` filter; sortable

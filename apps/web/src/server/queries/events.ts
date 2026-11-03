@@ -64,6 +64,7 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
       endsOn: event.endsOn,
       status: event.status,
       season: event.season,
+      eventTypeId: event.eventTypeId,
       typeKey: eventType.key,
       typeNameDe: eventType.nameDe,
       typeNameEn: eventType.nameEn,

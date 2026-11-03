@@ -1,4 +1,12 @@
-import { auditLog, event, eventAnchor, eventPreset, venue } from "@marktwerk/db/schema";
+import {
+  auditLog,
+  event,
+  eventAnchor,
+  eventPreset,
+  eventType,
+  task,
+  venue,
+} from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
@@ -223,10 +231,16 @@ describe("updateEventBasics", () => {
       name: "  Herbstflohmarkt   Test ",
       durationDays: 2,
       venueId: other.id,
+      eventTypeId: cat.type.id,
     });
     expect(result).toEqual({
       changed: true,
-      previous: { name: "Testflohmarkt", durationDays: 1, venueId: cat.venue.id },
+      previous: {
+        name: "Testflohmarkt",
+        durationDays: 1,
+        venueId: cat.venue.id,
+        eventTypeId: cat.type.id,
+      },
       tasksShifted: 0,
     });
     expect(await load(id)).toMatchObject({
@@ -251,9 +265,53 @@ describe("updateEventBasics", () => {
     });
   });
 
+  it("changes the event type only: tasks stay as they are, audited with both names", async () => {
+    const id = await oneEvent();
+    const [antique] = await db
+      .insert(eventType)
+      .values({
+        key: "antique",
+        nameDe: "Antikmarkt",
+        nameEn: "Antique market",
+        rules: cat.type.rules,
+      })
+      .returning();
+    if (!antique || !cat.type) throw new Error("no type");
+    const tasksBefore = await db.select({ id: task.id }).from(task).where(eq(task.eventId, id));
+    const base = {
+      name: "Testflohmarkt",
+      durationDays: 1,
+      venueId: cat.venue.id,
+      eventTypeId: cat.type.id,
+    };
+    const result = await updateEventBasics(owner, id, { ...base, eventTypeId: antique.id });
+    expect(result.changed).toBe(true);
+    expect(await load(id)).toMatchObject({ eventTypeId: antique.id });
+    const tasksAfter = await db.select({ id: task.id }).from(task).where(eq(task.eventId, id));
+    expect(tasksAfter).toEqual(tasksBefore);
+    const [entry] = await auditsOf("event.update");
+    expect(entry?.diff).toMatchObject({
+      changes: { eventTypeId: { fromName: "Flohmarkt", toName: "Antikmarkt" } },
+    });
+    await expect(
+      updateEventBasics(owner, id, {
+        ...base,
+        eventTypeId: "00000000-0000-4000-8000-000000000000",
+      }),
+    ).rejects.toMatchObject({ code: "invalid_type" });
+    // Undo: back to the old type while the event still has the new one.
+    await updateEventBasics(owner, id, base, { ...base, eventTypeId: antique.id });
+    expect(await load(id)).toMatchObject({ eventTypeId: cat.type.id });
+  });
+
   it("validates name, length and venue; undo is guarded", async () => {
     const id = await oneEvent();
-    const base = { name: "Testflohmarkt", durationDays: 1, venueId: cat.venue.id };
+    const base = {
+      name: "Testflohmarkt",
+      durationDays: 1,
+      venueId: cat.venue.id,
+      eventTypeId: cat.type.id,
+    };
     expect((await updateEventBasics(owner, id, base)).changed).toBe(false);
     await expect(updateEventBasics(owner, id, { ...base, name: "  " })).rejects.toMatchObject({
       code: "invalid_name",

@@ -1,10 +1,11 @@
-import { can, isoWeek } from "@marktwerk/core";
-import { CalendarPlus, Eye, SearchX } from "lucide-react";
+import { can, canMoveEvent, daysBetween, isoWeek } from "@marktwerk/core";
+import { CalendarPlus, Eye, MapPin, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment } from "react";
+import { EventActions } from "@/components/event-detail/event-actions";
 import { EventStatusBadge } from "@/components/events/event-status";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { FilterToggle } from "@/components/events/filter-toggle";
@@ -43,6 +44,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const PATH = "/veranstaltungen";
 
+/** Sortable columns (`?sortierung=`; Datum is the default and the only one with month headers). */
+const SORT_KEYS = ["datum", "name", "art", "ort", "status"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function EventsPage({ searchParams }: PageProps<"/veranstaltungen">) {
   await requirePermission("event", "read");
   const actor = await getActor();
@@ -52,6 +58,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   const tStatus = await getTranslations("status.event");
   const locale = await getLocale();
   const today = todayIn();
+  const canWriteEvents = can(actor.role, "event", "write");
 
   // The Kalender page covers the month view; old `?ansicht=kalender` links go there.
   if (param(sp.ansicht) === "kalender") redirect("/kalender");
@@ -75,6 +82,14 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
     ? seasonPicked
     : (seasonPicked ?? (seasons.includes(currentYear) ? currentYear : (seasons[0] ?? currentYear)));
   const typeKey = param(sp.art);
+  // "Ort" chip in a row: only the events at that venue (handwritten notes HN-07).
+  const venueParam = param(sp.ort);
+  const venueId = venueParam && UUID.test(venueParam) ? venueParam : undefined;
+  const sortParam = param(sp.sortierung);
+  const sortKey: SortKey = (SORT_KEYS as readonly string[]).includes(sortParam ?? "")
+    ? (sortParam as SortKey)
+    : "datum";
+  const sortDir: "asc" | "desc" = param(sp.richtung) === "ab" ? "desc" : "asc";
   const q = param(sp.q)?.slice(0, 100);
   // "Ohne Genehmigung" (from the Übersicht KPI): upcoming planned events whose permits are not all
   // granted. It looks across seasons, like the KPI does.
@@ -117,21 +132,53 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
             r.endsOn >= today && (r.health.permits === "warn" || r.health.permits === "critical"),
         )
       : byStatus;
+  const byVenue = venueId ? byPermit.filter((r) => r.venueId === venueId) : byPermit;
+  const venueFilterName = venueId ? fetchedAll.find((r) => r.venueId === venueId)?.venueName : null;
   const counts: Record<string, number> = {};
-  for (const r of byPermit) counts[r.typeKey] = (counts[r.typeKey] ?? 0) + 1;
-  const rows = typeKey ? byPermit.filter((r) => r.typeKey === typeKey) : byPermit;
-  const total = byPermit.length;
+  for (const r of byVenue) counts[r.typeKey] = (counts[r.typeKey] ?? 0) + 1;
+  const typeName = (r: { typeNameDe: string; typeNameEn: string }) =>
+    locale === "en" ? r.typeNameEn : r.typeNameDe;
+  const byDate = (a: { startsOn: string; name: string }, b: { startsOn: string; name: string }) =>
+    a.startsOn.localeCompare(b.startsOn) || a.name.localeCompare(b.name, locale);
+  const compare: Record<
+    SortKey,
+    (a: (typeof byVenue)[number], b: (typeof byVenue)[number]) => number
+  > = {
+    datum: byDate,
+    name: (a, b) => a.name.localeCompare(b.name, locale) || byDate(a, b),
+    art: (a, b) => typeName(a).localeCompare(typeName(b), locale) || byDate(a, b),
+    ort: (a, b) => a.venueName.localeCompare(b.venueName, locale) || byDate(a, b),
+    status: (a, b) =>
+      EVENT_STATUSES.indexOf(a.status) - EVENT_STATUSES.indexOf(b.status) || byDate(a, b),
+  };
+  const rows = (typeKey ? byVenue.filter((r) => r.typeKey === typeKey) : byVenue).toSorted(
+    (a, b) => (sortDir === "desc" ? -1 : 1) * compare[sortKey](a, b),
+  );
+  const total = byVenue.length;
+  const sortBy = (key: SortKey) => ({
+    href: hrefWith(PATH, sp, {
+      sortierung: key === "datum" ? undefined : key,
+      richtung: key === sortKey && sortDir === "asc" ? "ab" : undefined,
+      vorschau: undefined,
+    }),
+    dir: key === sortKey ? sortDir : null,
+  });
+  const [venueOptions, typeOptions] = canWriteEvents
+    ? await Promise.all([listVenueOptions(), listEventTypeOptions()])
+    : [[], []];
+  const typeChoices = typeOptions.map((x) => ({
+    id: x.id,
+    name: locale === "en" ? x.nameEn : x.nameDe,
+  }));
   const planned = rows.filter((r) => r.status === "planned").length;
   const vorschauId = param(sp.vorschau);
-  const canWrite = can(actor.role, "event", "write");
+  const canWrite = canWriteEvents;
   const generating = canWrite && param(sp.erzeugen) === "1";
   // "Neuen Markt anlegen" needs template:write on top of event:write.
   const canCreateMarket = generating && can(actor.role, "template", "write");
   const marketOptions = canCreateMarket
     ? { types: await listEventTypeOptions(), venues: await listVenueOptions() }
     : undefined;
-  const typeName = (r: { typeNameDe: string; typeNameEn: string }) =>
-    locale === "en" ? r.typeNameEn : r.typeNameDe;
   // The active filters as text for the phone's "Filter" button (the search text is visible anyway).
   const activeType = typeKey ? types.find((x) => x.key === typeKey) : undefined;
   const filterSummary = [
@@ -148,6 +195,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                 financeHidden && statusKey === "completed" ? t("statusOver") : tStatus(statusKey),
             }),
     openPermits ? t("permitFilter.open") : null,
+    venueFilterName ?? null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -186,6 +234,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
       {/* Phones: search stays visible, season/status and the type chips sit behind one "Filter" button. */}
       <form method="get" action={PATH} className="flex flex-wrap items-center gap-x-2 gap-y-3">
         {typeKey && <input type="hidden" name="art" value={typeKey} />}
+        {venueId && <input type="hidden" name="ort" value={venueId} />}
         <label className="sr-only" htmlFor="q">
           {t("search")}
         </label>
@@ -252,6 +301,18 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                 ))}
               </FilterChips>
             </FilterGroup>
+            {venueId && (
+              <FilterGroup label={t("cols.venue")}>
+                <FilterChips>
+                  <FilterChip
+                    href={hrefWith(PATH, sp, { ort: undefined, vorschau: undefined })}
+                    active
+                  >
+                    {venueFilterName ?? t("venueUnknown")}
+                  </FilterChip>
+                </FilterChips>
+              </FilterGroup>
+            )}
             {openPermits && (
               <FilterGroup label={t("permitFilter.label")}>
                 <FilterChips>
@@ -301,11 +362,11 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
               <THead className="max-sm:sr-only">
                 <tr>
                   <TH className="w-14">{t("cols.week")}</TH>
-                  <TH>{t("cols.date")}</TH>
-                  <TH>{t("cols.event")}</TH>
-                  <TH>{t("cols.type")}</TH>
-                  <TH>{t("cols.venue")}</TH>
-                  <TH>{t("cols.status")}</TH>
+                  <TH sort={sortBy("datum")}>{t("cols.date")}</TH>
+                  <TH sort={sortBy("name")}>{t("cols.event")}</TH>
+                  <TH sort={sortBy("art")}>{t("cols.type")}</TH>
+                  <TH sort={sortBy("ort")}>{t("cols.venue")}</TH>
+                  <TH sort={sortBy("status")}>{t("cols.status")}</TH>
                   {isModuleVisible("estimates") && (
                     <TH className="text-right">{t("cols.effort")}</TH>
                   )}
@@ -320,7 +381,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                   const peek = hrefWith(PATH, sp, { vorschau: r.id, erzeugen: undefined });
                   const month = r.startsOn.slice(0, 7);
                   const header =
-                    month !== openMonth ? (
+                    sortKey === "datum" && month !== openMonth ? (
                       <TGroup colSpan={columns}>
                         {formatMonth(r.startsOn, locale)} ·{" "}
                         {t("groupCount", { count: perMonth.get(month) ?? 0 })}
@@ -369,7 +430,21 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                           className="max-w-64 truncate max-sm:col-start-3 max-sm:row-start-2 max-sm:h-auto max-sm:min-w-0 max-sm:max-w-none max-sm:p-0 max-sm:text-small max-sm:text-muted-foreground max-sm:before:mr-2 max-sm:before:content-['·']"
                           title={r.venueName}
                         >
-                          {r.venueName}
+                          <Link
+                            href={
+                              hrefWith(PATH, sp, { ort: r.venueId, vorschau: undefined }) as never
+                            }
+                            scroll={false}
+                            tabIndex={-1}
+                            title={t("venueOnly", { name: r.venueName })}
+                            className="inline-flex max-w-full items-center gap-1 rounded-md bg-surface-2 px-1.5 py-0.5 text-small hover:bg-hover hover:underline max-sm:bg-transparent max-sm:p-0"
+                          >
+                            <MapPin
+                              aria-hidden
+                              className="size-3.5 shrink-0 text-muted-foreground"
+                            />
+                            <span className="truncate">{r.venueName}</span>
+                          </Link>
                         </TD>
                         <TD className="max-sm:col-start-4 max-sm:row-start-1 max-sm:h-auto max-sm:p-0">
                           <EventStatusBadge status={r.status} />
@@ -379,7 +454,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                             –
                           </TD>
                         )}
-                        <TD className="w-20 max-sm:hidden">
+                        <TD className="w-24 max-sm:hidden">
                           <RowActions>
                             <Link
                               href={peek as never}
@@ -390,6 +465,24 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                             >
                               <Eye className="size-4" />
                             </Link>
+                            {canWrite && (
+                              <EventActions
+                                eventId={r.id}
+                                eventName={r.name}
+                                status={r.status}
+                                startsOn={r.startsOn}
+                                canMove={canMoveEvent(r.status)}
+                                venues={venueOptions}
+                                types={typeChoices}
+                                basics={{
+                                  name: r.name,
+                                  durationDays: daysBetween(r.startsOn, r.endsOn) + 1,
+                                  venueId: r.venueId,
+                                  eventTypeId: r.eventTypeId,
+                                }}
+                                triggerClassName="grid size-7 cursor-pointer place-items-center rounded-md text-foreground-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
+                              />
+                            )}
                           </RowActions>
                         </TD>
                       </LinkRow>
