@@ -101,6 +101,9 @@
 | 2026-11-03 (user test, UT-08) | Tasks in the Kalender | **Aufgaben layer removed.** Research 11 D6 |
 | 2026-11-03 (user test, UT-10) | "Market paid" | A **"Bezahlt" toggle on the permit / use-rights requirement**, stored as a `payable` (`permit_id`, category location/permit) with a paid instalment, so no Finanzen UI is needed. Shown on the event, in Genehmigungen and as a Kalender marker; audited. Research 11 D7 |
 | 2026-11-03 (user test, UT-14) | One-click event status | "⋯" menu in the Veranstaltungen list and a clickable status on the event page: **Entwurf / geplant / bestätigt** only. Absagen stays a separate, deliberate action. Research 11 D8 |
+| 2026-11-03 (handwritten notes) | Dropped notes | Not built: everything about the global **Board** (being removed), incl. "Übersicht like Board (columns)" and "Wochenübersicht"; task drag & drop "from all heights"; tag colours and subtask tags; a **map** on Orte; moving Genehmigungen to events / one permit per event (cadence stays). Plan: `docs/superpowers/plans/2026-11-03-handwritten-notes.md` |
+| 2026-11-03 (handwritten notes) | Events over several years | A rule creates **separate events per date for several years ahead** (max 3), not one record spanning years. Plan HN-14 |
+| 2026-11-03 (handwritten notes) | "Passwort vergessen" | **Postponed**: the deployed dev app has no SMTP yet. When built, the reset mail is **sent directly** over SMTP, not via the `outbound_message` queue (no stored link, no 5-minute delay, independent of `email_enabled`). Plan HN-01 |
 | 2026-10-22 (client feedback) | Postponed | Aussteller data-collection companion; weekly report email; finance; staff assignment and staff emails; website publishing |
 
 ## Open: product owner
