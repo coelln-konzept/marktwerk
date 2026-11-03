@@ -191,7 +191,7 @@ test('Event page: one "…" menu holds Bearbeiten, Verschieben and Status änder
   await expect(page.getByRole("dialog", { name: "Name, Dauer und Ort" })).toBeHidden();
 });
 
-test("Task drawer: Erledigt and Wartet are buttons, the other states sit in a menu", async ({
+test("Task drawer: Erledigt and Wartet are buttons, the status badge opens every state", async ({
   page,
 }) => {
   await page.goto("/veranstaltungen?saison=2026");
@@ -208,11 +208,18 @@ test("Task drawer: Erledigt and Wartet are buttons, the other states sit in a me
   await expect(drawer.getByRole("button", { name: "Wartet", exact: true })).toBeVisible();
   // An open task offers no "Wieder öffnen"; that one belongs to finished tasks only.
   await expect(drawer.getByRole("button", { name: "Wieder öffnen" })).toHaveCount(0);
-  await expect(drawer.getByText(/Status:/)).toBeVisible();
-  await drawer.getByRole("button", { name: "Weitere Status" }).click();
+  // The status badge itself opens every status; the current one is marked and can't be picked again.
+  await drawer.getByRole("button", { name: /^Status ändern \(jetzt: / }).click();
   const menu = page.getByRole("menu");
-  for (const entry of ["In Arbeit", "Blockiert", "Übersprungen"])
-    await expect(menu.getByRole("menuitem", { name: entry })).toBeVisible();
+  for (const entry of ["Offen", "In Arbeit", "Wartet", "Blockiert", "Übersprungen", "Erledigt"])
+    await expect(menu.getByRole("menuitem", { name: entry, exact: true })).toBeVisible();
+  // Picking one applies it at once; the badge then names it, and the menu takes it back to Offen.
+  await menu.getByRole("menuitem", { name: "In Arbeit", exact: true }).click();
+  const badge = drawer.getByRole("button", { name: "Status ändern (jetzt: In Arbeit)" });
+  await expect(badge).toBeVisible();
+  await badge.click();
+  await page.getByRole("menu").getByRole("menuitem", { name: "Offen", exact: true }).click();
+  await expect(drawer.getByRole("button", { name: "Status ändern (jetzt: Offen)" })).toBeVisible();
   await page.keyboard.press("Escape");
   // The carried-over count and the origin are not shown; the footer hint is gone.
   await expect(drawer.getByText("übertragen")).toHaveCount(0);

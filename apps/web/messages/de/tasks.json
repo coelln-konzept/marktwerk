@@ -200,7 +200,7 @@
     "statusToggle": {
       "waiting": "Wartet"
     },
-    "statusMore": "Weitere Status",
+    "statusChange": "Status ändern (jetzt: {status})",
     "statusReopen": "Wieder offen",
     "reopen": "Wieder öffnen",
     "removedFromTemplate": "Nicht mehr in der Vorlage",

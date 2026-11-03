@@ -200,7 +200,7 @@
     "statusToggle": {
       "waiting": "Waiting"
     },
-    "statusMore": "More statuses",
+    "statusChange": "Change status (now: {status})",
     "statusReopen": "Open again",
     "reopen": "Reopen",
     "removedFromTemplate": "No longer in the template",

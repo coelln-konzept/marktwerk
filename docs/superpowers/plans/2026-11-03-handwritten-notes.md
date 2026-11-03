@@ -111,7 +111,11 @@ Reopening never asks. Rows that disappear on done (Übersicht) only ever show th
 
 **Done when:** a grep for `CircleCheck` done buttons outside `TaskTick` finds none, and the smoke suite passes.
 
-### WP3: Status badge opens all statuses (HN-04)
+### WP3: Status badge opens all statuses (HN-04) (done 2026-11-03)
+
+> Built: the "Status:" badge in the drawer is the menu trigger (all six statuses, also for finished tasks);
+> the "⋯" status button is gone. Erledigt and Wartet keep their own buttons. E2E: "Task drawer: Erledigt and
+> Wartet are buttons, the status badge opens every state".
 
 **Files:**
 - Modify: `apps/web/src/components/task/task-drawer.tsx:53` (`MENU_STATUSES` → all statuses), `:287-323`
