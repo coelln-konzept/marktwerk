@@ -1,5 +1,5 @@
 import { can } from "@marktwerk/core";
-import { Check, FileCheck2, Pencil } from "lucide-react";
+import { ArrowRight, Check, FileCheck2, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,6 +11,7 @@ import { EventStatusBadge } from "@/components/events/event-status";
 import { RequirementsSection } from "@/components/permits/requirements-section";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
+import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { addressLine, MailLink, PhoneLink } from "@/components/ui/phone";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
@@ -102,6 +103,91 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
           {tp("venuePermits")}
         </Link>
       )}
+
+      {/* The two boxes of the handwritten notes (HN-15): what happens here, and the markets held here. */}
+      <KeyboardRows className="grid gap-6 lg:grid-cols-2">
+        {showEvents && (
+          <Panel className="overflow-hidden">
+            <PanelHeader>
+              <PanelTitle>
+                {td("events")}
+                <span className="ml-2 font-normal text-muted-foreground text-small tabular">
+                  {events.upcoming.length}
+                </span>
+              </PanelTitle>
+              <Link
+                href={`/veranstaltungen?ort=${venue.id}&status=alle` as never}
+                className="inline-flex items-center gap-1 font-medium text-accent-soft-foreground text-small hover:underline"
+              >
+                {td("allEvents")}
+                <ArrowRight aria-hidden className="size-3.5" />
+              </Link>
+            </PanelHeader>
+            <EventGroup
+              title={td("upcoming")}
+              empty={td("noUpcoming")}
+              events={events.upcoming}
+              locale={locale}
+            />
+            <EventGroup
+              title={td("recent")}
+              empty={td("noRecent")}
+              events={events.recent}
+              locale={locale}
+              more={{
+                href: `/archiv/veranstaltungen?q=${encodeURIComponent(venue.name)}`,
+                label: td("inArchive"),
+              }}
+            />
+          </Panel>
+        )}
+
+        {showPresets && (
+          <Panel className="overflow-hidden self-start">
+            <PanelHeader>
+              <PanelTitle>
+                {td("presets")}
+                <span className="ml-2 font-normal text-muted-foreground text-small tabular">
+                  {venuePresets.length}
+                </span>
+              </PanelTitle>
+            </PanelHeader>
+            {venuePresets.length === 0 ? (
+              <PanelBody className="text-muted-foreground">{td("noPresets")}</PanelBody>
+            ) : (
+              <ul className="m-0 list-none p-0">
+                {venuePresets.map((p) => {
+                  const href = `/einstellungen/bibliothek?vorschau=${p.id}`;
+                  return (
+                    <li
+                      key={p.id}
+                      data-row
+                      data-href={href}
+                      // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter (KeyboardRows)
+                      tabIndex={0}
+                      className="flex cursor-pointer flex-wrap items-center justify-between gap-2 border-border-subtle border-b px-4 py-2.5 last:border-b-0 hover:bg-hover focus-visible:bg-selected focus-visible:outline-hidden"
+                    >
+                      <div className="min-w-0">
+                        <Link
+                          href={href as never}
+                          tabIndex={-1}
+                          className="font-semibold text-accent-soft-foreground hover:underline"
+                        >
+                          {p.name}
+                        </Link>
+                        <p className="text-muted-foreground text-small">
+                          {rruleText(p.rrule, locale)}
+                        </p>
+                      </div>
+                      <PresetStatusBadge active={p.active} />
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
+        )}
+      </KeyboardRows>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel>
@@ -296,61 +382,6 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
         )}
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {showEvents && (
-          <Panel className="overflow-hidden">
-            <PanelHeader>
-              <PanelTitle>{td("events")}</PanelTitle>
-            </PanelHeader>
-            <EventGroup
-              title={td("upcoming")}
-              empty={td("noUpcoming")}
-              events={events.upcoming}
-              locale={locale}
-            />
-            <EventGroup
-              title={td("recent")}
-              empty={td("noRecent")}
-              events={events.recent}
-              locale={locale}
-            />
-          </Panel>
-        )}
-
-        {showPresets && (
-          <Panel className="overflow-hidden self-start">
-            <PanelHeader>
-              <PanelTitle>{td("presets")}</PanelTitle>
-            </PanelHeader>
-            {venuePresets.length === 0 ? (
-              <PanelBody className="text-muted-foreground">{td("noPresets")}</PanelBody>
-            ) : (
-              <ul className="m-0 list-none p-0">
-                {venuePresets.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex flex-wrap items-center justify-between gap-2 border-border-subtle border-b px-4 py-2.5 last:border-b-0"
-                  >
-                    <div className="min-w-0">
-                      <Link
-                        href={`/einstellungen/bibliothek?vorschau=${p.id}` as never}
-                        className="font-semibold text-accent-soft-foreground hover:underline"
-                      >
-                        {p.name}
-                      </Link>
-                      <p className="text-muted-foreground text-small">
-                        {rruleText(p.rrule, locale)}
-                      </p>
-                    </div>
-                    <PresetStatusBadge active={p.active} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-        )}
-      </div>
-
       <AgreementsSection venueId={id} />
       <RequirementsSection venueId={id} />
     </Page>
@@ -376,11 +407,14 @@ async function EventGroup({
   empty,
   events,
   locale,
+  more,
 }: {
   title: string;
   empty: string;
   events: VenueEvent[];
   locale: string;
+  /** A link after the group (the Archiv for past events). */
+  more?: { href: string; label: string };
 }) {
   const td = await getTranslations("venues.detail");
   return (
@@ -404,13 +438,20 @@ async function EventGroup({
           </thead>
           <tbody>
             {events.map((e) => (
-              <TR key={e.id}>
+              <TR
+                key={e.id}
+                data-row
+                data-href={`/veranstaltungen/${e.id}`}
+                tabIndex={0}
+                className="cursor-pointer focus-visible:bg-selected focus-visible:outline-hidden"
+              >
                 <TD className="tabular whitespace-nowrap font-semibold">
                   {formatDateRange(e.startsOn, e.endsOn, locale)}
                 </TD>
                 <TD>
                   <Link
                     href={`/veranstaltungen/${e.id}` as never}
+                    tabIndex={-1}
                     className="font-medium text-accent-soft-foreground hover:underline"
                   >
                     {e.name}
@@ -423,6 +464,15 @@ async function EventGroup({
             ))}
           </tbody>
         </Table>
+      )}
+      {more && events.length > 0 && (
+        <Link
+          href={more.href as never}
+          className="flex items-center gap-1 border-border-subtle border-t px-4 py-2 font-medium text-accent-soft-foreground text-small hover:underline"
+        >
+          {more.label}
+          <ArrowRight aria-hidden className="size-3.5" />
+        </Link>
       )}
     </div>
   );

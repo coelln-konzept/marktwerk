@@ -1,7 +1,10 @@
+import { can } from "@marktwerk/core";
 import { FileCheck2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
+import { NewTaskButton } from "@/components/board/new-task-dialog";
+import { NewPermitDialog } from "@/components/permits/new-permit-dialog";
 import { PermitDrawer } from "@/components/permits/permit-drawer";
 import { PermitStateBadge } from "@/components/permits/permit-state-badge";
 import { formatPermitTitle } from "@/components/permits/permit-title";
@@ -12,11 +15,13 @@ import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate, todayIn } from "@/lib/format";
+import { isModuleHidden } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { getActor } from "@/server/actor";
 import { getEvent } from "@/server/queries/events";
 import { listEventPermits } from "@/server/queries/permits";
+import { listStaffOptions } from "@/server/queries/tasks";
 import { requirePermission } from "@/server/session";
 
 // No own title: like the other tabs it inherits "<Name> · marktwerk" from the event layout.
@@ -24,7 +29,8 @@ import { requirePermission } from "@/server/session";
 /**
  * Tab "Genehmigungen": the permits this event needs (`event_permit`) with their state; the whole row opens the
  * permit in its drawer right here (`?genehmigung=<id>`), so the event stays in view. Permits are created by the
- * venue's requirements when the event is made.
+ * venue's requirements when the event is made; "Genehmigung anlegen" adds one for this event only and
+ * "+ Aufgabe" a task of the category Genehmigungen (handwritten notes HN-16).
  */
 export default async function EventPermitsPage({
   params,
@@ -45,6 +51,33 @@ export default async function EventPermitsPage({
   const level = permits.health ?? "none";
   const none = <span className="text-faint-foreground">–</span>;
   const path = `/veranstaltungen/${event.id}/genehmigungen`;
+  const canWritePermits = can(actor.role, "permit", "write");
+  const canWriteTasks = can(actor.role, "task", "write");
+  const staff = canWriteTasks ? await listStaffOptions() : [];
+  const today = todayIn();
+  const adders =
+    canWritePermits || canWriteTasks ? (
+      <span className="flex flex-wrap items-center gap-2">
+        {canWriteTasks && (
+          <NewTaskButton
+            eventId={event.id}
+            staff={staff}
+            canAssign={!isModuleHidden("team") && can(actor.role, "task", "assign")}
+            today={today}
+            defaultCategory="permits"
+            shortcut={false}
+            openPath={`/veranstaltungen/${event.id}`}
+          />
+        )}
+        {canWritePermits && (
+          <NewPermitDialog
+            venues={[{ id: event.venue.id, name: event.venue.name }]}
+            defaultSeason={Number(event.startsOn.slice(0, 4))}
+            forEvent={{ id: event.id, venueId: event.venue.id, path }}
+          />
+        )}
+      </span>
+    ) : null;
   const drawer = drawerId ? (
     <PermitDrawer id={drawerId} closeHref={hrefWith(path, sp, { genehmigung: undefined })} />
   ) : null;
@@ -57,12 +90,15 @@ export default async function EventPermitsPage({
           title={t("empty")}
           hint={t("emptyHint", { venue: event.venue.name })}
         >
-          <Link
-            href={`/orte/${event.venue.id}` as never}
-            className={buttonVariants({ variant: "outline" })}
-          >
-            {t("emptyAction")}
-          </Link>
+          <span className="flex flex-wrap items-center justify-center gap-2">
+            {adders}
+            <Link
+              href={`/orte/${event.venue.id}` as never}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              {t("emptyAction")}
+            </Link>
+          </span>
         </EmptyState>
       </Panel>
     );
@@ -88,6 +124,7 @@ export default async function EventPermitsPage({
             >
               {t("logbook")}
             </Link>
+            {adders}
           </span>
         </PanelHeader>
         <KeyboardRows>

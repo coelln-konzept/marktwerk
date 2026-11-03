@@ -470,6 +470,50 @@ test("Archiv: past events only, newest first; Als Vorlage speichern opens the pr
   await expect(page).not.toHaveURL(/vorlage=/);
 });
 
+test("Ort page: events and markets are the first two boxes; Alle Veranstaltungen opens the filtered list", async ({
+  page,
+}) => {
+  await page.goto("/orte");
+  await page.locator("tbody tr[data-href]").first().click();
+  await expect(page).toHaveURL(/\/orte\/[0-9a-f-]{36}$/);
+  const events = page.getByRole("heading", { name: /^Veranstaltungen an diesem Ort/ });
+  const markets = page.getByRole("heading", { name: /^Märkte an diesem Ort/ });
+  const address = page.getByRole("heading", { name: "Adresse & Zufahrt" });
+  await expect(events).toBeVisible();
+  await expect(markets).toBeVisible();
+  // Above the address and zones.
+  expect((await events.boundingBox())?.y ?? 0).toBeLessThan((await address.boundingBox())?.y ?? 0);
+  await page.getByRole("link", { name: "Alle Veranstaltungen" }).click();
+  await expect(page).toHaveURL(/\/veranstaltungen\?ort=[0-9a-f-]{36}&status=alle/);
+});
+
+test("Event Genehmigungen tab: add a permit for this event (undo removes it) and a task", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/genehmigungen`);
+  await page.waitForLoadState("networkidle");
+  // The task button starts in the category Genehmigungen and has no C hint (C stays "+ Neu").
+  await expect(page.getByRole("button", { name: "Aufgabe", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Aufgabe", exact: true }).click();
+  const taskDialog = page.getByRole("dialog", { name: "Neue Aufgabe" });
+  await expect(taskDialog.getByLabel("Kategorie")).toHaveValue("permits");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Genehmigung anlegen" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Ort")).toBeDisabled();
+  const title = `E2E Lärmschutz ${Date.now()}`;
+  await dialog.getByLabel("Bezeichnung").fill(title);
+  await dialog.getByRole("button", { name: "Anlegen", exact: true }).click();
+  // It opens in this tab's drawer and is listed for this event.
+  await expect(page).toHaveURL(/\/genehmigungen\?genehmigung=/);
+  await expect(page.locator("tbody").getByText(title)).toBeVisible();
+  await toastUndo(page).click();
+  await expect(page.locator("tbody").getByText(title)).toHaveCount(0);
+});
+
 test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
   page,
 }) => {

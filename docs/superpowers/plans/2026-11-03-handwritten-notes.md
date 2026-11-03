@@ -221,14 +221,20 @@ if the event's tasks were edited by hand, the preset uses the event's current ta
 **Behaviour:** Creates separate events per date (decided), grouped in the preview by year. Same
 warnings as today (holidays, weekend cap, venue booked). Permits follow their cadence as usual.
 
-### WP10: Ort detail with event and preset cards (HN-15)
+### WP10: Ort detail with event and preset cards (HN-15) (done 2026-11-03)
+
+> The two boxes existed at the bottom; they moved to the top, rows became whole-row links, and "Alle
+> Veranstaltungen →" (`/veranstaltungen?ort=`) and "Ältere im Archiv →" were added.
 
 **Files:**
 - Modify: `apps/web/src/app/(app)/orte/[id]/page.tsx:306-350, 380-420` (two card sections: "Veranstaltungen"
   (upcoming first, past collapsed) → `/veranstaltungen/<id>`; "Märkte" (presets) → preset Vorschau)
 - Reuse: the event card style from the Übersicht if it fits, otherwise `Panel` + `LinkRow`
 
-### WP11: Add a permit or task from the event's Genehmigungen tab (HN-16)
+### WP11: Add a permit or task from the event's Genehmigungen tab (HN-16) (done 2026-11-03)
+
+> `createPermit` takes `eventId` (same venue, not cancelled; linked in the same transaction, audited);
+> `NewPermitDialog forEvent`; `NewTaskButton` gained `defaultCategory`, `shortcut` and `openPath`.
 
 **Files:**
 - Modify: `apps/web/src/app/(app)/veranstaltungen/[id]/genehmigungen/page.tsx:24-66` (buttons "Genehmigung hinzufügen" and "Aufgabe hinzufügen")

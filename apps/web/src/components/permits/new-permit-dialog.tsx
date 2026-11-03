@@ -27,14 +27,17 @@ const FIELD_OF: Record<string, Field> = {
  * "Genehmigung anlegen" for a permit no requirement produced. Six fields, so a modal. Creating shows an
  * undo toast (undo removes it from the logbook again) and opens the new permit in the drawer. The season
  * starts as the one of the next market that needs a permit (`defaultSeason`); a refused input puts the
- * focus on the field that is wrong.
+ * focus on the field that is wrong. With `forEvent` (the event's Genehmigungen tab, HN-16) the venue is the
+ * event's, the new permit is linked to the event and opens in the tab's drawer.
  */
 export function NewPermitDialog({
   venues,
   defaultSeason,
+  forEvent,
 }: {
   venues: { id: string; name: string }[];
   defaultSeason: number;
+  forEvent?: { id: string; venueId: string; path: string };
 }) {
   const t = useTranslations("logbook");
   const tTypes = useTranslations("permitTypes");
@@ -77,7 +80,7 @@ export function NewPermitDialog({
   }
 
   function openDialog() {
-    setVenueId("");
+    setVenueId(forEvent?.venueId ?? "");
     setTitle("");
     setSeason(String(defaultSeason));
     setApplyBy("");
@@ -99,6 +102,7 @@ export function NewPermitDialog({
         title: title.trim() === "" ? tTypes(permitType) : title,
         season: season.trim() === "" ? null : Number(season),
         applyBy: applyBy === "" ? null : applyBy,
+        eventId: forEvent?.id ?? null,
       });
       if (!result.ok) return fail(result.error);
       setOpen(false);
@@ -111,7 +115,11 @@ export function NewPermitDialog({
           showToast({ message: t("toast.createdUndone") });
         },
       });
-      router.push(`/genehmigungen?genehmigung=${id}` as never);
+      router.push(
+        (forEvent
+          ? `${forEvent.path}?genehmigung=${id}`
+          : `/genehmigungen?genehmigung=${id}`) as never,
+      );
     });
   }
 
@@ -144,6 +152,7 @@ export function NewPermitDialog({
               ref={fields.venue}
               value={venueId}
               onChange={(e) => setVenueId(e.target.value)}
+              disabled={!!forEvent}
               className={SELECT_CLASS}
               aria-invalid={error === "invalid_venue" || undefined}
             >

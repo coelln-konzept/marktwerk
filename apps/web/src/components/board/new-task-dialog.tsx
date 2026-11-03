@@ -39,6 +39,9 @@ export function NewTaskButton({
   canAssign,
   today,
   urlOnly = false,
+  defaultCategory = "general",
+  shortcut = true,
+  openPath,
 }: {
   /** Fixed event (event board). */
   eventId?: string;
@@ -48,6 +51,12 @@ export function NewTaskButton({
   canAssign: boolean;
   today: string;
   urlOnly?: boolean;
+  /** The category the form starts with (the Genehmigungen tab: "permits"). */
+  defaultCategory?: Category;
+  /** The C shortcut (and its key hint); off where the top bar's C ("+ Neu") must keep it. */
+  shortcut?: boolean;
+  /** The page whose task drawer shows the new task (`<path>?aufgabe=<id>`); default: this page. */
+  openPath?: string;
 }) {
   const t = useTranslations("tasks.create");
   const tCat = useTranslations("tasks.categories");
@@ -64,7 +73,7 @@ export function NewTaskButton({
   const [forEvent, setForEvent] = useState(eventId ?? "");
   const [due, setDue] = useState("");
   const [hours, setHours] = useState("");
-  const [category, setCategory] = useState<Category>("general");
+  const [category, setCategory] = useState<Category>(defaultCategory);
   const [assignee, setAssignee] = useState("");
   const [description, setDescription] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
@@ -119,7 +128,7 @@ export function NewTaskButton({
   const openRef = useRef(openDialog);
   openRef.current = openDialog;
   useEffect(() => {
-    if (urlOnly) return;
+    if (urlOnly || !shortcut) return;
     function onKey(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== "c" || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
@@ -129,13 +138,13 @@ export function NewTaskButton({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [urlOnly]);
+  }, [urlOnly, shortcut]);
 
   function reset() {
     setTitle("");
     setDue("");
     setHours("");
-    setCategory("general");
+    setCategory(defaultCategory);
     setAssignee("");
     setDescription("");
     setError(null);
@@ -182,9 +191,11 @@ export function NewTaskButton({
       reset();
       showToast({ message: t("created", { title: title.trim() }) });
       router.push(
-        (urlOnly && forEvent
-          ? `/veranstaltungen/${forEvent}?aufgabe=${result.data.id}`
-          : drawer.open(result.data.id)) as never,
+        (openPath
+          ? `${openPath}?aufgabe=${result.data.id}`
+          : urlOnly && forEvent
+            ? `/veranstaltungen/${forEvent}?aufgabe=${result.data.id}`
+            : drawer.open(result.data.id)) as never,
       );
     });
   }
@@ -194,10 +205,10 @@ export function NewTaskButton({
   return (
     <>
       {!urlOnly && (
-        <Button variant="default" onClick={() => openDialog()}>
+        <Button variant={shortcut ? "default" : "outline"} onClick={() => openDialog()}>
           <Plus aria-hidden />
           {t("button")}
-          <Kbd className="border-white/40 bg-transparent text-inherit">C</Kbd>
+          {shortcut && <Kbd className="border-white/40 bg-transparent text-inherit">C</Kbd>}
         </Button>
       )}
       <Modal open={open} onOpenChange={changeOpen} title={t("title")} closeLabel={t("cancel")}>

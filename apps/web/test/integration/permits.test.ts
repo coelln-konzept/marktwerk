@@ -9,6 +9,7 @@ import {
   permit,
   permitRequirement,
   task,
+  venue,
 } from "@marktwerk/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -590,6 +591,42 @@ describe("events of a permit", () => {
     await expect(linkEventsToPermit(owner, created.id, [ids[1] as string])).rejects.toMatchObject({
       code: "invalid_event",
     });
+  });
+
+  it("a permit added from the event's Genehmigungen tab is linked to that event at once", async () => {
+    const [eventId] = await generate("2027-05-02", "2027-05-02");
+    const created = await createPermit(owner, {
+      venueId: cat.venue.id,
+      category: "external",
+      permitType: "other",
+      title: "Lärmschutz",
+      season: 2027,
+      applyBy: null,
+      eventId,
+    });
+    const links = await db.select().from(eventPermit).where(eq(eventPermit.permitId, created.id));
+    expect(links).toEqual([expect.objectContaining({ eventId, required: true })]);
+    const [entry] = await db
+      .select({ diff: auditLog.diff })
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "permit.create"), eq(auditLog.entityId, created.id)));
+    expect(entry?.diff).toMatchObject({ eventId });
+    // Only an event at the permit's venue.
+    const [other] = await db
+      .insert(venue)
+      .values({ name: "Anderswo", kind: "outdoor_public", city: "Köln" })
+      .returning();
+    await expect(
+      createPermit(owner, {
+        venueId: other?.id ?? "",
+        category: "city",
+        permitType: "other",
+        title: "Falsch",
+        season: null,
+        applyBy: null,
+        eventId,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_event" });
   });
 
   it("an ad-hoc permit with apply-by gets its task; without it none", async () => {

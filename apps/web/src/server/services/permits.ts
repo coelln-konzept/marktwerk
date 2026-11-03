@@ -545,6 +545,8 @@ export type NewPermitInput = {
   title: string;
   season: number | null;
   applyBy: string | null;
+  /** Added from an event's Genehmigungen tab: linked to that event (same venue) in the same transaction. */
+  eventId?: string | null;
 };
 
 /**
@@ -572,6 +574,24 @@ export async function createPermit(actor: Actor, input: NewPermitInput): Promise
       .from(venue)
       .where(and(eq(venue.id, input.venueId), isNull(venue.archivedAt)));
     if (!place) throw new PermitInputError("invalid_venue");
+    let eventId: string | null = null;
+    if (input.eventId) {
+      const [found] = isUuid(input.eventId)
+        ? await tx
+            .select({ id: event.id })
+            .from(event)
+            .where(
+              and(
+                eq(event.id, input.eventId),
+                eq(event.venueId, place.id),
+                isNull(event.archivedAt),
+                ne(event.status, "cancelled"),
+              ),
+            )
+        : [];
+      if (!found) throw new PermitInputError("invalid_event");
+      eventId = found.id;
+    }
     const [role] = await tx
       .select({ id: dutyRole.id, defaultStaffMemberId: dutyRole.defaultStaffMemberId })
       .from(dutyRole)
@@ -607,9 +627,19 @@ export async function createPermit(actor: Actor, input: NewPermitInput): Promise
         action: "permit.create",
         entityType: "permit",
         entityId: row.id,
-        diff: { source: "manual", venueId: place.id, title, applyBy },
+        diff: {
+          source: "manual",
+          venueId: place.id,
+          title,
+          applyBy,
+          ...(eventId ? { eventId } : {}),
+        },
       },
     ]);
+    if (eventId) {
+      await tx.insert(eventPermit).values({ eventId, permitId: row.id, required: true });
+      await linkPermitTasks(tx, [eventId], actor);
+    }
     return row;
   });
 }
