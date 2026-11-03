@@ -809,7 +809,13 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
   await page.keyboard.press("Space");
 
   // Optimistic: the card shows up in the neighbouring column at once; the undo toast offers to revert.
-  await expect(to.locator(`[data-card="${id}"]`)).toBeVisible();
+  // Long columns show 30 cards before "weitere anzeigen" and the card is sorted in by date, so open the
+  // rest of the column until it is there (the seed grows with the date, so "Diese Woche" can hold more).
+  const moved = to.locator(`[data-card="${id}"]`);
+  const more = to.getByRole("button", { name: /weitere anzeigen/ });
+  await expect(moved.or(more).first()).toBeVisible();
+  while ((await moved.count()) === 0 && (await more.count()) > 0) await more.first().click();
+  await expect(moved).toBeVisible();
   await expect(from.locator(`[data-card="${id}"]`)).toHaveCount(0);
   await toastUndo(page).click();
   await expect(from.locator(`[data-card="${id}"]`)).toBeVisible();
