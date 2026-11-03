@@ -40,6 +40,13 @@ test('Übersicht: the weekend next to Heute & überfällig, Diese Woche below; "
     expect(page.url()).toBe(url);
   }
 
+  // Every market heading carries a visible eye that opens its Vorschau in place (HN-06).
+  const eye = page.getByRole("link", { name: /^Vorschau: / }).first();
+  await expect(eye).toBeVisible();
+  await eye.click();
+  await expect(page).toHaveURL(/[?&]vorschau=/);
+  await page.goto("/");
+
   // No KPI strip (the card headers carry the counts), no season strip, no filter chips, no estimate legend.
   await expect(page.locator('dl[aria-label="Kennzahlen"]')).toHaveCount(0);
   await expect(page.getByText(/^Saison 2026/)).toHaveCount(0);

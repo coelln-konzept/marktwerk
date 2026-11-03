@@ -127,7 +127,12 @@ Reopening never asks. Rows that disappear on done (Übersicht) only ever show th
 Erledigt goes through the same path as the tick (evidence check: missing check items or photo → the
 existing toast). Finished tasks show the menu too (only "Wieder öffnen" and the current state enabled).
 
-### WP4: Übersicht polish (HN-05, HN-06)
+### WP4: Übersicht polish (HN-05, HN-06) (done 2026-11-03)
+
+> Built: `MoreDisclosure` is a bordered button; above `MORE_IN_PLACE_MAX` (10) hidden rows it links to the
+> market's Zusammenfassung ("Was fehlt" lists tasks and permits, the Checkliste only tasks). `PeekLink` eye on the
+> weekend, next-weekend and per-market headings. The deployed app was not checked: the in-place opening
+> (`49e1f92`) is merged, so the note most likely predates it.
 
 **Files:**
 - Modify: `apps/web/src/components/overview/due-groups.tsx:211-229` (`MoreDisclosure`), `components/overview/weekend-card.tsx:128-162`

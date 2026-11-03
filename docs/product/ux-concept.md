@@ -211,7 +211,11 @@ what is due now side by side, the week below. No KPI strip, no season strip.
    Rückmeldung".
 5. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
 In every list a market shows its first 3 items and a group its first 10 markets; **"+ N weitere bei …" / "+ N weitere
-Märkte" open the rest in place** (native disclosure, no navigation). Rows open the task drawer on the Übersicht itself
+Märkte" open the rest in place** (native disclosure, no navigation), drawn as a small bordered button with a chevron
+so it reads as clickable. Past 10 hidden rows of one market it **links to the market's Zusammenfassung** instead
+("Alle N weiteren ansehen →"), so a card never unfolds a hundred rows (HN-05). Every market heading (weekend, next
+weekend, the per-market bundles) carries a **visible eye** that opens its Vorschau in place (`/?vorschau=<id>`, HN-06);
+Space on the row still does the same. Rows open the task drawer on the Übersicht itself
 (`/?aufgabe=<id>`); J/K move (also through opened disclosures), Enter opens.
 
 ### Benachrichtigungen (notification center, decision 2026-10-22)
