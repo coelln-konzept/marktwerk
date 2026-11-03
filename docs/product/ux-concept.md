@@ -266,6 +266,12 @@ Ort – aus Vorlage anlegen"); filtered-empty ("Keine Treffer – Filter zurück
 
 **Feedback:** optimistic + undo toast (5–8 s) for assign, move, tick off, mark paid. Money stays visibly
 "wird gespeichert…" until the server confirms.
+**One exception, ticking off where the task disappears** (user test 2026-11, decision D1): on the Übersicht, in
+Benachrichtigungen, in the event's Zusammenfassung ("Was fehlt") and on the global Board (tick, menu, `E`), "Erledigt"
+first asks in a small dialog ("Aufgabe erledigt?" · "„<Titel>“ als erledigt markieren?" · Abbrechen · Ja, erledigt);
+the undo toast follows as usual. The event Checkliste and the task drawer ask nothing (the task stays visible), and
+neither does a drag or keyboard move into the Erledigt column (a deliberate gesture). Code: `useTaskActions({ confirmDone })`,
+one dialog in the shell (`useShell().confirm`).
 
 **Keyboard map (core):** Strg+K search/commands · `/` filter in list · J/K up/down · Space Vorschau · Enter open ·
 Esc close Vorschau/drawer · `C` create ("+ Neu") · `A` assign · `S` status · `X` done · Ctrl+Z undo last action ·

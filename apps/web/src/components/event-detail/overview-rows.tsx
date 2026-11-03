@@ -64,7 +64,8 @@ export function MissingTaskRow({
 }) {
   const t = useTranslations("eventDetail.overview.missing");
   const { shown, apply } = useOptimisticStatus(task.status);
-  const actions = useTaskActions({ staff: [], apply });
+  // Done rows leave "Was fehlt": ask first (decision D1).
+  const actions = useTaskActions({ staff: [], apply, confirmDone: true });
   const done = shown === "done";
   const date = useDateText(task.dueOn, today);
   const href = taskHref(eventId, task.id);

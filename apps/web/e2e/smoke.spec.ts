@@ -400,8 +400,16 @@ test("Benachrichtigungen: no bell, the page stays; filters, Erledigt and Zurück
   await page.keyboard.press("k");
   await expect(rows.first()).toBeFocused();
 
-  // Erledigt completes the task (own undo toast); the notification resolves with it.
-  await rows.first().getByRole("button", { name: "Erledigt", exact: true }).click();
+  // Erledigt on a task asks first (it leaves the list, decision D1): Abbrechen changes nothing.
+  const task = page.locator("li[data-row][data-task]").first();
+  const confirm = page.getByRole("dialog", { name: "Aufgabe erledigt?" });
+  await task.getByRole("button", { name: "Erledigt", exact: true }).click();
+  await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
+  await expect(confirm).toBeHidden();
+  expect(await open()).toBe(before);
+  // Confirmed, it completes the task (own undo toast); the notification resolves with it.
+  await task.getByRole("button", { name: "Erledigt", exact: true }).click();
+  await confirm.getByRole("button", { name: "Ja, erledigt" }).click();
   await expect(page.getByRole("button", { name: "Rückgängig" })).toBeVisible();
   await expect.poll(open).toBe(before - 1);
   await page.getByRole("button", { name: "Rückgängig" }).click();
@@ -682,6 +690,23 @@ test("Back arrow: returns to the page you came from with its filters, else to th
   await direct.goto(event);
   await direct.getByRole("button", { name: "Zurück", exact: true }).click();
   await expect(direct).toHaveURL(/\/veranstaltungen$/);
+});
+
+test("Übersicht: Erledigt asks first, since the task leaves the list; Abbrechen keeps it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const tick = page.getByRole("button", { name: /als erledigt markieren$/ }).first();
+  const label = await tick.getAttribute("aria-label");
+  await tick.click();
+  const confirm = page.getByRole("dialog", { name: "Aufgabe erledigt?" });
+  await expect(confirm).toBeVisible();
+  await expect(confirm).toContainText("als erledigt markieren?");
+  await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
+  await expect(confirm).toBeHidden();
+  await expect(page.getByRole("button", { name: label ?? "" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Rückgängig" })).toHaveCount(0);
 });
 
 test("Event Checkliste: every task by phase, one line each; ticked rows stay crossed out and untick", async ({

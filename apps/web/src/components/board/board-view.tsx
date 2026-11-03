@@ -141,7 +141,14 @@ export function BoardView(props: Props) {
   const [tasks, apply] = useOptimistic(props.tasks, (state, patch: OptimisticPatch) =>
     applyPatch(state, patch, today),
   );
-  const current = useTaskActions({ staff, scopeEventId: props.scopeEventId, apply });
+  // Across events done cards leave the open columns, so "Erledigt" asks first (decision D1); the
+  // event's Checkliste keeps them in place and asks nothing.
+  const current = useTaskActions({
+    staff,
+    scopeEventId: props.scopeEventId,
+    apply,
+    confirmDone: !props.scopeEventId,
+  });
   // The cards (memoized) get a stable `actions` that calls the current ones, so a change to one card
   // re-renders that card and not all of them.
   const liveRef = useRef(current);

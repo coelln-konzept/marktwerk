@@ -55,22 +55,27 @@ export function useDrawerHrefs() {
 /**
  * Card and drawer actions with their toasts: every change is applied at once, confirmed by an undo
  * toast (UX concept §6: undo instead of asking first) and reverted through the audit entry.
+ * `confirmDone` is the one exception (user test 2026-11, decision D1): where a task leaves the list
+ * once it is done, "Erledigt" asks first; the undo toast stays.
  */
 export function useTaskActions({
   staff,
   scopeEventId,
   apply,
+  confirmDone = false,
 }: {
   staff: Person[];
   /** Event board: the card order is kept per event. */
   scopeEventId?: string | null;
   apply?: (patch: OptimisticPatch) => void;
+  /** Ask before "Erledigt" (lists the task disappears from: Übersicht, Benachrichtigungen, global Board). */
+  confirmDone?: boolean;
 }) {
   const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
   const tShell = useTranslations("errors");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, confirm } = useShell();
   const router = useRouter();
   const drawer = useDrawerHrefs();
   const [pending, startTransition] = useTransition();
@@ -250,18 +255,27 @@ export function useTaskActions({
       task: TaskRef,
       status: TaskStatusKey,
       input: { reason?: string | null; note?: string | null } = {},
-    ) =>
-      run(
-        { kind: "status", id: task.id, status },
-        task,
-        () => setStatusAction(task.id, status, input),
-        status === "done"
-          ? t("toast.done", { title: task.title })
-          : status === "todo" && (task.status === "done" || task.status === "skipped")
-            ? t("toast.reopened", { title: task.title })
-            : t("toast.status", { title: task.title, status: tTasks(`status.${status}`) }),
-      ),
-    [run, t, tTasks],
+    ) => {
+      const go = () =>
+        run(
+          { kind: "status", id: task.id, status },
+          task,
+          () => setStatusAction(task.id, status, input),
+          status === "done"
+            ? t("toast.done", { title: task.title })
+            : status === "todo" && (task.status === "done" || task.status === "skipped")
+              ? t("toast.reopened", { title: task.title })
+              : t("toast.status", { title: task.title, status: tTasks(`status.${status}`) }),
+        );
+      if (!confirmDone || status !== "done") return go();
+      void confirm({
+        title: t("confirmDone.title"),
+        description: t("confirmDone.description", { title: task.title }),
+        confirmLabel: t("confirmDone.confirm"),
+        cancelLabel: t("confirmDone.cancel"),
+      }).then((ok) => ok && go());
+    },
+    [run, t, tTasks, confirmDone, confirm],
   );
 
   /** "Zurückstellen": hides the task from due lists until `until`; the toast offers undo. */

@@ -13,7 +13,8 @@ export type ConfirmOptions = {
 
 /**
  * Asks before a change, for the few cases where an undo toast isn't enough (decided 2026-10-21: edits
- * while an event is happening; name, length or venue of an event). `confirm()` resolves true/false;
+ * while an event is happening; name, length or venue of an event; 2026-11-03: "Erledigt" where the task
+ * disappears, via the shell's one dialog, `useShell().confirm`). `confirm()` resolves true/false;
  * render `dialog` once in the component.
  */
 export function useConfirm() {

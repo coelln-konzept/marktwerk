@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ConfirmOptions, useConfirm } from "@/components/ui/confirm";
 import type { Creatable } from "@/lib/creatable";
 import { UI_STATE_COOKIES, writeUiState } from "@/lib/ui-state";
 
@@ -41,6 +42,8 @@ type Shell = {
   runToastAction: (id: number) => Promise<void>;
   /** Toasts whose action is running. */
   busyToastIds: ReadonlySet<number>;
+  /** One app-wide confirmation dialog (`ui/confirm`), for actions that ask first (e.g. "Erledigt" where the task leaves the list). */
+  confirm: (options: ConfirmOptions) => Promise<boolean>;
 };
 
 /** Toasts that are not errors stay 8 s (UX concept §6: 5–8 s); hover and focus pause the clock. */
@@ -88,6 +91,7 @@ export function ShellProvider({
     writeUiState(UI_STATE_COOKIES.navHidden, hidden);
   }, []);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const { confirm, dialog } = useConfirm();
   const tErrors = useTranslations("errors");
   const [toasts, setToasts] = useState<readonly ToastEntry[]>([]);
   const [busyToastIds, setBusyToastIds] = useState<ReadonlySet<number>>(new Set());
@@ -189,6 +193,7 @@ export function ShellProvider({
       dismissToastById,
       runToastAction,
       busyToastIds,
+      confirm,
     }),
     [
       navOpen,
@@ -202,9 +207,15 @@ export function ShellProvider({
       dismissToastById,
       runToastAction,
       busyToastIds,
+      confirm,
     ],
   );
-  return <ShellContext value={value}>{children}</ShellContext>;
+  return (
+    <ShellContext value={value}>
+      {children}
+      {dialog}
+    </ShellContext>
+  );
 }
 
 export function useShell(): Shell {

@@ -24,7 +24,8 @@ export function TaskQuickActions({
   onDone?: () => void;
 }) {
   const t = useTranslations("eventDetail.overview.missing");
-  const actions = useTaskActions({ staff: [] });
+  // The row leaves "Was fehlt" (and the Bereitschaft panel) once done: ask first (decision D1).
+  const actions = useTaskActions({ staff: [], confirmDone: true });
   return (
     <span className="flex shrink-0 items-center gap-0.5">
       <button

@@ -125,6 +125,12 @@
       "snoozed": "„{title}“ zurückgestellt bis {date}",
       "unsnoozed": "Zurückstellung von „{title}“ aufgehoben"
     },
+    "confirmDone": {
+      "title": "Aufgabe erledigt?",
+      "description": "„{title}“ als erledigt markieren?",
+      "confirm": "Ja, erledigt",
+      "cancel": "Abbrechen"
+    },
     "errors": {
       "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
       "not_found": "Die Aufgabe gibt es nicht mehr oder du siehst sie nicht.",

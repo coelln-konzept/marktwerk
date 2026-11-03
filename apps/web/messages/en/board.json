@@ -125,6 +125,12 @@
       "snoozed": "“{title}” snoozed until {date}",
       "unsnoozed": "Snooze of “{title}” ended"
     },
+    "confirmDone": {
+      "title": "Task done?",
+      "description": "Mark “{title}” as done?",
+      "confirm": "Yes, done",
+      "cancel": "Cancel"
+    },
     "errors": {
       "generic": "That didn't work. Please try again.",
       "not_found": "The task no longer exists or you cannot see it.",
