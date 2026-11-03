@@ -26,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           { kind: "action" as const, title: t("single"), href: "/veranstaltungen/neu" },
         ]
       : []),
-    ...(can("task") ? [{ kind: "action" as const, title: t("task"), href: "/board?neu=1" }] : []),
+    ...(can("task") ? [{ kind: "action" as const, title: t("task"), href: "/?neu=1" }] : []),
     ...(can("payable")
       ? [{ kind: "action" as const, title: t("payable"), href: "/finanzen/neu" }]
       : []),

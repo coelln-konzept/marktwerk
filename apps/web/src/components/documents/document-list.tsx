@@ -4,7 +4,8 @@ import { formatDate } from "@/lib/format";
 import type { DocumentRow } from "@/server/queries/finance";
 import { ArchiveDocumentButton } from "./archive-document-button";
 
-const kb = (bytes: number) =>
+/** "240 KB" / "1.2 MB" (also the Archiv's document list). */
+export const kb = (bytes: number) =>
   bytes >= 1024 * 1024
     ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;

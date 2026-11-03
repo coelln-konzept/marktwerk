@@ -204,6 +204,8 @@
       "events": "Events at this venue",
       "upcoming": "Upcoming",
       "recent": "Recent",
+      "allEvents": "All events",
+      "inArchive": "Older ones in the archive",
       "noUpcoming": "No upcoming events.",
       "noRecent": "No past events yet.",
       "eventsCaption": "Events at this venue",

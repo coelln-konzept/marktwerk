@@ -1,5 +1,6 @@
 import { can } from "@marktwerk/core";
 import {
+  Archive,
   BookOpen,
   CalendarDays,
   CalendarRange,
@@ -52,7 +53,12 @@ export async function AppSidebar({
   ]);
   const daily: Item[] = [
     { href: "/", label: t("overview"), icon: <Home />, visible: true },
-    { href: "/board", label: t("board"), icon: <KanbanSquare />, visible: can(r, "task", "read") },
+    {
+      href: "/board",
+      label: t("board"),
+      icon: <KanbanSquare />,
+      visible: isModuleVisible("globalBoard") && can(r, "task", "read"),
+    },
     {
       href: "/veranstaltungen",
       label: t("events"),
@@ -105,6 +111,12 @@ export async function AppSidebar({
       label: t("knowledgeBase"),
       icon: <BookOpen />,
       visible: can(r, "kb", "read"),
+    },
+    {
+      href: "/archiv",
+      label: t("archive"),
+      icon: <Archive />,
+      visible: can(r, "event", "read"),
     },
     {
       href: "/firma",

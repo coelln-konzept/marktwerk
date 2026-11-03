@@ -8,7 +8,7 @@ import { useState } from "react";
 import { EVENT_STATUS } from "@/lib/status";
 import type { VenueOption } from "@/server/queries/venues";
 import type { EventBasics } from "@/server/services/event-details";
-import { BasicsDialog } from "./basics-dialog";
+import { BasicsDialog, type TypeChoice } from "./basics-dialog";
 import { MoveDialog } from "./move-dialog";
 import { useStatusChange } from "./status-menu";
 
@@ -27,7 +27,9 @@ export function EventActions({
   startsOn,
   basics,
   venues,
+  types,
   canMove,
+  triggerClassName,
 }: {
   eventId: string;
   eventName: string;
@@ -35,7 +37,10 @@ export function EventActions({
   startsOn: string;
   basics: EventBasics;
   venues: VenueOption[];
+  types: TypeChoice[];
   canMove: boolean;
+  /** The list rows use a borderless trigger. */
+  triggerClassName?: string;
 }) {
   const t = useTranslations("eventDetail");
   const tStatus = useTranslations("status.event");
@@ -47,10 +52,13 @@ export function EventActions({
     <>
       <Menu.Root>
         <Menu.Trigger
-          aria-label={t("header.more")}
+          aria-label={t("header.moreFor", { name: eventName })}
           aria-busy={change.pending}
           disabled={change.pending}
-          className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-input bg-card text-foreground-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
+          className={
+            triggerClassName ??
+            "grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-input bg-card text-foreground-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
+          }
         >
           <Ellipsis aria-hidden className="size-4" />
         </Menu.Trigger>
@@ -92,6 +100,7 @@ export function EventActions({
         startsOn={startsOn}
         basics={basics}
         venues={venues}
+        types={types}
         open={basicsOpen}
         onOpenChange={setBasicsOpen}
       />

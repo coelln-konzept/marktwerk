@@ -30,6 +30,7 @@
       },
       "eventCount": "{count} due",
       "moreAtMarket": "+ {count} more at {name}",
+      "moreAtMarketLink": "See all {count} more at {name}",
       "moreMarkets": "{count, plural, one {+ # more market} other {+ # more markets}}",
       "weekSubtitle": "{count, plural, =0 {nothing in the next 7 days} one {# item in the next 7 days, bundled per market} other {# items in the next 7 days, bundled per market}}",
       "weekEmpty": "Nothing is due in the next 7 days."
@@ -55,6 +56,7 @@
       },
       "blockers": "What is holding up {name}",
       "blockersMore": "+ {count} more",
+      "blockersMoreLink": "See all {count} more",
       "permit": "Permit",
       "next": {
         "title": "Next weekend",

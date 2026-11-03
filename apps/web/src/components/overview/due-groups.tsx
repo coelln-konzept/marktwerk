@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   CalendarDays,
   ChevronRight,
   CircleCheck,
@@ -22,6 +23,7 @@ import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { DueItem, DueKind, DueUrgency } from "@/server/queries/due";
 import { itemHref, itemPeek } from "./links";
+import { PeekLink } from "./peek-link";
 
 const KIND_ICONS: Record<DueKind, LucideIcon> = {
   permit: ShieldCheck,
@@ -206,20 +208,38 @@ function DueRow({
 }
 
 const MORE =
-  "inline-flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded-md px-1 font-medium text-muted-foreground text-small hover:text-foreground [&::-webkit-details-marker]:hidden";
+  "inline-flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded-md border border-border-subtle bg-card px-2 font-medium text-foreground-2 text-small hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden";
 
-/** "+ N weitere …": a native disclosure, so the rest opens in place (no navigation, works without JS). */
+/** Up to this many hidden rows open in place; more than that would bury the card, so the button links instead. */
+export const MORE_IN_PLACE_MAX = 10;
+
+/**
+ * "+ N weitere …": a native disclosure, so the rest opens in place (no navigation, works without JS). With
+ * `link` (the caller passes it when more than {@link MORE_IN_PLACE_MAX} rows are hidden) it is a link to the
+ * full list instead, styled the same.
+ */
 export function MoreDisclosure({
   label,
   className,
+  link,
   children,
 }: {
   label: string;
   className?: string;
+  link?: { href: string; label: string };
   children: ReactNode;
 }) {
+  if (link)
+    return (
+      <div className={cn("py-0.5", className)}>
+        <Link href={link.href as never} className={MORE}>
+          {link.label}
+          <ArrowRight aria-hidden className="size-3.5" />
+        </Link>
+      </div>
+    );
   return (
-    <details className={cn("group", className)}>
+    <details className={cn("group py-0.5", className)}>
       <summary className={MORE}>
         <ChevronRight aria-hidden className="size-3.5 transition-transform group-open:rotate-90" />
         {label}
@@ -266,6 +286,7 @@ function MarketCluster({
         <span className="tabular text-muted-foreground text-small">
           · {t("eventCount", { count: items.length })}
         </span>
+        <PeekLink eventId={event.id} name={event.name} className="-my-1 ml-auto" />
       </div>
       <ul className="m-0 flex list-none flex-col p-0 pb-1.5">
         {items.slice(0, DUE_PER_MARKET).map(row)}
@@ -274,6 +295,17 @@ function MarketCluster({
             <MoreDisclosure
               className="pl-7"
               label={t("moreAtMarket", { count: items.length - DUE_PER_MARKET, name: event.name })}
+              link={
+                items.length - DUE_PER_MARKET > MORE_IN_PLACE_MAX
+                  ? {
+                      href: `/veranstaltungen/${event.id}`,
+                      label: t("moreAtMarketLink", {
+                        count: items.length - DUE_PER_MARKET,
+                        name: event.name,
+                      }),
+                    }
+                  : undefined
+              }
             >
               <ul className="m-0 -ml-7 flex list-none flex-col p-0">
                 {items.slice(DUE_PER_MARKET).map(row)}
@@ -315,7 +347,7 @@ export async function DueGroups({
   bandless?: DueUrgency[];
 }) {
   const t = await getTranslations("overview.due");
-  const reserveStar = items.some((i) => i.isKey);
+  const reserveStar = isModuleVisible("keyTasks") && items.some((i) => i.isKey);
   const render = (cluster: Cluster) =>
     cluster.event ? (
       <MarketCluster

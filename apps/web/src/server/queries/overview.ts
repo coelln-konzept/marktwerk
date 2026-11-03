@@ -109,7 +109,9 @@ export async function listDueItems(
     hide.team ? [] : hours.dueItems(actor, today),
     company.dueItems(actor, today),
   ]);
-  return rankDue(feeds.flat(), today);
+  // Hidden Kernaufgaben get no head start in the ranking (lib/modules.ts `keyTasks`).
+  const items = hide.keyTasks ? feeds.flat().map((i) => ({ ...i, isKey: false })) : feeds.flat();
+  return rankDue(items, today);
 }
 
 /**

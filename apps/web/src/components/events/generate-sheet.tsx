@@ -8,6 +8,7 @@ import {
   daysInMonth,
   endsOnFor,
   expandRRule,
+  groupConsecutiveDates,
   holidaysBetween,
   isoDate,
   isoWeek,
@@ -157,6 +158,8 @@ export function GenerateSheet({
     `${nextYear}-${String(rule.fromMonth).padStart(2, "0")}`,
   );
   const [selected, setSelected] = useState<string[]>([]);
+  /** Consecutive picked days become one event (HN-12, UT-16); on by default, a switch in step 2. */
+  const [merge, setMerge] = useState(true);
   /** Dates that exist already but are created anyway ("Doch anlegen"). */
   const [readded, setReaded] = useState<string[]>([]);
   const [lastClicked, setLastClicked] = useState<string | null>(null);
@@ -207,17 +210,36 @@ export function GenerateSheet({
   );
   const skipped = skippedDays.size;
 
+  // What will be created: one event per day, or with `merge` one per run of consecutive days (same rule as
+  // the server). `lengthOf` holds each event's length by its first day; `mergedIn` the days that join one.
+  const plan = useMemo(() => {
+    if (!preset) return [];
+    return merge
+      ? groupConsecutiveDates(toCreate, preset.durationDays)
+      : toCreate.map((startsOn) => ({ startsOn, durationDays: preset.durationDays }));
+  }, [toCreate, preset, merge]);
+  const lengthOf = useMemo(() => new Map(plan.map((p) => [p.startsOn, p.durationDays])), [plan]);
+  const mergedIn = useMemo(
+    () => new Set(toCreate.filter((d) => !lengthOf.has(d))),
+    [toCreate, lengthOf],
+  );
+  /** Merging changes something: two picked days follow each other (or fall into one event). */
+  const canMerge = useMemo(
+    () => !!preset && groupConsecutiveDates(toCreate, preset.durationDays).length < toCreate.length,
+    [toCreate, preset],
+  );
+
   const checks: CandidateCheck[] = useMemo(() => {
     if (!preset) return [];
     return checkCandidates(
-      toCreate.map((d) => ({
+      plan.map((p) => ({
         venueId: preset.venueId,
-        startsOn: d,
-        endsOn: endsOnFor(d, preset.durationDays),
+        startsOn: p.startsOn,
+        endsOn: endsOnFor(p.startsOn, p.durationDays),
       })),
       existing,
     );
-  }, [toCreate, existing, preset]);
+  }, [plan, existing, preset]);
   const checkOf = useMemo(() => new Map(checks.map((c) => [c.startsOn, c])), [checks]);
   const totalWarnings = checks.reduce((sum, c) => sum + candidateWarningCount(c), 0);
 
@@ -249,7 +271,7 @@ export function GenerateSheet({
     }
     let cancelled = false;
     setPreview({ state: "loading" });
-    previewGeneratedEvents(presetId, createKey.split(",")).then(
+    previewGeneratedEvents(presetId, createKey.split(","), merge).then(
       (result) => {
         if (!cancelled)
           setPreview(result.ok ? { state: "ready", data: result.data } : { state: "error" });
@@ -261,7 +283,7 @@ export function GenerateSheet({
     return () => {
       cancelled = true;
     };
-  }, [step, presetId, createKey]);
+  }, [step, presetId, createKey, merge]);
   const previewOf = useMemo(
     () =>
       new Map<string, DatePreview>(
@@ -391,7 +413,7 @@ export function GenerateSheet({
   function submit() {
     setError(null);
     startTransition(async () => {
-      const result = await createEvents(presetId, toCreate);
+      const result = await createEvents(presetId, toCreate, merge);
       if (!result.ok) {
         setError(t(`errors.${result.error}` as "errors.no_dates"));
         return;
@@ -775,6 +797,22 @@ export function GenerateSheet({
                     )}
                     {contextState === "loading" && <span>· {t("context.loading")}</span>}
                   </p>
+                  {canMerge && (
+                    <label className="flex cursor-pointer items-center gap-2 text-foreground text-small">
+                      <input
+                        type="checkbox"
+                        checked={merge}
+                        onChange={(e) => setMerge(e.target.checked)}
+                        className="size-4 accent-primary"
+                      />
+                      {t("merge.label")}
+                      {merge && (
+                        <span className="text-muted-foreground">
+                          · {t("merge.result", { count: plan.length })}
+                        </span>
+                      )}
+                    </label>
+                  )}
                   {contextState === "error" && (
                     <p role="alert" className="flex flex-wrap items-center gap-2 text-status-warn">
                       {t("context.failed")}
@@ -823,7 +861,9 @@ export function GenerateSheet({
                 )}
                 <ul aria-label={t("cols.date")} className="overflow-hidden rounded-lg border">
                   {selected.map((day) => {
-                    const endsOn = endsOnFor(day, preset.durationDays);
+                    // A day that joins the event before it has no row of its own.
+                    if (mergedIn.has(day)) return null;
+                    const endsOn = endsOnFor(day, lengthOf.get(day) ?? preset.durationDays);
                     const dup = existingOfMarket.get(day);
                     const skippedRow = isSkipped(day);
                     const check = checkOf.get(day);
@@ -915,8 +955,11 @@ export function GenerateSheet({
                             className="touch:size-10"
                             aria-label={t("remove", { date: dayLabel })}
                             onClick={() => {
-                              setSelected((s) => s.filter((d) => d !== day));
-                              setReaded((r) => r.filter((d) => d !== day));
+                              // A merged row stands for every picked day up to its end: remove them all.
+                              const gone = (d: string) =>
+                                d === day || (mergedIn.has(d) && d > day && d <= endsOn);
+                              setSelected((s) => s.filter((d) => !gone(d)));
+                              setReaded((r) => r.filter((d) => !gone(d)));
                             }}
                           >
                             <X />
@@ -1000,8 +1043,8 @@ export function GenerateSheet({
                   {pending
                     ? t("creating")
                     : skipped > 0
-                      ? t("createWithSkipped", { count: toCreate.length, skipped })
-                      : t("create", { count: toCreate.length })}
+                      ? t("createWithSkipped", { count: plan.length, skipped })
+                      : t("create", { count: plan.length })}
                 </Button>
               )}
             </div>

@@ -24,7 +24,7 @@
       "spalten": "Columns",
       "person": "By person",
       "arbeitslast": "Workload",
-      "ablauf": "Timeline"
+      "ablauf": "Checklist"
     },
     "filter": {
       "label": "Filter tasks",
@@ -125,6 +125,12 @@
       "snoozed": "“{title}” snoozed until {date}",
       "unsnoozed": "Snooze of “{title}” ended"
     },
+    "confirmDone": {
+      "title": "Task done?",
+      "description": "Mark “{title}” as done?",
+      "confirm": "Yes, done",
+      "cancel": "Cancel"
+    },
     "errors": {
       "generic": "That didn't work. Please try again.",
       "not_found": "The task no longer exists or you cannot see it.",
@@ -202,7 +208,7 @@
         "allOk": "All on track: nothing overdue, no missing permit.",
         "permitMissing": "Permit missing",
         "more": "{count, plural, one {# more task} other {# more tasks}} in the next 7 days",
-        "openOverview": "Open overview"
+        "openOverview": "Open summary"
       }
     },
     "matrix": {
@@ -238,10 +244,10 @@
         "event": "Market day",
         "eventDays": "Market days",
         "after": "After the market",
-        "undated": "No date",
-        "done": "Done"
+        "undated": "No date"
       },
       "count": "{count, plural, one {# task} other {# tasks}}",
+      "countDone": "{done} of {count} done",
       "until": "until {date}",
       "from": "from {date}",
       "today": "today",

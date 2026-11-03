@@ -17,6 +17,7 @@ import {
 } from "@marktwerk/core";
 import { insertNotifications } from "@marktwerk/db";
 import {
+  auditLog,
   contact,
   dutyRole,
   event,
@@ -32,7 +33,7 @@ import {
   templateItem,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, gte, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
@@ -544,6 +545,8 @@ export type NewPermitInput = {
   title: string;
   season: number | null;
   applyBy: string | null;
+  /** Added from an event's Genehmigungen tab: linked to that event (same venue) in the same transaction. */
+  eventId?: string | null;
 };
 
 /**
@@ -571,6 +574,24 @@ export async function createPermit(actor: Actor, input: NewPermitInput): Promise
       .from(venue)
       .where(and(eq(venue.id, input.venueId), isNull(venue.archivedAt)));
     if (!place) throw new PermitInputError("invalid_venue");
+    let eventId: string | null = null;
+    if (input.eventId) {
+      const [found] = isUuid(input.eventId)
+        ? await tx
+            .select({ id: event.id })
+            .from(event)
+            .where(
+              and(
+                eq(event.id, input.eventId),
+                eq(event.venueId, place.id),
+                isNull(event.archivedAt),
+                ne(event.status, "cancelled"),
+              ),
+            )
+        : [];
+      if (!found) throw new PermitInputError("invalid_event");
+      eventId = found.id;
+    }
     const [role] = await tx
       .select({ id: dutyRole.id, defaultStaffMemberId: dutyRole.defaultStaffMemberId })
       .from(dutyRole)
@@ -606,9 +627,19 @@ export async function createPermit(actor: Actor, input: NewPermitInput): Promise
         action: "permit.create",
         entityType: "permit",
         entityId: row.id,
-        diff: { source: "manual", venueId: place.id, title, applyBy },
+        diff: {
+          source: "manual",
+          venueId: place.id,
+          title,
+          applyBy,
+          ...(eventId ? { eventId } : {}),
+        },
       },
     ]);
+    if (eventId) {
+      await tx.insert(eventPermit).values({ eventId, permitId: row.id, required: true });
+      await linkPermitTasks(tx, [eventId], actor);
+    }
     return row;
   });
 }
@@ -1003,6 +1034,51 @@ export async function restorePermitStatus(
       await autoConfirmEventsOfPermit(tx, actor, id, "permit_status");
     return { changed: true };
   });
+}
+
+/**
+ * Makes a superseded permit valid again ("Ersetzt" clicked by mistake, handwritten notes 2026-11): back to
+ * the status it had before (granted or rejected, read from the audit log) with the tasks that were
+ * cancelled with it reopened. The same write as the undo toast, so it works after the toast has gone.
+ */
+export async function reinstatePermit(
+  actor: Actor,
+  id: string,
+): Promise<{ changed: boolean; status: PermitStatus; closedTaskIds: string[] }> {
+  if (!can(actor.role, "permit", "write")) forbidden();
+  const [current] = await db
+    .select({ status: permit.status, appliedAt: permit.appliedAt, grantedAt: permit.grantedAt })
+    .from(permit)
+    .where(eq(permit.id, id));
+  if (!current) throw new PermitInputError("not_found");
+  if (current.status !== "superseded") throw new PermitInputError("conflict");
+  const [last] = await db
+    .select({ diff: auditLog.diff })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.action, "permit.status"),
+        eq(auditLog.entityId, id),
+        sql`${auditLog.diff}->>'to' = 'superseded'`,
+      ),
+    )
+    .orderBy(desc(auditLog.at))
+    .limit(1);
+  const diff = (last?.diff ?? {}) as { from?: unknown; closedTaskIds?: unknown };
+  // Without a log entry (superseded by a renewal), the permit was held: back to "Genehmigt".
+  const status: PermitStatus =
+    isPermitStatus(diff.from) && diff.from !== "superseded" ? diff.from : "granted";
+  const closedTaskIds = Array.isArray(diff.closedTaskIds)
+    ? diff.closedTaskIds.filter((v): v is string => typeof v === "string")
+    : [];
+  const result = await restorePermitStatus(
+    actor,
+    id,
+    "superseded",
+    { status, appliedAt: current.appliedAt, grantedAt: current.grantedAt },
+    closedTaskIds,
+  );
+  return { ...result, status, closedTaskIds };
 }
 
 // ---------------------------------------------------------------------------------------------

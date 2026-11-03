@@ -3,6 +3,7 @@ import {
   applyByFor,
   defaultAnchors,
   endsOnFor,
+  groupConsecutiveDates,
   type PermitStatus,
   permitCovers,
   resolveRelativeDue,
@@ -19,7 +20,7 @@ import {
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { todayIn } from "@/lib/format";
 import { db } from "../db";
-import { EventInputError, presetTemplate, validateDates } from "../services/events";
+import { EventInputError, MAX_EVENT_DAYS, presetTemplate, validateDates } from "../services/events";
 import {
   desiredTasks,
   type EventContext,
@@ -58,9 +59,14 @@ const DEADLINE_TIME = "23:59";
 export async function previewGeneration(
   presetId: string,
   rawDates: string[],
+  options: { merge?: boolean } = {},
 ): Promise<GenerationPreview> {
   const days = validateDates(rawDates);
   const template = await presetTemplate(presetId);
+  // Same plan as the creation: with `merge`, one event per run of consecutive dates (keyed by its first day).
+  const plan = options.merge
+    ? groupConsecutiveDates(days, template.durationDays, MAX_EVENT_DAYS)
+    : days.map((startsOn) => ({ startsOn, durationDays: template.durationDays }));
   const today = todayIn();
 
   return db.transaction(
@@ -127,8 +133,8 @@ export async function previewGeneration(
       }));
 
       const dates: DatePreview[] = [];
-      for (const startsOn of days) {
-        const endsOn = endsOnFor(startsOn, template.durationDays);
+      for (const { startsOn, durationDays } of plan) {
+        const endsOn = endsOnFor(startsOn, durationDays);
         const ev: EventContext = {
           id: startsOn,
           name: template.name,
@@ -140,7 +146,7 @@ export async function previewGeneration(
             venueId: template.venueId,
             venueKind: meta.venueKind,
           },
-          anchors: new Map(Object.entries(defaultAnchors(startsOn, template.durationDays))),
+          anchors: new Map(Object.entries(defaultAnchors(startsOn, durationDays))),
           duties: new Map(),
         };
         let tasks = 0;

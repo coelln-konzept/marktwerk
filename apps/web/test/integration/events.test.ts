@@ -10,6 +10,7 @@ import {
 import { asc, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { getPresetSource, listEvents } from "@/server/queries/events";
 import { changeEventStatus, updateEventNotes } from "@/server/services/event-lifecycle";
 import {
   createEventsFromPreset,
@@ -129,6 +130,40 @@ describe("createEventsFromPreset", () => {
       teardown_day: "2026-12-06",
       booking_cutoff: "2026-11-30",
     });
+  });
+
+  it("merges consecutive dates into one event when asked (Sa + So → one two-day event)", async () => {
+    const created = await createEventsFromPreset(
+      owner,
+      cat.presets.flea.id,
+      ["2026-11-15", "2026-11-14", "2026-11-21"],
+      { merge: true },
+    );
+    expect(created.map((c) => c.startsOn)).toEqual(["2026-11-14", "2026-11-21"]);
+    const rows = await db
+      .select({ startsOn: event.startsOn, endsOn: event.endsOn })
+      .from(event)
+      .orderBy(asc(event.startsOn));
+    expect(rows).toEqual([
+      { startsOn: "2026-11-14", endsOn: "2026-11-15" },
+      { startsOn: "2026-11-21", endsOn: "2026-11-21" },
+    ]);
+    const anchors = Object.fromEntries(
+      (
+        await db
+          .select()
+          .from(eventAnchor)
+          .where(eq(eventAnchor.eventId, created[0]?.id ?? ""))
+      ).map((a) => [a.key, a.date]),
+    );
+    // Two days: setup the day before, teardown on the Sunday.
+    expect(anchors).toMatchObject({ setup_day: "2026-11-13", teardown_day: "2026-11-15" });
+    // Without `merge` consecutive dates stay separate one-day events, as before.
+    const separate = await createEventsFromPreset(owner, cat.presets.flea.id, [
+      "2027-01-09",
+      "2027-01-10",
+    ]);
+    expect(separate).toHaveLength(2);
   });
 
   it("copies default duties by role key and skips keys without a duty role", async () => {
@@ -344,5 +379,25 @@ describe("undoGeneratedEvents", () => {
       .from(event)
       .where(eq(event.id, created?.id ?? ""));
     expect(row?.archivedAt).toBeNull();
+  });
+});
+
+describe("Archiv queries", () => {
+  it("endedBefore keeps only events that are over; getPresetSource returns what the form copies", async () => {
+    const created = await createEventsFromPreset(owner, cat.presets.festival.id, [
+      "2026-10-30",
+      "2026-11-13",
+    ]);
+    // 30.10.–01.11. is over on 03.11.; 13.–15.11. is not.
+    const past = await listEvents(owner, { endedBefore: "2026-11-03" });
+    expect(past.map((r) => r.startsOn)).toEqual(["2026-10-30"]);
+    const source = await getPresetSource(owner, created[0]?.id ?? "");
+    expect(source).toMatchObject({
+      startsOn: "2026-10-30",
+      endsOn: "2026-11-01",
+      venueId: cat.venue.id,
+      pricePerMCents: 2000,
+    });
+    expect(await getPresetSource(owner, "nope")).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
+import { NewTaskButton } from "@/components/board/new-task-dialog";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
 import { TodayCard, WeekCard } from "@/components/overview/today-card";
@@ -14,7 +15,7 @@ import { HIDDEN_MODULES, isModuleHidden } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { getOverview } from "@/server/queries/overview";
-import { getTaskDetail, listStaffOptions } from "@/server/queries/tasks";
+import { getTaskDetail, listStaffOptions, listTaskEventOptions } from "@/server/queries/tasks";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("nav"))("overview") };
@@ -105,6 +106,16 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
       <PastMarketsLine count={overview.pastMarketTasks} query={sp} canCleanup={canWrite} />
       {vorschauId && <EventVorschau id={vorschauId} closeHref="/" />}
       {taskDrawer}
+      {/* "+ Neu › Aufgabe" outside an event page (was on the global Board, hidden 2026-11-03). */}
+      {canWrite && param(sp.neu) === "1" && (
+        <NewTaskButton
+          urlOnly
+          events={await listTaskEventOptions(actor, today)}
+          staff={await listStaffOptions()}
+          canAssign={!isModuleHidden("team") && can(actor.role, "task", "assign")}
+          today={today}
+        />
+      )}
       {canWrite && param(sp.aufraeumen) === "1" && (
         <PastMarketsDrawer actor={actor} today={today} query={sp} />
       )}

@@ -204,6 +204,8 @@
       "events": "Veranstaltungen an diesem Ort",
       "upcoming": "Kommende",
       "recent": "Zuletzt",
+      "allEvents": "Alle Veranstaltungen",
+      "inArchive": "Ältere im Archiv",
       "noUpcoming": "Keine kommenden Veranstaltungen.",
       "noRecent": "Noch keine vergangenen Veranstaltungen.",
       "eventsCaption": "Veranstaltungen an diesem Ort",

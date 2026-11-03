@@ -132,6 +132,7 @@ export type BoardData = { tasks: BoardTask[]; truncated: boolean };
 
 /**
  * Cards for the board: open tasks plus finished ones of the last 14 days (Erledigt), cancelled ones never.
+ * One event's board is its Checkliste (user test 2026-11), so there every finished task counts.
  * Within a column they are in display order (`board_sort`, then due date).
  */
 export async function listBoardTasks(
@@ -205,7 +206,9 @@ export async function listBoardTasks(
           ),
           and(
             inArray(task.status, ["done", "skipped"]),
-            gte(sql`coalesce(${task.completedAt}, ${task.updatedAt})`, since),
+            scope.eventId
+              ? undefined
+              : gte(sql`coalesce(${task.completedAt}, ${task.updatedAt})`, since),
           ),
         ),
       ),

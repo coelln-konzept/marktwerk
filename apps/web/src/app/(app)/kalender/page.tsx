@@ -39,7 +39,7 @@ import { EVENT_TYPE_KEYS, EventTypeSquare } from "@/components/ui/event-type-tag
 import { Kbd } from "@/components/ui/kbd";
 import { Panel } from "@/components/ui/panel";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
-import { formatDate, formatMonth, todayIn } from "@/lib/format";
+import { formatDate, formatDateWithWeekday, formatMonth, todayIn } from "@/lib/format";
 import { HIDDEN_MODULES, isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUS } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
@@ -294,7 +294,9 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               flagLabel={t("legend.weekend")}
               moreLabel={(n) => tCal("more", { n })}
               moreAria={(n, day) => t("moreAria", { n, day: formatDate(day, locale) })}
+              dayTitle={(day) => formatDateWithWeekday(day, locale)}
               moreHref={moreHref}
+              moreListLabel={t("moreList")}
             />
           ) : (
             <CalendarList

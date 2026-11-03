@@ -1,13 +1,16 @@
 import { Star } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { isModuleHidden } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 
 /**
  * The quiet "Kernaufgabe" marker: a small star with a tooltip explaining it (and a screen-reader label),
- * no badge. `label` replaces the default explanation where a caller needs other wording.
+ * no badge. `label` replaces the default explanation where a caller needs other wording. Renders nothing
+ * while Kernaufgaben are hidden (lib/modules.ts `keyTasks`).
  */
 export function KeyTaskMark({ className, label }: { className?: string; label?: string }) {
   const t = useTranslations("tasks.keyTask");
+  if (isModuleHidden("keyTasks")) return null;
   const text = label ?? t("tooltip");
   return (
     <span title={text} className={cn("inline-flex shrink-0 text-foreground-2", className)}>

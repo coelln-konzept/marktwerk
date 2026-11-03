@@ -85,7 +85,12 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         </>
       }
     >
-      <PermitStatusFlow permitId={permit.id} status={permit.status} canWrite={canWrite} />
+      {/* A superseded permit is read-only, except that "Ersetzt" can be taken back in the flow. */}
+      <PermitStatusFlow
+        permitId={permit.id}
+        status={permit.status}
+        canWrite={can(actor.role, "permit", "write")}
+      />
 
       <section aria-labelledby="permit-facts-title" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -276,7 +281,7 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
                     href={
                       (task.eventId
                         ? `/veranstaltungen/${task.eventId}/board?detail=task:${task.id}`
-                        : `/board?detail=task:${task.id}`) as never
+                        : `/?aufgabe=${task.id}`) as never
                     }
                     className="font-medium text-accent-soft-foreground hover:underline"
                   >

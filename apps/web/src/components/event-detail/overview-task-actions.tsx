@@ -7,7 +7,8 @@ import { useTaskActions } from "@/components/board/use-task-actions";
 import { SnoozeMenu } from "@/components/task/snooze";
 
 /**
- * The two quick actions of a "Was fehlt" row: "Erledigt" and the snooze menu. Both apply at once and
+ * The two quick actions of a Board market-panel row: "Erledigt" and the snooze menu ("Was fehlt" rows lead
+ * with the shared `TaskTick` instead). Both apply at once and
  * confirm with an undo toast; a task that still needs evidence opens its drawer instead. A row that wants its
  * tick to show before the server answers passes its own `onDone` (and `pending`).
  */
@@ -24,7 +25,8 @@ export function TaskQuickActions({
   onDone?: () => void;
 }) {
   const t = useTranslations("eventDetail.overview.missing");
-  const actions = useTaskActions({ staff: [] });
+  // The row leaves the Bereitschaft panel once done: ask first (decision D1).
+  const actions = useTaskActions({ staff: [], confirmDone: true });
   return (
     <span className="flex shrink-0 items-center gap-0.5">
       <button

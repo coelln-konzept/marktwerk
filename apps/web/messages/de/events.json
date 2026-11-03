@@ -29,6 +29,8 @@
       "actions": "Aktionen"
     },
     "preview": "Vorschau: {name}",
+    "venueOnly": "Nur Veranstaltungen an „{name}“ zeigen",
+    "venueUnknown": "Unbekannter Ort",
     "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
     "single": "Einzeltermin",
     "statusOver": "vorbei",

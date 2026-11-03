@@ -25,7 +25,7 @@ import { getTaskDetail, listStaffOptions } from "@/server/queries/tasks";
 import { requirePermission } from "@/server/session";
 
 /**
- * Tab "Überblick": is this market on track, and what's missing? Status line, Was fehlt, Kernaufgaben,
+ * Tab "Zusammenfassung": is this market on track, and what's missing? Status line, Was fehlt, Kernaufgaben,
  * Nächste Termine; Eckdaten and Regeln der Art stay collapsed. Task rows open the task drawer
  * (`?aufgabe=<id>`), permit rows the permit drawer (`?genehmigung=<id>`), both right here.
  */
@@ -77,7 +77,9 @@ export default async function EventOverviewPage({
       <NotesExcerpt event={event} />
       <MissingPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2">
-        <KeyTasksPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
+        {isModuleVisible("keyTasks") && (
+          <KeyTasksPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
+        )}
         <DatesPanel event={event} today={today} />
       </div>
       <div className="flex flex-col gap-3">

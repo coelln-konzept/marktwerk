@@ -71,7 +71,7 @@ describe("listBoardTasks", () => {
     });
   });
 
-  it("lists finished tasks of the last 14 days only, and never cancelled ones", async () => {
+  it("lists finished tasks of the last 14 days only across events, all of them on the event's Checkliste, never cancelled ones", async () => {
     const recent = new Date("2026-10-15T10:00:00Z");
     await insertTask({ title: "neu erledigt", eventId, status: "done", completedAt: recent });
     await insertTask({
@@ -88,10 +88,16 @@ describe("listBoardTasks", () => {
       updatedAt: recent,
     });
     await insertTask({ title: "abgebrochen", eventId, status: "cancelled" });
-    const { tasks } = await listBoardTasks(owner, { eventId }, TODAY);
+    const { tasks } = await listBoardTasks(owner, {}, TODAY);
     expect(tasks.map((t) => t.title).sort()).toEqual(["neu erledigt", "übersprungen"]);
     expect(tasks.every((t) => t.column === "done")).toBe(true);
     expect(tasks.find((t) => t.title === "neu erledigt")?.completedOn).toBe("2026-10-15");
+    const checklist = await listBoardTasks(owner, { eventId }, TODAY);
+    expect(checklist.tasks.map((t) => t.title).sort()).toEqual([
+      "alt erledigt",
+      "neu erledigt",
+      "übersprungen",
+    ]);
   });
 
   it("limits the cross-event view by the market's first day, keeps undated tasks, and filters by event", async () => {

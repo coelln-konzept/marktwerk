@@ -17,8 +17,12 @@ import type { EventBasics, EventSchedulePreview } from "@/server/services/event-
 const SELECT_CLASS =
   "flex min-h-(--control-h) w-full rounded-lg border border-input bg-card px-3 py-1 text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-1";
 
+/** An event type to pick in "Bearbeiten" (name in the UI language). */
+export type TypeChoice = { id: string; name: string };
+
 /**
- * "Bearbeiten" (item of the event's "…" menu): name, length (days) and venue of this event only. Always
+ * "Bearbeiten" (item of the event's "…" menu): name, type, length (days) and venue of this event only. A new
+ * type relabels the event; its tasks and permits stay (decision 2026-11-03). Always
  * confirmed before saving (decided 2026-10-21), with the same hints as the generation for a new venue or
  * length. Controlled by the menu (`open`).
  */
@@ -27,6 +31,7 @@ export function BasicsDialog({
   startsOn,
   basics,
   venues,
+  types,
   open,
   onOpenChange,
 }: {
@@ -34,6 +39,7 @@ export function BasicsDialog({
   startsOn: string;
   basics: EventBasics;
   venues: VenueOption[];
+  types: TypeChoice[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -45,6 +51,7 @@ export function BasicsDialog({
   const [name, setName] = useState(basics.name);
   const [days, setDays] = useState(String(basics.durationDays));
   const [venueId, setVenueId] = useState(basics.venueId);
+  const [typeId, setTypeId] = useState(basics.eventTypeId);
   const [preview, setPreview] = useState<EventSchedulePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -53,6 +60,7 @@ export function BasicsDialog({
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
   const venueName = (id: string) => venues.find((v) => v.id === id)?.name ?? "?";
+  const typeName = (id: string) => types.find((x) => x.id === id)?.name ?? "?";
 
   // Every time the dialog opens it starts from the saved values.
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when opening
@@ -61,6 +69,7 @@ export function BasicsDialog({
     setName(basics.name);
     setDays(String(basics.durationDays));
     setVenueId(basics.venueId);
+    setTypeId(basics.eventTypeId);
     setPreview(null);
     setError(null);
   }, [open]);
@@ -87,6 +96,10 @@ export function BasicsDialog({
       list.push(t("change.name", { from: basics.name, to: next.name }));
     if (next.durationDays !== basics.durationDays)
       list.push(t("change.days", { from: basics.durationDays, to: next.durationDays }));
+    if (next.eventTypeId !== basics.eventTypeId)
+      list.push(
+        t("change.type", { from: typeName(basics.eventTypeId), to: typeName(next.eventTypeId) }),
+      );
     if (next.venueId !== basics.venueId)
       list.push(
         t("change.venue", { from: venueName(basics.venueId), to: venueName(next.venueId) }),
@@ -99,7 +112,12 @@ export function BasicsDialog({
     if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > 14)
       return setError(errorText("invalid_duration"));
     if (name.trim() === "") return setError(errorText("invalid_name"));
-    const next: EventBasics = { name: name.trim().replace(/\s+/g, " "), durationDays, venueId };
+    const next: EventBasics = {
+      name: name.trim().replace(/\s+/g, " "),
+      durationDays,
+      venueId,
+      eventTypeId: typeId,
+    };
     const list = changes(next);
     if (list.length === 0) {
       onOpenChange(false);
@@ -167,6 +185,27 @@ export function BasicsDialog({
               maxLength={120}
               onChange={(e) => setName(e.target.value)}
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="basics-type">{t("type")}</Label>
+            <select
+              id="basics-type"
+              value={typeId}
+              aria-describedby="basics-type-hint"
+              className={SELECT_CLASS}
+              onChange={(e) => setTypeId(e.target.value)}
+            >
+              {types.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                </option>
+              ))}
+            </select>
+            {typeId !== basics.eventTypeId && (
+              <p id="basics-type-hint" className="text-muted-foreground text-small">
+                {t("typeHint")}
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-[1fr_7rem] gap-3">
             <div className="flex flex-col gap-1.5">

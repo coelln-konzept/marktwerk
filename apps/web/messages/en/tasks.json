@@ -194,12 +194,13 @@
     },
     "quickDone": {
       "label": "Done",
-      "aria": "Mark “{title}” as done"
+      "aria": "Mark “{title}” as done",
+      "hint": "Mark as done"
     },
     "statusToggle": {
       "waiting": "Waiting"
     },
-    "statusMore": "More statuses",
+    "statusChange": "Change status (now: {status})",
     "statusReopen": "Open again",
     "reopen": "Reopen",
     "removedFromTemplate": "No longer in the template",

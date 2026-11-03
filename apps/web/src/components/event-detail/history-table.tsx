@@ -6,6 +6,7 @@ import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDateShort } from "@/lib/format";
 import type { HistoryEntry } from "@/server/queries/event-detail";
 import { formatInstant } from "./format-instant";
+import { RestoreTaskButton } from "./restore-task-button";
 
 type StatusDiff = { from?: string; to?: string; reason?: string; undo?: boolean };
 type CreateDiff = { source?: string };
@@ -26,8 +27,17 @@ function asObject<T>(value: unknown): T {
   return (value && typeof value === "object" ? value : {}) as T;
 }
 
-/** Audit entries of one event in plain words, newest first. */
-export async function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
+/**
+ * Audit entries of one event in plain words, newest first. A task's newest "erledigt" (or "übersprungen")
+ * entry offers "Wiederherstellen" while the task is still finished (`canRestore`: may write tasks).
+ */
+export async function HistoryTable({
+  entries,
+  canRestore = false,
+}: {
+  entries: HistoryEntry[];
+  canRestore?: boolean;
+}) {
   const t = await getTranslations("eventDetail.history");
   const tStatus = await getTranslations("status.event");
   const tFlag = await getTranslations("eventDetail.booking.flag");
@@ -135,6 +145,11 @@ export async function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
     }
   }
 
+  const restore = (entry: HistoryEntry) =>
+    canRestore && entry.restoreTaskId ? (
+      <RestoreTaskButton taskId={entry.restoreTaskId} title={entry.subject ?? "?"} />
+    ) : null;
+
   return (
     <Panel aria-labelledby="history-title">
       <PanelHeader>
@@ -163,6 +178,7 @@ export async function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
                   </span>
                   <span className="font-medium">{text}</span>
                   {reason && <span className="text-muted-foreground text-small">{reason}</span>}
+                  {restore(entry) && <span className="mt-1">{restore(entry)}</span>}
                 </li>
               );
             })}
@@ -189,10 +205,17 @@ export async function HistoryTable({ entries }: { entries: HistoryEntry[] }) {
                       </TD>
                       <TD className="whitespace-nowrap">{entry.actorName ?? t("unknownActor")}</TD>
                       <TD>
-                        <span className="font-medium">{text}</span>
-                        {reason && (
-                          <span className="block text-muted-foreground text-small">{reason}</span>
-                        )}
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                          <span>
+                            <span className="font-medium">{text}</span>
+                            {reason && (
+                              <span className="block text-muted-foreground text-small">
+                                {reason}
+                              </span>
+                            )}
+                          </span>
+                          {restore(entry)}
+                        </div>
                       </TD>
                     </TR>
                   );

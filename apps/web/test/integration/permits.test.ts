@@ -9,6 +9,7 @@ import {
   permit,
   permitRequirement,
   task,
+  venue,
 } from "@marktwerk/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -21,6 +22,7 @@ import {
   fillLogbookForEvents,
   linkEventsToPermit,
   PermitInputError,
+  reinstatePermit,
   restorePermit,
   restorePermitStatus,
   setEventPermitRequired,
@@ -386,6 +388,38 @@ describe("permit status flow", () => {
     expect(cancelled?.status).toBe("cancelled");
   });
 
+  it("a superseded permit can be made valid again: back to the status before, tasks reopened", async () => {
+    const p = await newPermit();
+    await setPermitStatus(owner, p.id, "granted");
+    const [granted] = await db.select().from(permit).where(eq(permit.id, p.id));
+    const superseded = await setPermitStatus(owner, p.id, "superseded");
+    expect(superseded.changed).toBe(true);
+
+    const back = await reinstatePermit(owner, p.id);
+    expect(back).toMatchObject({ changed: true, status: "granted" });
+    const [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({ status: "granted", grantedAt: granted?.grantedAt });
+    const entries = await db
+      .select({ diff: auditLog.diff })
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "permit.status"), eq(auditLog.entityId, p.id)));
+    expect(entries.at(-1)?.diff).toMatchObject({ from: "superseded", to: "granted", undo: true });
+
+    // Only a superseded permit can be reinstated.
+    await expect(reinstatePermit(owner, p.id)).rejects.toMatchObject({ code: "conflict" });
+
+    // From "abgelehnt" it goes back to "abgelehnt", and the cancelled task opens again.
+    const q = await newPermit();
+    await setPermitStatus(owner, q.id, "applied");
+    await setPermitStatus(owner, q.id, "rejected");
+    const closed = await setPermitStatus(owner, q.id, "superseded");
+    expect((await reinstatePermit(owner, q.id)).status).toBe("rejected");
+    for (const id of closed.closedTaskIds) {
+      const [t] = await db.select().from(task).where(eq(task.id, id));
+      expect(t?.status).toBe("todo");
+    }
+  });
+
   it("allows staff to change status but only owner/manager to archive; field is forbidden", async () => {
     const p = await newPermit();
     const staff = await createActor("staff");
@@ -557,6 +591,42 @@ describe("events of a permit", () => {
     await expect(linkEventsToPermit(owner, created.id, [ids[1] as string])).rejects.toMatchObject({
       code: "invalid_event",
     });
+  });
+
+  it("a permit added from the event's Genehmigungen tab is linked to that event at once", async () => {
+    const [eventId] = await generate("2027-05-02", "2027-05-02");
+    const created = await createPermit(owner, {
+      venueId: cat.venue.id,
+      category: "external",
+      permitType: "other",
+      title: "Lärmschutz",
+      season: 2027,
+      applyBy: null,
+      eventId,
+    });
+    const links = await db.select().from(eventPermit).where(eq(eventPermit.permitId, created.id));
+    expect(links).toEqual([expect.objectContaining({ eventId, required: true })]);
+    const [entry] = await db
+      .select({ diff: auditLog.diff })
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "permit.create"), eq(auditLog.entityId, created.id)));
+    expect(entry?.diff).toMatchObject({ eventId });
+    // Only an event at the permit's venue.
+    const [other] = await db
+      .insert(venue)
+      .values({ name: "Anderswo", kind: "outdoor_public", city: "Köln" })
+      .returning();
+    await expect(
+      createPermit(owner, {
+        venueId: other?.id ?? "",
+        category: "city",
+        permitType: "other",
+        title: "Falsch",
+        season: null,
+        applyBy: null,
+        eventId,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_event" });
   });
 
   it("an ad-hoc permit with apply-by gets its task; without it none", async () => {

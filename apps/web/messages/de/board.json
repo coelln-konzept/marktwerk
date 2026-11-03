@@ -24,7 +24,7 @@
       "spalten": "Spalten",
       "person": "Nach Person",
       "arbeitslast": "Arbeitslast",
-      "ablauf": "Ablauf"
+      "ablauf": "Checkliste"
     },
     "filter": {
       "label": "Aufgaben filtern",
@@ -125,6 +125,12 @@
       "snoozed": "„{title}“ zurückgestellt bis {date}",
       "unsnoozed": "Zurückstellung von „{title}“ aufgehoben"
     },
+    "confirmDone": {
+      "title": "Aufgabe erledigt?",
+      "description": "„{title}“ als erledigt markieren?",
+      "confirm": "Ja, erledigt",
+      "cancel": "Abbrechen"
+    },
     "errors": {
       "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
       "not_found": "Die Aufgabe gibt es nicht mehr oder du siehst sie nicht.",
@@ -202,7 +208,7 @@
         "allOk": "Alles im Plan: nichts überfällig, keine fehlende Genehmigung.",
         "permitMissing": "Genehmigung fehlt",
         "more": "{count, plural, one {# weitere Aufgabe} other {# weitere Aufgaben}} in den nächsten 7 Tagen",
-        "openOverview": "Zum Überblick"
+        "openOverview": "Zur Zusammenfassung"
       }
     },
     "matrix": {
@@ -238,10 +244,10 @@
         "event": "Veranstaltungstag",
         "eventDays": "Veranstaltungstage",
         "after": "Nach dem Markt",
-        "undated": "Ohne Datum",
-        "done": "Erledigt"
+        "undated": "Ohne Datum"
       },
       "count": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
+      "countDone": "{done} von {count} erledigt",
       "until": "bis {date}",
       "from": "ab {date}",
       "today": "heute",

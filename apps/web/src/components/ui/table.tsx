@@ -1,3 +1,5 @@
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import Link from "next/link";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -16,16 +18,49 @@ export function THead({ className, ...props }: React.ComponentProps<"thead">) {
   return <thead className={cn("sticky top-0 z-[2] bg-surface-2", className)} {...props} />;
 }
 
-export function TH({ className, ...props }: React.ComponentProps<"th">) {
+export type THSort = {
+  /** The URL that sorts by this column (the other direction when it is already the sort). */
+  href: string;
+  /** This column's current direction, or null when the table is sorted by another one. */
+  dir: "asc" | "desc" | null;
+};
+
+/** A column header; with `sort` the label is a link that sorts by it (arrow shows the direction). */
+export function TH({
+  className,
+  sort,
+  children,
+  ...props
+}: React.ComponentProps<"th"> & { sort?: THSort }) {
+  const Arrow = sort?.dir === "asc" ? ArrowUp : sort?.dir === "desc" ? ArrowDown : ArrowUpDown;
   return (
     <th
       scope="col"
+      aria-sort={
+        sort?.dir === "asc" ? "ascending" : sort?.dir === "desc" ? "descending" : undefined
+      }
       className={cn(
         "h-8 whitespace-nowrap border-b px-3 py-1 font-semibold text-muted-foreground text-tiny",
         className,
       )}
       {...props}
-    />
+    >
+      {sort ? (
+        <Link
+          href={sort.href as never}
+          scroll={false}
+          className={cn(
+            "-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+            sort.dir && "text-foreground",
+          )}
+        >
+          {children}
+          <Arrow aria-hidden className={cn("size-3", !sort.dir && "opacity-40")} />
+        </Link>
+      ) : (
+        children
+      )}
+    </th>
   );
 }
 

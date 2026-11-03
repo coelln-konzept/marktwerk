@@ -1,6 +1,6 @@
 import { addDays, daysInMonth, isoDate, isoWeek, mondayOf, weekday } from "@marktwerk/core";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { DayMore } from "./day-more";
 
 export type CalendarEntry = {
   key: string;
@@ -25,7 +25,9 @@ export function MonthGrid({
   flagLabel,
   moreLabel,
   moreAria,
+  dayTitle,
   moreHref,
+  moreListLabel,
   maxPerDay = 4,
 }: {
   /** "YYYY-MM" */
@@ -38,10 +40,13 @@ export function MonthGrid({
   flaggedSaturdays?: Set<string>;
   flagLabel?: string;
   moreLabel: (n: number) => string;
-  /** Accessible name of the "weitere" link, which names the day ("3 weitere am 7. Dezember"). */
+  /** Accessible name of the "weitere" button, which names the day ("3 weitere am 7. Dezember"). */
   moreAria: (n: number, day: string) => string;
-  /** The list starting at that day: where "+ N weitere" leads. */
+  /** Heading of the day's popover ("Sa 07.11."). */
+  dayTitle: (day: string) => string;
+  /** The list starting at that day: the link at the bottom of the popover. */
   moreHref: (day: string) => string;
+  moreListLabel: string;
   maxPerDay?: number;
 }) {
   const [y, m] = month.split("-").map(Number) as [number, number];
@@ -123,14 +128,17 @@ export function MonthGrid({
                       ))}
                       {items.length > maxPerDay && (
                         <li>
-                          <Link
-                            href={moreHref(day) as never}
-                            aria-label={moreAria(items.length - maxPerDay, day)}
-                            scroll={false}
-                            className="block rounded-md px-1 py-0.5 font-medium text-accent-soft-foreground text-tiny hover:underline"
+                          <DayMore
+                            label={moreLabel(items.length - maxPerDay)}
+                            aria={moreAria(items.length - maxPerDay, day)}
+                            title={dayTitle(day)}
+                            listHref={moreHref(day)}
+                            listLabel={moreListLabel}
                           >
-                            {moreLabel(items.length - maxPerDay)}
-                          </Link>
+                            {items.map((item) => (
+                              <li key={item.key}>{item.node}</li>
+                            ))}
+                          </DayMore>
                         </li>
                       )}
                     </ul>

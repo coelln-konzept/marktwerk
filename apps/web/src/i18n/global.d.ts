@@ -1,4 +1,5 @@
 import type agreements from "../../messages/de/agreements.json";
+import type archive from "../../messages/de/archive.json";
 import type board from "../../messages/de/board.json";
 import type company from "../../messages/de/company.json";
 import type contacts from "../../messages/de/contacts.json";
@@ -23,6 +24,7 @@ import type { Locale } from "./config";
 
 // German is the reference locale; keep in sync with MESSAGE_AREAS in ./messages.ts.
 type Messages = typeof shell &
+  typeof archive &
   typeof events &
   typeof generate &
   typeof overview &

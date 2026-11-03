@@ -4,7 +4,7 @@ import { getActor } from "@/server/actor";
 import { getEvent } from "@/server/queries/events";
 import { requirePermission } from "@/server/session";
 
-/** Tab "Board": the tasks of this event as a kanban ("Spalten") or one list by phase ("Ablauf"), with the task drawer. */
+/** Tab "Checkliste" (URL `board`): the tasks of this event as a kanban ("Spalten") or one list by phase ("Ablauf"), with the task drawer. */
 export default async function EventBoardPage({
   params,
   searchParams,

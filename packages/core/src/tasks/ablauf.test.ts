@@ -37,10 +37,22 @@ describe("ablaufPhase", () => {
     expect(ablaufPhase(task({ dueOn: "2026-11-24" }), ctx)).toBe("after");
   });
 
-  it("keeps undated and finished tasks apart, finished first", () => {
+  it("keeps finished tasks in the phase of their due date, never in 'now'", () => {
     expect(ablaufPhase(task({ dueOn: null }), ctx)).toBe("undated");
-    expect(ablaufPhase(task({ dueOn: null, status: "done" }), ctx)).toBe("done");
-    expect(ablaufPhase(task({ dueOn: "2026-09-01", status: "skipped" }), ctx)).toBe("done");
+    expect(ablaufPhase(task({ dueOn: null, status: "done" }), ctx)).toBe("undated");
+    expect(ablaufPhase(task({ dueOn: "2026-09-01", status: "skipped" }), ctx)).toBe("early");
+    expect(ablaufPhase(task({ dueOn: "2026-10-24", status: "done" }), ctx)).toBe("early");
+    expect(ablaufPhase(task({ dueOn: "2026-11-22", status: "done" }), ctx)).toBe("event");
+  });
+
+  it("keeps work ticked off today in 'now' until tomorrow, so the row does not jump", () => {
+    const doneToday = task({ dueOn: "2026-10-20", status: "done", completedOn: "2026-10-24" });
+    expect(ablaufPhase(doneToday, ctx)).toBe("now");
+    expect(ablaufPhase(doneToday, { ...ctx, today: "2026-10-25" })).toBe("early");
+    // Due later: its own phase, wherever it was ticked off.
+    expect(
+      ablaufPhase(task({ dueOn: "2026-11-22", status: "done", completedOn: "2026-10-24" }), ctx),
+    ).toBe("event");
   });
 
   it("puts a past market's leftovers into 'now'", () => {
@@ -64,8 +76,21 @@ describe("groupAblauf", () => {
       ],
       ctx,
     );
-    expect(groups.map((g) => g.phase)).toEqual(["now", "event", "after", "undated", "done"]);
+    expect(groups.map((g) => g.phase)).toEqual(["now", "early", "event", "after", "undated"]);
+    expect(groups[1]?.tasks.map((t) => t.id)).toEqual(["done"]);
     expect(groups[0]?.tasks.map((t) => t.id)).toEqual(["old", "today-key", "today-a", "today-b"]);
+  });
+
+  it("keeps a finished task in place among the open ones of its phase", () => {
+    const [group] = groupAblauf(
+      [
+        task({ id: "c", dueOn: "2026-11-22", boardSort: 30 }),
+        task({ id: "b", dueOn: "2026-11-22", boardSort: 20, status: "done" }),
+        task({ id: "a", dueOn: "2026-11-22", boardSort: 10 }),
+      ],
+      ctx,
+    );
+    expect(group?.tasks.map((t) => t.id)).toEqual(["a", "b", "c"]);
   });
 
   it("orders the same day by template position, not alphabetically", () => {

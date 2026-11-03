@@ -102,7 +102,7 @@
     },
     "keyTask": {
       "label": "Kernaufgabe",
-      "hint": "Braucht jeder Markt – steht im Überblick, in der Matrix und ganz oben in der Übersicht.",
+      "hint": "Braucht jeder Markt – steht in der Zusammenfassung, in der Matrix und ganz oben in der Übersicht.",
       "tooltip": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",
       "toggle": "Als Kernaufgabe markieren"
     },
@@ -194,12 +194,13 @@
     },
     "quickDone": {
       "label": "Erledigt",
-      "aria": "„{title}“ als erledigt markieren"
+      "aria": "„{title}“ als erledigt markieren",
+      "hint": "Als erledigt markieren"
     },
     "statusToggle": {
       "waiting": "Wartet"
     },
-    "statusMore": "Weitere Status",
+    "statusChange": "Status ändern (jetzt: {status})",
     "statusReopen": "Wieder offen",
     "reopen": "Wieder öffnen",
     "removedFromTemplate": "Nicht mehr in der Vorlage",

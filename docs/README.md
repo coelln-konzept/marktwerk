@@ -24,6 +24,7 @@ Design output: [design/claude-design/a-classic/](design/claude-design/a-classic/
 - [08 Booking intake, confirmations/invoices, payment checks, newsletter, marketing](research/08-bookings-comms-newsletter.md)
 - [09 UI/UX: standards, references, customisable workspace](research/09-ui-ux-workspace.md)
 - [10 UX/UI review and industry comparison (October 2026)](research/10-ux-review-2026-10.md)
+- **[11 User test, November 2026: findings, tasks (UT-xx), open decisions](research/11-user-test-2026-11.md)**
 
 ## Architecture
 - [Overview](architecture/overview.md): system context, code layout, cross-cutting concerns, M365 integration, hosting options

@@ -10,6 +10,7 @@ import {
   PermitInputError,
   type PermitPatch,
   type PermitStatusState,
+  reinstatePermit,
   restorePermit,
   restorePermitStatus,
   setEventPermitRequired,
@@ -67,6 +68,13 @@ export async function undoPermitStatus(
   await requirePermission("permit", "write");
   const actor = await getActor();
   return guarded(() => restorePermitStatus(actor, id, expected, previous, closedTaskIds));
+}
+
+/** "Ersetzt" clicked again: the permit is valid again (status before, tasks reopened). */
+export async function reinstatePermitAction(id: string) {
+  await requirePermission("permit", "write");
+  const actor = await getActor();
+  return guarded(() => reinstatePermit(actor, id));
 }
 
 export async function linkEventsAction(permitId: string, eventIds: string[]) {

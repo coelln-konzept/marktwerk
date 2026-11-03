@@ -34,9 +34,9 @@ and this document differ, the prototype wins unless a decision says otherwise.
 ```
 marktwerk
 ├── Übersicht                 ← start screen for everyone (KPIs, season, Heute fällig, Dieses Wochenende)
-├── Board                     ← across events: Bereitschaft · Matrix · Spalten
+├── Board                     ← across events: Bereitschaft · Spalten (Matrix hidden with Kernaufgaben, 2026-11)
 ├── Veranstaltungen           ← list · calendar · "Markt planen"
-│   └── Veranstaltung         ← tabs: Überblick · Board · Genehmigungen · Dokumente · Notizen · Verlauf (Team, Geld hidden)
+│   └── Veranstaltung         ← tabs: Zusammenfassung · Checkliste · Genehmigungen · Dokumente · Notizen · Verlauf (Team, Geld hidden)
 ├── Kalender                  ← company-wide calendar, layers behind the "Ebenen" button
 ├── Genehmigungen             ← permit matrix (locations × permit types) · list; was "Logbuch" (`/genehmigungen`)
 ├── Stammdaten (collapsible, collapsed by default)
@@ -45,7 +45,7 @@ marktwerk
 │   ├── Aussteller            ← vendor list (read-only import)
 │   ├── Wissen                ← knowledge base
 │   └── Pflichten             ← recurring obligations · vehicles · defects (`/firma`, page title "Pflichten")
-├── (hidden for now, `lib/modules.ts`: Team · Finanzen · Buchungen; Benachrichtigungen is reached by the bell, not the sidebar)
+├── (hidden for now, `lib/modules.ts`: Team · Finanzen · Buchungen · Kernaufgaben; Benachrichtigungen has no bell and no sidebar entry since 2026-11: Strg+K, the Übersicht link and its URL)
 └── (bottom) Profil: Einstellungen · Design (System/Hell/Dunkel) · Dichte (Standard/Kompakt) · Sprache · Abmelden
       Einstellungen ← Firma (company data) · Benutzer & Rollen · [Rechtliche Werte with Team] · **Bibliothek**
 ```
@@ -68,13 +68,17 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
 │ Profil ▾        │                                                                  └─────────────────────┘│
 └─────────────────┴─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-- **Sidebar** (232 px): logo "marktwerk", then **five daily entries**: Übersicht · Board · Veranstaltungen · Kalender ·
-  Genehmigungen (UX pass, product owner 2026-10-22). Team and Finanzen join them when their modules return. The red
+- **Sidebar** (232 px): logo "marktwerk", then **four daily entries**: Übersicht · Veranstaltungen · Kalender ·
+  Genehmigungen (UX pass, product owner 2026-10-22; the **Board** entry is hidden since 2026-11-03 behind
+  `HIDDEN_MODULES.globalBoard`: every task belongs to an event, so the Übersicht and each event's Checkliste cover it.
+  Nothing links to `/board` any more: "+ Neu → Aufgabe" outside an event page and Strg+K "Aufgabe anlegen" open
+  the new-task dialog on the Übersicht (`/?neu=1`, event to pick; the task then opens on its event's page), and the
+  permit drawer's task links go to the event. The route itself still answers by URL). Team and Finanzen join them when their modules return. The red
   badge on Genehmigungen is the number "Jetzt zu tun" (decision 2026-10-29): permits whose apply-by date has passed
   without an application, or falls within `permit_horizon_days`, plus rejected and expired ones; later ones are "noch
   nicht fällig" and don't count. It is the same number as the focus chip of that name on the Genehmigungen page (one
   rule, core `permitActionTier`). Below, the
-  collapsible group **Stammdaten** (Orte · Kontakte · Aussteller · Wissen · Pflichten), collapsed by default; the
+  collapsible group **Stammdaten** (Orte · Kontakte · Aussteller · Wissen · Archiv · Pflichten), collapsed by default; the
   state is remembered per browser (cookie `mw_nav_stammdaten`) and the group opens by itself when the current page is
   inside it. Entries a role may not read are hidden (`can()`), as are the entries of hidden modules. The former
   group "SPÄTER" (Buchungen · Postfach · Inventar) and the Benachrichtigungen entry are gone. At the bottom the
@@ -88,7 +92,7 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
   this tab, with its filters (drawers, Vorschau and filter changes don't count as pages, so it never reopens a closed
   drawer), or to the parent crumb when the page was opened directly. Then the visible search field "Suchen oder Befehl …" with Strg+K hint
   (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board, new event in
-  Veranstaltungen…) and the **bell** with the number of unread open notifications (owner/manager: company-wide).
+  Veranstaltungen…). The **bell** (number of unread open notifications) is hidden since the user test 2026-11 (`HIDDEN_MODULES.notificationBell`).
 - **Content:** one page. Vorschau and drawers open over it (§4). **A row or box opens its record when clicked
   anywhere**, not only on its title (event rows → the event Überblick, task rows → the task drawer); links and buttons
   inside it keep their own action, Cmd/Ctrl-click opens a new tab. Checklist icons (event Überblick → Kernaufgaben,
@@ -111,7 +115,7 @@ tag and the **status chip** (geplant, bestätigt, …), one **"…" menu** at th
 every action stays reachable by keyboard; "abgerechnet" is not offered while finance is hidden), then one meta line
 (date, times, KW · venue link). There is no separate health indicator in the header (the Überblick status line and "Was
 fehlt" carry it), no Buchung menu or chip while booking is hidden, no setup time (it is in Nächste Termine) and no
-"Vorlage" (it moved into Eckdaten). Tabs: **Überblick · Board · Genehmigungen · Mehr ▾**; Dokumente, Notizen and Verlauf are
+"Vorlage" (it moved into Eckdaten). Tabs: **Zusammenfassung · Checkliste · Genehmigungen · Mehr ▾** (renamed 2026-11 from Überblick · Board; URLs unchanged); Dokumente, Notizen and Verlauf are
 items of the "Mehr" menu and each keeps its own URL (the button is underlined while one is open). Team and Geld return with
 their modules. Counts: Board shows the open tasks with their health shape, Genehmigungen shows a number only when permits
 are missing (a complete "5/5" says nothing). The **Genehmigungen** tab lists the permits without a "Zuständig" column; the
@@ -122,7 +126,7 @@ bar, and "Was fehlt" rows put the title on its own line with the due badge and a
 what's missing?"). Top to bottom: (1) **status line** with days until the market ("in 12 Tagen", "läuft heute",
 "vorbei"), tasks done x/y with a slim bar and permits granted a/b, each piece linking to what it summarises; (2) **Was
 fehlt**: open tasks that are overdue, blocked/waiting or due within 7 days (snoozed ones stay out) plus required permits
-not yet granted, Kernaufgaben first then by due date, each task row with a quick "Erledigt" tick and the snooze menu
+not yet granted, Kernaufgaben first then by due date, each task row led by the "Erledigt" tick and ending with the snooze menu
 (undo toasts), permit rows opening the Genehmigungen drawer, "Alles im Plan" when empty; (3) **Kernaufgaben** checklist with
 state per row (erledigt · offen · bald fällig · überfällig · zurückgestellt), the star only in the heading;
 (4) **Nächste Termine**, upcoming dates first, past ones collapsed; (5) **Eckdaten** and **Regeln der Art**, collapsed with a
@@ -154,12 +158,14 @@ Every view is a route-level page; drawers are listed where a record usually open
 |---|---|---|
 | Übersicht | `/` | Start screen for everyone: KPI strip, season strip, Heute fällig, Dieses Wochenende (below) |
 | Kalender | `/kalender` | Company-wide calendar with layers (below) |
-| Board | `/board` | Views in the "Ansicht" control (`?ansicht=`): **Bereitschaft** (default), **Matrix**, Spalten (kanban); Nach Person and Arbeitslast return with the team module; the old `gruppiert` falls back to Bereitschaft. See "Board views" below |
-| Aufgabe | drawer `?aufgabe=<id>` on `/board` and `/veranstaltungen/[id]/board` (M2; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity (a closed disclosure), status: primary **Erledigt** button, **Wartet auf Amt** toggle and a "…" menu for In Arbeit / Blockiert / Übersprungen / Wieder offen, the current state always spelled out as a badge. The carried-over count and the origin of the task are not shown; the "Kernaufgabe" toggle explains itself in one line and the star carries the tooltip "Kernaufgabe – eine Aufgabe, die jeder Markt braucht" (no comments, client decision 2026-10-22) |
-| Veranstaltungen | `/veranstaltungen` | Opens at the **current week**: default filter "Aktuell & kommend" (running and upcoming, all seasons; past ones via the status or season select, `?status=alle`), no Liste/Kalender toggle (the Kalender page covers it; `?ansicht=kalender` redirects there), no health column, "abgerechnet" reads as "vorbei" while finance is hidden. KW column, type filter chips, Vorschau `?vorschau=<id>`, one primary button **"Markt planen"** (3-step side sheet: pick a market, dates, preview) via `?erzeugen=1[&vorlage=<presetId>]`; a single date without a market is "+ Neu → Einzeltermin" (`/veranstaltungen/neu`) |
-| Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`); Dokumente, Notizen and Verlauf sit under "Mehr". Every link to a market opens its Überblick |
+| Board | `/board` | Views in the "Ansicht" control (`?ansicht=`): **Bereitschaft** (default), Spalten (kanban); **Matrix** is hidden with the Kernaufgaben (2026-11, an old link falls back to Bereitschaft); Nach Person and Arbeitslast return with the team module; the old `gruppiert` falls back to Bereitschaft. See "Board views" below |
+| Aufgabe | drawer `?aufgabe=<id>` on `/board` and `/veranstaltungen/[id]/board` (M2; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity (a closed disclosure), status: **Erledigt** as a toggle (primary while open; pressed and green with the filled tick while done or skipped, a second click reopens), **Wartet auf Amt** toggle, and the status badge itself ("Status: <badge> ⌄", colour + icon + text) opens a menu with every status (Offen · In Arbeit · Wartet · Blockiert · Übersprungen · Erledigt, the current one ticked); Wartet, Blockiert and Übersprungen ask for a reason as before (HN-04). The carried-over count and the origin of the task are not shown; the "Kernaufgabe" toggle explains itself in one line and the star carries the tooltip "Kernaufgabe – eine Aufgabe, die jeder Markt braucht" (no comments, client decision 2026-10-22) |
+| Archiv | `/archiv` → `/archiv/veranstaltungen` · `/archiv/dokumente` · `/archiv/aktivitaet` · `/archiv/genehmigungen` | Everything past in one place (decision 2026-11-03), one section per URL behind segmented links. **Vergangene Veranstaltungen**: events whose last day is over, newest first, year select, type chips, search; rows open the event, the eye its Vorschau, and **"Als Vorlage speichern"** (`?vorlage=<eventId>`, template:write) opens the new-market form prefilled from the event (name, type, venue, length, times, prices); the new market's tasks are copied from the event's market (else the master); nothing is saved until confirmed, the event stays as it is. **Dokumente**: every live document the person may read (finance and team ones stay out while those modules are hidden), newest first, search over file name and description, a select for the kind; the file opens via `/api/documents/<id>`, "Gehört zu" opens its event, task, permit, venue or vehicle. **Aktivität** (owner and management, `audit:read`): the audit log in plain words (Zeitpunkt · Wer · Änderung · Betrifft, linked), filter "Bereich". **Alte Genehmigungen**: superseded, not required and run-out permits, searchable; a row opens the permit drawer in place (where "Ersetzt" can be taken back). **Every section shows 50 rows per page** with a pager ("1–50 von 148", ← 1 … 4 5 6 … →, `?seite=`; filters start again at page 1) |
+| Veranstaltungen | `/veranstaltungen` | Opens at the **current week**: default filter "Aktuell & kommend" (running and upcoming, all seasons; past ones via the status or season select, `?status=alle`), no Liste/Kalender toggle (the Kalender page covers it; `?ansicht=kalender` redirects there), no health column, "abgerechnet" reads as "vorbei" while finance is hidden. KW column, type filter chips, Vorschau `?vorschau=<id>`, **sortable columns** Datum (default, the only one with month headers) · Veranstaltung · Art · Ort · Status (`?sortierung=name|art|ort|status`, `&richtung=ab`; `aria-sort` on the header), the **Ort as a chip** that filters the list to that venue (`?ort=<id>`, shown as a removable filter), and per row the eye plus the **same "…" menu as the event page** (Bearbeiten incl. **Art** · Verschieben · Status; HN-07–09, UT-14), one primary button **"Markt planen"** (3-step side sheet: pick a market, dates, preview) via `?erzeugen=1[&vorlage=<presetId>]`; picked days that follow each other become **one multi-day event** (Sa + So → one two-day event, never shorter than the market's length; a switch "Aufeinanderfolgende Tage zu einer Veranstaltung zusammenfassen", on by default, shows when it changes something; the preview lists one row per event and its × removes all of its days; HN-12, UT-16); a single date without a market is "+ Neu → Einzeltermin" (`/veranstaltungen/neu`) |
+| Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`); Dokumente, Notizen and Verlauf sit under "Mehr". In the Verlauf a task's newest "Aufgabe erledigt" / "übersprungen" entry has **Wiederherstellen** while the task is still finished (reopens it, undo toast; user test 2026-11, UT-06). Every link to a market opens its Überblick |
 | Orte | `/orte` | Venues: Name, Stadt, kommende Termine (zones, rows, capacity, landowner in the Vorschau `?vorschau=<id>`) |
-| Ort | `/orte/[id]` | One venue: zones and rows, location agreements |
+| Ort | `/orte/[id]` | One venue. First two boxes (HN-15): **Veranstaltungen an diesem Ort** (Kommende · Zuletzt, whole rows open the event; "Alle Veranstaltungen →" opens the list filtered to the venue, "Ältere im Archiv →" the Archiv searched by its name) and **Märkte an diesem Ort** (rows open the market's Vorschau in the Bibliothek); then address, zones and rows, location agreements, requirements |
+| Event › Genehmigungen | `/veranstaltungen/[id]/genehmigungen` | The event's permits, rows open the drawer in place. **"+ Genehmigung anlegen"** adds a permit for this event (venue fixed, season from the event, linked at once, opens in the tab's drawer, undo archives it) and **"+ Aufgabe"** a task of this event in the category Genehmigungen (no C hint: C stays "+ Neu"; the task opens on the Zusammenfassung). Both also in the empty state (HN-16) |
 | Genehmigungen | `/genehmigungen` (was `/logbuch`, permanent redirect) | Opens on **Kommend** (permits covering upcoming markets). List sorted by Antrag bis in groups "Jetzt beantragen (bis …)" · "Später beantragen" · "Beantragt und erledigt" (phones open the list), or the matrix (locations × permit types; open cells show "bis dd.mm.", granted cells the coverage "7/7", with a legend); focus chip "Jetzt zu tun"; cells and rows open the permit drawer `?genehmigung=<id>`, whose primary button is the next forward step |
 | Genehmigung | drawer `?detail=permit:<id>` (M3); page `/genehmigungen/[id]` planned | One permit (documents, conditions, fees) |
 | Team · Stunden | `/team` | Staff list (M1), Vorschau `?person=<id>`; month grid hours, remaining allowance, month-close stepper and Schichten je Veranstaltung from M4 |
@@ -172,7 +178,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Markt bearbeiten | `/vorlagen/[id]` | Edit form of a market (preset) |
 | Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` | Timeline template editor (Excel-like grid + timeline ruler); used for the Grundvorlage, a market's own template and the other templates, its back link goes to the Bibliothek |
 | Wissen | `/wissen` | Knowledge base |
-| Benachrichtigungen | `/benachrichtigungen` | Owner/manager: the company-wide notification center (below). Staff/field: their personal inbox. Entry: the bell and Strg+K, no sidebar entry |
+| Benachrichtigungen | `/benachrichtigungen` | Owner/manager: the company-wide notification center (below). Staff/field: their personal inbox. Entry: Strg+K and the Übersicht link (the bell is hidden since 2026-11), no sidebar entry |
 | Einstellungen | `/einstellungen` | Users & roles, legal parameters, company settings |
 
 Modules whose data arrives in a later milestone exist from M1 as routes with a "coming soon" page, so the sidebar never
@@ -181,13 +187,18 @@ leads nowhere.
 ### Board views (across events, decision 2026-10-22)
 - **Bereitschaft** (default, `/board`): one row per upcoming market (running ones included), by date. Columns: market (colour marker, links to its Überblick) · date and "in N Tagen" · progress bar and x/y · **Fehlt** (chips, worst first, only non-zero: überfällig, Genehmigungen fehlen, Kernaufgaben offen; "Im Plan" when none) · **Nächste Frist** (opens the task drawer). Attention is status colour + icon + text in the chips, never a row background; a missing permit turns critical within 14 days of the first day. The category chips sit behind a **Filter** button (closed by default, the active category reads out next to it; Team and Finanzen are not offered while those modules are hidden). On phones every row stacks, so "Fehlt" stays visible.
 - **Matrix** (`?ansicht=matrix`): the same markets x Kernaufgaben (at most 10 columns, matched by the template item's stable key, title as fallback, in their usual due order). Cell = erledigt / offen / bald fällig (due within 7 days) / überfällig / zurückgestellt / "–" (no such task), always icon + colour + date, with a legend below; every cell with a task opens the drawer (`?aufgabe=`). The market column sticks, the table scrolls sideways inside its container (never the page); long titles wrap to up to three lines with the full title as tooltip.
-- **Spalten** (`?ansicht=spalten`): the kanban across markets, cards with the market colour marker next to the market name (linking to its Überblick); no carried-over badge, a small category tag. Columns: **Später · Diese Woche · Überfällig & heute · Erledigt**, each sorted by due date. On the event's own Board tab the tasks due after the last event day sit at the end of "Später" under "Nach der Veranstaltung".
-- **Ablauf** (`?ansicht=ablauf`, event Board tab only; decision 2026-10-26): every task of the event in one list, one line
-  per task with aligned columns (tick · title with ★ and status when not "offen" · category · due-ness only for
-  overdue/today/waiting · date · "…"), grouped by phase relative to the market day: Überfällig & heute, Mehr als 4 / 3–4 /
-  2 Wochen vorher, Woche vor dem Markt, Veranstaltungstag(e), Nach dem Markt, Ohne Datum, Erledigt (collapsed). Sticky
-  phase headers with date range and count; hairline separators instead of cards. Click/Enter opens the drawer, J/K move,
-  E ticks off. On phones category and date move under the title, titles wrap to two lines.
+- **Spalten** (`?ansicht=spalten`): the kanban across markets, cards with the market colour marker next to the market name (linking to its Überblick); no carried-over badge, a small category tag. Columns: **Später · Diese Woche · Überfällig & heute · Erledigt**, each sorted by due date. Only on `/board`: the event's Checkliste tab has no Spalten (user test 2026-11), an old `?ansicht=spalten` link there lands on the Checkliste.
+- **Checkliste** (the event's Checkliste tab, its only view while the team module is hidden; decisions 2026-10-26
+  and 2026-11-03): every task of the event in one list, one line per task with aligned columns (tick · title with status
+  when not "offen" · category · due-ness only for overdue/today/waiting, "Erledigt <Datum>" when done · date · "…"),
+  grouped by phase relative to the market day: Überfällig & heute, Mehr als 4 / 3–4 / 2 Wochen vorher, Woche vor dem
+  Markt, Veranstaltungstag(e), Nach dem Markt, Ohne Datum. **Finished tasks stay in place**: in the phase of their due
+  date (one ticked off today stays in "Überfällig & heute" until tomorrow, so the row never jumps), and every finished
+  task of the event is listed, not only the last 14 days. Done and open must differ at a glance: done = filled green tick
+  (skipped: grey dash), tinted row, struck-through dimmed title; open = empty ring, full-contrast title. The same tick
+  unticks (undo toast either way, no confirmation since nothing disappears, decision D1). Sticky phase headers with date
+  range and "x von y erledigt"; hairline separators instead of cards. Click/Enter opens the drawer, J/K move, E ticks
+  off or unticks. On phones category and date move under the title, titles wrap to two lines.
 - **Zeitraum** (Bis Sonntag / 14 Tage / Alles) applies to the first day of the market; "Alles" is every upcoming market. The page has no subtitle line; on phones the "Neu" button of the top bar replaces the button next to the filters.
 
 ### Übersicht (start screen, one for everyone)
@@ -206,7 +217,11 @@ what is due now side by side, the week below. No KPI strip, no season strip.
    Rückmeldung".
 5. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
 In every list a market shows its first 3 items and a group its first 10 markets; **"+ N weitere bei …" / "+ N weitere
-Märkte" open the rest in place** (native disclosure, no navigation). Rows open the task drawer on the Übersicht itself
+Märkte" open the rest in place** (native disclosure, no navigation), drawn as a small bordered button with a chevron
+so it reads as clickable. Past 10 hidden rows of one market it **links to the market's Zusammenfassung** instead
+("Alle N weiteren ansehen →"), so a card never unfolds a hundred rows (HN-05). Every market heading (weekend, next
+weekend, the per-market bundles) carries a **visible eye** that opens its Vorschau in place (`/?vorschau=<id>`, HN-06);
+Space on the row still does the same. Rows open the task drawer on the Übersicht itself
 (`/?aufgabe=<id>`); J/K move (also through opened disclosures), Enter opens.
 
 ### Benachrichtigungen (notification center, decision 2026-10-22)
@@ -232,12 +247,12 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
 - **Bell:** unread open count, popover with the five most urgent open items (quick Erledigt) and "Alle anzeigen".
 
 ### Kalender (module)
-- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**; phones open the Liste (decision 2026-10-28, cookie `mw_kal_phone`), an explicit `?ansicht=` wins. Same-day deadlines of one kind collapse into one entry ("65 Genehmigungen: Entscheidung erwartet"), "+ N weitere" links to the list from that day, ←/→ change the month, the month title opens a month/year jump. Veranstaltungen keeps its own Liste/Kalender toggle;
+- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**; phones open the Liste (decision 2026-10-28, cookie `mw_kal_phone`), an explicit `?ansicht=` wins. Same-day deadlines of one kind collapse into one entry ("65 Genehmigungen: Entscheidung erwartet"), "+ N weitere" opens **all entries of that day in a popover** in place (same chips, Escape closes; HN-10), with "In der Liste ab diesem Tag →" at its bottom, ←/→ change the month, the month title opens a month/year jump. Veranstaltungen keeps its own Liste/Kalender toggle;
   the Kalender module is the company-wide view across modules.
 - **Layer panel ("Ebenen"):** collapsed behind an "Ebenen" button (state remembered, cookie `mw_kal_ebenen`).
   *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*: Genehmigungen, Raten &
   Zahlungen, Aufgaben, Fahrzeuge & Pflichten; *Team*: Schichten; *Hintergrund*: Feiertage NRW. Hidden modules' layers
-  are not offered. Default: events + permits + obligations on, **Aufgaben off** (those live on the Board).
+  are not offered. Default: events + permits + obligations on. **No Aufgaben layer** since the user test 2026-11 (`HIDDEN_MODULES.calendarTasks`; tasks live on the Board).
 - **Presets:** two, "Märkte" and "Märkte + Fristen" (= the default). **Narrowing:** "Nur Achtung und Kritisch", Ort
   ("Nur meine Zuständigkeit" returns with Team).
 - **Entries:** month chips show the full market name (up to two lines) with the market colour bar; every event
@@ -261,6 +276,25 @@ Ort – aus Vorlage anlegen"); filtered-empty ("Keine Treffer – Filter zurück
 
 **Feedback:** optimistic + undo toast (5–8 s) for assign, move, tick off, mark paid. Money stays visibly
 "wird gespeichert…" until the server confirms.
+**Undo history** (handwritten notes 2026-11): every change whose toast offers "Rückgängig" also goes into a short
+history (the last 10, at most 15 minutes old, in memory, so a reload clears it). A **"Rückgängig" button in the top
+bar** (left of the search, so a drawer never covers it) and Strg+Z take back the newest one, also after its toast
+has gone; pressing again goes one further back. Greyed out when there is nothing; the tooltip names the change
+("Rückgängig: Status: Ersetzt (Strg+Z)"). Code: `useShell().lastUndo` / `undoLast()`.
+**Permit "Ersetzt" toggles back:** after "Als ersetzt markieren" the drawer shows a pressed "Als ersetzt markiert"
+button; clicking it makes the permit valid again (the status before, granted or rejected, with cancelled tasks
+reopened; `reinstatePermit`). The rest of a superseded permit stays read-only.
+**One exception, ticking off where the task disappears** (user test 2026-11, decision D1): on the Übersicht, in
+Benachrichtigungen, in the event's Zusammenfassung ("Was fehlt") and on the global Board (tick, menu, `E`), "Erledigt"
+first asks in a small dialog ("Aufgabe erledigt?" · "„<Titel>“ als erledigt markieren?" · Abbrechen · Ja, erledigt);
+the undo toast follows as usual. The event Checkliste and the task drawer ask nothing (the task stays visible), and
+neither does a drag or keyboard move into the Erledigt column (a deliberate gesture). Code: `useTaskActions({ confirmDone })`,
+one dialog in the shell (`useShell().confirm`).
+**One tick for every task row** (handwritten notes 2026-11, HN-02/HN-03): Übersicht, Was fehlt and the Checkliste use
+the same control, always the row's leading element: empty ring (open, previews the tick on hover), filled green tick
+(done), filled grey dash (skipped). A click on a finished tick reopens; rows that leave their list on done only ever
+show the open ring. The drawer's Erledigt button carries the same mark. Code: `TaskTick` / `TickMark`
+(`components/task/task-tick.tsx`). The global Board's cards keep their own buttons until the Board is removed.
 
 **Keyboard map (core):** Strg+K search/commands · `/` filter in list · J/K up/down · Space Vorschau · Enter open ·
 Esc close Vorschau/drawer · `C` create ("+ Neu") · `A` assign · `S` status · `X` done · Ctrl+Z undo last action ·

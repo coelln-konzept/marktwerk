@@ -165,7 +165,7 @@ export function ItemGrid({
                         >
                           {item.title}
                         </Link>
-                        {item.isKey && (
+                        {item.isKey && isModuleVisible("keyTasks") && (
                           <span
                             className="ml-1.5 inline-flex align-middle text-muted-foreground"
                             title={t("grid.keyTask")}

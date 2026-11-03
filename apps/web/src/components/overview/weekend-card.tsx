@@ -7,11 +7,13 @@ import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { formatDateRangeYear, formatDateShort, formatWeek } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { DueItem } from "@/server/queries/due";
 import type { Overview, WeekendBlock, WeekendMarket } from "@/server/queries/overview";
-import { MoreDisclosure } from "./due-groups";
+import { MORE_IN_PLACE_MAX, MoreDisclosure } from "./due-groups";
 import { itemHref, itemPeek } from "./links";
+import { PeekLink } from "./peek-link";
 import { VerdictLine } from "./verdict-line";
 
 /** Blockers listed per market; more than two markets share the card, so they get fewer. */
@@ -94,7 +96,7 @@ async function MarketBlock({
   const href = `/veranstaltungen/${row.id}`;
   const shown = blockers.slice(0, rows);
   const rest = blockers.slice(rows);
-  const reserveStar = blockers.some((b) => b.isKey);
+  const reserveStar = isModuleVisible("keyTasks") && blockers.some((b) => b.isKey);
   return (
     <section
       aria-labelledby={`weekend-${row.id}`}
@@ -121,6 +123,7 @@ async function MarketBlock({
           <span className="tabular text-muted-foreground text-small">
             {formatDateRangeYear(row.startsOn, row.endsOn, locale, today)}
           </span>
+          <PeekLink eventId={row.id} name={row.name} className="-my-1 ml-auto" />
         </span>
         <VerdictLine verdict={verdict} />
       </div>
@@ -138,9 +141,18 @@ async function MarketBlock({
             />
           ))}
           {rest.length > 0 && (
-            // Opens the remaining blockers in place (decision 2026-10-29), no jump to the market page.
+            // Opens the remaining blockers in place (decision 2026-10-29); past MORE_IN_PLACE_MAX it links to
+            // the market's Zusammenfassung ("Was fehlt") instead (handwritten notes HN-05).
             <li className="list-none">
-              <MoreDisclosure className="pl-6" label={t("blockersMore", { count: rest.length })}>
+              <MoreDisclosure
+                className="pl-6"
+                label={t("blockersMore", { count: rest.length })}
+                link={
+                  rest.length > MORE_IN_PLACE_MAX
+                    ? { href, label: t("blockersMoreLink", { count: rest.length }) }
+                    : undefined
+                }
+              >
                 <ul
                   aria-label={t("blockers", { name: row.name })}
                   className="m-0 -ml-6 flex list-none flex-col p-0"
@@ -266,6 +278,7 @@ export async function WeekendCard({
                   </Link>
                 </span>
                 <VerdictLine verdict={verdict} compact />
+                <PeekLink eventId={row.id} name={row.name} className="-my-1 ml-auto" />
               </li>
             ))}
           </ul>

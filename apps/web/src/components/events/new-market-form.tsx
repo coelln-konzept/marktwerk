@@ -28,12 +28,23 @@ export function NewMarketForm({
   types,
   venues,
   initialName,
+  initialValue,
+  fromEventId,
+  title,
+  hint,
   onCreated,
   onCancel,
 }: {
   types: EventTypeOption[];
   venues: VenueOption[];
   initialName: string;
+  /** Prefilled fields (Archiv: "Als Vorlage speichern" from a past event). */
+  initialValue?: EventFieldsValue;
+  /** The past event the market is made from; its market's tasks are copied instead of the master. */
+  fromEventId?: string;
+  /** Heading override; null leaves it out (the dialog around the form has its own title). */
+  title?: string | null;
+  hint?: string;
   onCreated: (market: GenerationPreset, template: { items: number } | null) => void;
   onCancel: () => void;
 }) {
@@ -41,10 +52,9 @@ export function NewMarketForm({
   const tSingle = useTranslations("generate.single");
   const locale = useLocale();
   const errorId = useId();
-  const [value, setValue] = useState<EventFieldsValue>(() => ({
-    ...initialFields(types, locale),
-    name: initialName,
-  }));
+  const [value, setValue] = useState<EventFieldsValue>(
+    () => initialValue ?? { ...initialFields(types, locale), name: initialName },
+  );
   const [rhythm, setRhythm] = useState<Rhythm>(NO_RHYTHM);
   const [problem, setProblem] = useState<FieldProblem | null>(null);
   const [pending, startTransition] = useTransition();
@@ -65,16 +75,19 @@ export function NewMarketForm({
     setValue((v) => ({ ...v, times: input.times }));
     setProblem(null);
     startTransition(async () => {
-      const result = await createMarketAction({
-        name: input.name,
-        eventTypeId: input.eventTypeId,
-        venueId: input.venueId,
-        durationDays: input.durationDays,
-        times: input.times,
-        pricePerMCents: input.pricePerMCents,
-        bookingFeeCents: input.bookingFeeCents,
-        rrule,
-      });
+      const result = await createMarketAction(
+        {
+          name: input.name,
+          eventTypeId: input.eventTypeId,
+          venueId: input.venueId,
+          durationDays: input.durationDays,
+          times: input.times,
+          pricePerMCents: input.pricePerMCents,
+          bookingFeeCents: input.bookingFeeCents,
+          rrule,
+        },
+        fromEventId,
+      );
       if (!result.ok) {
         setProblem({
           field: result.error === "invalid_fee" ? "fee" : fieldOfCode(result.error),
@@ -115,12 +128,18 @@ export function NewMarketForm({
         submit();
       }}
     >
-      <div>
-        <h3 id="new-market-title" className="font-semibold">
-          {t("title")}
-        </h3>
-        <p className="mt-1 text-muted-foreground text-small">{t("hint")}</p>
-      </div>
+      {title === null ? (
+        <p id="new-market-title" className="text-muted-foreground text-small">
+          {hint ?? t("hint")}
+        </p>
+      ) : (
+        <div>
+          <h3 id="new-market-title" className="font-semibold">
+            {title ?? t("title")}
+          </h3>
+          <p className="mt-1 text-muted-foreground text-small">{hint ?? t("hint")}</p>
+        </div>
+      )}
       <EventFields
         value={value}
         onChange={setValue}

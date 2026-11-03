@@ -1,0 +1,137 @@
+{
+  "archive": {
+    "title": "Archiv",
+    "subtitle": "Alles Vergangene an einem Ort: Veranstaltungen, Dokumente, Aktivität und alte Genehmigungen.",
+    "sections": {
+      "label": "Archivbereich",
+      "events": "Vergangene Veranstaltungen",
+      "documents": "Dokumente",
+      "activity": "Aktivität",
+      "permits": "Alte Genehmigungen"
+    },
+    "events": {
+      "count": "{count, plural, =0 {Keine vergangenen Veranstaltungen} one {# vergangene Veranstaltung} other {# vergangene Veranstaltungen}}",
+      "search": "Name oder Ort",
+      "year": "Jahr",
+      "yearAll": "Alle Jahre",
+      "types": "Veranstaltungsart",
+      "all": "Alle",
+      "caption": "Vergangene Veranstaltungen, neueste zuerst",
+      "cols": {
+        "date": "Datum",
+        "event": "Veranstaltung",
+        "type": "Art",
+        "venue": "Ort",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "saveAsPreset": "Als Vorlage speichern",
+      "saveAsPresetFor": "„{name}“ als Vorlage speichern",
+      "empty": "Keine vergangenen Veranstaltungen gefunden.",
+      "reset": "Filter zurücksetzen"
+    },
+    "preset": {
+      "title": "Als Vorlage speichern",
+      "hint": "Aus „{name}“: Name, Art, Ort, Dauer, Zeiten und Preise sind übernommen, die Aufgaben kommen vom Markt dieser Veranstaltung. Die Veranstaltung selbst bleibt, wie sie ist.",
+      "nameSuggestion": "{name}",
+      "created": "Markt „{name}“ angelegt{tasks, plural, =0 {} one { mit # Aufgabe} other { mit # Aufgaben}}.",
+      "open": "In der Bibliothek öffnen",
+      "notFound": "Diese Veranstaltung gibt es nicht mehr."
+    },
+    "documents": {
+      "search": "Dateiname oder Beschreibung",
+      "kind": "Art",
+      "kindAll": "Alle Arten",
+      "caption": "Alle Dokumente, neueste zuerst",
+      "cols": {
+        "file": "Datei",
+        "kind": "Art",
+        "for": "Gehört zu",
+        "by": "Hochgeladen",
+        "size": "Größe"
+      },
+      "empty": "Keine Dokumente gefunden.",
+      "reset": "Filter zurücksetzen",
+      "open": "„{name}“ öffnen",
+      "byOn": "{name} · {date}",
+      "onlyDate": "{date}",
+      "task": "Aufgabe: {title}",
+      "none": "–"
+    },
+    "activity": {
+      "area": "Bereich",
+      "areaAll": "Alles",
+      "areas": {
+        "event": "Veranstaltungen",
+        "task": "Aufgaben",
+        "permit": "Genehmigungen",
+        "document": "Dokumente",
+        "template": "Märkte und Vorlagen"
+      },
+      "caption": "Alle Änderungen in der Firma, neueste zuerst",
+      "cols": {
+        "when": "Zeitpunkt",
+        "who": "Wer",
+        "what": "Änderung",
+        "about": "Betrifft"
+      },
+      "system": "System",
+      "empty": "Noch keine Änderungen.",
+      "noAccess": "Das Firmenprotokoll sehen Inhaber:in und Leitung.",
+      "actions": {
+        "task_status": "Aufgabe: Status → {status}",
+        "task_undo": "Aufgabe: rückgängig gemacht",
+        "task_move": "Aufgabe verschoben",
+        "task_snooze": "Aufgabe zurückgestellt",
+        "task_unsnooze": "Zurückstellung aufgehoben",
+        "task_create": "Aufgabe angelegt",
+        "task_update": "Aufgabe bearbeitet",
+        "task_assign": "Aufgabe zugewiesen",
+        "task_comment": "Kommentar zu einer Aufgabe",
+        "permit_status": "Genehmigung: Status → {status}",
+        "permit_create": "Genehmigung angelegt",
+        "permit_update": "Genehmigung bearbeitet",
+        "permit_archive": "Genehmigung entfernt",
+        "permit_restore": "Genehmigung wiederhergestellt",
+        "permit_link": "Genehmigung mit Veranstaltung verknüpft",
+        "permit_unlink": "Veranstaltung von Genehmigung gelöst",
+        "event_create": "Veranstaltung angelegt",
+        "event_status": "Veranstaltung: Status → {status}",
+        "event_update": "Veranstaltung bearbeitet",
+        "event_move": "Veranstaltung verschoben",
+        "event_duty": "Zuständigkeit geändert",
+        "event_update_notes": "Notizen geändert",
+        "document_upload": "Dokument hochgeladen",
+        "document_archive": "Dokument entfernt",
+        "document_restore": "Dokument wiederhergestellt",
+        "preset_create": "Markt angelegt",
+        "preset_update": "Markt bearbeitet",
+        "template_create": "Vorlage angelegt",
+        "template_publish": "Vorlage veröffentlicht",
+        "notification_snooze": "Hinweis zurückgestellt",
+        "notification_restore": "Hinweis wiederhergestellt"
+      },
+      "other": "Geändert ({action})"
+    },
+    "permits": {
+      "search": "Bezeichnung, Ort oder Aktenzeichen",
+      "caption": "Ersetzte, nicht nötige und abgelaufene Genehmigungen",
+      "cols": {
+        "permit": "Genehmigung",
+        "venue": "Ort",
+        "state": "Status",
+        "validUntil": "Gültig bis",
+        "season": "Saison"
+      },
+      "empty": "Keine alten Genehmigungen gefunden.",
+      "reset": "Suche zurücksetzen"
+    }
+  },
+  "pager": {
+    "label": "Seiten",
+    "range": "{from}–{to} von {total}",
+    "prev": "Vorige Seite",
+    "next": "Nächste Seite",
+    "page": "Seite {n}"
+  }
+}

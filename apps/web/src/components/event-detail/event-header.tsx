@@ -11,6 +11,7 @@ import { isModuleVisible } from "@/lib/modules";
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import { listLinkedDocuments } from "@/server/queries/documents";
+import { listEventTypeOptions } from "@/server/queries/event-form";
 import type { EventDetail } from "@/server/queries/events";
 import { getEventMoney } from "@/server/queries/finance";
 import { listEventPermits } from "@/server/queries/permits";
@@ -38,6 +39,12 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const total = event.duties.length;
   const canWrite = can(actor.role, "event", "write");
   const venues = canWrite ? await listVenueOptions() : [];
+  const types = canWrite
+    ? (await listEventTypeOptions()).map((x) => ({
+        id: x.id,
+        name: locale === "en" ? x.nameEn : x.nameDe,
+      }))
+    : [];
   // Tab "Geld": rates paid of all rates, with the money health (only for roles that may read finance).
   const money =
     isModuleVisible("finance") && can(actor.role, "finance", "read")
@@ -192,10 +199,12 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
               startsOn={event.startsOn}
               canMove={canMoveEvent(event.status)}
               venues={venues}
+              types={types}
               basics={{
                 name: event.name,
                 durationDays: daysBetween(event.startsOn, event.endsOn) + 1,
                 venueId: event.venueId,
+                eventTypeId: event.eventTypeId,
               }}
             />
           </div>

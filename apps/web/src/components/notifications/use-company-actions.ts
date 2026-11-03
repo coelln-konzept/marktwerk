@@ -39,7 +39,8 @@ export function useCompanyActions() {
   const locale = useLocale();
   const { showToast } = useShell();
   const [pending, startTransition] = useTransition();
-  const taskActions = useTaskActions({ staff: [] });
+  // The item leaves the center once its task is done: ask first (decision D1).
+  const taskActions = useTaskActions({ staff: [], confirmDone: true });
 
   const errorText = useCallback(
     (code: string) =>

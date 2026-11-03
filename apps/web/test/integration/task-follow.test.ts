@@ -111,6 +111,7 @@ describe("anchor change → tasks follow", () => {
       name: "Testflohmarkt",
       durationDays: 2,
       venueId: cat.venue.id,
+      eventTypeId: cat.type?.id ?? "",
     });
     expect(result.tasksShifted).toBe(1);
     expect(await dueOf("aufbau")).toBe("2027-03-12T08:00:00.000Z");
@@ -122,6 +123,7 @@ describe("anchor change → tasks follow", () => {
       name: "Anders",
       durationDays: 1,
       venueId: cat.venue.id,
+      eventTypeId: cat.type?.id ?? "",
     });
     expect(result.tasksShifted).toBe(0);
     expect(await db.select().from(notification)).toHaveLength(0);

@@ -15,6 +15,7 @@
     "finance": "Finance",
     "vendors": "Vendors",
     "knowledgeBase": "Knowledge",
+    "archive": "Archive",
     "notifications": "Notifications",
     "settings": "Settings",
     "signOut": "Sign out",
@@ -100,7 +101,10 @@
     "newShift": "Shift",
     "newIssue": "Report defect",
     "showSidebar": "Show sidebar",
-    "skip": "Skip to content"
+    "skip": "Skip to content",
+    "undo": "Undo",
+    "undoWhat": "Undo: {what} (Ctrl+Z)",
+    "undoNone": "Nothing to undo"
   },
   "palette": {
     "title": "Search and commands",

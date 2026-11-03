@@ -78,7 +78,11 @@ function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): 
       : task.column === "done"
         ? derivedColumn(task.dueOn, today)
         : task.column;
-    return state.map((t) => (t.id === patch.id ? { ...t, status: patch.status, column } : t));
+    // completedOn too, so the Checkliste keeps a row ticked off today in place (core `ablaufPhase`).
+    const completedOn = finished ? (task.completedOn ?? today) : null;
+    return state.map((t) =>
+      t.id === patch.id ? { ...t, status: patch.status, column, completedOn } : t,
+    );
   }
   const status: TaskStatusKey =
     patch.column === "done" ? "done" : isFinishedStatus(task.status) ? "todo" : task.status;
@@ -137,7 +141,14 @@ export function BoardView(props: Props) {
   const [tasks, apply] = useOptimistic(props.tasks, (state, patch: OptimisticPatch) =>
     applyPatch(state, patch, today),
   );
-  const current = useTaskActions({ staff, scopeEventId: props.scopeEventId, apply });
+  // Across events done cards leave the open columns, so "Erledigt" asks first (decision D1); the
+  // event's Checkliste keeps them in place and asks nothing.
+  const current = useTaskActions({
+    staff,
+    scopeEventId: props.scopeEventId,
+    apply,
+    confirmDone: !props.scopeEventId,
+  });
   // The cards (memoized) get a stable `actions` that calls the current ones, so a change to one card
   // re-renders that card and not all of them.
   const liveRef = useRef(current);

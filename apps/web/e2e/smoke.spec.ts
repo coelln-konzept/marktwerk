@@ -1,5 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 
+/** The "Rückgängig" button of a toast (the top bar has its own "Rückgängig: …" button). */
+const toastUndo = (page: Page) =>
+  page.getByRole("region", { name: "Hinweise" }).getByRole("button", { name: "Rückgängig" });
+
 test("Übersicht loads after login", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
@@ -40,6 +44,13 @@ test('Übersicht: the weekend next to Heute & überfällig, Diese Woche below; "
     expect(page.url()).toBe(url);
   }
 
+  // Every market heading carries a visible eye that opens its Vorschau in place (HN-06).
+  const eye = page.getByRole("link", { name: /^Vorschau: / }).first();
+  await expect(eye).toBeVisible();
+  await eye.click();
+  await expect(page).toHaveURL(/[?&]vorschau=/);
+  await page.goto("/");
+
   // No KPI strip (the card headers carry the counts), no season strip, no filter chips, no estimate legend.
   await expect(page.locator('dl[aria-label="Kennzahlen"]')).toHaveCount(0);
   await expect(page.getByText(/^Saison 2026/)).toHaveCount(0);
@@ -75,7 +86,7 @@ test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a ma
   await expect(markets).toHaveCount(before - 1);
 
   // The toast names the market; its undo brings the market back.
-  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await toastUndo(page).click();
   await expect(markets).toHaveCount(before);
 
   // The drawer is a linkable page state: a reload keeps it, Esc closes it.
@@ -129,7 +140,7 @@ test("Event page: no Team and Geld tabs, Dokumente/Notizen/Verlauf sit under Meh
   const href = (await first.getAttribute("data-href")) as string;
   await page.goto(href);
   const tabs = page.getByRole("navigation", { name: "Bereiche der Veranstaltung" });
-  await expect(tabs.getByRole("link", { name: "Board" })).toBeVisible();
+  await expect(tabs.getByRole("link", { name: "Checkliste" })).toBeVisible();
   await expect(tabs.getByRole("link", { name: /^Team/ })).toHaveCount(0);
   await expect(tabs.getByRole("link", { name: /^Geld/ })).toHaveCount(0);
   // Dokumente, Notizen and Verlauf are not tabs of their own any more.
@@ -186,12 +197,12 @@ test('Event page: one "…" menu holds Bearbeiten, Verschieben and Status änder
   await expect(menu.getByRole("menuitem", { name: "Verschieben" })).toBeVisible();
   await expect(menu.getByText("Status ändern")).toBeVisible();
   await menu.getByRole("menuitem", { name: "Bearbeiten" }).click();
-  await expect(page.getByRole("dialog", { name: "Name, Dauer und Ort" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Name, Art, Dauer und Ort" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: "Name, Dauer und Ort" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Name, Art, Dauer und Ort" })).toBeHidden();
 });
 
-test("Task drawer: Erledigt and Wartet are buttons, the other states sit in a menu", async ({
+test("Task drawer: Erledigt and Wartet are buttons, the status badge opens every state", async ({
   page,
 }) => {
   await page.goto("/veranstaltungen?saison=2026");
@@ -208,11 +219,18 @@ test("Task drawer: Erledigt and Wartet are buttons, the other states sit in a me
   await expect(drawer.getByRole("button", { name: "Wartet", exact: true })).toBeVisible();
   // An open task offers no "Wieder öffnen"; that one belongs to finished tasks only.
   await expect(drawer.getByRole("button", { name: "Wieder öffnen" })).toHaveCount(0);
-  await expect(drawer.getByText(/Status:/)).toBeVisible();
-  await drawer.getByRole("button", { name: "Weitere Status" }).click();
+  // The status badge itself opens every status; the current one is marked and can't be picked again.
+  await drawer.getByRole("button", { name: /^Status ändern \(jetzt: / }).click();
   const menu = page.getByRole("menu");
-  for (const entry of ["In Arbeit", "Blockiert", "Übersprungen"])
-    await expect(menu.getByRole("menuitem", { name: entry })).toBeVisible();
+  for (const entry of ["Offen", "In Arbeit", "Wartet", "Blockiert", "Übersprungen", "Erledigt"])
+    await expect(menu.getByRole("menuitem", { name: entry, exact: true })).toBeVisible();
+  // Picking one applies it at once; the badge then names it, and the menu takes it back to Offen.
+  await menu.getByRole("menuitem", { name: "In Arbeit", exact: true }).click();
+  const badge = drawer.getByRole("button", { name: "Status ändern (jetzt: In Arbeit)" });
+  await expect(badge).toBeVisible();
+  await badge.click();
+  await page.getByRole("menu").getByRole("menuitem", { name: "Offen", exact: true }).click();
+  await expect(drawer.getByRole("button", { name: "Status ändern (jetzt: Offen)" })).toBeVisible();
   await page.keyboard.press("Escape");
   // The carried-over count and the origin are not shown; the footer hint is gone.
   await expect(drawer.getByText("übertragen")).toHaveCount(0);
@@ -246,9 +264,10 @@ test("Kalender: Ebenen collapsed by default, two presets, tasks off, full market
   const panel = page.getByRole("complementary", { name: "Ebenen" });
   await expect(panel).toBeVisible();
 
-  // Permits and obligations on, tasks off; no disabled "Rückgaben" and no "Nur meine Zuständigkeit".
+  // Permits and obligations on, no tasks layer (user test 2026-11); no disabled "Rückgaben" and no
+  // "Nur meine Zuständigkeit".
   await expect(panel.getByRole("checkbox", { name: /Genehmigungen/ })).toBeChecked();
-  await expect(panel.getByRole("checkbox", { name: /Aufgaben/ })).not.toBeChecked();
+  await expect(panel.getByRole("checkbox", { name: /Aufgaben/ })).toHaveCount(0);
   await expect(panel.getByText(/Rückgaben/)).toHaveCount(0);
   await expect(panel.getByText(/Nur meine Zuständigkeit/)).toHaveCount(0);
   // Finance and shift layers are hidden for now.
@@ -286,15 +305,255 @@ test("Kalender: Ebenen collapsed by default, two presets, tasks off, full market
   await resetKalenderLayers(page);
 });
 
-test("Sidebar: five daily entries, Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
+test('Kalender: "+ N weitere" opens the whole day in place; Escape closes it', async ({ page }) => {
+  // Find a month with a full day (more than four entries), starting with this one.
+  const start = new Date();
+  let more = page.getByRole("button", { name: /weitere Einträge? am .* anzeigen$/ }).first();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+    const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    await page.goto(`/kalender?ansicht=monat&monat=${month}`);
+    more = page.getByRole("button", { name: /weitere Einträge? am .* anzeigen$/ }).first();
+    if ((await more.count()) > 0) break;
+  }
+  test.skip((await more.count()) === 0, "no day with more than four entries in the next 12 months");
+  const url = page.url();
+  const cell = more.locator("xpath=ancestor::td[1]");
+  const shown = await cell.locator("ul > li").count(); // four entries + the button's li
+  await more.click();
+  const popup = page.getByRole("dialog");
+  await expect(popup).toBeVisible();
+  expect(await popup.locator("ul > li").count()).toBeGreaterThan(shown - 1);
+  await expect(popup.getByRole("link", { name: "In der Liste ab diesem Tag" })).toBeVisible();
+  expect(page.url()).toBe(url); // nothing navigated
+  await page.keyboard.press("Escape");
+  await expect(popup).toBeHidden();
+  await expect(more).toBeFocused();
+});
+
+test('Permit: "Als ersetzt markieren" toggles back; the top bar\'s Rückgängig works after the toast is gone', async ({
+  page,
+}) => {
+  // A granted permit (seeded data has many); open its drawer from the Genehmigungen list.
+  await page.goto("/genehmigungen?ansicht=liste&zeitraum=alle");
+  const row = page.locator("[data-href*='genehmigung=']").filter({ hasText: "Genehmigt" }).first();
+  await page.goto((await row.getAttribute("data-href")) as string);
+  const drawer = page.locator("aside[aria-labelledby]").last(); // the permit drawer
+  const undo = page.getByRole("button", { name: /^Rückgängig: |^Nichts zum Rückgängigmachen$/ });
+  await page.waitForLoadState("networkidle");
+
+  await drawer.getByRole("button", { name: "Als ersetzt markieren" }).click();
+  const toggle = drawer.getByRole("button", { name: "Als ersetzt markiert" });
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  // Clicking it again makes the permit valid again.
+  await toggle.click();
+  await expect(page.getByText("Wieder gültig: Genehmigt")).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
+
+  // Let the toasts go, then undo from the top bar: the permit is superseded again …
+  const closeToast = page.getByRole("button", { name: "Hinweis schließen" });
+  while ((await closeToast.count()) > 0) await closeToast.first().click();
+  await expect(undo).toHaveAccessibleName("Rückgängig: Wieder gültig: Genehmigt (Strg+Z)");
+  await undo.click();
+  await expect(drawer.getByRole("button", { name: "Als ersetzt markiert" })).toBeVisible();
+  // … and once more (the first change), back to Genehmigt: the history holds both.
+  await undo.click();
+  await expect(drawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
+});
+
+test("Veranstaltungen: sortable columns, the Ort chip filters, the row menu edits the type too", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?status=alle");
+  const names = () => page.locator("tbody tr[data-row] td:nth-child(3) a").allInnerTexts();
+
+  // Name ascending, then descending; month headers only when sorted by date.
+  await page.getByRole("columnheader", { name: "Veranstaltung" }).getByRole("link").click();
+  await expect(page).toHaveURL(/sortierung=name/);
+  const asc = await names();
+  expect(asc).toEqual([...asc].sort((a, b) => a.localeCompare(b, "de")));
+  await expect(page.getByRole("columnheader", { name: "Veranstaltung" })).toHaveAttribute(
+    "aria-sort",
+    "ascending",
+  );
+  await page.getByRole("columnheader", { name: "Veranstaltung" }).getByRole("link").click();
+  await expect(page).toHaveURL(/richtung=ab/);
+  await expect(page.getByRole("columnheader", { name: "Veranstaltung" })).toHaveAttribute(
+    "aria-sort",
+    "descending",
+  );
+
+  // The Ort chip narrows the list to that venue and shows as a removable filter.
+  const chip = page.locator('a[title^="Nur Veranstaltungen an"]').first();
+  const venue = ((await chip.getAttribute("title")) as string).match(/„(.+)“/)?.[1] as string;
+  await chip.click();
+  await expect(page).toHaveURL(/[?&]ort=/);
+  const venues = await page.locator("tbody tr[data-row] td:nth-child(5)").allInnerTexts();
+  expect(venues.length).toBeGreaterThan(0);
+  for (const v of venues) expect(v.trim()).toBe(venue);
+
+  // The row's "…" menu holds Bearbeiten; the dialog has the type, with the hint when it changes.
+  await page.waitForLoadState("networkidle");
+  await page.locator("tbody tr[data-row]").first().hover();
+  await page
+    .getByRole("button", { name: /^Weitere Aktionen für / })
+    .first()
+    .click();
+  await page.getByRole("menuitem", { name: "Bearbeiten" }).click();
+  const dialog = page.getByRole("dialog", { name: "Name, Art, Dauer und Ort" });
+  const type = dialog.getByLabel("Art");
+  await expect(type).toBeVisible();
+  const other = await type.locator("option:not(:checked)").first().getAttribute("value");
+  await type.selectOption(other as string);
+  await expect(dialog.getByText("Aufgaben und Genehmigungen bleiben, wie sie sind.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+
+test("Markt planen: Saturday and Sunday picked become one two-day event (switchable)", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?erzeugen=1");
+  await page.waitForLoadState("networkidle");
+  const sheet = page.getByRole("dialog");
+  await sheet
+    .getByRole("radio", { name: /Flohmarkt/ })
+    .first()
+    .check();
+  await sheet.getByRole("button", { name: "Weiter" }).click();
+  await sheet.getByRole("button", { name: "Einzeln anklicken" }).click();
+  // Start from nothing picked, then pick one Saturday and the Sunday after it.
+  const picked = sheet.locator("button[data-day][aria-pressed=true]");
+  while ((await picked.count()) > 0) await picked.first().click();
+  const sat = sheet.locator("button[data-day][aria-label^='Sa ']:not([disabled])").nth(5);
+  const day = (await sat.getAttribute("data-day")) as string;
+  const next = new Date(`${day}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  await sat.click();
+  await sheet.locator(`button[data-day='${next.toISOString().slice(0, 10)}']`).click();
+
+  const merge = sheet.getByRole("checkbox", { name: /Aufeinanderfolgende Tage/ });
+  await expect(merge).toBeChecked();
+  await expect(sheet.getByText("wird 1 Veranstaltung")).toBeVisible();
+  await sheet.getByRole("button", { name: "Weiter" }).click();
+  await expect(sheet.getByRole("button", { name: "1 Veranstaltung anlegen" })).toBeVisible();
+  // Switched off, the two days are two events again.
+  await sheet.getByRole("button", { name: "Zurück" }).click();
+  await merge.uncheck();
+  await sheet.getByRole("button", { name: "Weiter" }).click();
+  await expect(sheet.getByRole("button", { name: "2 Veranstaltungen anlegen" })).toBeVisible();
+});
+
+test("Archiv: past events only, newest first; Als Vorlage speichern opens the prefilled market form", async ({
+  page,
+}) => {
+  await page.goto("/archiv");
+  await expect(page).toHaveURL(/\/archiv\/veranstaltungen$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Archiv" })).toBeVisible();
+  const sections = page.getByRole("group", { name: "Archivbereich" });
+  for (const name of ["Vergangene Veranstaltungen", "Dokumente", "Aktivität", "Alte Genehmigungen"])
+    await expect(sections.getByRole("link", { name })).toBeVisible();
+
+  // Only events that are over (the query is covered by an integration test); there are some in the seed.
+  await expect(page.getByText(/^\d+ vergangene Veranstaltungen?$/)).toBeVisible();
+  await expect(page.locator("tbody tr[data-row]").first()).toBeVisible();
+
+  await page.waitForLoadState("networkidle");
+  const save = page.getByRole("link", { name: /als Vorlage speichern$/ }).first();
+  const name = ((await save.getAttribute("aria-label")) as string).match(/„(.+)“/)?.[1] as string;
+  await save.click();
+  const dialog = page.getByRole("dialog", { name: "Als Vorlage speichern" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(name);
+  await dialog.getByRole("button", { name: "Abbrechen" }).last().click();
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/vorlage=/);
+});
+
+test("Archiv: 50 rows per page with a pager; Aktivität, Alte Genehmigungen and Dokumente render", async ({
+  page,
+}) => {
+  await page.goto("/archiv/veranstaltungen");
+  const pager = page.getByRole("navigation", { name: "Seiten" });
+  await expect(page.locator("tbody tr[data-row]")).toHaveCount(50);
+  await expect(pager.getByText(/^1–50 von \d+$/)).toBeVisible();
+  await pager.getByRole("link", { name: "Nächste Seite" }).click();
+  await expect(page).toHaveURL(/seite=2/);
+  await expect(pager.getByRole("link", { name: "Seite 2" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
+  await page.goto("/archiv/aktivitaet");
+  await expect(page.getByRole("columnheader", { name: "Änderung" })).toBeVisible();
+  await page.waitForLoadState("networkidle"); // the select submits on change once hydrated
+  await page.getByLabel("Bereich", { exact: true }).selectOption("permit");
+  await expect(page).toHaveURL(/bereich=permit/);
+
+  await page.goto("/archiv/genehmigungen");
+  const row = page.locator("tbody tr[data-row]").first();
+  await expect(row).toBeVisible();
+  await row.click();
+  await expect(page).toHaveURL(/genehmigung=/);
+
+  await page.goto("/archiv/dokumente");
+  await expect(page.getByPlaceholder("Dateiname oder Beschreibung")).toBeVisible();
+});
+
+test("Ort page: events and markets are the first two boxes; Alle Veranstaltungen opens the filtered list", async ({
+  page,
+}) => {
+  await page.goto("/orte");
+  await page.locator("tbody tr[data-href]").first().click();
+  await expect(page).toHaveURL(/\/orte\/[0-9a-f-]{36}$/);
+  const events = page.getByRole("heading", { name: /^Veranstaltungen an diesem Ort/ });
+  const markets = page.getByRole("heading", { name: /^Märkte an diesem Ort/ });
+  const address = page.getByRole("heading", { name: "Adresse & Zufahrt" });
+  await expect(events).toBeVisible();
+  await expect(markets).toBeVisible();
+  // Above the address and zones.
+  expect((await events.boundingBox())?.y ?? 0).toBeLessThan((await address.boundingBox())?.y ?? 0);
+  await page.getByRole("link", { name: "Alle Veranstaltungen" }).click();
+  await expect(page).toHaveURL(/\/veranstaltungen\?ort=[0-9a-f-]{36}&status=alle/);
+});
+
+test("Event Genehmigungen tab: add a permit for this event (undo removes it) and a task", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/genehmigungen`);
+  await page.waitForLoadState("networkidle");
+  // The task button starts in the category Genehmigungen and has no C hint (C stays "+ Neu").
+  await expect(page.getByRole("button", { name: "Aufgabe", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Aufgabe", exact: true }).click();
+  const taskDialog = page.getByRole("dialog", { name: "Neue Aufgabe" });
+  await expect(taskDialog.getByLabel("Kategorie")).toHaveValue("permits");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Genehmigung anlegen" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Ort")).toBeDisabled();
+  const title = `E2E Lärmschutz ${Date.now()}`;
+  await dialog.getByLabel("Bezeichnung").fill(title);
+  await dialog.getByRole("button", { name: "Anlegen", exact: true }).click();
+  // It opens in this tab's drawer and is listed for this event.
+  await expect(page).toHaveURL(/\/genehmigungen\?genehmigung=/);
+  await expect(page.locator("tbody").getByText(title)).toBeVisible();
+  await toastUndo(page).click();
+  await expect(page.locator("tbody").getByText(title)).toHaveCount(0);
+});
+
+test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
   page,
 }) => {
   await page.goto("/");
   const nav = page.getByRole("navigation", { name: "Hauptnavigation" }).first();
-  for (const entry of ["Übersicht", "Board", "Veranstaltungen", "Kalender", "Genehmigungen"])
+  for (const entry of ["Übersicht", "Veranstaltungen", "Kalender", "Genehmigungen"])
     await expect(nav.getByRole("link", { name: new RegExp(`^${entry}`) })).toBeVisible();
-  // Gone: Logbuch, the "Später" group, Benachrichtigungen, Einstellungen, Firma.
+  // Gone: Board, Logbuch, the "Später" group, Benachrichtigungen, Einstellungen, Firma.
   for (const entry of [
+    "Board",
     "Logbuch",
     "Buchungen",
     "Postfach",
@@ -310,7 +569,7 @@ test("Sidebar: five daily entries, Stammdaten collapsed and remembered, Einstell
   await expect(nav.getByRole("link", { name: "Orte", exact: true })).toBeHidden();
   await group.click();
   await expect(group).toHaveAttribute("aria-expanded", "true");
-  for (const entry of ["Orte", "Kontakte", "Aussteller", "Wissen", "Pflichten"])
+  for (const entry of ["Orte", "Kontakte", "Aussteller", "Wissen", "Archiv", "Pflichten"])
     await expect(nav.getByRole("link", { name: entry, exact: true })).toBeVisible();
 
   // Remembered across a reload.
@@ -354,25 +613,19 @@ test("Logbuch became Genehmigungen: /logbuch redirects with the drawer link inta
   await expect(page).toHaveURL(/\/genehmigungen\?ansicht=liste&genehmigung=/);
 });
 
-test("Benachrichtigungen: the bell is the way in, filters, Erledigt and Zurückstellen with undo, J/K", async ({
+test("Benachrichtigungen: no bell, the page stays; filters, Erledigt and Zurückstellen with undo, J/K", async ({
   page,
 }) => {
   // Needs the seeded database after one deadline sweep (docs/development/testing.md).
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  // No sidebar entry: the bell in the top bar is the entry.
+  // No sidebar entry and no bell (user test 2026-11); the page is still reachable by URL and Strg+K.
   await expect(
     page.getByRole("navigation").getByRole("link", { name: /^Benachrichtigungen/ }),
   ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Benachrichtigungen/ })).toHaveCount(0);
 
-  // Bell: count, the most urgent items with a quick Erledigt, "Alle anzeigen".
-  await page.getByRole("button", { name: /^Benachrichtigungen/ }).click();
-  const popover = page.getByRole("dialog", { name: "Benachrichtigungen" });
-  await expect(
-    popover.getByRole("button", { name: "Erledigt", exact: true }).first(),
-  ).toBeVisible();
-  await popover.getByRole("link", { name: /^Alle \d+ anzeigen$/ }).click();
-  await expect(page).toHaveURL(/\/benachrichtigungen$/);
+  await page.goto("/benachrichtigungen");
   await expect(page.getByRole("heading", { level: 1, name: "Benachrichtigungen" })).toBeVisible();
 
   const status = page.getByRole("group", { name: "Status" });
@@ -405,11 +658,19 @@ test("Benachrichtigungen: the bell is the way in, filters, Erledigt and Zurücks
   await page.keyboard.press("k");
   await expect(rows.first()).toBeFocused();
 
-  // Erledigt completes the task (own undo toast); the notification resolves with it.
-  await rows.first().getByRole("button", { name: "Erledigt", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Rückgängig" })).toBeVisible();
+  // Erledigt on a task asks first (it leaves the list, decision D1): Abbrechen changes nothing.
+  const task = page.locator("li[data-row][data-task]").first();
+  const confirm = page.getByRole("dialog", { name: "Aufgabe erledigt?" });
+  await task.getByRole("button", { name: "Erledigt", exact: true }).click();
+  await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
+  await expect(confirm).toBeHidden();
+  expect(await open()).toBe(before);
+  // Confirmed, it completes the task (own undo toast); the notification resolves with it.
+  await task.getByRole("button", { name: "Erledigt", exact: true }).click();
+  await confirm.getByRole("button", { name: "Ja, erledigt" }).click();
+  await expect(toastUndo(page)).toBeVisible();
   await expect.poll(open).toBe(before - 1);
-  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await toastUndo(page).click();
   await expect.poll(open).toBe(before);
 
   // Zurückstellen (in the "…" menu) with a preset moves it to "Zurückgestellt"; undo brings it back.
@@ -421,7 +682,7 @@ test("Benachrichtigungen: the bell is the way in, filters, Erledigt and Zurücks
   await expect(page.getByText(/zurückgestellt bis/).first()).toBeVisible();
   await expect.poll(open).toBe(before - 1);
   await expect(status).toContainText(/Zurückgestellt 1/);
-  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await toastUndo(page).click();
   await expect.poll(open).toBe(before);
 
   // The tab "Zurückgestellt" shows the empty state when nothing is snoozed.
@@ -443,10 +704,25 @@ test("+ Neu offers task, permit and defect to the owner (no payment or shift whi
     await expect(menu.getByRole("menuitem", { name: entry })).toHaveCount(0);
   await expect(menu.getByRole("menuitem").first()).toHaveText("Markt planen");
 
-  // "Aufgabe" opens the quick-create dialog on the board.
+  // "Aufgabe" opens the quick-create dialog on the Übersicht (the global Board is hidden), with the event to
+  // pick; Esc closes it and cleans the URL.
   await menu.getByRole("menuitem", { name: "Aufgabe" }).click();
-  await expect(page).toHaveURL(/\/board/);
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page).toHaveURL(/\/\?neu=1$/);
+  const dialog = page.getByRole("dialog", { name: "Neue Aufgabe" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("Veranstaltung")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/$/);
+
+  // Strg+K "Aufgabe anlegen" leads to the same dialog.
+  await page.keyboard.press("Control+k");
+  await page.keyboard.type("Aufgabe anlegen");
+  await page
+    .getByRole("option", { name: /Aufgabe anlegen/ })
+    .first()
+    .click();
+  await expect(page.getByRole("dialog", { name: "Neue Aufgabe" })).toBeVisible();
 });
 
 test("Veranstaltungen: Space previews a row, Enter opens it, back returns to the list", async ({
@@ -533,19 +809,26 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
   await page.keyboard.press("Space");
 
   // Optimistic: the card shows up in the neighbouring column at once; the undo toast offers to revert.
-  await expect(to.locator(`[data-card="${id}"]`)).toBeVisible();
+  // Long columns show 30 cards before "weitere anzeigen" and the card is sorted in by date, so open the
+  // rest of the column until it is there (the seed grows with the date, so "Diese Woche" can hold more).
+  const moved = to.locator(`[data-card="${id}"]`);
+  const more = to.getByRole("button", { name: /weitere anzeigen/ });
+  await expect(moved.or(more).first()).toBeVisible();
+  while ((await moved.count()) === 0 && (await more.count()) > 0) await more.first().click();
+  await expect(moved).toBeVisible();
   await expect(from.locator(`[data-card="${id}"]`)).toHaveCount(0);
-  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await toastUndo(page).click();
   await expect(from.locator(`[data-card="${id}"]`)).toBeVisible();
 });
 
-test("Board: three views, the category filter sits behind Filter, no Team/Finanzen chips", async ({
+test("Board: two views, the category filter sits behind Filter, no Team/Finanzen chips", async ({
   page,
 }) => {
   await page.goto("/board?zeitraum=alle&ansicht=gruppiert");
   const views = page.getByRole("group", { name: "Ansicht" });
   // "Gruppiert" is gone; an old link falls back to Bereitschaft.
-  await expect(views.getByRole("link")).toHaveText(["Bereitschaft", "Matrix", "Spalten"]);
+  // No Matrix while Kernaufgaben are hidden (user test 2026-11).
+  await expect(views.getByRole("link")).toHaveText(["Bereitschaft", "Spalten"]);
   await expect(views.getByRole("link", { name: "Bereitschaft" })).toHaveAttribute(
     "aria-current",
     "true",
@@ -581,19 +864,16 @@ test("Board: Bereitschaft is the default view, one row per market linking to its
   await expect(market).toHaveAttribute("href", /\/veranstaltungen\/[^/]+$/);
 });
 
-test("Board: Kernaufgaben-Matrix shows markets x key tasks with a legend and opens the drawer", async ({
+test("Board: an old Matrix link falls back to Bereitschaft while Kernaufgaben are hidden", async ({
   page,
 }) => {
   await page.goto("/board?ansicht=matrix&zeitraum=alle");
-  const table = page.getByRole("table", { name: "Kernaufgaben der kommenden Veranstaltungen" });
-  await expect(table).toBeVisible();
-  await expect(table.getByRole("columnheader").nth(1)).toBeVisible();
-  await expect(page.getByRole("list", { name: "Legende" })).toBeVisible();
-  const cell = table.locator("tbody a[href*='aufgabe=']").first();
-  await cell.focus();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/aufgabe=/);
-  await expect(page).toHaveURL(/ansicht=matrix/);
+  await expect(
+    page.getByRole("table", { name: "Bereitschaft der kommenden Veranstaltungen" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Kernaufgaben der kommenden Veranstaltungen" }),
+  ).toHaveCount(0);
 });
 
 test("command palette finds tasks, permits and vehicles by their titles", async ({ page }) => {
@@ -640,7 +920,7 @@ test("Veranstaltungen: opens at the current week (past ones one select away), no
   );
 });
 
-test("Veranstaltung Überblick: shows Was fehlt and Kernaufgaben, no Zustand panel", async ({
+test("Veranstaltung Zusammenfassung: shows Was fehlt, no Kernaufgaben and no Zustand panel", async ({
   page,
 }) => {
   await page.goto("/veranstaltungen?saison=2026");
@@ -648,7 +928,7 @@ test("Veranstaltung Überblick: shows Was fehlt and Kernaufgaben, no Zustand pan
   expect(href).toMatch(/^\/veranstaltungen\/[0-9a-f-]{36}$/);
   await page.goto(href as string);
   await expect(page.getByRole("heading", { level: 2, name: "Was fehlt" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Kernaufgaben" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Kernaufgaben" })).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 2, name: "Zustand" })).toHaveCount(0);
 });
 
@@ -669,18 +949,20 @@ test("Whole rows open their target: a click beside the market name opens the eve
 test("Back arrow: returns to the page you came from with its filters, else to the parent page", async ({
   page,
 }) => {
-  await page.goto("/board?ansicht=matrix&zeitraum=alle");
+  await page.goto("/board?zeitraum=alle");
   const back = page.getByRole("button", { name: "Zurück", exact: true });
   await expect(back).toHaveCount(0);
   await page
-    .getByRole("table", { name: "Kernaufgaben der kommenden Veranstaltungen" })
-    .locator("tbody th a")
+    .getByRole("table", { name: "Bereitschaft der kommenden Veranstaltungen" })
+    .locator("tbody tr")
+    .first()
+    .getByRole("link")
     .first()
     .click();
   await expect(page).toHaveURL(/\/veranstaltungen\/[0-9a-f-]{36}$/);
   const event = page.url();
   await back.click();
-  await expect(page).toHaveURL(/\/board\?ansicht=matrix&zeitraum=alle$/);
+  await expect(page).toHaveURL(/\/board\?zeitraum=alle$/);
 
   // Opened directly (new tab): back goes to the parent crumb.
   const direct = await page.context().newPage();
@@ -689,49 +971,102 @@ test("Back arrow: returns to the page you came from with its filters, else to th
   await expect(direct).toHaveURL(/\/veranstaltungen$/);
 });
 
-test("Kernaufgaben: the circle marks a task done with undo", async ({ page }) => {
-  await page.goto("/veranstaltungen?saison=2026");
-  const href = await page.locator("tbody tr[data-row]").first().getAttribute("data-href");
-  await page.goto(href as string);
-  const panel = page.getByRole("region", { name: "Kernaufgaben" });
-  const open = panel.locator('button[aria-pressed="false"]').first();
-  const label = (await open.getAttribute("aria-label")) ?? "";
-  const title = label.replace(/^„/, "").replace(/“ als erledigt markieren$/, "");
-  await open.click();
-  await expect(page.getByText(`„${title}“ erledigt`)).toBeVisible();
-  await page.getByRole("button", { name: "Rückgängig" }).click();
-  await expect(
-    panel.locator(`button[aria-pressed="false"][aria-label="${label}"]`).first(),
-  ).toBeVisible();
+test("Übersicht: Erledigt asks first, since the task leaves the list; Abbrechen keeps it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const tick = page.getByRole("button", { name: /als erledigt markieren$/ }).first();
+  const label = await tick.getAttribute("aria-label");
+  await tick.click();
+  const confirm = page.getByRole("dialog", { name: "Aufgabe erledigt?" });
+  await expect(confirm).toBeVisible();
+  await expect(confirm).toContainText("als erledigt markieren?");
+  await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
+  await expect(confirm).toBeHidden();
+  await expect(page.getByRole("button", { name: label ?? "" })).toBeVisible();
+  await expect(toastUndo(page)).toHaveCount(0);
 });
 
-test("Event board: Ablauf lists every task by phase, one line each; a row opens the drawer", async ({
+test("Event Checkliste: every task by phase, one line each; ticked rows stay crossed out and untick", async ({
+  page,
+}) => {
+  await page.goto("/board?zeitraum=alle");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  // An old Spalten link lands on the Checkliste; there is no view switch left.
+  await page.goto(`${href}/board?ansicht=spalten`);
+  await expect(page.getByRole("group", { name: "Ansicht" })).toHaveCount(0);
+  const rows = page.locator("li[data-row]");
+  await expect(rows.first()).toBeVisible();
+  // Phase headers carry a count; finished tasks stay in their phase, no collapsed "Erledigt" group.
+  await expect(page.locator("main h2").first()).toContainText(/Aufgaben?$|erledigt$/);
+  await expect(
+    page.locator("main details").filter({ has: page.locator("summary", { hasText: /^Erledigt/ }) }),
+  ).toHaveCount(0);
+  // Single-line rows on desktop: much shorter than the 130 px cards.
+  const box = await rows.first().boundingBox();
+  expect(box?.height ?? 0).toBeLessThan(56);
+
+  // Tick an open row: it stays where it is, crossed out, and the same button unticks it.
+  const row = rows.filter({ has: page.locator('button[aria-pressed="false"]') }).first();
+  const title = (await row.locator("a").first().textContent()) ?? "";
+  await page.waitForLoadState("networkidle");
+  await row.locator("button[aria-pressed]").click();
+  const same = rows.filter({ has: page.getByRole("link", { name: title, exact: true }) }).first();
+  await expect(same.locator("button[aria-pressed]")).toHaveAttribute("aria-pressed", "true");
+  await expect(same.locator("a").first()).toHaveCSS("text-decoration-line", "line-through");
+  await same.locator("button[aria-pressed]").click();
+  await expect(same.locator("button[aria-pressed]")).toHaveAttribute("aria-pressed", "false");
+
+  await rows.first().locator("span").nth(2).click();
+  await expect(page).toHaveURL(/aufgabe=/);
+});
+
+test("Task drawer: Erledigt is a toggle, pressed while done; a second click reopens", async ({
   page,
 }) => {
   await page.goto("/board?zeitraum=alle");
   const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
   await page.goto(`${href}/board`);
-  await page.getByRole("group", { name: "Ansicht" }).getByRole("link", { name: "Ablauf" }).click();
-  await expect(page).toHaveURL(/ansicht=ablauf/);
   const rows = page.locator("li[data-row]");
-  await expect(rows.first()).toBeVisible();
-  // Phase headers carry a task count; finished tasks wait collapsed at the end.
-  await expect(
-    page
-      .locator("main h2")
-      .filter({ hasText: /Aufgaben?$/ })
-      .first(),
-  ).toBeVisible();
-  const done = page
-    .locator("main details")
-    .filter({ has: page.locator("summary", { hasText: /^Erledigt/ }) });
-  if ((await done.count()) > 0) await expect(done).not.toHaveAttribute("open", /.*/);
-  // Single-line rows on desktop: much shorter than the 130 px cards.
-  const box = await rows.first().boundingBox();
-  expect(box?.height ?? 0).toBeLessThan(56);
-  await rows.first().locator("span").nth(2).click();
-  await expect(page).toHaveURL(/aufgabe=/);
-  await expect(page).toHaveURL(/ansicht=ablauf/);
+  const row = rows.filter({ has: page.locator('button[aria-pressed="false"]') }).first();
+  const title = (await row.locator("a").first().textContent()) ?? "";
+  await page.waitForLoadState("networkidle");
+  // Tick it in the list (same tick everywhere), then open it.
+  await row.locator("button[aria-pressed]").click();
+  const same = rows.filter({ has: page.getByRole("link", { name: title, exact: true }) }).first();
+  await expect(same.locator("button[aria-pressed]")).toHaveAttribute("aria-pressed", "true");
+  await same.locator("a").first().click();
+  const drawer = page.getByRole("dialog");
+  const toggle = drawer.getByRole("button", { name: `„${title}“ wieder öffnen` });
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(toggle).toContainText("Erledigt");
+  await toggle.click();
+  const reopened = drawer.getByRole("button", { name: "Erledigt", exact: true });
+  await expect(reopened).toHaveAttribute("aria-pressed", "false");
+  await expect(drawer.getByRole("button", { name: "Wartet", exact: true })).toBeVisible();
+});
+
+test("Verlauf: Wiederherstellen reopens a task ticked off on the Checkliste", async ({ page }) => {
+  await page.goto("/board?zeitraum=alle");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/board`);
+  await page.waitForLoadState("networkidle");
+  const row = page
+    .locator("li[data-row]")
+    .filter({ has: page.locator('button[aria-pressed="false"]') })
+    .first();
+  const title = ((await row.locator("a").first().textContent()) ?? "").trim();
+  await row.locator("button[aria-pressed]").click();
+  await expect(toastUndo(page)).toBeVisible();
+
+  await page.goto(`${href}/verlauf`);
+  await page.waitForLoadState("networkidle");
+  const restore = page.getByRole("button", { name: `„${title}“ wiederherstellen (wieder offen)` });
+  await expect(restore.first()).toBeVisible();
+  await restore.first().click();
+  await expect(page.getByText(`„${title}“ wieder geöffnet`)).toBeVisible();
+  await expect(restore).toHaveCount(0);
 });
 
 test("Sidebar: the button at its top right hides it (remembered), the top bar brings it back", async ({

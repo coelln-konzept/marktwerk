@@ -29,6 +29,8 @@
       "actions": "Actions"
     },
     "preview": "Preview: {name}",
+    "venueOnly": "Show only events at “{name}”",
+    "venueUnknown": "Unknown venue",
     "keys": "Space: preview · Enter: open · J/K: next/previous row",
     "single": "Single event",
     "statusOver": "over",

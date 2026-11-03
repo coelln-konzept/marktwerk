@@ -39,6 +39,10 @@
     },
     "shiftHint": "+ Klick: gleiche Wochentage dazwischen",
     "summary": "{count, plural, =0 {Noch keine Termine gewählt} one {# Termin gewählt} other {# Termine gewählt}}",
+    "merge": {
+      "label": "Aufeinanderfolgende Tage zu einer Veranstaltung zusammenfassen",
+      "result": "{count, plural, one {wird # Veranstaltung} other {werden # Veranstaltungen}}"
+    },
     "warningsCount": "{count, plural, one {# Hinweis} other {# Hinweise}}",
     "previewIntro": "{name} · {venue}. Neue Veranstaltungen starten als geplant.",
     "cols": {
@@ -72,7 +76,8 @@
       "too_many_dates": "Zu viele Termine auf einmal (höchstens 60).",
       "invalid_date": "Ein Datum ist ungültig.",
       "preset_not_found": "Den Markt gibt es nicht mehr oder er ist inaktiv.",
-      "invalid_selection": "Auswahl ungültig."
+      "invalid_selection": "Auswahl ungültig.",
+      "invalid_duration": "Eine Veranstaltung dauert 1 bis 14 Tage."
     },
     "single": {
       "title": "Neue Veranstaltung ohne Vorlage",
@@ -140,7 +145,8 @@
       "noMasterNote": "Dieser Markt hat noch keine Aufgaben, weil es keine veröffentlichte Grundvorlage gibt. Lege sie unter Einstellungen → Bibliothek an.",
       "errors": {
         "invalid_fee": "Bitte die Buchungsgebühr in Euro angeben, z. B. 5,00.",
-        "invalid_rrule": "Bitte mindestens einen Wochentag für den Rhythmus wählen oder „Kein Rhythmus“ ankreuzen."
+        "invalid_rrule": "Bitte mindestens einen Wochentag für den Rhythmus wählen oder „Kein Rhythmus“ ankreuzen.",
+        "event_not_found": "Diese Veranstaltung gibt es nicht mehr."
       }
     },
     "plannedIn": "{year}: {count, plural, =0 {noch nichts geplant} one {# Termin geplant} other {# Termine geplant}}",

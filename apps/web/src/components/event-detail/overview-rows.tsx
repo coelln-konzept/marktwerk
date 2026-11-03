@@ -13,12 +13,13 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useOptimistic } from "react";
 import { type OptimisticPatch, useTaskActions } from "@/components/board/use-task-actions";
+import { SnoozeMenu } from "@/components/task/snooze";
+import { TaskTick } from "@/components/task/task-tick";
 import { DueBadge } from "@/components/ui/due-badge";
 import { focusNeighbourRow } from "@/components/ui/keyboard-rows";
 import { StatusBadge, type Tone } from "@/components/ui/status-badge";
 import { formatDateShort, formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { TaskQuickActions } from "./overview-task-actions";
 
 /*
  * The task rows of the event Überblick ("Was fehlt" and "Kernaufgaben"). Client components so a tick shows at
@@ -50,7 +51,7 @@ function useDateText(dueOn: string | null, today: string) {
 // ---------------------------------------------------------------------------------------------
 // Was fehlt
 
-/** A task row of "Was fehlt": title, why it is listed (due badge or blocked / waiting), date, quick actions. */
+/** A task row of "Was fehlt": tick, title, why it is listed (due badge or blocked / waiting), date, snooze. */
 export function MissingTaskRow({
   eventId,
   task,
@@ -64,7 +65,8 @@ export function MissingTaskRow({
 }) {
   const t = useTranslations("eventDetail.overview.missing");
   const { shown, apply } = useOptimisticStatus(task.status);
-  const actions = useTaskActions({ staff: [], apply });
+  // Done rows leave "Was fehlt": ask first (decision D1).
+  const actions = useTaskActions({ staff: [], apply, confirmDone: true });
   const done = shown === "done";
   const date = useDateText(task.dueOn, today);
   const href = taskHref(eventId, task.id);
@@ -102,11 +104,22 @@ export function MissingTaskRow({
         done && "opacity-60",
       )}
     >
+      {canWrite && (
+        <TaskTick
+          task={{ title: task.title, status: shown }}
+          disabled={actions.pending || done}
+          onToggle={() => {
+            // The row leaves "Was fehlt" once done: hand focus to its neighbour first.
+            focusNeighbourRow(document.activeElement as HTMLElement | null);
+            actions.setStatus(task, "done");
+          }}
+        />
+      )}
       <Link
         href={href}
         scroll={false}
         className={cn(
-          "min-w-0 basis-full font-medium hover:underline sm:basis-0 sm:flex-1 sm:truncate",
+          "min-w-0 flex-1 basis-[calc(100%-2.5rem)] font-medium hover:underline sm:basis-0 sm:truncate",
           done && "line-through",
         )}
       >
@@ -122,17 +135,7 @@ export function MissingTaskRow({
         )
       )}
       {date && <span className="tabular text-muted-foreground text-small">{date}</span>}
-      {canWrite && (
-        <TaskQuickActions
-          task={task}
-          today={today}
-          pending={actions.pending || done}
-          onDone={() => {
-            focusNeighbourRow(document.activeElement as HTMLElement | null);
-            actions.setStatus(task, "done");
-          }}
-        />
-      )}
+      {canWrite && <SnoozeMenu task={task} today={today} />}
     </li>
   );
 }
