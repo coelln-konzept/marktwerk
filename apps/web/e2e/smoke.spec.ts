@@ -410,6 +410,37 @@ test("Veranstaltungen: sortable columns, the Ort chip filters, the row menu edit
   await expect(dialog).toBeHidden();
 });
 
+test("Markt planen: Saturday and Sunday picked become one two-day event (switchable)", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?erzeugen=1");
+  await page.waitForLoadState("networkidle");
+  const sheet = page.getByRole("dialog");
+  await sheet.getByRole("radio", { name: /Flohmarkt/ }).first().check();
+  await sheet.getByRole("button", { name: "Weiter" }).click();
+  await sheet.getByRole("button", { name: "Einzeln anklicken" }).click();
+  // Start from nothing picked, then pick one Saturday and the Sunday after it.
+  const picked = sheet.locator("button[data-day][aria-pressed=true]");
+  while ((await picked.count()) > 0) await picked.first().click();
+  const sat = sheet.locator("button[data-day][aria-label^='Sa ']:not([disabled])").nth(5);
+  const day = (await sat.getAttribute("data-day")) as string;
+  const next = new Date(`${day}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  await sat.click();
+  await sheet.locator(`button[data-day='${next.toISOString().slice(0, 10)}']`).click();
+
+  const merge = sheet.getByRole("checkbox", { name: /Aufeinanderfolgende Tage/ });
+  await expect(merge).toBeChecked();
+  await expect(sheet.getByText("wird 1 Veranstaltung")).toBeVisible();
+  await sheet.getByRole("button", { name: "Weiter" }).click();
+  await expect(sheet.getByRole("button", { name: "1 Veranstaltung anlegen" })).toBeVisible();
+  // Switched off, the two days are two events again.
+  await sheet.getByRole("button", { name: "Zurück" }).click();
+  await merge.uncheck();
+  await sheet.getByRole("button", { name: "Weiter" }).click();
+  await expect(sheet.getByRole("button", { name: "2 Veranstaltungen anlegen" })).toBeVisible();
+});
+
 test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
   page,
 }) => {

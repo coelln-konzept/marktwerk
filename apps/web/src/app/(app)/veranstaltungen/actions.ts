@@ -31,21 +31,26 @@ export async function loadScheduleContext(from: string, to: string) {
 export async function previewGeneratedEvents(
   presetId: string,
   dates: string[],
+  merge = false,
 ): Promise<Result<GenerationPreview>> {
   await requirePermission("event", "write");
   try {
-    return { ok: true, data: await previewGeneration(presetId, dates) };
+    return { ok: true, data: await previewGeneration(presetId, dates, { merge }) };
   } catch (error) {
     if (error instanceof EventInputError) return { ok: false, error: error.message };
     throw error;
   }
 }
 
-export async function createEvents(presetId: string, dates: string[]): Promise<Result<string[]>> {
+export async function createEvents(
+  presetId: string,
+  dates: string[],
+  merge = false,
+): Promise<Result<string[]>> {
   await requirePermission("event", "write");
   const actor = await getActor();
   try {
-    const created = await createEventsFromPreset(actor, presetId, dates);
+    const created = await createEventsFromPreset(actor, presetId, dates, { merge });
     refresh();
     return { ok: true, data: created.map((c) => c.id) };
   } catch (error) {

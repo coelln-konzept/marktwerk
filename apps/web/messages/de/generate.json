@@ -39,6 +39,10 @@
     },
     "shiftHint": "+ Klick: gleiche Wochentage dazwischen",
     "summary": "{count, plural, =0 {Noch keine Termine gewählt} one {# Termin gewählt} other {# Termine gewählt}}",
+    "merge": {
+      "label": "Aufeinanderfolgende Tage zu einer Veranstaltung zusammenfassen",
+      "result": "{count, plural, one {wird # Veranstaltung} other {werden # Veranstaltungen}}"
+    },
     "warningsCount": "{count, plural, one {# Hinweis} other {# Hinweise}}",
     "previewIntro": "{name} · {venue}. Neue Veranstaltungen starten als geplant.",
     "cols": {
@@ -72,7 +76,8 @@
       "too_many_dates": "Zu viele Termine auf einmal (höchstens 60).",
       "invalid_date": "Ein Datum ist ungültig.",
       "preset_not_found": "Den Markt gibt es nicht mehr oder er ist inaktiv.",
-      "invalid_selection": "Auswahl ungültig."
+      "invalid_selection": "Auswahl ungültig.",
+      "invalid_duration": "Eine Veranstaltung dauert 1 bis 14 Tage."
     },
     "single": {
       "title": "Neue Veranstaltung ohne Vorlage",

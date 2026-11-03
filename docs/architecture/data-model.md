@@ -322,7 +322,9 @@ erDiagram
 
 ### Generating events from a preset or agreement (one service path)
 ```
-createEvent(preset | agreement, date):
+createEvent(preset | agreement, date [, durationDays]):
+  ("Markt planen" may merge consecutive dates first: core groupConsecutiveDates → one event per run,
+   length = max(run, preset length), at most 14 days; the run's length overrides the preset's)
   tx: insert event (copy price/times/type), anchors (event_day, booking_cutoff = previous Monday, …)
       duties ← preset.default_duties
       for template in preset.templates (current published version): checklist + tasks

@@ -176,7 +176,11 @@ dialog via the event page `?bearbeiten=1`) and the UT-14 status items.
 
 **Behaviour:** Keep `maxPerDay = 4`. The popover is keyboard-reachable. Holidays stay on by default (HN-11, no change).
 
-### WP7: Merge consecutive days into one event (HN-12, UT-16)
+### WP7: Merge consecutive days into one event (HN-12, UT-16) (done 2026-11-03)
+
+> Built as planned, named `groupConsecutiveDates(dates, minDays, maxDays)` in `packages/core/src/events/scheduling.ts`
+> (returns `{ startsOn, durationDays }`). `instantiateEvents` takes `EventDay` (a date, or a date with its own
+> length); `createEventsFromPreset` / `previewGeneration` take `{ merge }`. The switch is on by default.
 
 **Files:**
 - Create: `packages/core/src/events/date-runs.ts` + `date-runs.test.ts`: `groupConsecutiveDates(dates: string[]): { startsOn: string; days: number }[]`

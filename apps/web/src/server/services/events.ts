@@ -4,6 +4,7 @@ import {
   checkEventTimes,
   defaultAnchors,
   endsOnFor,
+  groupConsecutiveDates,
   isIsoDate,
   MAX_PRICE_CENTS,
   normalizeClockTime,
@@ -97,6 +98,9 @@ export type EventTemplate = {
 
 export type CreatedEvent = { id: string; startsOn: string };
 
+/** A day to create an event on; with `durationDays` it overrides the template's length (merged days). */
+export type EventDay = string | { startsOn: string; durationDays: number };
+
 /**
  * THE one service path that creates events (CLAUDE.md, data model "Generating events"): copies type,
  * venue, times and prices from the template, sets the named anchors and the default duties, all inside
@@ -105,14 +109,15 @@ export type CreatedEvent = { id: string; startsOn: string };
  * insert into `event`. Warnings (holidays, weekend cap, venue already booked) never block; the office
  * decides in the preview.
  *
- * `days` must already be validated (`validateDates`). Extended in M2 (checklists + tasks from the
+ * `days` must already be validated (`validateDates`); a day with its own `durationDays` (merged days in
+ * "Markt planen") overrides the template's length. Extended in M2 (checklists + tasks from the
  * preset's published templates) and M3 (logbook fill).
  */
 export async function instantiateEvents(
   tx: Tx,
   actor: Actor,
   template: EventTemplate,
-  days: string[],
+  days: EventDay[],
   source: EventSource,
   links: { locationAgreementId?: string } = {},
 ): Promise<CreatedEvent[]> {
@@ -124,8 +129,12 @@ export async function instantiateEvents(
   const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
 
   const created: CreatedEvent[] = [];
-  for (const startsOn of days) {
-    const endsOn = endsOnFor(startsOn, template.durationDays);
+  for (const day of days) {
+    const startsOn = typeof day === "string" ? day : day.startsOn;
+    const durationDays = typeof day === "string" ? template.durationDays : day.durationDays;
+    if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > MAX_EVENT_DAYS)
+      throw new EventInputError("invalid_duration");
+    const endsOn = endsOnFor(startsOn, durationDays);
     const [row] = await tx
       .insert(event)
       .values({
@@ -144,7 +153,7 @@ export async function instantiateEvents(
       })
       .returning({ id: event.id });
     if (!row) throw new Error("insert failed");
-    const anchors = defaultAnchors(startsOn, template.durationDays);
+    const anchors = defaultAnchors(startsOn, durationDays);
     await tx
       .insert(eventAnchor)
       .values(Object.entries(anchors).map(([key, date]) => ({ eventId: row.id, key, date })));
@@ -273,12 +282,23 @@ export async function manualTemplate(input: ManualEventInput): Promise<EventTemp
   };
 }
 
-/** Generation from a preset ("Aus Vorlage erzeugen"): one planned event per date. */
-export async function createEventsFromPreset(actor: Actor, presetId: string, dates: string[]) {
+/**
+ * Generation from a preset ("Aus Vorlage erzeugen"): one planned event per date, or with `merge` one event per
+ * run of consecutive dates (Saturday + Sunday → one two-day event; never shorter than the preset).
+ */
+export async function createEventsFromPreset(
+  actor: Actor,
+  presetId: string,
+  dates: string[],
+  options: { merge?: boolean } = {},
+) {
   if (!can(actor.role, "event", "write")) forbidden();
   const days = validateDates(dates);
   const template = await presetTemplate(presetId);
-  return db.transaction((tx) => instantiateEvents(tx, actor, template, days, "preset"));
+  const plan: EventDay[] = options.merge
+    ? groupConsecutiveDates(days, template.durationDays, MAX_EVENT_DAYS)
+    : days;
+  return db.transaction((tx) => instantiateEvents(tx, actor, template, plan, "preset"));
 }
 
 /** "Neue Veranstaltung ohne Vorlage" (Einzeltermin): one planned event, no preset, empty team. */

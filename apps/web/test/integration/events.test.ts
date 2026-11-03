@@ -131,6 +131,40 @@ describe("createEventsFromPreset", () => {
     });
   });
 
+  it("merges consecutive dates into one event when asked (Sa + So → one two-day event)", async () => {
+    const created = await createEventsFromPreset(
+      owner,
+      cat.presets.flea.id,
+      ["2026-11-15", "2026-11-14", "2026-11-21"],
+      { merge: true },
+    );
+    expect(created.map((c) => c.startsOn)).toEqual(["2026-11-14", "2026-11-21"]);
+    const rows = await db
+      .select({ startsOn: event.startsOn, endsOn: event.endsOn })
+      .from(event)
+      .orderBy(asc(event.startsOn));
+    expect(rows).toEqual([
+      { startsOn: "2026-11-14", endsOn: "2026-11-15" },
+      { startsOn: "2026-11-21", endsOn: "2026-11-21" },
+    ]);
+    const anchors = Object.fromEntries(
+      (
+        await db
+          .select()
+          .from(eventAnchor)
+          .where(eq(eventAnchor.eventId, created[0]?.id ?? ""))
+      ).map((a) => [a.key, a.date]),
+    );
+    // Two days: setup the day before, teardown on the Sunday.
+    expect(anchors).toMatchObject({ setup_day: "2026-11-13", teardown_day: "2026-11-15" });
+    // Without `merge` consecutive dates stay separate one-day events, as before.
+    const separate = await createEventsFromPreset(owner, cat.presets.flea.id, [
+      "2027-01-09",
+      "2027-01-10",
+    ]);
+    expect(separate).toHaveLength(2);
+  });
+
   it("copies default duties by role key and skips keys without a duty role", async () => {
     const [created] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-11-14"]);
     const duties = await db

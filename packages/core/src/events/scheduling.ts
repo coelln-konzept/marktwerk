@@ -34,6 +34,43 @@ export function endsOnFor(startsOn: string, durationDays: number): string {
   return addDays(startsOn, durationDays - 1);
 }
 
+/**
+ * "Tage zusammenfassen" in "Markt planen" (handwritten notes HN-12): picked days that follow each other become one
+ * event (Saturday + Sunday → one two-day event). An event is never shorter than the preset (`minDays`), so a
+ * picked day inside a preset-length event joins it instead of starting an overlapping one; a run longer than
+ * `maxDays` is split. Dates are ISO days; order and duplicates don't matter.
+ */
+export function groupConsecutiveDates(
+  dates: readonly string[],
+  minDays: number,
+  maxDays = 14,
+): { startsOn: string; durationDays: number }[] {
+  const days = [...new Set(dates)].sort();
+  const runs: { startsOn: string; durationDays: number }[] = [];
+  const span = (from: string, to: string) => {
+    let n = 1;
+    for (let d = from; d < to; d = addDays(d, 1)) n += 1;
+    return n;
+  };
+  let start: string | null = null;
+  let last = "";
+  const close = () => {
+    if (start) runs.push({ startsOn: start, durationDays: Math.max(span(start, last), minDays) });
+  };
+  for (const day of days) {
+    const covered = start ? endsOnFor(start, Math.max(span(start, last), minDays)) : "";
+    if (start && day <= addDays(covered, 1) && span(start, day) <= maxDays) {
+      last = day;
+      continue;
+    }
+    close();
+    start = day;
+    last = day;
+  }
+  close();
+  return runs;
+}
+
 function overlaps(
   a: { startsOn: string; endsOn: string },
   b: { startsOn: string; endsOn: string },
