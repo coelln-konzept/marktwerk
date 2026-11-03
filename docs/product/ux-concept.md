@@ -241,7 +241,7 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
 - **Bell:** unread open count, popover with the five most urgent open items (quick Erledigt) and "Alle anzeigen".
 
 ### Kalender (module)
-- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**; phones open the Liste (decision 2026-10-28, cookie `mw_kal_phone`), an explicit `?ansicht=` wins. Same-day deadlines of one kind collapse into one entry ("65 Genehmigungen: Entscheidung erwartet"), "+ N weitere" links to the list from that day, ←/→ change the month, the month title opens a month/year jump. Veranstaltungen keeps its own Liste/Kalender toggle;
+- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**; phones open the Liste (decision 2026-10-28, cookie `mw_kal_phone`), an explicit `?ansicht=` wins. Same-day deadlines of one kind collapse into one entry ("65 Genehmigungen: Entscheidung erwartet"), "+ N weitere" opens **all entries of that day in a popover** in place (same chips, Escape closes; HN-10), with "In der Liste ab diesem Tag →" at its bottom, ←/→ change the month, the month title opens a month/year jump. Veranstaltungen keeps its own Liste/Kalender toggle;
   the Kalender module is the company-wide view across modules.
 - **Layer panel ("Ebenen"):** collapsed behind an "Ebenen" button (state remembered, cookie `mw_kal_ebenen`).
   *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*: Genehmigungen, Raten &

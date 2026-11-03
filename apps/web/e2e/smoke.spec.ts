@@ -301,6 +301,32 @@ test("Kalender: Ebenen collapsed by default, two presets, tasks off, full market
   await resetKalenderLayers(page);
 });
 
+test('Kalender: "+ N weitere" opens the whole day in place; Escape closes it', async ({ page }) => {
+  // Find a month with a full day (more than four entries), starting with this one.
+  const start = new Date();
+  let more = page.getByRole("button", { name: /weitere Einträge? am .* anzeigen$/ }).first();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+    const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    await page.goto(`/kalender?ansicht=monat&monat=${month}`);
+    more = page.getByRole("button", { name: /weitere Einträge? am .* anzeigen$/ }).first();
+    if ((await more.count()) > 0) break;
+  }
+  test.skip((await more.count()) === 0, "no day with more than four entries in the next 12 months");
+  const url = page.url();
+  const cell = more.locator("xpath=ancestor::td[1]");
+  const shown = await cell.locator("ul > li").count(); // four entries + the button's li
+  await more.click();
+  const popup = page.getByRole("dialog");
+  await expect(popup).toBeVisible();
+  expect(await popup.locator("ul > li").count()).toBeGreaterThan(shown - 1);
+  await expect(popup.getByRole("link", { name: "In der Liste ab diesem Tag" })).toBeVisible();
+  expect(page.url()).toBe(url); // nothing navigated
+  await page.keyboard.press("Escape");
+  await expect(popup).toBeHidden();
+  await expect(more).toBeFocused();
+});
+
 test("Sidebar: five daily entries, Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
   page,
 }) => {

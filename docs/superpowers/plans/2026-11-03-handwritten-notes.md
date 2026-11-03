@@ -159,7 +159,10 @@ dialog via the event page `?bearbeiten=1`) and the UT-14 status items.
 **Decision needed at the start:** changing the event type does **not** re-create tasks or permits
 (templates never propagate automatically); the dialog says so. Confirm with the product owner.
 
-### WP6: Kalender "+N weitere" opens in place (HN-10)
+### WP6: Kalender "+N weitere" opens in place (HN-10) (done 2026-11-03)
+
+> Built: `components/kalender/day-more.tsx` (Base UI popover). The local seed has no day with more than four
+> entries, so the new e2e test skips there; it was run once with the limit lowered to 1 and passed.
 
 **Files:**
 - Modify: `apps/web/src/components/kalender/month-grid.tsx:124-135` (popover listing all of the day's entries
