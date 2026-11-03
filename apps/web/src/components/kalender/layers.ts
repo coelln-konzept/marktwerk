@@ -65,7 +65,7 @@ export const DEADLINE_GROUPS = {
  * The module layers a role may see (same checks as the modules' `calendarItems`): tasks for everyone,
  * permits `permit:read`, instalments `finance:read`, obligations `company:read`, shifts `team:read`
  * (field users see their own shifts when they have a staff record). `hide` drops the layers of modules
- * hidden in the UI (lib/modules.ts): instalments with finance, shifts with team.
+ * hidden in the UI (lib/modules.ts): instalments with finance, shifts with team, tasks with calendarTasks.
  */
 export function availableLayers(
   role: Role,
@@ -73,7 +73,7 @@ export function availableLayers(
   hide: ModuleHide = {},
 ): CalendarLayer[] {
   const allowed: Record<CalendarLayer, boolean> = {
-    tasks: can(role, "task", "read"),
+    tasks: !hide.calendarTasks && can(role, "task", "read"),
     permits: can(role, "permit", "read"),
     installments: !hide.finance && can(role, "finance", "read"),
     obligations: can(role, "company", "read"),

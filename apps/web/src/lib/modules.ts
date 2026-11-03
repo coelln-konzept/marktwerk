@@ -18,6 +18,19 @@ export const HIDDEN_MODULES = {
    * 2026-10-22): owner and manager see every important item once, no team set-up needed.
    */
   notifications: false,
+  /**
+   * Only the bell in the top bar (user test 2026-11: "I don't even need the notification"). The
+   * Benachrichtigungen page stays reachable via Strg+K and the Übersicht's link.
+   */
+  notificationBell: true,
+  /** The Aufgaben layer of the Kalender (user test 2026-11): the Kalender shows markets and deadlines only. */
+  calendarTasks: true,
+  /**
+   * Kernaufgaben (user test 2026-11: reduce complexity, add back once needed): the star, the event's
+   * Kernaufgaben panel, the Board Matrix, the toggles in task and template drawers, and their head start
+   * in the due ranking. The `is_key` data stays.
+   */
+  keyTasks: true,
   /** Vendor booking (Buchung menu, "Buchung geschlossen" chip): Phase 2. */
   booking: true,
 } as const;

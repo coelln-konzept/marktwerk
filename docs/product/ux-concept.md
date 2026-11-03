@@ -34,9 +34,9 @@ and this document differ, the prototype wins unless a decision says otherwise.
 ```
 marktwerk
 ├── Übersicht                 ← start screen for everyone (KPIs, season, Heute fällig, Dieses Wochenende)
-├── Board                     ← across events: Bereitschaft · Matrix · Spalten
+├── Board                     ← across events: Bereitschaft · Spalten (Matrix hidden with Kernaufgaben, 2026-11)
 ├── Veranstaltungen           ← list · calendar · "Markt planen"
-│   └── Veranstaltung         ← tabs: Überblick · Board · Genehmigungen · Dokumente · Notizen · Verlauf (Team, Geld hidden)
+│   └── Veranstaltung         ← tabs: Zusammenfassung · Checkliste · Genehmigungen · Dokumente · Notizen · Verlauf (Team, Geld hidden)
 ├── Kalender                  ← company-wide calendar, layers behind the "Ebenen" button
 ├── Genehmigungen             ← permit matrix (locations × permit types) · list; was "Logbuch" (`/genehmigungen`)
 ├── Stammdaten (collapsible, collapsed by default)
@@ -45,7 +45,7 @@ marktwerk
 │   ├── Aussteller            ← vendor list (read-only import)
 │   ├── Wissen                ← knowledge base
 │   └── Pflichten             ← recurring obligations · vehicles · defects (`/firma`, page title "Pflichten")
-├── (hidden for now, `lib/modules.ts`: Team · Finanzen · Buchungen; Benachrichtigungen is reached by the bell, not the sidebar)
+├── (hidden for now, `lib/modules.ts`: Team · Finanzen · Buchungen · Kernaufgaben; Benachrichtigungen has no bell and no sidebar entry since 2026-11: Strg+K, the Übersicht link and its URL)
 └── (bottom) Profil: Einstellungen · Design (System/Hell/Dunkel) · Dichte (Standard/Kompakt) · Sprache · Abmelden
       Einstellungen ← Firma (company data) · Benutzer & Rollen · [Rechtliche Werte with Team] · **Bibliothek**
 ```
@@ -88,7 +88,7 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
   this tab, with its filters (drawers, Vorschau and filter changes don't count as pages, so it never reopens a closed
   drawer), or to the parent crumb when the page was opened directly. Then the visible search field "Suchen oder Befehl …" with Strg+K hint
   (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board, new event in
-  Veranstaltungen…) and the **bell** with the number of unread open notifications (owner/manager: company-wide).
+  Veranstaltungen…). The **bell** (number of unread open notifications) is hidden since the user test 2026-11 (`HIDDEN_MODULES.notificationBell`).
 - **Content:** one page. Vorschau and drawers open over it (§4). **A row or box opens its record when clicked
   anywhere**, not only on its title (event rows → the event Überblick, task rows → the task drawer); links and buttons
   inside it keep their own action, Cmd/Ctrl-click opens a new tab. Checklist icons (event Überblick → Kernaufgaben,
@@ -111,7 +111,7 @@ tag and the **status chip** (geplant, bestätigt, …), one **"…" menu** at th
 every action stays reachable by keyboard; "abgerechnet" is not offered while finance is hidden), then one meta line
 (date, times, KW · venue link). There is no separate health indicator in the header (the Überblick status line and "Was
 fehlt" carry it), no Buchung menu or chip while booking is hidden, no setup time (it is in Nächste Termine) and no
-"Vorlage" (it moved into Eckdaten). Tabs: **Überblick · Board · Genehmigungen · Mehr ▾**; Dokumente, Notizen and Verlauf are
+"Vorlage" (it moved into Eckdaten). Tabs: **Zusammenfassung · Checkliste · Genehmigungen · Mehr ▾** (renamed 2026-11 from Überblick · Board; URLs unchanged); Dokumente, Notizen and Verlauf are
 items of the "Mehr" menu and each keeps its own URL (the button is underlined while one is open). Team and Geld return with
 their modules. Counts: Board shows the open tasks with their health shape, Genehmigungen shows a number only when permits
 are missing (a complete "5/5" says nothing). The **Genehmigungen** tab lists the permits without a "Zuständig" column; the
@@ -154,7 +154,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 |---|---|---|
 | Übersicht | `/` | Start screen for everyone: KPI strip, season strip, Heute fällig, Dieses Wochenende (below) |
 | Kalender | `/kalender` | Company-wide calendar with layers (below) |
-| Board | `/board` | Views in the "Ansicht" control (`?ansicht=`): **Bereitschaft** (default), **Matrix**, Spalten (kanban); Nach Person and Arbeitslast return with the team module; the old `gruppiert` falls back to Bereitschaft. See "Board views" below |
+| Board | `/board` | Views in the "Ansicht" control (`?ansicht=`): **Bereitschaft** (default), Spalten (kanban); **Matrix** is hidden with the Kernaufgaben (2026-11, an old link falls back to Bereitschaft); Nach Person and Arbeitslast return with the team module; the old `gruppiert` falls back to Bereitschaft. See "Board views" below |
 | Aufgabe | drawer `?aufgabe=<id>` on `/board` and `/veranstaltungen/[id]/board` (M2; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity (a closed disclosure), status: primary **Erledigt** button, **Wartet auf Amt** toggle and a "…" menu for In Arbeit / Blockiert / Übersprungen / Wieder offen, the current state always spelled out as a badge. The carried-over count and the origin of the task are not shown; the "Kernaufgabe" toggle explains itself in one line and the star carries the tooltip "Kernaufgabe – eine Aufgabe, die jeder Markt braucht" (no comments, client decision 2026-10-22) |
 | Veranstaltungen | `/veranstaltungen` | Opens at the **current week**: default filter "Aktuell & kommend" (running and upcoming, all seasons; past ones via the status or season select, `?status=alle`), no Liste/Kalender toggle (the Kalender page covers it; `?ansicht=kalender` redirects there), no health column, "abgerechnet" reads as "vorbei" while finance is hidden. KW column, type filter chips, Vorschau `?vorschau=<id>`, one primary button **"Markt planen"** (3-step side sheet: pick a market, dates, preview) via `?erzeugen=1[&vorlage=<presetId>]`; a single date without a market is "+ Neu → Einzeltermin" (`/veranstaltungen/neu`) |
 | Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`); Dokumente, Notizen and Verlauf sit under "Mehr". Every link to a market opens its Überblick |
@@ -172,7 +172,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Markt bearbeiten | `/vorlagen/[id]` | Edit form of a market (preset) |
 | Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` | Timeline template editor (Excel-like grid + timeline ruler); used for the Grundvorlage, a market's own template and the other templates, its back link goes to the Bibliothek |
 | Wissen | `/wissen` | Knowledge base |
-| Benachrichtigungen | `/benachrichtigungen` | Owner/manager: the company-wide notification center (below). Staff/field: their personal inbox. Entry: the bell and Strg+K, no sidebar entry |
+| Benachrichtigungen | `/benachrichtigungen` | Owner/manager: the company-wide notification center (below). Staff/field: their personal inbox. Entry: Strg+K and the Übersicht link (the bell is hidden since 2026-11), no sidebar entry |
 | Einstellungen | `/einstellungen` | Users & roles, legal parameters, company settings |
 
 Modules whose data arrives in a later milestone exist from M1 as routes with a "coming soon" page, so the sidebar never
@@ -237,7 +237,7 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
 - **Layer panel ("Ebenen"):** collapsed behind an "Ebenen" button (state remembered, cookie `mw_kal_ebenen`).
   *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*: Genehmigungen, Raten &
   Zahlungen, Aufgaben, Fahrzeuge & Pflichten; *Team*: Schichten; *Hintergrund*: Feiertage NRW. Hidden modules' layers
-  are not offered. Default: events + permits + obligations on, **Aufgaben off** (those live on the Board).
+  are not offered. Default: events + permits + obligations on. **No Aufgaben layer** since the user test 2026-11 (`HIDDEN_MODULES.calendarTasks`; tasks live on the Board).
 - **Presets:** two, "Märkte" and "Märkte + Fristen" (= the default). **Narrowing:** "Nur Achtung und Kritisch", Ort
   ("Nur meine Zuständigkeit" returns with Team).
 - **Entries:** month chips show the full market name (up to two lines) with the market colour bar; every event

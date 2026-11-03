@@ -7,6 +7,7 @@ import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { formatDateRangeYear, formatDateShort, formatWeek } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { DueItem } from "@/server/queries/due";
 import type { Overview, WeekendBlock, WeekendMarket } from "@/server/queries/overview";
@@ -94,7 +95,7 @@ async function MarketBlock({
   const href = `/veranstaltungen/${row.id}`;
   const shown = blockers.slice(0, rows);
   const rest = blockers.slice(rows);
-  const reserveStar = blockers.some((b) => b.isKey);
+  const reserveStar = isModuleVisible("keyTasks") && blockers.some((b) => b.isKey);
   return (
     <section
       aria-labelledby={`weekend-${row.id}`}

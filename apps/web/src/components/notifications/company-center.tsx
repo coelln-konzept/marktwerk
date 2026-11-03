@@ -18,7 +18,7 @@ import {
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { isModuleHidden } from "@/lib/modules";
+import { HIDDEN_MODULES, isModuleHidden } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { getActor } from "@/server/actor";
@@ -75,7 +75,12 @@ export async function CompanyCenterPage({
   const sortParam = param(sp.sortierung);
   const sort = isCompanySort(sortParam) ? sortParam : "urgency";
   const markt = param(sp.markt);
-  const center = await listCompanyNotifications(actor, { status, art, markt, sort });
+  const center = await listCompanyNotifications(
+    actor,
+    { status, art, markt, sort },
+    undefined,
+    HIDDEN_MODULES,
+  );
   const filtered = Boolean(art || markt);
 
   // Open items by urgency are grouped (overdue · today · next 7 days · later); everything else is one list.

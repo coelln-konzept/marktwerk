@@ -102,7 +102,7 @@
     },
     "keyTask": {
       "label": "Kernaufgabe",
-      "hint": "Braucht jeder Markt – steht im Überblick, in der Matrix und ganz oben in der Übersicht.",
+      "hint": "Braucht jeder Markt – steht in der Zusammenfassung, in der Matrix und ganz oben in der Übersicht.",
       "tooltip": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",
       "toggle": "Als Kernaufgabe markieren"
     },

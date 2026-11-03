@@ -31,6 +31,7 @@ import {
   formatNumber,
   todayIn,
 } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { EventOverview } from "@/server/queries/event-overview";
 import type { EventDetail } from "@/server/queries/events";
@@ -163,8 +164,9 @@ export async function MissingPanel({
   const empty = tasks.length === 0 && permits.length === 0;
   // Urgent rows (overdue, blocked, waiting, due today) and Kernaufgaben always show; the rest of the
   // next seven days folds away once the list gets long, so the urgent part stays on screen.
-  const urgent = tasks.filter((task) => task.reason !== "soon" || task.isKey);
-  const soon = tasks.filter((task) => task.reason === "soon" && !task.isKey);
+  const key = (task: (typeof tasks)[number]) => task.isKey && isModuleVisible("keyTasks");
+  const urgent = tasks.filter((task) => task.reason !== "soon" || key(task));
+  const soon = tasks.filter((task) => task.reason === "soon" && !key(task));
   const room = Math.max(0, MISSING_VISIBLE_ROWS - urgent.length);
   const shown = [...urgent, ...soon.slice(0, room)];
   const folded = soon.slice(room);

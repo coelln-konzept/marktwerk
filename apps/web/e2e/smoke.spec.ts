@@ -129,7 +129,7 @@ test("Event page: no Team and Geld tabs, Dokumente/Notizen/Verlauf sit under Meh
   const href = (await first.getAttribute("data-href")) as string;
   await page.goto(href);
   const tabs = page.getByRole("navigation", { name: "Bereiche der Veranstaltung" });
-  await expect(tabs.getByRole("link", { name: "Board" })).toBeVisible();
+  await expect(tabs.getByRole("link", { name: "Checkliste" })).toBeVisible();
   await expect(tabs.getByRole("link", { name: /^Team/ })).toHaveCount(0);
   await expect(tabs.getByRole("link", { name: /^Geld/ })).toHaveCount(0);
   // Dokumente, Notizen and Verlauf are not tabs of their own any more.
@@ -246,9 +246,10 @@ test("Kalender: Ebenen collapsed by default, two presets, tasks off, full market
   const panel = page.getByRole("complementary", { name: "Ebenen" });
   await expect(panel).toBeVisible();
 
-  // Permits and obligations on, tasks off; no disabled "Rückgaben" and no "Nur meine Zuständigkeit".
+  // Permits and obligations on, no tasks layer (user test 2026-11); no disabled "Rückgaben" and no
+  // "Nur meine Zuständigkeit".
   await expect(panel.getByRole("checkbox", { name: /Genehmigungen/ })).toBeChecked();
-  await expect(panel.getByRole("checkbox", { name: /Aufgaben/ })).not.toBeChecked();
+  await expect(panel.getByRole("checkbox", { name: /Aufgaben/ })).toHaveCount(0);
   await expect(panel.getByText(/Rückgaben/)).toHaveCount(0);
   await expect(panel.getByText(/Nur meine Zuständigkeit/)).toHaveCount(0);
   // Finance and shift layers are hidden for now.
@@ -354,25 +355,19 @@ test("Logbuch became Genehmigungen: /logbuch redirects with the drawer link inta
   await expect(page).toHaveURL(/\/genehmigungen\?ansicht=liste&genehmigung=/);
 });
 
-test("Benachrichtigungen: the bell is the way in, filters, Erledigt and Zurückstellen with undo, J/K", async ({
+test("Benachrichtigungen: no bell, the page stays; filters, Erledigt and Zurückstellen with undo, J/K", async ({
   page,
 }) => {
   // Needs the seeded database after one deadline sweep (docs/development/testing.md).
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  // No sidebar entry: the bell in the top bar is the entry.
+  // No sidebar entry and no bell (user test 2026-11); the page is still reachable by URL and Strg+K.
   await expect(
     page.getByRole("navigation").getByRole("link", { name: /^Benachrichtigungen/ }),
   ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Benachrichtigungen/ })).toHaveCount(0);
 
-  // Bell: count, the most urgent items with a quick Erledigt, "Alle anzeigen".
-  await page.getByRole("button", { name: /^Benachrichtigungen/ }).click();
-  const popover = page.getByRole("dialog", { name: "Benachrichtigungen" });
-  await expect(
-    popover.getByRole("button", { name: "Erledigt", exact: true }).first(),
-  ).toBeVisible();
-  await popover.getByRole("link", { name: /^Alle \d+ anzeigen$/ }).click();
-  await expect(page).toHaveURL(/\/benachrichtigungen$/);
+  await page.goto("/benachrichtigungen");
   await expect(page.getByRole("heading", { level: 1, name: "Benachrichtigungen" })).toBeVisible();
 
   const status = page.getByRole("group", { name: "Status" });
@@ -539,13 +534,14 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
   await expect(from.locator(`[data-card="${id}"]`)).toBeVisible();
 });
 
-test("Board: three views, the category filter sits behind Filter, no Team/Finanzen chips", async ({
+test("Board: two views, the category filter sits behind Filter, no Team/Finanzen chips", async ({
   page,
 }) => {
   await page.goto("/board?zeitraum=alle&ansicht=gruppiert");
   const views = page.getByRole("group", { name: "Ansicht" });
   // "Gruppiert" is gone; an old link falls back to Bereitschaft.
-  await expect(views.getByRole("link")).toHaveText(["Bereitschaft", "Matrix", "Spalten"]);
+  // No Matrix while Kernaufgaben are hidden (user test 2026-11).
+  await expect(views.getByRole("link")).toHaveText(["Bereitschaft", "Spalten"]);
   await expect(views.getByRole("link", { name: "Bereitschaft" })).toHaveAttribute(
     "aria-current",
     "true",
@@ -581,19 +577,16 @@ test("Board: Bereitschaft is the default view, one row per market linking to its
   await expect(market).toHaveAttribute("href", /\/veranstaltungen\/[^/]+$/);
 });
 
-test("Board: Kernaufgaben-Matrix shows markets x key tasks with a legend and opens the drawer", async ({
+test("Board: an old Matrix link falls back to Bereitschaft while Kernaufgaben are hidden", async ({
   page,
 }) => {
   await page.goto("/board?ansicht=matrix&zeitraum=alle");
-  const table = page.getByRole("table", { name: "Kernaufgaben der kommenden Veranstaltungen" });
-  await expect(table).toBeVisible();
-  await expect(table.getByRole("columnheader").nth(1)).toBeVisible();
-  await expect(page.getByRole("list", { name: "Legende" })).toBeVisible();
-  const cell = table.locator("tbody a[href*='aufgabe=']").first();
-  await cell.focus();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/aufgabe=/);
-  await expect(page).toHaveURL(/ansicht=matrix/);
+  await expect(
+    page.getByRole("table", { name: "Bereitschaft der kommenden Veranstaltungen" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Kernaufgaben der kommenden Veranstaltungen" }),
+  ).toHaveCount(0);
 });
 
 test("command palette finds tasks, permits and vehicles by their titles", async ({ page }) => {
@@ -640,7 +633,7 @@ test("Veranstaltungen: opens at the current week (past ones one select away), no
   );
 });
 
-test("Veranstaltung Überblick: shows Was fehlt and Kernaufgaben, no Zustand panel", async ({
+test("Veranstaltung Zusammenfassung: shows Was fehlt, no Kernaufgaben and no Zustand panel", async ({
   page,
 }) => {
   await page.goto("/veranstaltungen?saison=2026");
@@ -648,7 +641,7 @@ test("Veranstaltung Überblick: shows Was fehlt and Kernaufgaben, no Zustand pan
   expect(href).toMatch(/^\/veranstaltungen\/[0-9a-f-]{36}$/);
   await page.goto(href as string);
   await expect(page.getByRole("heading", { level: 2, name: "Was fehlt" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Kernaufgaben" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Kernaufgaben" })).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 2, name: "Zustand" })).toHaveCount(0);
 });
 
@@ -669,40 +662,26 @@ test("Whole rows open their target: a click beside the market name opens the eve
 test("Back arrow: returns to the page you came from with its filters, else to the parent page", async ({
   page,
 }) => {
-  await page.goto("/board?ansicht=matrix&zeitraum=alle");
+  await page.goto("/board?zeitraum=alle");
   const back = page.getByRole("button", { name: "Zurück", exact: true });
   await expect(back).toHaveCount(0);
   await page
-    .getByRole("table", { name: "Kernaufgaben der kommenden Veranstaltungen" })
-    .locator("tbody th a")
+    .getByRole("table", { name: "Bereitschaft der kommenden Veranstaltungen" })
+    .locator("tbody tr")
+    .first()
+    .getByRole("link")
     .first()
     .click();
   await expect(page).toHaveURL(/\/veranstaltungen\/[0-9a-f-]{36}$/);
   const event = page.url();
   await back.click();
-  await expect(page).toHaveURL(/\/board\?ansicht=matrix&zeitraum=alle$/);
+  await expect(page).toHaveURL(/\/board\?zeitraum=alle$/);
 
   // Opened directly (new tab): back goes to the parent crumb.
   const direct = await page.context().newPage();
   await direct.goto(event);
   await direct.getByRole("button", { name: "Zurück", exact: true }).click();
   await expect(direct).toHaveURL(/\/veranstaltungen$/);
-});
-
-test("Kernaufgaben: the circle marks a task done with undo", async ({ page }) => {
-  await page.goto("/veranstaltungen?saison=2026");
-  const href = await page.locator("tbody tr[data-row]").first().getAttribute("data-href");
-  await page.goto(href as string);
-  const panel = page.getByRole("region", { name: "Kernaufgaben" });
-  const open = panel.locator('button[aria-pressed="false"]').first();
-  const label = (await open.getAttribute("aria-label")) ?? "";
-  const title = label.replace(/^„/, "").replace(/“ als erledigt markieren$/, "");
-  await open.click();
-  await expect(page.getByText(`„${title}“ erledigt`)).toBeVisible();
-  await page.getByRole("button", { name: "Rückgängig" }).click();
-  await expect(
-    panel.locator(`button[aria-pressed="false"][aria-label="${label}"]`).first(),
-  ).toBeVisible();
 });
 
 test("Event board: Ablauf lists every task by phase, one line each; a row opens the drawer", async ({

@@ -26,7 +26,7 @@ export function Page({
       <Topbar
         crumbs={crumbs}
         bell={
-          isModuleVisible("notifications") ? (
+          isModuleVisible("notifications") && isModuleVisible("notificationBell") ? (
             <Suspense fallback={<BellFallback />}>
               <NotificationBell />
             </Suspense>

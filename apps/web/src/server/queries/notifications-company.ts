@@ -22,6 +22,7 @@ import {
 } from "@marktwerk/db/schema";
 import { and, desc, eq, inArray, isNull, like, ne } from "drizzle-orm";
 import { todayIn } from "@/lib/format";
+import type { ModuleHide } from "@/lib/modules";
 import type { Actor } from "../actor";
 import { db } from "../db";
 
@@ -346,11 +347,14 @@ async function loadCompanyRows(
   return { rows: [...rows.filter((r) => r.status !== "done"), ...doneOnce], today };
 }
 
-/** What the shared ranking (the Übersicht's `compareDue`) needs from a row. */
-const orderInput = (r: CompanyNotificationRow) => ({
+/**
+ * What the shared ranking (the Übersicht's `compareDue`) needs from a row. Hidden Kernaufgaben get no
+ * head start (lib/modules.ts `keyTasks`).
+ */
+const orderInput = (r: CompanyNotificationRow, hide: ModuleHide) => ({
   subjectType: r.subjectType,
   dueOn: r.dueOn,
-  isKey: r.isKey,
+  isKey: r.isKey && !hide.keyTasks,
   title: r.title,
   marketStartsOn: r.market?.startsOn ?? null,
   createdAt: r.createdAt,
@@ -361,6 +365,7 @@ export async function listCompanyNotifications(
   actor: Actor,
   filters: CompanyFilters,
   now: Date = new Date(),
+  hide: ModuleHide = {},
 ): Promise<CompanyCenter> {
   const empty: CompanyCenter = {
     rows: [],
@@ -393,7 +398,7 @@ export async function listCompanyNotifications(
     .sort(
       filters.sort === "newest"
         ? compareByNewest
-        : (a, b) => compareCenterOrder(orderInput(a), orderInput(b), today),
+        : (a, b) => compareCenterOrder(orderInput(a, hide), orderInput(b, hide), today),
     );
   return {
     rows,

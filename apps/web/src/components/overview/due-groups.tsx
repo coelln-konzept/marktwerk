@@ -315,7 +315,7 @@ export async function DueGroups({
   bandless?: DueUrgency[];
 }) {
   const t = await getTranslations("overview.due");
-  const reserveStar = items.some((i) => i.isKey);
+  const reserveStar = isModuleVisible("keyTasks") && items.some((i) => i.isKey);
   const render = (cluster: Cluster) =>
     cluster.event ? (
       <MarketCluster

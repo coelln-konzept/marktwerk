@@ -202,7 +202,7 @@
         "allOk": "Alles im Plan: nichts überfällig, keine fehlende Genehmigung.",
         "permitMissing": "Genehmigung fehlt",
         "more": "{count, plural, one {# weitere Aufgabe} other {# weitere Aufgaben}} in den nächsten 7 Tagen",
-        "openOverview": "Zum Überblick"
+        "openOverview": "Zur Zusammenfassung"
       }
     },
     "matrix": {

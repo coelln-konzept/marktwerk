@@ -559,7 +559,7 @@ export function TaskDrawer({
               <dd className="m-0 whitespace-pre-wrap text-small">{task.completionNote}</dd>
             </>
           )}
-          {(canWrite || task.isKey) && (
+          {isModuleVisible("keyTasks") && (canWrite || task.isKey) && (
             <>
               <dt className="text-muted-foreground text-small">{t("keyTask.label")}</dt>
               <dd className="m-0">

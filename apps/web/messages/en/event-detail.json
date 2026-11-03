@@ -15,8 +15,8 @@
     },
     "tabs": {
       "label": "Sections of the event",
-      "overview": "Overview",
-      "board": "Board",
+      "overview": "Summary",
+      "board": "Checklist",
       "permits": "Permits",
       "team": "Team",
       "money": "Money",

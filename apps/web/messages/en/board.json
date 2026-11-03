@@ -202,7 +202,7 @@
         "allOk": "All on track: nothing overdue, no missing permit.",
         "permitMissing": "Permit missing",
         "more": "{count, plural, one {# more task} other {# more tasks}} in the next 7 days",
-        "openOverview": "Open overview"
+        "openOverview": "Open summary"
       }
     },
     "matrix": {

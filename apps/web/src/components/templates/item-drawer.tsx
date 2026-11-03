@@ -361,19 +361,21 @@ export function ItemDrawer({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="flex items-center gap-2 font-semibold text-small">
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-(--primary)"
-                    checked={form.isKey}
-                    disabled={disabled}
-                    onChange={(e) => set({ isKey: e.target.checked })}
-                  />
-                  {t("drawer.isKey")}
-                </label>
-                <p className="text-muted-foreground text-tiny">{t("drawer.isKeyHint")}</p>
-              </div>
+              {isModuleVisible("keyTasks") && (
+                <div className="flex flex-col gap-1">
+                  <label className="flex items-center gap-2 font-semibold text-small">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-(--primary)"
+                      checked={form.isKey}
+                      disabled={disabled}
+                      onChange={(e) => set({ isKey: e.target.checked })}
+                    />
+                    {t("drawer.isKey")}
+                  </label>
+                  <p className="text-muted-foreground text-tiny">{t("drawer.isKeyHint")}</p>
+                </div>
+              )}
 
               <fieldset className="flex flex-col gap-3 rounded-lg border p-3">
                 <legend className="px-1 font-semibold text-small">{t("drawer.dueLegend")}</legend>
