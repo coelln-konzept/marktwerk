@@ -10,23 +10,42 @@ import { LOCALE_COOKIE } from "@/i18n/config";
 import { authClient } from "@/lib/auth-client";
 import { restoreDisplayPreferences } from "./actions";
 
+type LoginError = "credentials" | "origin" | "banned" | "rateLimit" | "unknown";
+
+const ERROR_KEYS = {
+  credentials: "error",
+  origin: "errorOrigin",
+  banned: "errorBanned",
+  rateLimit: "errorRateLimit",
+  unknown: "errorUnknown",
+} as const satisfies Record<LoginError, string>;
+
+/** Maps a Better Auth error so a blocked address or server fault doesn't read as a wrong password. */
+function classifyError(error: { code?: string; status?: number } | null): LoginError {
+  if (error?.code === "INVALID_EMAIL_OR_PASSWORD") return "credentials";
+  if (error?.code === "INVALID_ORIGIN") return "origin";
+  if (error?.code === "BANNED_USER") return "banned";
+  if (error?.status === 429) return "rateLimit";
+  return "unknown";
+}
+
 export function LoginForm({ next }: { next: string }) {
   const t = useTranslations("login");
   const router = useRouter();
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<LoginError | null>(null);
   const [pending, setPending] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setError(false);
+    setError(null);
     const form = new FormData(event.currentTarget);
     const { data, error } = await authClient.signIn.email({
       email: String(form.get("email")),
       password: String(form.get("password")),
     });
     if (error || !data) {
-      setError(true);
+      setError(classifyError(error));
       setPending(false);
       return;
     }
@@ -57,7 +76,7 @@ export function LoginForm({ next }: { next: string }) {
       </div>
       {error && (
         <p role="alert" className="text-sm text-destructive">
-          {t("error")}
+          {t(ERROR_KEYS[error])}
         </p>
       )}
       <Button type="submit" variant="default" disabled={pending}>

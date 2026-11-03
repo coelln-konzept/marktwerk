@@ -1,7 +1,9 @@
 name: Seed dev database
 
 # Manual: loads the synthetic development dataset (ADR 0016) into the Supabase dev database.
-# The seed is idempotent (ON CONFLICT DO NOTHING), so running it twice does no harm.
+# Some synthetic ids depend on the day the data is generated for, so a database that already holds synthetic
+# data is only seeded again "as of" its original seed day (input reference_date); then the run is idempotent
+# (ON CONFLICT DO NOTHING). Without it the seed refuses a seeded database. Existing logins are never changed.
 # Needs the repository secret DATABASE_MIGRATION_URL (Supabase session pooler, port 5432).
 # Migrations are applied by the Vercel build, not here. See docs/development/deployment.md.
 
@@ -11,6 +13,10 @@ on:
       confirm:
         description: 'Type "seed" to confirm writing the synthetic data into the dev database'
         required: true
+        type: string
+      reference_date:
+        description: 'Only for an already seeded database: its original seed day (YYYY-MM-DD). Empty = today.'
+        required: false
         type: string
 
 concurrency:
@@ -35,6 +41,8 @@ jobs:
         env:
           # The seed script prefers this over DATABASE_URL (apps/web/scripts/seed.ts).
           DATABASE_MIGRATION_URL: ${{ secrets.DATABASE_MIGRATION_URL }}
+          # Empty means "today" (apps/web/scripts/seed-today.ts), which only works on an empty database.
+          SYNTHETIC_REFERENCE_DATE: ${{ inputs.reference_date }}
           # Optional secrets. Without them the seed creates no new logins on a non-local database
           # (the dev password in the repo is public); existing users are only linked to their staff record.
           # `||` (not `??`) because an unset secret expands to an empty string.

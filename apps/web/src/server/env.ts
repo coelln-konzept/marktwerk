@@ -15,7 +15,10 @@ const schema = z.object({
   BETTER_AUTH_URL: z.url().optional(),
   /** Bearer token the external scheduler sends to /api/cron/* (ADR 0017). */
   CRON_SECRET: z.string().min(32).optional(),
+  /** Vercel system variables (hostnames without scheme): this deployment, its branch alias, production. */
   VERCEL_URL: z.string().optional(),
+  VERCEL_BRANCH_URL: z.string().optional(),
+  VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
   /** Where uploaded documents live: plain files under ./.data/files, or an S3-compatible bucket. */
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   /** Directory of the local driver (default `.data/files` in the web app's working directory). */

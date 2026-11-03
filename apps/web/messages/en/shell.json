@@ -37,7 +37,11 @@
     "password": "Password",
     "submit": "Sign in",
     "submitting": "Signing in …",
-    "error": "Email or password is incorrect."
+    "error": "Email or password is incorrect.",
+    "errorOrigin": "Signing in from this address isn't allowed. Please open marktwerk's main address.",
+    "errorBanned": "This account is locked. Please contact the management.",
+    "errorRateLimit": "Too many sign-in attempts. Please wait a moment and try again.",
+    "errorUnknown": "Signing in isn't possible right now. Please try again later."
   },
   "errors": {
     "forbidden": "You don't have permission to do that.",
