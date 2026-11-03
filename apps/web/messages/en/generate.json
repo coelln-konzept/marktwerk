@@ -145,7 +145,8 @@
       "noMasterNote": "This market has no tasks yet because there is no published master template. Create it under Settings → Library.",
       "errors": {
         "invalid_fee": "Please enter the booking fee in euros, e.g. 5.00.",
-        "invalid_rrule": "Please pick at least one weekday for the rhythm or tick “No rhythm”."
+        "invalid_rrule": "Please pick at least one weekday for the rhythm or tick “No rhythm”.",
+        "event_not_found": "This event no longer exists."
       }
     },
     "plannedIn": "{year}: {count, plural, =0 {nothing planned yet} one {# date planned} other {# dates planned}}",

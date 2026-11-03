@@ -95,11 +95,13 @@ export async function undoCreateEvents(ids: string[]): Promise<Result<number>> {
  */
 export async function createMarketAction(
   input: MarketInput,
+  /** Archiv: "Als Vorlage speichern" from this past event (its market's tasks are copied). */
+  fromEventId?: string,
 ): Promise<Result<{ id: string; color: string; template: { items: number } | null }>> {
   await requirePermission("template", "write");
   const actor = await getActor();
   try {
-    const created = await createMarket(actor, input);
+    const created = await createMarket(actor, input, fromEventId ? { fromEventId } : {});
     refresh();
     return {
       ok: true,

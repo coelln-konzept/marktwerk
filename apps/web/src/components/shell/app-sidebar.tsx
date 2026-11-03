@@ -1,5 +1,6 @@
 import { can } from "@marktwerk/core";
 import {
+  Archive,
   BookOpen,
   CalendarDays,
   CalendarRange,
@@ -110,6 +111,12 @@ export async function AppSidebar({
       label: t("knowledgeBase"),
       icon: <BookOpen />,
       visible: can(r, "kb", "read"),
+    },
+    {
+      href: "/archiv",
+      label: t("archive"),
+      icon: <Archive />,
+      visible: can(r, "event", "read"),
     },
     {
       href: "/firma",

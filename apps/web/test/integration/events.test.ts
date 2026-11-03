@@ -10,6 +10,7 @@ import {
 import { asc, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { getPresetSource, listEvents } from "@/server/queries/events";
 import { changeEventStatus, updateEventNotes } from "@/server/services/event-lifecycle";
 import {
   createEventsFromPreset,
@@ -378,5 +379,25 @@ describe("undoGeneratedEvents", () => {
       .from(event)
       .where(eq(event.id, created?.id ?? ""));
     expect(row?.archivedAt).toBeNull();
+  });
+});
+
+describe("Archiv queries", () => {
+  it("endedBefore keeps only events that are over; getPresetSource returns what the form copies", async () => {
+    const created = await createEventsFromPreset(owner, cat.presets.festival.id, [
+      "2026-10-30",
+      "2026-11-13",
+    ]);
+    // 30.10.–01.11. is over on 03.11.; 13.–15.11. is not.
+    const past = await listEvents(owner, { endedBefore: "2026-11-03" });
+    expect(past.map((r) => r.startsOn)).toEqual(["2026-10-30"]);
+    const source = await getPresetSource(owner, created[0]?.id ?? "");
+    expect(source).toMatchObject({
+      startsOn: "2026-10-30",
+      endsOn: "2026-11-01",
+      venueId: cat.venue.id,
+      pricePerMCents: 2000,
+    });
+    expect(await getPresetSource(owner, "nope")).toBeNull();
   });
 });

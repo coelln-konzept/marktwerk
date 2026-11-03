@@ -22,7 +22,7 @@ import {
   TemplateInputError,
 } from "@/server/services/templates";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
-import { baseItem } from "../helpers/templates";
+import { baseItem, seedPublishedTemplate } from "../helpers/templates";
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
 let owner: Awaited<ReturnType<typeof createActor>>;
@@ -212,5 +212,51 @@ describe("master template", () => {
     const error = await setTemplateArchived(owner, master.id, true).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(TemplateInputError);
     expect((error as TemplateInputError).code).toBe("master_protected");
+  });
+});
+
+describe("createMarket from a past event (Archiv: Als Vorlage speichern)", () => {
+  it("copies the tasks of the event's market instead of the master; the source stays untouched", async () => {
+    await seedMaster();
+    const source = await seedPublishedTemplate(
+      owner,
+      [
+        baseItem({ title: "Plakate aufhängen", offsetDays: -14 }),
+        baseItem({ title: "Stromkasten prüfen", phase: "live", offsetDays: 0 }),
+        baseItem({ title: "Abrechnen", phase: "post", offsetDays: 2 }),
+      ],
+      { name: "Flohmarkt Test – Aufgaben", presetIds: [cat.presets.flea.id] },
+    );
+    const [held] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-05-02"]);
+    if (!held) throw new Error("no event");
+
+    const created = await createMarket(owner, market({ name: "Flohmarkt Neu" }), {
+      fromEventId: held.id,
+    });
+    expect(created.template?.items).toBe(3);
+    const [version] = await db
+      .select()
+      .from(templateVersion)
+      .where(eq(templateVersion.templateId, created.template?.templateId ?? ""));
+    expect(version?.changeNote).toContain("Flohmarkt Test – Aufgaben");
+    expect((await itemsOf(version?.id ?? "")).map((i) => i.title)).toEqual([
+      "Plakate aufhängen",
+      "Stromkasten prüfen",
+      "Abrechnen",
+    ]);
+    // The source template keeps its items and its link to the old market.
+    expect(await itemsOf(source.versionId)).toHaveLength(3);
+    const [entry] = await audits("preset.create");
+    expect(entry?.diff).toMatchObject({ fromEventId: held.id });
+  });
+
+  it("falls back to the master when the event has no market tasks", async () => {
+    await seedMaster();
+    const [held] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-05-02"]);
+    const created = await createMarket(owner, market(), { fromEventId: held?.id ?? "" });
+    expect(created.template?.items).toBe(2);
+    await expect(
+      createMarket(owner, market(), { fromEventId: "00000000-0000-4000-8000-000000000000" }),
+    ).rejects.toMatchObject({ code: "event_not_found" });
   });
 });

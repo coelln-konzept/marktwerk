@@ -9,7 +9,7 @@ import {
   staffMember,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, count, eq, gte, lte, ne, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, eq, gte, lt, lte, ne, type SQL, sql } from "drizzle-orm";
 import { cache } from "react";
 import { todayIn } from "@/lib/format";
 import { type Actor, visibleEvents } from "../actor";
@@ -27,6 +27,8 @@ export type EventFilters = {
   q?: string;
   from?: string;
   to?: string;
+  /** Only events whose last day is before this date (Archiv › Vergangene Veranstaltungen). */
+  endedBefore?: string;
 };
 
 const dutyRoleCount = cache(async () => {
@@ -42,6 +44,7 @@ function where(actor: Actor, f: EventFilters, withType = true): SQL {
   else if (f.status) parts.push(eq(event.status, f.status));
   if (f.from) parts.push(gte(event.endsOn, f.from));
   if (f.to) parts.push(lte(event.startsOn, f.to));
+  if (f.endedBefore) parts.push(lt(event.endsOn, f.endedBefore));
   if (f.q) {
     const like = `%${f.q.toLowerCase().replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     parts.push(
@@ -256,3 +259,28 @@ export const getEvent = cache(async (actor: Actor, id: string) => {
 });
 
 export type EventDetail = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
+
+/**
+ * What "Als Vorlage speichern" (Archiv) copies from a past event into the new-market form: name, type, venue,
+ * length, times and prices. Null when the event is gone or not visible to the person.
+ */
+export async function getPresetSource(actor: Actor, id: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
+  const [row] = await db
+    .select({
+      id: event.id,
+      name: event.name,
+      eventTypeId: event.eventTypeId,
+      venueId: event.venueId,
+      startsOn: event.startsOn,
+      endsOn: event.endsOn,
+      times: event.times,
+      pricePerMCents: event.pricePerMCents,
+      bookingFeeCents: event.bookingFeeCents,
+    })
+    .from(event)
+    .where(and(eq(event.id, id), visibleEvents(actor)));
+  return row ?? null;
+}
+
+export type PresetSource = NonNullable<Awaited<ReturnType<typeof getPresetSource>>>;

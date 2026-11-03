@@ -416,7 +416,10 @@ test("Markt planen: Saturday and Sunday picked become one two-day event (switcha
   await page.goto("/veranstaltungen?erzeugen=1");
   await page.waitForLoadState("networkidle");
   const sheet = page.getByRole("dialog");
-  await sheet.getByRole("radio", { name: /Flohmarkt/ }).first().check();
+  await sheet
+    .getByRole("radio", { name: /Flohmarkt/ })
+    .first()
+    .check();
   await sheet.getByRole("button", { name: "Weiter" }).click();
   await sheet.getByRole("button", { name: "Einzeln anklicken" }).click();
   // Start from nothing picked, then pick one Saturday and the Sunday after it.
@@ -439,6 +442,32 @@ test("Markt planen: Saturday and Sunday picked become one two-day event (switcha
   await merge.uncheck();
   await sheet.getByRole("button", { name: "Weiter" }).click();
   await expect(sheet.getByRole("button", { name: "2 Veranstaltungen anlegen" })).toBeVisible();
+});
+
+test("Archiv: past events only, newest first; Als Vorlage speichern opens the prefilled market form", async ({
+  page,
+}) => {
+  await page.goto("/archiv");
+  await expect(page).toHaveURL(/\/archiv\/veranstaltungen$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Archiv" })).toBeVisible();
+  const sections = page.getByRole("group", { name: "Bereich" });
+  for (const name of ["Vergangene Veranstaltungen", "Dokumente", "Aktivität", "Alte Genehmigungen"])
+    await expect(sections.getByRole("link", { name })).toBeVisible();
+
+  // Only events that are over (the query is covered by an integration test); there are some in the seed.
+  await expect(page.getByText(/^\d+ vergangene Veranstaltungen?$/)).toBeVisible();
+  await expect(page.locator("tbody tr[data-row]").first()).toBeVisible();
+
+  await page.waitForLoadState("networkidle");
+  const save = page.getByRole("link", { name: /als Vorlage speichern$/ }).first();
+  const name = ((await save.getAttribute("aria-label")) as string).match(/„(.+)“/)?.[1] as string;
+  await save.click();
+  const dialog = page.getByRole("dialog", { name: "Als Vorlage speichern" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(name);
+  await dialog.getByRole("button", { name: "Abbrechen" }).last().click();
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/vorlage=/);
 });
 
 test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
@@ -466,7 +495,7 @@ test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembere
   await expect(nav.getByRole("link", { name: "Orte", exact: true })).toBeHidden();
   await group.click();
   await expect(group).toHaveAttribute("aria-expanded", "true");
-  for (const entry of ["Orte", "Kontakte", "Aussteller", "Wissen", "Pflichten"])
+  for (const entry of ["Orte", "Kontakte", "Aussteller", "Wissen", "Archiv", "Pflichten"])
     await expect(nav.getByRole("link", { name: entry, exact: true })).toBeVisible();
 
   // Remembered across a reload.

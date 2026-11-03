@@ -1,0 +1,47 @@
+{
+  "archive": {
+    "title": "Archiv",
+    "subtitle": "Alles Vergangene an einem Ort: Veranstaltungen, Dokumente, Aktivität und alte Genehmigungen.",
+    "sections": {
+      "label": "Bereich",
+      "events": "Vergangene Veranstaltungen",
+      "documents": "Dokumente",
+      "activity": "Aktivität",
+      "permits": "Alte Genehmigungen"
+    },
+    "soon": {
+      "documents": "Alle hochgeladenen Dokumente an einem Ort folgen als Nächstes.",
+      "activity": "Das Firmenprotokoll (wer hat wann was geändert) folgt als Nächstes.",
+      "permits": "Abgelaufene, ersetzte und nicht nötige Genehmigungen folgen als Nächstes."
+    },
+    "events": {
+      "count": "{count, plural, =0 {Keine vergangenen Veranstaltungen} one {# vergangene Veranstaltung} other {# vergangene Veranstaltungen}}",
+      "search": "Name oder Ort",
+      "year": "Jahr",
+      "yearAll": "Alle Jahre",
+      "types": "Veranstaltungsart",
+      "all": "Alle",
+      "caption": "Vergangene Veranstaltungen, neueste zuerst",
+      "cols": {
+        "date": "Datum",
+        "event": "Veranstaltung",
+        "type": "Art",
+        "venue": "Ort",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "saveAsPreset": "Als Vorlage speichern",
+      "saveAsPresetFor": "„{name}“ als Vorlage speichern",
+      "empty": "Keine vergangenen Veranstaltungen gefunden.",
+      "reset": "Filter zurücksetzen"
+    },
+    "preset": {
+      "title": "Als Vorlage speichern",
+      "hint": "Aus „{name}“: Name, Art, Ort, Dauer, Zeiten und Preise sind übernommen, die Aufgaben kommen vom Markt dieser Veranstaltung. Die Veranstaltung selbst bleibt, wie sie ist.",
+      "nameSuggestion": "{name}",
+      "created": "Markt „{name}“ angelegt{tasks, plural, =0 {} one { mit # Aufgabe} other { mit # Aufgaben}}.",
+      "open": "In der Bibliothek öffnen",
+      "notFound": "Diese Veranstaltung gibt es nicht mehr."
+    }
+  }
+}

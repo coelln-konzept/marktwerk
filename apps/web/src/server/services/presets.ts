@@ -12,13 +12,24 @@ import {
   type PresetIssueCode,
   presetKeyBase,
 } from "@marktwerk/core";
-import { dutyRole, eventPreset, eventType, staffMember, venue } from "@marktwerk/db/schema";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import {
+  checklistTemplate,
+  dutyRole,
+  event,
+  eventPreset,
+  eventPresetTemplate,
+  eventType,
+  staffMember,
+  venue,
+} from "@marktwerk/db/schema";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { copyMasterForMarket } from "./templates";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type PresetError =
   | PresetIssueCode
@@ -29,6 +40,7 @@ export type PresetError =
   | "invalid_duty_role"
   | "invalid_staff"
   | "invalid_input"
+  | "event_not_found"
   | "conflict";
 
 /**
@@ -258,6 +270,7 @@ async function insertPreset(
   actor: Actor,
   input: PresetInput,
   color: string | null,
+  extraDiff: Record<string, unknown> = {},
 ): Promise<{ id: string; key: string }> {
   await checkReferences(tx, input);
   const base = presetKeyBase(input.name);
@@ -300,7 +313,7 @@ async function insertPreset(
       action: "preset.create",
       entityType: "event_preset",
       entityId: row.id,
-      diff: { key, changes: diffOf(null, inputFields(input, color)) },
+      diff: { key, changes: diffOf(null, inputFields(input, color)), ...extraDiff },
     },
   ]);
   return { id: row.id, key };
@@ -348,11 +361,14 @@ export type MarketInput = Pick<
  * transaction: the preset (same validation as `createPreset`), its own task template copied from the
  * master ("<Markt> – Aufgaben", published, linked, see `copyMasterForMarket`) and its colour (the least
  * used one of the existing markets). Without a master the market is created without tasks
- * (`template: null`). Permission template:write.
+ * (`template: null`). Permission template:write. With `fromEventId` (Archiv: "Als Vorlage speichern") the
+ * tasks are copied from the event's market (its first linked task template) instead of the master, and the
+ * audit entry names the event; the old market and its template stay untouched.
  */
 export async function createMarket(
   actor: Actor,
   rawInput: MarketInput,
+  options: { fromEventId?: string } = {},
 ): Promise<{
   id: string;
   key: string;
@@ -373,13 +389,45 @@ export async function createMarket(
   checkFields(input);
 
   return db.transaction(async (tx) => {
+    let sourceTemplateId: string | undefined;
+    if (options.fromEventId !== undefined) {
+      const [source] = UUID_RE.test(options.fromEventId)
+        ? await tx
+            .select({ presetId: event.presetId })
+            .from(event)
+            .where(eq(event.id, options.fromEventId))
+        : [];
+      if (!source) throw new PresetInputError("event_not_found");
+      if (source.presetId) {
+        const [link] = await tx
+          .select({ templateId: eventPresetTemplate.templateId })
+          .from(eventPresetTemplate)
+          .innerJoin(checklistTemplate, eq(checklistTemplate.id, eventPresetTemplate.templateId))
+          .where(
+            and(
+              eq(eventPresetTemplate.presetId, source.presetId),
+              eq(checklistTemplate.kind, "event"),
+              isNull(checklistTemplate.archivedAt),
+            ),
+          )
+          .orderBy(asc(eventPresetTemplate.sort));
+        sourceTemplateId = link?.templateId;
+      }
+    }
     const color = await leastUsedColor(tx);
-    const { id, key } = await insertPreset(tx, actor, input, color);
-    const copy = await copyMasterForMarket(tx, actor, {
-      id,
-      name: input.name,
-      eventTypeId: input.eventTypeId,
-    });
+    const { id, key } = await insertPreset(
+      tx,
+      actor,
+      input,
+      color,
+      options.fromEventId ? { fromEventId: options.fromEventId } : {},
+    );
+    const copy = await copyMasterForMarket(
+      tx,
+      actor,
+      { id, name: input.name, eventTypeId: input.eventTypeId },
+      sourceTemplateId,
+    );
     return {
       id,
       key,

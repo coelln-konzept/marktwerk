@@ -45,7 +45,7 @@ Drizzle/Postgres, pg-boss jobs (mail), next-intl, Vitest, Playwright (`apps/web/
 | HN-11 | Kalender: "Feiertage default on?" | Keep holidays on by default | Already on (`layers.ts:30-37`) | no change |
 | HN-12 | Events: "merge days to one Event" | Consecutive selected days → one multi-day event | Every date = its own event (`generate-sheet.tsx:98-104`). = UT-16 | WP7 |
 | HN-13 | Events: "create a Preset from old Event" | "Als Vorlage speichern" on an event | No such flow | WP8 |
-| HN-14 | Events: "create Event over multi Year" | Yearly series created ahead for several years (decided) | Rule expands within one year only (`generate-sheet.tsx:379-388`) | WP9 |
+| HN-14 | Events: "create Event over multi Year" | Yearly series created ahead for several years (decided) | Rule expands within one year only (`generate-sheet.tsx:379-388`) | WP9 (dropped) |
 | HN-15 | Orte: Veranstaltung / Märkte boxes → Events / Presets | Ort detail shows two card sections linking to events and presets | Plain tables/lists (`orte/[id]/page.tsx:306-350`) | WP10 |
 | HN-16 | Genehmigung: "add Task/Genehmigung BUTTON" | Both buttons on the event's Genehmigungen tab | Tab is read-only; permits only from `/genehmigungen` | WP11 |
 
@@ -191,7 +191,12 @@ dialog via the event page `?bearbeiten=1`) and the UT-14 status items.
   Veranstaltung zusammenfassen", on when the preset is multi-day; preview shows the resulting events)
 - Test: core unit tests; integration: Sa+So selected → one 2-day event with its tasks anchored to both days
 
-### WP8: Save an event as a preset (HN-13)
+### WP8: Save an event as a preset (HN-13) (replaced 2026-11-03: Archiv)
+
+> Product owner: a separate **Archiv** (under Stammdaten) with Vergangene Veranstaltungen, Dokumente, Aktivität
+> and Alte Genehmigungen. Built first: the Archiv frame and Vergangene Veranstaltungen with "Als Vorlage
+> speichern" (prefilled `NewMarketForm` in a modal, `createMarket(…, { fromEventId })` copies the event's market
+> template via `copyMasterForMarket(…, sourceTemplateId)`). The other three sections are placeholders, next.
 
 **Files:**
 - Modify: `apps/web/src/components/event-detail/event-actions.tsx:19` ("Als Vorlage speichern")
@@ -204,7 +209,9 @@ preset doesn't touch existing events (no propagation). Audited.
 **Check at the start:** how an event's tasks map back to a template (`event.presetId`, template items);
 if the event's tasks were edited by hand, the preset uses the event's current task list.
 
-### WP9: Yearly series over several years (HN-14)
+### WP9: Yearly series over several years (HN-14) (dropped 2026-11-03)
+
+> Dropped by the product owner: not needed. Planning stays one year at a time.
 
 **Files:**
 - Modify: `packages/core/src/events/rrule.ts:61` (`expandRRule` already takes `from`/`to`; add a test over 3 years incl. leap year and DST)

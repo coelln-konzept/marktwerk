@@ -407,17 +407,23 @@ export async function createMasterTemplate(
  * (`owner_preset_id`), published right away and linked to the market. Called by `createMarket` inside
  * its transaction. Returns null when there is no master (or it has no published version), in which case
  * the market simply starts without tasks. Audited as template.create + template.publish +
- * template.presets.
+ * template.presets. With `sourceTemplateId` (a market made from a past event, Archiv) that template's
+ * published version is copied instead of the master's.
  */
 export async function copyMasterForMarket(
   tx: Tx,
   actor: Actor,
   market: { id: string; name: string; eventTypeId: string },
+  sourceTemplateId?: string,
 ): Promise<{ templateId: string; versionId: string; items: number } | null> {
   const [master] = await tx
-    .select({ id: checklistTemplate.id })
+    .select({ id: checklistTemplate.id, name: checklistTemplate.name })
     .from(checklistTemplate)
-    .where(and(eq(checklistTemplate.isMaster, true), isNull(checklistTemplate.archivedAt)));
+    .where(
+      sourceTemplateId
+        ? eq(checklistTemplate.id, sourceTemplateId)
+        : and(eq(checklistTemplate.isMaster, true), isNull(checklistTemplate.archivedAt)),
+    );
   if (!master) return null;
   const [source] = await tx
     .select({ id: templateVersion.id, version: templateVersion.version })
@@ -444,7 +450,9 @@ export async function copyMasterForMarket(
       status: "published",
       publishedAt: new Date(),
       publishedById: actor.staffMemberId,
-      changeNote: `Kopie der Grundvorlage (Version ${source.version})`,
+      changeNote: sourceTemplateId
+        ? `Kopie von „${master.name}“ (Version ${source.version})`
+        : `Kopie der Grundvorlage (Version ${source.version})`,
     })
     .returning({ id: templateVersion.id });
   if (!version) throw new Error("insert failed");
