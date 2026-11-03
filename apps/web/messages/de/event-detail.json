@@ -238,7 +238,9 @@
       "taskUndone": "Rückgängig gemacht: {title}",
       "documentUploaded": "Dokument hochgeladen: {file}",
       "documentArchived": "Dokument entfernt: {file}",
-      "documentRestored": "Dokument wiederhergestellt: {file}"
+      "documentRestored": "Dokument wiederhergestellt: {file}",
+      "restore": "Wiederherstellen",
+      "restoreAria": "„{title}“ wiederherstellen (wieder offen)"
     },
     "facts": {
       "edit": "Bearbeiten",

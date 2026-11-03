@@ -238,7 +238,9 @@
       "taskUndone": "Undone: {title}",
       "documentUploaded": "Document uploaded: {file}",
       "documentArchived": "Document removed: {file}",
-      "documentRestored": "Document restored: {file}"
+      "documentRestored": "Document restored: {file}",
+      "restore": "Restore",
+      "restoreAria": "Restore “{title}” (reopen)"
     },
     "facts": {
       "edit": "Edit",

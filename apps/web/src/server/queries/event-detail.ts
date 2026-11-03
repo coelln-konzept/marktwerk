@@ -1,4 +1,5 @@
 import "server-only";
+import { isFinishedStatus } from "@marktwerk/core";
 import { auditLog, document, event, staffMember, task, user } from "@marktwerk/db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { type Actor, visibleEvents } from "../actor";
@@ -13,6 +14,11 @@ export type HistoryEntry = {
   actorName: string | null;
   /** What the entry is about besides the event itself: the task title of a tick, the file name of an upload. */
   subject: string | null;
+  /**
+   * "Wiederherstellen" (user test 2026-11, UT-06): the task this entry finished, when it is the task's newest
+   * finishing entry and the task is still done or skipped; null otherwise.
+   */
+  restoreTaskId: string | null;
 };
 
 /** Task changes worth a line in the event's Verlauf (ticks, snoozes and their undo), not every check item or comment. */
@@ -49,7 +55,9 @@ export async function listEventHistory(
       at: auditLog.at,
       // Same name as the sidebar shows: the staff record first, the login name as fallback.
       actorName: sql<string | null>`coalesce(${staffMember.displayName}, ${user.name})`,
+      entityId: auditLog.entityId,
       taskTitle: task.title,
+      taskStatus: task.status,
     })
     .from(auditLog)
     .leftJoin(user, eq(user.id, auditLog.actorId))
@@ -73,13 +81,23 @@ export async function listEventHistory(
     .orderBy(desc(auditLog.at), desc(auditLog.id))
     .limit(limit);
 
-  return rows.map(({ taskTitle, ...row }) => {
+  // Newest first, so the first finishing entry seen per task is the one that still holds.
+  const seen = new Set<string>();
+  return rows.map(({ taskTitle, taskStatus, entityId, ...row }) => {
     const diff = (row.diff && typeof row.diff === "object" ? row.diff : {}) as {
       fileName?: unknown;
+      to?: unknown;
     };
+    let restoreTaskId: string | null = null;
+    if (row.action === "task.status" && entityId && !seen.has(entityId)) {
+      seen.add(entityId);
+      const finishedHere = diff.to === "done" || diff.to === "skipped";
+      if (finishedHere && taskStatus && isFinishedStatus(taskStatus)) restoreTaskId = entityId;
+    }
     return {
       ...row,
       subject: taskTitle ?? (typeof diff.fileName === "string" ? diff.fileName : null),
+      restoreTaskId,
     };
   });
 }

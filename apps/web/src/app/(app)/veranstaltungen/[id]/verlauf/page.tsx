@@ -1,3 +1,4 @@
+import { can } from "@marktwerk/core";
 import { HistoryTable } from "@/components/event-detail/history-table";
 import { getActor } from "@/server/actor";
 import { listEventHistory } from "@/server/queries/event-detail";
@@ -9,6 +10,7 @@ export default async function EventHistoryPage({
 }: PageProps<"/veranstaltungen/[id]/verlauf">) {
   await requirePermission("audit", "read");
   const { id } = await params;
-  const entries = await listEventHistory(await getActor(), id);
-  return <HistoryTable entries={entries} />;
+  const actor = await getActor();
+  const entries = await listEventHistory(actor, id);
+  return <HistoryTable entries={entries} canRestore={can(actor.role, "task", "write")} />;
 }

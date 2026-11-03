@@ -743,6 +743,28 @@ test("Event Checkliste: every task by phase, one line each; ticked rows stay cro
   await expect(page).toHaveURL(/aufgabe=/);
 });
 
+test("Verlauf: Wiederherstellen reopens a task ticked off on the Checkliste", async ({ page }) => {
+  await page.goto("/board?zeitraum=alle");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/board`);
+  await page.waitForLoadState("networkidle");
+  const row = page
+    .locator("li[data-row]")
+    .filter({ has: page.locator('button[aria-pressed="false"]') })
+    .first();
+  const title = ((await row.locator("a").first().textContent()) ?? "").trim();
+  await row.locator("button[aria-pressed]").click();
+  await expect(page.getByRole("button", { name: "Rückgängig" })).toBeVisible();
+
+  await page.goto(`${href}/verlauf`);
+  await page.waitForLoadState("networkidle");
+  const restore = page.getByRole("button", { name: `„${title}“ wiederherstellen (wieder offen)` });
+  await expect(restore.first()).toBeVisible();
+  await restore.first().click();
+  await expect(page.getByText(`„${title}“ wieder geöffnet`)).toBeVisible();
+  await expect(restore).toHaveCount(0);
+});
+
 test("Sidebar: the button at its top right hides it (remembered), the top bar brings it back", async ({
   page,
 }) => {
