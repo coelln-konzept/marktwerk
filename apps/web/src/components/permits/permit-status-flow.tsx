@@ -5,7 +5,11 @@ import { PERMIT_FLOW_STEPS, type PermitStatus, splitPermitTransitions } from "@m
 import { Check, Circle, CircleDot, Ellipsis } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
-import { changePermitStatus, undoPermitStatus } from "@/app/(app)/genehmigungen/actions";
+import {
+  changePermitStatus,
+  reinstatePermitAction,
+  undoPermitStatus,
+} from "@/app/(app)/genehmigungen/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -69,6 +73,23 @@ export function PermitStatusFlow({
     });
   }
 
+  // "Als ersetzt markieren" clicked again: valid again, with the same undo as every other change.
+  function reinstate() {
+    startTransition(async () => {
+      const result = await reinstatePermitAction(permitId);
+      if (!result.ok) return showToast({ message: errorText(result.error) });
+      const { status: back } = result.data;
+      showToast({
+        message: t("reinstated", { status: label(back) }),
+        actionLabel: t("undo"),
+        onAction: async () => {
+          const undone = await changePermitStatus(permitId, "superseded");
+          showToast({ message: undone.ok ? t("reverted") : errorText(undone.error) });
+        },
+      });
+    });
+  }
+
   return (
     <section aria-labelledby="flow-title" className="flex flex-col gap-3">
       <h3 id="flow-title" className="font-semibold text-foreground-2 text-small">
@@ -107,7 +128,25 @@ export function PermitStatusFlow({
           <span className="font-semibold">{label(status)}</span>
         </p>
       )}
-      {canWrite &&
+      {canWrite && status === "superseded" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            aria-pressed
+            disabled={pending}
+            aria-busy={pending}
+            title={t("supersededToggleHint")}
+            onClick={reinstate}
+            className="border-foreground-2"
+          >
+            <Check aria-hidden className="size-4" />
+            {t("supersededToggle")}
+          </Button>
+          <span className="text-muted-foreground text-small">{t("supersededToggleHint")}</span>
+        </div>
+      ) : (
+        canWrite &&
         (none ? (
           <p className="text-muted-foreground text-small">{t("noNextStep")}</p>
         ) : (
@@ -158,7 +197,8 @@ export function PermitStatusFlow({
               </Menu.Root>
             )}
           </div>
-        ))}
+        ))
+      )}
     </section>
   );
 }

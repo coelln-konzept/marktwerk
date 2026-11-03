@@ -15,6 +15,7 @@ import {
   Search,
   ShieldCheck,
   TriangleAlert,
+  Undo2,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -27,6 +28,31 @@ import { BackButton, useVisitedPages } from "./back-button";
 import { useShell } from "./shell-context";
 
 export type Crumb = { label: string; href?: string };
+
+/**
+ * "Rückgängig" in the top bar: takes back the newest change of the undo history (the same as Strg+Z), so an
+ * accidental click can be undone after its toast has gone (handwritten notes 2026-11). Greyed out when there
+ * is nothing to undo; the tooltip names what it would undo.
+ */
+function UndoButton() {
+  const t = useTranslations("topbar");
+  const { lastUndo, undoLast } = useShell();
+  const label = lastUndo ? t("undoWhat", { what: lastUndo.message }) : t("undoNone");
+  return (
+    <button
+      type="button"
+      disabled={!lastUndo}
+      onClick={() => void undoLast()}
+      title={label}
+      aria-label={label}
+      aria-keyshortcuts="Control+Z Meta+Z"
+      className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-input bg-card px-2.5 font-medium text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:text-faint-foreground disabled:hover:bg-card"
+    >
+      <Undo2 aria-hidden className="size-4" />
+      <span className="max-md:sr-only">{t("undo")}</span>
+    </button>
+  );
+}
 
 const MENU_ITEM =
   "flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover";
@@ -277,6 +303,8 @@ export function Topbar({ crumbs, bell }: { crumbs: Crumb[]; bell?: React.ReactNo
       ) : (
         <div className="flex-1" />
       )}
+      {/* Before the search, so a drawer on the right never covers it. */}
+      <UndoButton />
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}

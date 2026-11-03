@@ -104,6 +104,9 @@
 | 2026-11-03 (handwritten notes) | Dropped notes | Not built: everything about the global **Board** (being removed), incl. "Übersicht like Board (columns)" and "Wochenübersicht"; task drag & drop "from all heights"; tag colours and subtask tags; a **map** on Orte; moving Genehmigungen to events / one permit per event (cadence stays). Plan: `docs/superpowers/plans/2026-11-03-handwritten-notes.md` |
 | 2026-11-03 (handwritten notes) | Events over several years | A rule creates **separate events per date for several years ahead** (max 3), not one record spanning years. Plan HN-14 |
 | 2026-11-03 (handwritten notes) | "Passwort vergessen" | **Postponed**: the deployed dev app has no SMTP yet. When built, the reset mail is **sent directly** over SMTP, not via the `outbound_message` queue (no stored link, no 5-minute delay, independent of `email_enabled`). Plan HN-01 |
+| 2026-11-03 (handwritten notes) | Changing an event's type | Relabels the event only: its **tasks and permits stay as they are** (templates never propagate automatically); the edit dialog says so. Plan WP5 |
+| 2026-11-03 (product owner) | Undo after the toast | A short **undo history** (last 10 changes, 15 minutes, in memory) behind a **"Rückgängig" button in the top bar** and Strg+Z, so an accidental click doesn't depend on catching the toast |
+| 2026-11-03 (product owner) | "Ersetzt" by mistake | A superseded permit **toggles back**: clicking the pressed "Als ersetzt markiert" again restores the status before (from the audit log) and reopens cancelled tasks. The permit flow itself keeps `superseded` final |
 | 2026-10-22 (client feedback) | Postponed | Aussteller data-collection companion; weekly report email; finance; staff assignment and staff emails; website publishing |
 
 ## Open: product owner

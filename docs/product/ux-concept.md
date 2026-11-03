@@ -270,6 +270,14 @@ Ort – aus Vorlage anlegen"); filtered-empty ("Keine Treffer – Filter zurück
 
 **Feedback:** optimistic + undo toast (5–8 s) for assign, move, tick off, mark paid. Money stays visibly
 "wird gespeichert…" until the server confirms.
+**Undo history** (handwritten notes 2026-11): every change whose toast offers "Rückgängig" also goes into a short
+history (the last 10, at most 15 minutes old, in memory, so a reload clears it). A **"Rückgängig" button in the top
+bar** (left of the search, so a drawer never covers it) and Strg+Z take back the newest one, also after its toast
+has gone; pressing again goes one further back. Greyed out when there is nothing; the tooltip names the change
+("Rückgängig: Status: Ersetzt (Strg+Z)"). Code: `useShell().lastUndo` / `undoLast()`.
+**Permit "Ersetzt" toggles back:** after "Als ersetzt markieren" the drawer shows a pressed "Als ersetzt markiert"
+button; clicking it makes the permit valid again (the status before, granted or rejected, with cancelled tasks
+reopened; `reinstatePermit`). The rest of a superseded permit stays read-only.
 **One exception, ticking off where the task disappears** (user test 2026-11, decision D1): on the Übersicht, in
 Benachrichtigungen, in the event's Zusammenfassung ("Was fehlt") and on the global Board (tick, menu, `E`), "Erledigt"
 first asks in a small dialog ("Aufgabe erledigt?" · "„<Titel>“ als erledigt markieren?" · Abbrechen · Ja, erledigt);

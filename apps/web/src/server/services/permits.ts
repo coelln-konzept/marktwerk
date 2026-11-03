@@ -17,6 +17,7 @@ import {
 } from "@marktwerk/core";
 import { insertNotifications } from "@marktwerk/db";
 import {
+  auditLog,
   contact,
   dutyRole,
   event,
@@ -32,7 +33,7 @@ import {
   templateItem,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, gte, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
@@ -1003,6 +1004,51 @@ export async function restorePermitStatus(
       await autoConfirmEventsOfPermit(tx, actor, id, "permit_status");
     return { changed: true };
   });
+}
+
+/**
+ * Makes a superseded permit valid again ("Ersetzt" clicked by mistake, handwritten notes 2026-11): back to
+ * the status it had before (granted or rejected, read from the audit log) with the tasks that were
+ * cancelled with it reopened. The same write as the undo toast, so it works after the toast has gone.
+ */
+export async function reinstatePermit(
+  actor: Actor,
+  id: string,
+): Promise<{ changed: boolean; status: PermitStatus; closedTaskIds: string[] }> {
+  if (!can(actor.role, "permit", "write")) forbidden();
+  const [current] = await db
+    .select({ status: permit.status, appliedAt: permit.appliedAt, grantedAt: permit.grantedAt })
+    .from(permit)
+    .where(eq(permit.id, id));
+  if (!current) throw new PermitInputError("not_found");
+  if (current.status !== "superseded") throw new PermitInputError("conflict");
+  const [last] = await db
+    .select({ diff: auditLog.diff })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.action, "permit.status"),
+        eq(auditLog.entityId, id),
+        sql`${auditLog.diff}->>'to' = 'superseded'`,
+      ),
+    )
+    .orderBy(desc(auditLog.at))
+    .limit(1);
+  const diff = (last?.diff ?? {}) as { from?: unknown; closedTaskIds?: unknown };
+  // Without a log entry (superseded by a renewal), the permit was held: back to "Genehmigt".
+  const status: PermitStatus =
+    isPermitStatus(diff.from) && diff.from !== "superseded" ? diff.from : "granted";
+  const closedTaskIds = Array.isArray(diff.closedTaskIds)
+    ? diff.closedTaskIds.filter((v): v is string => typeof v === "string")
+    : [];
+  const result = await restorePermitStatus(
+    actor,
+    id,
+    "superseded",
+    { status, appliedAt: current.appliedAt, grantedAt: current.grantedAt },
+    closedTaskIds,
+  );
+  return { ...result, status, closedTaskIds };
 }
 
 // ---------------------------------------------------------------------------------------------

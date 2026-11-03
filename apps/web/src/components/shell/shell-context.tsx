@@ -22,6 +22,9 @@ export type Toast = {
 /** A toast in the stack; `id` is stable while it is shown. */
 export type ToastEntry = { id: number; toast: Toast };
 
+/** A change that can still be taken back, after its toast is gone (the top bar's "Rückgängig", Strg+Z). */
+export type UndoEntry = { id: number; message: string; at: number };
+
 type Shell = {
   navOpen: boolean;
   setNavOpen: (open: boolean) => void;
@@ -42,6 +45,10 @@ type Shell = {
   runToastAction: (id: number) => Promise<void>;
   /** Toasts whose action is running. */
   busyToastIds: ReadonlySet<number>;
+  /** The newest change that can still be undone (outlives its toast), or null. */
+  lastUndo: UndoEntry | null;
+  /** Takes back the newest change of the history (the top bar's button and Strg+Z). */
+  undoLast: () => Promise<void>;
   /** One app-wide confirmation dialog (`ui/confirm`), for actions that ask first (e.g. "Erledigt" where the task leaves the list). */
   confirm: (options: ConfirmOptions) => Promise<boolean>;
 };
@@ -50,6 +57,16 @@ type Shell = {
 export const TOAST_MS = 8000;
 /** Up to three at once; a fourth pushes the oldest out. */
 const TOAST_MAX = 3;
+/**
+ * Undo history: the last changes stay undoable after their toast has gone (handwritten notes 2026-11: an
+ * accidental click must not depend on catching the toast). In memory only, so a reload clears it; an entry
+ * older than this is dropped, since by then the change is rather a decision than a slip.
+ */
+const UNDO_MAX = 10;
+const UNDO_MS = 15 * 60 * 1000;
+
+const isUndoable = (toast: Toast) =>
+  Boolean(toast.onAction && toast.actionLabel && toast.undoable !== false);
 
 /** Typing in a field: Strg+Z belongs to the field then. */
 const NON_TEXT_INPUTS = new Set([
@@ -116,8 +133,31 @@ export function ShellProvider({
         : current;
     });
   }, []);
+  const [undoHistory, setUndoHistory] = useState<
+    readonly (UndoEntry & { run: () => void | Promise<void> })[]
+  >([]);
+  const undoRef = useRef(undoHistory);
+  useEffect(() => {
+    undoRef.current = undoHistory;
+  }, [undoHistory]);
+  const forgetUndo = useCallback((id: number) => {
+    setUndoHistory((current) =>
+      current.some((e) => e.id === id) ? current.filter((e) => e.id !== id) : current,
+    );
+  }, []);
+
   const showToast = useCallback((toast: Toast) => {
     const id = ++nextToastId.current;
+    if (isUndoable(toast) && toast.onAction) {
+      const run = toast.onAction;
+      const now = Date.now();
+      setUndoHistory((current) =>
+        [
+          ...current.filter((e) => now - e.at < UNDO_MS),
+          { id, message: toast.message, at: now, run },
+        ].slice(-UNDO_MAX),
+      );
+    }
     setToasts((current) => {
       // The same error twice (five ticks while offline) is shown once, as the newest.
       const rest =
@@ -128,10 +168,10 @@ export function ShellProvider({
     });
   }, []);
 
-  const runToastAction = useCallback(
-    async (id: number) => {
-      const entry = toastsRef.current.find((e) => e.id === id);
-      if (!entry?.toast.onAction || busyRef.current.has(id)) return;
+  /** Runs an action by its toast id, from the toast or from the undo history (the toast may be gone). */
+  const runAction = useCallback(
+    async (id: number, action: (() => void | Promise<void>) | undefined) => {
+      if (!action || busyRef.current.has(id)) return;
       const setBusy = (on: boolean) => {
         const next = new Set(busyRef.current);
         if (on) next.add(id);
@@ -143,8 +183,9 @@ export function ShellProvider({
       // Leave the stack first: the action's own toast ("Rückgängig gemacht") must not push out an older
       // toast that can still be undone.
       dismissToastById(id);
+      forgetUndo(id);
       try {
-        await entry.toast.onAction();
+        await action();
       } catch {
         // An action that throws (offline) must not crash the page; say so instead.
         showToast({ message: tErrors("network"), tone: "error" });
@@ -152,8 +193,28 @@ export function ShellProvider({
         setBusy(false);
       }
     },
-    [showToast, dismissToastById, tErrors],
+    [showToast, dismissToastById, forgetUndo, tErrors],
   );
+
+  const runToastAction = useCallback(
+    (id: number) => runAction(id, toastsRef.current.find((e) => e.id === id)?.toast.onAction),
+    [runAction],
+  );
+
+  const undoLast = useCallback(async () => {
+    const now = Date.now();
+    const newest = undoRef.current.findLast((e) => now - e.at < UNDO_MS);
+    if (!newest) {
+      if (undoRef.current.length > 0) setUndoHistory([]);
+      return;
+    }
+    await runAction(newest.id, newest.run);
+  }, [runAction]);
+
+  const lastUndo = useMemo(() => {
+    const newest = undoHistory.at(-1);
+    return newest ? { id: newest.id, message: newest.message, at: newest.at } : null;
+  }, [undoHistory]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -163,20 +224,18 @@ export function ShellProvider({
         setPaletteOpen((open) => !open);
         return;
       }
-      // Strg+Z / ⌘Z: take back the newest undoable change (UX concept §6), unless a field has the focus.
+      // Strg+Z / ⌘Z: take back the newest change of the undo history (UX concept §6), unless a field has
+      // the focus. Works after the toast has gone, like the top bar's button.
       if (mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "z") {
         if (event.defaultPrevented || event.repeat || isEditable(event.target)) return;
-        const newest = toastsRef.current.findLast(
-          (e) => e.toast.onAction && e.toast.actionLabel && e.toast.undoable !== false,
-        );
-        if (!newest) return;
+        if (undoRef.current.length === 0) return;
         event.preventDefault();
-        void runToastAction(newest.id);
+        void undoLast();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [runToastAction]);
+  }, [undoLast]);
 
   const value = useMemo(
     () => ({
@@ -193,6 +252,8 @@ export function ShellProvider({
       dismissToastById,
       runToastAction,
       busyToastIds,
+      lastUndo,
+      undoLast,
       confirm,
     }),
     [
@@ -207,6 +268,8 @@ export function ShellProvider({
       dismissToastById,
       runToastAction,
       busyToastIds,
+      lastUndo,
+      undoLast,
       confirm,
     ],
   );

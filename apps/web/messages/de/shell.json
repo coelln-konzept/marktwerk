@@ -100,7 +100,10 @@
     "newShift": "Schicht",
     "newIssue": "Mangel melden",
     "showSidebar": "Seitenleiste einblenden",
-    "skip": "Zum Inhalt springen"
+    "skip": "Zum Inhalt springen",
+    "undo": "Rückgängig",
+    "undoWhat": "Rückgängig: {what} (Strg+Z)",
+    "undoNone": "Nichts zum Rückgängigmachen"
   },
   "palette": {
     "title": "Suchen und Befehle",

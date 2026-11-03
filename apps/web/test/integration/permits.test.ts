@@ -21,6 +21,7 @@ import {
   fillLogbookForEvents,
   linkEventsToPermit,
   PermitInputError,
+  reinstatePermit,
   restorePermit,
   restorePermitStatus,
   setEventPermitRequired,
@@ -384,6 +385,38 @@ describe("permit status flow", () => {
     expect(skipped.closedTaskIds).toHaveLength(1);
     const [cancelled] = await db.select().from(task).where(eq(task.permitId, p.id));
     expect(cancelled?.status).toBe("cancelled");
+  });
+
+  it("a superseded permit can be made valid again: back to the status before, tasks reopened", async () => {
+    const p = await newPermit();
+    await setPermitStatus(owner, p.id, "granted");
+    const [granted] = await db.select().from(permit).where(eq(permit.id, p.id));
+    const superseded = await setPermitStatus(owner, p.id, "superseded");
+    expect(superseded.changed).toBe(true);
+
+    const back = await reinstatePermit(owner, p.id);
+    expect(back).toMatchObject({ changed: true, status: "granted" });
+    const [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({ status: "granted", grantedAt: granted?.grantedAt });
+    const entries = await db
+      .select({ diff: auditLog.diff })
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "permit.status"), eq(auditLog.entityId, p.id)));
+    expect(entries.at(-1)?.diff).toMatchObject({ from: "superseded", to: "granted", undo: true });
+
+    // Only a superseded permit can be reinstated.
+    await expect(reinstatePermit(owner, p.id)).rejects.toMatchObject({ code: "conflict" });
+
+    // From "abgelehnt" it goes back to "abgelehnt", and the cancelled task opens again.
+    const q = await newPermit();
+    await setPermitStatus(owner, q.id, "applied");
+    await setPermitStatus(owner, q.id, "rejected");
+    const closed = await setPermitStatus(owner, q.id, "superseded");
+    expect((await reinstatePermit(owner, q.id)).status).toBe("rejected");
+    for (const id of closed.closedTaskIds) {
+      const [t] = await db.select().from(task).where(eq(task.id, id));
+      expect(t?.status).toBe("todo");
+    }
   });
 
   it("allows staff to change status but only owner/manager to archive; field is forbidden", async () => {

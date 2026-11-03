@@ -1,5 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 
+/** The "Rückgängig" button of a toast (the top bar has its own "Rückgängig: …" button). */
+const toastUndo = (page: Page) =>
+  page.getByRole("region", { name: "Hinweise" }).getByRole("button", { name: "Rückgängig" });
+
 test("Übersicht loads after login", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
@@ -82,7 +86,7 @@ test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a ma
   await expect(markets).toHaveCount(before - 1);
 
   // The toast names the market; its undo brings the market back.
-  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await toastUndo(page).click();
   await expect(markets).toHaveCount(before);
 
   // The drawer is a linkable page state: a reload keeps it, Esc closes it.
@@ -327,6 +331,36 @@ test('Kalender: "+ N weitere" opens the whole day in place; Escape closes it', a
   await expect(more).toBeFocused();
 });
 
+test('Permit: "Als ersetzt markieren" toggles back; the top bar\'s Rückgängig works after the toast is gone', async ({
+  page,
+}) => {
+  // A granted permit (seeded data has many); open its drawer from the Genehmigungen list.
+  await page.goto("/genehmigungen?ansicht=liste&zeitraum=alle");
+  const row = page.locator("[data-href*='genehmigung=']").filter({ hasText: "Genehmigt" }).first();
+  await page.goto((await row.getAttribute("data-href")) as string);
+  const drawer = page.locator("aside[aria-labelledby]").last(); // the permit drawer
+  const undo = page.getByRole("button", { name: /^Rückgängig: |^Nichts zum Rückgängigmachen$/ });
+  await page.waitForLoadState("networkidle");
+
+  await drawer.getByRole("button", { name: "Als ersetzt markieren" }).click();
+  const toggle = drawer.getByRole("button", { name: "Als ersetzt markiert" });
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  // Clicking it again makes the permit valid again.
+  await toggle.click();
+  await expect(page.getByText("Wieder gültig: Genehmigt")).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
+
+  // Let the toasts go, then undo from the top bar: the permit is superseded again …
+  const closeToast = page.getByRole("button", { name: "Hinweis schließen" });
+  while ((await closeToast.count()) > 0) await closeToast.first().click();
+  await expect(undo).toHaveAccessibleName("Rückgängig: Wieder gültig: Genehmigt (Strg+Z)");
+  await undo.click();
+  await expect(drawer.getByRole("button", { name: "Als ersetzt markiert" })).toBeVisible();
+  // … and once more (the first change), back to Genehmigt: the history holds both.
+  await undo.click();
+  await expect(drawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
+});
+
 test("Sidebar: five daily entries, Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
   page,
 }) => {
@@ -450,9 +484,9 @@ test("Benachrichtigungen: no bell, the page stays; filters, Erledigt and Zurück
   // Confirmed, it completes the task (own undo toast); the notification resolves with it.
   await task.getByRole("button", { name: "Erledigt", exact: true }).click();
   await confirm.getByRole("button", { name: "Ja, erledigt" }).click();
-  await expect(page.getByRole("button", { name: "Rückgängig" })).toBeVisible();
+  await expect(toastUndo(page)).toBeVisible();
   await expect.poll(open).toBe(before - 1);
-  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await toastUndo(page).click();
   await expect.poll(open).toBe(before);
 
   // Zurückstellen (in the "…" menu) with a preset moves it to "Zurückgestellt"; undo brings it back.
@@ -464,7 +498,7 @@ test("Benachrichtigungen: no bell, the page stays; filters, Erledigt and Zurück
   await expect(page.getByText(/zurückgestellt bis/).first()).toBeVisible();
   await expect.poll(open).toBe(before - 1);
   await expect(status).toContainText(/Zurückgestellt 1/);
-  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await toastUndo(page).click();
   await expect.poll(open).toBe(before);
 
   // The tab "Zurückgestellt" shows the empty state when nothing is snoozed.
@@ -578,7 +612,7 @@ test("Board: a card moves to the next column with the keyboard (grip, Space, →
   // Optimistic: the card shows up in the neighbouring column at once; the undo toast offers to revert.
   await expect(to.locator(`[data-card="${id}"]`)).toBeVisible();
   await expect(from.locator(`[data-card="${id}"]`)).toHaveCount(0);
-  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await toastUndo(page).click();
   await expect(from.locator(`[data-card="${id}"]`)).toBeVisible();
 });
 
@@ -746,7 +780,7 @@ test("Übersicht: Erledigt asks first, since the task leaves the list; Abbrechen
   await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
   await expect(confirm).toBeHidden();
   await expect(page.getByRole("button", { name: label ?? "" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Rückgängig" })).toHaveCount(0);
+  await expect(toastUndo(page)).toHaveCount(0);
 });
 
 test("Event Checkliste: every task by phase, one line each; ticked rows stay crossed out and untick", async ({
@@ -819,7 +853,7 @@ test("Verlauf: Wiederherstellen reopens a task ticked off on the Checkliste", as
     .first();
   const title = ((await row.locator("a").first().textContent()) ?? "").trim();
   await row.locator("button[aria-pressed]").click();
-  await expect(page.getByRole("button", { name: "Rückgängig" })).toBeVisible();
+  await expect(toastUndo(page)).toBeVisible();
 
   await page.goto(`${href}/verlauf`);
   await page.waitForLoadState("networkidle");
