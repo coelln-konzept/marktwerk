@@ -1,10 +1,11 @@
 "use client";
 
 import { type AblaufPhase, addDays, daysBetween, groupAblauf, taskDueness } from "@marktwerk/core";
-import { AlarmClockOff, Camera, Check, Minus } from "lucide-react";
+import { AlarmClockOff, Camera } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
+import { TaskTick, TickMark } from "@/components/task/task-tick";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { formatDateShort, formatDateWeekdayDay } from "@/lib/format";
@@ -128,7 +129,6 @@ export function AblaufList({
 }
 
 function AblaufRow({ task }: { task: BoardTask }) {
-  const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
   const locale = useLocale();
   const { actions, canWrite, today } = useBoard();
@@ -172,22 +172,9 @@ function AblaufRow({ task }: { task: BoardTask }) {
     >
       <span className="grid place-items-center">
         {canWrite ? (
-          <button
-            type="button"
-            onClick={() => actions.setStatus(task, finished ? "todo" : "done")}
-            aria-label={
-              finished
-                ? t("card.reopen", { title: task.title })
-                : t("card.complete", { title: task.title })
-            }
-            aria-pressed={finished}
-            title={finished ? t("menu.reopen") : t("card.completeHint")}
-            className="group/tick grid size-7 cursor-pointer place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-ring"
-          >
-            <Tick status={task.status} />
-          </button>
+          <TaskTick task={task} onToggle={(next) => actions.setStatus(task, next)} />
         ) : (
-          <Tick status={task.status} />
+          <TickMark status={task.status} />
         )}
       </span>
 
@@ -245,29 +232,5 @@ function AblaufRow({ task }: { task: BoardTask }) {
         <CardMenu task={task} open={menuOpen} onOpenChange={setMenuOpen} />
       </span>
     </li>
-  );
-}
-
-/**
- * The checkbox of a row. Done: a filled green circle with a tick; skipped: a filled grey one with a dash;
- * open: an empty ring that previews the tick on hover. Shape and fill differ, not only the colour.
- */
-function Tick({ status }: { status: BoardTask["status"] }) {
-  if (status === "done")
-    return (
-      <span className="grid size-5 place-items-center rounded-full bg-status-ok-dot text-card group-hover/tick:opacity-80">
-        <Check aria-hidden strokeWidth={3} className="size-3.5" />
-      </span>
-    );
-  if (status === "skipped")
-    return (
-      <span className="grid size-5 place-items-center rounded-full bg-muted-foreground text-card group-hover/tick:opacity-80">
-        <Minus aria-hidden strokeWidth={3} className="size-3.5" />
-      </span>
-    );
-  return (
-    <span className="grid size-5 place-items-center rounded-full border-2 border-muted-foreground text-transparent group-hover/tick:border-status-ok group-hover/tick:text-status-ok">
-      <Check aria-hidden strokeWidth={3} className="size-3" />
-    </span>
   );
 }

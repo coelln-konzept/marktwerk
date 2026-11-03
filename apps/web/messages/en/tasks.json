@@ -194,7 +194,8 @@
     },
     "quickDone": {
       "label": "Done",
-      "aria": "Mark “{title}” as done"
+      "aria": "Mark “{title}” as done",
+      "hint": "Mark as done"
     },
     "statusToggle": {
       "waiting": "Waiting"

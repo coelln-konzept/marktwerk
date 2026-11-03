@@ -194,7 +194,8 @@
     },
     "quickDone": {
       "label": "Erledigt",
-      "aria": "„{title}“ als erledigt markieren"
+      "aria": "„{title}“ als erledigt markieren",
+      "hint": "Als erledigt markieren"
     },
     "statusToggle": {
       "waiting": "Wartet"

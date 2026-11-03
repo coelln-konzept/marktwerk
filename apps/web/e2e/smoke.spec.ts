@@ -743,6 +743,31 @@ test("Event Checkliste: every task by phase, one line each; ticked rows stay cro
   await expect(page).toHaveURL(/aufgabe=/);
 });
 
+test("Task drawer: Erledigt is a toggle, pressed while done; a second click reopens", async ({
+  page,
+}) => {
+  await page.goto("/board?zeitraum=alle");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/board`);
+  const rows = page.locator("li[data-row]");
+  const row = rows.filter({ has: page.locator('button[aria-pressed="false"]') }).first();
+  const title = (await row.locator("a").first().textContent()) ?? "";
+  await page.waitForLoadState("networkidle");
+  // Tick it in the list (same tick everywhere), then open it.
+  await row.locator("button[aria-pressed]").click();
+  const same = rows.filter({ has: page.getByRole("link", { name: title, exact: true }) }).first();
+  await expect(same.locator("button[aria-pressed]")).toHaveAttribute("aria-pressed", "true");
+  await same.locator("a").first().click();
+  const drawer = page.getByRole("dialog");
+  const toggle = drawer.getByRole("button", { name: `„${title}“ wieder öffnen` });
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(toggle).toContainText("Erledigt");
+  await toggle.click();
+  const reopened = drawer.getByRole("button", { name: "Erledigt", exact: true });
+  await expect(reopened).toHaveAttribute("aria-pressed", "false");
+  await expect(drawer.getByRole("button", { name: "Wartet", exact: true })).toBeVisible();
+});
+
 test("Verlauf: Wiederherstellen reopens a task ticked off on the Checkliste", async ({ page }) => {
   await page.goto("/board?zeitraum=alle");
   const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");

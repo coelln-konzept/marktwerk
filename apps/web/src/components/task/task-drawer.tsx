@@ -12,7 +12,6 @@ import {
   Paperclip,
   Pencil,
   Plus,
-  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -44,6 +43,7 @@ import { cn } from "@/lib/utils";
 import type { StaffOption, TaskDetail } from "@/server/queries/tasks";
 import { SnoozeDialog, useSnoozePresets } from "./snooze";
 import { TaskActivity } from "./task-activity";
+import { TickMark } from "./task-tick";
 
 const FEEDBACK = ["as_planned", "longer", "shorter"] as const;
 
@@ -230,58 +230,51 @@ export function TaskDrawer({
   const buttonBase =
     "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-60";
 
-  // Open task: primary Erledigt, toggle Wartet, everything else (In Arbeit, Blockiert, Übersprungen, back to
-  // Offen) in the "…" menu. Finished task: one primary "Wieder öffnen" and nothing else to set. The
-  // current state is always spelled out as a badge (colour + icon + text).
+  // Erledigt is a toggle like the row ticks: pressed (green) while finished, a second click reopens. Open
+  // task: also the Wartet toggle and everything else (In Arbeit, Blockiert, Übersprungen, back to Offen) in
+  // the "…" menu. The current state is always spelled out as a badge (colour + icon + text).
   const statusHeader = (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        {finished ? (
-          canWrite && (
-            <button
-              type="button"
-              onClick={() => actions.setStatus(ref, "todo")}
-              className={cn(
-                buttonBase,
-                "border-primary bg-primary text-primary-foreground hover:bg-primary-hover",
-              )}
-            >
-              <RotateCcw aria-hidden className="size-4" />
-              {t("reopen")}
-            </button>
-          )
-        ) : (
-          <>
-            <button
-              type="button"
-              disabled={!canWrite}
-              onClick={() => pickStatus("done")}
-              className={cn(
-                buttonBase,
-                "border-primary bg-primary text-primary-foreground hover:bg-primary-hover",
-              )}
-            >
-              <Check aria-hidden className="size-4" />
-              {t("statusLong.done")}
-            </button>
-            <button
-              type="button"
-              aria-pressed={waitingNow}
-              disabled={!canWrite}
-              onClick={() =>
-                waitingNow ? actions.setStatus(ref, "todo") : pickStatus("waiting_external")
-              }
-              className={cn(
-                buttonBase,
-                waitingNow
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-input bg-card hover:bg-hover",
-              )}
-            >
-              <WaitingIcon aria-hidden className="size-4" />
-              {t("statusToggle.waiting")}
-            </button>
-          </>
+        <button
+          type="button"
+          aria-pressed={finished}
+          disabled={!canWrite}
+          title={finished ? t("reopen") : undefined}
+          aria-label={finished ? t("reopenAria", { title: task.title }) : undefined}
+          onClick={() => (finished ? actions.setStatus(ref, "todo") : pickStatus("done"))}
+          className={cn(
+            buttonBase,
+            "group/tick",
+            finished
+              ? "border-status-ok bg-status-ok-bg text-foreground hover:bg-hover"
+              : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover",
+          )}
+        >
+          <TickMark
+            status={task.status}
+            className={cn("size-4", !finished && "border-primary-foreground")}
+          />
+          {t(`statusLong.${task.status === "skipped" ? "skipped" : "done"}`)}
+        </button>
+        {!finished && (
+          <button
+            type="button"
+            aria-pressed={waitingNow}
+            disabled={!canWrite}
+            onClick={() =>
+              waitingNow ? actions.setStatus(ref, "todo") : pickStatus("waiting_external")
+            }
+            className={cn(
+              buttonBase,
+              waitingNow
+                ? "border-foreground bg-foreground text-background"
+                : "border-input bg-card hover:bg-hover",
+            )}
+          >
+            <WaitingIcon aria-hidden className="size-4" />
+            {t("statusToggle.waiting")}
+          </button>
         )}
         {canWrite && !finished && (
           <Menu.Root>
