@@ -1,6 +1,6 @@
 import "server-only";
 import { can } from "@marktwerk/core";
-import { foldIncludes } from "@marktwerk/core/text/fold";
+import { matchesAllWords } from "@marktwerk/core/text/search";
 import { contact, event, eventType, venue, venueRow, zone } from "@marktwerk/db/schema";
 import { and, asc, count, desc, eq, gte, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { type Actor, visibleEvents } from "../actor";
@@ -58,7 +58,9 @@ export async function listVenues(actor: Actor, today: string, q?: string) {
   const structureOf = new Map(structure.map((s) => [s.venueId, s]));
   const upcomingOf = new Map(upcoming.map((u) => [u.venueId, u.n]));
   return venues
-    .filter((v) => !q || foldIncludes([v.name, v.city, v.street, v.landownerName], q))
+    .filter(
+      (v) => !q || matchesAllWords([v.name, v.city, v.street, v.postalCode, v.landownerName], q),
+    )
     .map((v) => {
       const s = structureOf.get(v.id);
       return {

@@ -5,7 +5,11 @@ import { getTranslations } from "next-intl/server";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
 import { PresetForm } from "@/components/presets/preset-form";
 import { Page, PageHeader } from "@/components/shell/page";
-import { getPresetForEdit, getPresetFormOptions } from "@/server/queries/presets";
+import {
+  getPresetForEdit,
+  getPresetFormOptions,
+  getPresetTaskTemplates,
+} from "@/server/queries/presets";
 import { requirePermission } from "@/server/session";
 
 export async function generateMetadata({ params }: PageProps<"/vorlagen/[id]">): Promise<Metadata> {
@@ -22,6 +26,7 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
   const t = await getTranslations("templates");
   const tLib = await getTranslations("settings");
   const tNav = await getTranslations("nav");
+  const taskTemplates = await getPresetTaskTemplates(preset.id);
   const options = await getPresetFormOptions({
     eventTypeId: preset.eventTypeId,
     venueId: preset.venueId,
@@ -55,6 +60,29 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
         }
         actions={<PresetStatusBadge active={preset.active} />}
       />
+      <p className="m-0 text-small text-foreground-2">
+        {taskTemplates.own || taskTemplates.shared.length > 0 ? (
+          <>
+            {t("form.tasksLink")}{" "}
+            {[
+              ...(taskTemplates.own ? [{ ...taskTemplates.own, name: t("form.tasksOwn") }] : []),
+              ...taskTemplates.shared,
+            ].map((tpl, i) => (
+              <span key={tpl.id}>
+                {i > 0 && ", "}
+                <Link
+                  href={`/vorlagen/ablauf/${tpl.id}` as never}
+                  className="font-medium text-accent-soft-foreground hover:underline"
+                >
+                  {tpl.name}
+                </Link>
+              </span>
+            ))}
+          </>
+        ) : (
+          t("vorschau.tasksNone")
+        )}
+      </p>
       <PresetForm
         options={options}
         edit={{ id: preset.id, updatedAt: preset.updatedAt.toISOString() }}

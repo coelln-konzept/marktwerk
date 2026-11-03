@@ -65,7 +65,9 @@ function TemplateForm({
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="tpl-type">{t("type")}</Label>
+        <Label htmlFor="tpl-type" optional>
+          {t("type")}
+        </Label>
         <select
           id="tpl-type"
           className={SELECT_CLASS}
@@ -83,7 +85,9 @@ function TemplateForm({
         <p className="text-muted-foreground text-tiny">{t("typeHint")}</p>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="tpl-description">{t("description")}</Label>
+        <Label htmlFor="tpl-description" optional>
+          {t("description")}
+        </Label>
         <textarea
           id="tpl-description"
           rows={3}

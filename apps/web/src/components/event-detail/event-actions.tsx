@@ -13,7 +13,7 @@ import { MoveDialog } from "./move-dialog";
 import { useStatusChange } from "./status-menu";
 
 const item =
-  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[disabled]:cursor-default data-[disabled]:opacity-50 data-[highlighted]:bg-hover";
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[disabled]:opacity-50 data-[highlighted]:bg-hover";
 
 /**
  * The "…" menu next to the event title: Bearbeiten, Verschieben and Status ändern in one place (UX pass
@@ -50,13 +50,13 @@ export function EventActions({
           aria-label={t("header.more")}
           aria-busy={change.pending}
           disabled={change.pending}
-          className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-input bg-card text-foreground-2 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
+          className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-input bg-card text-foreground-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
         >
           <Ellipsis aria-hidden className="size-4" />
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
-            <Menu.Popup className="flex min-w-[220px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+            <Menu.Popup className="flex min-w-[220px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
               <Menu.Item className={item} onClick={() => setBasicsOpen(true)}>
                 <Pencil aria-hidden className="size-4 text-muted-foreground" />
                 {t("basics.open")}

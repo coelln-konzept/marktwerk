@@ -4,7 +4,8 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
+import { useDrawerFocus } from "@/components/ui/drawer";
 import { Kbd } from "@/components/ui/kbd";
 
 /**
@@ -30,10 +31,8 @@ export function DrawerFrame({
   const router = useRouter();
   const closeRef = useRef<HTMLAnchorElement>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: focus once per opened record (title changes with it)
-  useEffect(() => {
-    closeRef.current?.focus({ preventScroll: true });
-  }, [title]);
+  const titleId = useId();
+  useDrawerFocus(closeRef, closeHref, title);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -49,7 +48,7 @@ export function DrawerFrame({
 
   return (
     <aside
-      aria-labelledby="drawer-title"
+      aria-labelledby={titleId}
       className="fixed inset-y-0 right-0 z-30 flex w-[min(480px,100%)] flex-col border-l bg-popover shadow-overlay"
     >
       <header className="flex flex-col gap-2 border-border-subtle border-b px-4 py-3">
@@ -70,7 +69,7 @@ export function DrawerFrame({
             </Link>
           </span>
         </div>
-        <h2 id="drawer-title" className="font-semibold text-[16px] leading-snug">
+        <h2 id={titleId} className="font-semibold text-[16px] leading-snug">
           {title}
         </h2>
         {badges && <div className="flex flex-wrap items-center gap-1.5">{badges}</div>}

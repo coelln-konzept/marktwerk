@@ -38,7 +38,23 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
     <Page crumbs={[{ label: t("title") }]}>
       <PageHeader
         title={t("title")}
-        subtitle={t("subtitle", { count: rows.length })}
+        subtitle={
+          q ? (
+            // A search says what it found ("0 Treffer für …") and offers the way back, instead of "0 Orte".
+            <>
+              {t("subtitleSearch", { count: rows.length, query: q })}
+              {" · "}
+              <Link
+                href={hrefWith(PATH, sp, { q: undefined, vorschau: undefined }) as never}
+                className="font-medium text-accent-soft-foreground hover:underline"
+              >
+                {t("resetSearch")}
+              </Link>
+            </>
+          ) : (
+            t("subtitle", { count: rows.length })
+          )
+        }
         actions={
           can(actor.role, "venue", "write") ? (
             <Link href={"/orte/neu" as never} className={buttonVariants({ variant: "default" })}>
@@ -103,7 +119,7 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
                       data-href={href}
                       data-peek={peek}
                       aria-selected={vorschauId === r.id}
-                      className={cn("outline-none focus-visible:bg-selected")}
+                      className={cn("outline-hidden focus-visible:bg-selected")}
                     >
                       <TD className="max-w-72 truncate" title={r.name}>
                         <Link
@@ -140,7 +156,7 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
         )}
       </Panel>
 
-      <p className="text-muted-foreground text-tiny">{t("keys")}</p>
+      <p className="touch:hidden text-muted-foreground text-tiny">{t("keys")}</p>
 
       {vorschauId && (
         <VenueVorschau id={vorschauId} closeHref={hrefWith(PATH, sp, { vorschau: undefined })} />

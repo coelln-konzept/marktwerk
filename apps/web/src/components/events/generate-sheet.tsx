@@ -13,21 +13,30 @@ import {
   isoWeek,
   mondayOf,
   parseRRule,
-  type ScheduledEvent,
   weekday,
   weekendsTouched,
 } from "@marktwerk/core";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  CopyCheck,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   createEvents,
-  loadScheduleContext,
+  previewGeneratedEvents,
   undoCreateEvents,
 } from "@/app/(app)/veranstaltungen/actions";
 import { CandidateNotes, candidateWarningCount } from "@/components/events/candidate-notes";
 import { NewMarketForm } from "@/components/events/new-market-form";
+import { useScheduleContextState } from "@/components/events/schedule-hints";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
@@ -36,11 +45,15 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { formatDate, formatDateWithWeekday, formatMonth, formatWeek, todayIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { EventTypeOption } from "@/server/queries/event-form";
+import type { DatePreview, GenerationPreview } from "@/server/queries/generation-preview";
 import type { GenerationPreset } from "@/server/queries/presets";
 import type { VenueOption } from "@/server/queries/venues";
 
 const CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 const POSITIONS = [1, 2, 3, 4, -1] as const;
+
+const CHIP =
+  "inline-flex min-h-7 cursor-pointer items-center rounded-full border border-input bg-card px-3 font-medium text-small hover:bg-hover touch:min-h-10";
 
 function monthKey(date: string) {
   return date.slice(0, 7);
@@ -50,6 +63,13 @@ function shiftMonth(month: string, by: number): string {
   const [y, m] = month.split("-").map(Number) as [number, number];
   const index = y * 12 + (m - 1) + by;
   return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
+}
+
+/** The same day number `by` months later (the last day of a shorter month). */
+function shiftDayByMonths(day: string, by: number): string {
+  const month = shiftMonth(monthKey(day), by);
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  return isoDate(y, m, Math.min(Number(day.slice(8, 10)), daysInMonth(y, m)));
 }
 
 /** Rule fields prefilled from the preset's recurrence rule. */
@@ -71,11 +91,17 @@ function ruleFromPreset(rrule: string | null, year: number) {
   }
 }
 
+type PreviewState =
+  | { state: "idle" | "loading" | "error" }
+  | { state: "ready"; data: GenerationPreview };
+
 /**
  * "Markt planen" (UX concept, wireframe W5): 3 steps in a side sheet: (1) market, searchable, with
  * "Neuen Markt anlegen" on top, (2) dates in a 3-month calendar or by rule, with NRW holidays and conflict
- * markers, (3) preview with warnings, then one call to the `createEventsFromPreset` service. A market
- * that was just created continues straight at step 2. Warnings never block; the office decides.
+ * markers, (3) preview with warnings, tasks and permits per date, then one call to the
+ * `createEventsFromPreset` service. A market that was just created continues straight at step 2.
+ * Warnings never block; the office decides. A date the market already has is "Gibt es schon" and is left
+ * out unless the office adds it anyway ("Doch anlegen").
  */
 export function GenerateSheet({
   presets,
@@ -131,8 +157,10 @@ export function GenerateSheet({
     `${nextYear}-${String(rule.fromMonth).padStart(2, "0")}`,
   );
   const [selected, setSelected] = useState<string[]>([]);
+  /** Dates that exist already but are created anyway ("Doch anlegen"). */
+  const [readded, setReaded] = useState<string[]>([]);
   const [lastClicked, setLastClicked] = useState<string | null>(null);
-  const [existing, setExisting] = useState<ScheduledEvent[]>([]);
+  const [focusDay, setFocusDay] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -147,31 +175,50 @@ export function GenerateSheet({
       : windowTo;
 
   // Existing events for markers and warnings (refetched when the visible range or selection grows).
-  useEffect(() => {
-    let cancelled = false;
-    loadScheduleContext(rangeFrom, rangeTo).then((rows) => {
-      if (!cancelled) setExisting(rows);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [rangeFrom, rangeTo]);
+  const {
+    existing,
+    state: contextState,
+    retry: retryContext,
+  } = useScheduleContextState(rangeFrom, rangeTo);
+  const notesState =
+    contextState === "ready" ? "ready" : contextState === "error" ? "error" : "loading";
 
   const holidays = useMemo(
     () => holidaysBetween(addDays(windowFrom, -7), addDays(windowTo, 7)),
     [windowFrom, windowTo],
   );
+
+  // Dates this market already has (same market, same first day): "Gibt es schon".
+  const existingOfMarket = useMemo(() => {
+    const byDate = new Map<string, { id: string; name: string }>();
+    for (const e of existing) {
+      if (preset && e.presetId === preset.id) byDate.set(e.startsOn, { id: e.id, name: e.name });
+    }
+    return byDate;
+  }, [existing, preset]);
+  const skippedDays = useMemo(
+    () => new Set(selected.filter((d) => existingOfMarket.has(d) && !readded.includes(d))),
+    [selected, readded, existingOfMarket],
+  );
+  const isSkipped = (day: string) => skippedDays.has(day);
+  const toCreate = useMemo(
+    () => selected.filter((d) => !skippedDays.has(d)),
+    [selected, skippedDays],
+  );
+  const skipped = skippedDays.size;
+
   const checks: CandidateCheck[] = useMemo(() => {
     if (!preset) return [];
     return checkCandidates(
-      selected.map((d) => ({
+      toCreate.map((d) => ({
         venueId: preset.venueId,
         startsOn: d,
         endsOn: endsOnFor(d, preset.durationDays),
       })),
       existing,
     );
-  }, [selected, existing, preset]);
+  }, [toCreate, existing, preset]);
+  const checkOf = useMemo(() => new Map(checks.map((c) => [c.startsOn, c])), [checks]);
   const totalWarnings = checks.reduce((sum, c) => sum + candidateWarningCount(c), 0);
 
   const venueBusy = useMemo(() => {
@@ -182,14 +229,105 @@ export function GenerateSheet({
     }
     return days;
   }, [existing, preset]);
-  const weekendLoad = useMemo(() => {
-    const load = new Map<string, number>();
+  /** Names of the events on each weekend (keyed by Saturday): the weekend marker and the preview say which. */
+  const weekendMarkets = useMemo(() => {
+    const names = new Map<string, string[]>();
     for (const e of existing) {
       for (const saturday of weekendsTouched(e.startsOn, e.endsOn))
-        load.set(saturday, (load.get(saturday) ?? 0) + 1);
+        names.set(saturday, [...(names.get(saturday) ?? []), e.name]);
     }
-    return load;
+    return names;
   }, [existing]);
+
+  // Step 3: what the dates bring along (tasks, tasks due on day one, permits), worked out on the server.
+  const [preview, setPreview] = useState<PreviewState>({ state: "idle" });
+  const createKey = toCreate.join(",");
+  useEffect(() => {
+    if (step !== 3 || !presetId || createKey === "") {
+      setPreview({ state: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setPreview({ state: "loading" });
+    previewGeneratedEvents(presetId, createKey.split(",")).then(
+      (result) => {
+        if (!cancelled)
+          setPreview(result.ok ? { state: "ready", data: result.data } : { state: "error" });
+      },
+      () => {
+        if (!cancelled) setPreview({ state: "error" });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [step, presetId, createKey]);
+  const previewOf = useMemo(
+    () =>
+      new Map<string, DatePreview>(
+        preview.state === "ready" ? preview.data.dates.map((d) => [d.startsOn, d]) : [],
+      ),
+    [preview],
+  );
+  const totals = useMemo(() => {
+    const sum = { tasks: 0, dueNow: 0, covered: 0, fresh: 0 };
+    for (const d of previewOf.values()) {
+      sum.tasks += d.tasks;
+      sum.dueNow += d.dueNow;
+      sum.covered += d.permitsCovered;
+      sum.fresh += d.permitsNew;
+    }
+    return sum;
+  }, [previewOf]);
+
+  // Calendar keyboard: one tab stop (roving), arrows move by day / week, Page keys by month.
+  const gridRef = useRef<HTMLFieldSetElement>(null);
+  const pendingFocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pendingFocus.current) return;
+    gridRef.current?.querySelector<HTMLElement>(`[data-day="${pendingFocus.current}"]`)?.focus();
+    pendingFocus.current = null;
+  });
+  const firstFree = (() => {
+    let d = windowFrom;
+    while (d <= today && d <= windowTo) d = addDays(d, 1);
+    return d;
+  })();
+  const tabDay =
+    focusDay && focusDay >= windowFrom && focusDay <= windowTo && focusDay > today
+      ? focusDay
+      : (selected.find((d) => d >= windowFrom && d <= windowTo && d > today) ?? firstFree);
+
+  function onGridKeyDown(event: React.KeyboardEvent<HTMLFieldSetElement>) {
+    const day = (event.target as HTMLElement).closest<HTMLElement>("[data-day]")?.dataset.day;
+    if (!day || event.altKey || event.ctrlKey || event.metaKey) return;
+    const next =
+      event.key === "ArrowLeft"
+        ? addDays(day, -1)
+        : event.key === "ArrowRight"
+          ? addDays(day, 1)
+          : event.key === "ArrowUp"
+            ? addDays(day, -7)
+            : event.key === "ArrowDown"
+              ? addDays(day, 7)
+              : event.key === "Home"
+                ? mondayOf(day)
+                : event.key === "End"
+                  ? addDays(mondayOf(day), 6)
+                  : event.key === "PageUp"
+                    ? shiftDayByMonths(day, -1)
+                    : event.key === "PageDown"
+                      ? shiftDayByMonths(day, 1)
+                      : null;
+    if (!next) return;
+    event.preventDefault();
+    // Past days are disabled: the move stops at today.
+    if (next <= today || next === day) return;
+    setFocusDay(next);
+    if (next < windowFrom) setFirstMonth(monthKey(next));
+    else if (next > windowTo) setFirstMonth(shiftMonth(monthKey(next), -2));
+    pendingFocus.current = next;
+  }
 
   function close() {
     router.replace(closeHref as never, { scroll: false });
@@ -202,6 +340,8 @@ export function GenerateSheet({
     setRule(r);
     setFirstMonth(`${r.year}-${String(r.fromMonth).padStart(2, "0")}`);
     setSelected([]);
+    setReaded([]);
+    setFocusDay(null);
   }
 
   /** A market made in this sheet: select it and go on to its dates. */
@@ -244,21 +384,23 @@ export function GenerateSheet({
       (d) => d > today,
     );
     setSelected(dates);
+    setReaded([]);
     if (dates[0]) setFirstMonth(monthKey(dates[0]));
   }
 
   function submit() {
     setError(null);
     startTransition(async () => {
-      const result = await createEvents(presetId, selected);
+      const result = await createEvents(presetId, toCreate);
       if (!result.ok) {
         setError(t(`errors.${result.error}` as "errors.no_dates"));
         return;
       }
       const ids = result.data;
-      // Straight to the (first) new date's page: the market's Überblick with its tasks and permits.
+      // One date: its page (Überblick with tasks and permits). Several: the list, narrowed to the new ones.
       const first = ids[0];
-      if (first) router.push(`/veranstaltungen/${first}` as never);
+      if (ids.length > 1) router.push(`/veranstaltungen?angelegt=${ids.join(",")}` as never);
+      else if (first) router.push(`/veranstaltungen/${first}` as never);
       else close();
       showToast({
         message: t("created", { count: ids.length }),
@@ -275,18 +417,22 @@ export function GenerateSheet({
   const weekdayNames = t("weekdaysShort").split(",");
   const typeName = (p: Pick<GenerationPreset, "typeNameEn" | "typeNameDe">) =>
     locale === "en" ? p.typeNameEn : p.typeNameDe;
+  const permitText = (p: Pick<DatePreview, "permitsCovered" | "permitsNew">) =>
+    p.permitsCovered + p.permitsNew === 0
+      ? t("preview.permitsNone")
+      : t("preview.permits", { covered: p.permitsCovered, fresh: p.permitsNew });
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && close()}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-scrim" />
-        <Dialog.Popup className="fixed inset-y-0 right-0 z-40 flex w-[min(760px,100%)] flex-col border-l bg-card shadow-overlay outline-none">
+        <Dialog.Popup className="fixed inset-y-0 right-0 z-40 flex w-[min(760px,100%)] flex-col border-l bg-card shadow-overlay outline-hidden">
           <header className="flex flex-col gap-3 border-border-subtle border-b px-5 pt-4 pb-3">
             <div className="flex items-start justify-between gap-3">
               <Dialog.Title className="font-semibold text-lg">{t("title")}</Dialog.Title>
               <Dialog.Close
                 aria-label={t("close")}
-                className="grid size-8 place-items-center rounded-lg hover:bg-hover"
+                className="grid size-8 place-items-center rounded-lg hover:bg-hover touch:size-10"
               >
                 <X className="size-4" />
               </Dialog.Close>
@@ -299,7 +445,7 @@ export function GenerateSheet({
                     className={cn(
                       "grid size-6 place-items-center rounded-full font-semibold text-tiny",
                       n < step
-                        ? "bg-status-ok-dot text-white"
+                        ? "bg-status-ok-dot text-on-ok"
                         : n === step
                           ? "bg-primary text-primary-foreground"
                           : "bg-status-neutral-bg text-foreground-2",
@@ -361,7 +507,7 @@ export function GenerateSheet({
                     className="min-h-(--control-h) w-full rounded-lg border border-input bg-card pr-3 pl-9"
                   />
                 </div>
-                <fieldset className="flex flex-col gap-2">
+                <fieldset className="flex min-w-0 flex-col gap-2">
                   <legend className="mb-2 font-semibold">{t("choosePreset")}</legend>
                   {canCreateMarket && marketOptions && (
                     <button
@@ -387,7 +533,7 @@ export function GenerateSheet({
                     <label
                       key={p.id}
                       className={cn(
-                        "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 hover:bg-hover",
+                        "flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 hover:bg-hover",
                         presetId === p.id && "border-primary bg-selected",
                       )}
                     >
@@ -397,21 +543,39 @@ export function GenerateSheet({
                         value={p.id}
                         checked={presetId === p.id}
                         onChange={() => choosePreset(p.id)}
-                        className="size-4 accent-(--primary)"
+                        className="mt-1 size-4 shrink-0 accent-(--primary)"
                       />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2 font-semibold">
                           <MarketMarker color={p.color} typeKey={p.typeKey} />
-                          {p.name}
+                          <span className="min-w-0 break-words">{p.name}</span>
                         </span>
-                        <span className="block truncate text-muted-foreground text-small">
+                        <span className="block text-muted-foreground text-small">
                           {p.venueName} ·{" "}
                           {p.lastHeldOn
                             ? t("lastHeld", { date: formatDate(p.lastHeldOn, locale) })
                             : t("neverHeld")}
                         </span>
+                        <span
+                          className={cn(
+                            "block text-small",
+                            (p.plannedBySeason[nextYear] ?? 0) > 0
+                              ? "text-foreground-2"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {t("plannedIn", {
+                            year: nextYear,
+                            count: p.plannedBySeason[nextYear] ?? 0,
+                          })}
+                        </span>
+                        <EventTypeTag typeKey={p.typeKey} className="mt-1 sm:hidden">
+                          {typeName(p)}
+                        </EventTypeTag>
                       </span>
-                      <EventTypeTag typeKey={p.typeKey}>{typeName(p)}</EventTypeTag>
+                      <EventTypeTag typeKey={p.typeKey} className="max-sm:hidden">
+                        {typeName(p)}
+                      </EventTypeTag>
                     </label>
                   ))}
                 </fieldset>
@@ -438,7 +602,7 @@ export function GenerateSheet({
                         type="button"
                         aria-pressed={mode === m}
                         onClick={() => setMode(m)}
-                        className="min-h-7 cursor-pointer rounded-md px-3 font-medium text-foreground-2 aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-card"
+                        className="min-h-7 cursor-pointer rounded-md px-3 font-medium text-foreground-2 aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-card touch:min-h-10"
                       >
                         {t(`modes.${m}`)}
                       </button>
@@ -528,10 +692,20 @@ export function GenerateSheet({
                     >
                       {t("rule.apply")}
                     </Button>
+                    {selected.length > 0 && (
+                      <span className="basis-full text-muted-foreground text-small">
+                        {t("rule.replaces", { count: selected.length })}
+                      </span>
+                    )}
                   </div>
                 )}
 
-                <div className="grid gap-x-3 gap-y-4 sm:grid-cols-3">
+                <fieldset
+                  ref={gridRef}
+                  onKeyDown={onGridKeyDown}
+                  className="m-0 grid min-w-0 gap-x-3 gap-y-4 border-0 p-0 sm:grid-cols-3"
+                >
+                  <legend className="sr-only">{t("calendarLabel")}</legend>
                   {months.map((month) => (
                     <MonthPicker
                       key={month}
@@ -543,12 +717,19 @@ export function GenerateSheet({
                       selected={selected}
                       holidays={holidays}
                       venueBusy={venueBusy}
-                      weekendLoad={weekendLoad}
+                      weekendMarkets={weekendMarkets}
+                      tabDay={tabDay}
+                      onFocusDay={setFocusDay}
                       onToggle={toggle}
                       chosenLabel={(n) => t("chosen", { n })}
+                      labels={{
+                        busy: t("day.busy"),
+                        weekendFull: t("day.weekendFull"),
+                        weekendWith: (names) => t("warn.weekendWith", { names }),
+                      }}
                     />
                   ))}
-                </div>
+                </fieldset>
 
                 <ul className="flex flex-wrap gap-x-4 gap-y-1 text-small">
                   <li className="flex items-center gap-1.5">
@@ -568,23 +749,41 @@ export function GenerateSheet({
                     {t("legend.venueBusy")}
                   </li>
                   <li className="flex items-center gap-1.5">
-                    <span className="border-status-warn-dot border-b-2 font-semibold">1</span>
+                    <span className="relative grid size-5 place-items-center font-semibold text-[11px]">
+                      1
+                      <span
+                        aria-hidden
+                        className="absolute inset-x-0.5 bottom-0 h-[3px] rounded-full bg-status-warn-dot"
+                      />
+                    </span>
                     {t("legend.weekendFull")}
                   </li>
                 </ul>
-                <p className="text-muted-foreground text-tiny">
-                  <Kbd>Shift</Kbd> {t("shiftHint")}
+                <p className="touch:hidden text-muted-foreground text-tiny">
+                  <Kbd>Shift</Kbd> {t("shiftHint")} · {t("keysHint")}
                 </p>
-                <p
-                  className="flex items-center gap-2 rounded-lg bg-status-info-bg px-3 py-2 text-status-info"
+                <div
+                  className="flex flex-col gap-1 rounded-lg bg-status-info-bg px-3 py-2 text-status-info"
                   aria-live="polite"
                 >
-                  <CalendarDays aria-hidden className="size-4" />
-                  <strong>{t("summary", { count: selected.length })}</strong>
-                  {totalWarnings > 0 && (
-                    <span>· {t("warningsCount", { count: totalWarnings })}</span>
+                  <p className="flex flex-wrap items-center gap-x-2">
+                    <CalendarDays aria-hidden className="size-4" />
+                    <strong>{t("summary", { count: selected.length })}</strong>
+                    {skipped > 0 && <span>· {t("skippedCount", { count: skipped })}</span>}
+                    {totalWarnings > 0 && (
+                      <span>· {t("warningsCount", { count: totalWarnings })}</span>
+                    )}
+                    {contextState === "loading" && <span>· {t("context.loading")}</span>}
+                  </p>
+                  {contextState === "error" && (
+                    <p role="alert" className="flex flex-wrap items-center gap-2 text-status-warn">
+                      {t("context.failed")}
+                      <button type="button" onClick={retryContext} className={CHIP}>
+                        {t("context.retry")}
+                      </button>
+                    </p>
                   )}
-                </p>
+                </div>
               </>
             )}
 
@@ -593,53 +792,140 @@ export function GenerateSheet({
                 <p className="text-foreground-2">
                   {t("previewIntro", { name: preset.name, venue: preset.venueName })}
                 </p>
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="bg-surface-2 text-muted-foreground text-tiny">
-                      <th scope="col" className="border-b px-3 py-1.5 font-semibold">
-                        {t("cols.date")}
-                      </th>
-                      <th scope="col" className="border-b px-3 py-1.5 font-semibold">
-                        {t("cols.week")}
-                      </th>
-                      <th scope="col" className="border-b px-3 py-1.5 font-semibold">
-                        {t("cols.notes")}
-                      </th>
-                      <th scope="col" className="border-b px-3 py-1.5">
-                        <span className="sr-only">{t("cols.remove")}</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {checks.map((c) => (
-                      <tr key={c.startsOn} className="border-border-subtle border-b">
-                        <td className="tabular h-row whitespace-nowrap px-3 font-semibold">
-                          {formatDateWithWeekday(c.startsOn, locale)}
-                          {c.endsOn !== c.startsOn &&
-                            ` – ${formatDateWithWeekday(c.endsOn, locale)}`}
-                        </td>
-                        <td className="tabular px-3 text-muted-foreground">
-                          {formatWeek(c.startsOn, locale)}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <CandidateNotes check={c} />
-                        </td>
-                        <td className="w-10 px-2">
+                {preview.state === "ready" && preview.data.noTemplate && (
+                  <p role="status" className="text-muted-foreground text-small">
+                    {t("preview.noTemplate")}
+                  </p>
+                )}
+                {preview.state === "error" && (
+                  <p role="alert" className="text-small text-status-warn">
+                    {t("preview.failed")}
+                  </p>
+                )}
+                {contextState === "error" && (
+                  <p
+                    role="alert"
+                    className="flex flex-wrap items-center gap-2 text-small text-status-warn"
+                  >
+                    {t("context.failed")}
+                    <button type="button" onClick={retryContext} className={CHIP}>
+                      {t("context.retry")}
+                    </button>
+                  </p>
+                )}
+                {toCreate.length === 0 && (
+                  <p
+                    role="status"
+                    className="rounded-lg bg-status-info-bg px-3 py-2 text-status-info"
+                  >
+                    {t("allExist")}
+                  </p>
+                )}
+                <ul aria-label={t("cols.date")} className="overflow-hidden rounded-lg border">
+                  {selected.map((day) => {
+                    const endsOn = endsOnFor(day, preset.durationDays);
+                    const dup = existingOfMarket.get(day);
+                    const skippedRow = isSkipped(day);
+                    const check = checkOf.get(day);
+                    const rowPreview = previewOf.get(day);
+                    const dayLabel = formatDateWithWeekday(day, locale);
+                    return (
+                      <li
+                        key={day}
+                        className={cn(
+                          "grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-1 border-border-subtle border-b px-3 py-2 last:border-b-0 sm:grid-cols-[11rem_1fr_auto]",
+                          skippedRow && "bg-sunken text-muted-foreground",
+                        )}
+                      >
+                        <div className="tabular">
+                          <div className={cn("font-semibold", !skippedRow && "text-foreground")}>
+                            {dayLabel}
+                            {endsOn !== day && ` – ${formatDateWithWeekday(endsOn, locale)}`}
+                          </div>
+                          <div className="text-muted-foreground text-small">
+                            {formatWeek(day, locale)}
+                          </div>
+                        </div>
+                        <div className="col-span-2 row-start-2 flex min-w-0 flex-col gap-1 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+                          {dup && (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 font-medium text-small",
+                                  skippedRow ? "text-foreground-2" : "text-status-warn",
+                                )}
+                              >
+                                <CopyCheck aria-hidden className="size-4 shrink-0" />
+                                {skippedRow ? t("dup.exists") : t("dup.addedAgain")}
+                              </span>
+                              <button
+                                type="button"
+                                className={CHIP}
+                                onClick={() =>
+                                  setReaded((list) =>
+                                    skippedRow ? [...list, day] : list.filter((d) => d !== day),
+                                  )
+                                }
+                              >
+                                {skippedRow ? t("dup.addAnyway") : t("dup.skip")}
+                              </button>
+                            </div>
+                          )}
+                          {skippedRow && dup && (
+                            <p className="text-small">{t("dup.detail", { name: dup.name })}</p>
+                          )}
+                          {!skippedRow && (
+                            <>
+                              <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-small">
+                                {rowPreview ? (
+                                  <>
+                                    <span className="tabular">
+                                      {t("preview.tasks", { count: rowPreview.tasks })}
+                                    </span>
+                                    {rowPreview.dueNow > 0 && (
+                                      <span className="inline-flex items-center gap-1 text-status-critical">
+                                        <CircleAlert aria-hidden className="size-3.5 shrink-0" />
+                                        {t("preview.dueNow", { count: rowPreview.dueNow })}
+                                      </span>
+                                    )}
+                                    <span className="text-foreground-2">
+                                      {permitText(rowPreview)}
+                                    </span>
+                                  </>
+                                ) : preview.state === "loading" ? (
+                                  <span className="text-muted-foreground">
+                                    {t("preview.loading")}
+                                  </span>
+                                ) : null}
+                              </p>
+                              {check && (
+                                <CandidateNotes
+                                  check={check}
+                                  state={notesState}
+                                  weekendMarkets={weekendMarkets}
+                                />
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div className="col-start-2 row-start-1 sm:col-start-3">
                           <Button
                             size="icon-sm"
                             variant="ghost"
-                            aria-label={t("remove", {
-                              date: formatDateWithWeekday(c.startsOn, locale),
-                            })}
-                            onClick={() => setSelected((s) => s.filter((d) => d !== c.startsOn))}
+                            className="touch:size-10"
+                            aria-label={t("remove", { date: dayLabel })}
+                            onClick={() => {
+                              setSelected((s) => s.filter((d) => d !== day));
+                              setReaded((r) => r.filter((d) => d !== day));
+                            }}
                           >
                             <X />
                           </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
                 <p className="text-muted-foreground text-small">{t("previewNote")}</p>
                 {error && (
                   <p role="alert" className="text-status-critical">
@@ -650,19 +936,53 @@ export function GenerateSheet({
             )}
           </div>
 
-          <footer className="flex flex-wrap items-center justify-between gap-2 border-border-subtle border-t bg-surface-2 px-5 py-3">
-            <span className="text-muted-foreground text-small">
-              {preset ? `${preset.name} · ${preset.venueName}` : ""}
-            </span>
-            <div className={cn("flex gap-2", step === 1 && creatingMarket && "hidden")}>
+          <footer className="flex flex-col gap-2 border-border-subtle border-t bg-surface-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              className="min-w-0 text-muted-foreground text-small"
+              aria-live={step === 3 ? "polite" : undefined}
+            >
+              {step === 3 && toCreate.length > 0 ? (
+                preview.state === "ready" ? (
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <strong className="font-semibold text-foreground">
+                      {t("preview.tasks", { count: totals.tasks })}
+                    </strong>
+                    {totals.dueNow > 0 && (
+                      <span className="inline-flex items-center gap-1 text-status-critical">
+                        · <CircleAlert aria-hidden className="size-3.5 shrink-0" />
+                        {t("preview.dueNow", { count: totals.dueNow })}
+                      </span>
+                    )}
+                    <span>
+                      · {permitText({ permitsCovered: totals.covered, permitsNew: totals.fresh })}
+                    </span>
+                  </span>
+                ) : preview.state === "error" ? null : (
+                  t("preview.loading")
+                )
+              ) : preset ? (
+                <span className="block truncate">{`${preset.name} · ${preset.venueName}`}</span>
+              ) : null}
+            </div>
+            <div
+              className={cn(
+                "flex w-full justify-end gap-2 sm:w-auto",
+                step === 1 && creatingMarket && "hidden",
+              )}
+            >
               {step > 1 && (
-                <Button onClick={() => setStep((s) => (s - 1) as 1 | 2)} disabled={pending}>
+                <Button
+                  className="max-sm:flex-1"
+                  onClick={() => setStep((s) => (s - 1) as 1 | 2)}
+                  disabled={pending}
+                >
                   {t("back")}
                 </Button>
               )}
               {step < 3 ? (
                 <Button
                   variant="default"
+                  className="max-sm:flex-1"
                   onClick={() => setStep((s) => (s + 1) as 2 | 3)}
                   disabled={!preset || (step === 2 && selected.length === 0)}
                 >
@@ -671,11 +991,17 @@ export function GenerateSheet({
               ) : (
                 <Button
                   variant="default"
+                  className="max-sm:flex-1"
                   onClick={submit}
-                  disabled={pending || selected.length === 0}
+                  // Not while the existing events load: "Gibt es schon" is only known afterwards.
+                  disabled={pending || toCreate.length === 0 || contextState === "loading"}
                   aria-busy={pending}
                 >
-                  {pending ? t("creating") : t("create", { count: selected.length })}
+                  {pending
+                    ? t("creating")
+                    : skipped > 0
+                      ? t("createWithSkipped", { count: toCreate.length, skipped })
+                      : t("create", { count: toCreate.length })}
                 </Button>
               )}
             </div>
@@ -725,9 +1051,12 @@ function MonthPicker({
   selected,
   holidays,
   venueBusy,
-  weekendLoad,
+  weekendMarkets,
+  tabDay,
+  onFocusDay,
   onToggle,
   chosenLabel,
+  labels,
 }: {
   month: string;
   locale: string;
@@ -737,9 +1066,14 @@ function MonthPicker({
   selected: string[];
   holidays: Map<string, { nameDe: string; nameEn: string }>;
   venueBusy: Set<string>;
-  weekendLoad: Map<string, number>;
+  /** Names of the events per weekend (keyed by Saturday); 3 or more = the weekend is full. */
+  weekendMarkets: Map<string, string[]>;
+  /** The one day that is a tab stop (roving tabindex). */
+  tabDay: string;
+  onFocusDay: (day: string) => void;
   onToggle: (day: string, shift: boolean) => void;
   chosenLabel: (n: number) => string;
+  labels: { busy: string; weekendFull: string; weekendWith: (names: string) => string };
 }) {
   const [y, m] = month.split("-").map(Number) as [number, number];
   const first = isoDate(y, m, 1);
@@ -780,28 +1114,39 @@ function MonthPicker({
                 const busy = venueBusy.has(day);
                 const dow = weekday(day);
                 const saturday = dow === 6 ? day : dow === 0 ? addDays(day, -1) : null;
-                const full = saturday !== null && (weekendLoad.get(saturday) ?? 0) >= 3;
+                const weekendNames = saturday ? (weekendMarkets.get(saturday) ?? []) : [];
+                const full = weekendNames.length >= 3;
                 const past = day <= today;
                 const name = holiday
                   ? locale === "en"
                     ? holiday.nameEn
                     : holiday.nameDe
                   : undefined;
+                // Tooltip and screen reader text carry what the markers show (colour alone is not enough).
+                const notes = [
+                  name,
+                  busy ? labels.busy : undefined,
+                  full
+                    ? `${labels.weekendFull} (${labels.weekendWith(weekendNames.join(", "))})`
+                    : undefined,
+                ].filter(Boolean);
                 return (
                   <td key={day} className="p-0">
                     <button
                       type="button"
                       disabled={past}
+                      data-day={day}
+                      tabIndex={day === tabDay ? 0 : -1}
                       aria-pressed={isSelected}
-                      title={name}
-                      aria-label={`${formatDateWithWeekday(day, locale)}${name ? `, ${name}` : ""}${busy ? " ⚠" : ""}`}
+                      title={notes.length > 0 ? notes.join(" · ") : undefined}
+                      aria-label={`${formatDateWithWeekday(day, locale)}${notes.length > 0 ? `, ${notes.join(", ")}` : ""}`}
+                      onFocus={() => onFocusDay(day)}
                       onClick={(e) => onToggle(day, e.shiftKey)}
                       className={cn(
-                        "tabular relative mx-auto grid size-7 cursor-pointer place-items-center rounded-lg text-small hover:bg-hover disabled:cursor-not-allowed disabled:opacity-35",
+                        "tabular relative mx-auto grid size-7 cursor-pointer place-items-center rounded-lg text-small hover:bg-hover disabled:cursor-not-allowed disabled:opacity-35 max-sm:size-10",
                         (dow === 6 || dow === 0) && "font-semibold",
                         holiday && "text-status-critical",
                         busy && "rounded-full border-2 border-status-critical-dot",
-                        full && "border-status-warn-dot border-b-2",
                         isSelected &&
                           "bg-primary font-semibold text-primary-foreground hover:bg-primary-hover",
                       )}
@@ -811,6 +1156,13 @@ function MonthPicker({
                         <span
                           aria-hidden
                           className="absolute top-0.5 size-1 rounded-full bg-status-critical-dot"
+                        />
+                      )}
+                      {/* Own element, so a venue-busy ring and a full weekend show together. */}
+                      {full && (
+                        <span
+                          aria-hidden
+                          className="absolute inset-x-1.5 bottom-[3px] h-[3px] rounded-full bg-status-warn-dot"
                         />
                       )}
                     </button>

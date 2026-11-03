@@ -9,7 +9,7 @@ import { createContactAction, updateContactAction } from "@/app/(app)/kontakte/a
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label, OptionalMark } from "@/components/ui/label";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import type { ContactInput } from "@/server/services/contacts";
 
@@ -87,8 +87,10 @@ export function ContactForm({
   }
 
   function submit() {
-    // Same checks as the service, so most mistakes show up without a round trip.
+    // Same checks as the service, in field order (the first wrong field gets the focus), so mistakes
+    // show up without a round trip.
     if (text("name").trim() === "") return fail("name_required");
+    if (phoneNormalized !== "" && !/\d/.test(phoneNormalized)) return fail("invalid_phone");
     const email = text("email").trim();
     if (email !== "" && !isValidEmail(email)) return fail("invalid_email");
     setError(null);
@@ -153,7 +155,9 @@ export function ContactForm({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={id("contactPerson")}>{t("contactPerson")}</Label>
+            <Label htmlFor={id("contactPerson")} optional>
+              {t("contactPerson")}
+            </Label>
             <Input
               id={id("contactPerson")}
               maxLength={200}
@@ -163,7 +167,9 @@ export function ContactForm({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={id("phone")}>{t("phone")}</Label>
+            <Label htmlFor={id("phone")} optional>
+              {t("phone")}
+            </Label>
             <Input
               id={id("phone")}
               type="tel"
@@ -184,7 +190,9 @@ export function ContactForm({
             </p>
           </div>
           <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor={id("email")}>{t("email")}</Label>
+            <Label htmlFor={id("email")} optional>
+              {t("email")}
+            </Label>
             <Input
               id={id("email")}
               type="email"
@@ -204,7 +212,9 @@ export function ContactForm({
         </PanelHeader>
         <PanelBody className="grid gap-4 sm:grid-cols-[1fr_8rem_1fr]">
           <div className="flex flex-col gap-1.5 sm:col-span-3">
-            <Label htmlFor={id("street")}>{t("street")}</Label>
+            <Label htmlFor={id("street")} optional>
+              {t("street")}
+            </Label>
             <Input
               id={id("street")}
               maxLength={200}
@@ -214,7 +224,9 @@ export function ContactForm({
             />
           </div>
           <div className="flex flex-col gap-1.5 sm:col-start-2 sm:row-start-2">
-            <Label htmlFor={id("postalCode")}>{t("postalCode")}</Label>
+            <Label htmlFor={id("postalCode")} optional>
+              {t("postalCode")}
+            </Label>
             <Input
               id={id("postalCode")}
               inputMode="numeric"
@@ -226,7 +238,9 @@ export function ContactForm({
             />
           </div>
           <div className="flex flex-col gap-1.5 sm:col-start-3 sm:row-start-2">
-            <Label htmlFor={id("city")}>{t("city")}</Label>
+            <Label htmlFor={id("city")} optional>
+              {t("city")}
+            </Label>
             <Input
               id={id("city")}
               maxLength={200}
@@ -240,7 +254,9 @@ export function ContactForm({
 
       <Panel>
         <PanelHeader>
-          <PanelTitle>{t("sectionNotes")}</PanelTitle>
+          <PanelTitle>
+            {t("sectionNotes")} <OptionalMark />
+          </PanelTitle>
         </PanelHeader>
         <PanelBody>
           <Label htmlFor={id("notes")} className="sr-only">

@@ -631,7 +631,7 @@ async function lockItem(tx: Tx, versionId: string, key: string) {
 }
 
 /**
- * New row in the draft, after `afterKey` (at the end if omitted or unknown). The stable key comes from
+ * New row in the draft: before `beforeKey`, else after `afterKey` (at the end if omitted or unknown). The stable key comes from
  * the title and identifies the item across versions.
  */
 export async function addTemplateItem(
@@ -639,6 +639,7 @@ export async function addTemplateItem(
   versionId: string,
   input: TemplateItemFields,
   afterKey?: string | null,
+  beforeKey?: string | null,
 ): Promise<{ key: string }> {
   if (!can(actor.role, "template", "write")) forbidden();
   const fields = normalizeItem(input);
@@ -665,8 +666,9 @@ export async function addTemplateItem(
       .returning({ id: templateItem.id });
     if (!row) throw new Error("insert failed");
     const order = items.map((i) => i.id);
-    const at = afterKey ? items.findIndex((i) => i.stableKey === afterKey) : -1;
-    order.splice(at >= 0 ? at + 1 : order.length, 0, row.id);
+    const before = beforeKey ? items.findIndex((i) => i.stableKey === beforeKey) : -1;
+    const after = afterKey ? items.findIndex((i) => i.stableKey === afterKey) : -1;
+    order.splice(before >= 0 ? before : after >= 0 ? after + 1 : order.length, 0, row.id);
     await resequence(tx, version.id, order);
     await audit(tx, actor.id, [
       {

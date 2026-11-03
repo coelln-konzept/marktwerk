@@ -202,16 +202,30 @@ describe("getEventOverview: tasks", () => {
 describe("getEventOverview: permits", () => {
   it("lists required permits that are not granted and counts granted of needed", async () => {
     await requirePermit({ title: "Erteilt", status: "granted" });
+    // Filed and just waiting for the authority: not missing (2026-10-29) ...
     await requirePermit({ title: "Beantragt", status: "applied", applyBy: "2026-10-30" });
+    // ... until the expected decision has passed.
+    await requirePermit({
+      title: "Antwort überfällig",
+      status: "applied",
+      applyBy: "2026-10-01",
+      expectedDecisionOn: "2026-10-05",
+    });
     await requirePermit({ title: "Offen", status: "not_started" });
+    // Not filed, but the apply-by date lies beyond the permit horizon (30 days): not due yet.
+    await requirePermit({
+      title: "Noch nicht fällig",
+      status: "not_started",
+      applyBy: "2027-05-01",
+    });
     await requirePermit({ title: "Optional", status: "not_started" }, false);
     await requirePermit({ title: "Nicht nötig", status: "not_required" });
     await requirePermit({ title: "Abgelöst", status: "superseded" });
     await requirePermit({ title: "Archiviert", status: "not_started", archivedAt: new Date() });
 
     const { permits } = await getEventOverview(owner, ev, TODAY);
-    expect(permits?.progress).toEqual({ granted: 1, total: 3 });
-    expect(permits?.missing.map((p) => p.title)).toEqual(["Beantragt", "Offen"]);
+    expect(permits?.progress).toEqual({ granted: 1, total: 5 });
+    expect(permits?.missing.map((p) => p.title)).toEqual(["Antwort überfällig", "Offen"]);
   });
 
   it("treats a permit that ends before the event as missing", async () => {

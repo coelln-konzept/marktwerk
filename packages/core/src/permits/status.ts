@@ -1,4 +1,5 @@
 import { daysBetween } from "../dates/calendar";
+import { PERMIT_HORIZON_DEFAULT_DAYS, permitUrgency } from "../deadlines/permit-horizon";
 import type { HealthLevel } from "../events/health";
 
 /**
@@ -60,6 +61,38 @@ export const PERMIT_TRANSITIONS: Record<PermitStatus, readonly PermitStatus[]> =
 
 export function canTransitionPermit(from: PermitStatus, to: PermitStatus): boolean {
   return PERMIT_TRANSITIONS[from].includes(to);
+}
+
+/** The main road of a permit (the drawer's stepper); rejected / not_required / superseded branch off. */
+export const PERMIT_FLOW_STEPS = ["not_started", "preparing", "applied", "granted"] as const;
+const FLOW_ORDER: Partial<Record<PermitStatus, number>> = Object.fromEntries(
+  PERMIT_FLOW_STEPS.map((s, i) => [s, i]),
+);
+
+/**
+ * The allowed next steps sorted for the buttons of the drawer: the nearest step forward is the one primary
+ * action; jumping further ahead and the authority's answers (abgelehnt, ersetzt) are quiet secondary
+ * ones; going back a step and "nicht nötig" go into the "…" menu. The emphasis is never on a backward step.
+ * A status off the main road (abgelehnt, nicht nötig) counts every step of the road as forward.
+ */
+export function splitPermitTransitions(status: PermitStatus): {
+  primary: PermitStatus | null;
+  secondary: PermitStatus[];
+  menu: PermitStatus[];
+} {
+  const next = PERMIT_TRANSITIONS[status];
+  const current = FLOW_ORDER[status] ?? -1;
+  const order = (s: PermitStatus) => FLOW_ORDER[s];
+  const forward = next
+    .filter((to) => (order(to) ?? -1) > current)
+    .sort((a, b) => (order(a) as number) - (order(b) as number));
+  const backward = next.filter((to) => (order(to) ?? Number.POSITIVE_INFINITY) < current);
+  const outcomes = next.filter((to) => order(to) === undefined && to !== "not_required");
+  return {
+    primary: forward[0] ?? null,
+    secondary: [...forward.slice(1), ...outcomes],
+    menu: [...backward, ...next.filter((to) => to === "not_required")],
+  };
 }
 
 /** Statuses in which the application is still to be filed (the sweep reminds about `apply_by`). */
@@ -168,22 +201,31 @@ export type EventPermitInput = {
   validUntil: string | null;
   /** event_permit.required; false = not applicable for this event. */
   required: boolean;
+  /** When the authority is expected to decide; only read for applied permits. */
+  expectedDecisionOn?: string | null;
 };
 
 /**
- * Permit dimension of an event's health: ok when everything required is granted, warn while something is
- * open, critical when something is rejected / expired, the application is overdue, or the event is close.
- * Null when the event needs no permit at all (nothing to track).
+ * Permit dimension of an event's health: ok when nothing needs the office, warn while something is
+ * actionable, critical when something is rejected / expired, the application is overdue, or the market
+ * is within `PERMIT_CRITICAL_DAYS` and a required permit is still not in hand. Null when the event needs
+ * no permit at all (nothing to track).
+ *
+ * Only permits somebody can act on make an event "Achtung" (2026-10-29): one that is filed (Beantragt)
+ * and whose expected decision has not passed yet is just waiting, and one that is not filed but whose
+ * apply-by date lies beyond the company's permit horizon is "noch nicht fällig". Both keep the event
+ * "ok" until the market is close.
  */
 export function eventPermitHealth(
   permits: readonly EventPermitInput[],
   eventStartsOn: string,
   today: string,
   eventEndsOn: string = eventStartsOn,
+  horizonDays: number = PERMIT_HORIZON_DEFAULT_DAYS,
 ): HealthLevel | null {
   const relevant = permits.filter((p) => p.required && p.status !== "not_required");
   if (relevant.length === 0) return permits.length > 0 ? "ok" : null;
-  const untilEvent = daysBetween(today, eventStartsOn);
+  const close = daysBetween(today, eventStartsOn) <= PERMIT_CRITICAL_DAYS;
   let level: HealthLevel = "ok";
   for (const p of relevant) {
     const state = permitStateForEvent(p, { endsOn: eventEndsOn }, today);
@@ -197,8 +239,14 @@ export function eventPermitHealth(
     if (state === "rejected" || state === "expired") return "critical";
     if (state === "superseded") continue;
     const overdue = isUnfiled(p.status) && p.applyBy !== null && p.applyBy < today;
-    if (overdue || untilEvent <= PERMIT_CRITICAL_DAYS) return "critical";
-    level = "warn";
+    if (overdue || close) return "critical";
+    if (p.status === "applied") {
+      // Waiting for the authority is fine until the expected decision has passed.
+      if (p.expectedDecisionOn != null && p.expectedDecisionOn < today) level = "warn";
+      continue;
+    }
+    // Not filed yet: actionable once the apply-by date is within the horizon (or unknown).
+    if (p.applyBy === null || permitUrgency(p.applyBy, today, horizonDays) !== null) level = "warn";
   }
   return level;
 }

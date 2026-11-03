@@ -45,7 +45,9 @@ export function NotesForm({ eventId, notes }: { eventId: string; notes: string }
 
   return (
     <form onSubmit={submit} className="flex max-w-[70ch] flex-col gap-3">
-      <Label htmlFor={id}>{t("label")}</Label>
+      <Label htmlFor={id} optional>
+        {t("label")}
+      </Label>
       <textarea
         id={id}
         value={value}

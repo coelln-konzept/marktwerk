@@ -9,7 +9,8 @@ import { Kbd } from "./kbd";
 
 /**
  * "Vorschau": a small card top-right that previews a record without leaving the list (UX concept §4).
- * Driven by the URL (`?vorschau=<id>`), so it survives reloads and can be linked. Esc closes, Enter opens.
+ * Driven by the URL (`?vorschau=<id>`), so it survives reloads and can be linked. Esc closes, Enter opens;
+ * focus goes into the card and, when it closes, back to the row it came from.
  */
 export function Vorschau({
   kind,
@@ -31,13 +32,22 @@ export function Vorschau({
   const openRef = useRef<HTMLAnchorElement>(null);
   const closeRef = useRef<HTMLAnchorElement>(null);
 
+  // Remember the row that had focus, move into the card, and hand focus back when the card goes.
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     (openRef.current ?? closeRef.current)?.focus({ preventScroll: true });
+    return () => {
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, []);
+
+  useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        router.replace(closeHref as never, { scroll: false });
-      }
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      // Esc inside a menu or a modal dialog belongs to that.
+      if (document.querySelector("[role=menu], [role=dialog]:not([aria-modal=false])")) return;
+      event.preventDefault();
+      router.replace(closeHref as never, { scroll: false });
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -56,7 +66,7 @@ export function Vorschau({
             {t("label")} · {kind}
           </span>
           <span className="flex items-center gap-1">
-            <Kbd>Esc</Kbd>
+            <Kbd className="touch:hidden">Esc</Kbd>
             <Link
               ref={closeRef}
               href={closeHref as never}
@@ -77,11 +87,11 @@ export function Vorschau({
       <div className="flex flex-col gap-3 overflow-y-auto px-4 py-3">{children}</div>
       {openHref && (
         <footer className="flex items-center justify-between gap-2 border-border-subtle border-t px-4 py-3">
-          <span className="text-muted-foreground text-tiny">{t("keys")}</span>
+          <span className="text-muted-foreground text-tiny touch:hidden">{t("keys")}</span>
           <Link
             ref={openRef}
             href={openHref as never}
-            className="inline-flex min-h-8 items-center rounded-lg bg-primary px-3 font-medium text-primary-foreground hover:bg-primary-hover"
+            className="ml-auto inline-flex min-h-8 items-center rounded-lg bg-primary px-3 font-medium text-primary-foreground hover:bg-primary-hover"
           >
             {t("open")}
           </Link>

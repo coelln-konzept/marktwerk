@@ -1,3 +1,4 @@
+import { OBLIGATION_PRESETS } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { ObligationForm } from "@/components/company/obligation-form";
@@ -37,6 +38,9 @@ export default async function NewObligationPage({
   const vehicleParam = param(sp.fahrzeug);
   const vehicleId = vehicleParam && isUuid(vehicleParam) ? vehicleParam : null;
   const preselected = vehicles.find((v) => v.id === vehicleId);
+  // "HU/TÜV anlegen" and "Versicherung anlegen" on a vehicle also pass the preset along.
+  const presetParam = param(sp.vorlage);
+  const initialPreset = OBLIGATION_PRESETS.find((p) => p.key === presetParam)?.key;
 
   return (
     <Page
@@ -53,6 +57,7 @@ export default async function NewObligationPage({
         venues={venues}
         staff={staff}
         legal={legal}
+        initialPreset={initialPreset}
         initial={{
           kind: "other",
           title: "",

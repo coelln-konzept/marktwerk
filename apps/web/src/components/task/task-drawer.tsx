@@ -8,13 +8,16 @@ import {
   Check,
   ChevronRight,
   Ellipsis,
+  FileX,
   Paperclip,
   Pencil,
   Plus,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import {
   editTask,
   giveEffortFeedback,
@@ -32,6 +35,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
+import { OptionalMark } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate, formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
@@ -58,10 +62,14 @@ function Section({ title, children }: { title: React.ReactNode; children: React.
 }
 
 /**
- * The task drawer (`?aufgabe=<id>`): status incl. "Wartet · Amt", assignee, due date, estimate with effort
+ * The task drawer (`?aufgabe=<id>`): status incl. "Wartet", assignee, due date, estimate with effort
  * feedback, snooze ("Zurückstellen"), description, check items, evidence, an optional completion note and
  * the task's activity.
- * Changes save as they are made and confirm with a toast; moves, assignments and status changes offer undo.
+ * Changes save as they are made and confirm with a toast; moves, assignments, status changes and edits of
+ * Kernaufgabe, due date, estimate and title offer undo. The due date is saved when the field is left or
+ * Enter is pressed (or after a second without typing), not on every keystroke.
+ * Closing (Esc, ×) is optimistic: the drawer disappears and the URL is replaced at once, the server
+ * catches up with the next refresh.
  */
 export function TaskDrawer({
   task,
@@ -80,8 +88,14 @@ export function TaskDrawer({
 }) {
   const t = useTranslations("tasks");
   const tStatus = useTranslations("tasks.status");
+  const tToast = useTranslations("board.toast");
   const locale = useLocale();
   const { showToast } = useShell();
+  const search = useSearchParams();
+  // The URL says whether the drawer is open: closing replaces it before the server has answered.
+  const isOpen = search.get("aufgabe") === task.id || search.get("detail") === `task:${task.id}`;
+  const dueTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const dueSent = useRef<string | null>(null);
   const actions = useTaskActions({ staff, scopeEventId: task.eventId });
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -99,18 +113,94 @@ export function TaskDrawer({
   const checkDone = task.checkItems.filter((c) => c.done).length;
   const ref = { id: task.id, title: task.title, status: task.status };
 
-  function save(patch: Parameters<typeof editTask>[1]) {
+  /** Saves a change; `undo` is the patch that puts the old values back (the toast's "Rückgängig"). */
+  function save(patch: Parameters<typeof editTask>[1], undo?: Parameters<typeof editTask>[1]) {
     startTransition(async () => {
       const result = await editTask(task.id, patch);
+      if (!result.ok) {
+        showToast({ message: actions.errorText(result.error) });
+        return;
+      }
+      if (!result.data.changed) {
+        showToast({ message: t("unchanged") });
+        return;
+      }
+      if (!undo) {
+        showToast({ message: t("saved") });
+        return;
+      }
       showToast({
-        message: result.ok
-          ? result.data.changed
-            ? t("saved")
-            : t("unchanged")
-          : actions.errorText(result.error),
+        message: t("saved"),
+        actionLabel: tToast("undo"),
+        onAction: async () => {
+          const back = await editTask(task.id, undo);
+          showToast({ message: back.ok ? tToast("reverted") : actions.errorText(back.error) });
+        },
       });
     });
   }
+
+  /** Due date: saved once per committed value (blur, Enter or a pause), not again while that save runs. */
+  function commitDue(value: string) {
+    clearTimeout(dueTimer.current);
+    if (value === "" || value === (task.dueOn ?? "")) return;
+    if (pending && value === dueSent.current) return;
+    dueSent.current = value;
+    save(
+      { dueOn: value },
+      {
+        dueOn: task.dueOn,
+        restoreFlags: { dueOverridden: task.dueOverridden, customized: task.customized },
+      },
+    );
+  }
+
+  /** Optimistic close: drop the drawer and the URL parameter now; the opener gets its focus back. */
+  const close = useCallback(() => {
+    window.history.replaceState(null, "", closeHref);
+  }, [closeHref]);
+
+  // Reset what was typed when the drawer closes, so reopening starts clean.
+  useEffect(() => {
+    if (isOpen) return;
+    clearTimeout(dueTimer.current);
+    setEditing(false);
+    setNote("");
+    setNewItem("");
+  }, [isOpen]);
+
+  // Esc and × close at once. Typing that is not saved yet is kept: the first Esc only leaves the field.
+  const hasDraft = editing || note !== "" || newItem !== "";
+  useEffect(() => {
+    if (!isOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[role=listbox]")) return;
+      if (document.querySelector('[role="menu"], [role="dialog"][aria-modal="true"]')) return;
+      event.preventDefault();
+      if (hasDraft && target?.matches("input, textarea")) {
+        target.blur();
+        return;
+      }
+      close();
+    }
+    function onClick(event: MouseEvent) {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+      const link = (event.target as HTMLElement | null)?.closest("a");
+      if (!link || link.getAttribute("href") !== closeHref) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    }
+    // Capture phase: runs before the drawer's own (server round trip) handlers.
+    window.addEventListener("keydown", onKey, true);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, [isOpen, hasDraft, close, closeHref]);
 
   function pickStatus(status: TaskStatusKey) {
     if (status === task.status) return;
@@ -136,59 +226,74 @@ export function TaskDrawer({
   }
 
   const StatusIcon = TASK_STATUS_UI[task.status].icon;
-  const doneNow = task.status === "done";
   const waitingNow = task.status === "waiting_external";
   const buttonBase =
-    "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 font-medium text-small outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-60";
+    "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-60";
 
-  // Primary: Erledigt. Toggle: Wartet auf Amt. Everything else (In Arbeit, Blockiert, Übersprungen, wieder
-  // Offen) sits in the "…" menu. The current state is always spelled out as a badge (colour + icon + text).
+  // Open task: primary Erledigt, toggle Wartet, everything else (In Arbeit, Blockiert, Übersprungen, back to
+  // Offen) in the "…" menu. Finished task: one primary "Wieder öffnen" and nothing else to set. The
+  // current state is always spelled out as a badge (colour + icon + text).
   const statusHeader = (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          aria-pressed={doneNow}
-          disabled={!canWrite}
-          onClick={() => pickStatus("done")}
-          className={cn(
-            buttonBase,
-            doneNow
-              ? "border-status-ok bg-status-ok-bg text-status-ok"
-              : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover",
-          )}
-        >
-          <Check aria-hidden className="size-4" />
-          {t("statusLong.done")}
-        </button>
-        <button
-          type="button"
-          aria-pressed={waitingNow}
-          disabled={!canWrite}
-          onClick={() =>
-            waitingNow ? actions.setStatus(ref, "todo") : pickStatus("waiting_external")
-          }
-          className={cn(
-            buttonBase,
-            waitingNow
-              ? "border-foreground bg-foreground text-background"
-              : "border-input bg-card hover:bg-hover",
-          )}
-        >
-          <WaitingIcon aria-hidden className="size-4" />
-          {t("statusToggle.waiting")}
-        </button>
-        {canWrite && (
+        {finished ? (
+          canWrite && (
+            <button
+              type="button"
+              onClick={() => actions.setStatus(ref, "todo")}
+              className={cn(
+                buttonBase,
+                "border-primary bg-primary text-primary-foreground hover:bg-primary-hover",
+              )}
+            >
+              <RotateCcw aria-hidden className="size-4" />
+              {t("reopen")}
+            </button>
+          )
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={!canWrite}
+              onClick={() => pickStatus("done")}
+              className={cn(
+                buttonBase,
+                "border-primary bg-primary text-primary-foreground hover:bg-primary-hover",
+              )}
+            >
+              <Check aria-hidden className="size-4" />
+              {t("statusLong.done")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={waitingNow}
+              disabled={!canWrite}
+              onClick={() =>
+                waitingNow ? actions.setStatus(ref, "todo") : pickStatus("waiting_external")
+              }
+              className={cn(
+                buttonBase,
+                waitingNow
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-input bg-card hover:bg-hover",
+              )}
+            >
+              <WaitingIcon aria-hidden className="size-4" />
+              {t("statusToggle.waiting")}
+            </button>
+          </>
+        )}
+        {canWrite && !finished && (
           <Menu.Root>
             <Menu.Trigger
               aria-label={t("statusMore")}
-              className="grid size-8 cursor-pointer place-items-center rounded-lg border border-input bg-card text-foreground-2 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
+              className="grid size-8 cursor-pointer place-items-center rounded-lg border border-input bg-card text-foreground-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
             >
               <Ellipsis aria-hidden className="size-4" />
             </Menu.Trigger>
             <Menu.Portal>
               <Menu.Positioner side="bottom" align="start" sideOffset={4} className="z-50">
-                <Menu.Popup className="flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none">
+                <Menu.Popup className="flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
                   {MENU_STATUSES.map((status) => {
                     const Icon = TASK_STATUS_UI[status].icon;
                     const on = task.status === status;
@@ -197,7 +302,7 @@ export function TaskDrawer({
                         key={status}
                         disabled={on}
                         onClick={() => pickStatus(status)}
-                        className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-none data-[disabled]:cursor-default data-[highlighted]:bg-hover"
+                        className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[highlighted]:bg-hover"
                       >
                         <Icon aria-hidden className="size-4 text-muted-foreground" />
                         {status === "todo" ? t("statusReopen") : t(`statusLong.${status}`)}
@@ -237,9 +342,23 @@ export function TaskDrawer({
     </div>
   );
 
+  if (!isOpen) return null;
+
   return (
     <>
       <Drawer
+        badges={
+          task.removedFromTemplate && !finished ? (
+            <>
+              <StatusBadge tone="neutral" icon={FileX}>
+                {t("removedFromTemplate")}
+              </StatusBadge>
+              <span className="text-muted-foreground text-tiny">
+                {t("removedFromTemplateHint")}
+              </span>
+            </>
+          ) : undefined
+        }
         kind={
           <>
             <CategoryTag category={task.category} />
@@ -303,9 +422,14 @@ export function TaskDrawer({
                 disabled={pending}
                 className="w-auto"
                 onChange={(e) => {
-                  if (e.target.value !== (task.dueOn ?? "") && e.target.value !== "") {
-                    save({ dueOn: e.target.value });
-                  }
+                  // A pause after the last change also commits (picking in the calendar never blurs).
+                  clearTimeout(dueTimer.current);
+                  const value = e.target.value;
+                  dueTimer.current = setTimeout(() => commitDue(value), 1000);
+                }}
+                onBlur={(e) => commitDue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitDue(e.currentTarget.value);
                 }}
               />
             ) : (
@@ -378,7 +502,11 @@ export function TaskDrawer({
                             : Number(e.target.value.replace(",", "."));
                         const minutes = Math.round(hours * 60);
                         if (!Number.isFinite(minutes) || minutes < 0) return;
-                        if (minutes !== task.estimateMinutes) save({ estimateMinutes: minutes });
+                        if (minutes !== task.estimateMinutes)
+                          save(
+                            { estimateMinutes: minutes },
+                            { estimateMinutes: task.estimateMinutes },
+                          );
                       }}
                     />
                     <span className="text-muted-foreground text-small">{t("hours")}</span>
@@ -442,7 +570,7 @@ export function TaskDrawer({
                     checked={task.isKey}
                     disabled={!canWrite || pending}
                     aria-describedby={`${uid}-key-hint`}
-                    onChange={(e) => save({ isKey: e.target.checked })}
+                    onChange={(e) => save({ isKey: e.target.checked }, { isKey: task.isKey })}
                   />
                   {t("keyTask.toggle")}
                 </label>
@@ -475,7 +603,7 @@ export function TaskDrawer({
                   disabled={pending}
                   onClick={() => feedback(value)}
                   className={cn(
-                    "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 font-medium text-small outline-none focus-visible:outline-2 focus-visible:outline-ring",
+                    "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring",
                     task.effortFeedback === value
                       ? "border-foreground bg-foreground text-background"
                       : "border-input bg-card hover:bg-hover",
@@ -506,7 +634,10 @@ export function TaskDrawer({
                   variant="default"
                   disabled={pending || title.trim() === ""}
                   onClick={() => {
-                    save({ title, description });
+                    save(
+                      { title, description },
+                      { title: task.title, description: task.description },
+                    );
                     setEditing(false);
                   }}
                 >
@@ -657,7 +788,13 @@ export function TaskDrawer({
         )}
 
         {canWrite && !finished && (
-          <Section title={t("completionNote.label")}>
+          <Section
+            title={
+              <>
+                {t("completionNote.label")} <OptionalMark />
+              </>
+            }
+          >
             <textarea
               aria-label={t("completionNote.label")}
               rows={2}
@@ -671,7 +808,7 @@ export function TaskDrawer({
         )}
 
         <details className="group">
-          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded-md font-semibold text-small outline-none focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded-md font-semibold text-small focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
             <ChevronRight
               aria-hidden
               className="size-4 text-muted-foreground transition-transform group-open:rotate-90"

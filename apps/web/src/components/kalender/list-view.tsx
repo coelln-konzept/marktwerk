@@ -1,4 +1,4 @@
-import { addDays, daysBetween, isoWeek, mondayOf } from "@marktwerk/core";
+import { addDays, dayDistance, isoWeek, mondayOf } from "@marktwerk/core";
 import { CalendarX, Clock, Minus, OctagonAlert } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -12,9 +12,9 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
 import { formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { CalendarItem } from "@/server/queries/due";
 import type { EventRow } from "@/server/queries/events";
 import { LAYER_ICONS } from "./deadline-chip";
+import type { DisplayItem } from "./group-deadlines";
 
 /** "Liste · 6 Wochen": the same entries as the month view, grouped by KW with one block per day. */
 export async function CalendarList({
@@ -32,7 +32,7 @@ export async function CalendarList({
   today: string;
   rows: EventRow[];
   /** Entries of the module layers (Aufgaben, Genehmigungen, …). */
-  deadlines: CalendarItem[];
+  deadlines: DisplayItem[];
   holidays: Map<string, string>;
   /** Link to an event (its Überblick). */
   hrefFor: (id: string) => string;
@@ -51,14 +51,18 @@ export async function CalendarList({
       byDay.set(d, [...(byDay.get(d) ?? []), r]);
     }
   }
-  const itemsByDay = new Map<string, CalendarItem[]>();
+  const itemsByDay = new Map<string, DisplayItem[]>();
   for (const item of deadlines)
     itemsByDay.set(item.date, [...(itemsByDay.get(item.date) ?? []), item]);
   const days: string[] = [];
+  let hasEntries = false;
   for (let d = from; d <= to; d = addDays(d, 1)) {
-    if (byDay.has(d) || itemsByDay.has(d) || holidays.has(d)) days.push(d);
+    const busy = byDay.has(d) || itemsByDay.has(d) || holidays.has(d);
+    if (busy) hasEntries = true;
+    // Today is always a row (even when nothing happens), so the list shows where "now" is.
+    if (busy || d === today) days.push(d);
   }
-  if (days.length === 0) {
+  if (!hasEntries) {
     return (
       <EmptyState icon={CalendarX} title={t("emptyList")} hint={t("emptyListHint")}>
         <Link
@@ -74,11 +78,27 @@ export async function CalendarList({
   const weeks = new Map<string, string[]>();
   for (const d of days) weeks.set(mondayOf(d), [...(weeks.get(mondayOf(d)) ?? []), d]);
 
+  // Words, not "in 47 T" (decision 2026-10-29): the due vocabulary for what is ahead, the same shape for the past.
+  const tDue = await getTranslations("due");
   const relative = (day: string) => {
-    const n = daysBetween(today, day);
-    if (n === 0) return t("relative.today");
-    if (n === 1) return t("relative.tomorrow");
-    return n > 0 ? t("relative.future", { n }) : t("relative.past", { n: -n });
+    const distance = dayDistance(day, today);
+    if (distance.when === "today") return tDue("today");
+    if (distance.when === "future") {
+      if (distance.unit === "day" && distance.count === 1) return tDue("tomorrow");
+      return tDue(
+        distance.unit === "day" ? "inDays" : distance.unit === "week" ? "inWeeks" : "inMonths",
+        { count: distance.count },
+      );
+    }
+    if (distance.unit === "day" && distance.count === 1) return t("relative.yesterday");
+    return t(
+      distance.unit === "day"
+        ? "relative.pastDays"
+        : distance.unit === "week"
+          ? "relative.pastWeeks"
+          : "relative.pastMonths",
+      { count: distance.count },
+    );
   };
 
   return (
@@ -92,7 +112,7 @@ export async function CalendarList({
         </caption>
         <THead>
           <tr>
-            <TH className="w-44">{t("cols.date")}</TH>
+            <TH className="w-28 sm:w-44">{t("cols.date")}</TH>
             <TH>{t("cols.entry")}</TH>
             <TH className="hidden sm:table-cell">{t("cols.venue")}</TH>
             <TH>{t("cols.status")}</TH>
@@ -120,7 +140,7 @@ export async function CalendarList({
                     key="date"
                     rowSpan={Math.max(events.length + items.length, 1)}
                     className={cn(
-                      "w-44 whitespace-nowrap align-top",
+                      "w-28 align-top sm:w-44 sm:whitespace-nowrap",
                       day === today && "bg-selected",
                       holiday && "text-status-critical",
                     )}
@@ -128,7 +148,14 @@ export async function CalendarList({
                     <span className="tabular font-semibold">
                       {formatDateShortYear(day, locale, today)}
                     </span>
-                    <span className="block text-muted-foreground text-tiny">{relative(day)}</span>
+                    {day === today ? (
+                      <span className="mt-0.5 flex items-center gap-1 font-semibold text-accent-soft-foreground text-tiny">
+                        <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+                        {t("todayMarker")}
+                      </span>
+                    ) : (
+                      <span className="block text-muted-foreground text-tiny">{relative(day)}</span>
+                    )}
                     {holiday && <span className="block font-semibold text-tiny">{holiday}</span>}
                   </TD>
                 );
@@ -137,7 +164,7 @@ export async function CalendarList({
                     <TR key={day}>
                       {dateCell}
                       <TD colSpan={4} className="text-muted-foreground">
-                        {t("legend.holiday")}
+                        {holiday ? t("legend.holiday") : t("nothingToday")}
                       </TD>
                     </TR>
                   );
@@ -151,7 +178,7 @@ export async function CalendarList({
                       data-row
                       data-href={href}
                       className={cn(
-                        "cursor-pointer outline-none focus-visible:bg-selected",
+                        "cursor-pointer outline-hidden focus-visible:bg-selected",
                         r.status === "cancelled" && "text-muted-foreground",
                       )}
                     >
@@ -172,7 +199,7 @@ export async function CalendarList({
                         >
                           {r.name}
                         </Link>
-                        <EventTypeTag typeKey={r.typeKey}>
+                        <EventTypeTag typeKey={r.typeKey} className="max-sm:hidden">
                           {locale === "en" ? r.typeNameEn : r.typeNameDe}
                         </EventTypeTag>
                       </TD>
@@ -203,7 +230,7 @@ export async function CalendarList({
                       tabIndex={0}
                       data-row
                       data-href={item.href}
-                      className="cursor-pointer outline-none focus-visible:bg-selected"
+                      className="cursor-pointer outline-hidden focus-visible:bg-selected"
                     >
                       {events.length + i === 0 && dateCell}
                       <TD>
@@ -213,10 +240,11 @@ export async function CalendarList({
                           className="mr-2 inline-flex items-center gap-1.5 font-semibold hover:underline"
                         >
                           <Icon aria-hidden className="size-4 shrink-0 text-foreground-2" />
-                          {item.title}
+                          {item.text}
                         </Link>
                         <span className="text-muted-foreground text-tiny">
                           {t(`layers.deadline.${item.layer}`)}
+                          {item.kindLabel && !item.group ? ` · ${item.kindLabel}` : ""}
                         </span>
                       </TD>
                       <TD className="hidden sm:table-cell" />

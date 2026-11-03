@@ -15,6 +15,9 @@ export type Lift = {
   lane?: string | null;
 };
 
+/** What the cards call (the board hands out a stable object, so `pending` is not part of it). */
+export type BoardActions = Omit<ReturnType<typeof useTaskActions>, "pending">;
+
 export type BoardContextValue = {
   today: string;
   staff: StaffOption[];
@@ -24,7 +27,7 @@ export type BoardContextValue = {
   showEvent: boolean;
   /** Cards can be lifted and moved with the keyboard (not in the grouped list). */
   liftable: boolean;
-  actions: ReturnType<typeof useTaskActions>;
+  actions: BoardActions;
   lift: Lift | null;
   pick: (task: BoardTask) => void;
   moveLift: (dx: number, dy: number) => void;

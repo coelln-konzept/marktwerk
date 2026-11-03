@@ -4,7 +4,9 @@ import { cn } from "@/lib/utils";
 /** Data table: sticky header, row height from the density token, tabular figures. */
 export function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div className="overflow-x-auto">
+    // relative: sr-only cells are absolutely positioned and would otherwise escape the scroller and
+    // widen the whole page on phones.
+    <div className="relative overflow-x-auto">
       <table className={cn("w-full border-collapse text-left", className)} {...props} />
     </div>
   );

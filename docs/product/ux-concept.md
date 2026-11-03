@@ -44,7 +44,7 @@ marktwerk
 │   ├── Kontakte              ← authorities, landowners, suppliers, services
 │   ├── Aussteller            ← vendor list (read-only import)
 │   ├── Wissen                ← knowledge base
-│   └── Pflichten             ← recurring obligations · vehicles · defects (`/firma`, page title "Pflichten & Fahrzeuge")
+│   └── Pflichten             ← recurring obligations · vehicles · defects (`/firma`, page title "Pflichten")
 ├── (hidden for now, `lib/modules.ts`: Team · Finanzen · Buchungen; Benachrichtigungen is reached by the bell, not the sidebar)
 └── (bottom) Profil: Einstellungen · Design (System/Hell/Dunkel) · Dichte (Standard/Kompakt) · Sprache · Abmelden
       Einstellungen ← Firma (company data) · Benutzer & Rollen · [Rechtliche Werte with Team] · **Bibliothek**
@@ -70,9 +70,10 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
 ```
 - **Sidebar** (232 px): logo "marktwerk", then **five daily entries**: Übersicht · Board · Veranstaltungen · Kalender ·
   Genehmigungen (UX pass, product owner 2026-10-22). Team and Finanzen join them when their modules return. The red
-  badge on Genehmigungen is the number "Fehlt/abgelaufen für kommende Märkte": permits that are missing, not yet
-  applied for, rejected or expired and that an upcoming market needs; it is the same number as the focus chip of that
-  name on the Genehmigungen page (one definition, `missingPermitCount` / `Logbook.needsAction`). Below, the
+  badge on Genehmigungen is the number "Jetzt zu tun" (decision 2026-10-29): permits whose apply-by date has passed
+  without an application, or falls within `permit_horizon_days`, plus rejected and expired ones; later ones are "noch
+  nicht fällig" and don't count. It is the same number as the focus chip of that name on the Genehmigungen page (one
+  rule, core `permitActionTier`). Below, the
   collapsible group **Stammdaten** (Orte · Kontakte · Aussteller · Wissen · Pflichten), collapsed by default; the
   state is remembered per browser (cookie `mw_nav_stammdaten`) and the group opens by itself when the current page is
   inside it. Entries a role may not read are hidden (`can()`), as are the entries of hidden modules. The former
@@ -159,12 +160,12 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Veranstaltung | `/veranstaltungen/[id]` | Event, tab Überblick; the other tabs are sub-paths: `/board`, `/genehmigungen`, `/team`, `/geld`, `/dokumente`, `/notizen`, `/verlauf` (e.g. `/veranstaltungen/[id]/board`); Dokumente, Notizen and Verlauf sit under "Mehr". Every link to a market opens its Überblick |
 | Orte | `/orte` | Venues: Name, Stadt, kommende Termine (zones, rows, capacity, landowner in the Vorschau `?vorschau=<id>`) |
 | Ort | `/orte/[id]` | One venue: zones and rows, location agreements |
-| Genehmigungen | `/genehmigungen` (was `/logbuch`, permanent redirect) | Permit matrix (locations × permit types) or list; one status row incl. "Fehlt/abgelaufen für kommende Märkte"; cells open the permit drawer `?genehmigung=<id>` |
+| Genehmigungen | `/genehmigungen` (was `/logbuch`, permanent redirect) | Opens on **Kommend** (permits covering upcoming markets). List sorted by Antrag bis in groups "Jetzt beantragen (bis …)" · "Später beantragen" · "Beantragt und erledigt" (phones open the list), or the matrix (locations × permit types; open cells show "bis dd.mm.", granted cells the coverage "7/7", with a legend); focus chip "Jetzt zu tun"; cells and rows open the permit drawer `?genehmigung=<id>`, whose primary button is the next forward step |
 | Genehmigung | drawer `?detail=permit:<id>` (M3); page `/genehmigungen/[id]` planned | One permit (documents, conditions, fees) |
 | Team · Stunden | `/team` | Staff list (M1), Vorschau `?person=<id>`; month grid hours, remaining allowance, month-close stepper and Schichten je Veranstaltung from M4 |
 | Person | `?person=<id>` on `/team`; page `/team/[id]` planned (M4) | Contract, hours history, shifts |
 | Finanzen · Zahlungen | `/finanzen` | Payables with inline instalments, receipts; drawer `?detail=payable:<id>` (M5) |
-| Pflichten & Fahrzeuge | `/firma` (sidebar: Pflichten) | Obligations, vehicles, defects (tabs); one filter row, no column prints over another |
+| Pflichten | `/firma` (sidebar and page title: Pflichten) | Obligations, vehicles, defects (tabs); one filter row, no column prints over another |
 | Aussteller | `/aussteller` | Vendor list (read-only): Name, Sortiment, Stadt, Stammaussteller; the rest in the Vorschau |
 | Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`) |
 | Einstellungen → Bibliothek | `/einstellungen/bibliothek` | Grundvorlage (master task template), Märkte (presets with venue, rhythm, own task template; Vorschau `?vorschau=<id>`), "Weitere Ablaufvorlagen" (collapsed, the old per-type templates). There is no "Vorlagen" sidebar entry; `/vorlagen` redirects here |
@@ -190,18 +191,23 @@ leads nowhere.
 - **Zeitraum** (Bis Sonntag / 14 Tage / Alles) applies to the first day of the market; "Alles" is every upcoming market. The page has no subtitle line; on phones the "Neu" button of the top bar replaces the button next to the filters.
 
 ### Übersicht (start screen, one for everyone)
-Top to bottom, no fixed master-detail layout:
-1. **Date + KW line** and greeting "Guten Morgen, <Vorname>".
-2. **KPI strip:** Fällig bis Sonntag · Überfällig · Geld überfällig · Dieses Wochenende ("2 von 4 im Plan").
-3. **Season strip** (the owner's view of the year): "Saison 2026 · Mär–Nov · 46 Veranstaltungen" with counts per
-   event type · 3.410 h geschätzter Aufwand · Platzteam 2.380 h Bedarf · 1.170 h Kapazität · hiring signal
-   "≈ 3,1 Minijobber/Monat zusätzlich". Figures come from task estimates (M2) and contracts (M4); before that the strip
-   shows what exists (event counts).
-4. **Heute fällig:** groups Überfällig · Heute · Diese Woche; filter chips Alle · Geld · Genehmigungen · Stunden ·
-   Aufgaben with counts; **one primary action per row** (Bezahlt, Erfassen, Erledigt, Öffnen); Space = Vorschau,
-   row actions open the matching drawer.
-5. **Dieses Wochenende:** table of the coming events with columns Genehmigungen · Aufgaben · Team · Geld · Aufwand,
-   each with health ● ▲ ■, plus a list **"Was das Wochenende aufhält"** (the blocking items, each linking to its drawer).
+Decisions 2026-10-29 ("Zwei Fragen", then the same day: per-market grouping and "Diese Woche" back): the weekend and
+what is due now side by side, the week below. No KPI strip, no season strip.
+1. **Date + KW line** and greeting.
+2. **Dieses Wochenende** (left from 1024 px, first on phones): per market of the weekend a **verdict** (Im Plan ● ·
+   Achtung ▲ · Nicht startklar ■, with the reasons, e.g. "4 überfällig · Genehmigungen ok"), its first blockers
+   (overdue, due today, missing permits; future-dated tasks don't block) and "+ N weitere", which **opens the rest in
+   place**; then a compact **Nächstes Wochenende** row.
+3. **Heute & überfällig** (right): **every** overdue and due-today item in the bands Überfällig · Heute, **bundled per
+   market** in ranking order (`rankDue`: Kernaufgaben first, then the soonest market), one-click Erledigt and
+   Zurückstellen with undo, due words from `DueBadge`.
+4. **Diese Woche** (full width below): the next 7 days, bundled per market, with the date next to the words
+   ("Sa 31.10. · In 2 Tagen"); then the bands "Genehmigungen demnächst" (permits within the horizon) and "Wartet auf
+   Rückmeldung".
+5. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
+In every list a market shows its first 3 items and a group its first 10 markets; **"+ N weitere bei …" / "+ N weitere
+Märkte" open the rest in place** (native disclosure, no navigation). Rows open the task drawer on the Übersicht itself
+(`/?aufgabe=<id>`); J/K move (also through opened disclosures), Enter opens.
 
 ### Benachrichtigungen (notification center, decision 2026-10-22)
 The place where the main user sees, sorts and addresses everything important; later it grows into the inbox (Phase 2).
@@ -219,14 +225,14 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
   the due information as colour + icon + text ("185 Tage überfällig"), and **Erledigt** · **Zurückstellen** (Morgen,
   Nächste Woche, Datum wählen) · **Öffnen**. Every change shows an undo toast. J/K move between rows, Enter opens.
 - **Erledigt** on a task completes the task itself (tasks service, its own undo) and the notification resolves with it; on a
-  permit it only marks the notification done. **Zurückstellen** snoozes the notification, not the task or permit.
+  permit it only marks the notification done. **Zurückstellen** on a task snoozes the task itself (decision 2026-10-29), so it leaves Übersicht, center and bell together; on a permit it snoozes only the notification.
 - **Auto-resolve:** a notification whose subject is resolved (task done/skipped/cancelled/archived, market over, permit
   filed/granted/not required, due date moved) is never shown as open: the query treats it as done at once and the
   deadline sweep writes `done` afterwards. A task snoozed on the Übersicht shows as zurückgestellt until its date.
 - **Bell:** unread open count, popover with the five most urgent open items (quick Erledigt) and "Alle anzeigen".
 
 ### Kalender (module)
-- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**. Veranstaltungen keeps its own Liste/Kalender toggle;
+- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**; phones open the Liste (decision 2026-10-28, cookie `mw_kal_phone`), an explicit `?ansicht=` wins. Same-day deadlines of one kind collapse into one entry ("65 Genehmigungen: Entscheidung erwartet"), "+ N weitere" links to the list from that day, ←/→ change the month, the month title opens a month/year jump. Veranstaltungen keeps its own Liste/Kalender toggle;
   the Kalender module is the company-wide view across modules.
 - **Layer panel ("Ebenen"):** collapsed behind an "Ebenen" button (state remembered, cookie `mw_kal_ebenen`).
   *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*: Genehmigungen, Raten &
@@ -269,7 +275,7 @@ announcements in German via `aria-live`.
 | Domain | States (DE) | Colour + icon |
 |---|---|---|
 | Tasks | Offen · In Arbeit · Wartet (Amt/Extern) · Blockiert · Erledigt · Übersprungen | grey ○ · blue ◐ · violet ⏸ · amber ⛔ · green ✓ · grey ⤼ |
-| Due-ness (all) | Fällig in n T · Heute · Überfällig · ↻n übertragen | neutral · amber · red · amber badge |
+| Due-ness (all, `DueBadge`) | Heute · Morgen · In 3 Tagen (later: the date) · 3 Tage überfällig / Gestern fällig (weeks after 14 days, months after 59) · Wartet seit 5 Tagen | amber clock · neutral · neutral calendar · red circle-! · neutral hourglass (decision 2026-10-29; "3 T" only in matrix cells) |
 | Permits | Fehlt · In Vorbereitung · Beantragt · Genehmigt · Abgelehnt · Läuft ab · Abgelaufen · Nicht nötig | red ! · blue ◐ · violet ⏳ · green ✓ · red ✕ · amber ⚠ · red ⌛ · grey – |
 | Money | Geplant · Fällig · Teilweise bezahlt · Bezahlt · Überfällig | grey · amber · amber ◐ · green ✓ · red ! |
 | Hours | OK · Grenze nah · Über Grenze (zulässig?) · Unzulässig | green · amber · amber ⚠ · red ⛔ |

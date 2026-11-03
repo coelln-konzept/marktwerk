@@ -9,6 +9,9 @@
  * three modes share one definition; `color-scheme` picks the side.
  * Density: <html data-density="standard|compact">. 4 px grid throughout.
  */
+/* Touch screens without hover: hide keyboard hints ("Leertaste: Vorschau …") with `touch:hidden`. */
+@custom-variant touch (@media (hover: none) and (pointer: coarse));
+
 @custom-variant dark {
   &:where([data-theme="dark"], [data-theme="dark"] *) {
     @slot;
@@ -38,7 +41,8 @@
   --popover-foreground: var(--foreground);
   --border: light-dark(#dbd7cf, #35332f);
   --border-subtle: light-dark(#e8e5df, #2b2a27);
-  --input: light-dark(#cfcac2, #46433e);
+  /* Form control borders need 3:1 against card and background (WCAG 1.4.11). */
+  --input: light-dark(#8e897f, #6f6b63);
   --hover: light-dark(#f1eee8, #272623);
   --selected: light-dark(#eaf3f3, #1c3437);
   --scrim: light-dark(rgb(28 27 25 / 0.32), rgb(0 0 0 / 0.55));
@@ -78,6 +82,9 @@
   --status-waiting-bg: light-dark(#eee8f8, #2b2140);
   --status-waiting-dot: light-dark(#7b57c2, #a383e0);
   --destructive: var(--status-critical-dot);
+  /* Text on the solid dots (count badges, destructive and "ok" buttons): white fails on the light dark-mode dots */
+  --on-critical: light-dark(#ffffff, #1c0b09);
+  --on-ok: light-dark(#ffffff, #0b1f12);
 
   /* Event types: muted identity colours, never used for status */
   --type-flea: light-dark(#8e3a5c, #eba2c1);
@@ -176,6 +183,8 @@
   --color-selected: var(--selected);
   --color-scrim: var(--scrim);
   --color-destructive: var(--destructive);
+  --color-on-critical: var(--on-critical);
+  --color-on-ok: var(--on-ok);
   --color-border: var(--border);
   --color-border-subtle: var(--border-subtle);
   --color-input: var(--input);
@@ -244,6 +253,14 @@
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+  }
+  /* Below 16 px iOS zooms into a focused field. */
+  @media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: max(16px, 1em);
+    }
   }
   /* biome-ignore-start lint/complexity/noImportantStyles: reduced motion must override component transitions */
   @media (prefers-reduced-motion: reduce) {

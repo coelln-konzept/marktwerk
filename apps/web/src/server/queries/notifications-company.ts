@@ -4,9 +4,10 @@ import {
   type CompanySeverity,
   can,
   compareByNewest,
-  compareByUrgency,
+  compareCenterOrder,
   isPastMarketLeftover,
-  isPermitMarketInReach,
+  isSupersededNotification,
+  latestPerSubject,
   parseCompanyDedupeKey,
   taskLink,
 } from "@marktwerk/core";
@@ -52,6 +53,8 @@ export type CompanyMarket = {
   color: string | null;
   typeKey: string | null;
   eventId: string;
+  /** First day of the market (ranks the "Überfällig" group like the Übersicht). */
+  startsOn: string | null;
 };
 
 export type CompanyNotificationRow = {
@@ -71,6 +74,10 @@ export type CompanyNotificationRow = {
   /** Task rows: the current task status. */
   taskStatus: string | null;
   snoozedUntil: string | null;
+  /** Task rows: the task itself is snoozed ("Zurückstellen" on a task snoozes the task, decision 2026-10-29). */
+  taskSnoozed: boolean;
+  /** The notification itself is snoozed (permits; tasks before the task snooze applied here). */
+  notificationSnoozed: boolean;
   createdAt: string;
   /** Done because the subject was resolved, not by a click. */
   resolved: boolean;
@@ -104,6 +111,7 @@ const OPEN_TASK = ["todo", "in_progress", "waiting_external", "blocked"];
 type MarketSource = {
   eventId: string | null;
   eventName: string | null;
+  startsOn: string | null;
   presetId: string | null;
   presetName: string | null;
   color: string | null;
@@ -119,14 +127,16 @@ const marketOf = (e: MarketSource): CompanyMarket | null =>
         color: e.color,
         typeKey: e.typeKey,
         eventId: e.eventId,
+        startsOn: e.startsOn,
       }
     : null;
 
 /**
  * Every company-wide notification with the live state of its subject. Never shows an open notification
- * whose subject is resolved (task done/skipped/cancelled, permit filed/granted/not required, market over,
- * due date moved): such a row is "done" here even before the sweep has marked it. A snoozed task counts as
- * snoozed until its date.
+ * whose subject is resolved (task done/skipped/cancelled, permit filed/granted/not required, market over):
+ * such a row is "done" here even before the sweep has marked it. A snoozed task counts as snoozed until its
+ * date. A notification the sweep rotated (the subject is still open and a newer one exists, or its date
+ * moved) is neither open nor done: it is left out. "Erledigt" lists one entry per subject.
  */
 async function loadCompanyRows(
   now: Date,
@@ -221,9 +231,18 @@ async function loadCompanyRows(
   for (const e of permitEvents)
     eventsOfPermit.set(e.permitId, [...(eventsOfPermit.get(e.permitId) ?? []), e]);
 
+  const newestOfSubject = new Map<string, number>();
+  for (const { n, key } of parsed)
+    newestOfSubject.set(
+      key.subjectId,
+      Math.max(newestOfSubject.get(key.subjectId) ?? 0, n.createdAt.getTime()),
+    );
+
   const rows: CompanyNotificationRow[] = [];
   for (const { n, key } of parsed) {
     let title = n.title;
+    let subjectActive = false;
+    let keyCurrent = false;
     let dueOn: string | null = key.dueOn;
     let isLive = false;
     let isKey = false;
@@ -244,7 +263,12 @@ async function loadCompanyRows(
           (t.eventStatus !== "cancelled" &&
             !t.eventArchived &&
             !isPastMarketLeftover(t.endsOn, currentDue, today));
-        isLive = OPEN_TASK.includes(t.status) && eventOk && currentDue === key.dueOn;
+        // An open task of a past (or cancelled) market is not "erledigt": it belongs to "Aufräumen" on
+        // the Übersicht and stays out of the center altogether.
+        if (OPEN_TASK.includes(t.status) && !eventOk) continue;
+        subjectActive = OPEN_TASK.includes(t.status) && eventOk;
+        keyCurrent = currentDue === key.dueOn;
+        isLive = subjectActive && keyCurrent;
         subjectSnooze = t.snoozedUntil && t.snoozedUntil > today ? t.snoozedUntil : null;
         market = marketOf(t);
         href = taskLink(t.id, t.taskEventId);
@@ -262,21 +286,31 @@ async function loadCompanyRows(
             e.endsOn !== null &&
             e.endsOn >= today,
         );
-        // Events come ordered by start, so upcoming[0] is the next market (the 6-month rule).
-        const relevant =
-          evs.length === 0 ||
-          (upcoming.length > 0 && isPermitMarketInReach(upcoming[0]?.startsOn ?? null, today));
+        // Events come ordered by start, so upcoming[0] is the next market. A permit counts by its own dates
+        // (apply-by within the horizon, decision, expiry), not by how far away the market is (2026-10-29).
+        const relevant = evs.length === 0 || upcoming.length > 0;
         let current: string | null = null;
         if (key.kind === "permit_apply_by")
           current = p.status === "not_started" || p.status === "preparing" ? p.applyBy : null;
         else if (key.kind === "permit_decision")
           current = p.status === "applied" ? p.expectedDecisionOn : null;
         else current = p.status === "granted" ? p.validUntil : null;
-        isLive = !p.archivedAt && relevant && current === key.dueOn;
+        subjectActive = !p.archivedAt && relevant && current !== null;
+        keyCurrent = current === key.dueOn;
+        isLive = subjectActive && keyCurrent;
         market = upcoming[0] ? marketOf(upcoming[0]) : null;
         href = `/genehmigungen?genehmigung=${p.id}`;
       }
     }
+    if (
+      isSupersededNotification({
+        subjectActive,
+        keyCurrent,
+        storedDone: n.state === "done",
+        newerSibling: (newestOfSubject.get(key.subjectId) ?? 0) > n.createdAt.getTime(),
+      })
+    )
+      continue;
     const own = n.snoozedUntil && n.snoozedUntil > now ? n.snoozedUntil.toISOString() : null;
     const snoozeIso = [own, subjectSnooze ? `${subjectSnooze}T00:00:00.000Z` : null]
       .filter((x): x is string => x !== null)
@@ -299,14 +333,28 @@ async function loadCompanyRows(
       taskStatus,
       snoozedUntil:
         status === "snoozed" ? (own ?? (subjectSnooze ? `${subjectSnooze}` : null)) : null,
+      taskSnoozed: key.kind.startsWith("task_") && subjectSnooze !== null,
+      notificationSnoozed: own !== null,
       createdAt: n.createdAt.toISOString(),
       resolved: n.state !== "done" && !isLive,
       href,
       market,
     });
   }
-  return { rows, today };
+  // "Erledigt" shows a subject once, however many reasons it went through.
+  const doneOnce = latestPerSubject(rows.filter((r) => r.status === "done"));
+  return { rows: [...rows.filter((r) => r.status !== "done"), ...doneOnce], today };
 }
+
+/** What the shared ranking (the Übersicht's `compareDue`) needs from a row. */
+const orderInput = (r: CompanyNotificationRow) => ({
+  subjectType: r.subjectType,
+  dueOn: r.dueOn,
+  isKey: r.isKey,
+  title: r.title,
+  marketStartsOn: r.market?.startsOn ?? null,
+  createdAt: r.createdAt,
+});
 
 /** The notification center: filters, counts per filter and the sorted rows. Owner and manager only. */
 export async function listCompanyNotifications(
@@ -342,7 +390,11 @@ export async function listCompanyNotifications(
       marketMap.set(r.market.presetId, { presetId: r.market.presetId, name: r.market.presetName });
   const rows = all
     .filter((r) => r.status === filters.status && byArt(r) && byMarket(r))
-    .sort(filters.sort === "newest" ? compareByNewest : compareByUrgency);
+    .sort(
+      filters.sort === "newest"
+        ? compareByNewest
+        : (a, b) => compareCenterOrder(orderInput(a), orderInput(b), today),
+    );
   return {
     rows,
     statusCounts,
@@ -353,7 +405,10 @@ export async function listCompanyNotifications(
   };
 }
 
-/** The bell for owner and manager: the number of unread open items and the most urgent open ones. */
+/**
+ * The bell for owner and manager: the open items in the center's order. The badge, the popover header and
+ * the center's "Offen" show the same number (`open`); `unread` only enables "Alle als gelesen".
+ */
 export async function companyBell(
   actor: Actor,
   limit = 5,

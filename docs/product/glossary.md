@@ -105,7 +105,7 @@ comes to the event (client's explicit rule, research 05).
 ## Company & resources
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
-| Pflichten (Bereich; Seitentitel „Pflichten & Fahrzeuge“) | Duties (area) | company tab, route `/firma` | Recurring obligations, vehicles and defects: everything not tied to one event. Not to be confused with **Firma** in Einstellungen, which holds the company data. |
+| Pflichten (Bereich und Seitentitel) | Duties (area) | company tab, route `/firma` | Recurring obligations, vehicles and defects: everything not tied to one event. Not to be confused with **Firma** in Einstellungen, which holds the company data. |
 | Pflichttermin / wiederkehrende Pflicht | Recurring obligation | `obligation` | e.g. HU/TÜV, UVV inspection, insurance renewal, KSK report. |
 | Fahrzeug | Vehicle | `vehicle` | Vans; HU every 24 months (≤ 3.5 t), UVV yearly. |
 | Inventar / Material | Inventory / equipment | `item_type` | Bulk items: cables, power boxes, tables… |

@@ -2,10 +2,12 @@
   "venues": {
     "title": "Venues",
     "subtitle": "{count, plural, one {# venue} other {# venues}}",
-    "search": "Name, city or landowner",
+    "search": "Name, city, street or landowner",
     "caption": "Venues",
     "emptyFiltered": "No venues match this search.",
     "resetFilters": "Reset search",
+    "resetSearch": "Reset search",
+    "subtitleSearch": "{count, plural, one {# match} other {# matches}} for “{query}”",
     "cols": {
       "name": "Name",
       "city": "City",
@@ -76,7 +78,8 @@
         "capacityFromRows": "Once rows exist, their total ({length}) is used instead of this value.",
         "lat": "Latitude",
         "lng": "Longitude",
-        "coordinatesHint": "Optional, e.g. 50.9375 and 6.9603. Either both fields or neither.",
+        "coordinates": "Coordinates",
+        "coordinatesHint": "e.g. 50.9375 and 6.9603. Either both fields or neither.",
         "create": "Create venue",
         "save": "Save",
         "created": "“{name}” created.",

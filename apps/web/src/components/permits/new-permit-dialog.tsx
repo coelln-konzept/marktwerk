@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { archivePermitAction, createPermitAction } from "@/app/(app)/genehmigungen/actions";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
@@ -14,11 +14,28 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { PERMIT_TYPE_KEYS } from "@/lib/permit-status";
 
+type Field = "venue" | "title" | "season" | "apply";
+/** Which field a refused input belongs to (the one that gets the focus back). */
+const FIELD_OF: Record<string, Field> = {
+  invalid_venue: "venue",
+  invalid_title: "title",
+  invalid_season: "season",
+  invalid_date: "apply",
+};
+
 /**
  * "Genehmigung anlegen" for a permit no requirement produced. Six fields, so a modal. Creating shows an
- * undo toast (undo removes it from the logbook again) and opens the new permit in the drawer.
+ * undo toast (undo removes it from the logbook again) and opens the new permit in the drawer. The season
+ * starts as the one of the next market that needs a permit (`defaultSeason`); a refused input puts the
+ * focus on the field that is wrong.
  */
-export function NewPermitDialog({ venues }: { venues: { id: string; name: string }[] }) {
+export function NewPermitDialog({
+  venues,
+  defaultSeason,
+}: {
+  venues: { id: string; name: string }[];
+  defaultSeason: number;
+}) {
   const t = useTranslations("logbook");
   const tTypes = useTranslations("permitTypes");
   const tCat = useTranslations("permitCategories");
@@ -31,16 +48,38 @@ export function NewPermitDialog({ venues }: { venues: { id: string; name: string
   const [category, setCategory] = useState<"city" | "external">("city");
   const [permitType, setPermitType] = useState<(typeof PERMIT_TYPE_KEYS)[number]>("market_permit");
   const [title, setTitle] = useState("");
-  const [season, setSeason] = useState(String(new Date().getFullYear()));
+  const [season, setSeason] = useState(String(defaultSeason));
   const [applyBy, setApplyBy] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [focusField, setFocusField] = useState<Field | null>(null);
+  const fields = {
+    venue: useRef<HTMLSelectElement>(null),
+    title: useRef<HTMLInputElement>(null),
+    season: useRef<HTMLInputElement>(null),
+    apply: useRef<HTMLInputElement>(null),
+  };
 
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
+  // The submit button is disabled while the server works, which drops the focus to the page: put it on
+  // the invalid field once the button is back.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the refs are stable
+  useEffect(() => {
+    if (!focusField || pending) return;
+    fields[focusField].current?.focus();
+    setFocusField(null);
+  }, [focusField, pending]);
+
+  function fail(code: string) {
+    setError(code);
+    setFocusField(FIELD_OF[code] ?? null);
+  }
+
   function openDialog() {
     setVenueId("");
     setTitle("");
+    setSeason(String(defaultSeason));
     setApplyBy("");
     setError(null);
     setOpen(true);
@@ -51,6 +90,7 @@ export function NewPermitDialog({ venues }: { venues: { id: string; name: string
 
   function submit() {
     setError(null);
+    if (venueId === "") return fail("invalid_venue");
     startTransition(async () => {
       const result = await createPermitAction({
         venueId,
@@ -60,7 +100,7 @@ export function NewPermitDialog({ venues }: { venues: { id: string; name: string
         season: season.trim() === "" ? null : Number(season),
         applyBy: applyBy === "" ? null : applyBy,
       });
-      if (!result.ok) return setError(result.error);
+      if (!result.ok) return fail(result.error);
       setOpen(false);
       const { id } = result.data;
       showToast({
@@ -101,6 +141,7 @@ export function NewPermitDialog({ venues }: { venues: { id: string; name: string
             <Label htmlFor={`${uid}-venue`}>{t("form.venue")}</Label>
             <select
               id={`${uid}-venue`}
+              ref={fields.venue}
               value={venueId}
               onChange={(e) => setVenueId(e.target.value)}
               className={SELECT_CLASS}
@@ -144,9 +185,12 @@ export function NewPermitDialog({ venues }: { venues: { id: string; name: string
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${uid}-title`}>{t("form.name")}</Label>
+            <Label htmlFor={`${uid}-title`} optional>
+              {t("form.name")}
+            </Label>
             <Input
               id={`${uid}-title`}
+              ref={fields.title}
               value={title}
               maxLength={200}
               placeholder={tTypes(permitType)}
@@ -156,20 +200,30 @@ export function NewPermitDialog({ venues }: { venues: { id: string; name: string
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${uid}-season`}>{t("form.season")}</Label>
+              <Label htmlFor={`${uid}-season`} optional>
+                {t("form.season")}
+              </Label>
               <Input
                 id={`${uid}-season`}
+                ref={fields.season}
                 inputMode="numeric"
                 value={season}
                 onChange={(e) => setSeason(e.target.value)}
                 className="tabular"
+                aria-describedby={`${uid}-season-hint`}
                 aria-invalid={error === "invalid_season" || undefined}
               />
+              <p id={`${uid}-season-hint`} className="text-muted-foreground text-tiny">
+                {t("form.seasonHint")}
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${uid}-apply`}>{t("form.applyBy")}</Label>
+              <Label htmlFor={`${uid}-apply`} optional>
+                {t("form.applyBy")}
+              </Label>
               <Input
                 id={`${uid}-apply`}
+                ref={fields.apply}
                 type="date"
                 value={applyBy}
                 onChange={(e) => setApplyBy(e.target.value)}

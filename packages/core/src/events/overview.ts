@@ -1,4 +1,6 @@
 import { addDays, daysBetween } from "../dates/calendar";
+import { PERMIT_HORIZON_DEFAULT_DAYS } from "../deadlines/permit-horizon";
+import { permitNeedsActionForEvent } from "../permits/action";
 import { type EventPermitInput, isHeld, permitStateForEvent } from "../permits/status";
 import { isFinishedStatus, isOpenStatus, type TaskStatusKey } from "../tasks/board";
 import { isSnoozed } from "../tasks/snooze";
@@ -22,6 +24,8 @@ export type OverviewTask = {
   dueOn: string | null;
   isKey: boolean;
   snoozedUntil: string | null;
+  /** Position in the template (`board_sort`): breaks ties on the same day so Aufbau comes before Abbau. */
+  boardSort?: number;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -128,7 +132,7 @@ export function missingReason(task: OverviewTask, today: string): MissingReason 
   return null;
 }
 
-/** Key tasks first, then earliest due date (no date last), then title. */
+/** Key tasks first, then earliest due date (no date last), then template position, then title. */
 function compareTasks(a: OverviewTask, b: OverviewTask): number {
   if (a.isKey !== b.isKey) return a.isKey ? -1 : 1;
   if (a.dueOn !== b.dueOn) {
@@ -136,6 +140,8 @@ function compareTasks(a: OverviewTask, b: OverviewTask): number {
     if (b.dueOn === null) return -1;
     return a.dueOn < b.dueOn ? -1 : 1;
   }
+  const bySort = (a.boardSort ?? 0) - (b.boardSort ?? 0);
+  if (bySort !== 0) return bySort;
   return a.title.localeCompare(b.title, "de");
 }
 
@@ -150,15 +156,24 @@ export function missingTasks(tasks: readonly OverviewTask[], today: string): Mis
 
 export type OverviewPermit = EventPermitInput & { id: string; title: string };
 
-/** Needed permits that do not cover the event yet; the most pressing (earliest apply-by) first. */
+/**
+ * Needed permits that do not cover the event yet and need action (`permitNeedsActionForEvent`: not just
+ * filed, apply-by overdue or within the permit horizon, anything within 14 days of the market); the most
+ * pressing (earliest apply-by) first.
+ */
 export function missingPermits<T extends OverviewPermit>(
   permits: readonly T[],
   startsOn: string,
   today: string,
   endsOn: string = startsOn,
+  horizonDays: number = PERMIT_HORIZON_DEFAULT_DAYS,
 ): T[] {
   return neededPermits(permits)
-    .filter((p) => !permitCoversEvent(p, startsOn, today, endsOn))
+    .filter(
+      (p) =>
+        !permitCoversEvent(p, startsOn, today, endsOn) &&
+        permitNeedsActionForEvent(p, { startsOn, endsOn }, today, horizonDays),
+    )
     .sort((a, b) => {
       if (a.applyBy !== b.applyBy) {
         if (a.applyBy === null) return 1;

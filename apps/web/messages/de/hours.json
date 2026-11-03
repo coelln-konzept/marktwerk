@@ -48,14 +48,14 @@
       "legend": {
         "weekend": "Wochenende",
         "holiday": "Feiertag",
-        "overTen": "über 10 h"
+        "overTen": "über 10 Std."
       },
       "empty": "In diesem Monat gibt es noch keine Stunden und keine Verträge mit Gehalt.",
       "caption": "Stunden je Person und Tag, mit Verdienst und Minijob-Grenze",
       "cols": {
         "kw": "Kalenderwoche",
         "person": "Person",
-        "hours": "Σ h",
+        "hours": "Σ Std.",
         "earnings": "Verdienst",
         "ytd": "Seit Jan.",
         "limit": "bis {limit}",
@@ -64,12 +64,12 @@
         "status": "Status"
       },
       "salary": "Gehalt",
-      "perHour": "/h",
+      "perHour": "/Std.",
       "noContract": "ohne Vertrag",
       "overTenTitle": "{hours}: mehr als 10 Stunden an einem Tag",
       "meter": "Minijob-Grenze {name}",
       "overLimit": "{amount} über der Grenze",
-      "remaining": "noch ≈ {hours} h",
+      "remaining": "noch ≈ {hours} Std.",
       "justified": "Begründet",
       "justify": "Begründung erfassen",
       "details": "Details",
@@ -166,7 +166,7 @@
       "otherMinijobHint": "Die Verdienstgrenze gilt dann über alle Arbeitgeber zusammen.",
       "endPrevious": "Bisherigen Vertrag (seit {date}) zum Vortag beenden",
       "errors": {
-        "generic": "Das hat nicht geklappt. Prüfe die Angaben und versuche es noch einmal.",
+        "generic": "Das hat nicht geklappt. Bitte die Angaben prüfen und noch einmal versuchen.",
         "invalid_type": "Wähle eine Art.",
         "invalid_dates": "Die Daten stimmen nicht: „gültig bis“ liegt vor „gültig ab“ oder ein Datum fehlt.",
         "invalid_amount": "Beträge und Stunden müssen Zahlen sein, zum Beispiel 13,90.",
@@ -202,7 +202,7 @@
       "from": "von",
       "to": "bis",
       "break": "Pause",
-      "minutes": "{count} min",
+      "minutes": "{count} Min.",
       "hours": "Stunden",
       "takePlanned": "Wie geplant übernehmen",
       "save": "Speichern",
@@ -266,7 +266,7 @@
       "minijob_red": "{earned} sind bei der Minijob-Grenze von {limit} nicht mehr zulässig"
     },
     "errors": {
-      "generic": "Das hat nicht geklappt. Prüfe die Angaben und versuche es noch einmal.",
+      "generic": "Das hat nicht geklappt. Bitte die Angaben prüfen und noch einmal versuchen.",
       "not_found": "Der Eintrag wurde nicht gefunden.",
       "invalid_person": "Wähle eine Person.",
       "invalid_event": "Die Veranstaltung wurde nicht gefunden.",
@@ -282,7 +282,7 @@
       "status_conflict": "Status und Zeiten passen nicht zusammen: gearbeitet braucht tatsächliche Zeiten, geplant hat keine.",
       "duplicate": "Diese Schicht gibt es schon.",
       "reason_required": "Nenne einen Grund für die Änderung.",
-      "conflict": "Jemand hat diese Schicht gerade geändert. Die Seite wurde aktualisiert, versuche es noch einmal.",
+      "conflict": "Jemand hat diese Schicht gerade geändert. Die Seite wurde aktualisiert. Bitte noch einmal versuchen.",
       "period_locked": "Der Monat ist gesperrt. Entsperre ihn zuerst unter Stunden › Abschluss.",
       "invalid_month": "Der Monat ist ungültig.",
       "invalid_status": "Das geht in diesem Stand nicht. Die Seite wurde aktualisiert.",

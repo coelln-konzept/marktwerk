@@ -88,6 +88,8 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
           tasks.overdue > 0
             ? tBoard("tab.openOverdue", { open: tasks.open, overdue: tasks.overdue })
             : tBoard("tab.openShort", { count: tasks.open }),
+        // On a phone the bar scrolls: the count shortens, the health shape still carries the overdue state.
+        short: tBoard("tab.openShort", { count: tasks.open }),
         level: tasks.health ?? undefined,
         sr: `${tBoard("tab.open", { count: tasks.open })}${tasks.health ? `, ${tHealth(tasks.health)}` : ""}`,
       },
@@ -164,7 +166,10 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
             />
             <span className="min-w-0 break-words">{event.name}</span>
           </h1>
-          <EventTypeTag typeKey={event.type.key}>{typeName}</EventTypeTag>
+          {/* "Flohmarkt Bilk" + chip "Flohmarkt" says the same twice. */}
+          {!event.name.toLocaleLowerCase(locale).startsWith(typeName.toLocaleLowerCase(locale)) && (
+            <EventTypeTag typeKey={event.type.key}>{typeName}</EventTypeTag>
+          )}
           <EventStatusBadge status={event.status} />
         </div>
         {canWrite && (

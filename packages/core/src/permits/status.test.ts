@@ -7,6 +7,7 @@ import {
   PERMIT_STATUSES,
   PERMIT_TRANSITIONS,
   permitDisplayState,
+  splitPermitTransitions,
 } from "./status";
 
 describe("permit transitions", () => {
@@ -63,6 +64,56 @@ describe("permitDisplayState", () => {
   });
 });
 
+describe("splitPermitTransitions", () => {
+  it("makes the nearest forward step primary and never a backward step", () => {
+    expect(splitPermitTransitions("not_started")).toEqual({
+      primary: "preparing",
+      secondary: ["applied", "granted"],
+      menu: ["not_required"],
+    });
+    expect(splitPermitTransitions("preparing")).toEqual({
+      primary: "applied",
+      secondary: ["granted"],
+      menu: ["not_started", "not_required"],
+    });
+    expect(splitPermitTransitions("applied")).toEqual({
+      primary: "granted",
+      secondary: ["rejected"],
+      menu: ["preparing", "not_required"],
+    });
+  });
+
+  it("offers going back from granted in the menu and replacing as the visible action", () => {
+    expect(splitPermitTransitions("granted")).toEqual({
+      primary: null,
+      secondary: ["superseded"],
+      menu: ["applied"],
+    });
+  });
+
+  it("treats the road as forward from a rejected or not-required permit", () => {
+    expect(splitPermitTransitions("rejected")).toEqual({
+      primary: "preparing",
+      secondary: ["applied", "superseded"],
+      menu: ["not_required"],
+    });
+    expect(splitPermitTransitions("not_required").primary).toBe("not_started");
+    expect(splitPermitTransitions("superseded")).toEqual({
+      primary: null,
+      secondary: [],
+      menu: [],
+    });
+  });
+
+  it("covers every allowed transition exactly once", () => {
+    for (const status of PERMIT_STATUSES) {
+      const { primary, secondary, menu } = splitPermitTransitions(status);
+      const all = [...(primary ? [primary] : []), ...secondary, ...menu];
+      expect([...all].sort()).toEqual([...PERMIT_TRANSITIONS[status]].sort());
+    }
+  });
+});
+
 describe("eventPermitHealth", () => {
   const today = "2027-03-01";
   const granted = { status: "granted", applyBy: null, validUntil: null, required: true } as const;
@@ -84,14 +135,92 @@ describe("eventPermitHealth", () => {
     expect(eventPermitHealth([notRequired], "2027-05-02", today)).toBe("ok");
   });
 
-  it("warns while something is open and the event is far away", () => {
-    const applied = {
-      status: "applied",
-      applyBy: "2027-02-01",
+  it("warns while a permit can be acted on and the event is far away", () => {
+    // Not filed, apply-by within the 30-day horizon.
+    const due = {
+      status: "preparing",
+      applyBy: "2027-03-15",
       validUntil: null,
       required: true,
     } as const;
-    expect(eventPermitHealth([granted, applied], "2027-05-02", today)).toBe("warn");
+    expect(eventPermitHealth([granted, due], "2027-05-02", today)).toBe("warn");
+    // Apply-by is today (horizon starts here) and exactly 30 days out (inclusive).
+    expect(eventPermitHealth([{ ...due, applyBy: today }], "2027-05-02", today)).toBe("warn");
+    expect(eventPermitHealth([{ ...due, applyBy: "2027-03-31" }], "2027-05-02", today)).toBe(
+      "warn",
+    );
+    // No apply-by date: nobody can say it is not due.
+    expect(eventPermitHealth([{ ...due, applyBy: null }], "2027-05-02", today)).toBe("warn");
+  });
+
+  it("stays ok for permits that are not due yet or already filed", () => {
+    const later = {
+      status: "not_started",
+      applyBy: "2027-04-01", // 31 days out: beyond the horizon
+      validUntil: null,
+      required: true,
+    } as const;
+    expect(eventPermitHealth([granted, later], "2027-06-12", today)).toBe("ok");
+    expect(eventPermitHealth([later], "2027-06-12", today, "2027-06-12", 60)).toBe("warn");
+    const applied = {
+      status: "applied",
+      applyBy: "2027-02-01",
+      expectedDecisionOn: "2027-03-15",
+      validUntil: null,
+      required: true,
+    } as const;
+    expect(eventPermitHealth([granted, applied], "2027-05-02", today)).toBe("ok");
+    // Decision expected today: not past yet.
+    expect(
+      eventPermitHealth([{ ...applied, expectedDecisionOn: today }], "2027-05-02", today),
+    ).toBe("ok");
+    // Applied without a known decision date is just waiting too.
+    expect(eventPermitHealth([{ ...applied, expectedDecisionOn: null }], "2027-05-02", today)).toBe(
+      "ok",
+    );
+  });
+
+  it("warns once the expected decision of an applied permit has passed", () => {
+    const late = {
+      status: "applied",
+      applyBy: "2027-01-10",
+      expectedDecisionOn: "2027-02-28",
+      validUntil: null,
+      required: true,
+    } as const;
+    expect(eventPermitHealth([late], "2027-05-02", today)).toBe("warn");
+  });
+
+  it("is critical within 14 days of the market for anything not in hand, filed or not", () => {
+    const applied = {
+      status: "applied",
+      applyBy: "2027-02-01",
+      expectedDecisionOn: "2027-03-15",
+      validUntil: null,
+      required: true,
+    } as const;
+    expect(eventPermitHealth([applied], "2027-03-15", today)).toBe("critical"); // day 14
+    expect(eventPermitHealth([applied], "2027-03-16", today)).toBe("ok"); // day 15
+    const later = {
+      status: "not_started",
+      applyBy: "2027-09-01",
+      validUntil: null,
+      required: true,
+    } as const;
+    expect(eventPermitHealth([later], "2027-03-10", today)).toBe("critical");
+  });
+
+  it("counts the horizon in calendar days across the DST change", () => {
+    const due = {
+      status: "not_started",
+      applyBy: "2026-11-24", // 30 days after 25.10.2026, the day Berlin leaves DST
+      validUntil: null,
+      required: true,
+    } as const;
+    expect(eventPermitHealth([due], "2027-04-10", "2026-10-25")).toBe("warn");
+    expect(eventPermitHealth([{ ...due, applyBy: "2026-11-25" }], "2027-04-10", "2026-10-25")).toBe(
+      "ok",
+    );
   });
 
   it("is critical when an application is overdue, rejected, expired or the event is close", () => {

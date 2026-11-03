@@ -53,7 +53,9 @@ export function ReasonDialog({
         }}
       >
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="task-reason">{t(`${key}.label`)}</Label>
+          <Label htmlFor="task-reason" optional={!required}>
+            {t(`${key}.label`)}
+          </Label>
           <textarea
             id="task-reason"
             rows={3}

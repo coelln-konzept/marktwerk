@@ -5,34 +5,12 @@
       "day": "Hello, {name}",
       "evening": "Good evening, {name}"
     },
-    "kpi": {
-      "label": "Key figures",
-      "dueToday": "Due today",
-      "overdue": "Overdue"
-    },
     "due": {
-      "title": "Due today",
-      "subtitle": "by urgency, grouped by market",
+      "title": "Today & overdue",
       "emptyTitle": "Nothing is due.",
-      "emptyHint": "Anything overdue, due today or within the next 7 days from permits, tasks and obligations shows up here. Permits show up earlier (set under Settings → Company).",
-      "groups": {
-        "overdue": "Overdue",
-        "today": "Today",
-        "soon": "This week",
-        "upcoming": "Upcoming permits",
-        "waiting": "Waiting for a reply"
-      },
-      "open": "Open",
+      "emptyHint": "Anything overdue or due today from permits, tasks and obligations shows up here.",
       "openItem": "Open: {title}",
-      "showAll": "Show all {count}",
-      "showLess": "Show less",
       "assignee": "responsible: {name}",
-      "relative": {
-        "overdue": "{n} d overdue",
-        "today": "today",
-        "soon": "in {n} d",
-        "waiting": "waiting since {date}"
-      },
       "kind": {
         "task": "Task",
         "permit": "Permit",
@@ -40,40 +18,54 @@
         "hours": "Hours",
         "obligation": "Obligation"
       },
-      "urgencyLabel": {
-        "overdue": "Overdue",
-        "today": "Due today",
-        "soon": "Due soon",
-        "upcoming": "Due later",
-        "waiting": "Waiting"
-      },
-      "eventCount": "{count, plural, one {# due} other {# due}}",
       "keyTask": "Key task – a task every market needs",
-      "more": "+ {count} more",
-      "moreAtMarket": "+ {count} more at {name}"
+      "openCenter": "Open Notifications",
+      "subtitle": "bundled per market",
+      "groups": {
+        "overdue": "Overdue",
+        "today": "Today",
+        "soon": "This week",
+        "upcoming": "Permits coming up",
+        "waiting": "Waiting for a reply"
+      },
+      "eventCount": "{count} due",
+      "moreAtMarket": "+ {count} more at {name}",
+      "moreMarkets": "{count, plural, one {+ # more market} other {+ # more markets}}",
+      "weekSubtitle": "{count, plural, =0 {nothing in the next 7 days} one {# item in the next 7 days, bundled per market} other {# items in the next 7 days, bundled per market}}",
+      "weekEmpty": "Nothing is due in the next 7 days."
     },
     "weekend": {
       "title": "This weekend",
       "range": "{from}–{to} · {week}",
       "all": "All events",
-      "caption": "Events this weekend",
-      "cols": {
-        "event": "Event",
-        "permits": "Permits",
-        "tasks": "Tasks",
-        "team": "Team",
-        "money": "Money"
+      "verdict": {
+        "ok": "On track",
+        "warn": "Attention",
+        "critical": "Not ready",
+        "none": "Not set yet"
+      },
+      "reason": {
+        "tasksOverdue": "{count} overdue",
+        "tasksToday": "{count} due today",
+        "tasksBlocked": "{count} blocked",
+        "tasksRollover": "often postponed",
+        "permitsMissing": "{count, plural, one {# permit missing} other {# permits missing}}",
+        "permitsEnding": "Permit expires before the event",
+        "permitsOk": "Permits ok"
+      },
+      "blockers": "What is holding up {name}",
+      "blockersMore": "+ {count} more",
+      "permit": "Permit",
+      "next": {
+        "title": "Next weekend",
+        "empty": "Nothing planned"
       },
       "empty": "Nothing is planned for this weekend.",
       "emptyNext": "Next event: {name}, {date}.",
       "emptyNone": "No further events have been created.",
-      "openEvent": "View event",
-      "keys": "Space: preview · Enter: open · J/K: next/previous row",
-      "blockersTitle": "What is holding the weekend up",
-      "blockersHint": "Open tasks and missing permits of these events, most urgent first.",
-      "blockerFor": "for {events}",
-      "blockersMore": "+ {count} more"
+      "openEvent": "View event"
     },
+    "keys": "Space: preview · Enter: open · J/K: next/previous row",
     "cleanup": {
       "line": "{count, plural, one {# open task} other {# open tasks}} from past markets",
       "action": "Clean up",
@@ -82,15 +74,18 @@
       "intro": "These markets ended more than 7 days ago. Their open tasks no longer show in Overview, Board and Calendar. Skipping marks them as skipped; Undo restores them.",
       "summary": "{tasks, plural, one {# open task} other {# open tasks}} in {markets, plural, one {# market} other {# markets}}",
       "open": "{count} open",
+      "tasksOf": "Open tasks of {name}",
+      "moreTasks": "+ {count} more",
       "skip": "Skip",
       "skipOne": "Skip the open tasks of {name}",
       "skipAll": "Skip all",
       "skipped": "{count, plural, one {# task skipped} other {# tasks skipped}}",
+      "skippedIn": "{count, plural, one {# task} other {# tasks}} of {name} skipped",
       "undo": "Undo",
       "reverted": "Undone",
       "undoFailed": "Undo is no longer possible, a task has changed since.",
       "nothingToSkip": "Nothing is open here any more.",
-      "error": "That did not work. Please try again.",
+      "error": "That didn't work. Please try again.",
       "empty": "All tidy. Nothing is open from past markets."
     }
   }

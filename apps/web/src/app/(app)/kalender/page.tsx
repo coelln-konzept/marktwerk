@@ -1,5 +1,6 @@
 import {
   addDays,
+  daysBetween,
   daysInMonth,
   holidaysBetween,
   isIsoDate,
@@ -7,28 +8,40 @@ import {
   mondayOf,
   weekendsTouched,
 } from "@marktwerk/core";
-import { CalendarDays, List } from "lucide-react";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { EventChip } from "@/components/events/event-chip";
-import { MonthGrid } from "@/components/events/month-grid";
 import { DeadlineChip, LAYER_ICONS } from "@/components/kalender/deadline-chip";
+import { EventChip } from "@/components/kalender/event-chip";
+import {
+  type DisplayItem,
+  deadlineKind,
+  deadlineText,
+  groupDeadlines,
+} from "@/components/kalender/group-deadlines";
 import { LayerPanel } from "@/components/kalender/layer-panel";
 import {
   availableLayers,
   DEFAULT_LAYERS,
+  KAL_PHONE_COOKIE,
   layerParams,
+  layersChangedCount,
   parseLayers,
 } from "@/components/kalender/layers";
 import { CalendarList } from "@/components/kalender/list-view";
+import { MonthGrid } from "@/components/kalender/month-grid";
+import { MonthJump } from "@/components/kalender/month-jump";
 import { KalenderShortcuts } from "@/components/kalender/shortcuts";
+import { ViewDefault } from "@/components/kalender/view-default";
 import { Page, PageHeader } from "@/components/shell/page";
 import { EVENT_TYPE_KEYS, EventTypeSquare } from "@/components/ui/event-type-tag";
 import { Kbd } from "@/components/ui/kbd";
 import { Panel } from "@/components/ui/panel";
+import { SegmentedLinks } from "@/components/ui/segmented-links";
 import { formatDate, formatMonth, todayIn } from "@/lib/format";
 import { HIDDEN_MODULES, isModuleVisible } from "@/lib/modules";
+import { EVENT_STATUS } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import {
@@ -54,6 +67,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const t = await getTranslations("kalenderPage");
   const tNav = await getTranslations("nav");
   const tCal = await getTranslations("calendar");
+  const tStatus = await getTranslations("status.event");
   const locale = await getLocale();
   const today = todayIn();
 
@@ -63,7 +77,15 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   // "Nur meine Zuständigkeit" is not offered without Team: a saved selection must not narrow silently.
   const layers = canMine ? chosen : { ...chosen, mine: false };
   const layersOpen = await getUiState("calendarLayers");
-  const view = param(sp.ansicht) === "liste" ? "liste" : "monat";
+
+  // View: an explicit `?ansicht=` always wins. Without one phones (below md) open in Liste and wider
+  // screens in Monat (decision 2026-10-28); the width comes from a cookie that `ViewDefault` keeps in
+  // step, so only the view that is shown gets fetched.
+  const ansicht = param(sp.ansicht);
+  const explicitView = ansicht === "liste" || ansicht === "monat" ? ansicht : undefined;
+  const phoneCookie = (await cookies()).get(KAL_PHONE_COOKIE)?.value;
+  const assumedPhone = phoneCookie === "1";
+  const view = explicitView ?? (assumedPhone ? "liste" : "monat");
 
   const monthParam = param(sp.monat);
   const month =
@@ -72,7 +94,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const monthFirst = isoDate(y, m, 1);
   const monthLast = isoDate(y, m, daysInMonth(y, m));
   const abParam = param(sp.ab);
-  const listFrom = abParam && isIsoDate(abParam) ? abParam : today;
+  const abValid = abParam !== undefined && isIsoDate(abParam);
+  const listFrom = abValid ? abParam : today;
 
   const from = view === "monat" ? mondayOf(monthFirst) : listFrom;
   const to = view === "monat" ? addDays(mondayOf(monthLast), 6) : addDays(listFrom, LIST_DAYS - 1);
@@ -89,6 +112,22 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   // Entries per module layer for the panel counts (everything fetched is already switched on and allowed).
   const deadlineCounts: Record<string, number> = {};
   for (const d of deadlines) deadlineCounts[d.layer] = (deadlineCounts[d.layer] ?? 0) + 1;
+
+  // Same-day, same-kind items collapse into one summary ("70 Genehmigungen: Entscheidung erwartet");
+  // single entries put the object first and the verb last.
+  const display: DisplayItem[] = groupDeadlines(deadlines).map((item) => {
+    const kind = item.group ? item.group.kind : deadlineKind(item);
+    const kindLabel = kind ? t(`permitKind.${kind}`) : undefined;
+    if (!item.group) return { ...item, text: deadlineText(item), kindLabel };
+    const { count } = item.group;
+    const text =
+      item.layer === "tasks"
+        ? t("group.tasks", { count })
+        : kindLabel
+          ? t("group.permits", { count, kind: kindLabel })
+          : t("group.permitsAny", { count });
+    return { ...item, text, kindLabel };
+  });
 
   const allHolidays = holidaysBetween(from, to);
   const holidays = new Map(
@@ -108,18 +147,33 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const nextHref =
     view === "monat" ? nav({ monat: nextMonth }) : nav({ ab: addDays(listFrom, LIST_DAYS) });
   const todayHref = nav({ monat: undefined, ab: undefined });
+  // Switching the view keeps the browsed position: Liste → Monat shows the month the list starts in,
+  // Monat → Liste starts the list on the 1st of the browsed month (today when that is this month).
+  const monthHref = nav({
+    ansicht: "monat",
+    ab: undefined,
+    monat: view === "liste" ? (abValid ? listFrom.slice(0, 7) : undefined) : monthParam,
+  });
+  const listHref = nav({
+    ansicht: "liste",
+    monat: undefined,
+    ab: view === "monat" ? (month === today.slice(0, 7) ? undefined : monthFirst) : abParam,
+  });
+  // "+ N weitere" opens the list from that day.
+  const moreHref = (day: string) => nav({ ansicht: "liste", monat: undefined, ab: day });
   const title =
     view === "monat"
       ? formatMonth(monthFirst, locale)
       : t("listTitle", { from: formatDate(from, locale), to: formatDate(to, locale) });
 
   const keep: Record<string, string> = {};
-  if (view === "liste") keep.ansicht = "liste";
+  if (explicitView) keep.ansicht = explicitView;
   if (view === "monat" && monthParam) keep.monat = month;
-  if (view === "liste" && abParam && isIsoDate(abParam)) keep.ab = abParam;
+  if (view === "liste" && abValid) keep.ab = abParam;
 
   const holidayCount = allHolidays.size;
   const visibleCount = visible.length + deadlines.length + (layers.holidays ? holidayCount : 0);
+  const changedCount = layersChangedCount(layers, available);
 
   // Weekend cap: Saturdays of weekends with 4+ events (cancelled ones don't count).
   const perWeekend = new Map<string, number>();
@@ -132,19 +186,23 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
 
   const entries = visible.flatMap((r) => {
     const out: { key: string; date: string; node: React.ReactNode }[] = [];
+    const total = daysBetween(r.startsOn, r.endsOn) + 1;
     for (let d = r.startsOn; d <= r.endsOn; d = addDays(d, 1)) {
       if (d < from || d > to) continue;
+      const index = daysBetween(r.startsOn, d) + 1;
       out.push({
         key: `${r.id}-${d}`,
         date: d,
         node: (
           <EventChip
             href={eventHref(r.id)}
-            wrap
             typeKey={r.typeKey}
             color={r.color}
             name={r.name}
-            cancelled={r.status === "cancelled"}
+            status={r.status}
+            statusLabel={tStatus(r.status)}
+            span={total > 1 ? { index, total } : undefined}
+            spanLabel={total > 1 ? t("spanDay", { index, total }) : undefined}
           />
         ),
       });
@@ -152,7 +210,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     return out;
   });
 
-  for (const item of deadlines) {
+  for (const item of display) {
     entries.push({
       key: `${item.layer}-${item.id}`,
       date: item.date,
@@ -171,6 +229,9 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const pill =
     "inline-flex min-h-8 items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover";
 
+  const PlannedIcon = EVENT_STATUS.planned.icon;
+  const ConfirmedIcon = EVENT_STATUS.confirmed.icon;
+
   const toolbar = (
     <>
       <nav aria-label={t("nav")} className="flex flex-wrap items-center gap-2">
@@ -183,31 +244,21 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
         <Link href={nextHref as never} scroll={false} aria-label={t("next")} className={pill}>
           ›
         </Link>
-        <h2 className="tabular ml-1 font-semibold text-[15px]">{title}</h2>
+        <MonthJump
+          title={title}
+          view={view}
+          month={view === "monat" ? month : listFrom.slice(0, 7)}
+          today={today}
+          sp={sp}
+        />
       </nav>
-      {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls */}
-      <div
-        role="group"
-        aria-label={t("view")}
-        className="inline-flex gap-0.5 rounded-lg border border-input bg-sunken p-0.5"
-      >
-        {(["monat", "liste"] as const).map((v) => (
-          <Link
-            key={v}
-            href={nav({ ansicht: v === "monat" ? undefined : v, ab: undefined }) as never}
-            scroll={false}
-            aria-current={view === v ? "true" : undefined}
-            className="inline-flex min-h-7 items-center gap-1 rounded-md px-3 font-medium text-foreground-2 aria-[current=true]:bg-card aria-[current=true]:text-foreground aria-[current=true]:shadow-card"
-          >
-            {v === "monat" ? (
-              <CalendarDays aria-hidden className="size-4" />
-            ) : (
-              <List aria-hidden className="size-4" />
-            )}
-            {t(`views.${v}`)}
-          </Link>
-        ))}
-      </div>
+      <SegmentedLinks
+        label={t("view")}
+        items={[
+          { key: "monat", label: t("views.monat"), href: monthHref, active: view === "monat" },
+          { key: "liste", label: t("views.liste"), href: listHref, active: view === "liste" },
+        ]}
+      />
     </>
   );
 
@@ -228,6 +279,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
         venues={venues}
         canMine={canMine}
         keep={keep}
+        changedCount={changedCount}
       >
         <Panel className="overflow-hidden" aria-label={title}>
           {view === "monat" ? (
@@ -241,6 +293,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               flaggedSaturdays={flagged}
               flagLabel={t("legend.weekend")}
               moreLabel={(n) => tCal("more", { n })}
+              moreAria={(n, day) => t("moreAria", { n, day: formatDate(day, locale) })}
+              moreHref={moreHref}
             />
           ) : (
             <CalendarList
@@ -248,7 +302,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               to={to}
               today={today}
               rows={visible}
-              deadlines={deadlines}
+              deadlines={display}
               holidays={holidays}
               hrefFor={eventHref}
               resetHref={hrefWith(PATH, {}, { ...layerParams(DEFAULT_LAYERS), ansicht: "liste" })}
@@ -286,6 +340,14 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
                 </span>
               );
             })}
+          <span className="inline-flex items-center gap-1">
+            <PlannedIcon aria-hidden className="size-3" />
+            {tStatus("planned")}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <ConfirmedIcon aria-hidden className="size-3" />
+            {tStatus("confirmed")}
+          </span>
           <span className="text-status-warn">{t("legend.weekend")}</span>
           {layers.holidays && (
             <span className="inline-flex items-center gap-1">
@@ -295,18 +357,17 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
           )}
           <span>{t("legend.cancelled")}</span>
         </p>
-        <p className="m-0 text-right text-muted-foreground text-tiny">
+        <p className="m-0 text-right text-muted-foreground text-tiny touch:hidden">
           {t.rich("keys", { k: (chunks) => <Kbd>{chunks}</Kbd> })}
         </p>
       </LayerPanel>
 
       <KalenderShortcuts
-        hrefs={{
-          t: todayHref,
-          m: nav({ ansicht: undefined, ab: undefined }),
-          l: nav({ ansicht: "liste", monat: undefined }),
-        }}
+        hrefs={{ t: todayHref, m: monthHref, l: listHref, prev: prevHref, next: nextHref }}
       />
+      {!explicitView && (
+        <ViewDefault assumedPhone={assumedPhone} known={phoneCookie !== undefined} />
+      )}
     </Page>
   );
 }

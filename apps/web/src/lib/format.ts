@@ -30,10 +30,9 @@ export function formatDateShort(date: string, locale: string): string {
   return `${weekday} ${dayMonth}`;
 }
 
-/** Sa, 16.05. (the "Zurückgestellt bis …" label) */
+/** Sa 16.05. (the "Zurückgestellt bis …" label); no comma, so it reads like every other weekday date. */
 export function formatDateWeekdayDay(date: string, locale: string): string {
-  const weekday = parts(date, locale, { weekday: "short" }).replace(/\.$/, "");
-  return `${weekday}, ${parts(date, locale, { day: "2-digit", month: "2-digit" })}`;
+  return formatDateShort(date, locale);
 }
 
 /** Sa 16.05.2026 */
@@ -113,7 +112,7 @@ export function formatMonthDay(md: string, locale: string): string {
   return locale === "en" ? `${day}/${month}` : `${day}.${month}.`;
 }
 
-/** "17 Min." / "3 Std." / "2 T." since `then`, for notification lists; null if it is under a minute ago. */
+/** "17 Min." / "3 Std." / "2 Tagen" since `then` (always read after "vor"), for notification lists; null if under a minute ago. */
 export function formatAgo(then: Date, now: Date, locale: string): string | null {
   const minutes = Math.floor((now.getTime() - then.getTime()) / 60_000);
   if (minutes < 1) return null;
@@ -122,7 +121,8 @@ export function formatAgo(then: Date, now: Date, locale: string): string | null 
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} ${en ? "h" : "Std."}`;
   const days = Math.floor(hours / 24);
-  if (days < 14) return `${days} ${en ? (days === 1 ? "day" : "days") : "T."}`;
+  if (days < 14)
+    return `${days} ${en ? (days === 1 ? "day" : "days") : days === 1 ? "Tag" : "Tagen"}`;
   return formatDate(todayIn("Europe/Berlin", then), locale);
 }
 
@@ -155,7 +155,7 @@ export function todayIn(timeZone = "Europe/Berlin", now: Date = new Date()): str
   }).format(now);
 }
 
-/** 7,5 h (minutes in). */
+/** 7,5 Std. / 7.5 h (minutes in). */
 export function formatHours(minutes: number, locale: string): string {
-  return `${formatNumber(minutes / 60, locale, 2)} h`;
+  return `${formatNumber(minutes / 60, locale, 2)} ${locale === "en" ? "h" : "Std."}`;
 }

@@ -1,3 +1,45 @@
+# Handoff: session 7 (UX/UI review, local Claude Code, Windows PC) → next session
+
+**Written 2026-10-29 at the end of session 7.** Read this section first, then the session-5 handoff below (still valid
+for environment details; the repo now also lives on the product owner's Windows PC at
+`C:\Users\Arda\Documents\Vibe Projects\Marketwerk`).
+
+> **Where things stand:** branch **`feat/ux-review-pass`** holds a full UX/UI review pass, **not pushed, no PR yet**.
+> `pnpm check` green, 786 integration tests green, e2e smoke 33/33 green, axe-core 0 violations on 52 routes in light,
+> dark and 390 px, no horizontal overflow, no console errors. Findings, industry comparison and what was built:
+> [`research/10-ux-review-2026-10.md`](./research/10-ux-review-2026-10.md). Ten product decisions of 2026-10-29 are in
+> `open-questions.md`. Next: push + PR, user tests, then the follow-up list in research 10 §5.
+
+## Session 7 in short
+- 20 research/audit agents (industry tools, design systems, flows in the running app), 13 + 3 fix agents in worktrees,
+  4 + 1 verification rounds with Playwright. Decisions taken with the product owner: Übersicht "Zwei Fragen", one due
+  vocabulary (`DueBadge`, words not "T"), permit badge by apply-by ("Jetzt zu tun"), "Gibt es schon" in Markt planen,
+  Wartet shows its age, snoozing a task works everywhere, "(optional)" labels, stacked toasts with Strg+Z and an error
+  tone, bell badge counts open items, late tasks on planning are created as overdue.
+- Root-cause fixes worth knowing: `cn()` now knows `text-body/small/tiny` (tailwind-merge dropped colours or sizes);
+  never pair `outline-none`/`outline-hidden` with `focus-visible:outline-*` in Tailwind 4 (it zeroes
+  `--tw-outline-style`); `Table` scrollers are `relative` (sr-only cells widened pages); `touch:` variant for
+  keyboard hints; `--on-critical`/`--on-ok` for text on solid status dots.
+- The app-wide `app/(app)/loading.tsx` makes routes stream, so `notFound()` pages answer HTTP 200 with the German
+  not-found page (accepted for an internal tool; e2e asserts the page, not the status).
+
+## Local environment notes (this PC)
+- Portable Postgres 17 on **:5433**, start after reboot:
+  `& "$env:LOCALAPPDATA\marktwerk-pg\pgsql\bin\pg_ctl.exe" -D "$env:LOCALAPPDATA\marktwerk-pg\data" -l "$env:LOCALAPPDATA\marktwerk-pg\postgres.log" start`.
+- Dev server: `preview_start` name `marktwerk-dev` (`.claude/launch.json`, port **3000**). `.env` now has
+  `DEV_AUTO_LOGIN_EMAIL/PASSWORD` (the seeded owner), so a fresh browser on localhost is signed in.
+- **If the dev server reloads pages in a loop** ("Compiled in 1ms" after every request, `[Fast Refresh] rebuilding`
+  on every load): stop it, delete `apps/web/.next/dev` and `apps/web/.next/cache`, start again. Seen after a crash
+  and after many merges; also the cure when `touch:` rules seem missing from the served CSS.
+- Playwright: system Chrome (`C:/Program Files/Google/Chrome/Application/chrome.exe`); e2e:
+  `$env:E2E_BASE_URL='http://localhost:3000'; $env:E2E_CHROMIUM_PATH='C:\Program Files\Google\Chrome\Application\chrome.exe'; pnpm test:e2e`.
+- Local dev DB still holds review test data: vehicle "UX-Test Transporter" (K-UX 9999) with an HU obligation, a
+  cancelled "Flohmarkt Bilk" on 11.12.2027, a skipped task "A2-Test (bitte ignorieren)", template "Ablauf Flohmarkt"
+  at v3 (change notes "UX-Test A7"). A reseed (§6 below, adapted to the portable Postgres) resets all of it.
+- `.claude/worktrees/` holds the agent worktrees of sessions 3 and 7; safe to remove once the branch is merged.
+
+---
+
 # Handoff: session 5 → session 6 (local Claude Code, macOS)
 
 **Written 2026-10-26 at the end of session 5.** Session 5 ran locally on the product owner's Mac. Read this file

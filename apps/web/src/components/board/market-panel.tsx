@@ -1,15 +1,9 @@
-import { daysBetween } from "@marktwerk/core";
-import {
-  ArrowRight,
-  CalendarCheck,
-  CircleCheck,
-  Clock,
-  FileWarning,
-  OctagonAlert,
-} from "lucide-react";
+import { addDays, DISTANCE_DAYS_MAX } from "@marktwerk/core";
+import { ArrowRight, Ban, CircleCheck, FileWarning, Hourglass } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { TaskQuickActions } from "@/components/event-detail/overview-task-actions";
+import { DueBadge } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateShortYear } from "@/lib/format";
@@ -60,15 +54,15 @@ export async function MarketPanel({
       ) : (
         <ul className="m-0 flex list-none flex-col p-0">
           {shown.map((task) => {
-            const days = task.dueOn ? daysBetween(today, task.dueOn) : 0;
-            const tone =
-              task.reason === "overdue" ? "critical" : task.reason === "soon" ? "neutral" : "warn";
-            const icon =
-              task.reason === "overdue"
-                ? OctagonAlert
-                : task.reason === "soon"
-                  ? CalendarCheck
-                  : Clock;
+            // Same split as the Überblick's "Was fehlt": due information is the shared DueBadge,
+            // blocked and a wait without a date are states of their own.
+            const dueBased =
+              task.dueOn !== null &&
+              (task.reason === "overdue" ||
+                task.reason === "today" ||
+                task.reason === "soon" ||
+                (task.reason === "waiting" && task.dueOn < today));
+            const showDate = task.dueOn !== null && task.dueOn <= addDays(today, DISTANCE_DAYS_MAX);
             return (
               <li
                 key={task.id}
@@ -84,10 +78,18 @@ export async function MarketPanel({
                     {task.title}
                   </Link>
                 </span>
-                <StatusBadge tone={tone} icon={icon}>
-                  {tReason(`reason.${task.reason}`, { n: Math.abs(days) })}
-                </StatusBadge>
-                {task.dueOn && (
+                {dueBased && task.dueOn ? (
+                  <DueBadge dueOn={task.dueOn} today={today} waiting={task.reason === "waiting"} />
+                ) : task.reason === "blocked" ? (
+                  <StatusBadge tone="warn" icon={Ban}>
+                    {tReason("reason.blocked")}
+                  </StatusBadge>
+                ) : (
+                  <StatusBadge tone="waiting" icon={Hourglass}>
+                    {tReason("reason.waiting")}
+                  </StatusBadge>
+                )}
+                {showDate && task.dueOn && (
                   <span className="tabular text-muted-foreground text-small">
                     {formatDateShortYear(task.dueOn, locale, today)}
                   </span>

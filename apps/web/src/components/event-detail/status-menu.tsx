@@ -87,7 +87,7 @@ export function useStatusChange({
       <Dialog.Root open={cancelOpen} onOpenChange={(open) => !pending && setCancelOpen(open)}>
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-scrim" />
-          <Dialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-40 flex w-[min(480px,calc(100%-2rem))] flex-col gap-4 rounded-xl border bg-card p-5 shadow-overlay outline-none">
+          <Dialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-40 flex w-[min(480px,calc(100%-2rem))] flex-col gap-4 rounded-xl border bg-card p-5 shadow-overlay outline-hidden">
             <div className="flex items-start justify-between gap-3">
               <Dialog.Title className="font-semibold text-lg">{t("cancel.title")}</Dialog.Title>
               <Dialog.Close

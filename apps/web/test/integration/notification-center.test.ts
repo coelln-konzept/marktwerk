@@ -1,7 +1,6 @@
 import { companyDedupeKey } from "@marktwerk/core";
 import {
   auditLog,
-  event,
   eventPermit,
   notification,
   outboundMessage,
@@ -141,6 +140,29 @@ describe("sweep: company-wide generation", () => {
     expect(open[0]?.dueOn).toBe("2026-10-18");
   });
 
+  it("does not list a rotated notification of a task that is still open as Erledigt", async () => {
+    // due tomorrow: "bald fällig" today, "überfällig" the day after; the sweep rotates the notification
+    const t = await addTask({ title: "Rotiert", dueAt: daysFromNow(1) });
+    await deadlineSweep(db, NOW);
+    expect(await companyRows()).toHaveLength(1);
+
+    const later = new Date(NOW.getTime() + 2 * DAY);
+    const rotated = await deadlineSweep(db, later);
+    expect(rotated.company).toEqual({ created: 1, resolved: 1 });
+    expect(await companyRows()).toHaveLength(2);
+
+    const open = await listCompanyNotifications(owner, OPEN, later);
+    expect(open.rows.map((r) => r.subjectId)).toEqual([t.id]);
+    expect(open.statusCounts).toEqual({ open: 1, snoozed: 0, done: 0 });
+    const done = await listCompanyNotifications(owner, { status: "done", sort: "newest" }, later);
+    expect(done.rows).toHaveLength(0);
+
+    // once the task is done, the subject shows up once in Erledigt
+    await setTaskStatus(owner, t.id, "done", {}, { now: later, today: "2026-10-23" });
+    const after = await listCompanyNotifications(owner, { status: "done", sort: "newest" }, later);
+    expect(after.rows.map((r) => r.subjectId)).toEqual([t.id]);
+  });
+
   it("lists permits by apply-by within the horizon, decisions due and permits ending before a market", async () => {
     const applyBy = await addPermit({
       title: "Antrag",
@@ -182,27 +204,26 @@ describe("sweep: company-wide generation", () => {
     );
   });
 
-  it("leaves out permits whose next market is more than 6 months away (decision 2026-10-28)", async () => {
+  it("notifies by the permit's own dates, however far away its market is (decision 2026-10-29)", async () => {
     const near = await insertEvent(cat, "Markt im April", "2027-04-21");
-    const far = await insertEvent(cat, "Markt im Mai", "2027-05-01");
+    const far = await insertEvent(cat, "Markt im September", "2027-09-05");
     const nah = await addPermit({ title: "Nah", status: "not_started", applyBy: "2026-10-19" });
     const fern = await addPermit({ title: "Fern", status: "not_started", applyBy: "2026-10-19" });
+    // Apply-by beyond the 30-day horizon: not due yet, so no notification.
+    const spaet = await addPermit({
+      title: "Später",
+      status: "not_started",
+      applyBy: "2026-12-30",
+    });
     await db.insert(eventPermit).values([
       { eventId: near.id, permitId: nah.id, required: true },
       { eventId: far.id, permitId: fern.id, required: true },
+      { eventId: far.id, permitId: spaet.id, required: true },
     ]);
 
     await deadlineSweep(db, NOW);
-    expect((await companyRows()).map((r) => r.subjectId)).toEqual([nah.id]);
-
-    // A notification written before the market moved out of reach is no longer shown, and the sweep
-    // closes it.
-    await db
-      .update(event)
-      .set({ startsOn: "2027-05-02", endsOn: "2027-05-02" })
-      .where(eq(event.id, near.id));
-    expect((await listCompanyNotifications(owner, OPEN, NOW)).rows).toHaveLength(0);
-    expect((await deadlineSweep(db, NOW)).company.resolved).toBe(1);
+    expect((await companyRows()).map((r) => r.subjectId).sort()).toEqual([nah.id, fern.id].sort());
+    expect((await listCompanyNotifications(owner, OPEN, NOW)).rows).toHaveLength(2);
   });
 });
 

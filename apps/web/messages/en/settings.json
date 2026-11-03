@@ -51,7 +51,7 @@
         "defaultDueTime": "Time of day for template tasks without their own due time.",
         "emailEnabled": "While this is off, marktwerk sends no emails. In-app notifications keep working.",
         "dailyDigestEnabled": "Send a daily email summarising what is due.",
-        "permitHorizonDays": "This many days before the apply-by date, permits appear in the Übersicht.",
+        "permitHorizonDays": "This many days before the apply-by date, permits appear in the overview.",
         "dailyDigestNeedsEmail": "Only available once “Send emails” is switched on."
       },
       "bundeslaender": {

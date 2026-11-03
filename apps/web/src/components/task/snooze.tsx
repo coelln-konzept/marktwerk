@@ -102,9 +102,9 @@ export function SnoozeDialog({
 }
 
 const popup =
-  "flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-none";
+  "flex min-w-[200px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden";
 const item =
-  "flex min-h-8 cursor-pointer items-center justify-between gap-4 rounded-md px-2 py-1 text-small outline-none data-[highlighted]:bg-hover";
+  "flex min-h-8 cursor-pointer items-center justify-between gap-4 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover";
 
 /**
  * A small "Zurückstellen" menu button (presets + "Datum wählen …") for list rows such as the Übersicht's
@@ -122,7 +122,7 @@ export function SnoozeMenu({ task, today }: { task: SnoozeRef; today: string }) 
         <Menu.Trigger
           aria-label={t("actions", { title: task.title })}
           title={t("title")}
-          className="inline-grid size-8 cursor-pointer place-items-center rounded-lg text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
+          className="inline-grid size-8 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
         >
           <AlarmClockOff aria-hidden className="size-4" />
         </Menu.Trigger>

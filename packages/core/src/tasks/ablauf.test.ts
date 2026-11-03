@@ -67,4 +67,18 @@ describe("groupAblauf", () => {
     expect(groups.map((g) => g.phase)).toEqual(["now", "event", "after", "undated", "done"]);
     expect(groups[0]?.tasks.map((t) => t.id)).toEqual(["old", "today-key", "today-a", "today-b"]);
   });
+
+  it("orders the same day by template position, not alphabetically", () => {
+    const [group] = groupAblauf(
+      [
+        task({ id: "abbau", dueOn: "2026-11-22", title: "Abbau", boardSort: 30 }),
+        task({ id: "aufbau", dueOn: "2026-11-22", title: "Zelte aufbauen", boardSort: 10 }),
+        task({ id: "markt", dueOn: "2026-11-22", title: "Kasse öffnen", boardSort: 20 }),
+        task({ id: "manual", dueOn: "2026-11-22", title: "Ad hoc" }),
+      ],
+      ctx,
+    );
+    // A task without a template position (added by hand) counts as 0 and comes first.
+    expect(group?.tasks.map((t) => t.id)).toEqual(["manual", "aufbau", "markt", "abbau"]);
+  });
 });

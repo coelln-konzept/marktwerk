@@ -1,5 +1,7 @@
 import { addDays, daysBetween } from "../dates/calendar";
-import { type EventPermitInput, isHeld, permitStateForEvent } from "../permits/status";
+import { PERMIT_HORIZON_DEFAULT_DAYS } from "../deadlines/permit-horizon";
+import { permitNeedsActionForEvent } from "../permits/action";
+import type { EventPermitInput } from "../permits/status";
 import { isFinishedStatus, isOpenStatus, type TaskStatusKey } from "./board";
 import { isSnoozed } from "./snooze";
 import { isOverdueTask, isWaitingPastDue } from "./waiting";
@@ -38,28 +40,26 @@ export type Readiness = {
   done: number;
   /** Open, not snoozed, due before today; tasks waiting for somebody else do not count. */
   overdue: number;
-  /** Required permits that are not held for the event's first day. */
+  /** Required permits not held for the event's first day that need action (not just filed / not due yet). */
   missingPermits: number;
   /** Open key tasks (Kernaufgaben), snoozed ones included. */
   openKey: number;
   next: NextDeadline | null;
 };
 
-/** Required permits not held for the event: not granted (or granted but ending before the first day). */
+/**
+ * Required permits not held for the event that the office has to act on (`permitNeedsActionForEvent`):
+ * filed ones that are just waiting, and ones whose apply-by date is beyond the permit horizon, do not count.
+ */
 export function countMissingPermits(
   permits: readonly EventPermitInput[],
   eventStartsOn: string,
   today: string,
   eventEndsOn: string = eventStartsOn,
+  horizonDays: number = PERMIT_HORIZON_DEFAULT_DAYS,
 ): number {
-  let missing = 0;
-  for (const p of permits) {
-    if (!p.required || p.status === "not_required" || p.status === "superseded") continue;
-    const state = permitStateForEvent(p, { endsOn: eventEndsOn }, today);
-    if (isHeld(state) && !(p.validUntil !== null && p.validUntil < eventStartsOn)) continue;
-    missing += 1;
-  }
-  return missing;
+  const event = { startsOn: eventStartsOn, endsOn: eventEndsOn };
+  return permits.filter((p) => permitNeedsActionForEvent(p, event, today, horizonDays)).length;
 }
 
 /** One row of the Bereitschaftsliste. Cancelled tasks are ignored; a snoozed task is neither overdue nor next. */
@@ -69,6 +69,7 @@ export function summarizeReadiness(
   eventStartsOn: string,
   today: string,
   eventEndsOn: string = eventStartsOn,
+  horizonDays: number = PERMIT_HORIZON_DEFAULT_DAYS,
 ): Readiness {
   let total = 0;
   let done = 0;
@@ -99,7 +100,7 @@ export function summarizeReadiness(
     total,
     done,
     overdue,
-    missingPermits: countMissingPermits(permits, eventStartsOn, today, eventEndsOn),
+    missingPermits: countMissingPermits(permits, eventStartsOn, today, eventEndsOn, horizonDays),
     openKey,
     next: next ? { id: next.id, title: next.title, dueOn: next.dueOn as string } : null,
   };

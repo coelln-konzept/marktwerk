@@ -336,6 +336,13 @@ describe("permit status flow", () => {
     expect(row?.grantedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     const entries = await db.select().from(auditLog).where(eq(auditLog.action, "permit.status"));
     expect(entries).toHaveLength(3);
+    // Back from "Genehmigt": "Erteilt am" is cleared, "Beantragt am" stays.
+    const back = await setPermitStatus(owner, p.id, "applied");
+    expect(back.previous.grantedAt).toBe(row?.grantedAt);
+    const [again] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(again?.status).toBe("applied");
+    expect(again?.grantedAt).toBeNull();
+    expect(again?.appliedAt).toBe(row?.appliedAt);
   });
 
   it("refuses transitions the flow does not allow and unknown statuses", async () => {

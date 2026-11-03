@@ -8,6 +8,9 @@ import { canWriteDocuments, listLinkedDocuments } from "@/server/queries/documen
 import { getEvent } from "@/server/queries/events";
 import { requirePermission } from "@/server/session";
 
+/** What gets filed under an event: notices (Genehmigung), plans and photos, contracts, anything else. */
+const EVENT_DOCUMENT_KINDS = ["other", "permit", "contract", "photo"] as const;
+
 /** Tab "Dokumente": notices, plans and contracts of the event (`document.event_id`). */
 export default async function EventDocumentsPage({
   params,
@@ -31,7 +34,14 @@ export default async function EventDocumentsPage({
         ) : (
           <DocumentList documents={documents} canWrite={canWrite} />
         )}
-        {canWrite && <DocumentUpload link={{ eventId: event.id }} kind="other" label={t("add")} />}
+        {canWrite && (
+          <DocumentUpload
+            link={{ eventId: event.id }}
+            kinds={EVENT_DOCUMENT_KINDS}
+            kindLabel={t("kind")}
+            label={t("add")}
+          />
+        )}
         {!canWrite && <p className="m-0 text-faint-foreground text-small">{t("readOnly")}</p>}
       </PanelBody>
     </Panel>

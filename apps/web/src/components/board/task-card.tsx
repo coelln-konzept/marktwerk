@@ -5,6 +5,7 @@ import {
   Camera,
   CircleCheck,
   Clock,
+  FileX,
   GripVertical,
   ListChecks,
   Paperclip,
@@ -13,10 +14,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { type ReactNode, useState } from "react";
+import { memo, type ReactNode, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate } from "@/lib/task-ui";
@@ -33,9 +35,10 @@ const isFinished = (task: BoardTask) => task.status === "done" || task.status ==
  * Kanban card (component inventory): grip, category tag, status, title (opens the
  * drawer), tick-off, estimate, due-ness, assignee. Pointer: drag the card (ADR 0020). Keyboard: the
  * grip lifts (Space), arrows move, Space drops, Esc cancels; on the card E ticks off, A opens the menu,
- * Enter opens the drawer.
+ * Enter opens the drawer. Memoized: a change to one card (optimistic patch) re-renders that card, not
+ * the whole column (the board context value is kept stable for this, see board-view.tsx).
  */
-export function TaskCard({
+export const TaskCard = memo(function TaskCard({
   task,
   hideEvent = false,
 }: {
@@ -116,7 +119,7 @@ export function TaskCard({
           aria-label={t("card.grip", { title: task.title })}
           title={t("card.gripHint")}
           onKeyDown={onGripKey}
-          className="grid w-5 shrink-0 cursor-grab place-items-start rounded pt-0.5 text-faint-foreground outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          className="grid w-5 shrink-0 cursor-grab place-items-start rounded pt-0.5 text-faint-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
         >
           <GripVertical aria-hidden className="size-4" />
         </button>
@@ -130,7 +133,7 @@ export function TaskCard({
       />
     </li>
   );
-}
+});
 
 /** The card as it follows the pointer while dragging (no menu, not interactive). */
 export function CardPreview({ task }: { task: BoardTask }) {
@@ -175,6 +178,13 @@ function CardContent({
           {task.status !== "todo" && !(finished && task.status === "done") && (
             <TaskStatusBadge status={task.status} reason={task.waitingReason} />
           )}
+          {task.removedFromTemplate && !finished && (
+            <span title={tTasks("removedFromTemplateHint")}>
+              <StatusBadge tone="neutral" icon={FileX}>
+                {tTasks("removedFromTemplate")}
+              </StatusBadge>
+            </span>
+          )}
         </div>
         {menu}
       </div>
@@ -184,7 +194,7 @@ function CardContent({
         scroll={false}
         draggable={false}
         className={cn(
-          "rounded-sm text-left font-medium text-body leading-snug outline-none hover:underline focus-visible:outline-2 focus-visible:outline-ring",
+          "rounded-sm text-left font-medium text-body leading-snug hover:underline focus-visible:outline-2 focus-visible:outline-ring",
           finished && "text-foreground-2",
         )}
       >
@@ -210,7 +220,7 @@ function CardContent({
               onClick={() => actions.setStatus(task, "todo")}
               aria-label={t("card.reopen", { title: task.title })}
               title={t("menu.reopen")}
-              className="grid size-6 cursor-pointer place-items-center rounded-full text-status-ok outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+              className="grid size-6 cursor-pointer place-items-center rounded-full text-status-ok hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
             >
               <Undo2 aria-hidden className="size-4" />
             </button>
@@ -220,7 +230,7 @@ function CardContent({
               onClick={() => actions.setStatus(task, "done")}
               aria-label={t("card.complete", { title: task.title })}
               title={t("card.completeHint")}
-              className="grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground outline-none hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"
+              className="grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-status-ok-bg hover:text-status-ok focus-visible:outline-2 focus-visible:outline-ring"
             >
               <CircleCheck aria-hidden className="size-4" />
             </button>

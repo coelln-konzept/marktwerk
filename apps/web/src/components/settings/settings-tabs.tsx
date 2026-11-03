@@ -20,7 +20,7 @@ export function SettingsTabs({ tabs, label }: { tabs: SettingsTab[]; label: stri
                 href={tab.href as never}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "-mb-px flex min-h-10 items-center whitespace-nowrap border-b-2 px-3 text-body outline-none hover:text-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
+                  "-mb-px flex min-h-10 items-center whitespace-nowrap border-b-2 px-3 text-body hover:text-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
                   active
                     ? "border-primary font-semibold text-foreground"
                     : "border-transparent text-foreground-2",

@@ -107,6 +107,8 @@ export type BoardTask = {
   requiresAttachment: boolean;
   /** `YYYY-MM-DD` the card is snoozed until (still in the future), else null. */
   snoozedUntil: string | null;
+  /** The template no longer contains this task (a template change was applied); it is still open work. */
+  removedFromTemplate: boolean;
 };
 
 export type BoardScope = {
@@ -116,8 +118,9 @@ export type BoardScope = {
    */
   eventId?: string;
   /**
-   * Open tasks due later than this many days from today are left out (the cross-event board would
-   * otherwise hold the whole season). Tasks without a due date stay. null = no limit.
+   * "Zeitraum" (ux-concept §5): only tasks of markets whose first day is on or before today + this many
+   * days (running markets and follow-up work of past ones qualify), the same meaning as in Bereitschaft
+   * and Matrix. Tasks without an event are cut by their due date instead (undated ones stay). null = no limit.
    */
   horizonDays?: number | null;
 };
@@ -138,10 +141,10 @@ export async function listBoardTasks(
 ): Promise<BoardData> {
   if (scope.eventId && !UUID.test(scope.eventId)) return { tasks: [], truncated: false };
   const since = resolveRelativeDue(doneVisibleSince(today), 0, "00:00");
+  const horizonDays = scope.horizonDays ?? null;
+  // Event-less tasks have no market to measure against, so their due date is cut at the horizon.
   const horizon =
-    scope.horizonDays === null || scope.horizonDays === undefined
-      ? null
-      : resolveRelativeDue(addDays(today, scope.horizonDays + 1), 0, "00:00");
+    horizonDays === null ? null : resolveRelativeDue(addDays(today, horizonDays + 1), 0, "00:00");
 
   const checkTotal = sql<number>`(select count(*)::int from ${taskCheckItem} where ${taskCheckItem.taskId} = ${task.id})`;
   const checkDone = sql<number>`(select count(*)::int from ${taskCheckItem} where ${taskCheckItem.taskId} = ${task.id} and ${taskCheckItem.done})`;
@@ -174,6 +177,7 @@ export async function listBoardTasks(
       requiresPhoto: task.requiresPhoto,
       requiresAttachment: task.requiresAttachment,
       snoozedUntil: task.snoozedUntil,
+      removedFromTemplate: task.removedFromTemplate,
       checkTotal,
       checkDone,
     })
@@ -189,7 +193,15 @@ export async function listBoardTasks(
         or(
           and(
             inArray(task.status, OPEN),
-            horizon ? or(isNull(task.dueAt), lt(task.dueAt, horizon)) : undefined,
+            horizonDays === null
+              ? undefined
+              : or(
+                  and(isNotNull(task.eventId), lte(event.startsOn, addDays(today, horizonDays))),
+                  and(
+                    isNull(task.eventId),
+                    horizon ? or(isNull(task.dueAt), lt(task.dueAt, horizon)) : undefined,
+                  ),
+                ),
           ),
           and(
             inArray(task.status, ["done", "skipped"]),
@@ -230,6 +242,7 @@ export async function listBoardTasks(
     requiresPhoto: r.requiresPhoto,
     requiresAttachment: r.requiresAttachment,
     snoozedUntil: r.snoozedUntil && r.snoozedUntil > today ? r.snoozedUntil : null,
+    removedFromTemplate: r.removedFromTemplate,
     sortKey: r,
   }));
   cards.sort((a, b) => compareCards(a.sortKey, b.sortKey));
@@ -250,12 +263,15 @@ export async function listStaffOptions(): Promise<StaffOption[]> {
     .orderBy(asc(staffMember.displayName));
 }
 
-export type EventOption = { id: string; name: string; startsOn: string };
+export type EventOption = { id: string; name: string; startsOn: string; endsOn: string };
 
-/** Events a task can be created on: not over for more than 30 days. */
+/**
+ * Events a task can be created on: not over for more than 30 days, in date order. No cap: the dialog
+ * groups them by month, so a long season stays selectable.
+ */
 export async function listTaskEventOptions(actor: Actor, today: string): Promise<EventOption[]> {
   return db
-    .select({ id: event.id, name: event.name, startsOn: event.startsOn })
+    .select({ id: event.id, name: event.name, startsOn: event.startsOn, endsOn: event.endsOn })
     .from(event)
     .where(
       and(
@@ -264,8 +280,7 @@ export async function listTaskEventOptions(actor: Actor, today: string): Promise
         gte(event.endsOn, addDays(today, -30)),
       ),
     )
-    .orderBy(asc(event.startsOn))
-    .limit(80);
+    .orderBy(asc(event.startsOn), asc(event.name));
 }
 
 async function contractsOf(staffIds: string[]): Promise<Map<string, CapacityContract[]>> {
@@ -672,6 +687,8 @@ export type TaskDetail = {
   isKey: boolean;
   dueOn: string | null;
   dueOverridden: boolean;
+  /** Hand-edited at all (carried so an undo can restore it together with `dueOverridden`). */
+  customized: boolean;
   estimateMinutes: number;
   effortFeedback: "as_planned" | "longer" | "shorter" | null;
   assigneeId: string | null;
@@ -690,6 +707,8 @@ export type TaskDetail = {
   hasAttachment: boolean;
   /** `YYYY-MM-DD` the task is snoozed until (still in the future), else null. */
   snoozedUntil: string | null;
+  /** The template no longer contains this task (a template change was applied). */
+  removedFromTemplate: boolean;
   /** The optional note given when the task was marked done (from the audit entry), else null. */
   completionNote: string | null;
   activity: { id: string; action: string; at: string; actorName: string | null; diff: unknown }[];
@@ -776,6 +795,7 @@ export async function getTaskDetail(
     isKey: t.isKey,
     dueOn: t.dueAt ? berlinDay(t.dueAt) : null,
     dueOverridden: t.dueOverridden,
+    customized: t.customized,
     estimateMinutes: t.estimateMinutes,
     effortFeedback: t.effortFeedback,
     assigneeId: t.assigneeId,
@@ -792,6 +812,7 @@ export async function getTaskDetail(
     hasPhoto: evidence.hasPhoto,
     hasAttachment: evidence.hasAttachment,
     snoozedUntil: t.snoozedUntil && t.snoozedUntil > today ? t.snoozedUntil : null,
+    removedFromTemplate: t.removedFromTemplate,
     completionNote: typeof completionNote === "string" ? completionNote : null,
     activity: activity.map((a) => ({ ...a, at: a.at.toISOString() })),
     link: taskLink(t.id, t.eventId),

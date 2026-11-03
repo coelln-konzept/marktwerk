@@ -8,18 +8,31 @@ import {
   snoozeCompanyAction,
 } from "@/app/(app)/benachrichtigungen/actions";
 import { useTaskActions } from "@/components/board/use-task-actions";
-import { formatInstant } from "@/components/event-detail/format-instant";
 import { useShell } from "@/components/shell/shell-context";
+import { formatDateWeekdayDay } from "@/lib/format";
 import type { CompanyNotificationRow } from "@/server/queries/notifications";
 
-type RowRef = Pick<CompanyNotificationRow, "id" | "title" | "subjectType" | "subjectId"> & {
+export type CompanyActionRow = Pick<
+  CompanyNotificationRow,
+  "id" | "title" | "subjectType" | "subjectId" | "taskSnoozed" | "notificationSnoozed"
+> & {
   taskStatus: string | null;
 };
 
+const FINISHED_TASK = ["done", "skipped"];
+
+/** The task behind a row, as the task actions want it. */
+const taskRef = (row: CompanyActionRow) => ({
+  id: row.subjectId,
+  title: row.title,
+  status: row.taskStatus as never,
+});
+
 /**
- * Actions of the notification center and the bell, each with an undo toast. "Erledigt" on a task completes
- * the task itself (tasks service, its own undo) and the notification resolves with it; on a permit it only
- * marks the notification done.
+ * Actions of the notification center and the bell, each with an undo toast. On a task, "Erledigt",
+ * "Zurückstellen" and "Wieder öffnen" act on the task itself (tasks service, its own undo), so the item
+ * leaves or returns to Übersicht, center and bell together; the notification follows. On a permit they
+ * only change the notification (decision 2026-10-29).
  */
 export function useCompanyActions() {
   const t = useTranslations("notificationCenter");
@@ -48,12 +61,9 @@ export function useCompanyActions() {
   );
 
   const done = useCallback(
-    (row: RowRef) => {
+    (row: CompanyActionRow) => {
       if (row.subjectType === "task" && row.taskStatus) {
-        taskActions.setStatus(
-          { id: row.subjectId, title: row.title, status: row.taskStatus as never },
-          "done",
-        );
+        taskActions.setStatus(taskRef(row), "done");
         return;
       }
       startTransition(async () => {
@@ -66,28 +76,50 @@ export function useCompanyActions() {
     [taskActions, showToast, errorText, undoable, t],
   );
 
+  /**
+   * "Wieder öffnen" / "Zurückstellung aufheben". A snoozed task ends its snooze; a finished task is
+   * reopened; everything else only reopens the notification.
+   */
   const reopen = useCallback(
-    (row: Pick<RowRef, "id">) =>
+    (row: CompanyActionRow) => {
+      if (row.subjectType === "task" && row.taskStatus) {
+        const finished = FINISHED_TASK.includes(row.taskStatus);
+        if (finished || row.taskSnoozed) {
+          if (finished) taskActions.setStatus(taskRef(row), "todo");
+          else taskActions.unsnooze(taskRef(row));
+          // A snooze set on the notification itself (before the task snooze existed) ends with it.
+          if (!finished && row.notificationSnoozed) void setCompanyStateAction(row.id, "unread");
+          return;
+        }
+      }
       startTransition(async () => {
         const result = await setCompanyStateAction(row.id, "unread");
         if (!result.ok) return showToast({ message: errorText(result.error) });
-        if (result.data.changed) undoable(row.id, t("toast.reopened"), result.data.previous);
-      }),
-    [showToast, errorText, undoable, t],
+        if (result.data.changed)
+          undoable(row.id, t("toast.reopened", { title: row.title }), result.data.previous);
+      });
+    },
+    [taskActions, showToast, errorText, undoable, t],
   );
 
+  /** `until` is `YYYY-MM-DD`, after today. */
   const snooze = useCallback(
-    (row: Pick<RowRef, "id">, until: string) =>
+    (row: CompanyActionRow, until: string) => {
+      if (row.subjectType === "task" && row.taskStatus) {
+        taskActions.snooze(taskRef(row), until);
+        return;
+      }
       startTransition(async () => {
         const result = await snoozeCompanyAction(row.id, until);
         if (!result.ok) return showToast({ message: errorText(result.error) });
         undoable(
           row.id,
-          t("toast.snoozed", { when: formatInstant(new Date(result.data.until), locale) }),
+          t("toast.snoozed", { title: row.title, date: formatDateWeekdayDay(until, locale) }),
           result.data.previous,
         );
-      }),
-    [showToast, errorText, undoable, t, locale],
+      });
+    },
+    [taskActions, showToast, errorText, undoable, t, locale],
   );
 
   /** Opening an item marks it read (quietly, no toast). */

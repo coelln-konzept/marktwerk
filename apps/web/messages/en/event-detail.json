@@ -41,7 +41,7 @@
         "invalid_transition": "This change is not possible from the current status. The page was refreshed.",
         "reason_required": "Please give a reason for the cancellation.",
         "conflict": "The status was changed in the meantime. Nothing was reverted.",
-        "generic": "That did not work. Please try again."
+        "generic": "That didn't work. Please try again."
       }
     },
     "cancel": {
@@ -55,9 +55,7 @@
     "overview": {
       "dates": {
         "title": "Next dates",
-        "today": "today",
-        "inDays": "in {n} d",
-        "daysAgo": "{n} d ago",
+        "daysAgo": "{n, plural, one {# day ago} other {# days ago}}",
         "keys": {
           "event_day": "Event day",
           "setup_day": "Setup day",
@@ -65,9 +63,12 @@
           "booking_cutoff": "Booking cut-off"
         },
         "empty": "No dates yet.",
-        "tomorrow": "tomorrow",
         "pastToggle": "Past dates ({count})",
         "nothingAhead": "No more dates ahead."
+      },
+      "notes": {
+        "title": "Note",
+        "link": "All notes"
       },
       "facts": {
         "title": "Key facts",
@@ -105,7 +106,8 @@
         "tasksNone": "No tasks yet",
         "permits": "{granted}/{total} permits granted",
         "permitsNone": "No permit needed",
-        "progress": "Task progress"
+        "progress": "Task progress",
+        "permitsProgress": "Permit progress"
       },
       "missing": {
         "title": "What's missing",
@@ -119,7 +121,6 @@
           "today": "Today",
           "soon": "in {n} d"
         },
-        "waitingSince": "waiting since {date}",
         "done": "Done",
         "doneLabel": "Mark “{title}” done",
         "permitKind": "Permit",
@@ -132,13 +133,8 @@
         "state": {
           "done": "Done",
           "open": "Open",
-          "soon": "Due soon",
-          "overdue": "Overdue",
-          "waiting": "Waiting",
           "snoozed": "Snoozed"
         },
-        "waitingSince": "since {date}",
-        "dueOn": "due {date}",
         "snoozedUntil": "until {date}"
       },
       "rules": {
@@ -196,17 +192,17 @@
       "unchanged": "No changes to save.",
       "readOnly": "You can read the notes but not change them.",
       "tooLong": "The notes are too long (at most {max} characters).",
-      "failed": "Saving did not work. Please try again.",
+      "failed": "Saving didn't work. Please try again.",
       "chars": "{count} characters"
     },
     "history": {
       "title": "History",
-      "caption": "Changes to this event",
+      "caption": "Changes to this event and its tasks",
       "when": "When",
       "who": "Who",
       "what": "Change",
       "empty": "No changes since the import yet.",
-      "emptyHint": "Status changes, edited notes, duties and other changes appear here.",
+      "emptyHint": "Status changes, completed tasks, uploaded documents, edited notes and other changes appear here.",
       "unknownActor": "System",
       "created": "Created from preset",
       "createdManual": "Created",
@@ -233,7 +229,16 @@
       "bookingOff": "{flag}: no",
       "moved": "Moved: {from} → {to}",
       "undone": "Undone",
-      "createdAgreement": "Created from agreement"
+      "createdAgreement": "Created from agreement",
+      "taskDone": "Task completed: {title}",
+      "taskReopened": "Task reopened: {title}",
+      "taskStatus": "Task “{title}”: {status}",
+      "taskSnoozed": "Task snoozed until {date}: {title}",
+      "taskUnsnoozed": "Snooze removed: {title}",
+      "taskUndone": "Undone: {title}",
+      "documentUploaded": "Document uploaded: {file}",
+      "documentArchived": "Document removed: {file}",
+      "documentRestored": "Document restored: {file}"
     },
     "facts": {
       "edit": "Edit",
@@ -301,6 +306,7 @@
       "note": "Hints never block: you decide.",
       "submit": "Move",
       "cancel": "Cancel",
+      "close": "Close",
       "moved": "Moved to {date}",
       "undo": "Undo",
       "reverted": "Back on {date}",
@@ -313,7 +319,12 @@
       },
       "tasksShifting": "{count, plural, =0 {No task moves.} one {1 task moves.} other {# tasks move.}}",
       "tasksShiftingNote": "Done tasks and due dates set by hand stay.",
-      "movedTasks": "{count, plural, one {1 task moved} other {# tasks moved}}"
+      "movedTasks": "{count, plural, one {1 task moved} other {# tasks moved}}",
+      "tasksShow": "{count, plural, one {Show # task} other {Show # tasks}}",
+      "tasksCaption": "Tasks with their old and new due day",
+      "task": "Task",
+      "overdueShort": "Overdue",
+      "overdueAfter": "{count, plural, one {# task would be overdue afterwards.} other {# tasks would be overdue afterwards.}}"
     },
     "happening": {
       "title": "This event is happening now",
@@ -365,7 +376,8 @@
       "empty": "Nothing filed yet. Notices, plans and contracts of this event go here.",
       "add": "Add document",
       "readOnly": "You can view documents but not add them.",
-      "count": "{count, plural, one {# document} other {# documents}}"
+      "count": "{count, plural, one {# document} other {# documents}}",
+      "kind": "Type"
     }
   }
 }

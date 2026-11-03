@@ -131,9 +131,11 @@ export function PermitEditForm({
     );
   }
 
-  const text = (name: keyof PermitFormValues, label: string, type = "text") => (
+  const text = (name: keyof PermitFormValues, label: string, type = "text", optional = true) => (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={fid(name)}>{label}</Label>
+      <Label htmlFor={fid(name)} optional={optional}>
+        {label}
+      </Label>
       <Input
         id={fid(name)}
         type={type}
@@ -154,14 +156,16 @@ export function PermitEditForm({
         submit();
       }}
     >
-      {text("title", t("form.title"))}
+      {text("title", t("form.title"), "text", false)}
       <div className="grid grid-cols-2 gap-3">
         {text("referenceNo", t("form.reference"))}
         {text("stickers", t("form.stickers"))}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={fid("authorityContactId")}>{t("form.authority")}</Label>
+          <Label htmlFor={fid("authorityContactId")} optional>
+            {t("form.authority")}
+          </Label>
           <select
             id={fid("authorityContactId")}
             value={values.authorityContactId}
@@ -178,7 +182,9 @@ export function PermitEditForm({
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={fid("responsibleStaffMemberId")}>{t("form.responsible")}</Label>
+          <Label htmlFor={fid("responsibleStaffMemberId")} optional>
+            {t("form.responsible")}
+          </Label>
           <select
             id={fid("responsibleStaffMemberId")}
             value={values.responsibleStaffMemberId}
@@ -204,7 +210,9 @@ export function PermitEditForm({
         {text("validUntil", t("form.validUntil"), "date")}
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={fid("conditions")}>{t("form.conditions")}</Label>
+        <Label htmlFor={fid("conditions")} optional>
+          {t("form.conditions")}
+        </Label>
         <textarea
           id={fid("conditions")}
           rows={4}
@@ -216,7 +224,9 @@ export function PermitEditForm({
         <p className="text-muted-foreground text-tiny">{t("conditionsHint")}</p>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={fid("notes")}>{t("form.notes")}</Label>
+        <Label htmlFor={fid("notes")} optional>
+          {t("form.notes")}
+        </Label>
         <textarea
           id={fid("notes")}
           rows={3}

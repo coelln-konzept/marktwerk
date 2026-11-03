@@ -14,6 +14,7 @@ import {
 import { NO_RHYTHM, type Rhythm, rhythmToRule } from "@/components/presets/rhythm";
 import { RhythmBuilder } from "@/components/presets/rhythm-builder";
 import { Button } from "@/components/ui/button";
+import { OptionalMark } from "@/components/ui/label";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { GenerationPreset } from "@/server/queries/presets";
 import type { VenueOption } from "@/server/queries/venues";
@@ -97,6 +98,7 @@ export function NewMarketForm({
           pricePerMCents: input.pricePerMCents,
           color: result.data.color,
           lastHeldOn: null,
+          plannedBySeason: {},
         },
         result.data.template,
       );
@@ -130,7 +132,9 @@ export function NewMarketForm({
         idPrefix="nm"
       />
       <details className="rounded-lg border px-3 py-2">
-        <summary className="cursor-pointer font-medium">{t("rhythm")}</summary>
+        <summary className="cursor-pointer font-medium">
+          {t("rhythm")} <OptionalMark />
+        </summary>
         <div className="pt-3">
           <RhythmBuilder
             rhythm={rhythm}

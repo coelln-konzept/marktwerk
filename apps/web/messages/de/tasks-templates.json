@@ -12,7 +12,7 @@
         "type": "Art",
         "version": "Version",
         "items": "Aufgaben",
-        "presets": "Gilt für Vorlagen",
+        "presets": "Genutzt von",
         "actions": "Aktionen"
       },
       "anyType": "Alle Arten",
@@ -21,7 +21,8 @@
       "draft": "Entwurf v{version}",
       "noPresets": "Keine Veranstaltungs-Vorlage verknüpft",
       "open": "Öffnen: {name}",
-      "hint": "Änderungen an einer Ablaufvorlage gelten für neu erzeugte Veranstaltungen. Bestehende Veranstaltungen ändern sich nur, wenn du die Vorlage dort ausdrücklich anwendest."
+      "hint": "Änderungen an einer Ablaufvorlage gelten für neu erzeugte Veranstaltungen. Bestehende Veranstaltungen ändern sich nur, wenn du die Vorlage dort ausdrücklich anwendest.",
+      "usedBy": "{count, plural, one {# Markt} other {# Märkte}}"
     },
     "form": {
       "newTitle": "Neue Ablaufvorlage",
@@ -42,13 +43,16 @@
       "archive": "Ablaufvorlage archivieren",
       "archiveHint": "Archivierte Ablaufvorlagen erzeugen keine Aufgaben mehr. Bestehende Aufgaben bleiben.",
       "archived": "„{name}“ archiviert",
-      "restored": "„{name}“ wieder da",
+      "restored": "„{name}“ wiederhergestellt",
       "undo": "Rückgängig"
     },
     "editor": {
       "back": "Zurück zur Bibliothek",
       "summary": "{count, plural, =0 {Keine Aufgaben} one {# Aufgabe} other {# Aufgaben}} · {hours} Std. je Veranstaltung",
-      "master": "Grundvorlage"
+      "master": "Grundvorlage",
+      "masterBanner": "Gilt für neu angelegte Märkte – {count, plural, =0 {es gibt noch keine bestehenden Märkte} one {1 bestehender Markt nutzt eine eigene Vorlage und wird hier nicht geändert} other {# bestehende Märkte nutzen eigene Vorlagen und werden hier nicht geändert}}.",
+      "masterBannerLink": "Welche Vorlage nutzt welcher Markt?",
+      "usedBanner": "Diese Vorlage liefert die Aufgaben für {count, plural, one {# Markt} other {# Märkte}}: {names}."
     },
     "versions": {
       "label": "Versionen",
@@ -77,16 +81,18 @@
       "publish": "Veröffentlichen",
       "publishTitle": "Version {version} veröffentlichen",
       "publishDescription": "Die Version ist danach unveränderlich und gilt für neu erzeugte Veranstaltungen. Bestehende Veranstaltungen ändern sich nicht.",
-      "note": "Was ist neu? (optional)",
+      "note": "Was ist neu?",
       "notePlaceholder": "z. B. Plakate früher bestellen",
       "retires": "Die bisherige Version v{version} wird zurückgezogen.",
       "publishConfirm": "Veröffentlichen",
       "published": "Version {version} veröffentlicht. Bestehende Veranstaltungen sind unverändert.",
-      "applyAction": "Auf Veranstaltungen anwenden…"
+      "applyAction": "Auf Veranstaltungen anwenden …"
     },
     "ruler": {
-      "caption": "Zeitstrahl (nur Ansicht): jeder Punkt ist eine Aufgabe, T ist der Anker",
-      "dot": "{title}, {offset}"
+      "caption": "Zeitstrahl (nur Ansicht): jeder Punkt steht für eine oder mehrere Aufgaben, T ist der Anker. Ab ±30 Tagen ist der Maßstab gestaucht.",
+      "dot": "{offset}: {titles}",
+      "anchorGroup": "Gerechnet ab {anchor}",
+      "hint": "Punkt berühren oder anwählen, dann steht hier, welche Aufgaben dahinter liegen. Ein Klick öffnet die erste."
     },
     "grid": {
       "title": "Aufgaben",
@@ -114,7 +120,7 @@
       "businessDays": "Werktage",
       "defaultTime": "Standard",
       "rowMenu": "Aktionen für {title}",
-      "add": "Zeile in „{phase}“ hinzufügen"
+      "add": "Aufgabe in „{phase}“ hinzufügen"
     },
     "menu": {
       "edit": "Bearbeiten",
@@ -133,10 +139,9 @@
       "done": "„{title}“ gelöscht"
     },
     "drawer": {
-      "newTitle": "Neue Zeile",
-      "editTitle": "Zeile bearbeiten",
-      "viewTitle": "Zeile ansehen",
-      "key": "Schlüssel: {key} (verbindet die Zeile über Versionen hinweg)",
+      "newTitle": "Neue Aufgabe",
+      "editTitle": "Aufgabe bearbeiten",
+      "viewTitle": "Aufgabe ansehen",
       "close": "Schließen",
       "title": "Aufgabe",
       "description": "Beschreibung",
@@ -144,7 +149,7 @@
       "category": "Kategorie",
       "dueLegend": "Wann fällig",
       "anchor": "Anker",
-      "offset": "Versatz (Tage)",
+      "offset": "Versatz in Tagen",
       "offsetHint": "Negativ = vor dem Anker, positiv = danach. −30 heißt „T-30“, 3 heißt „T+3“.",
       "dayMode": "Tage zählen",
       "time": "Uhrzeit",
@@ -177,10 +182,11 @@
       "draftHint": "Gilt für neue Veranstaltungen, sobald du veröffentlichst.",
       "cancel": "Abbrechen",
       "save": "Speichern",
-      "add": "Zeile hinzufügen",
+      "add": "Aufgabe hinzufügen",
       "saved": "„{title}“ gespeichert",
       "added": "„{title}“ hinzugefügt",
-      "unchanged": "Keine Änderungen zu speichern."
+      "unchanged": "Keine Änderungen zu speichern.",
+      "offsetNow": "Das heißt: {text}"
     },
     "links": {
       "title": "Gilt für Vorlagen",
@@ -196,11 +202,11 @@
       "title": "So funktioniert es",
       "published": "Veröffentlichte Versionen sind unveränderlich; Änderungen entstehen in einem Entwurf.",
       "newEvents": "Neue Veranstaltungen bekommen die Aufgaben der veröffentlichten Version.",
-      "apply": "Bestehende Veranstaltungen ändern sich nur über „Auf Veranstaltungen anwenden…“, nach Vorschau und ohne Vorauswahl.",
+      "apply": "Bestehende Veranstaltungen ändern sich nur über „Auf Veranstaltungen anwenden …“, nach Vorschau und ohne Vorauswahl.",
       "followAnchors": "Verschiebt sich eine Veranstaltung, ziehen offene Aufgaben mit; erledigte nie. Ohne eigene Uhrzeit sind Aufgaben um {time} Uhr fällig."
     },
     "apply": {
-      "open": "Auf Veranstaltungen anwenden…",
+      "open": "Auf Veranstaltungen anwenden …",
       "title": "Auf Veranstaltungen anwenden",
       "subtitle": "{name}, Version {version}",
       "close": "Schließen",
@@ -210,20 +216,21 @@
       "intro": "Hier übernehmen bestehende Veranstaltungen die veröffentlichte Version. Es ist nichts vorausgewählt: du entscheidest je Veranstaltung. Erledigte und von Hand angepasste Aufgaben bleiben, wie sie sind.",
       "changeNote": "Was ist neu:",
       "empty": "Keine bevorstehende Veranstaltung braucht diese Version.",
-      "selected": "{count} von {total} gewählt",
-      "selectChanged": "Alle mit Änderungen wählen",
+      "selected": "{count} gewählt",
+      "selectChanged": "Alle {count} mit Änderungen wählen",
       "clear": "Auswahl aufheben",
       "noChecklist": "Noch kein Ablauf aus dieser Vorlage",
       "fromVersion": "Aktuell auf Version {version}",
       "nothingToChange": "Keine Änderungen an den Aufgaben",
       "summary": {
-        "add": "{count, plural, =0 {keine neuen} one {# neue} other {# neue}}",
-        "update": "{count, plural, =0 {keine geändert} one {# geändert} other {# geändert}}",
-        "remove": "{count, plural, =0 {keine entfallen} one {# entfällt} other {# entfallen}}",
+        "add": "{count, plural, one {# neue} other {# neue}}",
+        "update": "{count} geändert",
+        "remove": "{count, plural, one {# entfällt} other {# entfallen}}",
         "keep": "{count, plural, one {# bleibt unverändert} other {# bleiben unverändert}}",
         "addLabel": "Neue Aufgabe",
         "updateLabel": "Aufgabe wird angepasst",
-        "removeLabel": "Aufgabe entfällt"
+        "removeLabel": "Aufgabe entfällt",
+        "overdue": "{count, plural, one {# wäre sofort überfällig} other {# wären sofort überfällig}}"
       },
       "changes": {
         "restored": "wieder in der Vorlage",
@@ -239,8 +246,8 @@
         "duty": "Rolle",
         "due": "Fälligkeit"
       },
-      "previewIntro": "{events, plural, one {# Veranstaltung} other {# Veranstaltungen}}: {added} neue, {updated} geänderte, {removed} entfallende Aufgaben.",
-      "markedRemoved": "wird als „nicht mehr in der Vorlage“ markiert, nicht gelöscht",
+      "previewIntro": "{events, plural, one {# Veranstaltung} other {# Veranstaltungen}}: {what}.",
+      "markedRemoved": "Aufgabe bleibt offen und wird als „Nicht mehr in der Vorlage“ markiert, nicht gelöscht",
       "keep": {
         "customized": "von Hand angepasst",
         "closed": "erledigt oder abgeschlossen"
@@ -250,14 +257,27 @@
       "back": "Zurück",
       "next": "Weiter zur Vorschau",
       "confirm": "{count, plural, one {Auf # Veranstaltung anwenden} other {Auf # Veranstaltungen anwenden}}",
-      "done": "{events, plural, one {# Veranstaltung} other {# Veranstaltungen}} aktualisiert: {added} neue, {updated} geänderte, {removed} entfallende Aufgaben",
+      "done": "Angewendet auf {names}: {what}",
       "errors": {
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
         "not_found": "Diese Ablaufvorlage gibt es nicht mehr.",
         "no_published_version": "Es gibt noch keine veröffentlichte Version.",
         "no_events": "Bitte mindestens eine Veranstaltung wählen.",
         "not_applicable": "Eine der Veranstaltungen braucht die Version nicht mehr (oder läuft nicht mehr). Die Seite wurde aktualisiert, es wurde nichts geändert."
-      }
+      },
+      "listCount": "{shown} von {total} Veranstaltungen angezeigt",
+      "hiddenUnchanged": "{count} ohne Änderungen ausgeblendet",
+      "search": "Veranstaltung suchen",
+      "onlyChanged": "Nur mit Änderungen",
+      "nothingChanged": "Keine Veranstaltung hat Änderungen. Ohne den Haken bei „Nur mit Änderungen“ siehst du alle.",
+      "noMatch": "Keine Veranstaltung passt zur Suche.",
+      "noDue": "ohne Fälligkeit",
+      "dueOn": "fällig {date}",
+      "wouldBeOverdue": "wäre sofort überfällig",
+      "overdueTotal": "{count, plural, one {# neue Aufgabe wäre} other {# neue Aufgaben wären}} sofort überfällig: Das Datum liegt schon in der Vergangenheit. Die Aufgabe entsteht trotzdem.",
+      "previewIntroNone": "{events, plural, one {# Veranstaltung} other {# Veranstaltungen}}: keine Änderungen an den Aufgaben.",
+      "doneNothing": "Angewendet auf {names}: keine Änderungen an den Aufgaben",
+      "doneNames": "{first} und {more} weitere"
     },
     "phases": {
       "pre": "Vorbereitung",
@@ -341,6 +361,17 @@
       "not_applicable": "Eine der Veranstaltungen braucht die Version nicht mehr.",
       "master_exists": "Es gibt schon eine Grundvorlage.",
       "master_protected": "Die Grundvorlage kann nicht archiviert werden."
+    },
+    "offset": {
+      "on": "am Tag selbst",
+      "before": "{amount} vorher",
+      "after": "{amount} danach",
+      "days": "{count, plural, one {# Tag} other {# Tage}}",
+      "workdays": "{count, plural, one {# Werktag} other {# Werktage}}",
+      "weeks": "{count, plural, one {# Woche} other {# Wochen}}",
+      "months": "ca. {count, plural, one {# Monat} other {# Monate}}",
+      "full": "{words} ({t})",
+      "onFull": "am Tag selbst ({t})"
     }
   }
 }

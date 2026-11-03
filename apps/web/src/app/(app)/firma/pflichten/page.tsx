@@ -125,90 +125,159 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
             </Link>
           </EmptyState>
         ) : (
-          <Table>
-            <caption className="sr-only">{to("caption")}</caption>
-            <THead>
-              <tr>
-                <TH>{to("cols.status")}</TH>
-                <TH>{to("cols.title")}</TH>
-                <TH>{to("cols.due")}</TH>
-                <TH>{to("cols.lastDone")}</TH>
-                <TH>{to("cols.responsible")}</TH>
-                {canWrite && (
-                  <TH>
-                    <span className="sr-only">{to("cols.actions")}</span>
-                  </TH>
-                )}
-              </tr>
-            </THead>
-            <tbody>
+          <>
+            {/* Phones (< 640 px): stacked rows, so Fällig and "Erledigt" are reachable without sideways scrolling. */}
+            <ul className="m-0 flex list-none flex-col p-0 sm:hidden">
               {rows.map((o) => (
-                <TR key={o.id}>
-                  <TD className="w-px whitespace-nowrap">
+                <li
+                  key={o.id}
+                  className="flex flex-col gap-2 border-border-subtle border-b px-4 py-3 last:border-b-0"
+                >
+                  <div>
                     <ObligationStatusBadge
                       status={o.status}
-                      daysLeft={o.daysLeft}
+                      dueOn={o.nextDueOn}
+                      today={today}
                       kmLeft={o.kmLeft}
                       trigger={o.trigger}
                     />
-                  </TD>
-                  {/* The title wraps; where it applies (Bezug) and how often (Intervall) sit under it, so no column can print over another. */}
-                  <TD className="min-w-64 max-w-[28rem]">
-                    <Link
-                      href={`/firma/pflichten/${o.id}` as never}
-                      className="inline-flex items-start gap-2 font-semibold text-accent-soft-foreground hover:underline"
-                    >
-                      <KindIcon
-                        kind={o.kind}
-                        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                      />
-                      <span>{o.title}</span>
-                    </Link>
-                    <div className="mt-0.5 flex flex-wrap gap-x-2 text-muted-foreground text-small">
-                      <TargetCell
-                        scope={o.scope}
-                        vehicleId={o.vehicleId}
-                        vehicleName={o.vehicleName}
-                        vehiclePlate={o.vehiclePlate}
-                        venueId={o.venueId}
-                        venueName={o.venueName}
-                      />
-                      <span aria-hidden>·</span>
-                      <IntervalText months={o.intervalMonths} km={o.intervalKm} />
-                    </div>
-                  </TD>
-                  <TD>
-                    <DueCell dueOn={o.nextDueOn} dueKm={o.nextDueKm} />
-                  </TD>
-                  <TD className="tabular whitespace-nowrap">
-                    {o.lastDoneOn ? (
-                      formatDate(o.lastDoneOn, locale)
-                    ) : (
-                      <span className="text-faint-foreground">{t("none")}</span>
-                    )}
-                  </TD>
-                  <TD>{o.responsibleName}</TD>
+                  </div>
+                  <Link
+                    href={`/firma/pflichten/${o.id}` as never}
+                    className="inline-flex items-start gap-2 font-semibold text-accent-soft-foreground"
+                  >
+                    <KindIcon
+                      kind={o.kind}
+                      className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                    />
+                    <span>{o.title}</span>
+                  </Link>
+                  <div className="flex flex-wrap gap-x-2 text-muted-foreground text-small">
+                    <TargetCell
+                      scope={o.scope}
+                      vehicleId={o.vehicleId}
+                      vehicleName={o.vehicleName}
+                      vehiclePlate={o.vehiclePlate}
+                      venueId={o.venueId}
+                      venueName={o.venueName}
+                    />
+                    <span aria-hidden>·</span>
+                    <IntervalText months={o.intervalMonths} km={o.intervalKm} />
+                  </div>
+                  <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-small">
+                    <dt className="text-muted-foreground">{to("cols.due")}</dt>
+                    <dd className="m-0">
+                      <DueCell dueOn={o.nextDueOn} dueKm={o.nextDueKm} />
+                    </dd>
+                    <dt className="text-muted-foreground">{to("cols.responsible")}</dt>
+                    <dd className="m-0">{o.responsibleName}</dd>
+                  </dl>
                   {canWrite && (
-                    <TD className="w-px whitespace-nowrap text-right">
-                      <CompleteButton
-                        size="sm"
-                        today={today}
-                        target={{
-                          id: o.id,
-                          title: o.title,
-                          kind: o.kind,
-                          intervalKm: o.intervalKm,
-                          onVehicle: o.scope === "vehicle",
-                          createsPayable: o.createsPayable,
-                          currentKm: o.currentKm,
-                        }}
-                      />
-                    </TD>
+                    <CompleteButton
+                      className="min-h-11 w-full"
+                      today={today}
+                      target={{
+                        id: o.id,
+                        title: o.title,
+                        kind: o.kind,
+                        intervalKm: o.intervalKm,
+                        onVehicle: o.scope === "vehicle",
+                        createsPayable: o.createsPayable,
+                        currentKm: o.currentKm,
+                      }}
+                    />
                   )}
-                </TR>
+                </li>
               ))}
-            </tbody>
-          </Table>
+            </ul>
+            <div className="hidden sm:block">
+              <Table>
+                <caption className="sr-only">{to("caption")}</caption>
+                <THead>
+                  <tr>
+                    <TH>{to("cols.status")}</TH>
+                    <TH>{to("cols.title")}</TH>
+                    <TH>{to("cols.due")}</TH>
+                    <TH>{to("cols.lastDone")}</TH>
+                    <TH>{to("cols.responsible")}</TH>
+                    {canWrite && (
+                      <TH>
+                        <span className="sr-only">{to("cols.actions")}</span>
+                      </TH>
+                    )}
+                  </tr>
+                </THead>
+                <tbody>
+                  {rows.map((o) => (
+                    <TR key={o.id}>
+                      <TD className="w-px whitespace-nowrap">
+                        <ObligationStatusBadge
+                          status={o.status}
+                          dueOn={o.nextDueOn}
+                          today={today}
+                          kmLeft={o.kmLeft}
+                          trigger={o.trigger}
+                        />
+                      </TD>
+                      {/* The title wraps; where it applies (Bezug) and how often (Intervall) sit under it, so no column can print over another. */}
+                      <TD className="min-w-64 max-w-[28rem]">
+                        <Link
+                          href={`/firma/pflichten/${o.id}` as never}
+                          className="inline-flex items-start gap-2 font-semibold text-accent-soft-foreground hover:underline"
+                        >
+                          <KindIcon
+                            kind={o.kind}
+                            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                          />
+                          <span>{o.title}</span>
+                        </Link>
+                        <div className="mt-0.5 flex flex-wrap gap-x-2 text-muted-foreground text-small">
+                          <TargetCell
+                            scope={o.scope}
+                            vehicleId={o.vehicleId}
+                            vehicleName={o.vehicleName}
+                            vehiclePlate={o.vehiclePlate}
+                            venueId={o.venueId}
+                            venueName={o.venueName}
+                          />
+                          <span aria-hidden>·</span>
+                          <IntervalText months={o.intervalMonths} km={o.intervalKm} />
+                        </div>
+                      </TD>
+                      <TD>
+                        <DueCell dueOn={o.nextDueOn} dueKm={o.nextDueKm} />
+                      </TD>
+                      <TD className="tabular whitespace-nowrap">
+                        {o.lastDoneOn ? (
+                          formatDate(o.lastDoneOn, locale)
+                        ) : (
+                          <span className="text-faint-foreground">{t("none")}</span>
+                        )}
+                      </TD>
+                      <TD>{o.responsibleName}</TD>
+                      {canWrite && (
+                        <TD className="w-px whitespace-nowrap text-right">
+                          <CompleteButton
+                            size="sm"
+                            today={today}
+                            target={{
+                              id: o.id,
+                              title: o.title,
+                              kind: o.kind,
+                              intervalKm: o.intervalKm,
+                              onVehicle: o.scope === "vehicle",
+                              createsPayable: o.createsPayable,
+                              currentKm: o.currentKm,
+                            }}
+                          />
+                        </TD>
+                      )}
+                    </TR>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          </>
         )}
       </Panel>
     </Page>

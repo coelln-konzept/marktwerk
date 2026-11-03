@@ -40,15 +40,15 @@
       "edit": "Bearbeiten",
       "tasksOwn": "Aufgaben: Grundvorlage-Kopie.",
       "tasksOpen": "Ansehen",
-      "tasksShared": "Aufgaben: {names}",
+      "tasksShared": "Aufgaben aus:",
       "tasksNone": "Aufgaben: noch keine Vorlage."
     },
     "editLabel": "Bearbeiten: {name}",
     "form": {
-      "editTitle": "Vorlage bearbeiten",
+      "editTitle": "Markt bearbeiten",
       "editCrumb": "Bearbeiten",
       "back": "Zurück zur Bibliothek",
-      "propagationHint": "Änderungen an der Vorlage gelten nur für Veranstaltungen, die du danach erzeugst. Bereits erzeugte Veranstaltungen bleiben unverändert.",
+      "propagationHint": "Änderungen am Markt gelten nur für Veranstaltungen, die du danach erzeugst. Bereits erzeugte Veranstaltungen bleiben unverändert.",
       "basics": {
         "title": "Grunddaten",
         "name": "Name",
@@ -58,7 +58,7 @@
         "retired": "(nicht mehr aktiv)",
         "duration": "Dauer (Tage)",
         "active": "Aktiv",
-        "activeHint": "Inaktive Märkte erscheinen nicht unter „Markt planen“. Mit dem Haken ist er wieder da."
+        "activeHint": "Inaktive Märkte erscheinen nicht unter „Markt planen“. Mit dem Haken erscheint er wieder."
       },
       "color": {
         "legend": "Farbe des Markts",
@@ -121,17 +121,17 @@
         "noRoles": "Noch keine Aufgaben angelegt."
       },
       "save": "Speichern",
-      "create": "Vorlage anlegen",
+      "create": "Markt anlegen",
       "cancel": "Abbrechen",
-      "saved": "Vorlage gespeichert",
-      "created": "Vorlage angelegt",
+      "saved": "Markt gespeichert",
+      "created": "Markt angelegt",
       "unchanged": "Keine Änderungen zu speichern.",
       "conflict": {
         "text": "Diese Vorlage wurde inzwischen von jemand anderem geändert. Deine Eingaben bleiben hier stehen.",
         "overwrite": "Meine Änderungen trotzdem speichern"
       },
       "errors": {
-        "summary": "{count, plural, one {Bitte prüfe das markierte Feld.} other {Bitte prüfe die # markierten Felder.}}",
+        "summary": "{count, plural, one {Bitte das markierte Feld prüfen.} other {Bitte die # markierten Felder prüfen.}}",
         "invalid_name": "Bitte einen Namen angeben (höchstens 120 Zeichen).",
         "invalid_duration": "Bitte 1 bis 14 Tage angeben.",
         "invalid_public_title": "Der öffentliche Titel darf höchstens 200 Zeichen lang sein.",
@@ -152,11 +152,13 @@
         "not_found": "Diese Vorlage gibt es nicht mehr.",
         "invalid_input": "Die Angaben sind unvollständig. Bitte die Seite neu laden.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
-      }
+      },
+      "tasksLink": "Aufgaben dieses Markts:",
+      "tasksOwn": "Eigene Aufgabenvorlage"
     }
   },
   "library": {
-    "subtitle": "Die Grundvorlage mit den Aufgaben, mit denen jeder Markt startet, die Märkte selbst und die älteren Ablaufvorlagen.",
+    "subtitle": "Die Grundvorlage mit den Aufgaben, mit denen jeder neue Markt startet, die Ablaufvorlagen, nach denen die bestehenden Märkte arbeiten, und die Märkte selbst.",
     "master": {
       "title": "Grundvorlage",
       "description": "Die Aufgaben, die jeder Markt braucht. Ein neuer Markt startet mit einer eigenen Kopie davon und passt sie für sich an.",
@@ -166,7 +168,7 @@
       "items": "{count, plural, =0 {Keine Aufgaben} one {# Aufgabe} other {# Aufgaben}}",
       "edit": "Grundvorlage bearbeiten",
       "view": "Grundvorlage ansehen",
-      "rule": "Änderungen gelten nur für Märkte, die du danach anlegst. Bestehende Märkte und Veranstaltungen ändern sich nicht.",
+      "rule": "Änderungen gelten nur für Märkte, die du danach anlegst. Bestehende Märkte und Veranstaltungen ändern sich nicht: Sie nutzen die Ablaufvorlagen weiter unten.",
       "none": "Es gibt noch keine Grundvorlage.",
       "noneHint": "Ohne Grundvorlage starten neue Märkte ohne Aufgaben.",
       "create": "Grundvorlage anlegen"
@@ -178,12 +180,23 @@
       "emptyHint": "Einen Markt legst du unter Veranstaltungen → Markt planen an.",
       "tasksLabel": "Aufgabenvorlage von {name}",
       "hint": "Neue Märkte legst du unter Veranstaltungen → Markt planen an.",
-      "count": "{count, plural, one {# Markt} other {# Märkte}} · {active} aktiv"
+      "count": "{count, plural, one {# Markt} other {# Märkte}} · {active} aktiv",
+      "cols": {
+        "tasks": "Aufgabenvorlage"
+      },
+      "tplOwn": "Eigene Vorlage",
+      "tplShared": "gemeinsam genutzt",
+      "tplDraft": "Entwurf",
+      "tplMeta": "{kind} · {version} · {count, plural, one {# Aufgabe} other {# Aufgaben}}"
     },
     "others": {
-      "title": "Weitere Ablaufvorlagen",
-      "summary": "{count, plural, =0 {keine} one {# Vorlage} other {# Vorlagen}} · bestehende Märkte nutzen sie noch",
-      "hint": "Die älteren Ablaufvorlagen je Veranstaltungsart. Märkte, die es schon vor der Grundvorlage gab, behalten ihre Aufgaben von hier."
+      "title": "Nicht verwendete Ablaufvorlagen",
+      "summary": "{count, plural, =0 {keine} one {# Vorlage} other {# Vorlagen}} ohne Markt",
+      "hint": "Ablaufvorlagen, die noch kein Markt nutzt. Hier legst du auch eine neue an."
+    },
+    "inUse": {
+      "title": "Ablaufvorlagen in Gebrauch",
+      "hint": "Nach diesen Vorlagen arbeiten die bestehenden Märkte. Eine neue Aufgabe für alle Flohmärkte legst du hier an, dann „Auf Veranstaltungen anwenden…“."
     }
   }
 }

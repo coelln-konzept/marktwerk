@@ -31,6 +31,7 @@ import {
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import { visibleTasks } from "../task-scope";
+import { getPermitHorizonDays } from "./permits";
 
 /*
  * The two cross-event board views: Bereitschaftsliste (one row per upcoming market) and the
@@ -115,7 +116,7 @@ export async function getReadinessList(
   if (events.length === 0) return { rows: [], categoryCounts: {} };
   const ids = events.map((e) => e.id);
 
-  const [taskRows, permitRows] = await Promise.all([
+  const [taskRows, permitRows, horizonDays] = await Promise.all([
     db
       .select({
         id: task.id,
@@ -149,10 +150,12 @@ export async function getReadinessList(
         status: permit.status,
         applyBy: permit.applyBy,
         validUntil: permit.validUntil,
+        expectedDecisionOn: permit.expectedDecisionOn,
       })
       .from(eventPermit)
       .innerJoin(permit, eq(permit.id, eventPermit.permitId))
       .where(and(inArray(eventPermit.eventId, ids), isNull(permit.archivedAt))),
+    getPermitHorizonDays(),
   ]);
 
   const tasksBy = new Map<string, ReturnType<typeof toTask>[]>();
@@ -179,7 +182,14 @@ export async function getReadinessList(
     );
     return {
       ...e,
-      ...summarizeReadiness(own, permitsBy.get(e.id) ?? [], e.startsOn, today, e.endsOn),
+      ...summarizeReadiness(
+        own,
+        permitsBy.get(e.id) ?? [],
+        e.startsOn,
+        today,
+        e.endsOn,
+        horizonDays,
+      ),
     };
   });
   return { rows, categoryCounts };

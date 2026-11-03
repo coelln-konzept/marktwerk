@@ -35,6 +35,8 @@ export type AblaufTaskInput = {
   dueOn: string | null;
   title: string;
   isKey: boolean;
+  /** Position in the template (`board_sort`): breaks ties on the same day so Aufbau comes before Abbau. */
+  boardSort?: number;
 };
 
 /** Which phase a task belongs to. Open tasks due today or earlier are always "now", whatever the phase. */
@@ -51,7 +53,10 @@ export function ablaufPhase(task: AblaufTaskInput, ctx: AblaufContext): AblaufPh
   return "week";
 }
 
-/** Within a phase: earliest due first (oldest overdue on top), Kernaufgaben before others on the same day. */
+/**
+ * Within a phase: earliest due first (oldest overdue on top), Kernaufgaben before others on the same day,
+ * then the template order (Aufbau → Veranstaltung → Abbau), the title only as the last tie-break.
+ */
 export function compareAblauf(a: AblaufTaskInput, b: AblaufTaskInput): number {
   if (a.dueOn !== b.dueOn) {
     if (a.dueOn === null) return 1;
@@ -59,6 +64,8 @@ export function compareAblauf(a: AblaufTaskInput, b: AblaufTaskInput): number {
     return a.dueOn < b.dueOn ? -1 : 1;
   }
   if (a.isKey !== b.isKey) return a.isKey ? -1 : 1;
+  const bySort = (a.boardSort ?? 0) - (b.boardSort ?? 0);
+  if (bySort !== 0) return bySort;
   return a.title.localeCompare(b.title, "de");
 }
 

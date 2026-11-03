@@ -38,6 +38,19 @@ type Field =
   | "notes"
   | "form";
 
+/** Required is the default (decision 2026-10-29); these may stay empty and get "(optional)". */
+const OPTIONAL_FIELDS: ReadonlySet<Field> = new Set([
+  "title",
+  "eventType",
+  "authority",
+  "windowStart",
+  "windowEnd",
+  "decision",
+  "fee",
+  "stickers",
+  "notes",
+]);
+
 const ERROR_FIELD: Record<string, Field> = {
   invalid_title: "title",
   invalid_category: "category",
@@ -182,7 +195,9 @@ export function RequirementForm({
 
   const field = (name: Field, label: string, control: React.ReactNode, hint?: React.ReactNode) => (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={fid(name)}>{label}</Label>
+      <Label htmlFor={fid(name)} optional={OPTIONAL_FIELDS.has(name)}>
+        {label}
+      </Label>
       {control}
       {hint && <p className="text-muted-foreground text-tiny">{hint}</p>}
     </div>

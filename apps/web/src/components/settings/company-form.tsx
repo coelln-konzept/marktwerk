@@ -2,7 +2,7 @@
 
 import { Check, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { saveCompanySettings } from "@/app/(app)/einstellungen/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,26 @@ type Values = Pick<CompanySettings, CompanyField>;
 type Errors = Partial<Record<CompanyField, SettingsFieldError>>;
 
 const MAX = 200;
+
+/** The order the fields appear in; the first one with an error gets the focus. */
+const FIELD_ORDER: CompanyField[] = [
+  "companyName",
+  "addressLine1",
+  "addressLine2",
+  "postalCode",
+  "city",
+  "country",
+  "email",
+  "phone",
+  "taxNumber",
+  "vatId",
+  "iban",
+  "bic",
+  "bundesland",
+  "defaultLocale",
+  "defaultDueTime",
+  "permitHorizonDays",
+];
 
 /** Options for the select fields; the server accepts exactly these. */
 export type CompanyFormOptions = { bundeslaender: string[]; locales: string[] };
@@ -46,6 +66,11 @@ export function CompanyForm({
   const [pending, startTransition] = useTransition();
   const [justSaved, setJustSaved] = useState(false);
   const formId = useId();
+  /** Set when a save came back with field errors; the effect moves the focus once they are on screen. */
+  const [focusRequest, setFocusRequest] = useState<{ field: CompanyField; n: number } | null>(null);
+  useEffect(() => {
+    if (focusRequest) document.getElementById(`${formId}-${focusRequest.field}`)?.focus();
+  }, [focusRequest, formId]);
   const dirty =
     !created || (Object.keys(values) as CompanyField[]).some((k) => values[k] !== saved[k]);
 
@@ -71,8 +96,11 @@ export function CompanyForm({
       try {
         const result = await saveCompanySettings(values);
         if (!result.ok) {
-          if (result.fields) setErrors(result.fields);
-          else setFailed(true);
+          if (result.fields) {
+            setErrors(result.fields);
+            const first = FIELD_ORDER.find((f) => result.fields?.[f]);
+            if (first) setFocusRequest((prev) => ({ field: first, n: (prev?.n ?? 0) + 1 }));
+          } else setFailed(true);
           return;
         }
         setErrors({});
@@ -95,6 +123,7 @@ export function CompanyForm({
       autoComplete?: string;
       className?: string;
       inputMode?: "tel" | "email" | "numeric";
+      optional?: boolean;
     } = {},
   ) => {
     const id = `${formId}-${field}`;
@@ -102,7 +131,9 @@ export function CompanyForm({
     const hint = t.has(`hints.${field}` as never) ? t(`hints.${field}` as never) : null;
     return (
       <div className={`flex flex-col gap-1.5 ${opts.className ?? ""}`}>
-        <Label htmlFor={id}>{t(`fields.${field}`)}</Label>
+        <Label htmlFor={id} optional={opts.optional}>
+          {t(`fields.${field}`)}
+        </Label>
         <Input
           id={id}
           type={opts.type ?? "text"}
@@ -147,10 +178,14 @@ export function CompanyForm({
           <PanelTitle id={`${formId}-address`}>{t("sections.address")}</PanelTitle>
         </PanelHeader>
         <PanelBody className={grid}>
-          {text("addressLine1", { autoComplete: "address-line1" })}
-          {text("addressLine2", { autoComplete: "address-line2" })}
-          {text("postalCode", { autoComplete: "postal-code", inputMode: "numeric" })}
-          {text("city", { autoComplete: "address-level2" })}
+          {text("addressLine1", { autoComplete: "address-line1", optional: true })}
+          {text("addressLine2", { autoComplete: "address-line2", optional: true })}
+          {text("postalCode", {
+            autoComplete: "postal-code",
+            inputMode: "numeric",
+            optional: true,
+          })}
+          {text("city", { autoComplete: "address-level2", optional: true })}
           {text("country", { autoComplete: "country" })}
         </PanelBody>
       </Panel>
@@ -160,8 +195,8 @@ export function CompanyForm({
           <PanelTitle id={`${formId}-contact`}>{t("sections.contact")}</PanelTitle>
         </PanelHeader>
         <PanelBody className={grid}>
-          {text("email", { type: "email", inputMode: "email" })}
-          {text("phone", { type: "tel", inputMode: "tel" })}
+          {text("email", { type: "email", inputMode: "email", optional: true })}
+          {text("phone", { type: "tel", inputMode: "tel", optional: true })}
         </PanelBody>
       </Panel>
 
@@ -181,10 +216,10 @@ export function CompanyForm({
           </span>
         </summary>
         <div className={`${grid} border-border-subtle border-t p-4`}>
-          {text("taxNumber")}
-          {text("vatId")}
-          {text("iban")}
-          {text("bic")}
+          {text("taxNumber", { optional: true })}
+          {text("vatId", { optional: true })}
+          {text("iban", { optional: true })}
+          {text("bic", { optional: true })}
         </div>
       </details>
 
@@ -293,16 +328,16 @@ export function CompanyForm({
 
           <div className="flex items-start gap-3 sm:col-span-2">
             <input
-              id={`${formId}-email`}
+              id={`${formId}-emailEnabled`}
               type="checkbox"
               checked={values.emailEnabled}
               onChange={(e) => set("emailEnabled", e.target.checked)}
-              aria-describedby={`${formId}-email-hint`}
+              aria-describedby={`${formId}-emailEnabled-hint`}
               className="mt-0.5 size-4 accent-primary"
             />
             <div className="flex flex-col gap-1">
-              <Label htmlFor={`${formId}-email`}>{t("fields.emailEnabled")}</Label>
-              <p id={`${formId}-email-hint`} className="text-muted-foreground text-tiny">
+              <Label htmlFor={`${formId}-emailEnabled`}>{t("fields.emailEnabled")}</Label>
+              <p id={`${formId}-emailEnabled-hint`} className="text-muted-foreground text-tiny">
                 {t("hints.emailEnabled")}
               </p>
             </div>

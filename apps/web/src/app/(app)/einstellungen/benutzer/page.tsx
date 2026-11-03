@@ -46,25 +46,25 @@ export default async function UsersSettingsPage() {
         { label: t("tabs.users") },
       ]}
     >
-      <SettingsHeader
-        actions={
-          <>
-            {/* Product decision open: invitation email vs. initial password. */}
-            <Button variant="default" disabled aria-describedby="invite-soon">
-              <UserPlus aria-hidden />
-              {t("users.invite")}
-            </Button>
-            <span id="invite-soon" className="text-muted-foreground text-small">
-              {t("users.inviteSoon")}
-            </span>
-          </>
-        }
-      />
+      <SettingsHeader />
 
-      <p className="m-0 flex items-center gap-2 text-muted-foreground text-small">
-        <Info aria-hidden className="size-4 shrink-0" />
-        {canManage ? t("users.subtitle", { count: users.length }) : t("users.readOnly")}
-      </p>
+      {/* The invite action lives in the content, not in the page header: there it pushed the tab bar down. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="m-0 flex items-center gap-2 text-muted-foreground text-small">
+          <Info aria-hidden className="size-4 shrink-0" />
+          {canManage ? t("users.subtitle", { count: users.length }) : t("users.readOnly")}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Product decision open: invitation email vs. initial password. */}
+          <Button variant="default" disabled aria-describedby="invite-soon">
+            <UserPlus aria-hidden />
+            {t("users.invite")}
+          </Button>
+          <span id="invite-soon" className="text-muted-foreground text-small">
+            {t("users.inviteSoon")}
+          </span>
+        </div>
+      </div>
 
       <Panel className="overflow-hidden">
         {users.length === 0 ? (

@@ -2,7 +2,6 @@ import {
   type CompanyKind,
   type CompanySeverity,
   companyDedupeKey,
-  isPermitMarketInReach,
   PERMIT_HORIZON_DEFAULT_DAYS,
   permitApplyKind,
   permitDecisionKind,
@@ -42,8 +41,8 @@ type Wanted = NewCompanyNotification & { snoozed: boolean };
  *
  * - Tasks of current markets: overdue, or due soon (today/tomorrow, Kernaufgaben 3 days ahead).
  * - Permits: apply-by within the permit horizon, a decision due within a week, and granted permits that
- *   end before a market that needs them. None for a permit whose next market is more than 6 months
- *   away (`isPermitMarketInReach`, decision 2026-10-28).
+ *   end before a market that needs them. Permits count by their own dates, not by how far away the
+ *   market is (decision 2026-10-29).
  *
  * Idempotent: the dedupe key holds subject, reason and due date. Afterwards every open company-wide
  * notification whose key is no longer wanted (task done/skipped/cancelled/archived, permit filed or granted
@@ -146,12 +145,6 @@ async function wantPermits(db: Database, today: string, horizon: number, out: Wa
   >`(select min(e.starts_on) from ${eventPermit} ep join ${event} e on e.id = ep.event_id
     where ep.permit_id = app.permit.id and ep.required and e.archived_at is null and e.status <> 'cancelled'
       and e.ends_on >= ${today} and e.starts_on > app.permit.valid_until)`;
-  // First day of the next market that needs the permit (the 6-month rule).
-  const nextMarket = sql<
-    string | null
-  >`(select min(e.starts_on) from ${eventPermit} ep join ${event} e on e.id = ep.event_id
-    where ep.permit_id = app.permit.id and ep.required and e.archived_at is null and e.status <> 'cancelled'
-      and e.ends_on >= ${today})`;
   const rows = await db
     .select({
       id: permit.id,
@@ -161,7 +154,6 @@ async function wantPermits(db: Database, today: string, horizon: number, out: Wa
       expectedDecisionOn: permit.expectedDecisionOn,
       validUntil: permit.validUntil,
       uncoveredFrom: uncovered,
-      nextMarketOn: nextMarket,
     })
     .from(permit)
     .where(
@@ -189,7 +181,6 @@ async function wantPermits(db: Database, today: string, horizon: number, out: Wa
     snoozed: false,
   });
   for (const p of rows) {
-    if (!isPermitMarketInReach(p.nextMarketOn, today)) continue;
     if ((p.status === "not_started" || p.status === "preparing") && p.applyBy) {
       const hit = permitApplyKind(p.applyBy, today, horizon);
       if (hit) out.push(make(p, "permit_apply_by", p.applyBy, hit.severity, "permit_apply_by"));

@@ -15,7 +15,7 @@ import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label, OptionalMark } from "@/components/ui/label";
 import { marketColorClass } from "@/components/ui/market-marker";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import type { PresetFormOptions } from "@/server/queries/presets";
@@ -308,7 +308,10 @@ export function PresetForm({
             {fieldError("duration")}
           </div>
           <fieldset className="flex flex-col gap-2 sm:col-span-2">
-            <legend className="mb-1 font-medium text-small">{tColor("legend")}</legend>
+            <legend className="mb-1 flex gap-2 font-medium text-small">
+              {tColor("legend")}
+              <OptionalMark />
+            </legend>
             <div className="flex flex-wrap items-center gap-2">
               {MARKET_COLORS.map((key) => (
                 <label key={key} className="cursor-pointer">
@@ -371,7 +374,9 @@ export function PresetForm({
         </PanelHeader>
         <PanelBody className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="preset-publicTitle">{t("public.publicTitle")}</Label>
+            <Label htmlFor="preset-publicTitle" optional>
+              {t("public.publicTitle")}
+            </Label>
             <Input
               id="preset-publicTitle"
               autoComplete="off"
@@ -382,7 +387,9 @@ export function PresetForm({
             {fieldError("publicTitle")}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="preset-publicText">{t("public.publicText")}</Label>
+            <Label htmlFor="preset-publicText" optional>
+              {t("public.publicText")}
+            </Label>
             <textarea
               id="preset-publicText"
               rows={5}
@@ -511,7 +518,9 @@ export function PresetForm({
             <div className="grid gap-4 sm:grid-cols-2">
               {options.roles.map((role) => (
                 <div key={role.key} className="flex flex-col gap-1.5">
-                  <Label htmlFor={`preset-duty-${role.key}`}>{roleName(role)}</Label>
+                  <Label htmlFor={`preset-duty-${role.key}`} optional>
+                    {roleName(role)}
+                  </Label>
                   <select
                     id={`preset-duty-${role.key}`}
                     className={SELECT_CLASS}
@@ -535,11 +544,6 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      {errorCount > 0 && (
-        <p role="alert" className="text-small text-status-critical">
-          {t("errors.summary", { count: errorCount })}
-        </p>
-      )}
       {formError && (
         <p role="alert" className="text-small text-status-critical">
           {message(formError)}
@@ -559,13 +563,19 @@ export function PresetForm({
         </div>
       )}
 
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button disabled={pending} onClick={() => router.push("/vorlagen" as never)}>
-          {t("cancel")}
-        </Button>
-        <Button type="submit" variant="default" aria-busy={pending} disabled={pending}>
-          {t(editing ? "save" : "create")}
-        </Button>
+      {/* Sticky: the form is about 2500 px long, Speichern and the error count stay in reach. */}
+      <div className="sticky bottom-0 z-10 -mx-4 -mb-6 flex flex-wrap items-center justify-between gap-3 border-t bg-card px-4 py-3 lg:-mx-7 lg:px-7">
+        <p role="alert" className="m-0 text-small text-status-critical">
+          {errorCount > 0 ? t("errors.summary", { count: errorCount }) : null}
+        </p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button disabled={pending} onClick={() => router.push("/vorlagen" as never)}>
+            {t("cancel")}
+          </Button>
+          <Button type="submit" variant="default" aria-busy={pending} disabled={pending}>
+            {t(editing ? "save" : "create")}
+          </Button>
+        </div>
       </div>
     </form>
   );
