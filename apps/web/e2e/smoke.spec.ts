@@ -450,7 +450,7 @@ test("Archiv: past events only, newest first; Als Vorlage speichern opens the pr
   await page.goto("/archiv");
   await expect(page).toHaveURL(/\/archiv\/veranstaltungen$/);
   await expect(page.getByRole("heading", { level: 1, name: "Archiv" })).toBeVisible();
-  const sections = page.getByRole("group", { name: "Bereich" });
+  const sections = page.getByRole("group", { name: "Archivbereich" });
   for (const name of ["Vergangene Veranstaltungen", "Dokumente", "Aktivität", "Alte Genehmigungen"])
     await expect(sections.getByRole("link", { name })).toBeVisible();
 
@@ -468,6 +468,36 @@ test("Archiv: past events only, newest first; Als Vorlage speichern opens the pr
   await dialog.getByRole("button", { name: "Abbrechen" }).last().click();
   await expect(dialog).toBeHidden();
   await expect(page).not.toHaveURL(/vorlage=/);
+});
+
+test("Archiv: 50 rows per page with a pager; Aktivität, Alte Genehmigungen and Dokumente render", async ({
+  page,
+}) => {
+  await page.goto("/archiv/veranstaltungen");
+  const pager = page.getByRole("navigation", { name: "Seiten" });
+  await expect(page.locator("tbody tr[data-row]")).toHaveCount(50);
+  await expect(pager.getByText(/^1–50 von \d+$/)).toBeVisible();
+  await pager.getByRole("link", { name: "Nächste Seite" }).click();
+  await expect(page).toHaveURL(/seite=2/);
+  await expect(pager.getByRole("link", { name: "Seite 2" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
+  await page.goto("/archiv/aktivitaet");
+  await expect(page.getByRole("columnheader", { name: "Änderung" })).toBeVisible();
+  await page.waitForLoadState("networkidle"); // the select submits on change once hydrated
+  await page.getByLabel("Bereich", { exact: true }).selectOption("permit");
+  await expect(page).toHaveURL(/bereich=permit/);
+
+  await page.goto("/archiv/genehmigungen");
+  const row = page.locator("tbody tr[data-row]").first();
+  await expect(row).toBeVisible();
+  await row.click();
+  await expect(page).toHaveURL(/genehmigung=/);
+
+  await page.goto("/archiv/dokumente");
+  await expect(page.getByPlaceholder("Dateiname oder Beschreibung")).toBeVisible();
 });
 
 test("Ort page: events and markets are the first two boxes; Alle Veranstaltungen opens the filtered list", async ({

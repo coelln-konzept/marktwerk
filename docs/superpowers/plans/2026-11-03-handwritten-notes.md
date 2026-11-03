@@ -196,7 +196,8 @@ dialog via the event page `?bearbeiten=1`) and the UT-14 status items.
 > Product owner: a separate **Archiv** (under Stammdaten) with Vergangene Veranstaltungen, Dokumente, Aktivität
 > and Alte Genehmigungen. Built first: the Archiv frame and Vergangene Veranstaltungen with "Als Vorlage
 > speichern" (prefilled `NewMarketForm` in a modal, `createMarket(…, { fromEventId })` copies the event's market
-> template via `copyMasterForMarket(…, sourceTemplateId)`). The other three sections are placeholders, next.
+> template via `copyMasterForMarket(…, sourceTemplateId)`). The other three sections followed the same day (Dokumente, Aktivität, Alte Genehmigungen;
+> `server/queries/archive.ts`), and every Archiv list pages at 50 rows (`components/ui/pager.tsx`).
 
 **Files:**
 - Modify: `apps/web/src/components/event-detail/event-actions.tsx:19` ("Als Vorlage speichern")

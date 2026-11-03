@@ -12,6 +12,7 @@ import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
+import { PAGE_SIZE, Pager, pageOf } from "@/components/ui/pager";
 import { Panel } from "@/components/ui/panel";
 import { LinkRow } from "@/components/ui/row-link";
 import { EmptyState } from "@/components/ui/states";
@@ -59,6 +60,8 @@ export default async function ArchiveEventsPage({
   for (const r of fetched) counts[r.typeKey] = (counts[r.typeKey] ?? 0) + 1;
   // Newest first: the archive is looked back into.
   const rows = (typeKey ? fetched.filter((r) => r.typeKey === typeKey) : fetched).toReversed();
+  const page = pageOf(param(sp.seite), rows.length);
+  const shown = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const typeName = (r: { typeNameDe: string; typeNameEn: string }) =>
     locale === "en" ? r.typeNameEn : r.typeNameDe;
 
@@ -100,7 +103,7 @@ export default async function ArchiveEventsPage({
           <FilterGroup label={t("types")} wide>
             <FilterChips>
               <FilterChip
-                href={hrefWith(PATH, sp, { art: undefined, vorschau: undefined })}
+                href={hrefWith(PATH, sp, { art: undefined, vorschau: undefined, seite: undefined })}
                 active={!typeKey}
                 count={fetched.length}
               >
@@ -109,7 +112,11 @@ export default async function ArchiveEventsPage({
               {types.map((type) => (
                 <FilterChip
                   key={type.key}
-                  href={hrefWith(PATH, sp, { art: type.key, vorschau: undefined })}
+                  href={hrefWith(PATH, sp, {
+                    art: type.key,
+                    vorschau: undefined,
+                    seite: undefined,
+                  })}
                   active={typeKey === type.key}
                   count={counts[type.key] ?? 0}
                 >
@@ -150,7 +157,7 @@ export default async function ArchiveEventsPage({
                 </tr>
               </THead>
               <tbody className="max-sm:block">
-                {rows.map((r) => {
+                {shown.map((r) => {
                   const href = `/veranstaltungen/${r.id}`;
                   const peek = hrefWith(PATH, sp, { vorschau: r.id, vorlage: undefined });
                   return (
@@ -221,6 +228,17 @@ export default async function ArchiveEventsPage({
           </KeyboardRows>
         )}
       </Panel>
+      <Pager
+        page={page}
+        total={rows.length}
+        href={(n) =>
+          hrefWith(PATH, sp, {
+            seite: n === 1 ? undefined : n,
+            vorschau: undefined,
+            vorlage: undefined,
+          })
+        }
+      />
 
       {vorschauId && (
         <EventVorschau id={vorschauId} closeHref={hrefWith(PATH, sp, { vorschau: undefined })} />

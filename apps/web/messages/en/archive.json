@@ -3,16 +3,11 @@
     "title": "Archive",
     "subtitle": "Everything past in one place: events, documents, activity and old permits.",
     "sections": {
-      "label": "Section",
+      "label": "Archive section",
       "events": "Past events",
       "documents": "Documents",
       "activity": "Activity",
       "permits": "Old permits"
-    },
-    "soon": {
-      "documents": "All uploaded documents in one place come next.",
-      "activity": "The company log (who changed what, when) comes next.",
-      "permits": "Expired, superseded and not required permits come next."
     },
     "events": {
       "count": "{count, plural, =0 {No past events} one {# past event} other {# past events}}",
@@ -42,6 +37,101 @@
       "created": "Market “{name}” created{tasks, plural, =0 {} one { with # task} other { with # tasks}}.",
       "open": "Open in the library",
       "notFound": "This event no longer exists."
+    },
+    "documents": {
+      "search": "File name or description",
+      "kind": "Kind",
+      "kindAll": "All kinds",
+      "caption": "All documents, newest first",
+      "cols": {
+        "file": "File",
+        "kind": "Kind",
+        "for": "Belongs to",
+        "by": "Uploaded",
+        "size": "Size"
+      },
+      "empty": "No documents found.",
+      "reset": "Reset filters",
+      "open": "Open “{name}”",
+      "byOn": "{name} · {date}",
+      "onlyDate": "{date}",
+      "task": "Task: {title}",
+      "none": "–"
+    },
+    "activity": {
+      "area": "Area",
+      "areaAll": "Everything",
+      "areas": {
+        "event": "Events",
+        "task": "Tasks",
+        "permit": "Permits",
+        "document": "Documents",
+        "template": "Markets and templates"
+      },
+      "caption": "Every change in the company, newest first",
+      "cols": {
+        "when": "When",
+        "who": "Who",
+        "what": "Change",
+        "about": "About"
+      },
+      "system": "System",
+      "empty": "No changes yet.",
+      "noAccess": "The company log is for the owner and management.",
+      "actions": {
+        "task_status": "Task: status → {status}",
+        "task_undo": "Task: undone",
+        "task_move": "Task moved",
+        "task_snooze": "Task snoozed",
+        "task_unsnooze": "Snooze lifted",
+        "task_create": "Task created",
+        "task_update": "Task edited",
+        "task_assign": "Task assigned",
+        "task_comment": "Comment on a task",
+        "permit_status": "Permit: status → {status}",
+        "permit_create": "Permit created",
+        "permit_update": "Permit edited",
+        "permit_archive": "Permit removed",
+        "permit_restore": "Permit restored",
+        "permit_link": "Permit linked to an event",
+        "permit_unlink": "Event removed from permit",
+        "event_create": "Event created",
+        "event_status": "Event: status → {status}",
+        "event_update": "Event edited",
+        "event_move": "Event moved",
+        "event_duty": "Responsibility changed",
+        "event_update_notes": "Notes changed",
+        "document_upload": "Document uploaded",
+        "document_archive": "Document removed",
+        "document_restore": "Document restored",
+        "preset_create": "Market created",
+        "preset_update": "Market edited",
+        "template_create": "Template created",
+        "template_publish": "Template published",
+        "notification_snooze": "Notice snoozed",
+        "notification_restore": "Notice restored"
+      },
+      "other": "Changed ({action})"
+    },
+    "permits": {
+      "search": "Title, venue or reference",
+      "caption": "Superseded, not required and expired permits",
+      "cols": {
+        "permit": "Permit",
+        "venue": "Venue",
+        "state": "Status",
+        "validUntil": "Valid until",
+        "season": "Season"
+      },
+      "empty": "No old permits found.",
+      "reset": "Reset search"
     }
+  },
+  "pager": {
+    "label": "Pages",
+    "range": "{from}–{to} of {total}",
+    "prev": "Previous page",
+    "next": "Next page",
+    "page": "Page {n}"
   }
 }
