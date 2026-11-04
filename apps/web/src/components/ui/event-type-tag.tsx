@@ -4,10 +4,10 @@ export const EVENT_TYPE_KEYS = ["flea", "antique", "city_festival", "food_wine"]
 export type EventTypeKey = (typeof EVENT_TYPE_KEYS)[number];
 
 const STYLES: Record<EventTypeKey, string> = {
-  flea: "bg-type-flea-bg text-type-flea",
-  antique: "bg-type-antique-bg text-type-antique",
-  city_festival: "bg-type-city-festival-bg text-type-city-festival",
-  food_wine: "bg-type-food-wine-bg text-type-food-wine",
+  flea: "bg-type-flea-bg text-type-flea-strong",
+  antique: "bg-type-antique-bg text-type-antique-strong",
+  city_festival: "bg-type-city-festival-bg text-type-city-festival-strong",
+  food_wine: "bg-type-food-wine-bg text-type-food-wine-strong",
 };
 
 const SQUARE: Record<EventTypeKey, string> = {
@@ -43,7 +43,8 @@ export function EventTypeMarker({
   );
 }
 
-/** Muted identity colour with a square marker; kept apart from status colours. */
+/** Muted identity colour with a square marker; kept apart from status colours. Text in the `-strong`
+ * stop (≥ 4.5:1 on the tag surface, also on the tinted events list rows, CF9-4). */
 export function EventTypeTag({
   typeKey,
   children,

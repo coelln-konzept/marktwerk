@@ -89,23 +89,29 @@
   /* Event types: muted identity colours, never used for status */
   --type-flea: light-dark(#8e3a5c, #eba2c1);
   --type-flea-bg: light-dark(#f6e7ed, #3a2030);
+  --type-flea-strong: light-dark(#79314e, #f0b9d0); /* tag text, CF9-4 */
   --type-antique: light-dark(#6b4c2c, #ddbc92);
   --type-antique-bg: light-dark(#f1e8dc, #33281b);
+  --type-antique-strong: light-dark(#5b4125, #e6cdad); /* tag text, CF9-4 */
   --type-city-festival: light-dark(#3b4b86, #aebbf0);
   --type-city-festival-bg: light-dark(#e8ebf5, #232a42);
+  --type-city-festival-strong: light-dark(#324072, #c2ccf4); /* tag text, CF9-4 */
   --type-food-wine: light-dark(#56632a, #c8d584);
   --type-food-wine-bg: light-dark(#edf0dc, #2a2f17);
+  --type-food-wine-strong: light-dark(#495424, #d6e0a3); /* tag text, CF9-4 */
 
-  /* Market colour labels (Marktfarbe): muted, away from the status hues; bars and markers only */
-  --market-plum: light-dark(#8a4f7d, #d9a6cc);
-  --market-rose: light-dark(#b4637a, #eaa5b8);
-  --market-brown: light-dark(#7b5a3c, #d4b08c);
-  --market-sand: light-dark(#9b8457, #dac9a0);
-  --market-olive: light-dark(#6f7a2f, #c5d07e);
-  --market-petrol: light-dark(#3f7178, #93c8cf);
-  --market-cyan: light-dark(#2f7f95, #8fcfe0);
-  --market-slate: light-dark(#5a6b7d, #b5c3d1);
-  --market-indigo: light-dark(#4f56a3, #aab0ee);
+  /* Market colour labels (Marktfarbe): ten clearly distinct hues (CF9-4). Identity only, never status
+     (status always has icon + text). A thin bar/marker next to the name everywhere; on the events list
+     also a row tint (`.market-row` below). Keys stay, names change in templates.json. */
+  --market-plum: light-dark(#a2337f, #ec8cc8);
+  --market-rose: light-dark(#d0455f, #f6a1a6);
+  --market-brown: light-dark(#8a5a2b, #cfa27a);
+  --market-sand: light-dark(#b98310, #f2cc5c); /* amber */
+  --market-olive: light-dark(#5f8a1c, #b7d77a);
+  --market-petrol: light-dark(#0f8a6e, #7fd8bf); /* teal */
+  --market-cyan: light-dark(#1590b0, #7cd6ec);
+  --market-slate: light-dark(#1f5fdb, #8aacf8); /* blue */
+  --market-indigo: light-dark(#6e38c4, #bea4f7); /* violet */
   --market-graphite: light-dark(#4a4945, #c9c7c2);
 
   /* Shell */
@@ -209,12 +215,16 @@
   --color-status-waiting-dot: var(--status-waiting-dot);
   --color-type-flea: var(--type-flea);
   --color-type-flea-bg: var(--type-flea-bg);
+  --color-type-flea-strong: var(--type-flea-strong);
   --color-type-antique: var(--type-antique);
   --color-type-antique-bg: var(--type-antique-bg);
+  --color-type-antique-strong: var(--type-antique-strong);
   --color-type-city-festival: var(--type-city-festival);
   --color-type-city-festival-bg: var(--type-city-festival-bg);
+  --color-type-city-festival-strong: var(--type-city-festival-strong);
   --color-type-food-wine: var(--type-food-wine);
   --color-type-food-wine-bg: var(--type-food-wine-bg);
+  --color-type-food-wine-strong: var(--type-food-wine-strong);
   --color-market-plum: var(--market-plum);
   --color-market-rose: var(--market-rose);
   --color-market-brown: var(--market-brown);
@@ -276,4 +286,45 @@
 
 @utility tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Events list rows tinted in the market colour (CF9-4, option B; `marketRowClass` sets `--row-tint`).
+ * Rest: a light tint. Hover: the same hue, stronger. Selected (Vorschau open): stronger tint plus a 2px
+ * inset outline in the market colour, so it differs from hover by shape, not colour alone. Keyboard focus:
+ * the app's focus ring (inset, the table scrolls), tint unchanged; focused and selected: ring outside,
+ * market outline inside. Dark mode mixes a little more colour in to read on the dark card (percentages
+ * are variables, set per data-theme like the `dark:` variant above; 24% keeps link text at 4.5:1).
+ * Unlayered on purpose: it must beat the row's `hover:bg-hover aria-selected:bg-selected` utilities.
+ */
+.market-row {
+  --row-mix: 12%;
+  --row-mix-strong: 22%;
+  /* Secondary text (KW, icons) one step stronger so it keeps 4.5:1 on the strongest tint. */
+  --muted-foreground: var(--foreground-2);
+  background-color: color-mix(in oklab, var(--row-tint) var(--row-mix), transparent);
+}
+:where([data-theme="dark"]) .market-row {
+  --row-mix: 16%;
+  --row-mix-strong: 24%;
+}
+@media (prefers-color-scheme: dark) {
+  :where([data-theme="system"]) .market-row {
+    --row-mix: 16%;
+    --row-mix-strong: 24%;
+  }
+}
+.market-row:hover,
+.market-row[aria-selected="true"] {
+  background-color: color-mix(in oklab, var(--row-tint) var(--row-mix-strong), transparent);
+}
+.market-row[aria-selected="true"] {
+  box-shadow: inset 0 0 0 2px var(--row-tint);
+}
+.market-row:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.market-row[aria-selected="true"]:focus-visible {
+  box-shadow: inset 0 0 0 4px var(--row-tint);
 }

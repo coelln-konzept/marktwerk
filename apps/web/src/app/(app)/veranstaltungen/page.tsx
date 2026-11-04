@@ -16,7 +16,7 @@ import { AutoSubmitSelect } from "@/components/ui/auto-submit";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
-import { MarketMarker } from "@/components/ui/market-marker";
+import { MarketMarker, marketRowClass } from "@/components/ui/market-marker";
 import { Panel } from "@/components/ui/panel";
 import { LinkRow } from "@/components/ui/row-link";
 import { EmptyState } from "@/components/ui/states";
@@ -388,6 +388,8 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                       </TGroup>
                     ) : null;
                   openMonth = month;
+                  // Cancelled markets stay untinted (muted text, no colour noise).
+                  const tint = r.status !== "cancelled" ? marketRowClass(r.color) : undefined;
                   return (
                     <Fragment key={r.id}>
                       {header}
@@ -399,7 +401,8 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                         data-peek={peek}
                         aria-selected={vorschauId === r.id}
                         className={cn(
-                          "outline-hidden focus-visible:bg-selected",
+                          // Tinted rows: focus = the focus ring on top of the tint (globals.css .market-row).
+                          tint ?? "outline-hidden focus-visible:bg-selected",
                           "max-sm:grid max-sm:grid-cols-[auto_auto_1fr_auto] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-0.5 max-sm:px-3 max-sm:py-2.5",
                           r.status === "cancelled" && "text-muted-foreground",
                         )}
