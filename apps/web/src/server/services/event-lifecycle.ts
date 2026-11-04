@@ -8,8 +8,8 @@ import {
   requiresReason,
 } from "@marktwerk/core/events/lifecycle";
 import { insertNotifications } from "@marktwerk/db";
-import { event, eventDuty, eventPermit, permit } from "@marktwerk/db/schema";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { auditLog, event, eventDuty, eventPermit, permit, task } from "@marktwerk/db/schema";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
@@ -50,9 +50,87 @@ async function lockEvent(tx: Tx, id: string) {
   return row;
 }
 
+/** Tasks that are still to be done (the statuses before done / skipped / cancelled). */
+const OPEN_TASK = ["todo", "in_progress", "waiting_external", "blocked"] as const;
+type OpenTaskStatus = (typeof OPEN_TASK)[number];
+const isOpenTaskStatus = (v: unknown): v is OpenTaskStatus =>
+  typeof v === "string" && (OPEN_TASK as readonly string[]).includes(v);
+
+type CancelledTask = { id: string; from: OpenTaskStatus };
+
+/**
+ * THE one place that cancels the tasks of a cancelled event (product owner 2026-11-04): every open task of
+ * the event becomes "cancelled" so it disappears from all lists; done / skipped / cancelled ones stay as
+ * history. Returns `{id, from}` for the audit diff so the same tasks can be reopened later.
+ * Call inside the transaction of every change that sets an event to "cancelled".
+ */
+async function cancelOpenTasksOfEvent(tx: Tx, eventId: string): Promise<CancelledTask[]> {
+  const open = await tx
+    .select({ id: task.id, from: task.status })
+    .from(task)
+    .where(and(eq(task.eventId, eventId), inArray(task.status, [...OPEN_TASK])))
+    .orderBy(task.id)
+    .for("update");
+  if (open.length === 0) return [];
+  await tx
+    .update(task)
+    .set({ status: "cancelled" })
+    .where(
+      inArray(
+        task.id,
+        open.map((o) => o.id),
+      ),
+    );
+  return open.filter((o): o is CancelledTask => isOpenTaskStatus(o.from));
+}
+
+/**
+ * Reopens the tasks recorded by the most recent cancellation of the event: the latest "event.status" audit
+ * entry that carries `cancelledTasks` (a normal cancellation, an undo back to "abgesagt" or the migration
+ * backfill) unless a newer entry already reopened them (`reopenedTaskIds`). Each task goes back to its
+ * recorded status, but only while it is still "cancelled" (someone may have changed it since).
+ */
+async function reopenTasksOfEvent(tx: Tx, eventId: string): Promise<string[]> {
+  const [last] = await tx
+    .select({ diff: auditLog.diff })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.action, "event.status"),
+        eq(auditLog.entityId, eventId),
+        sql`(${auditLog.diff} ? 'cancelledTasks' or ${auditLog.diff} ? 'reopenedTaskIds')`,
+      ),
+    )
+    .orderBy(desc(auditLog.at), desc(auditLog.id))
+    .limit(1);
+  const recorded = (last?.diff as { cancelledTasks?: unknown } | null)?.cancelledTasks;
+  if (!Array.isArray(recorded)) return [];
+  const reopened: string[] = [];
+  for (const entry of recorded as { id?: unknown; from?: unknown }[]) {
+    if (typeof entry?.id !== "string" || !isOpenTaskStatus(entry.from)) continue;
+    const rows = await tx
+      .update(task)
+      .set({ status: entry.from })
+      .where(and(eq(task.id, entry.id), eq(task.eventId, eventId), eq(task.status, "cancelled")))
+      .returning({ id: task.id });
+    reopened.push(...rows.map((r) => r.id));
+  }
+  return reopened;
+}
+
+/** The task side of a status change: cancel when entering "abgesagt", reopen when leaving it. */
+async function cascadeToTasks(tx: Tx, eventId: string, from: EventStatus, to: EventStatus) {
+  if (to === "cancelled" && from !== "cancelled")
+    return { cancelledTasks: await cancelOpenTasksOfEvent(tx, eventId) };
+  if (from === "cancelled" && to !== "cancelled")
+    return { reopenedTaskIds: await reopenTasksOfEvent(tx, eventId) };
+  return {};
+}
+
 /**
  * Moves an event through its lifecycle (packages/core events/lifecycle). Cancelling needs a reason.
- * Writes audit "event.status" with {from, to, reason?}.
+ * Writes audit "event.status" with {from, to, reason?}. Cancelling also cancels the event's open tasks
+ * (`cancelledTasks: [{id, from}]` in the diff); leaving "abgesagt" reopens them (`reopenedTaskIds`).
  */
 export async function changeEventStatus(
   actor: Actor,
@@ -73,12 +151,18 @@ export async function changeEventStatus(
       .update(event)
       .set({ status: to, cancelledReason: requiresReason(to) ? trimmed : null })
       .where(eq(event.id, id));
+    const cascade = await cascadeToTasks(tx, id, current.status, to);
     await audit(tx, actor.id, [
       {
         action: "event.status",
         entityType: "event",
         entityId: id,
-        diff: { from: current.status, to, ...(requiresReason(to) ? { reason: trimmed } : {}) },
+        diff: {
+          from: current.status,
+          to,
+          ...(requiresReason(to) ? { reason: trimmed } : {}),
+          ...cascade,
+        },
       },
     ]);
     return { from: current.status, to, previousReason: current.cancelledReason };
@@ -213,12 +297,13 @@ export async function revertEventStatus(
       .update(event)
       .set({ status: previous, cancelledReason: reason })
       .where(eq(event.id, id));
+    const cascade = await cascadeToTasks(tx, id, expected, previous);
     await audit(tx, actor.id, [
       {
         action: "event.status",
         entityType: "event",
         entityId: id,
-        diff: { from: expected, to: previous, undo: true },
+        diff: { from: expected, to: previous, undo: true, ...cascade },
       },
     ]);
     return { from: expected, to: previous };

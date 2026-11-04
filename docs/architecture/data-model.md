@@ -115,7 +115,12 @@ erDiagram
   `confirmed` **automatically** once it has at least one required permit and all of them are granted
   (`shouldAutoConfirm`, evaluated by `autoConfirmEvents` after a permit is granted, linked or marked "not
   needed", and at the end of the logbook fill; audit `event.status` with `auto: true`, notification reason
-  `event_confirmed`). No required permit → stays planned (manual confirmation). Never moves back,
+  `event_confirmed`). **Cancelling an event cancels its open tasks** (`todo | in_progress | waiting_external |
+  blocked` → `cancelled`, same transaction, `changeEventStatus` is the only path; done/skipped stay): audit
+  `event.status` carries `cancelledTasks: [{id, from}]`. Leaving `cancelled` (undo toast, or → draft) reopens exactly
+  the tasks of the latest audit entry with `cancelledTasks` (each to its `from`, only if still `cancelled`; diff
+  `reopenedTaskIds`). Migration 0012 backfilled existing cancelled events (entry `backfill: true`, no actor).
+  No required permit → stays planned (manual confirmation). Never moves back,
   the permit health keeps showing a withdrawn permit,
   **booking flags**: `booking_open` (bool), `fully_booked` (bool), `car_spaces_full` (bool);
   `price_per_m_cents` (copied from preset, overridable), `booking_fee_cents`, `target_revenue_cents?`,

@@ -47,7 +47,7 @@
     },
     "cancel": {
       "title": "Veranstaltung absagen",
-      "description": "„{name}“ wird als abgesagt markiert. Der Grund erscheint im Verlauf; du kannst die Absage direkt danach rückgängig machen.",
+      "description": "„{name}“ wird als abgesagt markiert. Offene Aufgaben werden mit abgesagt. Der Grund erscheint im Verlauf; du kannst die Absage direkt danach rückgängig machen.",
       "reason": "Grund der Absage",
       "placeholder": "z. B. Genehmigung nicht erteilt, Wetterwarnung …",
       "submit": "Absagen",

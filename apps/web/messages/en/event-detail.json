@@ -47,7 +47,7 @@
     },
     "cancel": {
       "title": "Cancel event",
-      "description": "“{name}” will be marked as cancelled. The reason shows in the history; you can undo the cancellation right afterwards.",
+      "description": "“{name}” will be marked as cancelled. Open tasks are cancelled with it. The reason shows in the history; you can undo the cancellation right afterwards.",
       "reason": "Reason for cancelling",
       "placeholder": "e.g. permit refused, weather warning …",
       "submit": "Cancel event",
