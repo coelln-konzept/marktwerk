@@ -33,7 +33,20 @@ import {
   templateItem,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
@@ -1010,8 +1023,9 @@ export async function restorePermitStatus(
       })
       .where(eq(permit.id, id));
     const ids = closedTaskIds.filter(isUuid);
+    let reopened: string[] = [];
     if (ids.length > 0) {
-      await tx
+      const rows = await tx
         .update(task)
         .set({ status: "todo", completedAt: null, completedByStaffMemberId: null })
         .where(
@@ -1019,15 +1033,25 @@ export async function restorePermitStatus(
             inArray(task.id, ids),
             eq(task.permitId, id),
             or(eq(task.status, "done"), eq(task.status, "cancelled")),
+            // Tasks of a cancelled event stay cancelled with it (cancel cascade); tasks without an event are unaffected.
+            or(
+              isNull(task.eventId),
+              notInArray(
+                task.eventId,
+                tx.select({ id: event.id }).from(event).where(eq(event.status, "cancelled")),
+              ),
+            ),
           ),
-        );
+        )
+        .returning({ id: task.id });
+      reopened = rows.map((r) => r.id);
     }
     await audit(tx, actor.id, [
       {
         action: "permit.status",
         entityType: "permit",
         entityId: id,
-        diff: { from: current.status, to: previous.status, undo: true, reopenedTaskIds: ids },
+        diff: { from: current.status, to: previous.status, undo: true, reopenedTaskIds: reopened },
       },
     ]);
     if (previous.status === "granted")
