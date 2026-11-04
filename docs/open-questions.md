@@ -124,6 +124,7 @@
 | 2026-11-04 | A–Z selector | `/aussteller` and `/kontakte` get a row "Alle · A B C … Z · #" above the list, filtering by the first letter of the display name (`?buchstabe=`; umlauts and accents fold, "#" = digits and anything else, leading quotes/brackets skipped). It combines with search and the other filters, resets paging, and letters with no entries under the other filters are shown disabled. Vendors (paged) filter in SQL, contacts (loaded whole) with the core function `initialLetter`; shared component `components/ui/letter-filter.tsx` (CF9-7, product owner) |
 | 2026-10-22 (client feedback) | Postponed | Aussteller data-collection companion; weekly report email; finance; staff assignment and staff emails; website publishing |
 | 2026-11-04 | Cancelled event's tasks | Cancelling an event cancels its open tasks (done/skipped stay); undo or leaving "abgesagt" reopens exactly those; existing cancelled events backfilled (product owner) |
+| 2026-11-04 | Delete an event | "Veranstaltung löschen" in the event menu (owner/manager): permanent, confirmed by typing the event's name; blocked while payments, expenses, shifts or documents are attached (product owner) |
 
 ## Open: product owner
 1. **Backup copy target:** what is the company's own server (NAS model, reachable from the internet/VPN?), for the

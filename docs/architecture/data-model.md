@@ -120,6 +120,11 @@ erDiagram
   `event.status` carries `cancelledTasks: [{id, from}]`. Leaving `cancelled` (undo toast, or → draft) reopens exactly
   the tasks of the latest audit entry with `cancelledTasks` (each to its `from`, only if still `cancelled`; diff
   `reopenedTaskIds`). Migration 0012 backfilled existing cancelled events (entry `backfill: true`, no actor).
+  **Deleting an event** (`deleteEvent`, owner/manager, name typed): `payable`, `expense`, `shift` and `document` reference it
+  with `on delete restrict` (documents also through `document.task_id` on the event's tasks), so any of them, archived
+  ones included, blocks the deletion (`blocked` with counts). Everything else cascades: tasks (with comments, check
+  items, dependencies, watchers), checklists, duties, anchors, budget lines, income and permit links; the permit stays.
+  Audit `event.delete` (written first; `entity_id` is no foreign key) keeps a snapshot incl. the cascaded counts.
   No required permit → stays planned (manual confirmation). Never moves back,
   the permit health keeps showing a withdrawn permit,
   **booking flags**: `booking_open` (bool), `fully_booked` (bool), `car_spaces_full` (bool);

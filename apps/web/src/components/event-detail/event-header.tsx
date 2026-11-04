@@ -196,6 +196,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
               status={event.status}
               startsOn={event.startsOn}
               canMove={canMoveEvent(event.status)}
+              canDelete={can(actor.role, "event", "delete")}
               venues={venues}
               types={types}
               basics={{

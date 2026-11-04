@@ -1215,3 +1215,39 @@ async function appointmentId(page: Page, name: string): Promise<string> {
     .getAttribute("href");
   return (href ?? "").split("besprechung:")[1] ?? "";
 }
+
+test("Veranstaltung löschen: the button stays disabled until the exact name is typed; a throwaway event is gone afterwards", async ({
+  page,
+}) => {
+  const name = `E2E-Löschen ${Date.now()}`;
+  await page.goto("/veranstaltungen/neu");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Name", { exact: true }).fill(name);
+  await page.getByLabel("Ort", { exact: true }).selectOption({ index: 1 });
+  await page.getByLabel("Erster Tag").fill("2031-05-17");
+  await page.getByRole("button", { name: "Veranstaltung anlegen" }).click();
+  await expect(page).toHaveURL(/\/veranstaltungen\/[0-9a-f-]{36}/);
+  const eventUrl = page.url();
+
+  await page.getByRole("button", { name: `Weitere Aktionen für ${name}` }).click();
+  await page.getByRole("menuitem", { name: "Veranstaltung löschen" }).click();
+  const dialog = page.getByRole("alertdialog", { name: "Veranstaltung endgültig löschen?" });
+  await expect(dialog).toBeVisible();
+  const remove = dialog.getByRole("button", { name: "Endgültig löschen" });
+  const input = dialog.getByLabel(/Zum Bestätigen den Namen/);
+  await expect(input).toBeEnabled(); // the blockers are loaded
+  await expect(remove).toBeDisabled();
+  await input.fill(name.toLowerCase());
+  await expect(remove).toBeDisabled();
+  await input.fill(`${name} `); // surrounding spaces do not matter
+  await expect(remove).toBeEnabled();
+  await input.fill(name);
+  await remove.click();
+
+  await expect(page).toHaveURL(/\/veranstaltungen$/);
+  await expect(page.getByText(`„${name}“ gelöscht.`)).toBeVisible();
+  await expect(page.getByText(name, { exact: true })).toHaveCount(0);
+  await page.goto(eventUrl); // the page is gone (streamed 404: the status is 200, the event is not shown)
+  await expect(page.getByRole("heading", { level: 1, name })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Weitere Aktionen für/ })).toHaveCount(0);
+});

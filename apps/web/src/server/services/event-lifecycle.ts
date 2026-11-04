@@ -8,8 +8,23 @@ import {
   requiresReason,
 } from "@marktwerk/core/events/lifecycle";
 import { insertNotifications } from "@marktwerk/db";
-import { auditLog, event, eventDuty, eventPermit, permit, task } from "@marktwerk/db/schema";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  auditLog,
+  checklist,
+  document,
+  event,
+  eventAnchor,
+  eventBudgetLine,
+  eventDuty,
+  eventIncome,
+  eventPermit,
+  expense,
+  payable,
+  permit,
+  shift,
+  task,
+} from "@marktwerk/db/schema";
+import { and, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
@@ -22,10 +37,16 @@ export type EventLifecycleError =
   | "invalid_transition"
   | "reason_required"
   | "conflict"
-  | "notes_too_long";
+  | "notes_too_long"
+  | "name_mismatch"
+  | "blocked";
 
 export class EventLifecycleInputError extends Error {
-  constructor(readonly code: EventLifecycleError) {
+  constructor(
+    readonly code: EventLifecycleError,
+    /** `blocked`: the {@link EventDeleteBlockers} that stop the deletion. */
+    readonly detail?: EventDeleteBlockers,
+  ) {
     super(code);
   }
 }
@@ -329,5 +350,121 @@ export async function updateEventNotes(actor: Actor, id: string, notes: string) 
       },
     ]);
     return { changed: true };
+  });
+}
+
+/** What keeps an event from being deleted: rows whose foreign key to the event (or to one of its tasks) restricts. */
+export type EventDeleteBlockers = {
+  payables: number;
+  expenses: number;
+  shifts: number;
+  documents: number;
+};
+
+export const hasDeleteBlockers = (b: EventDeleteBlockers) =>
+  b.payables + b.expenses + b.shifts + b.documents > 0;
+
+/**
+ * Counts the blockers (archived rows included: they still hold the foreign key). Documents count when
+ * attached to the event or to one of its tasks (`document.task_id` restricts the task cascade).
+ */
+export async function countEventDeleteBlockers(
+  tx: Pick<typeof db, "select">,
+  eventId: string,
+): Promise<EventDeleteBlockers> {
+  const one = async (q: PromiseLike<{ n: number }[]>) => (await q)[0]?.n ?? 0;
+  const [payables, expenses, shifts, documents] = await Promise.all([
+    one(tx.select({ n: count() }).from(payable).where(eq(payable.eventId, eventId))),
+    one(tx.select({ n: count() }).from(expense).where(eq(expense.eventId, eventId))),
+    one(tx.select({ n: count() }).from(shift).where(eq(shift.eventId, eventId))),
+    one(
+      tx
+        .select({ n: count() })
+        .from(document)
+        .where(
+          or(
+            eq(document.eventId, eventId),
+            inArray(
+              document.taskId,
+              tx.select({ id: task.id }).from(task).where(eq(task.eventId, eventId)),
+            ),
+          ),
+        ),
+    ),
+  ]);
+  return { payables, expenses, shifts, documents };
+}
+
+/** For the delete dialog: the event's name and what blocks deleting it. */
+export async function getEventDeleteInfo(
+  actor: Actor,
+  id: string,
+): Promise<{ name: string; blockers: EventDeleteBlockers }> {
+  if (!can(actor.role, "event", "delete")) forbidden();
+  const [row] = await db.select({ name: event.name }).from(event).where(eq(event.id, id));
+  if (!row) throw new EventLifecycleInputError("not_found");
+  return { name: row.name, blockers: await countEventDeleteBlockers(db, id) };
+}
+
+/**
+ * Deletes an event for good (product owner 2026-11-04): the caller must type the event's exact name
+ * (surrounding spaces ignored, case-sensitive). Refused while payments, expenses, shifts or documents hang
+ * on it. Everything that only belongs to the event goes with it through the foreign-key cascades (tasks and
+ * their comments / check items, checklists, duties, permit links, anchors, budget lines, income); the
+ * permit itself stays. The audit entry is written first and keeps a snapshot, since the event is gone after.
+ */
+export async function deleteEvent(
+  actor: Actor,
+  id: string,
+  confirmName: string,
+): Promise<{ name: string }> {
+  if (!can(actor.role, "event", "delete")) forbidden();
+  return db.transaction(async (tx) => {
+    const [row] = await tx.select().from(event).where(eq(event.id, id)).for("update");
+    if (!row) throw new EventLifecycleInputError("not_found");
+    if (confirmName.trim() !== row.name) throw new EventLifecycleInputError("name_mismatch");
+    const blockers = await countEventDeleteBlockers(tx, id);
+    if (hasDeleteBlockers(blockers)) throw new EventLifecycleInputError("blocked", blockers);
+    const n = async (q: PromiseLike<{ n: number }[]>) => (await q)[0]?.n ?? 0;
+    const cascaded = {
+      tasks: await n(tx.select({ n: count() }).from(task).where(eq(task.eventId, id))),
+      checklists: await n(
+        tx.select({ n: count() }).from(checklist).where(eq(checklist.eventId, id)),
+      ),
+      duties: await n(tx.select({ n: count() }).from(eventDuty).where(eq(eventDuty.eventId, id))),
+      permitLinks: await n(
+        tx.select({ n: count() }).from(eventPermit).where(eq(eventPermit.eventId, id)),
+      ),
+      anchors: await n(
+        tx.select({ n: count() }).from(eventAnchor).where(eq(eventAnchor.eventId, id)),
+      ),
+      budgetLines: await n(
+        tx.select({ n: count() }).from(eventBudgetLine).where(eq(eventBudgetLine.eventId, id)),
+      ),
+      income: await n(
+        tx.select({ n: count() }).from(eventIncome).where(eq(eventIncome.eventId, id)),
+      ),
+    };
+    await audit(tx, actor.id, [
+      {
+        action: "event.delete",
+        entityType: "event",
+        entityId: id,
+        diff: {
+          name: row.name,
+          startsOn: row.startsOn,
+          endsOn: row.endsOn,
+          venueId: row.venueId,
+          eventTypeId: row.eventTypeId,
+          presetId: row.presetId,
+          status: row.status,
+          cancelledReason: row.cancelledReason,
+          archived: row.archivedAt !== null,
+          cascaded,
+        },
+      },
+    ]);
+    await tx.delete(event).where(eq(event.id, id));
+    return { name: row.name };
   });
 }

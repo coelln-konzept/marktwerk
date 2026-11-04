@@ -295,6 +295,29 @@
       "undo": "Rückgängig",
       "failed": "Das hat nicht geklappt. Bitte noch einmal versuchen."
     },
+    "delete": {
+      "open": "Veranstaltung löschen",
+      "title": "Veranstaltung endgültig löschen?",
+      "description": "Die Veranstaltung und alles, was nur zu ihr gehört – Aufgaben, Checkliste, Notizen, Genehmigungs-Verknüpfungen, Zuständigkeiten – werden dauerhaft gelöscht. Das lässt sich nicht rückgängig machen.",
+      "typeName": "Zum Bestätigen den Namen der Veranstaltung eingeben:",
+      "submit": "Endgültig löschen",
+      "cancel": "Abbrechen",
+      "close": "Schließen",
+      "loading": "Wird geprüft …",
+      "deleted": "„{name}“ gelöscht.",
+      "blockedIntro": "Diese Veranstaltung kann nicht gelöscht werden, weil noch Folgendes daran hängt:",
+      "blockedHint": "Du kannst die Veranstaltung stattdessen absagen oder zuerst entfernen, was daran hängt.",
+      "payables": "{count, plural, one {# Zahlung} other {# Zahlungen}}",
+      "expenses": "{count, plural, one {# Ausgabe} other {# Ausgaben}}",
+      "shifts": "{count, plural, one {# Schicht} other {# Schichten}}",
+      "documents": "{count, plural, one {# Dokument} other {# Dokumente}}",
+      "errors": {
+        "name_mismatch": "Der Name stimmt nicht überein.",
+        "not_found": "Die Veranstaltung gibt es nicht mehr.",
+        "blocked": "Diese Veranstaltung kann nicht gelöscht werden, weil noch etwas daran hängt.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      }
+    },
     "move": {
       "open": "Verschieben",
       "title": "Veranstaltung verschieben",
