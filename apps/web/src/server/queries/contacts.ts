@@ -1,4 +1,5 @@
 import "server-only";
+import { type InitialLetter, initialLetter, LETTERS } from "@marktwerk/core/text/letter";
 import { matchesAllWords } from "@marktwerk/core/text/search";
 import { contact, locationAgreement, venue } from "@marktwerk/db/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
@@ -31,8 +32,13 @@ export type ContactRow = Awaited<ReturnType<typeof listContacts>>["rows"][number
  * All contacts matching the search (every word must match name, contact person, city, postcode, e-mail or
  * the phone number's digits, in any order; umlaut-insensitive), plus the count per
  * kind within that search, so the chips stay correct while searching. `kind` narrows only the rows.
+ *
+ * The A–Z selector (CF9-7) works on this whole list, not in SQL: the list is loaded unpaged anyway, so
+ * `initialLetter` from core decides the letter and there is no second implementation to keep in step.
+ * `letter` narrows the rows and the per-kind counts; `letters` are the letters present under search and
+ * kind (the letter itself does not apply), `letterTotal` the rows under search and letter.
  */
-export async function listContacts(q?: string, kind?: ContactKind) {
+export async function listContacts(q?: string, kind?: ContactKind, letter?: InitialLetter) {
   const all = await db
     .select(columns)
     .from(contact)
@@ -43,12 +49,17 @@ export async function listContacts(q?: string, kind?: ContactKind) {
         matchesAllWords([c.name, c.contactPerson, c.city, c.postalCode, c.email], q, [c.phone]),
       )
     : all;
+  const ofKind = kind ? matching.filter((c) => c.kind === kind) : matching;
+  const present = new Set(ofKind.map((c) => initialLetter(c.name)));
+  const inLetter = letter ? matching.filter((c) => initialLetter(c.name) === letter) : matching;
   const counts: Record<string, number> = {};
-  for (const c of matching) counts[c.kind] = (counts[c.kind] ?? 0) + 1;
+  for (const c of inLetter) counts[c.kind] = (counts[c.kind] ?? 0) + 1;
   return {
-    rows: kind ? matching.filter((c) => c.kind === kind) : matching,
+    rows: kind ? inLetter.filter((c) => c.kind === kind) : inLetter,
     counts,
     total: matching.length,
+    letterTotal: inLetter.length,
+    letters: [...LETTERS, "#" as const].filter((l) => present.has(l)),
   };
 }
 

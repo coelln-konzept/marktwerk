@@ -248,5 +248,11 @@
   },
   "form": {
     "optional": "(optional)"
+  },
+  "letterFilter": {
+    "label": "Nach Anfangsbuchstaben filtern",
+    "all": "Alle",
+    "other": "Ziffern und Sonstiges",
+    "none": "keine Einträge"
   }
 }

@@ -1,3 +1,4 @@
+import { parseLetterParam } from "@marktwerk/core/text/letter";
 import { Check, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -7,6 +8,7 @@ import { VendorVorschau } from "@/components/people/vendor-vorschau";
 import { Page, PageHeader } from "@/components/shell/page";
 import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { LetterFilter } from "@/components/ui/letter-filter";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -17,6 +19,7 @@ import { cn } from "@/lib/utils";
 import {
   countByCategory,
   countVendors,
+  listVendorLetters,
   listVendors,
   VENDOR_CATEGORIES,
   VENDOR_PAGE_SIZE,
@@ -46,13 +49,15 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
     : undefined;
   const regular = param(sp.stamm) === "1";
   const car = param(sp.auto) === "1";
-  const filters = { q, category, regular, car };
+  const letter = parseLetterParam(param(sp.buchstabe));
+  const filters = { q, category, regular, car, letter };
   const requestedPage = Math.max(1, Math.floor(Number(param(sp.seite))) || 1);
 
-  const [{ rows: first, total }, counts, imported] = await Promise.all([
+  const [{ rows: first, total }, counts, imported, letters] = await Promise.all([
     listVendors(filters, requestedPage),
     countByCategory(filters),
     countVendors(),
+    listVendorLetters(filters),
   ]);
   const pages = Math.max(1, Math.ceil(total / VENDOR_PAGE_SIZE));
   const page = Math.min(requestedPage, pages);
@@ -80,6 +85,7 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
         {category && <input type="hidden" name="kategorie" value={category} />}
         {regular && <input type="hidden" name="stamm" value="1" />}
         {car && <input type="hidden" name="auto" value="1" />}
+        {letter && <input type="hidden" name="buchstabe" value={letter} />}
         <label className="sr-only" htmlFor="q">
           {t("search")}
         </label>
@@ -126,6 +132,12 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
           </FilterChips>
         </FilterGroup>
       </FilterBar>
+
+      <LetterFilter
+        active={letter}
+        available={letters}
+        hrefFor={(l) => withFilter({ buchstabe: l })}
+      />
 
       <Panel className="overflow-hidden">
         {rows.length === 0 ? (

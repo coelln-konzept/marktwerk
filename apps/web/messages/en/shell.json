@@ -248,5 +248,11 @@
   },
   "form": {
     "optional": "(optional)"
+  },
+  "letterFilter": {
+    "label": "Filter by first letter",
+    "all": "All",
+    "other": "Digits and other",
+    "none": "no entries"
   }
 }

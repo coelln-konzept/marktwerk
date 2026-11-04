@@ -178,8 +178,8 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Person | `?person=<id>` on `/team`; page `/team/[id]` planned (M4) | Contract, hours history, shifts |
 | Finanzen · Zahlungen | `/finanzen` | Payables with inline instalments, receipts; drawer `?detail=payable:<id>` (M5) |
 | Pflichten | `/firma` (sidebar and page title: Pflichten) | Obligations, vehicles, defects (tabs); one filter row, no column prints over another |
-| Aussteller | `/aussteller` | Vendor list (read-only): Name, Sortiment, Stadt, Stammaussteller; the rest in the Vorschau |
-| Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`) |
+| Aussteller | `/aussteller` | Vendor list (read-only): Name, Sortiment, Stadt, Stammaussteller; the rest in the Vorschau. **A–Z selector** (CF9-7, shared with Kontakte): a row "Alle · A B C … Z · #" above the list filters by the first letter of the display name the list sorts by (`?buchstabe=A–Z|#`; Ä→A, Ö→O, Ü→U, É→E, "#" = digits and anything else; leading quotes/brackets are skipped); combines with search and the other filters, drops the page, letters with no entries under the other filters are disabled (not links), the active one has `aria-current` |
+| Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`). The same **A–Z selector** as on Aussteller (`?buchstabe=`; the kind chips' counts follow the letter) |
 | Einstellungen → Bibliothek | `/einstellungen/bibliothek` | Grundvorlage (master task template), Märkte (presets with venue, rhythm, own task template; Vorschau `?vorschau=<id>`), "Weitere Ablaufvorlagen" (collapsed, the old per-type templates). There is no "Vorlagen" sidebar entry; `/vorlagen` redirects here |
 | Markt bearbeiten | `/vorlagen/[id]` | Edit form of a market (preset); the colour picker lists the *other* active markets per colour (legend + tooltips) |
 | Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` | Timeline template editor (Excel-like grid + timeline ruler); used for the Grundvorlage, a market's own template and the other templates, its back link goes to the Bibliothek |

@@ -1,4 +1,5 @@
 import { can } from "@marktwerk/core";
+import { parseLetterParam } from "@marktwerk/core/text/letter";
 import { Eye, Pencil, Plus, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -10,6 +11,7 @@ import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/chip";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { LetterFilter } from "@/components/ui/letter-filter";
 import { Panel } from "@/components/ui/panel";
 import { MailLink, PhoneLink } from "@/components/ui/phone";
 import { EmptyState } from "@/components/ui/states";
@@ -35,7 +37,8 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
   const kindParam = param(sp.art);
   const kind = isContactKind(kindParam) ? kindParam : undefined;
   const vorschauId = param(sp.vorschau);
-  const { rows, counts, total } = await listContacts(q, kind);
+  const letter = parseLetterParam(param(sp.buchstabe));
+  const { rows, counts, total, letterTotal, letters } = await listContacts(q, kind, letter);
 
   return (
     <Page crumbs={[{ label: t("title") }]}>
@@ -73,6 +76,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
 
       <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
         {kind && <input type="hidden" name="art" value={kind} />}
+        {letter && <input type="hidden" name="buchstabe" value={letter} />}
         <label className="sr-only" htmlFor="q">
           {t("search")}
         </label>
@@ -91,7 +95,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
         <FilterChip
           href={hrefWith(PATH, sp, { art: undefined, vorschau: undefined })}
           active={!kind}
-          count={total}
+          count={letterTotal}
         >
           {t("all")}
         </FilterChip>
@@ -106,6 +110,12 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
           </FilterChip>
         ))}
       </div>
+
+      <LetterFilter
+        active={letter}
+        available={letters}
+        hrefFor={(l) => hrefWith(PATH, sp, { buchstabe: l, vorschau: undefined })}
+      />
 
       <Panel className="overflow-hidden">
         {rows.length === 0 && total === 0 && !q ? (
