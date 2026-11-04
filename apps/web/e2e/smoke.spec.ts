@@ -44,10 +44,18 @@ test('Übersicht: Heute & überfällig left, the weekend right with a collapsed 
     await expect(list).toBeHidden();
   }
 
+  // "Genehmigungen demnächst" is its own panel in the right column, directly under the weekend (CF9-6).
+  const permits = page.getByRole("heading", { level: 2, name: "Genehmigungen demnächst" });
+  await expect(permits).toBeVisible();
+  const permitsBox = await permits.boundingBox();
+  expect(permitsBox?.y ?? 0).toBeGreaterThan(weekendBox?.y ?? 0);
+  expect(Math.abs((permitsBox?.x ?? 0) - (weekendBox?.x ?? 0))).toBeLessThan(40);
+
   // "Diese Woche" (the next 7 days, per market) runs across both columns below them.
   const week = page.getByRole("heading", { level: 2, name: "Diese Woche" });
   await expect(week).toBeVisible();
   const weekBox = await week.boundingBox();
+  expect(weekBox?.y ?? 0).toBeGreaterThan(permitsBox?.y ?? 0);
   expect(weekBox?.y ?? 0).toBeGreaterThan(Math.max(weekendBox?.y ?? 0, dueBox?.y ?? 0));
   expect(weekBox?.x ?? 0).toBeLessThan((weekendBox?.x ?? 0) - 100);
 

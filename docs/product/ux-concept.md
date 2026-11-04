@@ -222,9 +222,11 @@ the weekend side by side, the week below. No KPI strip, no season strip.
    "Top-5-Aufgaben anzeigen" toggle** (closed on every visit, not persisted) that reveals the market's first 5 blockers
    (overdue, due today, missing permits; future-dated tasks don't block); with more than 5 a link "Alle N in der
    Zusammenfassung" goes to the market. Hidden rows are skipped by J/K. Then a compact **Nächstes Wochenende** row.
+   **Directly under it, in the same column, its own panel "Genehmigungen demnächst"** (CF9-6: permits further out than
+   7 days but inside the permit horizon; blue info header, the same rows, snooze and J/K as elsewhere; empty → "Keine
+   Genehmigungen in Sicht."). Phone order: Heute, Dieses Wochenende, Genehmigungen demnächst, Diese Woche.
 4. **Diese Woche** (full width below): the next 7 days, bundled per market, with the date next to the words
-   ("Sa 31.10. · In 2 Tagen"); then the bands "Genehmigungen demnächst" (permits within the horizon) and "Wartet auf
-   Rückmeldung".
+   ("Sa 31.10. · In 2 Tagen"); then the band "Wartet auf Rückmeldung" (the permits band moved out, see 3).
 5. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
 In every list (except the weekend card, see 3) a market shows its first 3 items and a group its first 10 markets; **"+ N weitere bei …" / "+ N weitere
 Märkte" open the rest in place** (native disclosure, no navigation), drawn as a small bordered button with a chevron

@@ -34,6 +34,7 @@
       "moreMarkets": "{count, plural, one {+ # more market} other {+ # more markets}}",
       "weekSubtitle": "{count, plural, =0 {nothing in the next 7 days} one {# item in the next 7 days, bundled per market} other {# items in the next 7 days, bundled per market}}",
       "weekEmpty": "Nothing is due in the next 7 days.",
+      "upcomingEmpty": "No permits coming up.",
       "appointments": {
         "title": "Appointments today",
         "count": "{count, plural, one {# appointment} other {# appointments}}",

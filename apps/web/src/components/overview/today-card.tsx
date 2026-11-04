@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarClock, CalendarDays } from "lucide-react";
+import { CalendarCheck, CalendarClock, CalendarDays, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
@@ -131,7 +131,8 @@ async function AppointmentsToday({
 
 /**
  * "Diese Woche" (what does the week need?): items due in the next 7 days, bundled per market, then
- * permits due within the horizon ("Genehmigungen demnächst") and tasks waiting for somebody else.
+ * tasks waiting for somebody else. The permits further out ("Genehmigungen demnächst") have their own
+ * panel under "Dieses Wochenende" ({@link UpcomingPermitsCard}, CF9-6).
  */
 export async function WeekCard({
   due,
@@ -143,7 +144,8 @@ export async function WeekCard({
   canSnooze: boolean;
 }) {
   const t = await getTranslations("overview.due");
-  const soon = due.later.filter((i) => i.urgency === "soon").length;
+  const week = due.later.filter((i) => i.urgency !== "upcoming");
+  const soon = week.filter((i) => i.urgency === "soon").length;
   return (
     <Panel aria-labelledby="week-title" className="min-w-0">
       <PanelHeader>
@@ -154,13 +156,52 @@ export async function WeekCard({
           </span>
         </div>
       </PanelHeader>
-      {due.later.length === 0 ? (
+      {week.length === 0 ? (
         <EmptyState icon={CalendarDays} title={t("weekEmpty")} />
       ) : (
         <DueGroups
-          items={due.later}
-          groups={["soon", "upcoming", "waiting"]}
+          items={week}
+          groups={["soon", "waiting"]}
           bandless={["soon"]}
+          today={today}
+          canSnooze={canSnooze}
+        />
+      )}
+    </Panel>
+  );
+}
+
+/**
+ * "Genehmigungen demnächst" (CF9-6): permits further out than 7 days but inside the permit horizon, in
+ * the Übersicht's right column directly under "Dieses Wochenende". The same rows as everywhere (snooze,
+ * J/K), the blue info styling of the group moved to the panel header. Empty → one line.
+ */
+export async function UpcomingPermitsCard({
+  due,
+  today,
+  canSnooze,
+}: {
+  due: OverviewDue;
+  today: string;
+  canSnooze: boolean;
+}) {
+  const t = await getTranslations("overview.due");
+  const upcoming = due.later.filter((i) => i.urgency === "upcoming");
+  return (
+    <Panel aria-labelledby="upcoming-title" className="min-w-0">
+      <PanelHeader className="bg-status-info-bg text-status-info">
+        <div className="flex flex-wrap items-center gap-x-2">
+          <ShieldCheck aria-hidden className="size-4" />
+          <PanelTitle id="upcoming-title">{t("groups.upcoming")}</PanelTitle>
+        </div>
+      </PanelHeader>
+      {upcoming.length === 0 ? (
+        <p className="m-0 px-4 py-3 text-muted-foreground text-small">{t("upcomingEmpty")}</p>
+      ) : (
+        <DueGroups
+          items={upcoming}
+          groups={["upcoming"]}
+          bandless={["upcoming"]}
           today={today}
           canSnooze={canSnooze}
         />

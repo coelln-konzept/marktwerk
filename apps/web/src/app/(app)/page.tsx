@@ -8,7 +8,7 @@ import {
 import { NewTaskButton } from "@/components/board/new-task-dialog";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
-import { TodayCard, WeekCard } from "@/components/overview/today-card";
+import { TodayCard, UpcomingPermitsCard, WeekCard } from "@/components/overview/today-card";
 import { WeekendCard } from "@/components/overview/weekend-card";
 import { Page, PageHeader } from "@/components/shell/page";
 import { TaskDrawer } from "@/components/task/task-drawer";
@@ -112,13 +112,17 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           canSnooze={canWrite}
           vorschauId={vorschauParam}
         />
-        <WeekendCard
-          weekend={overview.weekend}
-          next={overview.nextWeekend}
-          nextEvent={overview.nextEvent}
-          today={today}
-          vorschauId={vorschauId}
-        />
+        {/* Right column: the weekend, then the permits coming up (CF9-6). */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <WeekendCard
+            weekend={overview.weekend}
+            next={overview.nextWeekend}
+            nextEvent={overview.nextEvent}
+            today={today}
+            vorschauId={vorschauId}
+          />
+          <UpcomingPermitsCard due={overview.due} today={today} canSnooze={canWrite} />
+        </div>
         <div className="min-w-0 lg:col-span-2">
           <WeekCard due={overview.due} today={today} canSnooze={canWrite} />
         </div>
