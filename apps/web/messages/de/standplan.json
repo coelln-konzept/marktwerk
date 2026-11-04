@@ -1,0 +1,194 @@
+{
+  "standplan": {
+    "title": "Standplan",
+    "prototype": "Prototyp · Daten nur in diesem Browser",
+    "subtitle": "Anfragen aus dem Postfach auf Reihen ziehen, Vorschläge prüfen und bestätigen. Die Bestätigung geht als Mail an den Aussteller.",
+    "noEvents": "Keine kommenden Veranstaltungen mit Reihen gefunden. Lege beim Ort Zonen und Reihen an.",
+    "mapRegion": "Lageplan",
+    "sideRegion": "Veranstaltung und Anfragen",
+    "event": "Veranstaltung",
+    "autoplatz": "Autoplatz",
+    "confirmAll": "{count, plural, =0 {Bestätigen} other {# bestätigen und Mail senden}}",
+    "print": "Drucken",
+    "gapRule": "Keine Restlücken unter 2 m",
+    "keysHint": "Ziehen: Anfrage aus der Liste auf eine Reihe ziehen, Stände auf dem Plan verschieben. Tastatur: Stand anklicken, dann ← → verschiebt 50 cm (mit Umschalt 1 m), ↑ ↓ wechselt die Reihe, Entf nimmt den Stand vom Plan, Esc hebt die Auswahl auf. Ohne Maus: in den Details „Platzieren in …“.",
+    "undo": "Rückgängig",
+    "restore": "Wiederherstellen",
+    "resetDemo": "Demo zurücksetzen",
+    "close": "Schließen",
+    "car": "Auto",
+    "power": "Strom",
+    "commercial": "gewerblich",
+    "yes": "ja",
+    "no": "nein",
+    "noRoomShort": "kein Platz",
+    "emptyOpen": "Keine offenen Anfragen für diese Veranstaltung.",
+    "tabs": {
+      "label": "Anfragen",
+      "open": "Offen",
+      "placed": "Auf dem Plan",
+      "declined": "Abgesagt"
+    },
+    "status": {
+      "proposed": "Vorschlag",
+      "assigned": "Bestätigt"
+    },
+    "stats": {
+      "venue": "Ort",
+      "occupied": "Belegt",
+      "price": "Preis",
+      "fee": "+ {fee} Gebühr"
+    },
+    "legend": {
+      "existing": "Bestand",
+      "confirmed": "Bestätigt",
+      "proposed": "Vorschlag",
+      "preferred": "Stammplatz-Reihe",
+      "car": "Auto am Stand"
+    },
+    "map": {
+      "label": "Lageplan {venue}",
+      "row": "Reihe {label}",
+      "cars": "{count, plural, one {# Autoplatz} other {# Autoplätze}}",
+      "power": "Strom",
+      "zoomIn": "Vergrößern",
+      "zoomOut": "Verkleinern",
+      "fit": "Ganzen Plan zeigen"
+    },
+    "layout": {
+      "edit": "Layout bearbeiten",
+      "done": "Layout fertig",
+      "hint": "Reihen ziehen zum Verschieben, Reihe anklicken zum Drehen.",
+      "rotateLeft": "5° nach links drehen",
+      "rotateRight": "5° nach rechts drehen",
+      "angle": "Winkel in Grad",
+      "backdrop": "Luftbild / Lageplan:",
+      "backdropWidth": "Breite",
+      "opacity": "Deckkraft",
+      "removeBackdrop": "Bild entfernen",
+      "reset": "Layout zurücksetzen"
+    },
+    "detail": {
+      "length": "Standlänge",
+      "car": "Auto am Stand",
+      "carYes": "ja, {length}",
+      "power": "Strom",
+      "preferred": "Stammplatz",
+      "price": "Preis",
+      "stall": "Stand",
+      "range": "Reihe {row}, {from} bis {to}",
+      "unplaced": "noch nicht platziert",
+      "placeIn": "Platzieren in …",
+      "moveTo": "Verschieben nach …",
+      "confirm": "Bestätigen und Mail senden",
+      "unplace": "Vom Plan nehmen",
+      "decline": "Absagen",
+      "original": "Original-Mail",
+      "sent": "Bestätigung gesendet am {date}"
+    },
+    "toast": {
+      "placed": "{name} auf {stall} gesetzt",
+      "unplaced": "{name} vom Plan genommen",
+      "declined": "Anfrage von {name} abgesagt",
+      "noRoom": "In Reihe {row} ist dafür kein Platz",
+      "autoplatz": "Autoplatz: {placed} vorgeschlagen, {left} ohne Platz",
+      "confirmed": "{count, plural, one {# Bestätigung} other {# Bestätigungen}} gesendet (Postfach → Gesendet)",
+      "versionSaved": "„{name}“ gespeichert, keine Mail gesendet",
+      "versionLoaded": "„{name}“ geladen",
+      "versionLoadedSkipped": "„{name}“ geladen; {skipped, plural, one {# Stand passt} other {# Stände passen}} nicht mehr (inzwischen bestätigt oder belegt)",
+      "versionDeleted": "„{name}“ gelöscht"
+    },
+    "announce": {
+      "placed": "{name} steht jetzt auf {stall}",
+      "blocked": "Dort ist kein Platz"
+    },
+    "printSheet": {
+      "stall": "Stand",
+      "vendor": "Aussteller",
+      "range": "Reihe / Meter",
+      "length": "Länge",
+      "car": "Auto",
+      "status": "Status",
+      "proposed": "Vorschlag",
+      "rows": "Auslastung je Reihe"
+    },
+    "versions": {
+      "title": "Versionen",
+      "save": "Als Version speichern",
+      "saveShort": "Speichern",
+      "defaultName": "Version {n}",
+      "current": "aktuell: {name}",
+      "unsaved": "Nicht gespeichert",
+      "saved": "Gespeichert",
+      "name": "Name der Version",
+      "namePlaceholder": "z. B. Variante mit Autos hinten",
+      "hint": "Speichert nur die Vorschläge, es geht keine Mail raus. Bestätigte Stände bleiben beim Laden unverändert.",
+      "empty": "Noch keine Version gespeichert.",
+      "meta": "{count, plural, one {# Vorschlag} other {# Vorschläge}} · {date}",
+      "load": "Laden",
+      "delete": "Version {name} löschen"
+    }
+  },
+  "postfach": {
+    "title": "Postfach",
+    "prototype": "Prototyp · Demo-Mails aus den Entwicklungsdaten",
+    "subtitle": "Alle Mails des Buchungspostfachs. Standanfragen aus dem Website-Formular werden mit festen Regeln erkannt (keine KI) und landen im Standplan.",
+    "folders": "Ordner",
+    "reading": "Lesebereich",
+    "empty": "Keine Mails in diesem Ordner.",
+    "pick": "Wähle links eine Mail.",
+    "demoNote": "Im echten Ausbau kommen die Mails per Microsoft 365 aus dem gemeinsamen Postfach. Gesendete Bestätigungen gehen hier noch nicht wirklich raus.",
+    "folder": {
+      "all": "Posteingang",
+      "requests": "Standanfragen",
+      "errors": "Nicht erkannt",
+      "other": "Sonstige",
+      "sent": "Gesendet"
+    },
+    "badge": {
+      "sent": "Gesendet",
+      "parseError": "Nicht erkannt",
+      "confirmed": "Bestätigt",
+      "inProgress": "{placed} von {total} platziert",
+      "request": "Standanfrage"
+    },
+    "to": "An {name}",
+    "original": "Original",
+    "recognised": "Erkannte Angaben",
+    "parseFailed": "Diese Anfrage konnte nicht vollständig gelesen werden.",
+    "parseFailedHint": "Meist hat sich das Formular geändert. Bitte die markierten Felder prüfen und die Anfrage von Hand erfassen.",
+    "ok": "erkannt",
+    "yes": "ja",
+    "no": "nein",
+    "yesLength": "ja, {length}",
+    "kind": {
+      "private": "privat",
+      "commercial": "gewerblich"
+    },
+    "issue": {
+      "missing": "fehlt",
+      "invalid": "nicht lesbar"
+    },
+    "field": {
+      "requestRef": "Anfrage-ID",
+      "eventName": "Veranstaltung",
+      "dates": "Termine",
+      "name": "Name",
+      "kind": "Art",
+      "email": "E-Mail",
+      "length": "Standlänge",
+      "car": "Auto am Stand",
+      "power": "Strom",
+      "spot": "Stammplatz",
+      "categories": "Sortiment",
+      "note": "Anmerkung"
+    },
+    "perDate": "Je Termin",
+    "dateOpen": "offen",
+    "dateProposed": "Vorschlag {stall}",
+    "dateConfirmed": "Bestätigt {stall}",
+    "openPlan": "Im Standplan öffnen",
+    "noEvent": "Keine Veranstaltung „{name}“ am {date} gefunden",
+    "sentNote": "Prototyp: Diese Mail wurde nur hier abgelegt, nicht verschickt."
+  }
+}

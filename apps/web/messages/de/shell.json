@@ -25,7 +25,9 @@
     "venues": "Orte",
     "contacts": "Kontakte",
     "hide": "Seitenleiste ausblenden",
-    "masterDataActive": "enthält die aktuelle Seite"
+    "masterDataActive": "enthält die aktuelle Seite",
+    "postfach": "Postfach",
+    "standplan": "Standplan"
   },
   "roles": {
     "owner": "Geschäftsführung",

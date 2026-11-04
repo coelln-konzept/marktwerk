@@ -14,6 +14,7 @@ import type overview from "../../messages/de/overview.json";
 import type permits from "../../messages/de/permits.json";
 import type settings from "../../messages/de/settings.json";
 import type shell from "../../messages/de/shell.json";
+import type standplan from "../../messages/de/standplan.json";
 import type tasks from "../../messages/de/tasks.json";
 import type tasksTemplates from "../../messages/de/tasks-templates.json";
 import type team from "../../messages/de/team.json";
@@ -44,7 +45,8 @@ type Messages = typeof shell &
   typeof board &
   typeof tasks &
   typeof permits &
-  typeof notifications;
+  typeof notifications &
+  typeof standplan;
 
 declare module "next-intl" {
   interface AppConfig {

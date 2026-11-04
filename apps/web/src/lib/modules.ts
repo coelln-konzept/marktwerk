@@ -39,6 +39,8 @@ export const HIDDEN_MODULES = {
   globalBoard: true,
   /** Vendor booking (Buchung menu, "Buchung geschlossen" chip): Phase 2. */
   booking: true,
+  /** PROTOTYPE on branch exp/stand-allocation: Postfach + Standplan (data in the browser only). */
+  standplanPrototype: false,
 } as const;
 
 export type HiddenModule = keyof typeof HIDDEN_MODULES;

@@ -1,5 +1,6 @@
 export * from "./auth/permissions";
 export * from "./auth/roles";
+export * from "./bookings";
 export * from "./company/input";
 export * from "./company/obligations";
 export * from "./dates/business-date";

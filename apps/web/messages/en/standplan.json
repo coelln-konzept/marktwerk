@@ -1,0 +1,194 @@
+{
+  "standplan": {
+    "title": "Stall plan",
+    "prototype": "Prototype · data only in this browser",
+    "subtitle": "Drag requests from the mailbox onto rows, review proposals and confirm. The vendor gets the confirmation by mail.",
+    "noEvents": "No upcoming events with rows. Add zones and rows to the location first.",
+    "mapRegion": "Site plan",
+    "sideRegion": "Event and requests",
+    "event": "Event",
+    "autoplatz": "Auto-place",
+    "confirmAll": "{count, plural, =0 {Confirm} other {Confirm # and send mail}}",
+    "print": "Print",
+    "gapRule": "No leftover gaps under 2 m",
+    "keysHint": "Drag: drag a request from the list onto a row, move stalls on the plan. Keyboard: click a stall, then ← → moves 50 cm (1 m with Shift), ↑ ↓ changes row, Delete takes it off the plan, Esc clears the selection. Without a mouse: “Place in …” in the details.",
+    "undo": "Undo",
+    "restore": "Restore",
+    "resetDemo": "Reset demo",
+    "close": "Close",
+    "car": "Car",
+    "power": "Power",
+    "commercial": "commercial",
+    "yes": "yes",
+    "no": "no",
+    "noRoomShort": "no room",
+    "emptyOpen": "No open requests for this event.",
+    "tabs": {
+      "label": "Requests",
+      "open": "Open",
+      "placed": "On the plan",
+      "declined": "Declined"
+    },
+    "status": {
+      "proposed": "Proposal",
+      "assigned": "Confirmed"
+    },
+    "stats": {
+      "venue": "Location",
+      "occupied": "Occupied",
+      "price": "Price",
+      "fee": "+ {fee} fee"
+    },
+    "legend": {
+      "existing": "Existing",
+      "confirmed": "Confirmed",
+      "proposed": "Proposal",
+      "preferred": "Regular spot row",
+      "car": "Car at stall"
+    },
+    "map": {
+      "label": "Site plan {venue}",
+      "row": "Row {label}",
+      "cars": "{count, plural, one {# car space} other {# car spaces}}",
+      "power": "Power",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fit": "Show whole plan"
+    },
+    "layout": {
+      "edit": "Edit layout",
+      "done": "Layout done",
+      "hint": "Drag rows to move them, click a row to rotate it.",
+      "rotateLeft": "Rotate 5° left",
+      "rotateRight": "Rotate 5° right",
+      "angle": "Angle in degrees",
+      "backdrop": "Aerial photo / site plan:",
+      "backdropWidth": "Width",
+      "opacity": "Opacity",
+      "removeBackdrop": "Remove image",
+      "reset": "Reset layout"
+    },
+    "detail": {
+      "length": "Stall length",
+      "car": "Car at stall",
+      "carYes": "yes, {length}",
+      "power": "Power",
+      "preferred": "Regular spot",
+      "price": "Price",
+      "stall": "Stall",
+      "range": "Row {row}, {from} to {to}",
+      "unplaced": "not placed yet",
+      "placeIn": "Place in …",
+      "moveTo": "Move to …",
+      "confirm": "Confirm and send mail",
+      "unplace": "Take off the plan",
+      "decline": "Decline",
+      "original": "Original mail",
+      "sent": "Confirmation sent on {date}"
+    },
+    "toast": {
+      "placed": "{name} placed on {stall}",
+      "unplaced": "{name} taken off the plan",
+      "declined": "Request from {name} declined",
+      "noRoom": "No room for this in row {row}",
+      "autoplatz": "Auto-place: {placed} proposed, {left} without space",
+      "confirmed": "{count, plural, one {# confirmation} other {# confirmations}} sent (Mailbox → Sent)",
+      "versionSaved": "“{name}” saved, no mail sent",
+      "versionLoaded": "“{name}” loaded",
+      "versionLoadedSkipped": "“{name}” loaded; {skipped, plural, one {# stall no longer fits} other {# stalls no longer fit}} (confirmed or taken meanwhile)",
+      "versionDeleted": "“{name}” deleted"
+    },
+    "announce": {
+      "placed": "{name} is now on {stall}",
+      "blocked": "No room there"
+    },
+    "printSheet": {
+      "stall": "Stall",
+      "vendor": "Vendor",
+      "range": "Row / metres",
+      "length": "Length",
+      "car": "Car",
+      "status": "Status",
+      "proposed": "Proposal",
+      "rows": "Use per row"
+    },
+    "versions": {
+      "title": "Versions",
+      "save": "Save as version",
+      "saveShort": "Save",
+      "defaultName": "Version {n}",
+      "current": "current: {name}",
+      "unsaved": "Not saved",
+      "saved": "Saved",
+      "name": "Version name",
+      "namePlaceholder": "e.g. cars at the back",
+      "hint": "Saves only the proposals; no mail is sent. Confirmed stalls stay unchanged when loading.",
+      "empty": "No version saved yet.",
+      "meta": "{count, plural, one {# proposal} other {# proposals}} · {date}",
+      "load": "Load",
+      "delete": "Delete version {name}"
+    }
+  },
+  "postfach": {
+    "title": "Mailbox",
+    "prototype": "Prototype · demo mails built from the dev data",
+    "subtitle": "All mails of the booking mailbox. Stall requests from the website form are recognised by fixed rules (no AI) and go to the stall plan.",
+    "folders": "Folders",
+    "reading": "Reading pane",
+    "empty": "No mails in this folder.",
+    "pick": "Pick a mail on the left.",
+    "demoNote": "In the real build mails come from the shared Microsoft 365 mailbox. Sent confirmations don't actually go out yet.",
+    "folder": {
+      "all": "Inbox",
+      "requests": "Stall requests",
+      "errors": "Not recognised",
+      "other": "Other",
+      "sent": "Sent"
+    },
+    "badge": {
+      "sent": "Sent",
+      "parseError": "Not recognised",
+      "confirmed": "Confirmed",
+      "inProgress": "{placed} of {total} placed",
+      "request": "Stall request"
+    },
+    "to": "To {name}",
+    "original": "Original",
+    "recognised": "Recognised fields",
+    "parseFailed": "This request could not be read completely.",
+    "parseFailedHint": "Usually the form has changed. Check the marked fields and enter the request by hand.",
+    "ok": "recognised",
+    "yes": "yes",
+    "no": "no",
+    "yesLength": "yes, {length}",
+    "kind": {
+      "private": "private",
+      "commercial": "commercial"
+    },
+    "issue": {
+      "missing": "missing",
+      "invalid": "unreadable"
+    },
+    "field": {
+      "requestRef": "Request ID",
+      "eventName": "Event",
+      "dates": "Dates",
+      "name": "Name",
+      "kind": "Type",
+      "email": "Email",
+      "length": "Stall length",
+      "car": "Car at stall",
+      "power": "Power",
+      "spot": "Regular spot",
+      "categories": "Goods",
+      "note": "Note"
+    },
+    "perDate": "Per date",
+    "dateOpen": "open",
+    "dateProposed": "Proposal {stall}",
+    "dateConfirmed": "Confirmed {stall}",
+    "openPlan": "Open in stall plan",
+    "noEvent": "No event “{name}” on {date}",
+    "sentNote": "Prototype: this mail was only filed here, not sent."
+  }
+}

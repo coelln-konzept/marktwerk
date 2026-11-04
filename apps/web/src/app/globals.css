@@ -277,3 +277,24 @@
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* PROTOTYPE Standplan: print only the plan sheet (map + stall list), not the app shell. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  body:has(.print-sheet) * {
+    visibility: hidden;
+  }
+  body:has(.print-sheet) .print-sheet,
+  body:has(.print-sheet) .print-sheet * {
+    visibility: visible;
+  }
+  body:has(.print-sheet) .print-sheet {
+    position: absolute;
+    inset: 0;
+    background: white;
+    color: black;
+  }
+}

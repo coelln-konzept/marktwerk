@@ -9,7 +9,9 @@ import {
   Euro,
   FileCheck2,
   Home,
+  Inbox,
   KanbanSquare,
+  LayoutGrid,
   MapPin,
   Store,
   Users,
@@ -78,6 +80,19 @@ export async function AppSidebar({
       badge: needsAction,
       badgeLabel: t("permitsBadge"),
       visible: can(r, "permit", "read"),
+    },
+    // PROTOTYPE (exp/stand-allocation): Postfach + Standplan.
+    {
+      href: "/postfach",
+      label: t("postfach"),
+      icon: <Inbox />,
+      visible: isModuleVisible("standplanPrototype") && can(r, "vendor", "read"),
+    },
+    {
+      href: "/standplan",
+      label: t("standplan"),
+      icon: <LayoutGrid />,
+      visible: isModuleVisible("standplanPrototype") && can(r, "vendor", "read"),
     },
     {
       href: "/team",

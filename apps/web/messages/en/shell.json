@@ -25,7 +25,9 @@
     "venues": "Venues",
     "contacts": "Contacts",
     "hide": "Hide sidebar",
-    "masterDataActive": "contains the current page"
+    "masterDataActive": "contains the current page",
+    "postfach": "Mailbox",
+    "standplan": "Stall plan"
   },
   "roles": {
     "owner": "Owner",
