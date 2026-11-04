@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { TagList } from "@/components/people/duty-tags";
 import { VendorVorschau } from "@/components/people/vendor-vorschau";
+import { VendorRegisterPanel } from "@/components/postfach/vendor-register-panel";
 import { Page, PageHeader } from "@/components/shell/page";
 import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
@@ -12,6 +13,7 @@ import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatNumber } from "@/lib/format";
+import { isModuleVisible } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import {
@@ -75,6 +77,7 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
         title={t("title")}
         subtitle={t("subtitle", { count: formatNumber(imported, locale, 0) })}
       />
+      {isModuleVisible("standplanPrototype") && <VendorRegisterPanel />}
 
       <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
         {category && <input type="hidden" name="kategorie" value={category} />}

@@ -48,6 +48,22 @@ const NOTES = [
   null,
 ];
 
+/** People who have never booked: they are not in the vendor table yet. */
+const NEWCOMERS = [
+  ["Lena", "Brückner"],
+  ["Tobias", "Kaminski"],
+  ["Hatice", "Yıldız"],
+  ["Jonas", "Feldhaus"],
+  ["Marie", "Ostendorf"],
+  ["Dariusz", "Nowak"],
+  ["Sophie", "Lindqvist"],
+  ["Emre", "Aksoy"],
+  ["Clara", "Wiedemann"],
+  ["Felix", "Rothkirch"],
+  ["Ines", "Marquardt"],
+  ["Paul", "Achterberg"],
+] as const;
+
 const CATEGORIES = [
   ["Trödel"],
   ["Trödel", "Bücher"],
@@ -237,6 +253,7 @@ export async function loadStandplanDemo(
   const now = new Date(`${today}T09:00:00+01:00`).getTime();
   const mails: Omit<InboxMail, "parse">[] = [];
   let vi = 0;
+  let newcomer = 0;
   let ref = 1;
   const nextVendor = () => vendors[vi++ % Math.max(vendors.length, 1)];
 
@@ -246,8 +263,28 @@ export async function loadStandplanDemo(
     const sameSeries = events.find((o) => o.id !== ev.id && o.name === ev.name);
     const count = 9 + Math.floor(rand() * 5);
     for (let i = 0; i < count; i++) {
-      const v = nextVendor();
-      if (!v?.email) continue;
+      const real = nextVendor();
+      if (!real?.email) continue;
+      // About a third of the requests come from people who have never booked (not in the vendor table).
+      const nc = rand() < 0.3 ? NEWCOMERS[newcomer++ % NEWCOMERS.length] : undefined;
+      const v = nc
+        ? {
+            ...real,
+            firstName: nc[0],
+            lastName: nc[1],
+            displayName: `${nc[0]} ${nc[1]}`,
+            companyName: null,
+            kind: "private" as const,
+            email: `${nc[0]}.${nc[1]}`
+              .toLowerCase()
+              .normalize("NFKD")
+              .replace(/[^\x20-\x7e]/g, "")
+              .concat("@web-mail.example"),
+            phone: null,
+            regularSpot: null,
+            isRegular: false,
+          }
+        : real;
       const two = sameSeries && rand() < 0.2;
       const lengthCm = v.defaultLengthCm ?? pick([200, 300, 300, 400, 400, 500, 600]);
       const car = v.hasCar && rand() < 0.6;
@@ -259,7 +296,7 @@ export async function loadStandplanDemo(
           name: [v.firstName, v.lastName].filter(Boolean).join(" ") || v.displayName,
           company: v.kind === "commercial" ? (v.companyName ?? v.displayName) : null,
           kind: v.kind,
-          email: v.email,
+          email: v.email ?? "",
           phone: v.phone,
           lengthCm,
           car,
@@ -345,6 +382,7 @@ export async function loadStandplanDemo(
         note: r.note,
         receivedAt: m.receivedAt,
         requestRef: r.requestRef,
+        knownVendor: false, // set below from the vendor table
       });
     }
   }
@@ -386,6 +424,7 @@ export async function loadStandplanDemo(
           note: null,
           receivedAt: new Date(now - 30 * 24 * 3600_000).toISOString(),
           requestRef: `ALT-${n}`,
+          knownVendor: true,
         });
         list.push({ itemId: id, rowId: row.id, startCm: cursor, endCm: cursor + len, car: false });
         cursor += len;
@@ -393,6 +432,20 @@ export async function loadStandplanDemo(
     }
     existing[ev.id] = list;
   }
+  // Which senders are already vendors (read-only lookup by email).
+  const mailEmails = [...new Set(items.filter((i) => i.mailId).map((i) => i.email.toLowerCase()))];
+  const known = new Set(
+    mailEmails.length
+      ? (
+          await db
+            .select({ email: vendor.email })
+            .from(vendor)
+            .where(inArray(vendor.email, mailEmails))
+        ).map((x) => (x.email ?? "").toLowerCase())
+      : [],
+  );
+  for (const i of items) if (i.mailId) i.knownVendor = known.has(i.email.toLowerCase());
+
   const placedIds = new Set(Object.values(existing).flatMap((l) => l.map((p) => p.itemId)));
   const finalItems = items.filter((i) => i.mailId !== null || placedIds.has(i.id));
 

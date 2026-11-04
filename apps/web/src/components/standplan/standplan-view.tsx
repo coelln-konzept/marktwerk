@@ -29,6 +29,8 @@ import {
   Sparkles,
   StickyNote,
   Trash2,
+  UserCheck,
+  UserPlus,
   X,
   Zap,
 } from "lucide-react";
@@ -37,7 +39,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { appendOutgoing, readMailState, writeMailState } from "@/components/postfach/mail-store";
+import {
+  appendOutgoing,
+  readMailState,
+  registerVendors,
+  useMailStore,
+  writeMailState,
+} from "@/components/postfach/mail-store";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,6 +135,14 @@ export function StandplanView({
   const backdrop = venue ? state.layouts[venue.id]?.backdrop : undefined;
   const gapRule = state.gapRule ? DEFAULT_GAP_RULE : null;
   const why = useWhy();
+  const { state: mail } = useMailStore();
+  /** Vendor list status: already a vendor, added by a confirmation here (simulated), or still new. */
+  const vendorStatus = (i: BookingItem): "known" | "registered" | "new" =>
+    i.knownVendor
+      ? "known"
+      : mail.vendorRegister.some((v) => v.email === i.email.toLowerCase())
+        ? "registered"
+        : "new";
 
   const [tab, setTab] = useState<Tab>("open");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -309,6 +325,24 @@ export function StandplanView({
         authorId: "standplan",
       });
     }
+    // Only now (confirmed) do new people enter the vendor list (SIMULATED; real build: insert `vendor`).
+    const { added } = registerVendors(
+      targets.flatMap((p) => {
+        const item = items.get(p.itemId);
+        if (!item || item.knownVendor || !item.email) return [];
+        return [
+          {
+            email: item.email,
+            name: item.vendorName,
+            companyName: item.companyName,
+            kind: item.kind,
+            phone: item.phone,
+            eventId: ev.id,
+            requestRef: item.requestRef,
+          },
+        ];
+      }),
+    );
     update((s) => ({
       ...s,
       placements: {
@@ -320,7 +354,9 @@ export function StandplanView({
       sent: [...mails, ...s.sent],
     }));
     showToast({
-      message: t("toast.confirmed", { count: mails.length }),
+      message: added
+        ? t("toast.confirmedWithVendors", { count: mails.length, added })
+        : t("toast.confirmed", { count: mails.length }),
       actionLabel: t("undo"),
       onAction: () => {
         update(() => before);
@@ -918,6 +954,7 @@ export function StandplanView({
             onDecline={() => decline(selItem.id)}
             sent={state.sent.find((m) => m.itemId === selItem.id)}
             blocked={selPlacement ? undefined : blockedById.get(selItem.id)}
+            vendorStatus={vendorStatus(selItem)}
             reasonForRow={(r) => {
               const reason = reasonOnRow(selItem, r);
               return reason ? why.one(reason) : null;
@@ -964,6 +1001,7 @@ export function StandplanView({
                     canWrite={canWrite}
                     dragging={drag?.itemId === i.id && drag.active}
                     blocked={blockedById.get(i.id)}
+                    vendorStatus={vendorStatus(i)}
                     onPointerDown={(e) => startDrag(e, i, i.lengthCm / 2)}
                     onSelect={() => setSelectedId(i.id)}
                     onHover={(h) => setHoverId(h ? i.id : null)}
@@ -1298,6 +1336,7 @@ function RequestCard({
   onSelect,
   onHover,
   blocked,
+  vendorStatus,
 }: {
   item: BookingItem;
   selected: boolean;
@@ -1307,6 +1346,7 @@ function RequestCard({
   onPointerDown: (e: React.PointerEvent) => void;
   onSelect: () => void;
   onHover: (h: boolean) => void;
+  vendorStatus: "known" | "registered" | "new";
 }) {
   const t = useTranslations("standplan");
   const locale = useLocale();
@@ -1361,6 +1401,7 @@ function RequestCard({
               {item.preferredRaw}
             </span>
           )}
+          {vendorStatus !== "known" && <VendorBadge status={vendorStatus} />}
           {item.kind === "commercial" && <span>{t("commercial")}</span>}
           {item.categories.length > 0 && (
             <span className="truncate">{item.categories.join(", ")}</span>
@@ -1403,6 +1444,7 @@ function DetailCard({
   sent,
   blocked,
   reasonForRow,
+  vendorStatus,
 }: {
   item: BookingItem;
   ev: PlanEvent;
@@ -1418,6 +1460,7 @@ function DetailCard({
   sent?: SentMail;
   blocked?: { reason: NoFitReason; rowLabels: string[] }[];
   reasonForRow: (row: PlanRow) => string | null;
+  vendorStatus: "known" | "registered" | "new";
 }) {
   const t = useTranslations("standplan");
   const locale = useLocale();
@@ -1443,6 +1486,10 @@ function DetailCard({
         </Button>
       </div>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        <dt className="text-muted-foreground">{t("vendor.label")}</dt>
+        <dd>
+          <VendorBadge status={vendorStatus} />
+        </dd>
         <dt className="text-muted-foreground">{t("detail.length")}</dt>
         <dd>{formatLength(item.lengthCm, locale)}</dd>
         <dt className="text-muted-foreground">{t("detail.car")}</dt>
@@ -1653,5 +1700,25 @@ function PrintSheet({
           .join(" · ")}
       </p>
     </div>
+  );
+}
+
+/** Whether the requester is in the vendor list yet (new people only get in once a stall is confirmed). */
+function VendorBadge({ status }: { status: "known" | "registered" | "new" }) {
+  const t = useTranslations("standplan.vendor");
+  const tone =
+    status === "known"
+      ? "bg-status-ok-bg text-status-ok"
+      : status === "registered"
+        ? "bg-status-info-bg text-status-info"
+        : "bg-status-neutral-bg text-status-neutral";
+  return (
+    <span
+      title={t(`${status}Hint`)}
+      className={cn("inline-flex items-center gap-0.5 rounded px-1 font-medium text-tiny", tone)}
+    >
+      {status === "known" ? <UserCheck className="size-3" /> : <UserPlus className="size-3" />}
+      {t(status)}
+    </span>
   );
 }

@@ -23,6 +23,7 @@ export default async function PostfachPage({ searchParams }: PageProps<"/postfac
         initial={{
           postfach: str(sp.postfach),
           ordner: str(sp.ordner),
+          status: str(sp.status),
           konv: str(sp.konv) ?? (str(sp.mail) ? `c-${str(sp.mail)}` : null),
           q: str(sp.q),
           mir: str(sp.mir) === "1",

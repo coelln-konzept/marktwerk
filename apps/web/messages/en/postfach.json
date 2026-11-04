@@ -18,15 +18,8 @@
       "mine": "Assigned to me",
       "demoNote": "Prototype: nothing is really sent. In the real build mail comes from Microsoft 365.",
       "keys": "Keys: j/k next/previous, r reply, a all, f forward, n note, e done.",
-      "reset": "Reset demo"
-    },
-    "folder": {
-      "offen": "Open",
-      "wartet": "Waiting",
-      "erledigt": "Done",
-      "gesendet": "Sent",
-      "entwuerfe": "Drafts",
-      "nichterkannt": "Not recognised"
+      "reset": "Reset demo",
+      "dragHint": "Mails can be dragged onto folders."
     },
     "list": {
       "label": "Conversations",
@@ -38,7 +31,11 @@
       "unread": "unread",
       "you": "Us",
       "assignedTo": "assigned to {name}",
-      "attachments": "with attachment"
+      "attachments": "with attachment",
+      "statusFilter": "Filter by status",
+      "all": "All",
+      "draggable": "draggable mail",
+      "spam": "Spam"
     },
     "thread": {
       "label": "Conversation",
@@ -61,14 +58,24 @@
       "note": "Note",
       "noteBy": "Note (internal) · {name} · {time}",
       "outgoingTo": "to {to} · from {box}",
-      "cc": "Cc: {list}"
+      "cc": "Cc: {list}",
+      "moveTo": "Move to",
+      "markSpam": "Spam",
+      "notSpam": "Not spam",
+      "spamManual": "Marked as spam by a person.",
+      "spamRules": "Recognised as spam automatically: {reasons}. “Not spam” brings it back."
     },
     "toast": {
       "status": "Status: {status}",
       "assigned": "Assigned to {name}",
       "unassigned": "Assignment removed",
       "linked": "Linked to {name}",
-      "unlinked": "Link removed"
+      "unlinked": "Link removed",
+      "moved": "“{subject}” → {folder}",
+      "folderCreated": "Folder “{name}” created",
+      "folderDeleted": "Folder “{name}” deleted, its mails moved up one level",
+      "spam": "Marked as spam, sender blocked",
+      "notSpam": "Not spam, sender allowed again"
     },
     "actions": {
       "open": "Actions",
@@ -279,6 +286,47 @@
       "noTemplate": "No template selected.",
       "signatureHint": "Added under every mail from this mailbox (can be turned off per mail). The event info comes automatically from the linked event's data.",
       "signature": "Signature"
+    },
+    "folders": {
+      "title": "Folders",
+      "smart": "Smart folders",
+      "posteingang": "Inbox",
+      "gesendet": "Sent",
+      "entwuerfe": "Drafts",
+      "standanfragen": "Stall requests",
+      "nichterkannt": "Not recognised",
+      "spam": "Spam",
+      "new": "New folder",
+      "newSub": "Subfolder",
+      "rename": "Rename",
+      "delete": "Delete",
+      "name": "Folder name",
+      "namePlaceholder": "e.g. Authorities",
+      "menu": "Actions for folder {name}",
+      "expand": "Expand {name}",
+      "collapse": "Collapse {name}"
+    },
+    "spamReason": {
+      "blocked_sender": "blocked sender",
+      "honeypot": "hidden form field filled in (bot)",
+      "impossible_data": "impossible data in the form",
+      "spam_phrase": "typical spam phrases",
+      "many_links": "many links"
+    },
+    "dnd": {
+      "instructions": "Click a mail and drag it onto a folder on the left. Without a mouse: “Move to” in the mail.",
+      "start": "Picked up “{subject}”",
+      "over": "Over {folder}",
+      "none": "Not over a folder",
+      "dropped": "Dropped in {folder}",
+      "cancelled": "Move cancelled"
+    },
+    "register": {
+      "title": "{count, plural, one {# new person} other {# new people}} from confirmed bookings",
+      "hint": "Prototype: only in this browser. In the real build they are created as vendors on confirmation and then appear in the list below.",
+      "private": "private",
+      "commercial": "commercial",
+      "since": "since {date} · {refs}"
     }
   }
 }

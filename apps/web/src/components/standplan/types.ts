@@ -84,6 +84,11 @@ export interface BookingItem {
   note: string | null;
   receivedAt: string;
   requestRef: string;
+  /**
+   * The sender is already in the vendor table (looked up by email, read-only). New people stay out of the
+   * vendor list until their stall is confirmed (spam/noise from the form never gets in).
+   */
+  knownVendor: boolean;
 }
 
 /** An already confirmed booking from before (old website / phone), so the plan isn't empty. */

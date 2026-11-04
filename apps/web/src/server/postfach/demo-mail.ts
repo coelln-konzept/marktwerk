@@ -1,5 +1,5 @@
 import "server-only";
-import { escapeHtml } from "@marktwerk/core";
+import { escapeHtml, parseStallRequestMail } from "@marktwerk/core";
 import { contact, permit, staffMember, vendor, venue } from "@marktwerk/db/schema";
 import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type {
@@ -488,6 +488,64 @@ export async function loadMailDemo(
           text: m.text,
           attachments: m.file ? [pdfAttachment(`${id}-a1`, m.file, m.subject)] : [],
           at: ago(12 + i * 17),
+        },
+      ],
+    );
+  });
+
+  // 5) Spam: what the spam rules should catch (a bot-filled form, SEO, casino).
+  const spamMails: {
+    box: "buchung" | "info";
+    from: { name: string; address: string };
+    subject: string;
+    text: string;
+  }[] = [
+    {
+      box: "buchung",
+      from: { name: "Website-Formular", address: "formular@coelln-konzept.de" },
+      subject: "Standanfrage – Flohmarkt – 01.01.2027",
+      text: "Neue Standanfrage über das Formular auf coelln-konzept.de\n---\nVeranstaltung: Flohmarkt\nTermine: 01.01.2027\nName: Best Deals\nE-Mail: best.deals@cheap-offers.example\nStandlänge: 99 m\nWebsite: http://cheap-offers.example/buy-now\n---\nAnfrage-ID: CK-2026-999999",
+    },
+    {
+      box: "info",
+      from: { name: "Top Ranking Agentur", address: "hello@seo-boost.example" },
+      subject: "Platz 1 bei Google für coelln-konzept.de",
+      text: "Hallo,\n\nwir bringen Ihre Seite mit SEO und Backlinks auf Platz 1! Mehr Ranking garantiert.\nhttps://seo-boost.example/angebot\nhttps://seo-boost.example/referenzen\nhttps://seo-boost.example/preise\n\nBeste Grüße",
+    },
+    {
+      box: "info",
+      from: { name: "Lucky Spin", address: "bonus@lucky-casino.example" },
+      subject: "Sie haben gewonnen! 500 € Bonus",
+      text: "Herzlichen Glückwunsch, Sie haben gewonnen! Jetzt klicken und Casino-Bonus sichern: https://lucky-casino.example/bonus https://lucky-casino.example/start https://lucky-casino.example/app",
+    },
+  ];
+  spamMails.forEach((m, i) => {
+    const id = `c-spam-${i + 1}`;
+    add(
+      {
+        id,
+        mailboxId: m.box,
+        subject: m.subject,
+        external: m.from,
+        status: "offen",
+        assigneeId: null,
+        eventId: null,
+      },
+      [
+        {
+          id: `${id}-1`,
+          kind: "incoming",
+          from: m.from,
+          to: [box(m.box)],
+          cc: [],
+          html: textToHtml(m.text),
+          text: m.text,
+          attachments: [],
+          at: ago(5 + i * 13),
+          parse:
+            m.box === "buchung"
+              ? parseStallRequestMail({ subject: m.subject, body: m.text })
+              : undefined,
         },
       ],
     );

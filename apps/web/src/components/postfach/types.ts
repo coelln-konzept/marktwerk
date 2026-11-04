@@ -58,6 +58,17 @@ export interface Conversation {
   eventId: string | null;
   unread: boolean;
   lastActivityAt: string;
+  /** Custom folder; null/undefined = Posteingang. */
+  folderId?: string | null;
+  /** Set by a person ("Spam" / "Kein Spam"); undefined = the spam rules decide. */
+  spam?: boolean;
+}
+
+/** A custom folder; folders can live under folders. */
+export interface MailFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
 }
 
 export type DraftMode = "reply" | "replyAll" | "forward" | "new" | "note";

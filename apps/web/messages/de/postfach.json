@@ -18,15 +18,8 @@
       "mine": "Mir zugewiesen",
       "demoNote": "Prototyp: Nichts wird wirklich gesendet. Im echten Ausbau kommen die Mails per Microsoft 365.",
       "keys": "Tasten: j/k nächste/vorige, r antworten, a allen, f weiterleiten, n Notiz, e erledigt.",
-      "reset": "Demo zurücksetzen"
-    },
-    "folder": {
-      "offen": "Offen",
-      "wartet": "Wartet",
-      "erledigt": "Erledigt",
-      "gesendet": "Gesendet",
-      "entwuerfe": "Entwürfe",
-      "nichterkannt": "Nicht erkannt"
+      "reset": "Demo zurücksetzen",
+      "dragHint": "Mails lassen sich auf Ordner ziehen."
     },
     "list": {
       "label": "Konversationen",
@@ -38,7 +31,11 @@
       "unread": "ungelesen",
       "you": "Wir",
       "assignedTo": "zugewiesen an {name}",
-      "attachments": "mit Anhang"
+      "attachments": "mit Anhang",
+      "statusFilter": "Nach Status filtern",
+      "all": "Alle",
+      "draggable": "verschiebbare Mail",
+      "spam": "Spam"
     },
     "thread": {
       "label": "Konversation",
@@ -61,14 +58,24 @@
       "note": "Notiz",
       "noteBy": "Notiz (intern) · {name} · {time}",
       "outgoingTo": "an {to} · von {box}",
-      "cc": "Cc: {list}"
+      "cc": "Cc: {list}",
+      "moveTo": "Verschieben nach",
+      "markSpam": "Spam",
+      "notSpam": "Kein Spam",
+      "spamManual": "Von einer Person als Spam markiert.",
+      "spamRules": "Automatisch als Spam erkannt: {reasons}. „Kein Spam“ holt die Mail zurück."
     },
     "toast": {
       "status": "Status: {status}",
       "assigned": "{name} zugewiesen",
       "unassigned": "Zuweisung entfernt",
       "linked": "Mit {name} verknüpft",
-      "unlinked": "Verknüpfung entfernt"
+      "unlinked": "Verknüpfung entfernt",
+      "moved": "„{subject}“ → {folder}",
+      "folderCreated": "Ordner „{name}“ angelegt",
+      "folderDeleted": "Ordner „{name}“ gelöscht, Mails liegen jetzt eine Ebene höher",
+      "spam": "Als Spam markiert, Absender blockiert",
+      "notSpam": "Kein Spam, Absender wieder zugelassen"
     },
     "actions": {
       "open": "Aktionen",
@@ -279,6 +286,47 @@
       "noTemplate": "Keine Vorlage ausgewählt.",
       "signatureHint": "Wird unter jede Mail aus diesem Postfach gesetzt (abschaltbar pro Mail). Die Veranstaltungsinfo kommt automatisch aus den Daten der verknüpften Veranstaltung.",
       "signature": "Signatur"
+    },
+    "folders": {
+      "title": "Ordner",
+      "smart": "Intelligente Ordner",
+      "posteingang": "Posteingang",
+      "gesendet": "Gesendet",
+      "entwuerfe": "Entwürfe",
+      "standanfragen": "Standanfragen",
+      "nichterkannt": "Nicht erkannt",
+      "spam": "Spam",
+      "new": "Neuer Ordner",
+      "newSub": "Unterordner",
+      "rename": "Umbenennen",
+      "delete": "Löschen",
+      "name": "Ordnername",
+      "namePlaceholder": "z. B. Behörden",
+      "menu": "Aktionen für Ordner {name}",
+      "expand": "{name} aufklappen",
+      "collapse": "{name} zuklappen"
+    },
+    "spamReason": {
+      "blocked_sender": "blockierter Absender",
+      "honeypot": "verstecktes Formularfeld ausgefüllt (Bot)",
+      "impossible_data": "unmögliche Angaben im Formular",
+      "spam_phrase": "typische Spam-Begriffe",
+      "many_links": "viele Links"
+    },
+    "dnd": {
+      "instructions": "Mail anklicken und mit gedrückter Maustaste auf einen Ordner links ziehen. Ohne Maus: in der Mail „Verschieben nach“.",
+      "start": "„{subject}“ aufgenommen",
+      "over": "Über {folder}",
+      "none": "Über keinem Ordner",
+      "dropped": "In {folder} abgelegt",
+      "cancelled": "Verschieben abgebrochen"
+    },
+    "register": {
+      "title": "{count, plural, one {# neue Person} other {# neue Personen}} aus bestätigten Buchungen",
+      "hint": "Prototyp: nur in diesem Browser. Im echten Ausbau werden sie bei der Bestätigung als Aussteller angelegt und stehen dann in der Liste unten.",
+      "private": "privat",
+      "commercial": "gewerblich",
+      "since": "seit {date} · {refs}"
     }
   }
 }

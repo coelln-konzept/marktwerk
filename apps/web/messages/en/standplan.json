@@ -97,7 +97,8 @@
       "versionLoaded": "“{name}” loaded",
       "versionLoadedSkipped": "“{name}” loaded; {skipped, plural, one {# stall no longer fits} other {# stalls no longer fit}} (confirmed or taken meanwhile)",
       "versionDeleted": "“{name}” deleted",
-      "autoplatzWhy": "Auto-place: {placed} proposed, {left} without space (reasons are shown on the requests)"
+      "autoplatzWhy": "Auto-place: {placed} proposed, {left} without space (reasons are shown on the requests)",
+      "confirmedWithVendors": "{count, plural, one {# confirmation} other {# confirmations}} sent; {added, plural, one {# new person} other {# new people}} added to the vendor list (simulation)"
     },
     "announce": {
       "placed": "{name} is now on {stall}",
@@ -147,6 +148,15 @@
       "toast": "Row {row}: {why}",
       "ghost": "doesn't fit: {why}",
       "badge": "Fits nowhere"
+    },
+    "vendor": {
+      "label": "Vendor list",
+      "known": "Vendor",
+      "registered": "Newly added",
+      "new": "Not in the list yet",
+      "knownHint": "Already in the vendor list.",
+      "registeredHint": "Added to the vendor list after confirmation (prototype: simulation).",
+      "newHint": "Only enters the vendor list once the stall is confirmed, so spam and bad requests stay out."
     }
   }
 }

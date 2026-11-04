@@ -1,6 +1,6 @@
 "use client";
 
-import { type ConversationStatus, stallNumber } from "@marktwerk/core";
+import { type ConversationStatus, type SpamReason, sortedTree, stallNumber } from "@marktwerk/core";
 import {
   ChevronDown,
   CircleAlert,
@@ -13,6 +13,8 @@ import {
   Paperclip,
   Reply,
   ReplyAll,
+  ShieldAlert,
+  ShieldCheck,
   StickyNote,
   TriangleAlert,
   Zap,
@@ -32,7 +34,15 @@ import { cn } from "@/lib/utils";
 import { Composer } from "./composer";
 import { patchConversation, simulateIncoming, useMailStore } from "./mail-store";
 import { sanitizeMailHtml } from "./sanitize";
-import type { ActionEntry, Conversation, Draft, DraftMode, MailDemo, Message } from "./types";
+import type {
+  ActionEntry,
+  Conversation,
+  Draft,
+  DraftMode,
+  MailDemo,
+  MailFolder,
+  Message,
+} from "./types";
 
 const fmt = (iso: string, locale: string) =>
   new Date(iso).toLocaleString(locale === "de" ? "de-DE" : "en-GB", {
@@ -51,6 +61,11 @@ export function ThreadView({
   messages,
   actions,
   composer,
+  folders,
+  filedIn,
+  spam,
+  onMove,
+  onSpam,
   onCompose,
   onCloseComposer,
   onShowActions,
@@ -62,6 +77,12 @@ export function ThreadView({
   messages: Message[];
   actions: ActionEntry[];
   composer: { mode: DraftMode; resume?: Draft } | null;
+  folders: MailFolder[];
+  filedIn: string | null;
+  spam: { spam: boolean; reasons: SpamReason[]; manual: boolean };
+  /** "posteingang", "spam" or a folder id. */
+  onMove: (target: string) => void;
+  onSpam: (spam: boolean) => void;
   onCompose: (mode: DraftMode) => void;
   onCloseComposer: () => void;
   onShowActions?: () => void;
@@ -166,6 +187,24 @@ export function ThreadView({
               </option>
             ))}
           </NativeSelect>
+          <NativeSelect
+            aria-label={t("thread.moveTo")}
+            value={spam.spam ? "spam" : (filedIn ?? "posteingang")}
+            onChange={(e) => onMove(e.target.value)}
+            className="h-8 max-w-56"
+          >
+            <option value="posteingang">{t("folders.posteingang")}</option>
+            {sortedTree(folders).map(({ folder, depth }) => (
+              <option key={folder.id} value={folder.id}>
+                {`${"\u00a0\u00a0".repeat(depth)}${folder.name}`}
+              </option>
+            ))}
+            <option value="spam">{t("folders.spam")}</option>
+          </NativeSelect>
+          <Button size="sm" variant="ghost" onClick={() => onSpam(!spam.spam)}>
+            {spam.spam ? <ShieldCheck /> : <ShieldAlert />}
+            {spam.spam ? t("thread.notSpam") : t("thread.markSpam")}
+          </Button>
           <span className="ml-auto flex items-center gap-1">
             <Button
               size="sm"
@@ -186,6 +225,21 @@ export function ThreadView({
             </Button>
           </span>
         </div>
+        {spam.spam && (
+          <p
+            role="status"
+            className="flex items-start gap-1.5 rounded-md bg-status-critical-bg px-2 py-1.5 text-status-critical text-tiny"
+          >
+            <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              {spam.manual
+                ? t("thread.spamManual")
+                : t("thread.spamRules", {
+                    reasons: spam.reasons.map((r) => t(`spamReason.${r}`)).join(", "),
+                  })}
+            </span>
+          </p>
+        )}
         <p className="text-muted-foreground text-tiny">
           {t("thread.with", {
             name: conversation.external.name || conversation.external.address,

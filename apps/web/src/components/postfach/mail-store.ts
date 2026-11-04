@@ -1,6 +1,13 @@
 "use client";
 
-import { autoAssign, type ConversationStatus, nextStatus } from "@marktwerk/core";
+import {
+  autoAssign,
+  type ConversationStatus,
+  nextStatus,
+  removeFolder,
+  type SpamReason,
+  spamCheck,
+} from "@marktwerk/core";
 import { useCallback, useSyncExternalStore } from "react";
 import type {
   ActionEntry,
@@ -10,6 +17,7 @@ import type {
   KnownSender,
   MailboxId,
   MailDemo,
+  MailFolder,
   MailTemplate,
   Message,
   Person,
@@ -33,6 +41,26 @@ export interface MailState {
   knownSenders: KnownSender[];
   /** Attachments filed by an action: attachment id → label. */
   filed: Record<string, string>;
+  /** Custom folders (nested via parentId). */
+  folders: MailFolder[];
+  /** Addresses ("x@y.de") or domains ("@y.de") whose mail goes to Spam. */
+  blockedSenders: string[];
+  /**
+   * SIMULATED vendor list additions: people whose stall was confirmed in the Standplan. Until then a form
+   * sender stays out of the vendor list (noise and spam never get in). Real build: insert/update `vendor`.
+   */
+  vendorRegister: RegisteredVendor[];
+}
+
+export interface RegisteredVendor {
+  email: string;
+  name: string;
+  companyName: string | null;
+  kind: "private" | "commercial";
+  phone: string | null;
+  registeredAt: string;
+  eventIds: string[];
+  requestRefs: string[];
 }
 
 const KEY = "marktwerk.postfach-prototype.v1";
@@ -47,6 +75,9 @@ const EMPTY: MailState = {
   actions: [],
   knownSenders: [],
   filed: {},
+  folders: [],
+  blockedSenders: [],
+  vendorRegister: [],
 };
 
 let cache: MailState | null = null;
@@ -142,9 +173,56 @@ export function knownSender(
   address: string,
 ): KnownSender | undefined {
   const a = address.toLowerCase();
+  const registered = s.vendorRegister.find((v) => v.email === a);
   return (
-    demo.knownSenders.find((k) => k.address === a) ?? s.knownSenders.find((k) => k.address === a)
+    demo.knownSenders.find((k) => k.address === a) ??
+    s.knownSenders.find((k) => k.address === a) ??
+    (registered
+      ? {
+          address: a,
+          kind: "vendor",
+          label: registered.companyName ?? registered.name,
+          simulated: true,
+        }
+      : undefined)
   );
+}
+
+/** Spam: a person's decision wins; otherwise the fixed rules on the first incoming mail. */
+export function spamOf(
+  demo: MailDemo,
+  s: MailState,
+  c: Conversation,
+): { spam: boolean; reasons: SpamReason[]; manual: boolean } {
+  if (c.spam !== undefined) return { spam: c.spam, reasons: [], manual: true };
+  const first = messagesOf(demo, s, c.id).find((m) => m.kind === "incoming");
+  if (!first) return { spam: false, reasons: [], manual: false };
+  const req =
+    first.parse?.kind === "request"
+      ? first.parse.ok
+        ? first.parse.request
+        : first.parse.partial
+      : null;
+  const r = spamCheck(
+    {
+      fromAddress: c.external.address,
+      subject: c.subject,
+      text: first.text,
+      formLengthCm: req?.lengthCm ?? null,
+    },
+    s.blockedSenders,
+  );
+  return { ...r, manual: false };
+}
+
+/** Booking request: a recognised (or broken) form mail, or a request captured by hand. */
+export function isBookingRequest(
+  demo: MailDemo,
+  s: MailState,
+  c: Conversation,
+  manualIds: Set<string>,
+) {
+  return manualIds.has(c.id) || messagesOf(demo, s, c.id).some((m) => m.parse?.kind === "request");
 }
 
 // --- mutations (pure: state in, state out) ------------------------------------------------------------
@@ -326,4 +404,82 @@ export function appendOutgoing(input: {
       lastActivityAt: at,
     });
   });
+}
+
+// --- folders & spam ----------------------------------------------------------------------------------
+
+export function createFolder(
+  s: MailState,
+  name: string,
+  parentId: string | null,
+): { state: MailState; id: string } {
+  const id = `f-${Date.now().toString(36)}`;
+  return { state: { ...s, folders: [...s.folders, { id, name: name.trim(), parentId }] }, id };
+}
+
+export function renameFolder(s: MailState, id: string, name: string): MailState {
+  return { ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, name: name.trim() } : f)) };
+}
+
+/** Deletes a folder: subfolders and its mails move up to the parent folder (or the Posteingang). */
+export function deleteFolder(s: MailState, id: string): MailState {
+  const parent = s.folders.find((f) => f.id === id)?.parentId ?? null;
+  const conv = Object.fromEntries(
+    Object.entries(s.conv).map(([k, v]) => [k, v.folderId === id ? { ...v, folderId: parent } : v]),
+  );
+  return { ...s, folders: removeFolder(s.folders, id), conv };
+}
+
+/** Moves a conversation into a folder (null = Posteingang); moving out of Spam means "Kein Spam". */
+export function moveToFolder(s: MailState, id: string, folderId: string | null): MailState {
+  return patchConversation(s, id, { folderId, spam: false });
+}
+
+/** "Spam": moves it to Spam and blocks the sender; "Kein Spam" undoes both. */
+export function setSpam(s: MailState, c: Conversation, spam: boolean): MailState {
+  const addr = c.external.address.toLowerCase();
+  // A form mail comes from our own form address: never block that, only this conversation.
+  const blockable = !addr.endsWith("@coelln-konzept.de");
+  const blockedSenders = spam
+    ? blockable && !s.blockedSenders.includes(addr)
+      ? [...s.blockedSenders, addr]
+      : s.blockedSenders
+    : s.blockedSenders.filter((b) => b !== addr);
+  return patchConversation({ ...s, blockedSenders }, c.id, { spam });
+}
+
+/** Simulated "add to vendor list" for confirmed stalls of people not yet in the vendor table. */
+export type NewVendorEntry = Omit<RegisteredVendor, "registeredAt" | "eventIds" | "requestRefs"> & {
+  eventId: string;
+  requestRef: string;
+};
+
+export function registerVendors(entries: NewVendorEntry[]): { added: number } {
+  let added = 0;
+  updateMailState((s) => {
+    const list = [...s.vendorRegister];
+    for (const e of entries) {
+      const email = e.email.toLowerCase();
+      const cur = list.find((v) => v.email === email);
+      if (cur) {
+        if (!cur.eventIds.includes(e.eventId)) cur.eventIds = [...cur.eventIds, e.eventId];
+        if (!cur.requestRefs.includes(e.requestRef))
+          cur.requestRefs = [...cur.requestRefs, e.requestRef];
+      } else {
+        added++;
+        list.push({
+          email,
+          name: e.name,
+          companyName: e.companyName,
+          kind: e.kind,
+          phone: e.phone,
+          registeredAt: new Date().toISOString(),
+          eventIds: [e.eventId],
+          requestRefs: [e.requestRef],
+        });
+      }
+    }
+    return { ...s, vendorRegister: list };
+  });
+  return { added };
 }

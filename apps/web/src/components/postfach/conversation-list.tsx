@@ -1,6 +1,7 @@
 "use client";
 
-import { Paperclip, PenLine } from "lucide-react";
+import { useDraggable } from "@dnd-kit/core";
+import { Paperclip, PenLine, ShieldAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { ConversationStatusBadge } from "./status";
@@ -13,6 +14,9 @@ export type ListRow =
       last: Message | undefined;
       count: number;
       attach: boolean;
+      spam?: boolean;
+      /** Folder path shown in smart folders ("Märkte › Neuss"). */
+      folderLabel?: string;
     }
   | { kind: "draft"; d: Draft; c: Conversation | undefined };
 
@@ -78,64 +82,104 @@ export function ConversationList({
             </li>
           );
         }
-        const { c, last, count, attach } = row;
-        const assignee = demo.people.find((p) => p.id === c.assigneeId);
-        const active = selectedId === c.id;
         return (
-          <li key={c.id}>
-            <button
-              type="button"
-              onClick={() => onOpen(c.id)}
-              aria-current={active ? "true" : undefined}
-              className={cn(
-                "flex w-full flex-col gap-0.5 border-b px-3 py-2 text-left text-small hover:bg-hover",
-                active && "bg-selected",
-              )}
-            >
-              <span className="flex items-baseline gap-2">
-                <span
-                  className={cn(
-                    "size-2 shrink-0 self-center rounded-full",
-                    c.unread ? "bg-primary" : "bg-transparent",
-                  )}
-                  aria-hidden
-                />
-                <span className={cn("truncate", c.unread ? "font-bold" : "font-medium")}>
-                  {c.external.name || c.external.address}
-                </span>
-                {c.unread && <span className="sr-only">{t("unread")}</span>}
-                <span className="ml-auto shrink-0 text-faint-foreground text-tiny">
-                  {time(c.lastActivityAt, locale)}
-                </span>
-              </span>
-              <span className={cn("truncate pl-4", c.unread && "font-semibold")}>{c.subject}</span>
-              <span className="truncate pl-4 text-muted-foreground text-tiny">
-                {last?.kind === "outgoing" ? `${t("you")}: ` : ""}
-                {(last?.text ?? "").replace(/\s+/g, " ").slice(0, 90)}
-              </span>
-              <span className="mt-0.5 flex items-center gap-2 pl-4">
-                <ConversationStatusBadge status={c.status} />
-                {assignee && (
-                  <span
-                    title={assignee.name}
-                    className="inline-flex size-5 items-center justify-center rounded-full bg-sunken font-semibold text-[10px]"
-                  >
-                    {initials(assignee.name)}
-                    <span className="sr-only">{t("assignedTo", { name: assignee.name })}</span>
-                  </span>
-                )}
-                {count > 1 && <span className="text-faint-foreground text-tiny">⇄ {count}</span>}
-                {attach && (
-                  <Paperclip
-                    className="size-3.5 text-faint-foreground"
-                    aria-label={t("attachments")}
-                  />
-                )}
-              </span>
-            </button>
-          </li>
+          <DraggableRow
+            key={row.c.id}
+            row={row}
+            demo={demo}
+            active={selectedId === row.c.id}
+            onOpen={onOpen}
+            locale={locale}
+          />
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * A conversation row: click opens it; press anywhere and move (6 px) to drag it onto a folder in the
+ * left column. "Verschieben nach …" in the conversation header is the click/keyboard alternative.
+ */
+function DraggableRow({
+  row,
+  demo,
+  active,
+  onOpen,
+  locale,
+}: {
+  row: Extract<ListRow, { kind: "conversation" }>;
+  demo: MailDemo;
+  active: boolean;
+  onOpen: (id: string) => void;
+  locale: string;
+}) {
+  const t = useTranslations("postfach.list");
+  const { c, last, count, attach } = row;
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: `conv:${c.id}` });
+  const assignee = demo.people.find((p) => p.id === c.assigneeId);
+  return (
+    <li ref={setNodeRef} className={cn(isDragging && "opacity-40")}>
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        onClick={() => onOpen(c.id)}
+        aria-current={active ? "true" : undefined}
+        aria-roledescription={t("draggable")}
+        className={cn(
+          "flex w-full cursor-grab flex-col gap-0.5 border-b px-3 py-2 text-left text-small hover:bg-hover active:cursor-grabbing",
+          active && "bg-selected",
+        )}
+      >
+        <span className="flex items-baseline gap-2">
+          <span
+            className={cn(
+              "size-2 shrink-0 self-center rounded-full",
+              c.unread ? "bg-primary" : "bg-transparent",
+            )}
+            aria-hidden
+          />
+          <span className={cn("truncate", c.unread ? "font-bold" : "font-medium")}>
+            {c.external.name || c.external.address}
+          </span>
+          {c.unread && <span className="sr-only">{t("unread")}</span>}
+          <span className="ml-auto shrink-0 text-faint-foreground text-tiny">
+            {time(c.lastActivityAt, locale)}
+          </span>
+        </span>
+        <span className={cn("truncate pl-4", c.unread && "font-semibold")}>{c.subject}</span>
+        <span className="truncate pl-4 text-muted-foreground text-tiny">
+          {last?.kind === "outgoing" ? `${t("you")}: ` : ""}
+          {(last?.text ?? "").replace(/\s+/g, " ").slice(0, 90)}
+        </span>
+        <span className="mt-0.5 flex flex-wrap items-center gap-2 pl-4">
+          {row.spam ? (
+            <span className="inline-flex h-6 items-center gap-1 rounded-full bg-status-critical-bg px-2 font-semibold text-status-critical text-tiny">
+              <ShieldAlert className="size-3.5" />
+              {t("spam")}
+            </span>
+          ) : (
+            <ConversationStatusBadge status={c.status} />
+          )}
+          {assignee && (
+            <span
+              title={assignee.name}
+              className="inline-flex size-5 items-center justify-center rounded-full bg-sunken font-semibold text-[10px]"
+            >
+              {initials(assignee.name)}
+              <span className="sr-only">{t("assignedTo", { name: assignee.name })}</span>
+            </span>
+          )}
+          {count > 1 && <span className="text-faint-foreground text-tiny">⇄ {count}</span>}
+          {attach && (
+            <Paperclip className="size-3.5 text-faint-foreground" aria-label={t("attachments")} />
+          )}
+          {row.folderLabel && (
+            <span className="truncate text-faint-foreground text-tiny">▸ {row.folderLabel}</span>
+          )}
+        </span>
+      </button>
+    </li>
   );
 }

@@ -275,6 +275,7 @@ export function ActionsPanel({
           plan={plan}
           conversation={conversation}
           text={lastIncoming?.text ?? ""}
+          knownVendor={sender?.kind === "vendor"}
           onClose={() => setDialog(null)}
           onSave={(item) => {
             updateStandplanState((s) => ({ ...s, manualItems: [...s.manualItems, item] }));
@@ -490,10 +491,13 @@ function StallDialog({
   plan,
   conversation,
   text,
+  knownVendor,
   onClose,
   onSave,
 }: {
   plan: StandplanData;
+  /** Sender is already a vendor (database or confirmed earlier in this prototype). */
+  knownVendor: boolean;
   conversation: Conversation;
   text: string;
   onClose: () => void;
@@ -542,6 +546,7 @@ function StallDialog({
           note: note || null,
           receivedAt: new Date().toISOString(),
           requestRef: `MAIL-${todayIn().replace(/-/g, "")}-${conversation.id.slice(-4)}`,
+          knownVendor,
         });
       }}
     >

@@ -97,7 +97,8 @@
       "versionLoaded": "„{name}“ geladen",
       "versionLoadedSkipped": "„{name}“ geladen; {skipped, plural, one {# Stand passt} other {# Stände passen}} nicht mehr (inzwischen bestätigt oder belegt)",
       "versionDeleted": "„{name}“ gelöscht",
-      "autoplatzWhy": "Autoplatz: {placed} vorgeschlagen, {left} ohne Platz (Gründe stehen an den Anfragen)"
+      "autoplatzWhy": "Autoplatz: {placed} vorgeschlagen, {left} ohne Platz (Gründe stehen an den Anfragen)",
+      "confirmedWithVendors": "{count, plural, one {# Bestätigung} other {# Bestätigungen}} gesendet; {added, plural, one {# neue Person} other {# neue Personen}} in die Ausstellerliste aufgenommen (Simulation)"
     },
     "announce": {
       "placed": "{name} steht jetzt auf {stall}",
@@ -147,6 +148,15 @@
       "toast": "Reihe {row}: {why}",
       "ghost": "passt nicht: {why}",
       "badge": "Passt nirgends"
+    },
+    "vendor": {
+      "label": "Ausstellerliste",
+      "known": "Aussteller",
+      "registered": "Neu aufgenommen",
+      "new": "Noch nicht in der Liste",
+      "knownHint": "Steht schon in der Ausstellerliste.",
+      "registeredHint": "Nach der Bestätigung in die Ausstellerliste aufgenommen (Prototyp: Simulation).",
+      "newHint": "Kommt erst mit der Bestätigung in die Ausstellerliste, so bleiben Spam und Fehlanfragen draußen."
     }
   }
 }
