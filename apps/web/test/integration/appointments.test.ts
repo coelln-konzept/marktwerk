@@ -2,6 +2,7 @@ import { appointment, auditLog, contact, venue } from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { listAppointmentsBetween, listAppointmentsOn } from "@/server/queries/appointments";
 import {
   type AppointmentDraft,
   AppointmentInputError,
@@ -247,5 +248,30 @@ describe("archive and restore", () => {
     await expect(archiveAppointment(field, id)).rejects.toSatisfy(isForbidden);
     await expect(restoreAppointment(field, id)).rejects.toSatisfy(isForbidden);
     await expect(updateAppointment(field, id, draft())).rejects.toSatisfy(isForbidden);
+  });
+});
+
+describe("listAppointmentsBetween", () => {
+  it("lists all-day first, then by time; excludes archived; bounds are inclusive", async () => {
+    await createAppointment(owner, draft({ title: "Spät", startsAt: "15:00", endsAt: null }));
+    await createAppointment(owner, draft({ title: "Früh", startsAt: "08:00", endsAt: null }));
+    await createAppointment(owner, draft({ title: "Ganztag", startsAt: null, endsAt: null }));
+    const gone = await createAppointment(
+      owner,
+      draft({ title: "Archiviert", startsAt: null, endsAt: null }),
+    );
+    await archiveAppointment(owner, gone.id);
+    await createAppointment(owner, draft({ title: "Vorher", onDate: "2026-11-30" }));
+    await createAppointment(
+      owner,
+      draft({ title: "Letzter Tag", onDate: "2026-12-03", startsAt: null, endsAt: null }),
+    );
+    await createAppointment(owner, draft({ title: "Danach", onDate: "2026-12-04" }));
+
+    const list = await listAppointmentsBetween("2026-12-01", "2026-12-03");
+    expect(list.map((a) => a.title)).toEqual(["Ganztag", "Früh", "Spät", "Letzter Tag"]);
+
+    const day = await listAppointmentsOn("2026-12-01");
+    expect(day.map((a) => a.title)).toEqual(["Ganztag", "Früh", "Spät"]);
   });
 });

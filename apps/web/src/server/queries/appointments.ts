@@ -1,7 +1,7 @@
 import "server-only";
 import { clockTime } from "@marktwerk/core";
 import { appointment, contact, venue } from "@marktwerk/db/schema";
-import { and, asc, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { db } from "../db";
 import { isUuid } from "./venues";
 
@@ -92,7 +92,11 @@ export async function listAppointmentsBetween(
         isNull(appointment.archivedAt),
       ),
     )
-    .orderBy(asc(appointment.onDate), asc(appointment.startsAt), asc(appointment.title))
+    .orderBy(
+      asc(appointment.onDate),
+      sql`${appointment.startsAt} asc nulls first`,
+      asc(appointment.title),
+    )
     .limit(500);
   return rows.map(view);
 }

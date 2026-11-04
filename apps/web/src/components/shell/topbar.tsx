@@ -99,6 +99,8 @@ function NewMenu() {
   // The dialog lives in the app layout, so it opens on any page; the page's own query (month, filters) stays.
   const appointmentHref = hrefWith(pathname, Object.fromEntries(search.entries()), {
     neu: "termin",
+    bearbeiten: undefined,
+    datum: undefined,
   });
   const entries: {
     id: string;

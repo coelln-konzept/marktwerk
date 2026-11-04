@@ -1,5 +1,6 @@
 "use client";
 
+import { isIsoDate } from "@marktwerk/core";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
@@ -8,6 +9,7 @@ import {
   createAppointmentAction,
   loadTerminFormAction,
   restoreAppointmentAction,
+  type TerminResult,
   updateAppointmentAction,
 } from "@/app/(app)/termin-actions";
 import { SELECT_CLASS } from "@/components/settings/select-class";
@@ -34,7 +36,6 @@ type ContactMode =
   | { mode: "saved"; id: string; name: string; detail: string }
   | { mode: "new" };
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const OWN_ADDRESS = "__own__";
 
 /**
@@ -92,10 +93,11 @@ export function AppointmentDialog() {
     >
       {data ? (
         <AppointmentForm
+          notFound={editing && data.appointment === null}
           key={`${editId ?? "new"}|${day ?? ""}`}
           data={data}
           editId={editId}
-          day={day && ISO_DATE.test(day) ? day : null}
+          day={day && isIsoDate(day) ? day : null}
           onBusy={setBusy}
           onDone={close}
           onCancel={close}
@@ -112,6 +114,7 @@ export function AppointmentDialog() {
 function AppointmentForm({
   data,
   editId,
+  notFound,
   day,
   onBusy,
   onDone,
@@ -119,6 +122,7 @@ function AppointmentForm({
 }: {
   data: FormData;
   editId: string | null;
+  notFound: boolean;
   day: string | null;
   onBusy: (busy: boolean) => void;
   onDone: () => void;
@@ -158,7 +162,9 @@ function AppointmentForm({
   );
   const [saveContact, setSaveContact] = useState(!existing?.contact || !!existing.contact.id);
   const [query, setQuery] = useState("");
-  const [error, setError] = useState<{ code: string; field?: Field } | null>(null);
+  const [error, setError] = useState<{ code: string; field?: Field } | null>(
+    notFound ? { code: "not_found" } : null,
+  );
 
   const refs = {
     title: useRef<HTMLInputElement>(null),
@@ -193,6 +199,15 @@ function AppointmentForm({
   const invalid = (field: Field) => error?.field === field || undefined;
   const hint = (field: Field) => (error?.field === field ? `${uid}-error` : undefined);
 
+  /** An action that throws counts as a generic failure, never as a crash into the error boundary. */
+  async function guardedCall(run: () => Promise<TerminResult>): Promise<TerminResult> {
+    try {
+      return await run();
+    } catch {
+      return { ok: false, error: "generic" };
+    }
+  }
+
   function pick(option: ContactOption) {
     setContact({ mode: "saved", id: option.id, name: option.name, detail: tKind(option.kind) });
     setQuery("");
@@ -216,9 +231,15 @@ function AppointmentForm({
       saveContact: typed && saveContact,
     };
     startTransition(async () => {
-      const result = editId
-        ? await updateAppointmentAction(editId, draft)
-        : await createAppointmentAction(draft);
+      let result: Awaited<ReturnType<typeof createAppointmentAction>>;
+      try {
+        result = editId
+          ? await updateAppointmentAction(editId, draft)
+          : await createAppointmentAction(draft);
+      } catch {
+        setError({ code: "generic" });
+        return;
+      }
       if (!result.ok) {
         setError({ code: result.error, field: result.field as Field | undefined });
         setFocusField((result.field as Field | undefined) ?? null);
@@ -234,17 +255,19 @@ function AppointmentForm({
         message: t("toast.created"),
         actionLabel: t("toast.undo"),
         onAction: async () => {
-          const undone = await archiveAppointmentAction(id);
+          const undone = await guardedCall(() => archiveAppointmentAction(id));
           showToast(
             undone.ok
               ? {
                   message: t("toast.createdUndone"),
                   actionLabel: t("toast.undo"),
                   onAction: async () => {
-                    await restoreAppointmentAction(id);
+                    const restored = await guardedCall(() => restoreAppointmentAction(id));
+                    if (!restored.ok)
+                      showToast({ message: errorText(restored.error), tone: "error" });
                   },
                 }
-              : { message: t(`errors.${undone.error}` as never), tone: "error" },
+              : { message: errorText(undone.error), tone: "error" },
           );
         },
       });
@@ -514,7 +537,12 @@ function AppointmentForm({
             <button
               type="button"
               className="self-start text-accent-soft-foreground text-small underline-offset-4 hover:underline"
-              onClick={() => setContact({ mode: "none" })}
+              onClick={() => {
+                setContact({ mode: "none" });
+                setContactName("");
+                setContactPhone("");
+                setContactEmail("");
+              }}
             >
               {t("contactBack")}
             </button>
@@ -545,7 +573,7 @@ function AppointmentForm({
         <Button disabled={pending} onClick={onCancel}>
           {t("cancel")}
         </Button>
-        <Button type="submit" variant="default" aria-busy={pending} disabled={pending}>
+        <Button type="submit" variant="default" aria-busy={pending} disabled={pending || notFound}>
           {editId ? t("save") : t("create")}
         </Button>
       </div>
