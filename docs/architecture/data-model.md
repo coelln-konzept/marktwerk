@@ -164,6 +164,12 @@ erDiagram
   KPIs, the weekend blockers, the Kalender "Aufgaben" layer, the deadline sweep (reminders, escalation) and the daily
   digest; they stay on the board with a "Zurückgestellt bis …" badge. Set and cleared through `snoozeTask` /
   `unsnoozeTask` (audit `task.snooze` / `task.unsnooze`, undoable).)*
+  *(implemented 0009 (CF9-3): **notify setting** "Benachrichtigung senden an": `notify_channels text[]` (subset of
+  `email | whatsapp`, default empty), `notify_timing?` (enum `task_notify_timing`: `on_create | due_day | before_1d |
+  before_3d | before_7d | custom`) and `notify_at?` (instant, only for `custom`). Checks: channels are a subset of the
+  two values; `notify_timing = 'custom'` iff `notify_at` is set; no timing without a channel. The send instant is the pure
+  rule `notifyMoment` in `packages/core` (08:00 Berlin on the due day, or 1/3/7 days earlier). Saved only; nothing is sent
+  until mail/WhatsApp are connected.)*
   *(implemented 0002: task also has `obligation_id?` (source `obligation`), `skipped_reason`, the copied evidence
   flags `requires_photo/note/attachment`, `approver_staff_member_id?`, `completed_by_staff_member_id`; `board_column`
   is the enum `preparation | this_week | today | done`; `board_sort` is a double (fractional ordering);
