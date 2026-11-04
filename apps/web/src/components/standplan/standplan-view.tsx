@@ -4,6 +4,9 @@ import {
   autoPlace,
   checkFit,
   DEFAULT_GAP_RULE,
+  explainNoFit,
+  explainUnplaceable,
+  type NoFitReason,
   nearestFit,
   type Placement,
   quoteStall,
@@ -13,6 +16,7 @@ import {
 import {
   Car,
   Check,
+  CircleAlert,
   CircleDashed,
   GripVertical,
   Mail,
@@ -33,6 +37,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { appendOutgoing, readMailState, writeMailState } from "@/components/postfach/mail-store";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +57,7 @@ import {
   useStandplanStore,
 } from "./store";
 import type { BookingItem, PlanEvent, PlanRow, StandplanData } from "./types";
+import { mergeReasons, useWhy } from "./why";
 
 type Drag = {
   itemId: string;
@@ -94,8 +100,13 @@ export function StandplanView({
   const rows = useMemo(() => venue?.zones.flatMap((z) => z.rows) ?? [], [venue]);
   const rowsById = useMemo(() => new Map(rows.map((r) => [r.id, r] as const)), [rows]);
   const items = useMemo(
-    () => new Map(data.items.filter((i) => i.eventId === eventId).map((i) => [i.id, i] as const)),
-    [data.items, eventId],
+    () =>
+      new Map(
+        [...data.items, ...state.manualItems]
+          .filter((i) => i.eventId === eventId)
+          .map((i) => [i.id, i] as const),
+      ),
+    [data.items, state.manualItems, eventId],
   );
 
   const placements: StoredPlacement[] = useMemo(() => {
@@ -115,6 +126,7 @@ export function StandplanView({
   }, [venue, state.layouts]);
   const backdrop = venue ? state.layouts[venue.id]?.backdrop : undefined;
   const gapRule = state.gapRule ? DEFAULT_GAP_RULE : null;
+  const why = useWhy();
 
   const [tab, setTab] = useState<Tab>("open");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -138,6 +150,23 @@ export function StandplanView({
     .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
   const declinedItems = [...items.values()].filter((i) => declined.has(i.id));
   const proposals = placements.filter((p) => p.status === "proposed");
+
+  // Why a request can't be placed: per row (drop/menu feedback) and over all rows (badge on the card).
+  const candidateOf = (i: BookingItem) => ({
+    lengthCm: i.lengthCm,
+    car: i.carRequested,
+    power: i.power,
+  });
+  const reasonOnRow = (i: BookingItem, row: PlanRow) =>
+    explainNoFit(row, placements.map(toPlacement), candidateOf(i), i.id, gapRule);
+  const blockedById = new Map(
+    openItems.flatMap((i) => {
+      const groups = mergeReasons(
+        explainUnplaceable(rows, placements.map(toPlacement), candidateOf(i), i.id, gapRule),
+      );
+      return groups.length ? [[i.id, groups] as const] : [];
+    }),
+  );
 
   // --- mutations (all local in the prototype) ---------------------------------------------------
   const setEventPlacements = useCallback(
@@ -172,7 +201,13 @@ export function StandplanView({
     if (!row) return;
     const res = placeAt(item, row, wantedCm, placements);
     if (!res) {
-      showToast({ tone: "error", message: t("toast.noRoom", { row: row.label }) });
+      const reason = reasonOnRow(item, row);
+      showToast({
+        tone: "error",
+        message: reason
+          ? t("why.toast", { row: row.label, why: why.one(reason) })
+          : t("toast.noRoom", { row: row.label }),
+      });
       return;
     }
     const before = placements;
@@ -227,7 +262,9 @@ export function StandplanView({
       ...res.placed.map((p) => ({ ...p, itemId: p.id, status: "proposed" as const })),
     ]);
     showToast({
-      message: t("toast.autoplatz", { placed: res.placed.length, left: res.unplaced.length }),
+      message: res.unplaced.length
+        ? t("toast.autoplatzWhy", { placed: res.placed.length, left: res.unplaced.length })
+        : t("toast.autoplatz", { placed: res.placed.length, left: 0 }),
       actionLabel: t("undo"),
       onAction: () => setEventPlacements(() => before),
     });
@@ -258,6 +295,20 @@ export function StandplanView({
     });
     const ids = new Set(targets.map((p) => p.itemId));
     const before = state;
+    const mailBefore = readMailState();
+    // The confirmation also becomes an outgoing message in the request's Postfach conversation.
+    for (const m of mails) {
+      const item = items.get(m.itemId);
+      if (!item?.mailId) continue;
+      appendOutgoing({
+        conversationId: item.mailId.startsWith("c-") ? item.mailId : `c-${item.mailId}`,
+        to: { name: item.vendorName, address: item.email },
+        fromAddress: "buchung@coelln-konzept.de",
+        subject: m.subject,
+        text: m.body,
+        authorId: "standplan",
+      });
+    }
     update((s) => ({
       ...s,
       placements: {
@@ -271,7 +322,10 @@ export function StandplanView({
     showToast({
       message: t("toast.confirmed", { count: mails.length }),
       actionLabel: t("undo"),
-      onAction: () => update(() => before),
+      onAction: () => {
+        update(() => before);
+        writeMailState(mailBefore);
+      },
     });
   };
 
@@ -406,10 +460,25 @@ export function StandplanView({
         gapRule,
       );
       return start === null
-        ? { rowId: row.id, startCm: Math.max(0, local), lengthCm: d.lengthCm, ok: false }
+        ? (() => {
+            const reason = explainNoFit(
+              row,
+              placementsRef.current.map(toPlacement),
+              { lengthCm: d.lengthCm, car: d.car, power: d.power },
+              d.itemId,
+              gapRule,
+            );
+            return {
+              rowId: row.id,
+              startCm: Math.max(0, local),
+              lengthCm: d.lengthCm,
+              ok: false,
+              reason: reason ? why.one(reason) : undefined,
+            };
+          })()
         : { rowId: row.id, startCm: start, lengthCm: d.lengthCm, ok: true };
     },
-    [rowsById, gapRule],
+    [rowsById, gapRule, why],
   );
 
   const startDrag = (e: React.PointerEvent, item: BookingItem, grabCm: number) => {
@@ -467,7 +536,9 @@ export function StandplanView({
       else if (p)
         showToast({
           tone: "error",
-          message: t("toast.noRoom", { row: rowsById.get(p.rowId)?.label ?? "" }),
+          message: p.reason
+            ? t("why.toast", { row: rowsById.get(p.rowId)?.label ?? "", why: p.reason })
+            : t("toast.noRoom", { row: rowsById.get(p.rowId)?.label ?? "" }),
         });
     };
     const onUp = () => finish(true);
@@ -791,7 +862,7 @@ export function StandplanView({
               {data.events
                 .filter((e) => data.venues.some((v) => v.id === e.venueId))
                 .map((e) => {
-                  const n = data.items.filter(
+                  const n = [...data.items, ...state.manualItems].filter(
                     (i) => i.eventId === e.id && i.mailId && !declined.has(i.id),
                   ).length;
                   return (
@@ -846,6 +917,11 @@ export function StandplanView({
             onConfirm={() => confirm(selItem.id)}
             onDecline={() => decline(selItem.id)}
             sent={state.sent.find((m) => m.itemId === selItem.id)}
+            blocked={selPlacement ? undefined : blockedById.get(selItem.id)}
+            reasonForRow={(r) => {
+              const reason = reasonOnRow(selItem, r);
+              return reason ? why.one(reason) : null;
+            }}
           />
         ) : null}
 
@@ -887,6 +963,7 @@ export function StandplanView({
                     selected={selectedId === i.id}
                     canWrite={canWrite}
                     dragging={drag?.itemId === i.id && drag.active}
+                    blocked={blockedById.get(i.id)}
                     onPointerDown={(e) => startDrag(e, i, i.lengthCm / 2)}
                     onSelect={() => setSelectedId(i.id)}
                     onHover={(h) => setHoverId(h ? i.id : null)}
@@ -967,7 +1044,9 @@ export function StandplanView({
           style={{ left: drag.x + 12, top: drag.y + 12 }}
         >
           {drag.label} · {formatLength(drag.lengthCm, locale)}
-          {preview && !preview.ok ? ` · ${t("noRoomShort")}` : ""}
+          {preview && !preview.ok
+            ? ` · ${preview.reason ? t("why.ghost", { why: preview.reason }) : t("noRoomShort")}`
+            : ""}
         </div>
       )}
 
@@ -1218,17 +1297,20 @@ function RequestCard({
   onPointerDown,
   onSelect,
   onHover,
+  blocked,
 }: {
   item: BookingItem;
   selected: boolean;
   canWrite: boolean;
   dragging: boolean;
+  blocked?: { reason: NoFitReason; rowLabels: string[] }[];
   onPointerDown: (e: React.PointerEvent) => void;
   onSelect: () => void;
   onHover: (h: boolean) => void;
 }) {
   const t = useTranslations("standplan");
   const locale = useLocale();
+  const why = useWhy();
   return (
     <li
       onMouseEnter={() => onHover(true)}
@@ -1284,6 +1366,17 @@ function RequestCard({
             <span className="truncate">{item.categories.join(", ")}</span>
           )}
         </span>
+        {blocked && (
+          <span className="mt-1 flex flex-col gap-0.5 rounded-md bg-status-critical-bg px-1.5 py-1 text-status-critical text-tiny">
+            <span className="flex items-center gap-1 font-semibold">
+              <CircleAlert className="size-3 shrink-0" />
+              {t("why.badge")}
+            </span>
+            {blocked.slice(0, 2).map((g) => (
+              <span key={g.reason.kind}>{why.line(g)}</span>
+            ))}
+          </span>
+        )}
         {item.note && (
           <span className="mt-1 flex items-start gap-1 text-tiny">
             <StickyNote className="mt-0.5 size-3 shrink-0 text-status-warn" />
@@ -1308,6 +1401,8 @@ function DetailCard({
   onConfirm,
   onDecline,
   sent,
+  blocked,
+  reasonForRow,
 }: {
   item: BookingItem;
   ev: PlanEvent;
@@ -1321,9 +1416,12 @@ function DetailCard({
   onConfirm: () => void;
   onDecline: () => void;
   sent?: SentMail;
+  blocked?: { reason: NoFitReason; rowLabels: string[] }[];
+  reasonForRow: (row: PlanRow) => string | null;
 }) {
   const t = useTranslations("standplan");
   const locale = useLocale();
+  const why = useWhy();
   const quote = quoteStall({
     lengthCm: item.lengthCm,
     pricePerMCents: ev.pricePerMCents,
@@ -1387,6 +1485,23 @@ function DetailCard({
           )}
         </dd>
       </dl>
+      {blocked && (
+        <div
+          role="status"
+          className="mt-2 rounded-md bg-status-critical-bg p-2 text-status-critical"
+        >
+          <p className="flex items-center gap-1.5 font-semibold">
+            <CircleAlert className="size-4 shrink-0" />
+            {t("why.title")}
+          </p>
+          <ul className="mt-1 list-disc pl-5 text-tiny">
+            {blocked.map((g) => (
+              <li key={g.reason.kind}>{why.line(g)}</li>
+            ))}
+          </ul>
+          {why.hint(blocked) && <p className="mt-1 text-tiny">{why.hint(blocked)}</p>}
+        </div>
+      )}
       {item.note && (
         <p className="mt-2 flex gap-1.5 rounded-md bg-status-warn-bg p-2 text-status-warn">
           <StickyNote className="mt-0.5 size-4 shrink-0" />
@@ -1415,13 +1530,18 @@ function DetailCard({
             className="h-8 text-small"
           >
             <option value="">{placement ? t("detail.moveTo") : t("detail.placeIn")}</option>
-            {rows.map((r) => (
-              <option key={r.id} value={r.id}>
-                {t("map.row", { label: r.label })} · {formatLength(r.lengthCm, locale)}
-                {r.carAllowed ? ` · ${t("car")}` : ""}
-                {r.label === item.preferredRowLabel ? ` ★` : ""}
-              </option>
-            ))}
+            {rows.map((r) => {
+              // A row that can't take this stall stays visible but disabled, with the reason.
+              const reason = placement?.rowId === r.id ? null : reasonForRow(r);
+              return (
+                <option key={r.id} value={r.id} disabled={Boolean(reason)}>
+                  {t("map.row", { label: r.label })} · {formatLength(r.lengthCm, locale)}
+                  {r.carAllowed ? ` · ${t("car")}` : ""}
+                  {r.label === item.preferredRowLabel ? ` ★` : ""}
+                  {reason ? ` – ${t("why.option", { why: reason })}` : ""}
+                </option>
+              );
+            })}
           </NativeSelect>
           {placement?.status === "proposed" && (
             <Button size="sm" variant="default" onClick={onConfirm}>
@@ -1443,7 +1563,9 @@ function DetailCard({
           {item.mailId && (
             <Link
               className="ml-auto text-accent-soft-foreground text-tiny underline-offset-4 hover:underline"
-              href={`/postfach?mail=${item.mailId}` as Route}
+              href={
+                `/postfach?konv=${item.mailId.startsWith("c-") ? item.mailId : `c-${item.mailId}`}` as Route
+              }
             >
               {t("detail.original")}
             </Link>

@@ -1,0 +1,284 @@
+{
+  "postfach": {
+    "title": "Mailbox",
+    "prototype": "Prototype · demo mails, changes only in this browser",
+    "subtitle": "The shared mailboxes: read, reply, assign and hand over to the stall plan, contacts, permits and locations.",
+    "undo": "Undo",
+    "status": {
+      "offen": "Open",
+      "wartet": "Waiting",
+      "erledigt": "Done"
+    },
+    "nav": {
+      "label": "Mailboxes and folders",
+      "new": "New mail",
+      "mailboxes": "Mailboxes",
+      "all": "All",
+      "folders": "Folders",
+      "mine": "Assigned to me",
+      "demoNote": "Prototype: nothing is really sent. In the real build mail comes from Microsoft 365.",
+      "keys": "Keys: j/k next/previous, r reply, a all, f forward, n note, e done.",
+      "reset": "Reset demo"
+    },
+    "folder": {
+      "offen": "Open",
+      "wartet": "Waiting",
+      "erledigt": "Done",
+      "gesendet": "Sent",
+      "entwuerfe": "Drafts",
+      "nichterkannt": "Not recognised"
+    },
+    "list": {
+      "label": "Conversations",
+      "search": "Search subject, sender, text",
+      "empty": "No conversations in this folder.",
+      "noRecipient": "(no recipient)",
+      "noSubject": "(no subject)",
+      "draft": "Draft",
+      "unread": "unread",
+      "you": "Us",
+      "assignedTo": "assigned to {name}",
+      "attachments": "with attachment"
+    },
+    "thread": {
+      "label": "Conversation",
+      "pick": "Pick a conversation on the left.",
+      "status": "Status",
+      "assignee": "Assignee",
+      "nobody": "Unassigned",
+      "me": "{name} (me)",
+      "event": "Event",
+      "noEvent": "No event",
+      "markUnread": "Unread",
+      "simulate": "Simulate reply",
+      "simulateHint": "Prototype: adds an incoming reply to show reopening",
+      "with": "With {name} <{address}>",
+      "older": "Show {count, plural, one {# older message} other {# older messages}}",
+      "actionLine": "{summary} · {name} · {time}",
+      "reply": "Reply",
+      "replyAll": "Reply all",
+      "forward": "Forward",
+      "note": "Note",
+      "noteBy": "Note (internal) · {name} · {time}",
+      "outgoingTo": "to {to} · from {box}",
+      "cc": "Cc: {list}"
+    },
+    "toast": {
+      "status": "Status: {status}",
+      "assigned": "Assigned to {name}",
+      "unassigned": "Assignment removed",
+      "linked": "Linked to {name}",
+      "unlinked": "Link removed"
+    },
+    "actions": {
+      "open": "Actions",
+      "label": "Actions",
+      "close": "Close",
+      "simulated": "(simulation)",
+      "saveSimulated": "Create (simulation)",
+      "cancel": "Cancel",
+      "simulatedNote": "Prototype: not created in the database.",
+      "sender": {
+        "title": "Sender",
+        "unknown": "Unknown sender.",
+        "asContact": "Save as contact …",
+        "asVendor": "Create as vendor …",
+        "known": {
+          "contact": "Contact: {label}",
+          "vendor": "Vendor: {label}"
+        }
+      },
+      "stall": {
+        "title": "Stall request",
+        "openPlan": "In stall plan",
+        "capture": "Capture stall request …",
+        "dialogTitle": "Capture stall request",
+        "save": "Add to stall plan",
+        "hint": "Pre-filled from the mail. Please check; the request then appears in the stall plan under “Open”.",
+        "event": "Event",
+        "length": "Stall length (m)",
+        "car": "Car at stall",
+        "power": "Power",
+        "spot": "Regular spot wish",
+        "spotPlaceholder": "e.g. Reihe B, ca. 12 m",
+        "note": "Note"
+      },
+      "attachments": {
+        "title": "Attachments",
+        "asPermit": "As permit …",
+        "toVenue": "File at location …"
+      },
+      "linked": {
+        "title": "Linked",
+        "none": "No event linked.",
+        "history": "History",
+        "noHistory": "No actions yet."
+      },
+      "log": {
+        "contact": "Contact “{name}” ({kind}) created (simulation)",
+        "vendor": "Vendor “{name}” created (simulation)",
+        "stall": "Stall request {event}, {length} m added to the stall plan",
+        "permit": "{file} filed: {label} (simulation)",
+        "venue": "{file} filed: {label} (simulation)"
+      },
+      "filed": "filed: {label}",
+      "contactKind": {
+        "authority": "Authority",
+        "landowner": "Landowner",
+        "supplier": "Supplier",
+        "service": "Service provider",
+        "other": "Other"
+      },
+      "contact": {
+        "title": "Save as contact",
+        "hint": "Pre-filled from sender and signature (fixed rules). Please check.",
+        "kind": "Type",
+        "name": "Name / organisation",
+        "person": "Contact person",
+        "email": "Email",
+        "phone": "Phone",
+        "street": "Street",
+        "city": "Postcode / city"
+      },
+      "vendor": {
+        "title": "Create as vendor",
+        "kind": "Type",
+        "private": "private",
+        "commercial": "commercial",
+        "name": "Name",
+        "email": "Email"
+      },
+      "permit": {
+        "title": "File {file} as permit",
+        "label": "{title} · {event}",
+        "event": "Event",
+        "permit": "Permit",
+        "none": "No permits at this event's location",
+        "received": "Received on",
+        "validUntil": "Valid until",
+        "effect": "In the real build: the document is attached to the permit and it counts as granted."
+      },
+      "venue": {
+        "title": "File {file} at location",
+        "label": "{type} · {venue}",
+        "venue": "Location",
+        "type": "Document type"
+      },
+      "docType": {
+        "lageplan": "Site plan",
+        "vertrag": "Contract",
+        "bescheid": "Notice",
+        "sonstiges": "Other"
+      }
+    },
+    "form": {
+      "requestRef": "Request ID",
+      "eventName": "Event",
+      "dates": "Dates",
+      "name": "Name",
+      "email": "Email",
+      "length": "Stall length",
+      "car": "Car at stall",
+      "yesLength": "yes, {length}",
+      "no": "no",
+      "spot": "Regular spot",
+      "failed": "Not fully recognised: did the form change? Please enter by hand.",
+      "issue": "Problem",
+      "ok": "recognised",
+      "note": "Note",
+      "confirmed": "Confirmed {stall}",
+      "proposed": "Proposal {stall}",
+      "open": "open",
+      "openPlan": "Open in stall plan"
+    },
+    "editor": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "bullets": "Bullet list",
+      "numbers": "Numbered list",
+      "link": "Link",
+      "clear": "Clear formatting",
+      "toolbar": "Formatting",
+      "linkPrompt": "Link address (empty = remove link)",
+      "insertVariable": "Insert variable",
+      "variable": "Variable",
+      "groups": {
+        "absender": "Sender",
+        "veranstaltung": "Event",
+        "stand": "Stall",
+        "wir": "Us"
+      }
+    },
+    "composer": {
+      "label": "Write mail",
+      "noteLabel": "Internal note",
+      "from": "From",
+      "to": "To",
+      "toPlaceholder": "name@example.com, …",
+      "cc": "Cc",
+      "subject": "Subject",
+      "event": "Event",
+      "noEvent": "None",
+      "body": "Text",
+      "template": "Template",
+      "categories": {
+        "buchung": "Booking",
+        "genehmigung": "Permit",
+        "allgemein": "General"
+      },
+      "attach": "Attach file",
+      "removeAttachment": "Remove {name}",
+      "signature": "Signature",
+      "eventBlock": "Add event info",
+      "showQuote": "Show quote",
+      "hideQuote": "Hide quote",
+      "missing": "No value: {keys}. Fill in or remove, then send.",
+      "missingEventHint": "Tip: choose an event above.",
+      "saveNote": "Save note",
+      "send": "Send",
+      "sendAndClose": "Send & done",
+      "cancel": "Cancel",
+      "close": "Close",
+      "discard": "Discard",
+      "draftSaved": "Draft saved {time}",
+      "tooLarge": "{name} is too large for the prototype (max. 1.5 MB)",
+      "invalidAddress": "Not a valid address: {value}",
+      "noRecipient": "Please add at least one recipient.",
+      "sending": "Sending …",
+      "sendingClose": "Sending and closing …",
+      "undoSend": "Undo",
+      "sendCancelled": "Sending cancelled, draft kept",
+      "discarded": "Draft discarded",
+      "undo": "Undo"
+    },
+    "settings": {
+      "tabs": "Mail settings",
+      "templates": "Mail templates",
+      "signatures": "Signatures",
+      "new": "New template",
+      "newName": "New template",
+      "copyOf": "Copy of {name}",
+      "deleted": "“{name}” deleted",
+      "undo": "Undo",
+      "allMailboxes": "All mailboxes",
+      "category": {
+        "buchung": "Booking",
+        "genehmigung": "Permit",
+        "allgemein": "General"
+      },
+      "name": "Name",
+      "subject": "Subject (optional)",
+      "subjectPlaceholder": "Only for new mails without a subject",
+      "mailbox": "Mailbox",
+      "categoryLabel": "Category",
+      "body": "Template text",
+      "preview": "Preview with sample values",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "noTemplate": "No template selected.",
+      "signatureHint": "Added under every mail from this mailbox (can be turned off per mail). The event info comes automatically from the linked event's data.",
+      "signature": "Signature"
+    }
+  }
+}

@@ -29,6 +29,7 @@ export const MESSAGE_AREAS = [
   "notifications",
   "archive",
   "standplan",
+  "postfach",
 ] as const;
 
 export async function loadMessages(locale: Locale): Promise<Record<string, unknown>> {

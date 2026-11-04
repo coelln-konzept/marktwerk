@@ -12,6 +12,7 @@ import type kalender from "../../messages/de/kalender.json";
 import type notifications from "../../messages/de/notifications.json";
 import type overview from "../../messages/de/overview.json";
 import type permits from "../../messages/de/permits.json";
+import type postfach from "../../messages/de/postfach.json";
 import type settings from "../../messages/de/settings.json";
 import type shell from "../../messages/de/shell.json";
 import type standplan from "../../messages/de/standplan.json";
@@ -46,7 +47,8 @@ type Messages = typeof shell &
   typeof tasks &
   typeof permits &
   typeof notifications &
-  typeof standplan;
+  typeof standplan &
+  typeof postfach;
 
 declare module "next-intl" {
   interface AppConfig {

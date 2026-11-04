@@ -16,6 +16,8 @@ export interface DropPreview {
   lengthCm: number;
   /** false: there is no valid spot on this row. */
   ok: boolean;
+  /** Why it doesn't fit (shown next to the drag label). */
+  reason?: string;
 }
 
 type View = { x: number; y: number; w: number; h: number };

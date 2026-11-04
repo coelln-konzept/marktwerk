@@ -96,7 +96,8 @@
       "versionSaved": "„{name}“ gespeichert, keine Mail gesendet",
       "versionLoaded": "„{name}“ geladen",
       "versionLoadedSkipped": "„{name}“ geladen; {skipped, plural, one {# Stand passt} other {# Stände passen}} nicht mehr (inzwischen bestätigt oder belegt)",
-      "versionDeleted": "„{name}“ gelöscht"
+      "versionDeleted": "„{name}“ gelöscht",
+      "autoplatzWhy": "Autoplatz: {placed} vorgeschlagen, {left} ohne Platz (Gründe stehen an den Anfragen)"
     },
     "announce": {
       "placed": "{name} steht jetzt auf {stall}",
@@ -127,68 +128,25 @@
       "meta": "{count, plural, one {# Vorschlag} other {# Vorschläge}} · {date}",
       "load": "Laden",
       "delete": "Version {name} löschen"
+    },
+    "why": {
+      "title": "Passt aktuell nirgends",
+      "line": "{count, plural, one {Reihe} other {Reihen}} {rows}: {why}",
+      "noPower": "kein Stromanschluss",
+      "carNotAllowed": "keine Autos erlaubt",
+      "carSlotsFull": "alle Autoplätze belegt ({slots})",
+      "tooLong": "Reihe ist nur {length} lang",
+      "noGap": "größte freie Lücke nur {gap}",
+      "rowFull": "komplett belegt",
+      "gapRule": "Lücke da, aber es blieben Reststücke unter 2 m (Abstandsregel)",
+      "hintCar": "Tipp: ohne Auto platzieren (mit dem Aussteller klären) oder einen Autoplatz in einer Autoreihe freimachen.",
+      "hintGapRule": "Tipp: „Keine Restlücken unter 2 m“ oben ausschalten oder Nachbarstände verschieben.",
+      "hintPower": "Tipp: Strom mit dem Aussteller klären; nur Reihen mit Stromanschluss kommen in Frage.",
+      "hintSpace": "Tipp: Nachbarstände zusammenschieben oder kürzere Standlänge mit dem Aussteller absprechen.",
+      "option": "passt nicht: {why}",
+      "toast": "Reihe {row}: {why}",
+      "ghost": "passt nicht: {why}",
+      "badge": "Passt nirgends"
     }
-  },
-  "postfach": {
-    "title": "Postfach",
-    "prototype": "Prototyp · Demo-Mails aus den Entwicklungsdaten",
-    "subtitle": "Alle Mails des Buchungspostfachs. Standanfragen aus dem Website-Formular werden mit festen Regeln erkannt (keine KI) und landen im Standplan.",
-    "folders": "Ordner",
-    "reading": "Lesebereich",
-    "empty": "Keine Mails in diesem Ordner.",
-    "pick": "Wähle links eine Mail.",
-    "demoNote": "Im echten Ausbau kommen die Mails per Microsoft 365 aus dem gemeinsamen Postfach. Gesendete Bestätigungen gehen hier noch nicht wirklich raus.",
-    "folder": {
-      "all": "Posteingang",
-      "requests": "Standanfragen",
-      "errors": "Nicht erkannt",
-      "other": "Sonstige",
-      "sent": "Gesendet"
-    },
-    "badge": {
-      "sent": "Gesendet",
-      "parseError": "Nicht erkannt",
-      "confirmed": "Bestätigt",
-      "inProgress": "{placed} von {total} platziert",
-      "request": "Standanfrage"
-    },
-    "to": "An {name}",
-    "original": "Original",
-    "recognised": "Erkannte Angaben",
-    "parseFailed": "Diese Anfrage konnte nicht vollständig gelesen werden.",
-    "parseFailedHint": "Meist hat sich das Formular geändert. Bitte die markierten Felder prüfen und die Anfrage von Hand erfassen.",
-    "ok": "erkannt",
-    "yes": "ja",
-    "no": "nein",
-    "yesLength": "ja, {length}",
-    "kind": {
-      "private": "privat",
-      "commercial": "gewerblich"
-    },
-    "issue": {
-      "missing": "fehlt",
-      "invalid": "nicht lesbar"
-    },
-    "field": {
-      "requestRef": "Anfrage-ID",
-      "eventName": "Veranstaltung",
-      "dates": "Termine",
-      "name": "Name",
-      "kind": "Art",
-      "email": "E-Mail",
-      "length": "Standlänge",
-      "car": "Auto am Stand",
-      "power": "Strom",
-      "spot": "Stammplatz",
-      "categories": "Sortiment",
-      "note": "Anmerkung"
-    },
-    "perDate": "Je Termin",
-    "dateOpen": "offen",
-    "dateProposed": "Vorschlag {stall}",
-    "dateConfirmed": "Bestätigt {stall}",
-    "openPlan": "Im Standplan öffnen",
-    "noEvent": "Keine Veranstaltung „{name}“ am {date} gefunden",
-    "sentNote": "Prototyp: Diese Mail wurde nur hier abgelegt, nicht verschickt."
   }
 }

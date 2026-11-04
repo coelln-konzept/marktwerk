@@ -98,6 +98,11 @@ export function useMailStore() {
   return { state, update, reset };
 }
 
+/** Snapshot of the current state (for undo from another prototype). */
+export function readMailState(): MailState {
+  return read();
+}
+
 /** Direct access for other prototypes (the Standplan writes confirmations into conversations). */
 export function updateMailState(fn: (s: MailState) => MailState): boolean {
   return writeMailState(fn(read()));
@@ -283,4 +288,42 @@ export function logAction(s: MailState, entry: Omit<ActionEntry, "id" | "at">): 
     ...s,
     actions: [{ ...entry, id: `act-${Date.now()}`, at: new Date().toISOString() }, ...s.actions],
   };
+}
+
+/**
+ * The Standplan's confirmation mails become outgoing messages in the request's conversation (they used
+ * to be a separate "sent" list). Status follows the send rule (→ wartet).
+ */
+export function appendOutgoing(input: {
+  conversationId: string;
+  to: Address;
+  fromAddress: string;
+  subject: string;
+  text: string;
+  authorId: string;
+}) {
+  updateMailState((s) => {
+    const at = new Date().toISOString();
+    const html = input.text
+      .split(/\n{2,}/)
+      .map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`)
+      .join("");
+    const m: Message = {
+      id: `out-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      conversationId: input.conversationId,
+      kind: "outgoing",
+      from: { name: "Coelln Konzept – Buchung", address: input.fromAddress },
+      to: [input.to],
+      cc: [],
+      html,
+      text: input.text,
+      attachments: [],
+      at,
+      authorId: input.authorId,
+    };
+    return patchConversation({ ...s, messages: [...s.messages, m] }, input.conversationId, {
+      status: "wartet",
+      lastActivityAt: at,
+    });
+  });
 }

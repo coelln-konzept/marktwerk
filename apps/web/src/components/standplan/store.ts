@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import type { BookingItem } from "./types";
 
 /**
  * PROTOTYPE store: placements, row layout and "sent" confirmations live in localStorage, shared by
@@ -73,6 +74,8 @@ export interface StandplanState {
   versions: Record<string, PlanVersion[]>;
   /** The version last saved or loaded per event (to show "unsaved changes"). */
   activeVersion: Record<string, string>;
+  /** Stall requests entered by hand from a Postfach conversation (free-text mails). */
+  manualItems: BookingItem[];
 }
 
 const KEY = "marktwerk.standplan-prototype.v1";
@@ -85,6 +88,7 @@ const EMPTY: StandplanState = {
   gapRule: true,
   versions: {},
   activeVersion: {},
+  manualItems: [],
 };
 
 let cache: StandplanState | null = null;
@@ -124,6 +128,11 @@ function subscribe(listener: () => void) {
     listeners.delete(listener);
     window.removeEventListener("storage", onStorage);
   };
+}
+
+/** Direct access for the Postfach prototype (manual stall requests). */
+export function updateStandplanState(fn: (s: StandplanState) => StandplanState) {
+  write(fn(read()));
 }
 
 export function useStandplanStore() {

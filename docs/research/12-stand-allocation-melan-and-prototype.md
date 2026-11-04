@@ -168,6 +168,8 @@ generated deterministically from real vendors. Placements, layouts and "sent" ma
 | Placement rules | `packages/core/src/bookings/placement.ts` (+ tests) | `checkFit` (row end, overlap, car slots, power, optional gap rule), `nearestFit` (drop lands where dropped or slides to the nearest valid spot), `autoPlace` (Stammplatz row first, then first fit, largest first), `quoteStall` (started half metres billed), `stallNumber` ("A-12"). |
 | Demo loader | `apps/web/src/server/standplan/demo-data.ts` | Builds about 50 mails: form requests for the next 4 events, some for two dates, one broken template and 4 normal mails. Splits requests per date and matches them to events. Fills about half of each plan with "existing" bookings. |
 | Postfach | `/postfach` | Folders: Posteingang / Standanfragen / Nicht erkannt / Sonstige / Gesendet. The reading pane shows the **original next to the recognised fields** with ✓ / ⚠ / ✕ per field, plus the status per date and a link into the plan. |
+| "Passt nirgends" | Standplan, request cards, details, drop toast, "Platzieren in …" | `explainNoFit` / `explainUnplaceable` (core, tested) name the reason per row: no power, no cars allowed, car spaces full, row too short, largest free gap too small, or the gap rule. Cards that fit nowhere show a red note with the reasons and a tip; a failed drop says why for that row; rows that can't take the stall are disabled in the menu. |
+| Postfach (mail browser) | `/postfach`, `/postfach/neu`, `/einstellungen/mail` | Built from the spec `docs/superpowers/specs/2026-11-04-postfach-mail-browser-design.md`: three shared mailboxes, status Offen/Wartet/Erledigt, assignee, notes, Tiptap composer with templates, variables, signature and event block, drafts, send with undo. Actions: sender recognition, simulated contact/vendor, free-text request → Standplan, simulated permit/location filing, history. Standplan confirmations land in the vendor's conversation. |
 | Versionen (drafts) | Standplan, side panel + "Als Version speichern" | Save the current proposals as a named version **without sending any mail**, try other arrangements, load an older one (undo toast). "Nicht gespeichert" / "Gespeichert" badge. Loading never touches confirmed stalls; a draft stall that collides with a stall confirmed in the meantime is skipped and counted. Only "Bestätigen" sends mail. |
 | Standplan | `/standplan?veranstaltung=<id>` | Event chosen **on the right**, requests listed with notes, Stammplatz, car and power. **Drag onto rows** with a live drop preview (red if it doesn't fit). Autoplatz → proposals → "n bestätigen und Mail senden" (assigned + mail in Gesendet). Undo toasts. Keyboard: ← → 50 cm, ↑ ↓ change row, Entf removes. A "Platzieren in …" menu as the click path. **Layout bearbeiten:** move and rotate rows, and put an aerial photo or the paper plan underneath (opacity, width in m). **Drucken:** A4 landscape plan plus the crew stall list. |
 
@@ -189,6 +191,12 @@ Checked in the browser:
   booked length).
 - No restricted or blocked zones, and no per-row surcharges.
 - No Platzkarte PDF. Plain-text mail only.
+- **Parking / car spaces:** today a row only has "cars allowed" and a number of car spaces
+  (`row.car_allowed`, `row.car_slots`); cars are not drawn on the plan. In the dev data some venues (e.g.
+  Troisdorf – Stadthalle) allow no cars at all, so every "Auto am Stand" request there fits nowhere.
+  **Open question for the client:** how does the office handle cars today: behind the stall per row,
+  a separate vendor parking area, or decided on site? The answer decides whether car spaces become
+  their own map objects.
 - Versions are per browser, like everything else in the prototype. For real: a `plan_version` table
   (event, name, author, created_at, placements jsonb). Loading one becomes a service call with an audit entry.
 

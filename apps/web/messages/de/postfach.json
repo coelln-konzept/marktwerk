@@ -1,0 +1,284 @@
+{
+  "postfach": {
+    "title": "Postfach",
+    "prototype": "Prototyp · Demo-Mails, Änderungen nur in diesem Browser",
+    "subtitle": "Die gemeinsamen Postfächer: lesen, antworten, zuweisen und direkt in Standplan, Kontakte, Genehmigungen und Orte übernehmen.",
+    "undo": "Rückgängig",
+    "status": {
+      "offen": "Offen",
+      "wartet": "Wartet",
+      "erledigt": "Erledigt"
+    },
+    "nav": {
+      "label": "Postfächer und Ordner",
+      "new": "Neue Mail",
+      "mailboxes": "Postfächer",
+      "all": "Alle",
+      "folders": "Ordner",
+      "mine": "Mir zugewiesen",
+      "demoNote": "Prototyp: Nichts wird wirklich gesendet. Im echten Ausbau kommen die Mails per Microsoft 365.",
+      "keys": "Tasten: j/k nächste/vorige, r antworten, a allen, f weiterleiten, n Notiz, e erledigt.",
+      "reset": "Demo zurücksetzen"
+    },
+    "folder": {
+      "offen": "Offen",
+      "wartet": "Wartet",
+      "erledigt": "Erledigt",
+      "gesendet": "Gesendet",
+      "entwuerfe": "Entwürfe",
+      "nichterkannt": "Nicht erkannt"
+    },
+    "list": {
+      "label": "Konversationen",
+      "search": "Suchen in Betreff, Absender, Text",
+      "empty": "Keine Konversationen in diesem Ordner.",
+      "noRecipient": "(ohne Empfänger)",
+      "noSubject": "(ohne Betreff)",
+      "draft": "Entwurf",
+      "unread": "ungelesen",
+      "you": "Wir",
+      "assignedTo": "zugewiesen an {name}",
+      "attachments": "mit Anhang"
+    },
+    "thread": {
+      "label": "Konversation",
+      "pick": "Wähle links eine Konversation.",
+      "status": "Status",
+      "assignee": "Zuständig",
+      "nobody": "Nicht zugewiesen",
+      "me": "{name} (ich)",
+      "event": "Veranstaltung",
+      "noEvent": "Keine Veranstaltung",
+      "markUnread": "Ungelesen",
+      "simulate": "Antwort simulieren",
+      "simulateHint": "Prototyp: legt eine eingehende Antwort an, um das Wiederöffnen zu zeigen",
+      "with": "Mit {name} <{address}>",
+      "older": "{count, plural, one {# ältere Nachricht} other {# ältere Nachrichten}} anzeigen",
+      "actionLine": "{summary} · {name} · {time}",
+      "reply": "Antworten",
+      "replyAll": "Allen antworten",
+      "forward": "Weiterleiten",
+      "note": "Notiz",
+      "noteBy": "Notiz (intern) · {name} · {time}",
+      "outgoingTo": "an {to} · von {box}",
+      "cc": "Cc: {list}"
+    },
+    "toast": {
+      "status": "Status: {status}",
+      "assigned": "{name} zugewiesen",
+      "unassigned": "Zuweisung entfernt",
+      "linked": "Mit {name} verknüpft",
+      "unlinked": "Verknüpfung entfernt"
+    },
+    "actions": {
+      "open": "Aktionen",
+      "label": "Aktionen",
+      "close": "Schließen",
+      "simulated": "(Simulation)",
+      "saveSimulated": "Anlegen (Simulation)",
+      "cancel": "Abbrechen",
+      "simulatedNote": "Prototyp: wird nicht in der Datenbank angelegt.",
+      "sender": {
+        "title": "Absender",
+        "unknown": "Unbekannter Absender.",
+        "asContact": "Als Kontakt speichern …",
+        "asVendor": "Als Aussteller anlegen …",
+        "known": {
+          "contact": "Kontakt: {label}",
+          "vendor": "Aussteller: {label}"
+        }
+      },
+      "stall": {
+        "title": "Standanfrage",
+        "openPlan": "Im Standplan",
+        "capture": "Standanfrage erfassen …",
+        "dialogTitle": "Standanfrage erfassen",
+        "save": "In den Standplan übernehmen",
+        "hint": "Aus der Mail vorausgefüllt. Bitte prüfen; die Anfrage erscheint danach im Standplan unter „Offen“.",
+        "event": "Veranstaltung",
+        "length": "Standlänge (m)",
+        "car": "Auto am Stand",
+        "power": "Strom",
+        "spot": "Stammplatz-Wunsch",
+        "spotPlaceholder": "z. B. Reihe B, ca. 12 m",
+        "note": "Anmerkung"
+      },
+      "attachments": {
+        "title": "Anhänge",
+        "asPermit": "Als Genehmigung …",
+        "toVenue": "Am Ort ablegen …"
+      },
+      "linked": {
+        "title": "Verknüpft",
+        "none": "Keine Veranstaltung verknüpft.",
+        "history": "Verlauf",
+        "noHistory": "Noch keine Aktionen."
+      },
+      "log": {
+        "contact": "Kontakt „{name}“ ({kind}) angelegt (Simulation)",
+        "vendor": "Aussteller „{name}“ angelegt (Simulation)",
+        "stall": "Standanfrage {event}, {length} m in den Standplan übernommen",
+        "permit": "{file} abgelegt: {label} (Simulation)",
+        "venue": "{file} abgelegt: {label} (Simulation)"
+      },
+      "filed": "abgelegt: {label}",
+      "contactKind": {
+        "authority": "Behörde",
+        "landowner": "Grundstückseigentümer",
+        "supplier": "Lieferant",
+        "service": "Dienstleister",
+        "other": "Sonstige"
+      },
+      "contact": {
+        "title": "Als Kontakt speichern",
+        "hint": "Aus Absender und Signatur vorausgefüllt (feste Regeln). Bitte prüfen.",
+        "kind": "Art",
+        "name": "Name / Organisation",
+        "person": "Ansprechperson",
+        "email": "E-Mail",
+        "phone": "Telefon",
+        "street": "Straße",
+        "city": "PLZ / Ort"
+      },
+      "vendor": {
+        "title": "Als Aussteller anlegen",
+        "kind": "Art",
+        "private": "privat",
+        "commercial": "gewerblich",
+        "name": "Name",
+        "email": "E-Mail"
+      },
+      "permit": {
+        "title": "{file} als Genehmigung ablegen",
+        "label": "{title} · {event}",
+        "event": "Veranstaltung",
+        "permit": "Genehmigung",
+        "none": "Keine Genehmigungen am Ort dieser Veranstaltung",
+        "received": "Eingegangen am",
+        "validUntil": "Gültig bis",
+        "effect": "Im echten Ausbau: Dokument wird an die Genehmigung gehängt und sie gilt als erteilt."
+      },
+      "venue": {
+        "title": "{file} am Ort ablegen",
+        "label": "{type} · {venue}",
+        "venue": "Ort",
+        "type": "Dokumentart"
+      },
+      "docType": {
+        "lageplan": "Lageplan",
+        "vertrag": "Vertrag",
+        "bescheid": "Bescheid",
+        "sonstiges": "Sonstiges"
+      }
+    },
+    "form": {
+      "requestRef": "Anfrage-ID",
+      "eventName": "Veranstaltung",
+      "dates": "Termine",
+      "name": "Name",
+      "email": "E-Mail",
+      "length": "Standlänge",
+      "car": "Auto am Stand",
+      "yesLength": "ja, {length}",
+      "no": "nein",
+      "spot": "Stammplatz",
+      "failed": "Nicht vollständig erkannt: Formular geändert? Bitte von Hand erfassen.",
+      "issue": "Problem",
+      "ok": "erkannt",
+      "note": "Anmerkung",
+      "confirmed": "Bestätigt {stall}",
+      "proposed": "Vorschlag {stall}",
+      "open": "offen",
+      "openPlan": "Im Standplan öffnen"
+    },
+    "editor": {
+      "bold": "Fett",
+      "italic": "Kursiv",
+      "underline": "Unterstrichen",
+      "bullets": "Aufzählung",
+      "numbers": "Nummerierung",
+      "link": "Link",
+      "clear": "Formatierung entfernen",
+      "toolbar": "Formatierung",
+      "linkPrompt": "Adresse des Links (leer = Link entfernen)",
+      "insertVariable": "Variable einfügen",
+      "variable": "Variable",
+      "groups": {
+        "absender": "Absender",
+        "veranstaltung": "Veranstaltung",
+        "stand": "Stand",
+        "wir": "Wir"
+      }
+    },
+    "composer": {
+      "label": "Mail schreiben",
+      "noteLabel": "Interne Notiz",
+      "from": "Von",
+      "to": "An",
+      "toPlaceholder": "name@beispiel.de, …",
+      "cc": "Cc",
+      "subject": "Betreff",
+      "event": "Veranstaltung",
+      "noEvent": "Keine",
+      "body": "Text",
+      "template": "Vorlage",
+      "categories": {
+        "buchung": "Buchung",
+        "genehmigung": "Genehmigung",
+        "allgemein": "Allgemein"
+      },
+      "attach": "Datei anhängen",
+      "removeAttachment": "{name} entfernen",
+      "signature": "Signatur",
+      "eventBlock": "Veranstaltungsinfo anhängen",
+      "showQuote": "Zitat anzeigen",
+      "hideQuote": "Zitat ausblenden",
+      "missing": "Ohne Wert: {keys}. Bitte ausfüllen oder entfernen, dann senden.",
+      "missingEventHint": "Tipp: oben eine Veranstaltung wählen.",
+      "saveNote": "Notiz speichern",
+      "send": "Senden",
+      "sendAndClose": "Senden & erledigt",
+      "cancel": "Abbrechen",
+      "close": "Schließen",
+      "discard": "Verwerfen",
+      "draftSaved": "Entwurf gespeichert {time}",
+      "tooLarge": "{name} ist zu groß für den Prototyp (max. 1,5 MB)",
+      "invalidAddress": "Keine gültige Adresse: {value}",
+      "noRecipient": "Bitte mindestens einen Empfänger angeben.",
+      "sending": "Wird gesendet …",
+      "sendingClose": "Wird gesendet und erledigt …",
+      "undoSend": "Rückgängig",
+      "sendCancelled": "Senden abgebrochen, Entwurf behalten",
+      "discarded": "Entwurf verworfen",
+      "undo": "Rückgängig"
+    },
+    "settings": {
+      "tabs": "Mail-Einstellungen",
+      "templates": "Mailvorlagen",
+      "signatures": "Signaturen",
+      "new": "Neue Vorlage",
+      "newName": "Neue Vorlage",
+      "copyOf": "Kopie von {name}",
+      "deleted": "„{name}“ gelöscht",
+      "undo": "Rückgängig",
+      "allMailboxes": "Alle Postfächer",
+      "category": {
+        "buchung": "Buchung",
+        "genehmigung": "Genehmigung",
+        "allgemein": "Allgemein"
+      },
+      "name": "Name",
+      "subject": "Betreff (optional)",
+      "subjectPlaceholder": "Nur für neue Mails ohne Betreff",
+      "mailbox": "Postfach",
+      "categoryLabel": "Kategorie",
+      "body": "Text der Vorlage",
+      "preview": "Vorschau mit Beispielwerten",
+      "duplicate": "Duplizieren",
+      "delete": "Löschen",
+      "noTemplate": "Keine Vorlage ausgewählt.",
+      "signatureHint": "Wird unter jede Mail aus diesem Postfach gesetzt (abschaltbar pro Mail). Die Veranstaltungsinfo kommt automatisch aus den Daten der verknüpften Veranstaltung.",
+      "signature": "Signatur"
+    }
+  }
+}

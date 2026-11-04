@@ -96,7 +96,8 @@
       "versionSaved": "“{name}” saved, no mail sent",
       "versionLoaded": "“{name}” loaded",
       "versionLoadedSkipped": "“{name}” loaded; {skipped, plural, one {# stall no longer fits} other {# stalls no longer fit}} (confirmed or taken meanwhile)",
-      "versionDeleted": "“{name}” deleted"
+      "versionDeleted": "“{name}” deleted",
+      "autoplatzWhy": "Auto-place: {placed} proposed, {left} without space (reasons are shown on the requests)"
     },
     "announce": {
       "placed": "{name} is now on {stall}",
@@ -127,68 +128,25 @@
       "meta": "{count, plural, one {# proposal} other {# proposals}} · {date}",
       "load": "Load",
       "delete": "Delete version {name}"
+    },
+    "why": {
+      "title": "Doesn't fit anywhere right now",
+      "line": "{count, plural, one {Row} other {Rows}} {rows}: {why}",
+      "noPower": "no power connection",
+      "carNotAllowed": "no cars allowed",
+      "carSlotsFull": "all car spaces taken ({slots})",
+      "tooLong": "row is only {length} long",
+      "noGap": "largest free gap only {gap}",
+      "rowFull": "fully booked",
+      "gapRule": "a gap exists, but it would leave pieces under 2 m (gap rule)",
+      "hintCar": "Tip: place without a car (check with the vendor) or free a car space in a car row.",
+      "hintGapRule": "Tip: turn off “No leftover gaps under 2 m” above or move neighbouring stalls.",
+      "hintPower": "Tip: check power with the vendor; only rows with a power connection qualify.",
+      "hintSpace": "Tip: move neighbouring stalls together or agree a shorter stall with the vendor.",
+      "option": "doesn't fit: {why}",
+      "toast": "Row {row}: {why}",
+      "ghost": "doesn't fit: {why}",
+      "badge": "Fits nowhere"
     }
-  },
-  "postfach": {
-    "title": "Mailbox",
-    "prototype": "Prototype · demo mails built from the dev data",
-    "subtitle": "All mails of the booking mailbox. Stall requests from the website form are recognised by fixed rules (no AI) and go to the stall plan.",
-    "folders": "Folders",
-    "reading": "Reading pane",
-    "empty": "No mails in this folder.",
-    "pick": "Pick a mail on the left.",
-    "demoNote": "In the real build mails come from the shared Microsoft 365 mailbox. Sent confirmations don't actually go out yet.",
-    "folder": {
-      "all": "Inbox",
-      "requests": "Stall requests",
-      "errors": "Not recognised",
-      "other": "Other",
-      "sent": "Sent"
-    },
-    "badge": {
-      "sent": "Sent",
-      "parseError": "Not recognised",
-      "confirmed": "Confirmed",
-      "inProgress": "{placed} of {total} placed",
-      "request": "Stall request"
-    },
-    "to": "To {name}",
-    "original": "Original",
-    "recognised": "Recognised fields",
-    "parseFailed": "This request could not be read completely.",
-    "parseFailedHint": "Usually the form has changed. Check the marked fields and enter the request by hand.",
-    "ok": "recognised",
-    "yes": "yes",
-    "no": "no",
-    "yesLength": "yes, {length}",
-    "kind": {
-      "private": "private",
-      "commercial": "commercial"
-    },
-    "issue": {
-      "missing": "missing",
-      "invalid": "unreadable"
-    },
-    "field": {
-      "requestRef": "Request ID",
-      "eventName": "Event",
-      "dates": "Dates",
-      "name": "Name",
-      "kind": "Type",
-      "email": "Email",
-      "length": "Stall length",
-      "car": "Car at stall",
-      "power": "Power",
-      "spot": "Regular spot",
-      "categories": "Goods",
-      "note": "Note"
-    },
-    "perDate": "Per date",
-    "dateOpen": "open",
-    "dateProposed": "Proposal {stall}",
-    "dateConfirmed": "Confirmed {stall}",
-    "openPlan": "Open in stall plan",
-    "noEvent": "No event “{name}” on {date}",
-    "sentNote": "Prototype: this mail was only filed here, not sent."
   }
 }

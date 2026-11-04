@@ -1,6 +1,6 @@
 # Postfach as a light mail browser: design (prototype)
 
-Date: 2026-11-04 · Branch: `exp/stand-allocation` · Status: approved in conversation, awaiting spec review
+Date: 2026-11-04 · Branch: `exp/stand-allocation` · Status: approved; built as a prototype on 2026-11-04 (see research 12)
 
 Builds on: research 12 (stall allocation prototype), research 03 §C (shared inbox), ADR 0008 (M365 via
 Graph), ADR 0014 (no AI in operational flows), ADR 0019 (classic screens), roadmap M10/M11.
