@@ -64,6 +64,27 @@
       "when": 1792680965593,
       "tag": "0008_permit_tasks_company_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793790772639,
+      "tag": "0009_task_notify",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793791686108,
+      "tag": "0010_appointment",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793791921177,
+      "tag": "0011_task_notify_user",
+      "breakpoints": true
     }
   ]
 }

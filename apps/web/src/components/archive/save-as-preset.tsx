@@ -1,5 +1,6 @@
 "use client";
 
+import type { MarketColor } from "@marktwerk/core";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { centsToInput, type EventFieldsValue } from "@/components/events/event-fields";
@@ -22,11 +23,13 @@ export function SaveAsPreset({
   source,
   types,
   venues,
+  colors,
   closeHref,
 }: {
   source: PresetSource;
   types: EventTypeOption[];
   venues: VenueOption[];
+  colors: { usage: Record<string, string[]>; suggested: MarketColor };
   closeHref: string;
 }) {
   const t = useTranslations("archive.preset");
@@ -61,6 +64,8 @@ export function SaveAsPreset({
       <NewMarketForm
         types={types}
         venues={venues}
+        colorUsage={colors.usage}
+        suggestedColor={colors.suggested}
         initialName={source.name}
         initialValue={initial}
         fromEventId={source.id}

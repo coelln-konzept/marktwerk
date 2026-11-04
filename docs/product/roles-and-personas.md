@@ -14,7 +14,7 @@ Not everyone who works for the company will log in. **Field staff only use Whats
 |---|---|---|
 | **Owner** (`owner`) | Geschäftsführung | Everything incl. user management, finance, company settings. |
 | **Office manager** (`manager`) | Büroleitung (today one person does permits, website, bookings, emails, payments, wages) | Everything except user management/company settings. **Receives escalations** (decision 2026-10-21: only the manager, for now). |
-| **Staff** (`staff`) | Office staff (e.g. answers phones, enters phone bookings) | Tasks, events (read), bookings, vendors, permits (write), no finance settings, no hours of others. |
+| **Staff** (`staff`) | Office staff (e.g. answers phones, enters phone bookings) | Tasks, events (read), bookings, vendors, permits (write), Besprechungen (read, write, archive), no finance settings, no hours of others. |
 | **Field** (`field`) | Market-day lead with a login | **Only events they're working at** (decision 2026-10-21), their tasks, check-in (P3). |
 
 Staff members without login see only their own tasks/shifts/hours through the magic link.

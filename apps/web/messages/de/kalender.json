@@ -46,7 +46,8 @@
         "installments": "Raten & Zahlungen",
         "tasks": "Aufgaben",
         "obligations": "Fahrzeuge & Pflichten",
-        "shifts": "Schichten"
+        "shifts": "Schichten",
+        "appointments": "Besprechungen"
       }
     },
     "gridCaption": "Kalender {month}",
@@ -69,6 +70,7 @@
     "nothingToday": "Heute ist nichts eingetragen.",
     "moreAria": "{n, plural, one {# weiterer Eintrag} other {# weitere Einträge}} am {day} anzeigen",
     "moreList": "In der Liste ab diesem Tag",
+    "addAppointment": "Besprechung am {date} anlegen",
     "spanDay": "Tag {index}/{total}",
     "permitKind": {
       "apply": "Antrag fällig",

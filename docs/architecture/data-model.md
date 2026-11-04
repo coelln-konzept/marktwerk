@@ -124,6 +124,12 @@ erDiagram
   `booking_cutoff` (default: **Monday before** the event), `permit_decision`, custom. Missing anchor → task has no due date yet.
 - **event_duty**: `(event_id, duty_role_id)` → `staff_member_id`. Reassigning reassigns open, not individually
   reassigned tasks of that duty role.
+- **appointment** (Termin, CF9-1): a dated appointment of the business that is not a task and not an event.
+  `title`, `on_date` (date), `starts_at?`/`ends_at?` (`time`; all-day when empty; no overnight, the end is after the
+  start), `venue_id?` **or** `location_text?` (never both), `notes?`, who to reach out to: `contact_id?` (a saved
+  contact) **or** inline `contact_name?`/`contact_phone_e164?`/`contact_email?` (a typed contact can be saved as a
+  `contact` of kind `other` on creation, then only `contact_id` is set), `archived_at?`. Rules in `checkAppointment`
+  (`packages/core/src/appointments`), CHECK constraints mirror them. Service audit: `appointment.create|update|archive|restore`. Gated by the own `appointment` permission resource (read/write/delete; field has none).
 
 ### Templates, tasks, kanban
 - **checklist_template**, **template_version** (`draft | published | retired`, immutable when published),
@@ -164,6 +170,15 @@ erDiagram
   KPIs, the weekend blockers, the Kalender "Aufgaben" layer, the deadline sweep (reminders, escalation) and the daily
   digest; they stay on the board with a "Zurückgestellt bis …" badge. Set and cleared through `snoozeTask` /
   `unsnoozeTask` (audit `task.snooze` / `task.unsnooze`, undoable).)*
+  *(implemented 0009 (CF9-3): **notify setting** "Benachrichtigung senden an": `notify_channels text[]` (subset of
+  `email | whatsapp`, default empty), `notify_timing?` (enum `task_notify_timing`: `on_create | due_day | before_1d |
+  before_3d | before_7d | custom`) and `notify_at?` (instant, only for `custom`). Checks: channels are a subset of the
+  two values; `notify_timing = 'custom'` iff `notify_at` is set; no timing without a channel. The send instant is the pure
+  rule `notifyMoment` in `packages/core` (08:00 Berlin on the due day, or 1/3/7 days earlier). Saved only; nothing is sent
+  until mail/WhatsApp are connected.)*
+  *(implemented 0011 (CF9-3b): `notify_user_id?` (text → `user`, `on delete set null`): who set the notification and,
+  while the Team module is hidden, its recipient. Set by the service from the actor whenever channels are saved; check
+  `task_notify_user_empty`: no user without a channel.)*
   *(implemented 0002: task also has `obligation_id?` (source `obligation`), `skipped_reason`, the copied evidence
   flags `requires_photo/note/attachment`, `approver_staff_member_id?`, `completed_by_staff_member_id`; `board_column`
   is the enum `preparation | this_week | today | done`; `board_sort` is a double (fractional ordering);

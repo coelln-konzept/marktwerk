@@ -9,6 +9,7 @@ import {
   PRESETS,
   parseLayers,
   sanitizeLayers,
+  sanitizeSavedLayers,
 } from "@/components/kalender/layers";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
@@ -23,7 +24,16 @@ import { asStaff, dueOn, insertEvent, insertTask, TODAY } from "../helpers/tasks
  */
 
 const RANGE = { from: "2026-10-01", to: "2026-10-31" };
+/** The module layers that have a feed in `listCalendarDeadlines` (Besprechungen are loaded by the page itself). */
 const ALL: Layers["deadlines"] = ["tasks", "permits", "shifts", "installments", "obligations"];
+const ALL_LAYERS: Layers["deadlines"] = [
+  "tasks",
+  "appointments",
+  "permits",
+  "shifts",
+  "installments",
+  "obligations",
+];
 /** Every module layer on, so the queries are tested with all of them (the default leaves tasks off). */
 const selection = (over: Partial<Layers> = {}): Layers => ({
   ...DEFAULT_LAYERS,
@@ -190,10 +200,23 @@ describe("listCalendarDeadlines", () => {
 
 describe("layer selection", () => {
   it("offers each role only the module layers it may see", () => {
-    expect(availableLayers("owner", false)).toEqual(ALL);
-    expect(availableLayers("staff", false)).toEqual(["tasks", "permits", "obligations"]);
+    expect(availableLayers("owner", false)).toEqual(ALL_LAYERS);
+    expect(availableLayers("manager", false)).toEqual(ALL_LAYERS);
+    expect(availableLayers("staff", false)).toEqual([
+      "tasks",
+      "appointments",
+      "permits",
+      "obligations",
+    ]);
     expect(availableLayers("field", false)).toEqual(["tasks"]);
     expect(availableLayers("field", true)).toEqual(["tasks", "shifts"]);
+  });
+
+  it("Besprechungen are office-only: the layer needs appointment read, so staff get it and field users never do", () => {
+    for (const role of ["owner", "manager", "staff"] as const) {
+      expect(availableLayers(role, true)).toContain("appointments");
+    }
+    expect(availableLayers("field", true)).not.toContain("appointments");
   });
 
   it("round-trips through the URL", () => {
@@ -217,6 +240,30 @@ describe("layer selection", () => {
     expect(DEFAULT_LAYERS.deadlines).not.toContain("tasks");
     expect(DEFAULT_LAYERS.deadlines).toContain("permits");
     expect(sanitizeLayers({ deadlines: ["tasks", "nonsense", 3] }).deadlines).toEqual(["tasks"]);
+  });
+
+  it("Besprechungen are a layer: on by default and in the 'Märkte + Fristen' preset, off in a URL without them", () => {
+    expect(DEFAULT_LAYERS.deadlines).toContain("appointments");
+    expect(PRESETS.find((p) => p.key === "marketsDeadlines")?.deadlines).toContain("appointments");
+    expect(PRESETS.find((p) => p.key === "markets")?.deadlines).not.toContain("appointments");
+    expect(parseLayers({ ebenen: "1", frist: "permits" })?.deadlines).toEqual(["permits"]);
+    expect(parseLayers({ ebenen: "1", frist: "permits,appointments" })?.deadlines).toEqual([
+      "appointments",
+      "permits",
+    ]);
+  });
+
+  it("saved selections from before the Besprechungen layer show it as on; a later opt-out stays off", () => {
+    // Older save: five layers known, no `known` list.
+    const older = { types: ["flea"], deadlines: ["permits"], holidays: true };
+    expect(sanitizeSavedLayers(older).deadlines).toEqual(["appointments", "permits"]);
+    // Older save without any `deadlines`: the default set.
+    expect(sanitizeSavedLayers({ types: ["flea"] }).deadlines).toEqual(DEFAULT_LAYERS.deadlines);
+    // A save that knew the layer and left it out means "off".
+    const known = [...ALL_LAYERS];
+    expect(sanitizeSavedLayers({ ...older, known }).deadlines).toEqual(["permits"]);
+    // An older save that had every layer switched off keeps tasks off, but gains Besprechungen.
+    expect(sanitizeSavedLayers({ deadlines: [] }).deadlines).toEqual(["appointments"]);
   });
 
   it("has two presets: only the markets, or markets + deadlines (the default, without tasks)", () => {

@@ -284,4 +284,28 @@ describe("archiveContact / unarchiveContact", () => {
       "not_found",
     );
   });
+
+  it("filters by initial letter (umlauts folded) and reports the letters present (CF9-7)", async () => {
+    await db.insert(contact).values([
+      { kind: "authority", name: "Ordnungsamt Köln" },
+      { kind: "authority", name: "Ärztekammer" },
+      { kind: "supplier", name: '  "Ahorn" GmbH' },
+      { kind: "service", name: "4 Jahreszeiten" },
+      { kind: "supplier", name: "Zeltbau Zander" },
+    ]);
+    const a = await listContacts(undefined, undefined, "A");
+    expect(a.rows.map((r) => r.name)).toEqual(['  "Ahorn" GmbH', "Ärztekammer"]);
+    // the letter narrows the per-kind counts, the subtitle total stays the search's
+    expect(a.counts).toEqual({ authority: 1, supplier: 1 });
+    expect(a.total).toBe(5);
+    expect(a.letterTotal).toBe(2);
+    expect((await listContacts(undefined, undefined, "#")).rows.map((r) => r.name)).toEqual([
+      "4 Jahreszeiten",
+    ]);
+    expect((await listContacts(undefined, undefined, "Q")).rows).toEqual([]);
+    // letters present: under the search and kind, not the letter itself
+    expect((await listContacts()).letters).toEqual(["A", "O", "Z", "#"]);
+    expect((await listContacts(undefined, "supplier", "O")).letters).toEqual(["A", "Z"]);
+    expect((await listContacts("zeltbau", undefined, "A")).letters).toEqual(["Z"]);
+  });
 });

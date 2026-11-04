@@ -3,6 +3,7 @@
     "title": "Board",
     "tab": {
       "open": "{count, plural, one {# open task} other {# open tasks}}",
+      "overdue": "{count} overdue",
       "openShort": "{count} open",
       "openOverdue": "{open} open · {overdue} overdue"
     },
@@ -137,6 +138,7 @@
       "invalid_input": "The input is not valid.",
       "invalid_status": "That status is not possible.",
       "invalid_column": "That column does not exist.",
+      "invalid_notify": "The notification does not fit the due date.",
       "invalid_staff": "This person cannot be assigned.",
       "invalid_event": "This event is not available.",
       "invalid_state": "That is not possible in the task's current state.",
@@ -144,6 +146,45 @@
       "evidence_missing": "“{title}” cannot be marked done yet. Missing: {what}.",
       "not_undoable": "This can no longer be undone.",
       "conflict": "The task has changed since. Undo is no longer possible."
+    },
+    "notify": {
+      "legend": "Send notification to",
+      "title": "Notification",
+      "channels": { "email": "Email", "whatsapp": "WhatsApp" },
+      "when": "When",
+      "choose": "Please choose",
+      "timing": {
+        "on_create": "Immediately on creation",
+        "due_day": "On the due date",
+        "before_1d": "1 day before",
+        "before_3d": "3 days before",
+        "before_7d": "1 week before",
+        "custom": "Custom date/time"
+      },
+      "needsDue": "Needs a due date",
+      "customAt": "Date and time",
+      "customAtHint": "Time in Germany (Europe/Berlin).",
+      "to": "To: {name}",
+      "toSelf": "To: you ({email})",
+      "noPhoneSelf": "You have no phone number on file.",
+      "summarySelf": "{channels} · {when} to you",
+      "noAssignee": "Nothing is sent without an assignee.",
+      "noEmail": "{name} has no email address on file.",
+      "noPhone": "{name} has no phone number on file.",
+      "pending": "Sending follows once email and WhatsApp are connected.",
+      "none": "No notification",
+      "summary": "{channels} · {when} to {name}",
+      "summaryNobody": "{channels} · {when}, no assignee",
+      "at": "on {date}",
+      "change": "Change",
+      "save": "Save",
+      "cancel": "Cancel",
+      "errors": {
+        "timing_required": "Please choose when to notify.",
+        "at_required": "Please enter a date and time.",
+        "due_required": "This timing needs a due date.",
+        "unexpected_timing": "The notification settings do not fit together."
+      }
     },
     "rail": {
       "title": "Team",

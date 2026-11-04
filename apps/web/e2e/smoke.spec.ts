@@ -11,7 +11,7 @@ test("Übersicht loads after login", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).first()).toBeVisible();
 });
 
-test('Übersicht: the weekend next to Heute & überfällig, Diese Woche below; "+ N weitere" opens in place; no KPI or season strip', async ({
+test('Übersicht: Heute & überfällig left, the weekend right with a collapsed Top-5 toggle, Diese Woche below; "+ N weitere" opens in place; no KPI or season strip', async ({
   page,
 }) => {
   await page.goto("/");
@@ -20,17 +20,44 @@ test('Übersicht: the weekend next to Heute & überfällig, Diese Woche below; "
   await expect(weekend).toBeVisible();
   await expect(due).toBeVisible();
   const [weekendBox, dueBox] = await Promise.all([weekend.boundingBox(), due.boundingBox()]);
-  // Two cards side by side on desktop: the weekend is the left one, the headings sit on one line (the
-  // due header carries count badges, so its heading can be a few px higher than the weekend's).
-  expect(weekendBox?.x ?? 0).toBeLessThan(dueBox?.x ?? 0);
+  // Two cards side by side on desktop: Heute & überfällig is the left one (CF9-2), the headings sit on one
+  // line (the due header carries count badges, so its heading can be a few px higher than the weekend's).
+  expect(dueBox?.x ?? 0).toBeLessThan(weekendBox?.x ?? 0);
   expect(Math.abs((weekendBox?.y ?? 0) - (dueBox?.y ?? 0))).toBeLessThan(24);
+
+  // The weekend's blockers are collapsed behind "Top-N-Aufgaben anzeigen" and show at most 5 rows.
+  const toggle = page.getByRole("button", {
+    name: /^(Top-\d+-Aufgaben|Wichtigste Aufgabe) anzeigen$/,
+  });
+  if ((await toggle.count()) > 0) {
+    const first = toggle.first();
+    const list = page.locator(`[id="${await first.getAttribute("aria-controls")}"]`);
+    await expect(first).toHaveAttribute("aria-expanded", "false");
+    await expect(list).toBeHidden();
+    await first.click();
+    await expect(first).toHaveAttribute("aria-expanded", "true");
+    await expect(list).toBeVisible();
+    const rows = await list.locator("li[data-row]").count();
+    expect(rows).toBeGreaterThan(0);
+    expect(rows).toBeLessThanOrEqual(5);
+    await first.click();
+    await expect(list).toBeHidden();
+  }
+
+  // "Genehmigungen demnächst" is its own panel in the right column, directly under the weekend (CF9-6).
+  const permits = page.getByRole("heading", { level: 2, name: "Genehmigungen demnächst" });
+  await expect(permits).toBeVisible();
+  const permitsBox = await permits.boundingBox();
+  expect(permitsBox?.y ?? 0).toBeGreaterThan(weekendBox?.y ?? 0);
+  expect(Math.abs((permitsBox?.x ?? 0) - (weekendBox?.x ?? 0))).toBeLessThan(40);
 
   // "Diese Woche" (the next 7 days, per market) runs across both columns below them.
   const week = page.getByRole("heading", { level: 2, name: "Diese Woche" });
   await expect(week).toBeVisible();
   const weekBox = await week.boundingBox();
+  expect(weekBox?.y ?? 0).toBeGreaterThan(permitsBox?.y ?? 0);
   expect(weekBox?.y ?? 0).toBeGreaterThan(Math.max(weekendBox?.y ?? 0, dueBox?.y ?? 0));
-  expect(weekBox?.x ?? 0).toBeLessThan((dueBox?.x ?? 0) - 100);
+  expect(weekBox?.x ?? 0).toBeLessThan((weekendBox?.x ?? 0) - 100);
 
   // "+ N weitere" opens the rest in place instead of navigating away.
   const more = page
@@ -984,7 +1011,8 @@ test("Übersicht: Erledigt asks first, since the task leaves the list; Abbrechen
   await expect(confirm).toContainText("als erledigt markieren?");
   await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
   await expect(confirm).toBeHidden();
-  await expect(page.getByRole("button", { name: label ?? "" })).toBeVisible();
+  // A task can sit in more than one Übersicht card (e.g. Heute and Diese Woche): any of its ticks will do.
+  await expect(page.getByRole("button", { name: label ?? "" }).first()).toBeVisible();
   await expect(toastUndo(page)).toHaveCount(0);
 });
 
@@ -1088,3 +1116,102 @@ test("Sidebar: the button at its top right hides it (remembered), the top bar br
   await page.waitForLoadState("networkidle");
   await expect(nav).toBeVisible();
 });
+
+test('"+ Neu" › Besprechung: name and today, saved with a toast; the dialog closes and the URL is clean', async ({
+  page,
+}) => {
+  await page.goto("/kalender");
+  await page.waitForLoadState("networkidle"); // hydrated, so the key and the menu react
+  await page.keyboard.press("c");
+  await page.getByRole("menuitem", { name: "Besprechung", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Neue Besprechung" });
+  await expect(dialog).toBeVisible();
+  const name = `E2E-Besprechung ${Date.now()}`;
+  await dialog.getByLabel("Name", { exact: true }).fill(name);
+  await expect(dialog.getByLabel("Datum")).not.toHaveValue("");
+  await dialog.getByRole("button", { name: "Anlegen" }).click();
+  await expect(page.getByText("Besprechung angelegt")).toBeVisible();
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/neu=besprechung/);
+  await toastUndo(page).click(); // leaves no appointment behind
+  await expect(page.getByText("Besprechung entfernt")).toBeVisible();
+});
+
+test("Kalender: a day's + opens the Besprechung dialog with that date", async ({ page }) => {
+  await page.goto("/kalender?monat=2027-03");
+  await page.waitForLoadState("networkidle");
+  const add = page.getByRole("link", { name: /^Besprechung am .*15\.03\.2027 anlegen$/ });
+  await add.focus(); // visible on focus, not only on hover
+  await add.click();
+  await expect(page).toHaveURL(/neu=besprechung&datum=2027-03-15/);
+  await expect(
+    page.getByRole("dialog", { name: "Neue Besprechung" }).getByLabel("Datum"),
+  ).toHaveValue("2027-03-15");
+});
+
+test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechungen heute; its Vorschau shows the contact; archiving has an undo", async ({
+  page,
+}) => {
+  const name = `E2E-Besprechung ${Date.now()}`;
+  await page.goto("/?neu=besprechung");
+  const dialog = page.getByRole("dialog", { name: "Neue Besprechung" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Name", { exact: true }).first().fill(name);
+  await dialog.getByRole("button", { name: "Neuer Kontakt …" }).click();
+  await dialog.getByLabel("Name", { exact: true }).nth(1).fill("Frau E2E-Kontakt");
+  await dialog.getByLabel("Telefon").fill("+49 221 1234567");
+  await dialog.getByLabel("E-Mail").fill("e2e.kontakt@example.com");
+  await dialog.getByLabel("Als Kontakt speichern").uncheck(); // stays on the Besprechung, no Kontakte entry left over
+  await dialog.getByRole("button", { name: "Anlegen" }).click();
+  await expect(page.getByText("Besprechung angelegt")).toBeVisible();
+  await expect(dialog).toBeHidden();
+
+  // Übersicht: first group of "Heute & überfällig", all-day Besprechungen first.
+  const group = page.getByRole("region", { name: "Besprechungen heute" });
+  await expect(group).toBeVisible();
+  await expect(group.getByRole("link", { name })).toBeVisible();
+
+  // Kalender: the Liste shows it today; its Vorschau has the contact as tel: and mailto: links.
+  await page.goto("/kalender?ansicht=liste");
+  const row = page.getByRole("row").filter({ hasText: name });
+  await expect(row).toBeVisible();
+  await row.getByRole("link", { name }).click();
+  const vorschau = page.getByRole("dialog", { name });
+  await expect(vorschau).toBeVisible();
+  await expect(vorschau.getByText("Frau E2E-Kontakt")).toBeVisible();
+  await expect(vorschau.getByRole("link", { name: "+49 221 1234567" })).toHaveAttribute(
+    "href",
+    "tel:+492211234567",
+  );
+  await expect(vorschau.getByRole("link", { name: "e2e.kontakt@example.com" })).toHaveAttribute(
+    "href",
+    "mailto:e2e.kontakt@example.com",
+  );
+
+  // Monat: the chip is in today's cell (the Vorschau URL keeps the view).
+  await page.goto("/kalender");
+  await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
+
+  // Archive from the Vorschau: gone from the Übersicht, back with the undo.
+  await page.goto("/?vorschau=besprechung:" + (await appointmentId(page, name)));
+  await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByText("Besprechung archiviert")).toBeVisible();
+  await expect(group.getByRole("link", { name })).toHaveCount(0);
+  await toastUndo(page).click();
+  await expect(page.getByText("Besprechung wiederhergestellt")).toBeVisible();
+  await expect(group.getByRole("link", { name })).toBeVisible();
+
+  // Leave nothing behind.
+  await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByText("Besprechung archiviert")).toBeVisible();
+});
+
+/** The id of a Besprechung, read from its link in the Übersicht's "Besprechungen heute" group. */
+async function appointmentId(page: Page, name: string): Promise<string> {
+  await page.goto("/");
+  const href = await page
+    .getByRole("region", { name: "Besprechungen heute" })
+    .getByRole("link", { name })
+    .getAttribute("href");
+  return (href ?? "").split("besprechung:")[1] ?? "";
+}

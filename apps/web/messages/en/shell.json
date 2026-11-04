@@ -99,6 +99,7 @@
     "newPayable": "Payment",
     "newPermit": "Permit",
     "newShift": "Shift",
+    "newAppointment": "Meeting",
     "newIssue": "Report defect",
     "showSidebar": "Show sidebar",
     "skip": "Skip to content",
@@ -142,6 +143,7 @@
       "payable": "Create payment",
       "permit": "Create permit",
       "shift": "Record shift",
+      "appointment": "Create meeting",
       "issue": "Report defect",
       "settings": "Open settings",
       "notifications": "Open notifications"
@@ -246,5 +248,11 @@
   },
   "form": {
     "optional": "(optional)"
+  },
+  "letterFilter": {
+    "label": "Filter by first letter",
+    "all": "All",
+    "other": "Digits and other",
+    "none": "no entries"
   }
 }

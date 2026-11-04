@@ -354,12 +354,16 @@ async function leastUsedColor(tx: Tx): Promise<MarketColor> {
 export type MarketInput = Pick<
   PresetInput,
   "name" | "eventTypeId" | "venueId" | "times" | "pricePerMCents" | "bookingFeeCents" | "rrule"
-> & { durationDays?: number };
+> & {
+  durationDays?: number;
+  /** A colour key; `null` = no colour; omitted = the least used one (the form's suggestion). */
+  color?: string | null;
+};
 
 /**
  * "Neuen Markt anlegen" (client decision 2026-10-22: presets are the company's real markets). One
  * transaction: the preset (same validation as `createPreset`), its own task template copied from the
- * master ("<Markt> – Aufgaben", published, linked, see `copyMasterForMarket`) and its colour (the least
+ * master ("<Markt> – Aufgaben", published, linked, see `copyMasterForMarket`) and its colour (the given one, `null` for none, otherwise the least
  * used one of the existing markets). Without a master the market is created without tasks
  * (`template: null`). Permission template:write. With `fromEventId` (Archiv: "Als Vorlage speichern") the
  * tasks are copied from the event's market (its first linked task template) instead of the master, and the
@@ -372,7 +376,7 @@ export async function createMarket(
 ): Promise<{
   id: string;
   key: string;
-  color: string;
+  color: string | null;
   template: { templateId: string; items: number } | null;
 }> {
   if (!can(actor.role, "template", "write")) forbidden();
@@ -414,7 +418,7 @@ export async function createMarket(
         sourceTemplateId = link?.templateId;
       }
     }
-    const color = await leastUsedColor(tx);
+    const color = input.color === undefined ? await leastUsedColor(tx) : input.color;
     const { id, key } = await insertPreset(
       tx,
       actor,

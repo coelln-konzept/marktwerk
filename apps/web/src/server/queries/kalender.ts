@@ -2,7 +2,7 @@ import "server-only";
 import { overallHealth } from "@marktwerk/core";
 import { event, eventDuty, userPreference, venue } from "@marktwerk/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { availableLayers, type Layers, sanitizeLayers } from "@/components/kalender/layers";
+import { availableLayers, type Layers, sanitizeSavedLayers } from "@/components/kalender/layers";
 import type { ModuleHide } from "@/lib/modules";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
@@ -104,5 +104,5 @@ export async function getSavedLayers(userId: string): Promise<Layers | null> {
     columns: { savedViews: true },
   });
   const saved = pref?.savedViews?.kalender;
-  return saved ? sanitizeLayers(saved) : null;
+  return saved ? sanitizeSavedLayers(saved) : null;
 }

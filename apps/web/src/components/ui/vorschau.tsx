@@ -18,6 +18,7 @@ export function Vorschau({
   badges,
   closeHref,
   openHref,
+  openLabel,
   children,
 }: {
   kind: string;
@@ -25,6 +26,8 @@ export function Vorschau({
   badges?: React.ReactNode;
   closeHref: string;
   openHref?: string;
+  /** Text of the open button when "Öffnen" does not say it (e.g. "In Kontakte öffnen"). */
+  openLabel?: string;
   children: React.ReactNode;
 }) {
   const t = useTranslations("vorschau");
@@ -93,7 +96,7 @@ export function Vorschau({
             href={openHref as never}
             className="ml-auto inline-flex min-h-8 items-center rounded-lg bg-primary px-3 font-medium text-primary-foreground hover:bg-primary-hover"
           >
-            {t("open")}
+            {openLabel ?? t("open")}
           </Link>
         </footer>
       )}
