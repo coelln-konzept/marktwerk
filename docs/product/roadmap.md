@@ -150,6 +150,8 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 - Recurring **obligations** (date and/or km): vehicles (HU 24/12 months, **UVV yearly**, service, insurance, tax),
   insurance renewals, KSK report (31 March); vehicle defect reports with photo
 - **Production hosting** set up (Scalingo candidate) and **pilot** with the office team for one block of events (real data entered by them); weekly feedback
+- **Test environment** in place before the pilot ([ADR 0021](../architecture/adr/0021-test-environment.md)): staging with reset,
+  simulated clock, fenced mail and the first scenarios; every later module adds a scenario to its definition of done
 - **Exit:** go/no-go for Phase 2; success metrics measured.
 
 ---

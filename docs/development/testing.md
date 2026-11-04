@@ -6,6 +6,7 @@
 | Message parity (de/en) | `apps/web/scripts/check-messages.ts` | part of `pnpm test` | nothing |
 | Service integration | `apps/web/test/integration/*.test.ts` | `pnpm test:integration` | Postgres |
 | Browser smoke | `apps/web/e2e/*.spec.ts` | `pnpm test:e2e` | running, seeded app |
+| Scenarios (planned) | `packages/simulation` | `pnpm sim run <name>` | Postgres; see [ADR 0021](../architecture/adr/0021-test-environment.md) and the [test environment spec](../superpowers/specs/2026-11-04-test-environment-design.md) |
 
 `pnpm test` (and `pnpm check`) never touch a database. Integration and e2e tests are separate commands.
 

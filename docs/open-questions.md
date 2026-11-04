@@ -131,6 +131,11 @@
    S3 provider? (decided in the M0.5 spike unless you have a preference)
 3. **WhatsApp (Phase 2):** which phone sends? Is there a works council (Betriebsrat)?
 4. **Ablauf as the default event-board view:** after the user tests (not held yet, 2026-10-28).
+5. **Test environment (ADR 0021, spec 2026-11-04 §9):** D1 database host for `main` and the branch
+   environments (Supabase branching / Neon / one server with a database per environment / Scalingo review apps;
+   product owner checking Supabase pricing), D2 staging mail sink, D3 staging also for training, D4 real M365 test
+   mailbox now or with M11, D5 scenarios on every PR or only `big-change` + nightly, D6 branch environments
+   automatic for every branch or on request.
 
 ## Assumed during the Phase 1 integration (confirm or change)
 1. **"Heute fällig" order:** overdue, then today, then this week; inside a group permits > instalments (money) >
