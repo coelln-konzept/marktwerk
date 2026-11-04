@@ -1011,7 +1011,8 @@ test("Übersicht: Erledigt asks first, since the task leaves the list; Abbrechen
   await expect(confirm).toContainText("als erledigt markieren?");
   await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
   await expect(confirm).toBeHidden();
-  await expect(page.getByRole("button", { name: label ?? "" })).toBeVisible();
+  // A task can sit in more than one Übersicht card (e.g. Heute and Diese Woche): any of its ticks will do.
+  await expect(page.getByRole("button", { name: label ?? "" }).first()).toBeVisible();
   await expect(toastUndo(page)).toHaveCount(0);
 });
 
