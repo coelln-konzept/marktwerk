@@ -99,7 +99,7 @@
     "newPayable": "Payment",
     "newPermit": "Permit",
     "newShift": "Shift",
-    "newAppointment": "Appointment",
+    "newAppointment": "Meeting",
     "newIssue": "Report defect",
     "showSidebar": "Show sidebar",
     "skip": "Skip to content",
@@ -143,7 +143,7 @@
       "payable": "Create payment",
       "permit": "Create permit",
       "shift": "Record shift",
-      "appointment": "Create appointment",
+      "appointment": "Create meeting",
       "issue": "Report defect",
       "settings": "Open settings",
       "notifications": "Open notifications"

@@ -36,9 +36,9 @@
       "weekEmpty": "Nothing is due in the next 7 days.",
       "upcomingEmpty": "No permits coming up.",
       "appointments": {
-        "title": "Appointments today",
-        "count": "{count, plural, one {# appointment} other {# appointments}}",
-        "open": "Open appointment"
+        "title": "Meetings today",
+        "count": "{count, plural, one {# meeting} other {# meetings}}",
+        "open": "Open meeting"
       }
     },
     "weekend": {

@@ -1,6 +1,7 @@
 import { CalendarCheck, CalendarClock, CalendarDays, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { appointmentVorschauValue } from "@/components/appointments/appointment-params";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { isModuleVisible } from "@/lib/modules";
@@ -22,11 +23,11 @@ export async function TodayCard({
   vorschauId,
 }: {
   due: OverviewDue;
-  /** Today's Termine (all-day first, then by time); the group is left out when there are none. */
+  /** Today's Besprechungen (all-day first, then by time); the group is left out when there are none. */
   appointments?: AppointmentView[];
   today: string;
   canSnooze: boolean;
-  /** The open Vorschau (`termin:<id>` for a Termin), to mark its row. */
+  /** The open Vorschau (`besprechung:<id>` for a Besprechung), to mark its row. */
   vorschauId?: string;
 }) {
   const t = await getTranslations("overview.due");
@@ -66,8 +67,8 @@ export async function TodayCard({
 }
 
 /**
- * "Termine heute": the first group of "Heute & überfällig", above the overdue items. All-day Termine come
- * first, then by time; a row opens the Termin's Vorschau (`/?vorschau=termin:<id>`).
+ * "Besprechungen heute": the first group of "Heute & überfällig", above the overdue items. All-day Besprechungen come
+ * first, then by time; a row opens the Besprechung's Vorschau (`/?vorschau=besprechung:<id>`).
  */
 async function AppointmentsToday({
   appointments,
@@ -79,9 +80,9 @@ async function AppointmentsToday({
   const t = await getTranslations("overview.due.appointments");
   const tChip = await getTranslations("appointments.chip");
   return (
-    <section aria-labelledby="termine-heute-title">
+    <section aria-labelledby="appointments-today-title">
       <h3
-        id="termine-heute-title"
+        id="appointments-today-title"
         className="m-0 flex items-center gap-2 border-border border-y bg-status-neutral-bg px-4 py-1.5 font-semibold text-small first:border-t-0"
       >
         <CalendarClock aria-hidden className="size-4" />
@@ -92,7 +93,7 @@ async function AppointmentsToday({
       </h3>
       <ul className="m-0 flex list-none flex-col p-0">
         {appointments.map((a) => {
-          const href = `/?vorschau=termin:${a.id}`;
+          const href = `/?vorschau=${appointmentVorschauValue(a.id)}`;
           const where = a.venueName ?? a.locationText;
           return (
             <li
@@ -104,7 +105,7 @@ async function AppointmentsToday({
               tabIndex={0}
               className={cn(
                 "flex cursor-pointer items-baseline gap-3 border-border-subtle border-b px-4 py-2 last:border-b-0 hover:bg-hover focus-visible:bg-selected",
-                selected === `termin:${a.id}` && "bg-selected",
+                selected === appointmentVorschauValue(a.id) && "bg-selected",
               )}
             >
               <span className="tabular w-16 shrink-0 font-semibold text-foreground-2 text-small">

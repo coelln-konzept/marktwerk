@@ -1,7 +1,9 @@
-import type { TerminResult } from "@/app/(app)/termin-actions";
+import type { AppointmentResult } from "@/app/(app)/appointment-actions";
 
 /** An action that throws counts as a generic failure, never as a crash into the error boundary. */
-export async function guardedCall(run: () => Promise<TerminResult>): Promise<TerminResult> {
+export async function guardedCall(
+  run: () => Promise<AppointmentResult>,
+): Promise<AppointmentResult> {
   try {
     return await run();
   } catch {

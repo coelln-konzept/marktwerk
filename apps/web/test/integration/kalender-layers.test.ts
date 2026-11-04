@@ -24,7 +24,7 @@ import { asStaff, dueOn, insertEvent, insertTask, TODAY } from "../helpers/tasks
  */
 
 const RANGE = { from: "2026-10-01", to: "2026-10-31" };
-/** The module layers that have a feed in `listCalendarDeadlines` (Termine are loaded by the page itself). */
+/** The module layers that have a feed in `listCalendarDeadlines` (Besprechungen are loaded by the page itself). */
 const ALL: Layers["deadlines"] = ["tasks", "permits", "shifts", "installments", "obligations"];
 const ALL_LAYERS: Layers["deadlines"] = [
   "tasks",
@@ -234,7 +234,7 @@ describe("layer selection", () => {
     expect(sanitizeLayers({ deadlines: ["tasks", "nonsense", 3] }).deadlines).toEqual(["tasks"]);
   });
 
-  it("Termine are a layer: on by default and in the 'Märkte + Fristen' preset, off in a URL without them", () => {
+  it("Besprechungen are a layer: on by default and in the 'Märkte + Fristen' preset, off in a URL without them", () => {
     expect(DEFAULT_LAYERS.deadlines).toContain("appointments");
     expect(PRESETS.find((p) => p.key === "marketsDeadlines")?.deadlines).toContain("appointments");
     expect(PRESETS.find((p) => p.key === "markets")?.deadlines).not.toContain("appointments");
@@ -245,7 +245,7 @@ describe("layer selection", () => {
     ]);
   });
 
-  it("saved selections from before the Termine layer show it as on; a later opt-out stays off", () => {
+  it("saved selections from before the Besprechungen layer show it as on; a later opt-out stays off", () => {
     // Older save: five layers known, no `known` list.
     const older = { types: ["flea"], deadlines: ["permits"], holidays: true };
     expect(sanitizeSavedLayers(older).deadlines).toEqual(["appointments", "permits"]);
@@ -254,7 +254,7 @@ describe("layer selection", () => {
     // A save that knew the layer and left it out means "off".
     const known = [...ALL_LAYERS];
     expect(sanitizeSavedLayers({ ...older, known }).deadlines).toEqual(["permits"]);
-    // An older save that had every layer switched off keeps tasks off, but gains Termine.
+    // An older save that had every layer switched off keeps tasks off, but gains Besprechungen.
     expect(sanitizeSavedLayers({ deadlines: [] }).deadlines).toEqual(["appointments"]);
   });
 

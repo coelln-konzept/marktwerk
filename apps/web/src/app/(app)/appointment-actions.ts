@@ -15,7 +15,9 @@ import {
 } from "@/server/services/appointments";
 import { requirePermission } from "@/server/session";
 
-export type TerminResult = { ok: true; id: string } | { ok: false; error: string; field?: string };
+export type AppointmentResult =
+  | { ok: true; id: string }
+  | { ok: false; error: string; field?: string };
 
 /** Which form field a refused input belongs to. */
 const FIELD_OF: Record<string, string> = {
@@ -37,7 +39,7 @@ const FIELD_OF: Record<string, string> = {
 };
 
 /** Typed input errors become codes the dialog shows; anything else is a real error. */
-async function guarded(id: string | null, run: () => Promise<string>): Promise<TerminResult> {
+async function guarded(id: string | null, run: () => Promise<string>): Promise<AppointmentResult> {
   try {
     const done = await run();
     refresh();
@@ -51,8 +53,8 @@ async function guarded(id: string | null, run: () => Promise<string>): Promise<T
   }
 }
 
-/** What the dialog needs when it opens: the pickers, today, and the Termin to edit. */
-export async function loadTerminFormAction(id: string | null) {
+/** What the dialog needs when it opens: the pickers, today, and the Besprechung to edit. */
+export async function loadAppointmentFormAction(id: string | null) {
   await requirePermission("event", "write");
   const [venues, contacts, existing] = await Promise.all([
     listVenueOptions(),
@@ -68,7 +70,7 @@ export async function loadTerminFormAction(id: string | null) {
   };
 }
 
-export async function createAppointmentAction(draft: AppointmentDraft): Promise<TerminResult> {
+export async function createAppointmentAction(draft: AppointmentDraft): Promise<AppointmentResult> {
   await requirePermission("event", "write");
   const actor = await getActor();
   return guarded(null, async () => (await createAppointment(actor, draft)).id);
@@ -77,7 +79,7 @@ export async function createAppointmentAction(draft: AppointmentDraft): Promise<
 export async function updateAppointmentAction(
   id: string,
   draft: AppointmentDraft,
-): Promise<TerminResult> {
+): Promise<AppointmentResult> {
   await requirePermission("event", "write");
   const actor = await getActor();
   return guarded(id, async () => {
@@ -86,7 +88,7 @@ export async function updateAppointmentAction(
   });
 }
 
-export async function archiveAppointmentAction(id: string): Promise<TerminResult> {
+export async function archiveAppointmentAction(id: string): Promise<AppointmentResult> {
   await requirePermission("event", "write");
   const actor = await getActor();
   return guarded(id, async () => {
@@ -95,7 +97,7 @@ export async function archiveAppointmentAction(id: string): Promise<TerminResult
   });
 }
 
-export async function restoreAppointmentAction(id: string): Promise<TerminResult> {
+export async function restoreAppointmentAction(id: string): Promise<AppointmentResult> {
   await requirePermission("event", "write");
   const actor = await getActor();
   return guarded(id, async () => {

@@ -51,9 +51,9 @@ export function MonthGrid({
   /** The list starting at that day: the link at the bottom of the popover. */
   moreHref: (day: string) => string;
   moreListLabel: string;
-  /** "Termin anlegen" on that day (only passed when the person may create appointments). */
+  /** "Besprechung anlegen" on that day (only passed when the person may create appointments). */
   addHref?: (day: string) => string;
-  /** Accessible name of that link, naming the day ("Termin am Mo 07.12. anlegen"). */
+  /** Accessible name of that link, naming the day ("Besprechung am Mo 07.12. anlegen"). */
   addLabel?: (day: string) => string;
   maxPerDay?: number;
 }) {

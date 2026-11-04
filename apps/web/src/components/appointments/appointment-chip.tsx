@@ -3,8 +3,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * A Termin in a Kalender day cell: icon, "09:00" or "ganztägig", then the title, in the neutral style of the
- * module layers. Links to its Vorschau (`?vorschau=termin:<id>`, the page's other parameters kept).
+ * A Besprechung in a Kalender day cell: icon, "09:00" or "ganztägig", then the title, in the neutral style of the
+ * module layers. Links to its Vorschau (`?vorschau=besprechung:<id>`, the page's other parameters kept).
  */
 export function AppointmentChip({
   href,

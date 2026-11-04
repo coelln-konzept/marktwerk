@@ -5,14 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
-import { archiveAppointmentAction, restoreAppointmentAction } from "@/app/(app)/termin-actions";
+import {
+  archiveAppointmentAction,
+  restoreAppointmentAction,
+} from "@/app/(app)/appointment-actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { guardedCall } from "./guarded-call";
 
 /**
- * "Bearbeiten" and "Archivieren" in the Vorschau of a Termin. Archiving has no confirmation dialog: an undo
- * toast brings the Termin back and reopens its Vorschau (UX concept §6).
+ * "Bearbeiten" and "Archivieren" in the Vorschau of a Besprechung. Archiving has no confirmation dialog: an undo
+ * toast brings the Besprechung back and reopens its Vorschau (UX concept §6).
  */
 export function AppointmentActions({
   id,

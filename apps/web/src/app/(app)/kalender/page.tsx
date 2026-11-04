@@ -15,9 +15,11 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { AppointmentChip } from "@/components/appointments/appointment-chip";
 import {
-  AppointmentVorschau,
-  terminVorschauId,
-} from "@/components/appointments/appointment-vorschau";
+  APPOINTMENT_PARAM,
+  appointmentVorschauId,
+  appointmentVorschauValue,
+} from "@/components/appointments/appointment-params";
+import { AppointmentVorschau } from "@/components/appointments/appointment-vorschau";
 import { DeadlineChip, LAYER_ICONS } from "@/components/kalender/deadline-chip";
 import { EventChip } from "@/components/kalender/event-chip";
 import {
@@ -84,7 +86,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const chosen = parseLayers(sp) ?? (await getSavedLayers(actor.id)) ?? DEFAULT_LAYERS;
   // "Nur meine Zuständigkeit" is not offered without Team: a saved selection must not narrow silently.
   const layers = canMine ? chosen : { ...chosen, mine: false };
-  const vorschauTermin = terminVorschauId(param(sp.vorschau));
+  const vorschauAppointment = appointmentVorschauId(param(sp.vorschau));
   const layersOpen = await getUiState("calendarLayers");
 
   // View: an explicit `?ansicht=` always wins. Without one phones (below md) open in Liste and wider
@@ -110,7 +112,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const to = view === "monat" ? addDays(mondayOf(monthLast), 6) : addDays(listFrom, LIST_DAYS - 1);
 
   const available = availableLayers(actor.role, actor.staffMemberId !== null, HIDDEN_MODULES);
-  // Termine: "Nur Achtung und Kritisch" hides them (they have no urgency), "Nur meine Zuständigkeit" does not
+  // Besprechungen: "Nur Achtung und Kritisch" hides them (they have no urgency), "Nur meine Zuständigkeit" does not
   // touch them; the Ort narrowing keeps those at that venue.
   const showAppointments =
     layers.deadlines.includes("appointments") &&
@@ -231,20 +233,27 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     return out;
   });
 
-  // Termine come before the deadlines of their day (all-day first, then by time: the query's order).
-  // "Termin anlegen" per day opens the dialog with that date; closing/editing links of a Vorschau are dropped.
-  const canCreateTermin = can(actor.role, "event", "write");
+  // Besprechungen come before the deadlines of their day (all-day first, then by time: the query's order).
+  // "Besprechung anlegen" per day opens the dialog with that date; closing/editing links of a Vorschau are dropped.
+  const canCreateAppointment = can(actor.role, "event", "write");
   const addHref = (day: string) =>
-    hrefWith(PATH, sp, { neu: "termin", datum: day, vorschau: undefined, bearbeiten: undefined });
-  const addLabel = (day: string) => t("addTermin", { date: formatDateWithWeekday(day, locale) });
-  const terminHref = (id: string) => hrefWith(PATH, sp, { vorschau: `termin:${id}` });
+    hrefWith(PATH, sp, {
+      neu: APPOINTMENT_PARAM,
+      datum: day,
+      vorschau: undefined,
+      bearbeiten: undefined,
+    });
+  const addLabel = (day: string) =>
+    t("addAppointment", { date: formatDateWithWeekday(day, locale) });
+  const appointmentLink = (id: string) =>
+    hrefWith(PATH, sp, { vorschau: appointmentVorschauValue(id) });
   for (const a of appointments) {
     entries.push({
-      key: `termin-${a.id}`,
+      key: `appointment-${a.id}`,
       date: a.onDate,
       node: (
         <AppointmentChip
-          href={terminHref(a.id)}
+          href={appointmentLink(a.id)}
           title={a.title}
           startsAt={a.startsAt}
           allDayLabel={tAppt("chip.allDay")}
@@ -341,7 +350,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               dayTitle={(day) => formatDateWithWeekday(day, locale)}
               moreHref={moreHref}
               moreListLabel={t("moreList")}
-              addHref={canCreateTermin ? addHref : undefined}
+              addHref={canCreateAppointment ? addHref : undefined}
               addLabel={addLabel}
             />
           ) : (
@@ -352,11 +361,11 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               rows={visible}
               deadlines={display}
               appointments={appointments}
-              appointmentHref={terminHref}
+              appointmentHref={appointmentLink}
               holidays={holidays}
               hrefFor={eventHref}
               resetHref={hrefWith(PATH, {}, { ...layerParams(DEFAULT_LAYERS), ansicht: "liste" })}
-              addHref={canCreateTermin ? addHref : undefined}
+              addHref={canCreateAppointment ? addHref : undefined}
               addLabel={addLabel}
             />
           )}
@@ -418,16 +427,18 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
         </p>
       </LayerPanel>
 
-      {vorschauTermin && (
+      {vorschauAppointment && (
         <AppointmentVorschau
-          id={vorschauTermin}
+          id={vorschauAppointment}
           closeHref={hrefWith(PATH, sp, { vorschau: undefined })}
           editHref={hrefWith(PATH, sp, {
             vorschau: undefined,
-            neu: "termin",
-            bearbeiten: vorschauTermin,
+            neu: APPOINTMENT_PARAM,
+            bearbeiten: vorschauAppointment,
           })}
-          reopenHref={hrefWith(PATH, sp, { vorschau: `termin:${vorschauTermin}` })}
+          reopenHref={hrefWith(PATH, sp, {
+            vorschau: appointmentVorschauValue(vorschauAppointment),
+          })}
         />
       )}
 

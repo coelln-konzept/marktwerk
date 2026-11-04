@@ -5,7 +5,7 @@ import { and, asc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { db } from "../db";
 import { isUuid } from "./venues";
 
-/** A Termin as the screens show it; the contact is the saved one or the typed one (`id` null). */
+/** A Besprechung as the screens show it; the contact is the saved one or the typed one (`id` null). */
 export type AppointmentView = {
   id: string;
   title: string;
@@ -70,7 +70,7 @@ function view(row: Row): AppointmentView {
   };
 }
 
-/** One live (not archived) Termin, or null. */
+/** One live (not archived) Besprechung, or null. */
 export async function getAppointment(id: string): Promise<AppointmentView | null> {
   if (!isUuid(id)) return null;
   const [row] = await select()
@@ -79,7 +79,7 @@ export async function getAppointment(id: string): Promise<AppointmentView | null
   return row ? view(row) : null;
 }
 
-/** Live Termine from `from` to `to` (inclusive ISO dates), by day, then all-day first, then start time. */
+/** Live Besprechungen from `from` to `to` (inclusive ISO dates), by day, then all-day first, then start time. */
 export async function listAppointmentsBetween(
   from: string,
   to: string,
@@ -101,7 +101,7 @@ export async function listAppointmentsBetween(
   return rows.map(view);
 }
 
-/** Live Termine of one day. */
+/** Live Besprechungen of one day. */
 export async function listAppointmentsOn(day: string): Promise<AppointmentView[]> {
   return listAppointmentsBetween(day, day);
 }

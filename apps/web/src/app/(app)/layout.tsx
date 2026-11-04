@@ -2,6 +2,7 @@ import { can as roleCan } from "@marktwerk/core";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AppointmentDialog } from "@/components/appointments/appointment-dialog";
+import { APPOINTMENT_PARAM } from "@/components/appointments/appointment-params";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShellProvider } from "@/components/shell/shell-context";
@@ -39,7 +40,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ? [{ kind: "action" as const, title: t("shift"), href: "/team/schichten?neu=1" }]
       : []),
     ...(can("appointment")
-      ? [{ kind: "action" as const, title: t("appointment"), href: "/kalender?neu=termin" }]
+      ? [
+          {
+            kind: "action" as const,
+            title: t("appointment"),
+            href: `/kalender?neu=${APPOINTMENT_PARAM}`,
+          },
+        ]
       : []),
     ...(can("issue")
       ? [{ kind: "action" as const, title: t("issue"), href: "/firma/maengel?neu=1" }]

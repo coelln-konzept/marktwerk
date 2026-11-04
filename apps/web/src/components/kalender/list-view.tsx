@@ -38,15 +38,15 @@ export async function CalendarList({
   rows: EventRow[];
   /** Entries of the module layers (Aufgaben, Genehmigungen, …). */
   deadlines: DisplayItem[];
-  /** Termine in the range (all-day first, then by time), shown before the deadlines of their day. */
+  /** Besprechungen in the range (all-day first, then by time), shown before the deadlines of their day. */
   appointments?: AppointmentView[];
-  /** Link to a Termin's Vorschau. */
+  /** Link to a Besprechung's Vorschau. */
   appointmentHref?: (id: string) => string;
   holidays: Map<string, string>;
   /** Link to an event (its Überblick). */
   hrefFor: (id: string) => string;
   resetHref: string;
-  /** "Termin anlegen" on that day (only passed when the person may create appointments). */
+  /** "Besprechung anlegen" on that day (only passed when the person may create appointments). */
   addHref?: (day: string) => string;
   /** Accessible name of that link, naming the day. */
   addLabel?: (day: string) => string;
@@ -68,13 +68,13 @@ export async function CalendarList({
   const itemsByDay = new Map<string, DisplayItem[]>();
   for (const item of deadlines)
     itemsByDay.set(item.date, [...(itemsByDay.get(item.date) ?? []), item]);
-  const termineByDay = new Map<string, AppointmentView[]>();
+  const appointmentsByDay = new Map<string, AppointmentView[]>();
   for (const a of appointments)
-    termineByDay.set(a.onDate, [...(termineByDay.get(a.onDate) ?? []), a]);
+    appointmentsByDay.set(a.onDate, [...(appointmentsByDay.get(a.onDate) ?? []), a]);
   const days: string[] = [];
   let hasEntries = false;
   for (let d = from; d <= to; d = addDays(d, 1)) {
-    const busy = byDay.has(d) || termineByDay.has(d) || itemsByDay.has(d) || holidays.has(d);
+    const busy = byDay.has(d) || appointmentsByDay.has(d) || itemsByDay.has(d) || holidays.has(d);
     if (busy) hasEntries = true;
     // Today is always a row (even when nothing happens), so the list shows where "now" is.
     if (busy || d === today) days.push(d);
@@ -150,13 +150,13 @@ export async function CalendarList({
               </TGroup>
               {weekDays.map((day) => {
                 const events = byDay.get(day) ?? [];
-                const termine = termineByDay.get(day) ?? [];
+                const dayAppointments = appointmentsByDay.get(day) ?? [];
                 const items = itemsByDay.get(day) ?? [];
                 const holiday = holidays.get(day);
                 const dateCell = (
                   <TD
                     key="date"
-                    rowSpan={Math.max(events.length + termine.length + items.length, 1)}
+                    rowSpan={Math.max(events.length + dayAppointments.length + items.length, 1)}
                     className={cn(
                       "group/day w-28 align-top sm:w-44 sm:whitespace-nowrap",
                       day === today && "bg-selected",
@@ -188,7 +188,7 @@ export async function CalendarList({
                     )}
                   </TD>
                 );
-                if (events.length === 0 && termine.length === 0 && items.length === 0) {
+                if (events.length === 0 && dayAppointments.length === 0 && items.length === 0) {
                   return (
                     <TR key={day}>
                       {dateCell}
@@ -250,12 +250,12 @@ export async function CalendarList({
                     </TR>
                   );
                 });
-                const termineRows = termine.map((a, i) => {
+                const appointmentRows = dayAppointments.map((a, i) => {
                   const href = appointmentHref?.(a.id) ?? "#";
                   const where = a.venueName ?? a.locationText;
                   return (
                     <TR
-                      key={`${day}-termin-${a.id}`}
+                      key={`${day}-appointment-${a.id}`}
                       tabIndex={0}
                       data-row
                       data-href={href}
@@ -312,7 +312,7 @@ export async function CalendarList({
                       data-href={item.href}
                       className="cursor-pointer outline-hidden focus-visible:bg-selected"
                     >
-                      {events.length + termine.length + i === 0 && dateCell}
+                      {events.length + dayAppointments.length + i === 0 && dateCell}
                       <TD>
                         <Link
                           href={item.href as never}
@@ -350,7 +350,7 @@ export async function CalendarList({
                     </TR>
                   );
                 });
-                return [...eventRows, ...termineRows, ...itemRows];
+                return [...eventRows, ...appointmentRows, ...itemRows];
               })}
             </Fragment>
           ))}

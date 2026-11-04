@@ -195,7 +195,7 @@ async function lockAppointment(tx: Tx, id: string) {
   return row;
 }
 
-/** New Termin. A typed contact with `saveContact` becomes a real contact (audited `contact.create`). */
+/** New Besprechung. A typed contact with `saveContact` becomes a real contact (audited `contact.create`). */
 export async function createAppointment(
   actor: Actor,
   input: AppointmentDraft,
@@ -222,7 +222,7 @@ export async function createAppointment(
   });
 }
 
-/** Edits a Termin. Audited as `appointment.update` with `{changes: {field: {from, to}}}`. */
+/** Edits a Besprechung. Audited as `appointment.update` with `{changes: {field: {from, to}}}`. */
 export async function updateAppointment(
   actor: Actor,
   id: string,
@@ -257,7 +257,7 @@ export async function updateAppointment(
   });
 }
 
-/** "Archivieren": the Termin disappears from lists. Audited as `appointment.archive`. */
+/** "Archivieren": the Besprechung disappears from lists. Audited as `appointment.archive`. */
 export async function archiveAppointment(actor: Actor, id: string): Promise<{ title: string }> {
   if (!can(actor.role, "event", "write")) forbidden();
   return db.transaction(async (tx) => {

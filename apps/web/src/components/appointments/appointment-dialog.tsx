@@ -7,19 +7,20 @@ import { useEffect, useId, useMemo, useRef, useState, useTransition } from "reac
 import {
   archiveAppointmentAction,
   createAppointmentAction,
-  loadTerminFormAction,
+  loadAppointmentFormAction,
   restoreAppointmentAction,
   updateAppointmentAction,
-} from "@/app/(app)/termin-actions";
+} from "@/app/(app)/appointment-actions";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { APPOINTMENT_PARAM } from "./appointment-params";
 import { guardedCall } from "./guarded-call";
 
-type FormData = Awaited<ReturnType<typeof loadTerminFormAction>>;
+type FormData = Awaited<ReturnType<typeof loadAppointmentFormAction>>;
 type ContactOption = FormData["contacts"][number];
 type Field =
   | "title"
@@ -40,24 +41,24 @@ type ContactMode =
 const OWN_ADDRESS = "__own__";
 
 /**
- * "Termin anlegen / bearbeiten". Lives in the app layout and opens on `?neu=termin` (create; `datum=` pre-fills
- * the day) or `?neu=termin&bearbeiten=<id>` (edit), on any page. Closing removes these parameters again. The
- * pickers and the Termin to edit are loaded when it opens, so no page pays for them. Creating shows an undo
- * toast (undo archives the Termin).
+ * "Besprechung anlegen / bearbeiten". Lives in the app layout and opens on `?neu=besprechung` (create; `datum=` pre-fills
+ * the day) or `?neu=besprechung&bearbeiten=<id>` (edit), on any page. Closing removes these parameters again. The
+ * pickers and the Besprechung to edit are loaded when it opens, so no page pays for them. Creating shows an undo
+ * toast (undo archives the Besprechung).
  */
 export function AppointmentDialog() {
   const t = useTranslations("appointments");
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
-  const requested = params.get("neu") === "termin";
+  const requested = params.get("neu") === APPOINTMENT_PARAM;
   const editId = params.get("bearbeiten");
   const day = params.get("datum");
   const [data, setData] = useState<FormData | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new request (or another Termin) reloads
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new request (or another Besprechung) reloads
   useEffect(() => {
     if (!requested) {
       setData(null);
@@ -67,7 +68,7 @@ export function AppointmentDialog() {
     let current = true;
     setData(null);
     setLoadFailed(false);
-    loadTerminFormAction(editId)
+    loadAppointmentFormAction(editId)
       .then((loaded) => current && setData(loaded))
       .catch(() => current && setLoadFailed(true));
     return () => {

@@ -23,6 +23,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { APPOINTMENT_PARAM } from "@/components/appointments/appointment-params";
 import { Kbd } from "@/components/ui/kbd";
 import type { Creatable } from "@/lib/creatable";
 import { hrefWith } from "@/lib/url";
@@ -98,7 +99,7 @@ function NewMenu() {
       : "/?neu=1";
   // The dialog lives in the app layout, so it opens on any page; the page's own query (month, filters) stays.
   const appointmentHref = hrefWith(pathname, Object.fromEntries(search.entries()), {
-    neu: "termin",
+    neu: APPOINTMENT_PARAM,
     bearbeiten: undefined,
     datum: undefined,
   });

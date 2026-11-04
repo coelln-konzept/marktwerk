@@ -74,7 +74,7 @@ export function availableLayers(
 ): CalendarLayer[] {
   const allowed: Record<CalendarLayer, boolean> = {
     tasks: !hide.calendarTasks && can(role, "task", "read"),
-    // Termine reuse the `event` permissions (decision CF9-1).
+    // Besprechungen reuse the `event` permissions (decision CF9-1).
     appointments: can(role, "event", "read"),
     permits: can(role, "permit", "read"),
     installments: !hide.finance && can(role, "finance", "read"),
@@ -109,7 +109,7 @@ export function sanitizeLayers(raw: unknown): Layers {
 /**
  * A saved selection (`user_preference.saved_views.kalender`). Besides the layers it carries `known`, the
  * module layers that existed when it was saved: a layer that is newer than the save (older saves have no
- * `known`, they predate the Termine layer) shows as on if it is on by default, instead of silently off.
+ * `known`, they predate the Besprechungen layer) shows as on if it is on by default, instead of silently off.
  * A layer the save knew and left out stays off. The URL never goes through this: it is explicit.
  */
 export function sanitizeSavedLayers(raw: unknown): Layers {

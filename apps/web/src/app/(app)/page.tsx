@@ -2,9 +2,11 @@ import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import {
-  AppointmentVorschau,
-  terminVorschauId,
-} from "@/components/appointments/appointment-vorschau";
+  APPOINTMENT_PARAM,
+  appointmentVorschauId,
+  appointmentVorschauValue,
+} from "@/components/appointments/appointment-params";
+import { AppointmentVorschau } from "@/components/appointments/appointment-vorschau";
 import { NewTaskButton } from "@/components/board/new-task-dialog";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
@@ -64,8 +66,8 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
     can(actor.role, "event", "read") ? listAppointmentsOn(today) : Promise.resolve([]),
   ]);
   const vorschauParam = param(sp.vorschau);
-  const terminId = terminVorschauId(vorschauParam);
-  const vorschauId = terminId ? undefined : vorschauParam;
+  const appointmentId = appointmentVorschauId(vorschauParam);
+  const vorschauId = appointmentId ? undefined : vorschauParam;
   const taskId = param(sp.aufgabe);
   const canWrite = can(actor.role, "task", "write");
 
@@ -130,12 +132,16 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
       <p className="-mt-3 px-1 text-muted-foreground text-tiny touch:hidden">{t("keys")}</p>
       <PastMarketsLine count={overview.pastMarketTasks} query={sp} canCleanup={canWrite} />
       {vorschauId && <EventVorschau id={vorschauId} closeHref="/" />}
-      {terminId && (
+      {appointmentId && (
         <AppointmentVorschau
-          id={terminId}
+          id={appointmentId}
           closeHref={hrefWith("/", sp, { vorschau: undefined })}
-          editHref={hrefWith("/", sp, { vorschau: undefined, neu: "termin", bearbeiten: terminId })}
-          reopenHref={hrefWith("/", sp, { vorschau: `termin:${terminId}` })}
+          editHref={hrefWith("/", sp, {
+            vorschau: undefined,
+            neu: APPOINTMENT_PARAM,
+            bearbeiten: appointmentId,
+          })}
+          reopenHref={hrefWith("/", sp, { vorschau: appointmentVorschauValue(appointmentId) })}
         />
       )}
       {taskDrawer}

@@ -1116,57 +1116,57 @@ test("Sidebar: the button at its top right hides it (remembered), the top bar br
   await expect(nav).toBeVisible();
 });
 
-test('"+ Neu" › Termin: name and today, saved with a toast; the dialog closes and the URL is clean', async ({
+test('"+ Neu" › Besprechung: name and today, saved with a toast; the dialog closes and the URL is clean', async ({
   page,
 }) => {
   await page.goto("/kalender");
   await page.waitForLoadState("networkidle"); // hydrated, so the key and the menu react
   await page.keyboard.press("c");
-  await page.getByRole("menuitem", { name: "Termin", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Termin anlegen" });
+  await page.getByRole("menuitem", { name: "Besprechung", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Neue Besprechung" });
   await expect(dialog).toBeVisible();
-  const name = `E2E-Termin ${Date.now()}`;
+  const name = `E2E-Besprechung ${Date.now()}`;
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   await expect(dialog.getByLabel("Datum")).not.toHaveValue("");
   await dialog.getByRole("button", { name: "Anlegen" }).click();
-  await expect(page.getByText("Termin angelegt")).toBeVisible();
+  await expect(page.getByText("Besprechung angelegt")).toBeVisible();
   await expect(dialog).toBeHidden();
-  await expect(page).not.toHaveURL(/neu=termin/);
+  await expect(page).not.toHaveURL(/neu=besprechung/);
   await toastUndo(page).click(); // leaves no appointment behind
-  await expect(page.getByText("Termin entfernt")).toBeVisible();
+  await expect(page.getByText("Besprechung entfernt")).toBeVisible();
 });
 
-test("Kalender: a day's + opens the Termin dialog with that date", async ({ page }) => {
+test("Kalender: a day's + opens the Besprechung dialog with that date", async ({ page }) => {
   await page.goto("/kalender?monat=2027-03");
   await page.waitForLoadState("networkidle");
-  const add = page.getByRole("link", { name: /^Termin am .*15\.03\.2027 anlegen$/ });
+  const add = page.getByRole("link", { name: /^Besprechung am .*15\.03\.2027 anlegen$/ });
   await add.focus(); // visible on focus, not only on hover
   await add.click();
-  await expect(page).toHaveURL(/neu=termin&datum=2027-03-15/);
+  await expect(page).toHaveURL(/neu=besprechung&datum=2027-03-15/);
   await expect(
-    page.getByRole("dialog", { name: "Termin anlegen" }).getByLabel("Datum"),
+    page.getByRole("dialog", { name: "Neue Besprechung" }).getByLabel("Datum"),
   ).toHaveValue("2027-03-15");
 });
 
-test("Termin: appears in the Kalender (Monat and Liste) and under Termine heute; its Vorschau shows the contact; archiving has an undo", async ({
+test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechungen heute; its Vorschau shows the contact; archiving has an undo", async ({
   page,
 }) => {
-  const name = `E2E-Termin ${Date.now()}`;
-  await page.goto("/?neu=termin");
-  const dialog = page.getByRole("dialog", { name: "Termin anlegen" });
+  const name = `E2E-Besprechung ${Date.now()}`;
+  await page.goto("/?neu=besprechung");
+  const dialog = page.getByRole("dialog", { name: "Neue Besprechung" });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Name", { exact: true }).first().fill(name);
   await dialog.getByRole("button", { name: "Neuer Kontakt …" }).click();
   await dialog.getByLabel("Name", { exact: true }).nth(1).fill("Frau E2E-Kontakt");
   await dialog.getByLabel("Telefon").fill("+49 221 1234567");
   await dialog.getByLabel("E-Mail").fill("e2e.kontakt@example.com");
-  await dialog.getByLabel("Als Kontakt speichern").uncheck(); // stays on the Termin, no Kontakte entry left over
+  await dialog.getByLabel("Als Kontakt speichern").uncheck(); // stays on the Besprechung, no Kontakte entry left over
   await dialog.getByRole("button", { name: "Anlegen" }).click();
-  await expect(page.getByText("Termin angelegt")).toBeVisible();
+  await expect(page.getByText("Besprechung angelegt")).toBeVisible();
   await expect(dialog).toBeHidden();
 
-  // Übersicht: first group of "Heute & überfällig", all-day Termine first.
-  const group = page.getByRole("region", { name: "Termine heute" });
+  // Übersicht: first group of "Heute & überfällig", all-day Besprechungen first.
+  const group = page.getByRole("region", { name: "Besprechungen heute" });
   await expect(group).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();
 
@@ -1192,25 +1192,25 @@ test("Termin: appears in the Kalender (Monat and Liste) and under Termine heute;
   await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
 
   // Archive from the Vorschau: gone from the Übersicht, back with the undo.
-  await page.goto("/?vorschau=termin:" + (await termId(page, name)));
+  await page.goto("/?vorschau=besprechung:" + (await appointmentId(page, name)));
   await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
-  await expect(page.getByText("Termin archiviert")).toBeVisible();
+  await expect(page.getByText("Besprechung archiviert")).toBeVisible();
   await expect(group.getByRole("link", { name })).toHaveCount(0);
   await toastUndo(page).click();
-  await expect(page.getByText("Termin wiederhergestellt")).toBeVisible();
+  await expect(page.getByText("Besprechung wiederhergestellt")).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();
 
   // Leave nothing behind.
   await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
-  await expect(page.getByText("Termin archiviert")).toBeVisible();
+  await expect(page.getByText("Besprechung archiviert")).toBeVisible();
 });
 
-/** The id of a Termin, read from its link in the Übersicht's "Termine heute" group. */
-async function termId(page: Page, name: string): Promise<string> {
+/** The id of a Besprechung, read from its link in the Übersicht's "Besprechungen heute" group. */
+async function appointmentId(page: Page, name: string): Promise<string> {
   await page.goto("/");
   const href = await page
-    .getByRole("region", { name: "Termine heute" })
+    .getByRole("region", { name: "Besprechungen heute" })
     .getByRole("link", { name })
     .getAttribute("href");
-  return (href ?? "").split("termin:")[1] ?? "";
+  return (href ?? "").split("besprechung:")[1] ?? "";
 }

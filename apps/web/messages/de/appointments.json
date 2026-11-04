@@ -1,8 +1,8 @@
 {
   "appointments": {
-    "title": "Termin anlegen",
-    "editTitle": "Termin bearbeiten",
-    "description": "Ein Termin mit Datum, Ort und Ansprechpartner. Er ist keine Aufgabe.",
+    "title": "Neue Besprechung",
+    "editTitle": "Besprechung bearbeiten",
+    "description": "Eine Besprechung mit Datum, Ort und Ansprechpartner. Er ist keine Aufgabe.",
     "name": "Name",
     "namePlaceholder": "z. B. Ortstermin Rheinwiese",
     "date": "Datum",
@@ -38,13 +38,13 @@
     "cancel": "Abbrechen",
     "loading": "Lädt …",
     "toast": {
-      "created": "Termin angelegt",
-      "saved": "Termin gespeichert",
+      "created": "Besprechung angelegt",
+      "saved": "Besprechung gespeichert",
       "undo": "Rückgängig",
-      "createdUndone": "Termin entfernt"
+      "createdUndone": "Besprechung entfernt"
     },
     "errors": {
-      "title_required": "Gib dem Termin einen Namen.",
+      "title_required": "Gib der Besprechung einen Namen.",
       "date_invalid": "Wähle ein gültiges Datum.",
       "time_invalid": "Die Uhrzeit ist nicht lesbar.",
       "end_without_start": "Gib auch eine Startzeit an.",
@@ -59,14 +59,14 @@
       "phone_invalid": "Die Telefonnummer ist ungültig.",
       "invalid_venue": "Dieser Ort ist nicht mehr verfügbar.",
       "invalid_contact": "Dieser Kontakt ist nicht mehr verfügbar.",
-      "conflict": "Der Termin wurde inzwischen geändert oder entfernt.",
-      "not_found": "Der Termin existiert nicht mehr.",
+      "conflict": "Die Besprechung wurde inzwischen geändert oder entfernt.",
+      "not_found": "Die Besprechung existiert nicht mehr.",
       "generic": "Das hat nicht geklappt. Versuche es noch einmal.",
       "loadFailed": "Das Formular konnte nicht geladen werden."
     },
     "chip": {
       "allDay": "ganztägig",
-      "kind": "Termin"
+      "kind": "Besprechung"
     },
     "vorschau": {
       "date": "Datum",
@@ -78,13 +78,13 @@
       "openContact": "In Kontakte öffnen",
       "edit": "Bearbeiten",
       "archive": "Archivieren",
-      "archived": "Termin archiviert",
-      "restored": "Termin wiederhergestellt",
+      "archived": "Besprechung archiviert",
+      "restored": "Besprechung wiederhergestellt",
       "failed": "Das hat nicht geklappt. Versuche es noch einmal.",
       "timeRange": "{from}–{to} Uhr",
       "timeFrom": "ab {from} Uhr",
       "allDay": "ganztägig",
-      "kind": "Termin"
+      "kind": "Besprechung"
     }
   }
 }

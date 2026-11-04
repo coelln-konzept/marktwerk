@@ -36,9 +36,9 @@
       "weekEmpty": "In den nächsten 7 Tagen ist nichts fällig.",
       "upcomingEmpty": "Keine Genehmigungen in Sicht.",
       "appointments": {
-        "title": "Termine heute",
-        "count": "{count, plural, one {# Termin} other {# Termine}}",
-        "open": "Termin öffnen"
+        "title": "Besprechungen heute",
+        "count": "{count, plural, one {# Besprechung} other {# Besprechungen}}",
+        "open": "Besprechung öffnen"
       }
     },
     "weekend": {
