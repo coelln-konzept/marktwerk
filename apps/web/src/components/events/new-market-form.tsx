@@ -1,5 +1,6 @@
 "use client";
 
+import type { MarketColor } from "@marktwerk/core";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
 import { createMarketAction } from "@/app/(app)/veranstaltungen/actions";
@@ -15,6 +16,7 @@ import { NO_RHYTHM, type Rhythm, rhythmToRule } from "@/components/presets/rhyth
 import { RhythmBuilder } from "@/components/presets/rhythm-builder";
 import { Button } from "@/components/ui/button";
 import { OptionalMark } from "@/components/ui/label";
+import { MarketColorPicker } from "@/components/ui/market-color-picker";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { GenerationPreset } from "@/server/queries/presets";
 import type { VenueOption } from "@/server/queries/venues";
@@ -27,6 +29,8 @@ import type { VenueOption } from "@/server/queries/venues";
 export function NewMarketForm({
   types,
   venues,
+  colorUsage,
+  suggestedColor,
   initialName,
   initialValue,
   fromEventId,
@@ -37,6 +41,10 @@ export function NewMarketForm({
 }: {
   types: EventTypeOption[];
   venues: VenueOption[];
+  /** Colour key → names of the active markets using it (legend). */
+  colorUsage: Record<string, string[]>;
+  /** Pre-selected: the colour a market gets when none is chosen (the least used one). */
+  suggestedColor: MarketColor;
   initialName: string;
   /** Prefilled fields (Archiv: "Als Vorlage speichern" from a past event). */
   initialValue?: EventFieldsValue;
@@ -56,6 +64,7 @@ export function NewMarketForm({
     () => initialValue ?? { ...initialFields(types, locale), name: initialName },
   );
   const [rhythm, setRhythm] = useState<Rhythm>(NO_RHYTHM);
+  const [color, setColor] = useState<string | null>(suggestedColor);
   const [problem, setProblem] = useState<FieldProblem | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -85,6 +94,7 @@ export function NewMarketForm({
           pricePerMCents: input.pricePerMCents,
           bookingFeeCents: input.bookingFeeCents,
           rrule,
+          color,
         },
         fromEventId,
       );
@@ -164,6 +174,12 @@ export function NewMarketForm({
           />
         </div>
       </details>
+      <MarketColorPicker
+        name="new-market-color"
+        value={color}
+        onChange={setColor}
+        usage={colorUsage}
+      />
       {problem && problem.field !== "rrule" && (
         <p id={errorId} role="alert" className="text-small text-status-critical">
           {message(problem.code)}

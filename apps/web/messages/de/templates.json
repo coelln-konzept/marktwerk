@@ -64,7 +64,8 @@
         "legend": "Farbe des Markts",
         "hint": "Ein schmaler Farbbalken neben dem Namen, in der Veranstaltungsliste auch eine eingefärbte Zeile, damit du die Termine eines Markts auf einen Blick erkennst. Gilt für alle Termine dieses Markts.",
         "none": "Keine Farbe",
-        "swatch": "Farbe: {name}",
+        "usedBy": "{name} – genutzt von: {markets}",
+        "free": "{name} – noch frei",
         "names": {
           "plum": "Pflaume",
           "rose": "Rosé",

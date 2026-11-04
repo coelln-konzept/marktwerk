@@ -114,6 +114,7 @@
 | 2026-11-04 | Checkliste tab | Text count, overdue in red with clock icon; no health shape (CF9-5) |
 | 2026-11-04 | Übersicht layout | Heute & überfällig in the left column, Dieses Wochenende right; per market only the verdict plus a collapsed "Top-5-Aufgaben anzeigen" toggle (CF9-2, product owner) |
 | 2026-11-04 | Events list colour | Rows on `/veranstaltungen` are **tinted in the market colour** (~12 %, hover ~22 %, selected + 2px outline in the market colour, focus ring on top; cancelled and colourless rows untinted). Reverses the 2026-10-22 "never a background" rule **for this list only**. The palette is retuned to ten clearly distinct hues (sand → Bernstein, petrol → Türkis, slate → Blau, indigo → Violett; keys unchanged) (CF9-4, product owner) |
+| 2026-11-04 | Market colour picker | "Neuen Markt anlegen" and the Marktvorlage form get an optional colour picker with a legend of which active markets already use each colour (tooltip per swatch, "noch frei" otherwise). In "Neuen Markt anlegen" the least used colour stays pre-selected (as `createMarket` assigned it before), "Keine Farbe" is selectable and stores none (CF9-4, product owner) |
 | 2026-10-22 (client feedback) | Postponed | Aussteller data-collection companion; weekly report email; finance; staff assignment and staff emails; website publishing |
 
 ## Open: product owner

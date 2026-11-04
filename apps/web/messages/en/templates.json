@@ -64,7 +64,8 @@
         "legend": "Market colour",
         "hint": "A thin colour bar next to the name (and a tinted row in the events list) so you can tell a market's dates apart at a glance. Applies to every date of this market.",
         "none": "No colour",
-        "swatch": "Colour: {name}",
+        "usedBy": "{name} – used by: {markets}",
+        "free": "{name} – still free",
         "names": {
           "plum": "Plum",
           "rose": "Rosé",

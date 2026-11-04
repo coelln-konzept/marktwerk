@@ -22,6 +22,7 @@ import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { listEventTypeOptions } from "@/server/queries/event-form";
 import { getPresetSource, listEvents, listEventTypes, listSeasons } from "@/server/queries/events";
+import { getMarketColorChoices } from "@/server/queries/market-colors";
 import { listVenueOptions } from "@/server/queries/venues";
 import { requirePermission } from "@/server/session";
 
@@ -68,9 +69,9 @@ export default async function ArchiveEventsPage({
   const canPreset = can(actor.role, "template", "write");
   const presetId = canPreset ? param(sp.vorlage) : undefined;
   const source = presetId ? await getPresetSource(actor, presetId) : null;
-  const [typeOptions, venueOptions] = source
-    ? await Promise.all([listEventTypeOptions(), listVenueOptions()])
-    : [[], []];
+  const [typeOptions, venueOptions, colors] = source
+    ? await Promise.all([listEventTypeOptions(), listVenueOptions(), getMarketColorChoices()])
+    : [[], [], null];
   const vorschauId = param(sp.vorschau);
 
   return (
@@ -243,11 +244,12 @@ export default async function ArchiveEventsPage({
       {vorschauId && (
         <EventVorschau id={vorschauId} closeHref={hrefWith(PATH, sp, { vorschau: undefined })} />
       )}
-      {source && (
+      {source && colors && (
         <SaveAsPreset
           source={source}
           types={typeOptions}
           venues={venueOptions}
+          colors={colors}
           closeHref={hrefWith(PATH, sp, { vorlage: undefined })}
         />
       )}

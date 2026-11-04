@@ -1,6 +1,7 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
+import type { MarketColor } from "@marktwerk/core";
 import {
   addDays,
   type CandidateCheck,
@@ -117,7 +118,11 @@ export function GenerateSheet({
   closeHref: string;
   /** template:write: shows "Neuen Markt anlegen"; `marketOptions` then holds the form's choices. */
   canCreateMarket?: boolean;
-  marketOptions?: { types: EventTypeOption[]; venues: VenueOption[] };
+  marketOptions?: {
+    types: EventTypeOption[];
+    venues: VenueOption[];
+    colors: { usage: Record<string, string[]>; suggested: MarketColor };
+  };
   /** Open with the new-market form (`?neu=1`). */
   openNewMarket?: boolean;
 }) {
@@ -494,6 +499,8 @@ export function GenerateSheet({
               <NewMarketForm
                 types={marketOptions.types}
                 venues={marketOptions.venues}
+                colorUsage={marketOptions.colors.usage}
+                suggestedColor={marketOptions.colors.suggested}
                 initialName={query.trim()}
                 onCreated={marketCreated}
                 onCancel={() => setCreatingMarket(false)}

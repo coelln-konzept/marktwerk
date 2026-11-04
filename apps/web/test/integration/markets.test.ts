@@ -11,6 +11,7 @@ import {
 import { asc, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { getMarketColorChoices, listMarketColorUsage } from "@/server/queries/market-colors";
 import { createEventsFromPreset } from "@/server/services/events";
 import { createMarket, type MarketInput } from "@/server/services/presets";
 import {
@@ -136,12 +137,58 @@ describe("createMarket", () => {
     const colors: string[] = [];
     for (let i = 0; i < MARKET_COLORS.length + 1; i += 1) {
       const created = await createMarket(owner, market({ name: `Markt ${i}` }));
-      colors.push(created.color);
+      colors.push(created.color as string);
       const [row] = await db.select().from(eventPreset).where(eq(eventPreset.id, created.id));
       expect(row?.color).toBe(created.color);
     }
     expect(new Set(colors.slice(0, MARKET_COLORS.length)).size).toBe(MARKET_COLORS.length);
     expect(colors.at(-1)).toBe(colors[0]);
+  });
+
+  it("stores an explicit colour, or none for null; omitted keeps the least used one", async () => {
+    const chosen = await createMarket(owner, market({ name: "Blau", color: "slate" }));
+    expect(chosen.color).toBe("slate");
+    const none = await createMarket(owner, market({ name: "Ohne", color: null }));
+    expect(none.color).toBeNull();
+    const rows = await db.select().from(eventPreset);
+    expect(rows.find((r) => r.id === chosen.id)?.color).toBe("slate");
+    expect(rows.find((r) => r.id === none.id)?.color).toBeNull();
+    // Omitted: the least used one (slate is taken once, so plum, the first, is still free).
+    const auto = await createMarket(owner, market({ name: "Auto" }));
+    expect(auto.color).toBe("plum");
+    await expect(
+      createMarket(owner, market({ name: "Falsch", color: "red" })),
+    ).rejects.toMatchObject({ code: "invalid_color" });
+  });
+
+  it("lists the active markets per colour, without archived or inactive ones", async () => {
+    await createMarket(owner, market({ name: "B Markt", color: "petrol" }));
+    await createMarket(owner, market({ name: "A Markt", color: "petrol" }));
+    const gone = await createMarket(owner, market({ name: "Archiviert", color: "petrol" }));
+    const off = await createMarket(owner, market({ name: "Pausiert", color: "rose" }));
+    await createMarket(owner, market({ name: "Farblos", color: null }));
+    await db.update(eventPreset).set({ archivedAt: new Date() }).where(eq(eventPreset.id, gone.id));
+    await db.update(eventPreset).set({ active: false }).where(eq(eventPreset.id, off.id));
+    expect(await listMarketColorUsage()).toEqual({ petrol: ["A Markt", "B Markt"] });
+  });
+
+  it("suggests the colour a following createMarket without colour assigns", async () => {
+    expect((await getMarketColorChoices()).suggested).toBe("plum");
+    for (let i = 0; i < 4; i += 1) {
+      const { suggested, usage } = await getMarketColorChoices();
+      expect(Object.keys(usage)).toHaveLength(i);
+      const created = await createMarket(owner, market({ name: `Markt ${i}` }));
+      expect(created.color).toBe(suggested);
+    }
+    // An archived market stops counting; an inactive one still does (like createMarket).
+    const [row] = await db.select().from(eventPreset).where(eq(eventPreset.color, "plum"));
+    await db
+      .update(eventPreset)
+      .set({ archivedAt: new Date() })
+      .where(eq(eventPreset.id, row?.id as string));
+    const { suggested } = await getMarketColorChoices();
+    expect(suggested).toBe("plum");
+    expect((await createMarket(owner, market({ name: "Nach Archiv" }))).color).toBe(suggested);
   });
 
   it("audits the preset, the template copy and the link", async () => {
