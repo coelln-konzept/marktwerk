@@ -179,6 +179,8 @@ marked (`aria-current`). Keyboard: normal links in tab order. Shared component
   `appointment`. URL params follow the UI: `?neu=besprechung`, `?vorschau=besprechung:<id>` (nothing has
   shipped, so no redirects needed). Kalender layer label "Besprechungen", Übersicht group "Besprechungen heute",
   "+ Neu › Besprechung", palette "Besprechung anlegen". Glossary gets an entry for `appointment`.
-- **Visibility:** Besprechungen are for the office only. The `field` role does not see the Kalender layer,
-  "Besprechungen heute", or the Vorschau, and cannot open the dialog (layer availability and queries gated
-  on `can(role, "event", "write")`); contact details additionally need `contact:read`, venue links `venue:read`.
+- **Visibility (refined the same day):** Besprechungen are for the office. They get their own permission
+  resource `appointment` in packages/core/src/auth/permissions.ts: owner and manager everything, `staff`
+  read + write + delete (archive), `field` nothing. Every Besprechung gate (Kalender layer, "Besprechungen heute",
+  Vorschau, dialog, "+ Neu"/palette, server actions, services) uses `appointment` instead of `event`. Contact
+  details additionally need `contact:read`, venue links `venue:read`.
