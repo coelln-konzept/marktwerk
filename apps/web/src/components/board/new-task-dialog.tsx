@@ -8,13 +8,14 @@ import { makeTask } from "@/app/(app)/board/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
+import { NotifyFields } from "@/components/task/notify-fields";
 import {
   NO_NOTIFY,
-  NotifyFields,
   type NotifyFormValue,
   notifyInputOf,
   notifyProblemOf,
-} from "@/components/task/notify-fields";
+  RELATIVE_TIMINGS,
+} from "@/components/task/notify-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -23,7 +24,7 @@ import { Modal } from "@/components/ui/modal";
 import { formatDateShortYear, formatMonth } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { TASK_CATEGORIES } from "@/lib/task-ui";
-import type { EventOption, StaffOption } from "@/server/queries/tasks";
+import type { EventOption, NotifySelf, StaffOption } from "@/server/queries/tasks";
 import { useDrawerHrefs } from "./use-task-actions";
 
 type Category = (typeof TASK_CATEGORIES)[number];
@@ -43,6 +44,7 @@ export function NewTaskButton({
   eventId,
   events,
   staff,
+  notifySelf,
   canAssign,
   today,
   urlOnly = false,
@@ -55,6 +57,8 @@ export function NewTaskButton({
   /** Choice of events (board across events). */
   events?: EventOption[];
   staff: StaffOption[];
+  /** The signed-in user as notification recipient (while Team is hidden). */
+  notifySelf: NotifySelf;
   canAssign: boolean;
   today: string;
   urlOnly?: boolean;
@@ -87,6 +91,7 @@ export function NewTaskButton({
   const [notify, setNotify] = useState<NotifyFormValue>(NO_NOTIFY);
   const titleRef = useRef<HTMLInputElement>(null);
   const hoursRef = useRef<HTMLInputElement>(null);
+  const whenRef = useRef<HTMLSelectElement>(null);
   const uid = useId();
 
   // Events grouped by month, in date order (the query sorts them), each labelled "Name · Sa 31.10.".
@@ -169,7 +174,14 @@ export function NewTaskButton({
 
   function fail(text: string, field: FormError["field"]) {
     setError({ text, field });
-    (field === "title" ? titleRef : field === "hours" ? hoursRef : null)?.current?.focus();
+    (field === "title"
+      ? titleRef
+      : field === "hours"
+        ? hoursRef
+        : field === "notify"
+          ? whenRef
+          : null
+    )?.current?.focus();
   }
 
   function submit(event: React.FormEvent) {
@@ -274,7 +286,16 @@ export function NewTaskButton({
                 id={`${uid}-due`}
                 type="date"
                 value={due}
-                onChange={(e) => setDue(e.target.value)}
+                onChange={(e) => {
+                  setDue(e.target.value);
+                  // A relative timing needs a due date: clearing it resets the "Wann" choice.
+                  if (
+                    e.target.value === "" &&
+                    notify.timing !== "" &&
+                    RELATIVE_TIMINGS.includes(notify.timing)
+                  )
+                    setNotify({ ...notify, timing: "" });
+                }}
                 aria-describedby={pastDue ? `${uid}-due-hint` : undefined}
               />
               {pastDue && (
@@ -346,16 +367,20 @@ export function NewTaskButton({
               setNotify(next);
               if (error?.field === "notify") setError(null);
             }}
-            assignee={
-              recipient
-                ? {
-                    name: recipient.displayName,
-                    email: recipient.email,
-                    phone: recipient.phoneE164,
-                  }
-                : null
+            recipient={
+              isModuleVisible("team")
+                ? recipient
+                  ? {
+                      kind: "person",
+                      name: recipient.displayName,
+                      hasEmail: recipient.hasEmail,
+                      hasPhone: recipient.hasPhone,
+                    }
+                  : null
+                : { kind: "self", email: notifySelf.email, hasPhone: notifySelf.hasPhone }
             }
             hasDue={due !== ""}
+            whenRef={whenRef}
             invalid={error?.field === "notify"}
             describedBy={error?.field === "notify" ? `${uid}-error` : undefined}
           />

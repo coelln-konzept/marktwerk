@@ -1,93 +1,27 @@
 "use client";
 
 import {
-  checkNotifySetting,
-  DEFAULT_TIME_ZONE,
   NOTIFY_CHANNELS,
   NOTIFY_TIMINGS,
   type NotifyChannel,
-  type NotifyProblem,
   type NotifyTiming,
-  resolveRelativeDue,
 } from "@marktwerk/core";
 import { CircleAlert, Info } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { type Ref, useId } from "react";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { NotifyInput } from "@/server/services/tasks";
+import { NO_NOTIFY, type NotifyFormValue, RELATIVE_TIMINGS } from "./notify-form";
 
-/** What the form holds; `at` is the `datetime-local` text (wall clock in Europe/Berlin). */
-export type NotifyFormValue = {
-  channels: NotifyChannel[];
-  timing: NotifyTiming | "";
-  at: string;
-};
-
-export const NO_NOTIFY: NotifyFormValue = { channels: [], timing: "", at: "" };
-
-export type NotifyAssignee = { name: string; email: string | null; phone: string | null };
-
-const WALL_CLOCK = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/;
-
-/** `datetime-local` text → the instant, reading it as Europe/Berlin wall clock (null when incomplete). */
-function instantOf(at: string): Date | null {
-  const match = WALL_CLOCK.exec(at);
-  if (!match) return null;
-  const [, day, time] = match as unknown as [string, string, string];
-  try {
-    return resolveRelativeDue(day, 0, time, DEFAULT_TIME_ZONE);
-  } catch {
-    return null;
-  }
-}
-
-/** An instant → `datetime-local` text in Europe/Berlin wall clock. */
-function wallClockOf(iso: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: DEFAULT_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(iso));
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
-}
-
-/** The saved setting as form state. */
-export function notifyFormOf(saved: NotifyInput): NotifyFormValue {
-  return {
-    channels: saved.channels,
-    timing: saved.timing ?? "",
-    at: saved.at ? wallClockOf(saved.at) : "",
-  };
-}
-
-/** The form state as the service input (instant for the custom moment). */
-export function notifyInputOf(value: NotifyFormValue): NotifyInput {
-  if (value.channels.length === 0) return { channels: [], timing: null, at: null };
-  const timing = value.timing || null;
-  return {
-    channels: value.channels,
-    timing,
-    at: timing === "custom" ? (instantOf(value.at)?.toISOString() ?? null) : null,
-  };
-}
-
-/** What is wrong with the form state, if anything (same rule the service applies). */
-export function notifyProblemOf(value: NotifyFormValue, hasDue: boolean): NotifyProblem | null {
-  const input = notifyInputOf(value);
-  return checkNotifySetting(
-    { channels: input.channels, timing: input.timing, at: input.at ? new Date(input.at) : null },
-    hasDue,
-  );
-}
-
-const RELATIVE: readonly NotifyTiming[] = ["due_day", "before_1d", "before_3d", "before_7d"];
+/**
+ * Who gets the notification. While the Team module is hidden it is the person who sets it (`self`: their
+ * own email, whether they have a phone); with Team visible it is the task's assignee (`person`; `null`
+ * flags mean unknown, so no hint). Contact data of staff never reaches the client, only these flags.
+ */
+export type NotifyRecipient =
+  | { kind: "self"; email: string; hasPhone: boolean }
+  | { kind: "person"; name: string; hasEmail: boolean | null; hasPhone: boolean | null };
 
 /**
  * "Benachrichtigung senden an": Mail / WhatsApp and when (UI and storage only, nothing is sent yet).
@@ -96,18 +30,21 @@ const RELATIVE: readonly NotifyTiming[] = ["due_day", "before_1d", "before_3d", 
 export function NotifyFields({
   value,
   onChange,
-  assignee,
+  recipient,
   hasDue,
   disabled = false,
+  whenRef,
   invalid = false,
   describedBy,
 }: {
   value: NotifyFormValue;
   onChange: (next: NotifyFormValue) => void;
-  /** The task's assignee: the recipient. Null when nobody is assigned. */
-  assignee: NotifyAssignee | null;
+  /** The recipient. Null when nobody is (Team visible and nobody assigned). */
+  recipient: NotifyRecipient | null;
   hasDue: boolean;
   disabled?: boolean;
+  /** To focus the "Wann" select when the form's error is about it. */
+  whenRef?: Ref<HTMLSelectElement>;
   /** The form's validation error is about these fields. */
   invalid?: boolean;
   /** Id of the error text. */
@@ -126,11 +63,13 @@ export function NotifyFields({
   }
 
   const missing: string[] = [];
-  if (assignee) {
-    if (value.channels.includes("email") && !assignee.email)
-      missing.push(t("noEmail", { name: assignee.name }));
-    if (value.channels.includes("whatsapp") && !assignee.phone)
-      missing.push(t("noPhone", { name: assignee.name }));
+  if (recipient?.kind === "self") {
+    if (value.channels.includes("whatsapp") && !recipient.hasPhone) missing.push(t("noPhoneSelf"));
+  } else if (recipient) {
+    if (value.channels.includes("email") && recipient.hasEmail === false)
+      missing.push(t("noEmail", { name: recipient.name }));
+    if (value.channels.includes("whatsapp") && recipient.hasPhone === false)
+      missing.push(t("noPhone", { name: recipient.name }));
   }
 
   return (
@@ -158,11 +97,15 @@ export function NotifyFields({
               <Label htmlFor={`${uid}-when`}>{t("when")}</Label>
               <select
                 id={`${uid}-when`}
+                ref={whenRef}
                 className={SELECT_CLASS}
                 value={value.timing}
                 disabled={disabled}
                 aria-invalid={invalid || undefined}
-                aria-describedby={describedBy}
+                aria-describedby={
+                  [!hasDue ? `${uid}-needs-due` : null, describedBy].filter(Boolean).join(" ") ||
+                  undefined
+                }
                 onChange={(e) =>
                   onChange({ ...value, timing: e.target.value as NotifyTiming | "" })
                 }
@@ -171,7 +114,7 @@ export function NotifyFields({
                   {t("choose")}
                 </option>
                 {NOTIFY_TIMINGS.map((timing) => {
-                  const blocked = !hasDue && RELATIVE.includes(timing);
+                  const blocked = !hasDue && RELATIVE_TIMINGS.includes(timing);
                   return (
                     <option key={timing} value={timing} disabled={blocked}>
                       {t(`timing.${timing}`)}
@@ -179,7 +122,11 @@ export function NotifyFields({
                   );
                 })}
               </select>
-              {!hasDue && <p className="text-muted-foreground text-tiny">{t("needsDue")}</p>}
+              {!hasDue && (
+                <p id={`${uid}-needs-due`} className="text-muted-foreground text-tiny">
+                  {t("needsDue")}
+                </p>
+              )}
             </div>
             {value.timing === "custom" && (
               <div className="flex flex-col gap-1.5">
@@ -200,8 +147,12 @@ export function NotifyFields({
             )}
           </div>
 
-          {assignee ? (
-            <p className="text-small">{t("to", { name: assignee.name })}</p>
+          {recipient ? (
+            <p className="text-small">
+              {recipient.kind === "self"
+                ? t("toSelf", { email: recipient.email })
+                : t("to", { name: recipient.name })}
+            </p>
           ) : (
             <p className="flex items-start gap-1.5 text-status-warn text-tiny">
               <CircleAlert aria-hidden className="mt-px size-3.5 shrink-0" />

@@ -176,6 +176,9 @@ erDiagram
   two values; `notify_timing = 'custom'` iff `notify_at` is set; no timing without a channel. The send instant is the pure
   rule `notifyMoment` in `packages/core` (08:00 Berlin on the due day, or 1/3/7 days earlier). Saved only; nothing is sent
   until mail/WhatsApp are connected.)*
+  *(implemented 0011 (CF9-3b): `notify_user_id?` (text → `user`, `on delete set null`): who set the notification and,
+  while the Team module is hidden, its recipient. Set by the service from the actor whenever channels are saved; check
+  `task_notify_user_empty`: no user without a channel.)*
   *(implemented 0002: task also has `obligation_id?` (source `obligation`), `skipped_reason`, the copied evidence
   flags `requires_photo/note/attachment`, `approver_staff_member_id?`, `completed_by_staff_member_id`; `board_column`
   is the enum `preparation | this_week | today | done`; `board_sort` is a double (fractional ordering);

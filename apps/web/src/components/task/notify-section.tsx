@@ -2,17 +2,11 @@
 
 import { DEFAULT_TIME_ZONE } from "@marktwerk/core";
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import type { NotifyInput } from "@/server/services/tasks";
-import {
-  type NotifyAssignee,
-  NotifyFields,
-  type NotifyFormValue,
-  notifyFormOf,
-  notifyInputOf,
-  notifyProblemOf,
-} from "./notify-fields";
+import { NotifyFields, type NotifyRecipient } from "./notify-fields";
+import { type NotifyFormValue, notifyFormOf, notifyInputOf, notifyProblemOf } from "./notify-form";
 
 /**
  * The drawer's "Benachrichtigung": the saved setting as one line ("Mail · 1 Tag vorher an Anna"), with
@@ -20,19 +14,18 @@ import {
  */
 export function NotifySection({
   saved,
-  assignee,
+  recipient,
   hasDue,
   canWrite,
-  pending,
   onSave,
   onEditingChange,
 }: {
   saved: NotifyInput;
-  assignee: NotifyAssignee | null;
+  recipient: NotifyRecipient | null;
   hasDue: boolean;
   canWrite: boolean;
-  pending: boolean;
-  onSave: (next: NotifyInput) => void;
+  /** Saves; resolves to an error text on failure (the editor stays open and shows it) or null. */
+  onSave: (next: NotifyInput) => Promise<string | null>;
   /** So the drawer's Esc handling knows there is an unsaved draft. */
   onEditingChange?: (editing: boolean) => void;
 }) {
@@ -40,6 +33,7 @@ export function NotifySection({
   const locale = useLocale();
   const [draft, setDraft] = useState<NotifyFormValue | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   function edit(next: NotifyFormValue | null) {
     setDraft(next);
@@ -55,8 +49,12 @@ export function NotifySection({
       setError(t(`errors.${problem}`));
       return;
     }
-    onSave(notifyInputOf(draft));
-    edit(null);
+    const next = notifyInputOf(draft);
+    startTransition(async () => {
+      const failure = await onSave(next);
+      if (failure) setError(failure);
+      else edit(null);
+    });
   }
 
   if (draft) {
@@ -68,7 +66,7 @@ export function NotifySection({
             setDraft(next);
             setError(null);
           }}
-          assignee={assignee}
+          recipient={recipient}
           hasDue={hasDue}
           disabled={pending}
           invalid={error !== null}
@@ -104,10 +102,10 @@ export function NotifySection({
   const summary =
     saved.channels.length === 0 || !when
       ? t("none")
-      : t(assignee ? "summary" : "summaryNobody", {
+      : t(recipient?.kind === "self" ? "summarySelf" : recipient ? "summary" : "summaryNobody", {
           channels: saved.channels.map((c) => t(`channels.${c}`)).join(" + "),
           when,
-          name: assignee?.name ?? "",
+          name: recipient?.kind === "person" ? recipient.name : "",
         });
 
   return (

@@ -41,6 +41,8 @@ import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate, REASON_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { StaffOption, TaskDetail } from "@/server/queries/tasks";
+import type { NotifyInput } from "@/server/services/tasks";
+import type { NotifyRecipient } from "./notify-fields";
 import { NotifySection } from "./notify-section";
 import { SnoozeDialog, useSnoozePresets } from "./snooze";
 import { TaskActivity } from "./task-activity";
@@ -150,6 +152,40 @@ export function TaskDrawer({
     });
   }
 
+  /** While Team is hidden the recipient is whoever set the notification (the signed-in user by default). */
+  const recipient: NotifyRecipient | null = isModuleVisible("team")
+    ? task.assigneeName
+      ? {
+          kind: "person",
+          name: task.assigneeName,
+          hasEmail: task.assigneeHasEmail,
+          hasPhone: task.assigneeHasPhone,
+        }
+      : null
+    : task.notifyUser && task.notifyUser.name && task.notifyUser.id !== task.notifySelf.id
+      ? { kind: "person", name: task.notifyUser.name, hasEmail: null, hasPhone: null }
+      : { kind: "self", email: task.notifySelf.email, hasPhone: task.notifySelf.hasPhone };
+
+  /** Saves the notify setting; the editor stays open until this resolves without an error text. */
+  async function saveNotify(next: NotifyInput): Promise<string | null> {
+    const result = await editTask(task.id, { notify: next });
+    if (!result.ok) return actions.errorText(result.error);
+    const undo = { notify: task.notify };
+    if (!result.data.changed) {
+      showToast({ message: t("unchanged") });
+      return null;
+    }
+    showToast({
+      message: t("saved"),
+      actionLabel: tToast("undo"),
+      onAction: async () => {
+        const back = await editTask(task.id, undo);
+        showToast({ message: back.ok ? tToast("reverted") : actions.errorText(back.error) });
+      },
+    });
+    return null;
+  }
+
   /** Due date: saved once per committed value (blur, Enter or a pause), not again while that save runs. */
   function commitDue(value: string) {
     clearTimeout(dueTimer.current);
@@ -175,6 +211,7 @@ export function TaskDrawer({
     if (isOpen) return;
     clearTimeout(dueTimer.current);
     setEditing(false);
+    setNotifyEditing(false);
     setNote("");
     setNewItem("");
   }, [isOpen]);
@@ -557,20 +594,11 @@ export function TaskDrawer({
             <NotifySection
               key={isOpen ? "open" : "closed"}
               saved={task.notify}
-              assignee={
-                task.assigneeName
-                  ? {
-                      name: task.assigneeName,
-                      email: task.assigneeEmail,
-                      phone: task.assigneePhone,
-                    }
-                  : null
-              }
+              recipient={recipient}
               hasDue={task.dueOn !== null}
               canWrite={canWrite && !finished}
-              pending={pending}
               onEditingChange={setNotifyEditing}
-              onSave={(next) => save({ notify: next }, { notify: task.notify })}
+              onSave={saveNotify}
             />
           </dd>
 

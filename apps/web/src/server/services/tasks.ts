@@ -880,7 +880,10 @@ export type TaskPatch = {
   restoreFlags?: { dueOverridden: boolean; customized: boolean };
 };
 
-/** Title, description, estimate, Kernaufgabe flag, due date and notify setting. Marks the task as customized and the due date as set by hand. */
+/**
+ * Title, description, estimate, Kernaufgabe flag, due date and notify setting. Marks the task as customized
+ * (except for a notify-only change) and the due date as set by hand.
+ */
 export async function updateTask(
   actor: Actor,
   taskId: string,
@@ -944,19 +947,23 @@ export async function updateTask(
         set.notifyChannels = notify.channels;
         set.notifyTiming = notify.timing;
         set.notifyAt = notify.at ? new Date(notify.at) : null;
-        before.notify = was;
-        after.notify = notify;
+        // The recipient is whoever sets it (decision 2026-11-04); none without channels.
+        set.notifyUserId = notify.channels.length > 0 ? actor.id : null;
+        before.notify = { ...was, userId: row.notifyUserId };
+        after.notify = { ...notify, userId: set.notifyUserId };
       }
     }
     // The moment is computed from the due date, so a relative timing cannot outlive it.
     if ("notify" in after || "dueOn" in after) {
       const hasDue = "dueOn" in after ? after.dueOn !== null : row.dueAt !== null;
-      assertNotifyFits((after.notify as NotifyInput | undefined) ?? notifyOf(row), hasDue);
+      assertNotifyFits("notify" in after ? cleanNotify(patch.notify) : notifyOf(row), hasDue);
     }
 
     const fields = Object.keys(after);
     if (fields.length === 0) return { changed: false, fields };
-    set.customized = true;
+    // The notification preference is not a content edit: only that change leaves `customized` alone, so
+    // template propagation still updates the task.
+    if (fields.some((f) => f !== "notify")) set.customized = true;
     const restore = patch.restoreFlags;
     if (restore && "dueOn" in after) {
       if (typeof restore.dueOverridden !== "boolean" || typeof restore.customized !== "boolean")
@@ -1239,6 +1246,7 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
         notifyChannels: notify.channels,
         notifyTiming: notify.timing,
         notifyAt: notify.at ? new Date(notify.at) : null,
+        notifyUserId: notify.channels.length > 0 ? actor.id : null,
       })
       .returning({ id: task.id });
     if (!created) throw new Error("task missing");
@@ -1248,7 +1256,7 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
       dueOn: input.dueOn ?? null,
       estimateMinutes: estimate,
       assigneeId: person?.id ?? null,
-      notify,
+      notify: { ...notify, userId: notify.channels.length > 0 ? actor.id : null },
     });
     if (person && person.id !== actor.staffMemberId) {
       const text = assignedText({ title, eventName }, actor.displayName);

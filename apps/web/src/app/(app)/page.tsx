@@ -15,7 +15,12 @@ import { HIDDEN_MODULES, isModuleHidden } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { getOverview } from "@/server/queries/overview";
-import { getTaskDetail, listStaffOptions, listTaskEventOptions } from "@/server/queries/tasks";
+import {
+  getNotifySelf,
+  getTaskDetail,
+  listStaffOptions,
+  listTaskEventOptions,
+} from "@/server/queries/tasks";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("nav"))("overview") };
@@ -112,6 +117,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           urlOnly
           events={await listTaskEventOptions(actor, today)}
           staff={await listStaffOptions()}
+          notifySelf={await getNotifySelf(actor)}
           canAssign={!isModuleHidden("team") && can(actor.role, "task", "assign")}
           today={today}
         />

@@ -141,6 +141,11 @@ export const task = app.table(
     notifyChannels: text().array().notNull().default([]),
     notifyTiming: taskNotifyTiming(),
     notifyAt: timestamp({ withTimezone: true }),
+    /**
+     * Who set the notification: the recipient while the Team module is hidden (decision 2026-11-04). Set by
+     * the service whenever channels are saved, null without channels.
+     */
+    notifyUserId: text().references(() => user.id, { onDelete: "set null" }),
 
     // effort
     estimateMinutes: integer().notNull().default(0),
@@ -203,6 +208,10 @@ export const task = app.table(
     check(
       "task_notify_empty",
       sql`cardinality(${t.notifyChannels}) > 0 or ${t.notifyTiming} is null`,
+    ),
+    check(
+      "task_notify_user_empty",
+      sql`cardinality(${t.notifyChannels}) > 0 or ${t.notifyUserId} is null`,
     ),
     check("task_estimate", sql`${t.estimateMinutes} >= 0`),
     check("task_rollover", sql`${t.rolloverCount} >= 0`),
