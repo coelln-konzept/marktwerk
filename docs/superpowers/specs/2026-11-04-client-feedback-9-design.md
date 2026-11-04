@@ -153,3 +153,21 @@ changing the health shape system elsewhere; tinting any list.
 - E2E smoke (`apps/web/e2e/smoke.spec.ts`): create a Termin from "+ Neu", see it in the Kalender and,
   for today, in Übersicht; Übersicht left column is Heute; Top-5 toggle expands; Checkliste tab text.
 - Visual check in the browser for the events list in light and dark (rest, hover, selected, focus).
+
+## CF9-6 · "Genehmigungen demnächst" next to the weekend (added 2026-11-04)
+
+The blue "Genehmigungen demnächst" group (due urgency `upcoming`: permits further out than 7 days but inside
+the permit horizon) leaves the full-width "Diese Woche" card and becomes its own panel in the Übersicht's
+right column, directly under "Dieses Wochenende" (same rows, same blue info styling, same keyboard rows and
+snooze). "Diese Woche" keeps "soon" and "waiting". Empty → the panel shows a one-line empty state (no
+upcoming permits). Phone order: Heute, Dieses Wochenende, Genehmigungen demnächst, Diese Woche.
+
+## CF9-7 · A–Z selector on Aussteller and Kontakte (added 2026-11-04)
+
+Above the lists on `/aussteller` and `/kontakte`: a row "Alle · A B C … Z · #". A letter filters the list to
+entries whose display name (the name the list sorts by) starts with it, via the URL param `buchstabe=<A–Z|#>`
+(classic screens: linkable, survives paging; combines with the existing search/filters; resets paging).
+Umlauts and accents fold to their base letter (Ä→A, Ö→O, Ü→U, É→E); "#" = digits and anything else.
+Letters with no entries under the other active filters are shown disabled (not links); the active letter is
+marked (`aria-current`). Keyboard: normal links in tab order. Shared component
+`components/ui/letter-filter.tsx`; letter folding as a pure function in packages/core/src/text/ with Vitest.
