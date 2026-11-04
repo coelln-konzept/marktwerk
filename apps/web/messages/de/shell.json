@@ -99,6 +99,7 @@
     "newPayable": "Zahlung",
     "newPermit": "Genehmigung",
     "newShift": "Schicht",
+    "newAppointment": "Termin",
     "newIssue": "Mangel melden",
     "showSidebar": "Seitenleiste einblenden",
     "skip": "Zum Inhalt springen",
@@ -142,6 +143,7 @@
       "payable": "Zahlung anlegen",
       "permit": "Genehmigung anlegen",
       "shift": "Schicht erfassen",
+      "appointment": "Termin anlegen",
       "issue": "Mangel melden",
       "settings": "Einstellungen öffnen",
       "notifications": "Benachrichtigungen öffnen"

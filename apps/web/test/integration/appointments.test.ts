@@ -227,6 +227,20 @@ describe("archive and restore", () => {
     );
   });
 
+  it("archiving an archived appointment is a conflict", async () => {
+    const { id } = await createAppointment(owner, draft());
+    await archiveAppointment(owner, id);
+    expect(await codeOf(archiveAppointment(owner, id))).toBe("conflict");
+  });
+
+  it("an archived appointment cannot be edited", async () => {
+    const { id } = await createAppointment(owner, draft());
+    await archiveAppointment(owner, id);
+    expect(await codeOf(updateAppointment(owner, id, draft({ title: "Neu" })))).toBe("conflict");
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, id));
+    expect(row?.title).toBe("Ortstermin Rheinwiese");
+  });
+
   it("is forbidden without event write", async () => {
     const { id } = await createAppointment(owner, draft());
     const field = await createActor("field");

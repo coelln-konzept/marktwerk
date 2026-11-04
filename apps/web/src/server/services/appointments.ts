@@ -232,6 +232,7 @@ export async function updateAppointment(
   const { values: next, newContact } = clean(input);
   return db.transaction(async (tx) => {
     const current = await lockAppointment(tx, id);
+    if (current.archivedAt) throw new AppointmentInputError("conflict");
     const previous = valuesOf(current);
     await checkReferences(tx, {
       ...next,

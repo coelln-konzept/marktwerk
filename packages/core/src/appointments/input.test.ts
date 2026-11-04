@@ -58,6 +58,11 @@ describe("checkAppointment", () => {
     );
   });
 
+  it("accepts the edges of the day", () => {
+    expect(checkAppointment(draft({ startsAt: "00:00", endsAt: "00:30" }))).toBeNull();
+    expect(checkAppointment(draft({ startsAt: "23:00", endsAt: "23:59" }))).toBeNull();
+  });
+
   it("has no overnight appointments", () => {
     expect(checkAppointment(draft({ startsAt: "23:00", endsAt: "00:00" }))).toBe(
       "end_before_start",

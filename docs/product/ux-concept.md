@@ -92,7 +92,13 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
   this tab, with its filters (drawers, Vorschau and filter changes don't count as pages, so it never reopens a closed
   drawer), or to the parent crumb when the page was opened directly. Then the visible search field "Suchen oder Befehl …" with Strg+K hint
   (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board, new event in
-  Veranstaltungen…). The **bell** (number of unread open notifications) is hidden since the user test 2026-11 (`HIDDEN_MODULES.notificationBell`).
+  Veranstaltungen…). "+ Neu" also offers **Termin** (CF9-1, right after "Einzeltermin", for everyone who may write events; also
+  Strg+K "Termin anlegen"): a modal dialog mounted in the app layout, so it opens on every page via `?neu=termin`
+  (`&datum=YYYY-MM-DD` pre-fills the day, `&bearbeiten=<id>` edits an existing Termin; closing removes the parameters).
+  Fields: Name, Datum, **Ganztägig** (switch, on; off shows Von/Bis), Wo (venue list or "Adresse eingeben …", one of the two),
+  Ansprechpartner (search in the contacts, or "Neuer Kontakt …" with Name/Telefon/E-Mail and "Als Kontakt speichern", checked
+  by default), Notizen. Errors show in German at the bottom and the focus goes to the wrong field; success toasts "Termin
+  angelegt" with Rückgängig (archives it) / "Termin gespeichert". The **bell** (number of unread open notifications) is hidden since the user test 2026-11 (`HIDDEN_MODULES.notificationBell`).
 - **Content:** one page. Vorschau and drawers open over it (§4). **A row or box opens its record when clicked
   anywhere**, not only on its title (event rows → the event Überblick, task rows → the task drawer); links and buttons
   inside it keep their own action, Cmd/Ctrl-click opens a new tab. Checklist icons (event Überblick → Kernaufgaben,

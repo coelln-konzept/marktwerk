@@ -1107,3 +1107,23 @@ test("Sidebar: the button at its top right hides it (remembered), the top bar br
   await page.waitForLoadState("networkidle");
   await expect(nav).toBeVisible();
 });
+
+test('"+ Neu" › Termin: name and today, saved with a toast; the dialog closes and the URL is clean', async ({
+  page,
+}) => {
+  await page.goto("/kalender");
+  await page.waitForLoadState("networkidle"); // hydrated, so the key and the menu react
+  await page.keyboard.press("c");
+  await page.getByRole("menuitem", { name: "Termin", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Termin anlegen" });
+  await expect(dialog).toBeVisible();
+  const name = `E2E-Termin ${Date.now()}`;
+  await dialog.getByLabel("Name", { exact: true }).fill(name);
+  await expect(dialog.getByLabel("Datum")).not.toHaveValue("");
+  await dialog.getByRole("button", { name: "Anlegen" }).click();
+  await expect(page.getByText("Termin angelegt")).toBeVisible();
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/neu=termin/);
+  await toastUndo(page).click(); // leaves no appointment behind
+  await expect(page.getByText("Termin entfernt")).toBeVisible();
+});
