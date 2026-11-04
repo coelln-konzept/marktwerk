@@ -8,6 +8,13 @@ import { makeTask } from "@/app/(app)/board/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
+import {
+  NO_NOTIFY,
+  NotifyFields,
+  type NotifyFormValue,
+  notifyInputOf,
+  notifyProblemOf,
+} from "@/components/task/notify-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -22,7 +29,7 @@ import { useDrawerHrefs } from "./use-task-actions";
 type Category = (typeof TASK_CATEGORIES)[number];
 
 /** The one error shown in the form: its text and the field it is about (that field gets focus). */
-type FormError = { text: string; field: "title" | "hours" | null };
+type FormError = { text: string; field: "title" | "hours" | "notify" | null };
 
 /**
  * "+ Aufgabe" (shortcut C): a manual task on an event or without one. Seven fields, so a modal
@@ -60,6 +67,7 @@ export function NewTaskButton({
 }) {
   const t = useTranslations("tasks.create");
   const tCat = useTranslations("tasks.categories");
+  const tNotify = useTranslations("board.notify");
   const locale = useLocale();
   const { showToast } = useShell();
   const router = useRouter();
@@ -76,6 +84,7 @@ export function NewTaskButton({
   const [category, setCategory] = useState<Category>(defaultCategory);
   const [assignee, setAssignee] = useState("");
   const [description, setDescription] = useState("");
+  const [notify, setNotify] = useState<NotifyFormValue>(NO_NOTIFY);
   const titleRef = useRef<HTMLInputElement>(null);
   const hoursRef = useRef<HTMLInputElement>(null);
   const uid = useId();
@@ -147,6 +156,7 @@ export function NewTaskButton({
     setCategory(defaultCategory);
     setAssignee("");
     setDescription("");
+    setNotify(NO_NOTIFY);
     setError(null);
   }
 
@@ -167,6 +177,8 @@ export function NewTaskButton({
     const minutes = hours.trim() === "" ? 0 : Math.round(Number(hours.replace(",", ".")) * 60);
     if (!title.trim()) return fail(t("errors.title_required"), "title");
     if (!Number.isFinite(minutes) || minutes < 0) return fail(t("errors.hours_invalid"), "hours");
+    const problem = notifyProblemOf(notify, due !== "");
+    if (problem) return fail(tNotify(`errors.${problem}`), "notify");
     setError(null);
     startTransition(async () => {
       const result = await makeTask({
@@ -177,6 +189,7 @@ export function NewTaskButton({
         category,
         description: description || null,
         assigneeId: canAssign && assignee ? assignee : null,
+        notify: notifyInputOf(notify),
       });
       if (!result.ok) {
         setError({
@@ -200,6 +213,7 @@ export function NewTaskButton({
     });
   }
 
+  const recipient = canAssign ? staff.find((s) => s.id === assignee) : undefined;
   const pastDue = due !== "" && due < today;
 
   return (
@@ -326,6 +340,25 @@ export function NewTaskButton({
               </div>
             )}
           </div>
+          <NotifyFields
+            value={notify}
+            onChange={(next) => {
+              setNotify(next);
+              if (error?.field === "notify") setError(null);
+            }}
+            assignee={
+              recipient
+                ? {
+                    name: recipient.displayName,
+                    email: recipient.email,
+                    phone: recipient.phoneE164,
+                  }
+                : null
+            }
+            hasDue={due !== ""}
+            invalid={error?.field === "notify"}
+            describedBy={error?.field === "notify" ? `${uid}-error` : undefined}
+          />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${uid}-desc`} optional>
               {t("fields.description")}

@@ -97,6 +97,7 @@
         "hours_invalid": "Bitte die Schätzung in Stunden prüfen.",
         "invalid_input": "Bitte Titel und Datum prüfen.",
         "invalid_event": "Diese Veranstaltung ist nicht verfügbar.",
+        "invalid_notify": "Die Benachrichtigung passt nicht zum Fälligkeitsdatum.",
         "invalid_staff": "Diese Person kann nicht zugewiesen werden."
       }
     },

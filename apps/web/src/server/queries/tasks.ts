@@ -18,6 +18,9 @@ import {
   loadWeekStart,
   mondayOf,
   monthlyCapacityHours,
+  NOTIFY_CHANNELS,
+  type NotifyChannel,
+  type NotifyTiming,
   OPEN_STATUSES,
   pastEventCutoff,
   resolveRelativeDue,
@@ -255,12 +258,23 @@ export async function listBoardTasks(
 // ---------------------------------------------------------------------------------------------
 // people
 
-export type StaffOption = { id: string; displayName: string };
+export type StaffOption = {
+  id: string;
+  displayName: string;
+  /** For the notify hint ("hat keine E-Mail-Adresse hinterlegt"). */
+  email: string | null;
+  phoneE164: string | null;
+};
 
 /** Active staff, for the assignee menus. */
 export async function listStaffOptions(): Promise<StaffOption[]> {
   return db
-    .select({ id: staffMember.id, displayName: staffMember.displayName })
+    .select({
+      id: staffMember.id,
+      displayName: staffMember.displayName,
+      email: staffMember.email,
+      phoneE164: staffMember.phoneE164,
+    })
     .from(staffMember)
     .where(and(eq(staffMember.active, true), isNull(staffMember.archivedAt)))
     .orderBy(asc(staffMember.displayName));
@@ -696,6 +710,10 @@ export type TaskDetail = {
   effortFeedback: "as_planned" | "longer" | "shorter" | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  assigneeEmail: string | null;
+  assigneePhone: string | null;
+  /** "Benachrichtigung senden an": channels, when, and the custom instant (ISO). */
+  notify: { channels: NotifyChannel[]; timing: NotifyTiming | null; at: string | null };
   dutyRoleName: { de: string; en: string } | null;
   rolloverCount: number;
   requiresNote: boolean;
@@ -726,7 +744,12 @@ export async function getTaskDetail(
 ): Promise<TaskDetail | null> {
   if (!UUID.test(taskId)) return null;
   const assignee = db
-    .select({ id: staffMember.id, name: staffMember.displayName })
+    .select({
+      id: staffMember.id,
+      name: staffMember.displayName,
+      email: staffMember.email,
+      phone: staffMember.phoneE164,
+    })
     .from(staffMember)
     .as("assignee");
   const [row] = await db
@@ -734,6 +757,8 @@ export async function getTaskDetail(
       t: task,
       eventName: event.name,
       assigneeName: assignee.name,
+      assigneeEmail: assignee.email,
+      assigneePhone: assignee.phone,
       roleDe: dutyRole.nameDe,
       roleEn: dutyRole.nameEn,
     })
@@ -803,6 +828,13 @@ export async function getTaskDetail(
     effortFeedback: t.effortFeedback,
     assigneeId: t.assigneeId,
     assigneeName: row.assigneeName,
+    assigneeEmail: row.assigneeEmail,
+    assigneePhone: row.assigneePhone,
+    notify: {
+      channels: NOTIFY_CHANNELS.filter((c) => t.notifyChannels.includes(c)),
+      timing: t.notifyTiming,
+      at: t.notifyAt ? t.notifyAt.toISOString() : null,
+    },
     dutyRoleName: row.roleDe && row.roleEn ? { de: row.roleDe, en: row.roleEn } : null,
     rolloverCount: t.rolloverCount,
     requiresNote: t.requiresNote,

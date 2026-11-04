@@ -41,6 +41,7 @@ import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate, REASON_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { StaffOption, TaskDetail } from "@/server/queries/tasks";
+import { NotifySection } from "./notify-section";
 import { SnoozeDialog, useSnoozePresets } from "./snooze";
 import { TaskActivity } from "./task-activity";
 import { TickMark } from "./task-tick";
@@ -106,6 +107,7 @@ export function TaskDrawer({
   const actions = useTaskActions({ staff, scopeEventId: task.eventId });
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
+  const [notifyEditing, setNotifyEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [reasonFor, setReasonFor] = useState<TaskStatusKey | null>(null);
@@ -113,6 +115,7 @@ export function TaskDrawer({
   const [snoozeDate, setSnoozeDate] = useState(false);
   const presets = useSnoozePresets(today);
   const tSnooze = useTranslations("tasks.snooze");
+  const tNotify = useTranslations("board.notify");
   const [newItem, setNewItem] = useState("");
   const uid = useId();
 
@@ -177,7 +180,7 @@ export function TaskDrawer({
   }, [isOpen]);
 
   // Esc and × close at once. Typing that is not saved yet is kept: the first Esc only leaves the field.
-  const hasDraft = editing || note !== "" || newItem !== "";
+  const hasDraft = editing || notifyEditing || note !== "" || newItem !== "";
   useEffect(() => {
     if (!isOpen) return;
     function onKey(event: KeyboardEvent) {
@@ -548,6 +551,28 @@ export function TaskDrawer({
               </dd>
             </>
           )}
+
+          <dt className="text-muted-foreground text-small">{tNotify("title")}</dt>
+          <dd className="m-0">
+            <NotifySection
+              key={isOpen ? "open" : "closed"}
+              saved={task.notify}
+              assignee={
+                task.assigneeName
+                  ? {
+                      name: task.assigneeName,
+                      email: task.assigneeEmail,
+                      phone: task.assigneePhone,
+                    }
+                  : null
+              }
+              hasDue={task.dueOn !== null}
+              canWrite={canWrite && !finished}
+              pending={pending}
+              onEditingChange={setNotifyEditing}
+              onSave={(next) => save({ notify: next }, { notify: task.notify })}
+            />
+          </dd>
 
           {isModuleVisible("team") && task.dutyRoleName && (
             <>

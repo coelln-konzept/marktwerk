@@ -6,6 +6,7 @@ import {
   berlinDay,
   boardColumnFor,
   can,
+  checkNotifySetting,
   compareCards,
   derivedColumn,
   dueAtForDate,
@@ -16,6 +17,10 @@ import {
   isValidSnoozeDate,
   mentionedText,
   missingEvidence,
+  NOTIFY_CHANNELS,
+  NOTIFY_TIMINGS,
+  type NotifyChannel,
+  type NotifyTiming,
   OPEN_STATUSES,
   PAST_EVENT_SKIP_REASON,
   pastEventCutoff,
@@ -50,6 +55,7 @@ export type TaskError =
   | "invalid_status"
   | "invalid_column"
   | "invalid_staff"
+  | "invalid_notify"
   | "invalid_event"
   | "invalid_state"
   | "reason_required"
@@ -794,6 +800,67 @@ export async function skipPastEventTasks(
 }
 
 // ---------------------------------------------------------------------------------------------
+// notify setting ("Benachrichtigung senden an"): stored on the task, nothing is sent yet
+
+/** `at` is an ISO instant (only with timing `custom`). */
+export type NotifyInput = {
+  channels: NotifyChannel[];
+  timing: NotifyTiming | null;
+  at: string | null;
+};
+
+const NO_NOTIFY: NotifyInput = { channels: [], timing: null, at: null };
+
+/** The setting as saved on a task row, in the shape the audit diff and the patch use. */
+function notifyOf(row: Pick<TaskRow, "notifyChannels" | "notifyTiming" | "notifyAt">): NotifyInput {
+  return {
+    channels: NOTIFY_CHANNELS.filter((c) => row.notifyChannels.includes(c)),
+    timing: row.notifyTiming,
+    at: row.notifyAt ? row.notifyAt.toISOString() : null,
+  };
+}
+
+/** Validates the shape and normalizes it: channels deduplicated in fixed order, no channels = no timing. */
+function cleanNotify(input: NotifyInput | undefined): NotifyInput {
+  if (input === undefined) return NO_NOTIFY;
+  if (!input || typeof input !== "object" || !Array.isArray(input.channels))
+    throw new TaskInputError("invalid_input");
+  if (input.channels.some((c) => !NOTIFY_CHANNELS.includes(c)))
+    throw new TaskInputError("invalid_input");
+  const channels = NOTIFY_CHANNELS.filter((c) => input.channels.includes(c));
+  if (channels.length === 0) return NO_NOTIFY;
+  const timing = input.timing ?? null;
+  if (timing !== null && !NOTIFY_TIMINGS.includes(timing))
+    throw new TaskInputError("invalid_input");
+  let at: string | null = null;
+  if (input.at != null) {
+    const instant = typeof input.at === "string" ? new Date(input.at) : null;
+    if (!instant || Number.isNaN(instant.getTime())) throw new TaskInputError("invalid_input");
+    at = instant.toISOString();
+  }
+  return { channels, timing, at };
+}
+
+/** Rejects a setting that does not fit the task (relative timing without a due date, custom without a date, ...). */
+function assertNotifyFits(notify: NotifyInput, hasDue: boolean) {
+  const problem = checkNotifySetting(
+    {
+      channels: notify.channels,
+      timing: notify.timing,
+      at: notify.at ? new Date(notify.at) : null,
+    },
+    hasDue,
+  );
+  if (problem) throw new TaskInputError("invalid_notify");
+}
+
+const sameNotify = (a: NotifyInput, b: NotifyInput) =>
+  a.timing === b.timing &&
+  a.at === b.at &&
+  a.channels.length === b.channels.length &&
+  a.channels.every((c, i) => c === b.channels[i]);
+
+// ---------------------------------------------------------------------------------------------
 // edit
 
 export type TaskPatch = {
@@ -804,6 +871,8 @@ export type TaskPatch = {
   isKey?: boolean;
   /** `YYYY-MM-DD`, or null to clear. Editing it pins the date against anchor shifts. */
   dueOn?: string | null;
+  /** "Benachrichtigung senden an": channels and when. No channels clears the timing. */
+  notify?: NotifyInput;
   /**
    * Undo of a due-date edit: puts back the flags the edit set, so a date that followed the event date
    * keeps following it. Only honoured together with a `dueOn` change.
@@ -811,7 +880,7 @@ export type TaskPatch = {
   restoreFlags?: { dueOverridden: boolean; customized: boolean };
 };
 
-/** Title, description, estimate, Kernaufgabe flag and due date. Marks the task as customized and the due date as set by hand. */
+/** Title, description, estimate, Kernaufgabe flag, due date and notify setting. Marks the task as customized and the due date as set by hand. */
 export async function updateTask(
   actor: Actor,
   taskId: string,
@@ -867,6 +936,22 @@ export async function updateTask(
         before.dueOn = was;
         after.dueOn = patch.dueOn;
       }
+    }
+    if (patch.notify !== undefined) {
+      const notify = cleanNotify(patch.notify);
+      const was = notifyOf(row);
+      if (!sameNotify(notify, was)) {
+        set.notifyChannels = notify.channels;
+        set.notifyTiming = notify.timing;
+        set.notifyAt = notify.at ? new Date(notify.at) : null;
+        before.notify = was;
+        after.notify = notify;
+      }
+    }
+    // The moment is computed from the due date, so a relative timing cannot outlive it.
+    if ("notify" in after || "dueOn" in after) {
+      const hasDue = "dueOn" in after ? after.dueOn !== null : row.dueAt !== null;
+      assertNotifyFits((after.notify as NotifyInput | undefined) ?? notifyOf(row), hasDue);
     }
 
     const fields = Object.keys(after);
@@ -1087,6 +1172,8 @@ export type NewTask = {
   priority?: TaskPriority;
   /** Needs the `assign` permission. */
   assigneeId?: string | null;
+  /** "Benachrichtigung senden an" (default: nobody). Relative timings need `dueOn`. */
+  notify?: NotifyInput;
 };
 
 /** A task made by hand (`source = manual`), on an event or without one. */
@@ -1101,6 +1188,8 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
   if (input.priority && !task.priority.enumValues.includes(input.priority))
     throw new TaskInputError("invalid_input");
   if (input.assigneeId) need(actor, "assign");
+  const notify = cleanNotify(input.notify);
+  assertNotifyFits(notify, input.dueOn != null);
 
   return db.transaction(async (tx) => {
     let eventName: string | null = null;
@@ -1147,6 +1236,9 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
         assigneeId: person?.id ?? null,
         assigneeOverridden: person !== null,
         customized: false,
+        notifyChannels: notify.channels,
+        notifyTiming: notify.timing,
+        notifyAt: notify.at ? new Date(notify.at) : null,
       })
       .returning({ id: task.id });
     if (!created) throw new Error("task missing");
@@ -1156,6 +1248,7 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
       dueOn: input.dueOn ?? null,
       estimateMinutes: estimate,
       assigneeId: person?.id ?? null,
+      notify,
     });
     if (person && person.id !== actor.staffMemberId) {
       const text = assignedText({ title, eventName }, actor.displayName);
