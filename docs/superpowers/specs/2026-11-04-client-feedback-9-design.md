@@ -8,7 +8,7 @@ brainstorming session the same day; log them in `docs/open-questions.md` (Decide
 | CF9-1 | A general "Appointment" in the create menu | New `appointment` record ("Termin"), own Kalender layer, shown in Übersicht "Heute" |
 | CF9-2 | Swap the Übersicht columns, simplify the weekend | Heute & überfällig left (first), Dieses Wochenende right with a collapsed "Top 5" per market |
 | CF9-3 | "Send notification to mail/WhatsApp" on tasks | Saved on the task now (channels + timing); nothing is sent until the connections exist |
-| CF9-4 | Legible market colours; colour when creating a market | Tinted rows on the events list (option B) with reworked hover/selected/focus; distinct palette; optional picker with a usage legend |
+| CF9-4 | Legible market colours; colour when creating a market | Colour dot before the name on the events list (option C; name not coloured, no row tint); distinct palette; optional picker with a usage legend |
 | CF9-5 | Drop ▲/■ on the Checkliste tab | Tab count becomes text: "29 offen · 3 überfällig" (overdue part red + clock icon) |
 
 ## CF9-1 · Termin (appointment)
@@ -117,16 +117,14 @@ colour names in `templates.json` change where the hue changes. Target: every pai
 rose #d0455f, brown #8a5a2b, sand → amber #c48a12, olive #5f8a1c, petrol → teal #0f8a6e, cyan #1f86c4,
 slate → blue #3157c9, indigo → violet #6a3fc9, graphite #4a4945. Dark values: same hues lightened.
 
-**Events list (`/veranstaltungen`, option B).** Reverses the 2026-10-22 "never a background" rule for
-this list only (log it; `ux-concept.md` updated):
-- Row background: market colour at ~12 % (`color-mix(in oklab, var(--market-x) 12%, transparent)`; dark
-  mode ~18 %). Rows without a colour: no tint (type square as today). Cancelled rows: no tint.
-- Hover: same hue at ~20 %. Selected (Vorschau open, `aria-selected`): ~20 % + 2px inset outline in the
-  market colour. Keyboard focus: the global focus ring on top (never just a colour change).
-- The thin `MarketMarker` bar stays at the row start (colour is never the only cue; name always shown).
-- Art tags (`EventTypeTag`): darker text and slightly stronger background for ≥ 4.5:1 text contrast.
-- Implement as static classes per key (like `BAR`/`BORDER` in `market-marker.tsx`) or one CSS variable
-  `--row-tint` set per row; check light, dark, hover, selected and focus in the browser.
+**Events list (`/veranstaltungen`, option C — changed 2026-11-04 from option B after seeing it built).**
+The 2026-10-22 "never a background" rule stands again:
+- No row tint. Rows use the standard hover / selected / focus states of the other lists.
+- Before the market name a round colour dot (12px, `rounded-full`) in the market colour replaces the thin
+  `MarketMarker` bar on this list. The name stays in the normal text colour (not coloured). Rows without a
+  colour: the event type's square as today. Cancelled rows: dot kept, row muted as today.
+- Art tags (`EventTypeTag`): the stronger `--type-<key>-strong` text from the option B build stays.
+- The retuned palette stays everywhere.
 
 **Neuen Markt anlegen** (`new-market-form.tsx`): add the swatch row from `preset-form.tsx` (extract a
 shared `MarketColorPicker`). Optional, "Keine" allowed; pre-selected is the colour `createMarket`
@@ -146,7 +144,7 @@ lines, Kalender, health summary) stay.
 ## Out of scope
 
 Actually sending mail/WhatsApp; recurring Termine; assigning staff to Termine; linking Termine to events;
-changing the health shape system elsewhere; tinting other lists.
+changing the health shape system elsewhere; tinting any list.
 
 ## Testing
 
