@@ -101,8 +101,8 @@
   --type-food-wine-strong: light-dark(#495424, #d6e0a3); /* tag text, CF9-4 */
 
   /* Market colour labels (Marktfarbe): ten clearly distinct hues (CF9-4). Identity only, never status
-     (status always has icon + text). A thin bar/marker next to the name everywhere; on the events list
-     also a row tint (`.market-row` below). Keys stay, names change in templates.json. */
+     (status always has icon + text). A thin bar/marker next to the name everywhere, a round dot on the
+     events list. Never a background. Keys stay, names change in templates.json. */
   --market-plum: light-dark(#a2337f, #ec8cc8);
   --market-rose: light-dark(#d0455f, #f6a1a6);
   --market-brown: light-dark(#8a5a2b, #cfa27a);
@@ -286,45 +286,4 @@
 
 @utility tabular {
   font-variant-numeric: tabular-nums;
-}
-
-/*
- * Events list rows tinted in the market colour (CF9-4, option B; `marketRowClass` sets `--row-tint`).
- * Rest: a light tint. Hover: the same hue, stronger. Selected (Vorschau open): stronger tint plus a 2px
- * inset outline in the market colour, so it differs from hover by shape, not colour alone. Keyboard focus:
- * the app's focus ring (inset, the table scrolls), tint unchanged; focused and selected: ring outside,
- * market outline inside. Dark mode mixes a little more colour in to read on the dark card (percentages
- * are variables, set per data-theme like the `dark:` variant above; 24% keeps link text at 4.5:1).
- * Unlayered on purpose: it must beat the row's `hover:bg-hover aria-selected:bg-selected` utilities.
- */
-.market-row {
-  --row-mix: 12%;
-  --row-mix-strong: 22%;
-  /* Secondary text (KW, icons) one step stronger so it keeps 4.5:1 on the strongest tint. */
-  --muted-foreground: var(--foreground-2);
-  background-color: color-mix(in oklab, var(--row-tint) var(--row-mix), transparent);
-}
-:where([data-theme="dark"]) .market-row {
-  --row-mix: 16%;
-  --row-mix-strong: 24%;
-}
-@media (prefers-color-scheme: dark) {
-  :where([data-theme="system"]) .market-row {
-    --row-mix: 16%;
-    --row-mix-strong: 24%;
-  }
-}
-.market-row:hover,
-.market-row[aria-selected="true"] {
-  background-color: color-mix(in oklab, var(--row-tint) var(--row-mix-strong), transparent);
-}
-.market-row[aria-selected="true"] {
-  box-shadow: inset 0 0 0 2px var(--row-tint);
-}
-.market-row:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: -2px;
-}
-.market-row[aria-selected="true"]:focus-visible {
-  box-shadow: inset 0 0 0 4px var(--row-tint);
 }

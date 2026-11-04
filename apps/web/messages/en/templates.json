@@ -62,7 +62,7 @@
       },
       "color": {
         "legend": "Market colour",
-        "hint": "A thin colour bar next to the name (and a tinted row in the events list) so you can tell a market's dates apart at a glance. Applies to every date of this market.",
+        "hint": "A thin colour bar next to the name (a colour dot in the events list) so you can tell a market's dates apart at a glance. Applies to every date of this market.",
         "none": "No colour",
         "usedBy": "{name} – used by: {markets}",
         "free": "{name} – still free",

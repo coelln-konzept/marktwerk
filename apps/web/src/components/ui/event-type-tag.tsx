@@ -44,7 +44,7 @@ export function EventTypeMarker({
 }
 
 /** Muted identity colour with a square marker; kept apart from status colours. Text in the `-strong`
- * stop (≥ 4.5:1 on the tag surface, also on the tinted events list rows, CF9-4). */
+ * stop (≥ 4.5:1 on the tag surface, CF9-4). */
 export function EventTypeTag({
   typeKey,
   children,
