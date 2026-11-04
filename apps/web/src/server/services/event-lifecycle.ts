@@ -419,10 +419,31 @@ export async function deleteEvent(
   confirmName: string,
 ): Promise<{ name: string }> {
   if (!can(actor.role, "event", "delete")) forbidden();
+  try {
+    return await deleteEventTx(actor, id, confirmName);
+  } catch (error) {
+    // A row that appeared between the blocker check and the delete (RESTRICT foreign key, SQLSTATE 23503):
+    // the transaction is rolled back, report it as "blocked" with fresh counts.
+    if (isForeignKeyViolation(error)) {
+      throw new EventLifecycleInputError("blocked", await countEventDeleteBlockers(db, id));
+    }
+    throw error;
+  }
+}
+
+function isForeignKeyViolation(error: unknown): boolean {
+  for (let e: unknown = error, depth = 0; e && depth < 4; depth++) {
+    if (typeof e === "object" && (e as { code?: unknown }).code === "23503") return true;
+    e = (e as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+async function deleteEventTx(actor: Actor, id: string, confirmName: string) {
   return db.transaction(async (tx) => {
     const [row] = await tx.select().from(event).where(eq(event.id, id)).for("update");
     if (!row) throw new EventLifecycleInputError("not_found");
-    if (confirmName.trim() !== row.name) throw new EventLifecycleInputError("name_mismatch");
+    if (confirmName.trim() !== row.name.trim()) throw new EventLifecycleInputError("name_mismatch");
     const blockers = await countEventDeleteBlockers(tx, id);
     if (hasDeleteBlockers(blockers)) throw new EventLifecycleInputError("blocked", blockers);
     const n = async (q: PromiseLike<{ n: number }[]>) => (await q)[0]?.n ?? 0;

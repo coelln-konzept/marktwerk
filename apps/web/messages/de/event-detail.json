@@ -298,6 +298,7 @@
     "delete": {
       "open": "Veranstaltung löschen",
       "title": "Veranstaltung endgültig löschen?",
+      "blockedTitle": "Veranstaltung kann nicht gelöscht werden",
       "description": "Die Veranstaltung und alles, was nur zu ihr gehört – Aufgaben, Checkliste, Notizen, Genehmigungs-Verknüpfungen, Zuständigkeiten – werden dauerhaft gelöscht. Das lässt sich nicht rückgängig machen.",
       "typeName": "Zum Bestätigen den Namen der Veranstaltung eingeben:",
       "submit": "Endgültig löschen",

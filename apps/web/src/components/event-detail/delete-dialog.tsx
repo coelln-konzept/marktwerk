@@ -2,9 +2,10 @@
 
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { X } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import type { Route } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { loadDeleteInfo, removeEvent } from "@/app/(app)/veranstaltungen/[id]/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,8 @@ export function DeleteDialog({
   const { showToast } = useShell();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -67,13 +70,25 @@ export function DeleteDialog({
         count: info.blockers[key],
       }))
     : [];
-  const matches = info !== null && typed.trim() === info.name;
+  const matches = info !== null && typed.trim() === info.name.trim();
+  const isBlocked = blocked.length > 0;
+
+  // Focus the name field once the check is through (and again after a failed submit re-enabled it).
+  useEffect(() => {
+    if (open && info !== null && !isBlocked && !pending) inputRef.current?.focus();
+  }, [open, info, isBlocked, pending]);
 
   function submit() {
     if (!info || !matches || blocked.length > 0) return;
     setError(null);
     startTransition(async () => {
-      const result = await removeEvent(eventId, typed);
+      let result: Awaited<ReturnType<typeof removeEvent>>;
+      try {
+        result = await removeEvent(eventId, typed);
+      } catch {
+        setError(t("errors.generic"));
+        return;
+      }
       if (!result.ok) {
         if (result.error === "blocked" && result.blockers) {
           setInfo({ name: info.name, blockers: result.blockers });
@@ -85,7 +100,13 @@ export function DeleteDialog({
       onOpenChange(false);
       showToast({ message: t("deleted", { name: result.data.name }) });
       if (pathname.startsWith(`/veranstaltungen/${eventId}`)) router.push("/veranstaltungen");
-      else router.refresh();
+      else if (searchParams.get("vorschau") === eventId) {
+        // The Vorschau of the deleted event must not stay open (or linkable): same list URL without it.
+        const rest = new URLSearchParams(searchParams.toString());
+        rest.delete("vorschau");
+        const query = rest.toString();
+        router.replace((query ? `${pathname}?${query}` : pathname) as Route);
+      } else router.refresh();
     });
   }
 
@@ -95,7 +116,9 @@ export function DeleteDialog({
         <AlertDialog.Backdrop className="fixed inset-0 z-40 bg-scrim" />
         <AlertDialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100dvh-2rem)] w-[min(480px,calc(100%-2rem))] flex-col gap-4 overflow-y-auto rounded-xl border bg-card p-5 shadow-overlay outline-hidden">
           <div className="flex items-start justify-between gap-3">
-            <AlertDialog.Title className="font-semibold text-lg">{t("title")}</AlertDialog.Title>
+            <AlertDialog.Title className="font-semibold text-lg">
+              {isBlocked ? t("blockedTitle") : t("title")}
+            </AlertDialog.Title>
             <AlertDialog.Close
               aria-label={t("close")}
               className="grid size-8 cursor-pointer place-items-center rounded-lg hover:bg-hover"
@@ -138,8 +161,12 @@ export function DeleteDialog({
                   </Label>
                   <Input
                     id="delete-name"
+                    ref={inputRef}
                     value={typed}
-                    onChange={(e) => setTyped(e.target.value)}
+                    onChange={(e) => {
+                      setTyped(e.target.value);
+                      if (error) setError(null);
+                    }}
                     disabled={info === null || pending}
                     autoComplete="off"
                     autoCapitalize="off"

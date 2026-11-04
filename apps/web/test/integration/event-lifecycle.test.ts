@@ -129,14 +129,55 @@ describe("reopening", () => {
     expect(await status(t.todo as string)).toBe("cancelled");
   });
 
+  it("cancel → draft → cancel → undo of the second cancel → leave: the latest entry wins", async () => {
+    await changeEventStatus(owner, eventId, "cancelled", "Sturm");
+    await changeEventStatus(owner, eventId, "draft");
+    // Between the cycles someone changes a task by hand.
+    await db
+      .update(task)
+      .set({ status: "in_progress" })
+      .where(eq(task.id, t.todo as string));
+    const second = await changeEventStatus(owner, eventId, "cancelled", "Nochmal");
+    expect(await status(t.todo as string)).toBe("cancelled");
+    await revertEventStatus(owner, eventId, "cancelled", second.from, second.previousReason);
+    // undo of the second cancel restores the second cancel's snapshot ("in_progress", not "todo")
+    expect(await status(t.todo as string)).toBe("in_progress");
+    expect(await status(t.prog as string)).toBe("in_progress");
+    expect(await status(t.wait as string)).toBe("waiting_external");
+    expect(await status(t.block as string)).toBe("blocked");
+    expect(await status(t.done as string)).toBe("done");
+    expect(await status(t.skip as string)).toBe("skipped");
+    expect(await status(t.canc as string)).toBe("cancelled");
+    expect(await status(t.other as string)).toBe("todo");
+    // Leaving again (the event is no longer cancelled) must not touch the tasks.
+    await changeEventStatus(owner, eventId, "planned");
+    expect(await status(t.todo as string)).toBe("in_progress");
+    expect(await status(t.block as string)).toBe("blocked");
+  });
+
+  it("undo of a leave re-cancels the reopened tasks", async () => {
+    await changeEventStatus(owner, eventId, "cancelled", "Sturm");
+    const left = await changeEventStatus(owner, eventId, "draft");
+    expect(await status(t.block as string)).toBe("blocked");
+    await revertEventStatus(owner, eventId, "draft", left.from, left.previousReason);
+    for (const k of ["todo", "prog", "wait", "block"])
+      expect(await status(t[k] as string)).toBe("cancelled");
+    expect(await status(t.done as string)).toBe("done");
+    expect(await status(t.skip as string)).toBe("skipped");
+    expect(await status(t.other as string)).toBe("todo");
+    // and leaving once more reopens the original statuses
+    await changeEventStatus(owner, eventId, "draft");
+    expect(await status(t.todo as string)).toBe("todo");
+    expect(await status(t.wait as string)).toBe("waiting_external");
+  });
+
   it("reads a backfill-shaped audit entry (latest entry that cancelled tasks)", async () => {
     await db
       .update(task)
       .set({ status: "cancelled" })
       .where(eq(task.id, t.todo as string));
     await db.execute(
-      (await import("drizzle-orm"))
-        .sql`update app.event set status = 'cancelled', cancelled_reason = 'alt' where id = ${eventId}`,
+      sql`update app.event set status = 'cancelled', cancelled_reason = 'alt' where id = ${eventId}`,
     );
     await db.insert(auditLog).values({
       action: "event.status",

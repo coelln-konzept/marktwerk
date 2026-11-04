@@ -298,6 +298,7 @@
     "delete": {
       "open": "Delete event",
       "title": "Delete this event permanently?",
+      "blockedTitle": "This event can't be deleted",
       "description": "The event and everything that belongs only to it – tasks, checklist, notes, permit links, duty assignments – will be deleted for good. This cannot be undone.",
       "typeName": "To confirm, type the event's name:",
       "submit": "Delete permanently",
