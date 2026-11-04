@@ -111,6 +111,7 @@
 | 2026-11-03 (product owner) | Archiv lists | **50 rows per page** with page links instead of one long list (`?seite=`). Aktivität is for owner and management only (`audit:read`) |
 | 2026-11-03 (product owner) | Undo after the toast | A short **undo history** (last 10 changes, 15 minutes, in memory) behind a **"Rückgängig" button in the top bar** and Strg+Z, so an accidental click doesn't depend on catching the toast |
 | 2026-11-03 (product owner) | "Ersetzt" by mistake | A superseded permit **toggles back**: clicking the pressed "Als ersetzt markiert" again restores the status before (from the audit log) and reopens cancelled tasks. The permit flow itself keeps `superseded` final |
+| 2026-11-04 | Checkliste tab | Text count, overdue in red with clock icon; no health shape (CF9-5) |
 | 2026-10-22 (client feedback) | Postponed | Aussteller data-collection companion; weekly report email; finance; staff assignment and staff emails; website publishing |
 
 ## Open: product owner

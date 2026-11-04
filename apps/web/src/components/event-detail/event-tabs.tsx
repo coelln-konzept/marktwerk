@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Clock } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -12,8 +12,8 @@ export type EventTab = {
   key: string;
   href: string;
   label: string;
-  /** Count such as "5/7" with an optional health shape; `short` replaces the text below the sm breakpoint. */
-  count?: { text: string; short?: string; level?: HealthLevel; sr?: string };
+  /** Count such as "5/7" with an optional health shape or red `alert` text (clock icon); `short` replaces the text below the sm breakpoint. */
+  count?: { text: string; short?: string; level?: HealthLevel; alert?: string; sr?: string };
   /** Muted hint for tabs that arrive in a later milestone ("ab M2"). */
   hint?: { text: string; sr: string };
 };
@@ -40,6 +40,18 @@ function Count({ count }: { count: NonNullable<EventTab["count"]> }) {
           count.text
         )}
       </span>
+      {count.alert && (
+        <span
+          aria-hidden={count.sr ? true : undefined}
+          className="inline-flex items-center gap-0.5 text-status-critical"
+        >
+          <span aria-hidden className="text-foreground-2">
+            ·
+          </span>
+          <Clock aria-hidden className="size-3" />
+          {count.alert}
+        </span>
+      )}
       {count.sr && <span className="sr-only">{count.sr}</span>}
     </span>
   );

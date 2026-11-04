@@ -3,6 +3,7 @@
     "title": "Board",
     "tab": {
       "open": "{count, plural, one {# open task} other {# open tasks}}",
+      "overdue": "{count} overdue",
       "openShort": "{count} open",
       "openOverdue": "{open} open · {overdue} overdue"
     },

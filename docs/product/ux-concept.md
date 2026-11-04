@@ -117,7 +117,7 @@ every action stays reachable by keyboard; "abgerechnet" is not offered while fin
 fehlt" carry it), no Buchung menu or chip while booking is hidden, no setup time (it is in Nächste Termine) and no
 "Vorlage" (it moved into Eckdaten). Tabs: **Zusammenfassung · Checkliste · Genehmigungen · Mehr ▾** (renamed 2026-11 from Überblick · Board; URLs unchanged); Dokumente, Notizen and Verlauf are
 items of the "Mehr" menu and each keeps its own URL (the button is underlined while one is open). Team and Geld return with
-their modules. Counts: Board shows the open tasks with their health shape, Genehmigungen shows a number only when permits
+their modules. Counts: Checkliste shows the open tasks as text ("29 offen"), with "· ⏱ N überfällig" in red after it when tasks are overdue (no ▲/■; CF9-5), Genehmigungen shows a number only when permits
 are missing (a complete "5/5" says nothing). The **Genehmigungen** tab lists the permits without a "Zuständig" column; the
 whole row opens the permit. On phones (390 px) nothing overflows: the "…" menu is the only action, tabs scroll inside their
 bar, and "Was fehlt" rows put the title on its own line with the due badge and actions below.
