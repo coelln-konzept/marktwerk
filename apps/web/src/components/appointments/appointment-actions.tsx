@@ -8,6 +8,7 @@ import { useTransition } from "react";
 import { archiveAppointmentAction, restoreAppointmentAction } from "@/app/(app)/termin-actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
+import { guardedCall } from "./guarded-call";
 
 /**
  * "Bearbeiten" and "Archivieren" in the Vorschau of a Termin. Archiving has no confirmation dialog: an undo
@@ -34,9 +35,9 @@ export function AppointmentActions({
 
   function archive() {
     startTransition(async () => {
-      const result = await archiveAppointmentAction(id);
+      const result = await guardedCall(() => archiveAppointmentAction(id));
       if (!result.ok) {
-        showToast({ message: t("failed") });
+        showToast({ message: t("failed"), tone: "error" });
         return;
       }
       router.replace(closeHref as never, { scroll: false });
@@ -44,9 +45,11 @@ export function AppointmentActions({
         message: t("archived"),
         actionLabel: tToast("undo"),
         onAction: async () => {
-          const undone = await restoreAppointmentAction(id);
+          const undone = await guardedCall(() => restoreAppointmentAction(id));
           if (undone.ok) router.replace(reopenHref as never, { scroll: false });
-          showToast({ message: undone.ok ? t("restored") : t("failed") });
+          showToast(
+            undone.ok ? { message: t("restored") } : { message: t("failed"), tone: "error" },
+          );
         },
       });
     });

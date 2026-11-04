@@ -9,7 +9,6 @@ import {
   createAppointmentAction,
   loadTerminFormAction,
   restoreAppointmentAction,
-  type TerminResult,
   updateAppointmentAction,
 } from "@/app/(app)/termin-actions";
 import { SELECT_CLASS } from "@/components/settings/select-class";
@@ -18,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { guardedCall } from "./guarded-call";
 
 type FormData = Awaited<ReturnType<typeof loadTerminFormAction>>;
 type ContactOption = FormData["contacts"][number];
@@ -27,6 +27,7 @@ type Field =
   | "start"
   | "end"
   | "location"
+  | "notes"
   | "contact"
   | "contactName"
   | "contactPhone"
@@ -172,6 +173,7 @@ function AppointmentForm({
     start: useRef<HTMLInputElement>(null),
     end: useRef<HTMLInputElement>(null),
     location: useRef<HTMLElement>(null),
+    notes: useRef<HTMLTextAreaElement>(null),
     contact: useRef<HTMLInputElement>(null),
     contactName: useRef<HTMLInputElement>(null),
     contactPhone: useRef<HTMLInputElement>(null),
@@ -198,15 +200,6 @@ function AppointmentForm({
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
   const invalid = (field: Field) => error?.field === field || undefined;
   const hint = (field: Field) => (error?.field === field ? `${uid}-error` : undefined);
-
-  /** An action that throws counts as a generic failure, never as a crash into the error boundary. */
-  async function guardedCall(run: () => Promise<TerminResult>): Promise<TerminResult> {
-    try {
-      return await run();
-    } catch {
-      return { ok: false, error: "generic" };
-    }
-  }
 
   function pick(option: ContactOption) {
     setContact({ mode: "saved", id: option.id, name: option.name, detail: tKind(option.kind) });
@@ -556,9 +549,12 @@ function AppointmentForm({
         </Label>
         <textarea
           id={`${uid}-notes`}
+          ref={refs.notes}
           value={notes}
           rows={3}
           maxLength={2000}
+          aria-invalid={invalid("notes")}
+          aria-describedby={hint("notes")}
           onChange={(e) => setNotes(e.target.value)}
           className="min-h-20 w-full rounded-lg border border-input bg-card px-3 py-2 text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-1"
         />

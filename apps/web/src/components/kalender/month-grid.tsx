@@ -1,4 +1,6 @@
 import { addDays, daysInMonth, isoDate, isoWeek, mondayOf, weekday } from "@marktwerk/core";
+import { Plus } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { DayMore } from "./day-more";
 
@@ -28,6 +30,8 @@ export function MonthGrid({
   dayTitle,
   moreHref,
   moreListLabel,
+  addHref,
+  addLabel,
   maxPerDay = 4,
 }: {
   /** "YYYY-MM" */
@@ -47,6 +51,10 @@ export function MonthGrid({
   /** The list starting at that day: the link at the bottom of the popover. */
   moreHref: (day: string) => string;
   moreListLabel: string;
+  /** "Termin anlegen" on that day (only passed when the person may create appointments). */
+  addHref?: (day: string) => string;
+  /** Accessible name of that link, naming the day ("Termin am Mo 07.12. anlegen"). */
+  addLabel?: (day: string) => string;
   maxPerDay?: number;
 }) {
   const [y, m] = month.split("-").map(Number) as [number, number];
@@ -101,7 +109,7 @@ export function MonthGrid({
                   <td
                     key={day}
                     className={cn(
-                      "h-28 border-b border-l px-1.5 py-1 align-top",
+                      "group/day h-28 border-b border-l px-1.5 py-1 align-top",
                       !inMonth && "bg-surface-2 text-faint-foreground",
                       holiday && inMonth && "bg-status-critical-bg/60",
                       day === today && "outline-2 outline-primary -outline-offset-2",
@@ -116,11 +124,24 @@ export function MonthGrid({
                       {holiday && (
                         <span className="truncate text-status-critical text-tiny">{holiday}</span>
                       )}
-                      {flagged && (
-                        <span className="ml-auto text-status-warn text-tiny" title={flagLabel}>
-                          ⚑
-                        </span>
-                      )}
+                      <span className="ml-auto flex items-center gap-1">
+                        {flagged && (
+                          <span className="text-status-warn text-tiny" title={flagLabel}>
+                            ⚑
+                          </span>
+                        )}
+                        {addHref && addLabel && (
+                          <Link
+                            href={addHref(day) as never}
+                            scroll={false}
+                            aria-label={addLabel(day)}
+                            title={addLabel(day)}
+                            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-focus-within/day:opacity-100 group-hover/day:opacity-100 touch:opacity-100"
+                          >
+                            <Plus aria-hidden className="size-3.5" />
+                          </Link>
+                        )}
+                      </span>
                     </div>
                     <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
                       {items.slice(0, maxPerDay).map((item) => (

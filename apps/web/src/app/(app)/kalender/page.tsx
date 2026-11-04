@@ -1,5 +1,6 @@
 import {
   addDays,
+  can,
   daysBetween,
   daysInMonth,
   holidaysBetween,
@@ -231,6 +232,11 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   });
 
   // Termine come before the deadlines of their day (all-day first, then by time: the query's order).
+  // "Termin anlegen" per day opens the dialog with that date; closing/editing links of a Vorschau are dropped.
+  const canCreateTermin = can(actor.role, "event", "write");
+  const addHref = (day: string) =>
+    hrefWith(PATH, sp, { neu: "termin", datum: day, vorschau: undefined, bearbeiten: undefined });
+  const addLabel = (day: string) => t("addTermin", { date: formatDateWithWeekday(day, locale) });
   const terminHref = (id: string) => hrefWith(PATH, sp, { vorschau: `termin:${id}` });
   for (const a of appointments) {
     entries.push({
@@ -335,6 +341,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               dayTitle={(day) => formatDateWithWeekday(day, locale)}
               moreHref={moreHref}
               moreListLabel={t("moreList")}
+              addHref={canCreateTermin ? addHref : undefined}
+              addLabel={addLabel}
             />
           ) : (
             <CalendarList
@@ -348,6 +356,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               holidays={holidays}
               hrefFor={eventHref}
               resetHref={hrefWith(PATH, {}, { ...layerParams(DEFAULT_LAYERS), ansicht: "liste" })}
+              addHref={canCreateTermin ? addHref : undefined}
+              addLabel={addLabel}
             />
           )}
         </Panel>
@@ -376,6 +386,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
           ))}
           {layers.deadlines
             .filter((l) => available.includes(l))
+            .filter((l) => l !== "appointments" || showAppointments)
             .map((l) => {
               const Icon = LAYER_ICONS[l];
               return (

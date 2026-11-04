@@ -1136,6 +1136,18 @@ test('"+ Neu" › Termin: name and today, saved with a toast; the dialog closes 
   await expect(page.getByText("Termin entfernt")).toBeVisible();
 });
 
+test("Kalender: a day's + opens the Termin dialog with that date", async ({ page }) => {
+  await page.goto("/kalender?monat=2027-03");
+  await page.waitForLoadState("networkidle");
+  const add = page.getByRole("link", { name: /^Termin am .*15\.03\.2027 anlegen$/ });
+  await add.focus(); // visible on focus, not only on hover
+  await add.click();
+  await expect(page).toHaveURL(/neu=termin&datum=2027-03-15/);
+  await expect(
+    page.getByRole("dialog", { name: "Termin anlegen" }).getByLabel("Datum"),
+  ).toHaveValue("2027-03-15");
+});
+
 test("Termin: appears in the Kalender (Monat and Liste) and under Termine heute; its Vorschau shows the contact; archiving has an undo", async ({
   page,
 }) => {

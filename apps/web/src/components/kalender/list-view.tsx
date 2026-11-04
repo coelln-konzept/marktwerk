@@ -1,5 +1,5 @@
 import { addDays, dayDistance, isoWeek, mondayOf } from "@marktwerk/core";
-import { CalendarClock, CalendarX, Clock, Minus, OctagonAlert } from "lucide-react";
+import { CalendarClock, CalendarX, Clock, Minus, OctagonAlert, Plus } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment } from "react";
@@ -29,6 +29,8 @@ export async function CalendarList({
   holidays,
   hrefFor,
   resetHref,
+  addHref,
+  addLabel,
 }: {
   from: string;
   to: string;
@@ -44,6 +46,10 @@ export async function CalendarList({
   /** Link to an event (its Überblick). */
   hrefFor: (id: string) => string;
   resetHref: string;
+  /** "Termin anlegen" on that day (only passed when the person may create appointments). */
+  addHref?: (day: string) => string;
+  /** Accessible name of that link, naming the day. */
+  addLabel?: (day: string) => string;
 }) {
   const t = await getTranslations("kalenderPage");
   const locale = await getLocale();
@@ -152,7 +158,7 @@ export async function CalendarList({
                     key="date"
                     rowSpan={Math.max(events.length + termine.length + items.length, 1)}
                     className={cn(
-                      "w-28 align-top sm:w-44 sm:whitespace-nowrap",
+                      "group/day w-28 align-top sm:w-44 sm:whitespace-nowrap",
                       day === today && "bg-selected",
                       holiday && "text-status-critical",
                     )}
@@ -169,6 +175,17 @@ export async function CalendarList({
                       <span className="block text-muted-foreground text-tiny">{relative(day)}</span>
                     )}
                     {holiday && <span className="block font-semibold text-tiny">{holiday}</span>}
+                    {addHref && addLabel && (
+                      <Link
+                        href={addHref(day) as never}
+                        scroll={false}
+                        aria-label={addLabel(day)}
+                        title={addLabel(day)}
+                        className="mt-1 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-focus-within/day:opacity-100 group-hover/day:opacity-100 touch:opacity-100"
+                      >
+                        <Plus aria-hidden className="size-3.5" />
+                      </Link>
+                    )}
                   </TD>
                 );
                 if (events.length === 0 && termine.length === 0 && items.length === 0) {

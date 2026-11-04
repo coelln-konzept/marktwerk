@@ -87,6 +87,27 @@ describe("checkAppointment", () => {
     expect(checkAppointment(draft({ contactName: "Frau Meier" }))).toBeNull();
   });
 
+  it("caps the text lengths (at the limit is fine, one over is not)", () => {
+    const n = (len: number) => "x".repeat(len);
+    expect(checkAppointment(draft({ title: n(200) }))).toBeNull();
+    expect(checkAppointment(draft({ title: n(201) }))).toBe("title_too_long");
+    expect(checkAppointment(draft({ locationText: n(300) }))).toBeNull();
+    expect(checkAppointment(draft({ locationText: n(301) }))).toBe("location_too_long");
+    expect(checkAppointment(draft({ notes: n(2000) }))).toBeNull();
+    expect(checkAppointment(draft({ notes: n(2001) }))).toBe("notes_too_long");
+    expect(checkAppointment(draft({ contactName: n(200) }))).toBeNull();
+    expect(checkAppointment(draft({ contactName: n(201) }))).toBe("contact_too_long");
+    expect(checkAppointment(draft({ contactName: "A", contactPhone: n(41) }))).toBe(
+      "contact_too_long",
+    );
+    expect(checkAppointment(draft({ contactName: "A", contactEmail: `${n(250)}@b.de` }))).toBe(
+      "contact_too_long",
+    );
+    // surrounding blanks do not count, and a saved contact ignores the typed fields
+    expect(checkAppointment(draft({ title: `  ${n(200)}  ` }))).toBeNull();
+    expect(checkAppointment(draft({ contactId: "c1", contactName: n(500) }))).toBeNull();
+  });
+
   it("checks the typed e-mail address", () => {
     expect(checkAppointment(draft({ contactName: "Meier", contactEmail: "a@b" }))).toBe(
       "email_invalid",

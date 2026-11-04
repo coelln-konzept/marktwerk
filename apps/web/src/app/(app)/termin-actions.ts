@@ -30,6 +30,10 @@ const FIELD_OF: Record<string, string> = {
   phone_invalid: "contactPhone",
   email_invalid: "contactEmail",
   invalid_contact: "contact",
+  title_too_long: "title",
+  location_too_long: "location",
+  notes_too_long: "notes",
+  contact_too_long: "contactName",
 };
 
 /** Typed input errors become codes the dialog shows; anything else is a real error. */

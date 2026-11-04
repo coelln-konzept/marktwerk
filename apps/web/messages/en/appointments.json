@@ -20,7 +20,6 @@
     "contactNone": "No match",
     "contactNew": "New contact …",
     "contactChange": "Change",
-    "contactClear": "Remove",
     "contactName": "Name",
     "contactPhone": "Phone",
     "contactEmail": "Email",
@@ -53,6 +52,10 @@
       "two_locations": "Choose either a place from the list or enter an address.",
       "contact_name_required": "Give the contact a name.",
       "email_invalid": "The email address is invalid.",
+      "title_too_long": "The name is too long (200 characters at most).",
+      "location_too_long": "The address is too long (300 characters at most).",
+      "notes_too_long": "The notes are too long (2000 characters at most).",
+      "contact_too_long": "The contact's name, phone or email is too long.",
       "phone_invalid": "The phone number is invalid.",
       "invalid_venue": "This place is no longer available.",
       "invalid_contact": "This contact is no longer available.",
@@ -66,7 +69,6 @@
       "kind": "Appointment"
     },
     "vorschau": {
-      "label": "Appointment",
       "date": "Date",
       "time": "Time",
       "where": "Where",
@@ -79,12 +81,10 @@
       "archived": "Appointment archived",
       "restored": "Appointment restored",
       "failed": "That didn't work. Please try again.",
-      "openVenue": "Open venue",
       "timeRange": "{from}–{to}",
       "timeFrom": "from {from}",
       "allDay": "all day",
-      "kind": "Appointment",
-      "restoredShort": "Appointment restored"
+      "kind": "Appointment"
     }
   }
 }

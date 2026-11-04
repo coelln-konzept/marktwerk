@@ -20,7 +20,6 @@
     "contactNone": "Kein Treffer",
     "contactNew": "Neuer Kontakt …",
     "contactChange": "Ändern",
-    "contactClear": "Entfernen",
     "contactName": "Name",
     "contactPhone": "Telefon",
     "contactEmail": "E-Mail",
@@ -53,6 +52,10 @@
       "two_locations": "Wähle entweder einen Ort aus der Liste oder gib eine Adresse ein.",
       "contact_name_required": "Gib dem Kontakt einen Namen.",
       "email_invalid": "Die E-Mail-Adresse ist ungültig.",
+      "title_too_long": "Der Name ist zu lang (höchstens 200 Zeichen).",
+      "location_too_long": "Die Adresse ist zu lang (höchstens 300 Zeichen).",
+      "notes_too_long": "Die Notizen sind zu lang (höchstens 2000 Zeichen).",
+      "contact_too_long": "Name, Telefon oder E-Mail des Kontakts sind zu lang.",
       "phone_invalid": "Die Telefonnummer ist ungültig.",
       "invalid_venue": "Dieser Ort ist nicht mehr verfügbar.",
       "invalid_contact": "Dieser Kontakt ist nicht mehr verfügbar.",
@@ -66,7 +69,6 @@
       "kind": "Termin"
     },
     "vorschau": {
-      "label": "Termin",
       "date": "Datum",
       "time": "Zeit",
       "where": "Wo",
@@ -79,12 +81,10 @@
       "archived": "Termin archiviert",
       "restored": "Termin wiederhergestellt",
       "failed": "Das hat nicht geklappt. Versuche es noch einmal.",
-      "openVenue": "Ort öffnen",
       "timeRange": "{from}–{to} Uhr",
       "timeFrom": "ab {from} Uhr",
       "allDay": "ganztägig",
-      "kind": "Termin",
-      "restoredShort": "Termin wiederhergestellt"
+      "kind": "Termin"
     }
   }
 }

@@ -275,8 +275,13 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
   `mailto:`), "In Kontakte öffnen" when it is a saved contact, **Bearbeiten** (`?neu=termin&bearbeiten=<id>`, the
   Vorschau closes) and **Archivieren** (undo toast; undo reopens the Vorschau). The same Vorschau opens on the
   Übersicht. "Nur Achtung und Kritisch" hides Termine (they carry no urgency), "Nur meine Zuständigkeit" does not touch
-  them, the Ort narrowing keeps those at that venue. "+ N weitere" counts them. No "+" in a day cell (not offered for
-  other kinds either); "+ Neu › Termin" pre-fills nothing but today.
+  them, the Ort narrowing keeps those at that venue. "+ N weitere" counts them. The legend lists "Termine" only while
+  they are shown (not under "Nur Achtung und Kritisch"). **Termin per day:** for everyone who may write events, every day
+  cell of the month grid and every date cell of the list has a small "+" ("Termin am Mo 07.12.2026 anlegen") that opens
+  the dialog with that date (`?neu=termin&datum=…`, Vorschau parameters dropped); it shows on hover and keyboard focus
+  and always on touch screens. "+ Neu › Termin" pre-fills today. **Privacy:** the Vorschau shows the Ansprechpartner
+  block only with `contact` read and links the Ort only with `venue` read (plain text otherwise, so field users see
+  neither). Text lengths are capped (Name 200, Adresse 300, Notizen 2000, Kontakt 200 / E-Mail 254 / Telefon 40).
 - **Entries:** month chips show the full market name (up to two lines) with the market colour bar; every event
   chip and list row links to the event's Überblick (`/veranstaltungen/<id>`).
 - The layer selection is **saved per person** (`user_preference.saved_views`).

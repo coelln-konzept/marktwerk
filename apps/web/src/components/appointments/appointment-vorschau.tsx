@@ -8,6 +8,7 @@ import { formatDateWithWeekday, formatWeek } from "@/lib/format";
 import { getActor } from "@/server/actor";
 import { getAppointment } from "@/server/queries/appointments";
 import { AppointmentActions } from "./appointment-actions";
+import { terminAccess } from "./termin-privacy";
 
 /** `vorschau=termin:<id>`: the id of a Termin Vorschau, or null for any other value. */
 export function terminVorschauId(value: string | undefined): string | null {
@@ -43,20 +44,25 @@ export async function AppointmentVorschau({
     : termin.endsAt
       ? t("timeRange", { from: termin.startsAt, to: termin.endsAt })
       : t("timeFrom", { from: termin.startsAt });
-  const place = termin.venueId ? (
-    <Link
-      href={`/orte/${termin.venueId}` as never}
-      className="inline-flex items-center gap-1.5 font-medium text-accent-soft-foreground hover:underline"
-    >
-      {termin.venueName}
-      <ExternalLink aria-hidden className="size-3.5" />
-    </Link>
-  ) : termin.locationText ? (
-    <span className="break-words">{termin.locationText}</span>
-  ) : (
-    none
-  );
-  const person = termin.contact;
+  // Contact data and the link to the Ort need their own read permission (field users have neither).
+  const access = terminAccess(actor.role, termin);
+  const place =
+    termin.venueId && access.venueLink ? (
+      <Link
+        href={`/orte/${termin.venueId}` as never}
+        className="inline-flex items-center gap-1.5 font-medium text-accent-soft-foreground hover:underline"
+      >
+        {termin.venueName}
+        <ExternalLink aria-hidden className="size-3.5" />
+      </Link>
+    ) : termin.venueName ? (
+      <span className="break-words">{termin.venueName}</span>
+    ) : termin.locationText ? (
+      <span className="break-words">{termin.locationText}</span>
+    ) : (
+      none
+    );
+  const person = access.contact;
   return (
     <Vorschau
       kind={t("kind")}
@@ -81,18 +87,22 @@ export async function AppointmentVorschau({
               none
             ),
           },
-          {
-            label: t("contact"),
-            value: person ? (
-              <span className="flex flex-col gap-0.5">
-                <span className="font-medium">{person.name}</span>
-                {person.phone && <PhoneLink phone={person.phone} icon />}
-                {person.email && <MailLink email={person.email} />}
-              </span>
-            ) : (
-              none
-            ),
-          },
+          ...(access.showContact
+            ? [
+                {
+                  label: t("contact"),
+                  value: person ? (
+                    <span className="flex flex-col gap-0.5">
+                      <span className="font-medium">{person.name}</span>
+                      {person.phone && <PhoneLink phone={person.phone} icon />}
+                      {person.email && <MailLink email={person.email} />}
+                    </span>
+                  ) : (
+                    none
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
       {can(actor.role, "event", "write") && (
