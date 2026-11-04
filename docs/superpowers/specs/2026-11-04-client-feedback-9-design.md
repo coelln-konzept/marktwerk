@@ -96,7 +96,12 @@ Relative timings without a due date are a validation error in the form. Not call
 **UI** (new component `components/task/notify-fields.tsx`, used in `new-task-dialog.tsx` and the task drawer):
 - Section "Benachrichtigung senden an": checkboxes **Mail** and **WhatsApp**. When at least one is
   ticked: select "Wann" with the six options; "Eigenes Datum/Uhrzeit" reveals a datetime input.
-- Recipient line: "An: <Zuständig>". Hints: no assignee → "Ohne Zuständige Person wird nichts
+- Recipient (decision 2026-11-04): while the Team module is hidden (`HIDDEN_MODULES.team`), the person who
+  sets the notification, i.e. the signed-in user; stored as `task.notify_user_id` (→ `user`, set by the service
+  from the actor whenever channels are saved, cleared when channels are emptied). Their email is the user's
+  email, their phone the phone of the user's linked staff member (if any). Once Team is visible again the
+  recipient is the assignee and `notify_user_id` stays only as a fallback. Recipient line: "An: dich
+  (<email>)" while Team is hidden, else "An: <Zuständig>". Hints: no assignee → "Ohne Zuständige Person wird nichts
   gesendet."; assignee without email (for Mail) / phone (for WhatsApp) → "<Name> hat keine E-Mail-Adresse
   / Telefonnummer hinterlegt."
 - Always-visible info note: "Versand folgt, sobald Mail und WhatsApp angebunden sind."
