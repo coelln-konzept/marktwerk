@@ -74,8 +74,8 @@ export function availableLayers(
 ): CalendarLayer[] {
   const allowed: Record<CalendarLayer, boolean> = {
     tasks: !hide.calendarTasks && can(role, "task", "read"),
-    // Besprechungen are for the office only: they need `event` write (decision 2026-11-04).
-    appointments: can(role, "event", "write"),
+    // Besprechungen are for the office only: they need `appointment:read` (decision 2026-11-04).
+    appointments: can(role, "appointment", "read"),
     permits: can(role, "permit", "read"),
     installments: !hide.finance && can(role, "finance", "read"),
     obligations: can(role, "company", "read"),

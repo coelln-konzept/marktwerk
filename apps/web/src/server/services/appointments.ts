@@ -200,7 +200,7 @@ export async function createAppointment(
   actor: Actor,
   input: AppointmentDraft,
 ): Promise<{ id: string; title: string }> {
-  if (!can(actor.role, "event", "write")) forbidden();
+  if (!can(actor.role, "appointment", "write")) forbidden();
   const { values, newContact } = clean(input);
   return db.transaction(async (tx) => {
     await checkReferences(tx, values);
@@ -228,7 +228,7 @@ export async function updateAppointment(
   id: string,
   input: AppointmentDraft,
 ): Promise<{ changed: boolean }> {
-  if (!can(actor.role, "event", "write")) forbidden();
+  if (!can(actor.role, "appointment", "write")) forbidden();
   const { values: next, newContact } = clean(input);
   return db.transaction(async (tx) => {
     const current = await lockAppointment(tx, id);
@@ -259,7 +259,7 @@ export async function updateAppointment(
 
 /** "Archivieren": the Besprechung disappears from lists. Audited as `appointment.archive`. */
 export async function archiveAppointment(actor: Actor, id: string): Promise<{ title: string }> {
-  if (!can(actor.role, "event", "write")) forbidden();
+  if (!can(actor.role, "appointment", "delete")) forbidden();
   return db.transaction(async (tx) => {
     const current = await lockAppointment(tx, id);
     if (current.archivedAt) throw new AppointmentInputError("conflict");
@@ -278,7 +278,7 @@ export async function archiveAppointment(actor: Actor, id: string): Promise<{ ti
 
 /** Undo of "Archivieren". Audited as `appointment.restore`. */
 export async function restoreAppointment(actor: Actor, id: string): Promise<{ title: string }> {
-  if (!can(actor.role, "event", "write")) forbidden();
+  if (!can(actor.role, "appointment", "delete")) forbidden();
   return db.transaction(async (tx) => {
     const current = await lockAppointment(tx, id);
     if (!current.archivedAt) throw new AppointmentInputError("conflict");

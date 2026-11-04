@@ -16,11 +16,11 @@ describe("appointmentAccess", () => {
     }
   });
 
-  it("is only ever asked for roles that may write events, and all of those may read contacts and venues", () => {
-    // Besprechungen are office-only (event write). Every such role currently has contact and venue read,
-    // so the gating below is a guard for a future role that can write events but not read contacts.
+  it("is only ever asked for roles that may write Besprechungen, and all of those may read contacts and venues", () => {
+    // Besprechungen are office-only (appointment write). Every such role currently has contact and venue read,
+    // so the gating below is a guard for a future role that can write Besprechungen but not read contacts.
     for (const role of ["owner", "manager", "staff", "field"] as const) {
-      if (!can(role, "event", "write")) continue;
+      if (!can(role, "appointment", "write")) continue;
       expect(can(role, "contact", "read")).toBe(true);
       expect(can(role, "venue", "read")).toBe(true);
     }

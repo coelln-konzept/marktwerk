@@ -22,7 +22,7 @@ export function creatableFor(role: Role): Creatable[] {
     permit: can(role, "permit", "write"),
     shift: isModuleVisible("team") && can(role, "team", "manage"),
     issue: can(role, "company", "write"),
-    appointment: can(role, "event", "write"),
+    appointment: can(role, "appointment", "write"),
   };
   return CREATABLE.filter((kind) => allowed[kind]);
 }

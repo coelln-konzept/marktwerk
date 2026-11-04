@@ -63,7 +63,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   }).format(new Date(`${today}T12:00:00Z`));
   const [overview, appointments] = await Promise.all([
     getOverview(actor, today, HIDDEN_MODULES),
-    can(actor.role, "event", "write") ? listAppointmentsOn(today) : Promise.resolve([]),
+    can(actor.role, "appointment", "read") ? listAppointmentsOn(today) : Promise.resolve([]),
   ]);
   const vorschauParam = param(sp.vorschau);
   const appointmentId = appointmentVorschauId(vorschauParam);

@@ -165,11 +165,16 @@ describe("createAppointment", () => {
     );
   });
 
-  it("is forbidden without event write", async () => {
+  it("lets office staff create a Besprechung", async () => {
+    const staff = await createActor("staff");
+    const { id } = await createAppointment(staff, draft());
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, id));
+    expect(row?.title).toBe("Ortstermin Rheinwiese");
+  });
+
+  it("is forbidden for field users (no appointment write)", async () => {
     const field = await createActor("field");
     await expect(createAppointment(field, draft())).rejects.toSatisfy(isForbidden);
-    const staff = await createActor("staff");
-    await expect(createAppointment(staff, draft())).rejects.toSatisfy(isForbidden);
     expect(await db.select().from(appointment)).toHaveLength(0);
   });
 });
@@ -242,7 +247,18 @@ describe("archive and restore", () => {
     expect(row?.title).toBe("Ortstermin Rheinwiese");
   });
 
-  it("is forbidden without event write", async () => {
+  it("lets office staff update, archive and restore", async () => {
+    const { id } = await createAppointment(owner, draft());
+    const staff = await createActor("staff");
+    expect((await updateAppointment(staff, id, draft({ title: "Neu" }))).changed).toBe(true);
+    await archiveAppointment(staff, id);
+    await restoreAppointment(staff, id);
+    const [row] = await db.select().from(appointment).where(eq(appointment.id, id));
+    expect(row?.title).toBe("Neu");
+    expect(row?.archivedAt).toBeNull();
+  });
+
+  it("is forbidden for field users (no appointment write/delete)", async () => {
     const { id } = await createAppointment(owner, draft());
     const field = await createActor("field");
     await expect(archiveAppointment(field, id)).rejects.toSatisfy(isForbidden);

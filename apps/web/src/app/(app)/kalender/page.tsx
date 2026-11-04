@@ -235,7 +235,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
 
   // Besprechungen come before the deadlines of their day (all-day first, then by time: the query's order).
   // "Besprechung anlegen" per day opens the dialog with that date; closing/editing links of a Vorschau are dropped.
-  const canCreateAppointment = can(actor.role, "event", "write");
+  const canCreateAppointment = can(actor.role, "appointment", "write");
   const addHref = (day: string) =>
     hrefWith(PATH, sp, {
       neu: APPOINTMENT_PARAM,

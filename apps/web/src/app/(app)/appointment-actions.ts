@@ -55,7 +55,7 @@ async function guarded(id: string | null, run: () => Promise<string>): Promise<A
 
 /** What the dialog needs when it opens: the pickers, today, and the Besprechung to edit. */
 export async function loadAppointmentFormAction(id: string | null) {
-  await requirePermission("event", "write");
+  await requirePermission("appointment", "write");
   const [venues, contacts, existing] = await Promise.all([
     listVenueOptions(),
     listContactOptions(),
@@ -71,7 +71,7 @@ export async function loadAppointmentFormAction(id: string | null) {
 }
 
 export async function createAppointmentAction(draft: AppointmentDraft): Promise<AppointmentResult> {
-  await requirePermission("event", "write");
+  await requirePermission("appointment", "write");
   const actor = await getActor();
   return guarded(null, async () => (await createAppointment(actor, draft)).id);
 }
@@ -80,7 +80,7 @@ export async function updateAppointmentAction(
   id: string,
   draft: AppointmentDraft,
 ): Promise<AppointmentResult> {
-  await requirePermission("event", "write");
+  await requirePermission("appointment", "write");
   const actor = await getActor();
   return guarded(id, async () => {
     await updateAppointment(actor, id, draft);
@@ -89,7 +89,7 @@ export async function updateAppointmentAction(
 }
 
 export async function archiveAppointmentAction(id: string): Promise<AppointmentResult> {
-  await requirePermission("event", "write");
+  await requirePermission("appointment", "delete");
   const actor = await getActor();
   return guarded(id, async () => {
     await archiveAppointment(actor, id);
@@ -98,7 +98,7 @@ export async function archiveAppointmentAction(id: string): Promise<AppointmentR
 }
 
 export async function restoreAppointmentAction(id: string): Promise<AppointmentResult> {
-  await requirePermission("event", "write");
+  await requirePermission("appointment", "delete");
   const actor = await getActor();
   return guarded(id, async () => {
     await restoreAppointment(actor, id);

@@ -21,6 +21,16 @@ describe("can", () => {
     expect(can("staff", "team", "read")).toBe(false);
   });
 
+  it("gives office staff the appointment grant and keeps it from field users", () => {
+    expect(can("owner", "appointment", "delete")).toBe(true);
+    expect(can("manager", "appointment", "write")).toBe(true);
+    expect(can("staff", "appointment", "read")).toBe(true);
+    expect(can("staff", "appointment", "write")).toBe(true);
+    expect(can("staff", "appointment", "delete")).toBe(true);
+    expect(can("field", "appointment", "read")).toBe(false);
+    expect(can("field", "appointment", "write")).toBe(false);
+  });
+
   it("limits field users to events and tasks", () => {
     expect(can("field", "task", "write")).toBe(true);
     expect(can("field", "event", "read")).toBe(true);

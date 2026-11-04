@@ -129,7 +129,7 @@ erDiagram
   start), `venue_id?` **or** `location_text?` (never both), `notes?`, who to reach out to: `contact_id?` (a saved
   contact) **or** inline `contact_name?`/`contact_phone_e164?`/`contact_email?` (a typed contact can be saved as a
   `contact` of kind `other` on creation, then only `contact_id` is set), `archived_at?`. Rules in `checkAppointment`
-  (`packages/core/src/appointments`), CHECK constraints mirror them. Service audit: `appointment.create|update|archive|restore`.
+  (`packages/core/src/appointments`), CHECK constraints mirror them. Service audit: `appointment.create|update|archive|restore`. Gated by the own `appointment` permission resource (read/write/delete; field has none).
 
 ### Templates, tasks, kanban
 - **checklist_template**, **template_version** (`draft | published | retired`, immutable when published),

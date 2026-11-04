@@ -28,7 +28,7 @@ export async function AppointmentVorschau({
   reopenHref: string;
 }) {
   const actor = await getActor();
-  if (!can(actor.role, "event", "write")) return null;
+  if (!can(actor.role, "appointment", "read")) return null;
   const appointment = await getAppointment(id);
   if (!appointment) return null;
   const t = await getTranslations("appointments.vorschau");
@@ -41,6 +41,8 @@ export async function AppointmentVorschau({
       : t("timeFrom", { from: appointment.startsAt });
   // Contact data and the link to the Ort need their own read permission (field users have neither).
   const access = appointmentAccess(actor.role, appointment);
+  const canEdit = can(actor.role, "appointment", "write");
+  const canArchive = can(actor.role, "appointment", "delete");
   const place =
     appointment.venueId && access.venueLink ? (
       <Link
@@ -102,8 +104,10 @@ export async function AppointmentVorschau({
             : []),
         ]}
       />
-      {can(actor.role, "event", "write") && (
+      {(canEdit || canArchive) && (
         <AppointmentActions
+          canEdit={canEdit}
+          canArchive={canArchive}
           id={appointment.id}
           title={appointment.title}
           editHref={editHref}
