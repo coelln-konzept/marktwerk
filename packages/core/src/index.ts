@@ -1,3 +1,4 @@
+export * from "./appointments/index";
 export * from "./auth/permissions";
 export * from "./auth/roles";
 export * from "./company/input";

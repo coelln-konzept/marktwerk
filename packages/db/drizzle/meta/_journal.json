@@ -71,6 +71,13 @@
       "when": 1793790772639,
       "tag": "0009_task_notify",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793791686108,
+      "tag": "0010_appointment",
+      "breakpoints": true
     }
   ]
 }
