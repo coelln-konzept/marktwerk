@@ -34,7 +34,8 @@ settled in the docs/ADRs. Log answers in `docs/open-questions.md` (Decided table
   The core record is `event` (Veranstaltung), never `market` in new code. Say vendor/visitor, never customer.
 - Assignees are `staff_member`s (may have no login), not `user`s (ADR 0012).
 - Legal numbers (minimum wage, Minijob limit, inspection intervals) come from the `legal_parameter` table.
-- No AI features in operational flows (ADR 0014). Payment reminders are sent by a person.
+- No AI features in operational flows (ADR 0014). Payment reminders are sent by a person,
+  except the fixed-rule reminder/release of unpaid stall reservations (ADR 0014 amendment, 2026-11-04).
 - Template changes never propagate automatically (deliberate action, nothing pre-selected).
 - UI follows `docs/product/ux-concept.md`: classic screens (ADR 0019): every view is a page with its own URL;
   Vorschau and detail drawers keep context and are linkable; status = colour + icon + text; every drag has a

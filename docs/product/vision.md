@@ -24,7 +24,8 @@ booking lives in one place, so nothing slips and the team can take on more event
    form stay; marktwerk processes what comes in.
 3. **Step by step, sandbox first, nothing hidden.** Introduce features gradually; don't remove familiar paths early.
 4. **Human touch stays.** Phone calls, personal emails and talking to vendors on market day are strengths.
-   We automate labour, not relationships. Payment reminders are sent by a person.
+   We automate labour, not relationships. Payment reminders are sent by a person, except the fixed-rule
+   reminder and release of unpaid stall reservations (decision 2026-11-04, ADR 0014 amendment).
 5. **No AI running the business.** AI may prepare drafts later (e.g. parse a free-text booking email); a person
    always confirms and can see the original.
 6. **Meet staff where they are: WhatsApp** (Phase 2). No app install required for field crew. In Phase 1 the
@@ -46,7 +47,7 @@ booking lives in one place, so nothing slips and the team can take on more event
   corporate-design and website project).
 - Bookkeeping: the tax advisor keeps the books; marktwerk is the operational layer and exports to them.
 - A native app; staff get WhatsApp + magic links, office uses the browser.
-- Barcode/RFID inventory, automatic payment reminders, autonomous AI.
+- Barcode/RFID inventory, automatic payment reminders (except unpaid stall reservations, 2026-11-04), autonomous AI.
 - New event formats (design markets, workshops, tournaments) before Phase 4.
 
 ## Success metrics (baseline in discovery, measured after 3 months)
