@@ -150,7 +150,7 @@ Rules live in `packages/core/src/events/overview.ts`; task rows open the task dr
 
 ### Linkable overlays (implementation detail, ADR 0019)
 Vorschau and drawers are addressed by search params on the current page. As built in M1: **`?vorschau=<id>`** (the
-list page knows which record kind it shows; Team uses **`?person=<id>`**) and, for the generation sheet,
+list page knows which record kind it shows; a Termin on the Kalender and the Übersicht is **`?vorschau=termin:<id>`**; Team uses **`?person=<id>`**) and, for the generation sheet,
 **`?erzeugen=1[&vorlage=<presetId>|&neu=1]`** on `/veranstaltungen` (`neu=1` opens the new-market form). Drawers (from M2) follow the same idea, e.g.
 `?detail=task:<id>`. A copied link reopens the same page with the same overlay; closing a Vorschau replaces the URL
 (it does not pile up history entries). Pages read the param on the server and render the overlay with the page, so a
@@ -213,7 +213,10 @@ the weekend side by side, the week below. No KPI strip, no season strip.
 1. **Date + KW line** and greeting.
 2. **Heute & überfällig** (left from 1024 px, first on phones; CF9-2): **every** overdue and due-today item in the
    bands Überfällig · Heute, **bundled per market** in ranking order (`rankDue`: Kernaufgaben first, then the soonest
-   market), one-click Erledigt and Zurückstellen with undo, due words from `DueBadge`.
+   market), one-click Erledigt and Zurückstellen with undo, due words from `DueBadge`. **Above the bands a group
+   "Termine heute"** (CF9-1) lists today's Termine, all-day ones first, then by time ("09:30  Ortstermin · Heumarkt");
+   a row opens the Termin's Vorschau (`/?vorschau=termin:<id>`), J/K and Enter work as on every row; with no Termin
+   today the group is not shown.
 3. **Dieses Wochenende** (right, simplified in CF9-2): per market of the weekend a **verdict** (Im Plan ● · Achtung ▲ ·
    Nicht startklar ■, with the reasons, e.g. "4 überfällig · Genehmigungen ok"), and below it a **collapsed
    "Top-5-Aufgaben anzeigen" toggle** (closed on every visit, not persisted) that reveals the market's first 5 blockers
@@ -258,10 +261,20 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
   the Kalender module is the company-wide view across modules.
 - **Layer panel ("Ebenen"):** collapsed behind an "Ebenen" button (state remembered, cookie `mw_kal_ebenen`).
   *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*: Genehmigungen, Raten &
-  Zahlungen, Aufgaben, Fahrzeuge & Pflichten; *Team*: Schichten; *Hintergrund*: Feiertage NRW. Hidden modules' layers
-  are not offered. Default: events + permits + obligations on. **No Aufgaben layer** since the user test 2026-11 (`HIDDEN_MODULES.calendarTasks`; tasks live on the Board).
+  Zahlungen, Aufgaben, **Termine** (CF9-1), Fahrzeuge & Pflichten; *Team*: Schichten; *Hintergrund*: Feiertage NRW. Hidden modules' layers
+  are not offered. Default: events + Termine + permits + obligations on (older saved selections show Termine as on, see
+  "Termine" below). **No Aufgaben layer** since the user test 2026-11 (`HIDDEN_MODULES.calendarTasks`; tasks live on the Board).
 - **Presets:** two, "Märkte" and "Märkte + Fristen" (= the default). **Narrowing:** "Nur Achtung und Kritisch", Ort
   ("Nur meine Zuständigkeit" returns with Team).
+- **Termine** (CF9-1): a neutral chip with a calendar-clock icon, "09:30" or "ganztägig" and the title, before the
+  deadline chips of its day (all-day first, then by time); list rows likewise (time, title, place). A chip or row opens
+  the **Termin-Vorschau** (`?vorschau=termin:<id>`, other params kept): title, date with weekday and KW, time, Wo (a
+  venue links to its page, a typed address is text), notes, Ansprechpartner (name, phone as `tel:`, e-mail as
+  `mailto:`), "In Kontakte öffnen" when it is a saved contact, **Bearbeiten** (`?neu=termin&bearbeiten=<id>`, the
+  Vorschau closes) and **Archivieren** (undo toast; undo reopens the Vorschau). The same Vorschau opens on the
+  Übersicht. "Nur Achtung und Kritisch" hides Termine (they carry no urgency), "Nur meine Zuständigkeit" does not touch
+  them, the Ort narrowing keeps those at that venue. "+ N weitere" counts them. No "+" in a day cell (not offered for
+  other kinds either); "+ Neu › Termin" pre-fills nothing but today.
 - **Entries:** month chips show the full market name (up to two lines) with the market colour bar; every event
   chip and list row links to the event's Überblick (`/veranstaltungen/<id>`).
 - The layer selection is **saved per person** (`user_preference.saved_views`).

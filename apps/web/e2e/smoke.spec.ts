@@ -1127,3 +1127,70 @@ test('"+ Neu" › Termin: name and today, saved with a toast; the dialog closes 
   await toastUndo(page).click(); // leaves no appointment behind
   await expect(page.getByText("Termin entfernt")).toBeVisible();
 });
+
+test("Termin: appears in the Kalender (Monat and Liste) and under Termine heute; its Vorschau shows the contact; archiving has an undo", async ({
+  page,
+}) => {
+  const name = `E2E-Termin ${Date.now()}`;
+  await page.goto("/?neu=termin");
+  const dialog = page.getByRole("dialog", { name: "Termin anlegen" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Name", { exact: true }).first().fill(name);
+  await dialog.getByRole("button", { name: "Neuer Kontakt …" }).click();
+  await dialog.getByLabel("Name", { exact: true }).nth(1).fill("Frau E2E-Kontakt");
+  await dialog.getByLabel("Telefon").fill("+49 221 1234567");
+  await dialog.getByLabel("E-Mail").fill("e2e.kontakt@example.com");
+  await dialog.getByLabel("Als Kontakt speichern").uncheck(); // stays on the Termin, no Kontakte entry left over
+  await dialog.getByRole("button", { name: "Anlegen" }).click();
+  await expect(page.getByText("Termin angelegt")).toBeVisible();
+  await expect(dialog).toBeHidden();
+
+  // Übersicht: first group of "Heute & überfällig", all-day Termine first.
+  const group = page.getByRole("region", { name: "Termine heute" });
+  await expect(group).toBeVisible();
+  await expect(group.getByRole("link", { name })).toBeVisible();
+
+  // Kalender: the Liste shows it today; its Vorschau has the contact as tel: and mailto: links.
+  await page.goto("/kalender?ansicht=liste");
+  const row = page.getByRole("row").filter({ hasText: name });
+  await expect(row).toBeVisible();
+  await row.getByRole("link", { name }).click();
+  const vorschau = page.getByRole("dialog", { name });
+  await expect(vorschau).toBeVisible();
+  await expect(vorschau.getByText("Frau E2E-Kontakt")).toBeVisible();
+  await expect(vorschau.getByRole("link", { name: "+49 221 1234567" })).toHaveAttribute(
+    "href",
+    "tel:+492211234567",
+  );
+  await expect(vorschau.getByRole("link", { name: "e2e.kontakt@example.com" })).toHaveAttribute(
+    "href",
+    "mailto:e2e.kontakt@example.com",
+  );
+
+  // Monat: the chip is in today's cell (the Vorschau URL keeps the view).
+  await page.goto("/kalender");
+  await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
+
+  // Archive from the Vorschau: gone from the Übersicht, back with the undo.
+  await page.goto("/?vorschau=termin:" + (await termId(page, name)));
+  await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByText("Termin archiviert")).toBeVisible();
+  await expect(group.getByRole("link", { name })).toHaveCount(0);
+  await toastUndo(page).click();
+  await expect(page.getByText("Termin wiederhergestellt")).toBeVisible();
+  await expect(group.getByRole("link", { name })).toBeVisible();
+
+  // Leave nothing behind.
+  await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByText("Termin archiviert")).toBeVisible();
+});
+
+/** The id of a Termin, read from its link in the Übersicht's "Termine heute" group. */
+async function termId(page: Page, name: string): Promise<string> {
+  await page.goto("/");
+  const href = await page
+    .getByRole("region", { name: "Termine heute" })
+    .getByRole("link", { name })
+    .getAttribute("href");
+  return (href ?? "").split("termin:")[1] ?? "";
+}

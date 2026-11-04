@@ -46,7 +46,8 @@
         "installments": "Instalments & payments",
         "tasks": "Tasks",
         "obligations": "Vehicles & obligations",
-        "shifts": "Shifts"
+        "shifts": "Shifts",
+        "appointments": "Appointments"
       }
     },
     "gridCaption": "Calendar {month}",

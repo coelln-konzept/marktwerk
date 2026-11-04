@@ -1,6 +1,10 @@
 import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
+import {
+  AppointmentVorschau,
+  terminVorschauId,
+} from "@/components/appointments/appointment-vorschau";
 import { NewTaskButton } from "@/components/board/new-task-dialog";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
@@ -14,6 +18,7 @@ import { formatDate, formatWeek, todayIn } from "@/lib/format";
 import { HIDDEN_MODULES, isModuleHidden } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
+import { listAppointmentsOn } from "@/server/queries/appointments";
 import { getOverview } from "@/server/queries/overview";
 import {
   getNotifySelf,
@@ -54,8 +59,13 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
     timeZone: "UTC",
     weekday: "long",
   }).format(new Date(`${today}T12:00:00Z`));
-  const overview = await getOverview(actor, today, HIDDEN_MODULES);
-  const vorschauId = param(sp.vorschau);
+  const [overview, appointments] = await Promise.all([
+    getOverview(actor, today, HIDDEN_MODULES),
+    can(actor.role, "event", "read") ? listAppointmentsOn(today) : Promise.resolve([]),
+  ]);
+  const vorschauParam = param(sp.vorschau);
+  const terminId = terminVorschauId(vorschauParam);
+  const vorschauId = terminId ? undefined : vorschauParam;
   const taskId = param(sp.aufgabe);
   const canWrite = can(actor.role, "task", "write");
 
@@ -95,7 +105,13 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
       />
       {/* One KeyboardRows around all cards: J/K walk today's list, then the weekend, then the week. */}
       <KeyboardRows className="grid items-start gap-4 lg:grid-cols-2">
-        <TodayCard due={overview.due} today={today} canSnooze={canWrite} />
+        <TodayCard
+          due={overview.due}
+          appointments={appointments}
+          today={today}
+          canSnooze={canWrite}
+          vorschauId={vorschauParam}
+        />
         <WeekendCard
           weekend={overview.weekend}
           next={overview.nextWeekend}
@@ -110,6 +126,14 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
       <p className="-mt-3 px-1 text-muted-foreground text-tiny touch:hidden">{t("keys")}</p>
       <PastMarketsLine count={overview.pastMarketTasks} query={sp} canCleanup={canWrite} />
       {vorschauId && <EventVorschau id={vorschauId} closeHref="/" />}
+      {terminId && (
+        <AppointmentVorschau
+          id={terminId}
+          closeHref={hrefWith("/", sp, { vorschau: undefined })}
+          editHref={hrefWith("/", sp, { vorschau: undefined, neu: "termin", bearbeiten: terminId })}
+          reopenHref={hrefWith("/", sp, { vorschau: `termin:${terminId}` })}
+        />
+      )}
       {taskDrawer}
       {/* "+ Neu › Aufgabe" outside an event page (was on the global Board, hidden 2026-11-03). */}
       {canWrite && param(sp.neu) === "1" && (

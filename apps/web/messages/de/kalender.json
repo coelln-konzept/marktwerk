@@ -46,7 +46,8 @@
         "installments": "Raten & Zahlungen",
         "tasks": "Aufgaben",
         "obligations": "Fahrzeuge & Pflichten",
-        "shifts": "Schichten"
+        "shifts": "Schichten",
+        "appointments": "Termine"
       }
     },
     "gridCaption": "Kalender {month}",

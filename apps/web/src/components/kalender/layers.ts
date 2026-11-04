@@ -11,7 +11,7 @@ import { CALENDAR_LAYERS, type CalendarLayer } from "@/server/queries/due";
 export type Layers = {
   /** Event type keys shown (layer group VERANSTALTUNGEN). */
   types: string[];
-  /** Module layers shown (groups FRISTEN and TEAM): tasks, permits, installments, obligations, shifts. */
+  /** Module layers shown (groups FRISTEN and TEAM): tasks, appointments, permits, installments, obligations, shifts. */
   deadlines: CalendarLayer[];
   /** Feiertage NRW (layer group HINTERGRUND). */
   holidays: boolean;
@@ -57,7 +57,7 @@ export type PresetKey = (typeof PRESETS)[number]["key"];
 
 /** Layer groups of the panel, in order. */
 export const DEADLINE_GROUPS = {
-  deadlines: ["permits", "installments", "tasks", "obligations"],
+  deadlines: ["permits", "installments", "tasks", "appointments", "obligations"],
   team: ["shifts"],
 } as const satisfies Record<string, readonly CalendarLayer[]>;
 
@@ -74,6 +74,8 @@ export function availableLayers(
 ): CalendarLayer[] {
   const allowed: Record<CalendarLayer, boolean> = {
     tasks: !hide.calendarTasks && can(role, "task", "read"),
+    // Termine reuse the `event` permissions (decision CF9-1).
+    appointments: can(role, "event", "read"),
     permits: can(role, "permit", "read"),
     installments: !hide.finance && can(role, "finance", "read"),
     obligations: can(role, "company", "read"),
@@ -103,6 +105,39 @@ export function sanitizeLayers(raw: unknown): Layers {
     venue: typeof o.venue === "string" && UUID.test(o.venue) ? o.venue : null,
   };
 }
+
+/**
+ * A saved selection (`user_preference.saved_views.kalender`). Besides the layers it carries `known`, the
+ * module layers that existed when it was saved: a layer that is newer than the save (older saves have no
+ * `known`, they predate the Termine layer) shows as on if it is on by default, instead of silently off.
+ * A layer the save knew and left out stays off. The URL never goes through this: it is explicit.
+ */
+export function sanitizeSavedLayers(raw: unknown): Layers {
+  const layers = sanitizeLayers(raw);
+  const o = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+  const known = Array.isArray(o.known) ? (o.known as unknown[]) : LAYERS_BEFORE_TERMINE;
+  const added = CALENDAR_LAYERS.filter(
+    (l) => !known.includes(l) && DEFAULT_LAYERS.deadlines.includes(l),
+  );
+  if (added.length === 0 || !Array.isArray(o.deadlines)) return layers;
+  return {
+    ...layers,
+    deadlines: CALENDAR_LAYERS.filter((l) => layers.deadlines.includes(l) || added.includes(l)),
+  };
+}
+
+/** The saved form of a selection: the layers plus the layers that exist now (see {@link sanitizeSavedLayers}). */
+export function savedLayerValue(layers: Layers) {
+  return { ...layers, known: [...CALENDAR_LAYERS] };
+}
+
+const LAYERS_BEFORE_TERMINE: readonly unknown[] = [
+  "tasks",
+  "permits",
+  "shifts",
+  "installments",
+  "obligations",
+];
 
 type Params = Record<string, string | string[] | undefined>;
 

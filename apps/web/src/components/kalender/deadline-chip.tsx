@@ -15,6 +15,7 @@ import type { DisplayItem } from "./group-deadlines";
 
 export const LAYER_ICONS: Record<CalendarLayer, LucideIcon> = {
   tasks: CircleCheck,
+  appointments: CalendarClock,
   permits: ShieldCheck,
   shifts: Users,
   installments: Wallet,

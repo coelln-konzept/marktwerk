@@ -60,6 +60,31 @@
       "not_found": "The appointment no longer exists.",
       "generic": "That did not work. Please try again.",
       "loadFailed": "The form could not be loaded."
+    },
+    "chip": {
+      "allDay": "all day",
+      "kind": "Appointment"
+    },
+    "vorschau": {
+      "label": "Appointment",
+      "date": "Date",
+      "time": "Time",
+      "where": "Where",
+      "notes": "Notes",
+      "contact": "Contact",
+      "none": "–",
+      "openContact": "Open in Contacts",
+      "edit": "Edit",
+      "archive": "Archive",
+      "archived": "Appointment archived",
+      "restored": "Appointment restored",
+      "failed": "That didn't work. Please try again.",
+      "openVenue": "Open venue",
+      "timeRange": "{from}–{to}",
+      "timeFrom": "from {from}",
+      "allDay": "all day",
+      "kind": "Appointment",
+      "restoredShort": "Appointment restored"
     }
   }
 }
