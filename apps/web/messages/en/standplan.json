@@ -2,13 +2,13 @@
   "standplan": {
     "title": "Stall plan",
     "prototype": "Prototype · data only in this browser",
-    "subtitle": "Drag requests from the mailbox onto rows, review proposals and confirm. The vendor gets the confirmation by mail.",
+    "subtitle": "Drag requests from the Postfach onto rows and send the Platzkarte. The stall is then reserved until the transfer arrives; mark it paid afterwards (fixed).",
     "noEvents": "No upcoming events with rows. Add zones and rows to the location first.",
     "mapRegion": "Site plan",
     "sideRegion": "Event and requests",
     "event": "Event",
     "autoplatz": "Auto-place",
-    "confirmAll": "{count, plural, =0 {Confirm} other {Confirm # and send mail}}",
+    "confirmAll": "{count, plural, =0 {Send Platzkarte} one {Send Platzkarte (#)} other {Send # Platzkarten}}",
     "print": "Print",
     "gapRule": "No leftover gaps under 2 m",
     "keysHint": "Drag: drag a request from the list onto a row, move stalls on the plan. Keyboard: click a stall, then ← → moves 50 cm (1 m with Shift), ↑ ↓ changes row, Delete takes it off the plan, Esc clears the selection. Without a mouse: “Place in …” in the details.",
@@ -30,8 +30,11 @@
       "declined": "Declined"
     },
     "status": {
-      "proposed": "Proposal",
-      "assigned": "Confirmed"
+      "proposed": "Draft",
+      "reserved": "Reserved",
+      "reservedUntil": "Reserved until {date}",
+      "fixed": "Fixed",
+      "festplatz": "Fixed spot"
     },
     "stats": {
       "venue": "Location",
@@ -40,11 +43,12 @@
       "fee": "+ {fee} fee"
     },
     "legend": {
-      "existing": "Existing",
-      "confirmed": "Confirmed",
-      "proposed": "Proposal",
-      "preferred": "Regular spot row",
-      "car": "Car at stall"
+      "proposed": "Draft",
+      "reserved": "Reserved (awaiting payment)",
+      "fixed": "Fixed (paid)",
+      "preferred": "Preferred row",
+      "car": "Car at stall",
+      "festplatz": "Fixed spot (whole year)"
     },
     "map": {
       "label": "Site plan {venue}",
@@ -80,11 +84,26 @@
       "unplaced": "not placed yet",
       "placeIn": "Place in …",
       "moveTo": "Move to …",
-      "confirm": "Confirm and send mail",
+      "confirm": "Send Platzkarte",
       "unplace": "Take off the plan",
       "decline": "Decline",
       "original": "Original mail",
-      "sent": "Confirmation sent on {date}"
+      "sent": "Last sent on {date}",
+      "status": "Status",
+      "reference": "Payment reference",
+      "amount": "Amount",
+      "due": "Pay by",
+      "reminderOn": "Reminder on {date}",
+      "reminded": "Reminded on {date}",
+      "noReminder": "no reminder (window too short)",
+      "paid": "Paid on",
+      "markPaid": "Mark as paid",
+      "release": "Release",
+      "fixDirect": "Record as paid (fixed)",
+      "noEmail": "No email: record as paid or add an email",
+      "makeFestplatz": "Make fixed spot for {year}",
+      "festplatzHint": "Fixed spot {year}: held on every date of this market.",
+      "manageFestplatz": "Manage dates"
     },
     "toast": {
       "placed": "{name} placed on {stall}",
@@ -92,17 +111,25 @@
       "declined": "Request from {name} declined",
       "noRoom": "No room for this in row {row}",
       "autoplatz": "Auto-place: {placed} proposed, {left} without space",
-      "confirmed": "{count, plural, one {# confirmation} other {# confirmations}} sent (Mailbox → Sent)",
       "versionSaved": "“{name}” saved, no mail sent",
       "versionLoaded": "“{name}” loaded",
       "versionLoadedSkipped": "“{name}” loaded; {skipped, plural, one {# stall no longer fits} other {# stalls no longer fit}} (confirmed or taken meanwhile)",
       "versionDeleted": "“{name}” deleted",
       "autoplatzWhy": "Auto-place: {placed} proposed, {left} without space (reasons are shown on the requests)",
-      "confirmedWithVendors": "{count, plural, one {# confirmation} other {# confirmations}} sent; {added, plural, one {# new person} other {# new people}} added to the vendor list (simulation)"
+      "reserved": "{count, plural, one {Platzkarte sent} other {# Platzkarten sent}}, reserved until {due} (Postfach → Sent)",
+      "paid": "{count, plural, one {# stall is} other {# stalls are}} now fixed",
+      "paidWithVendors": "{count, plural, one {# stall is} other {# stalls are}} now fixed; {added, plural, one {# new person} other {# new people}} added to the vendor list (simulated)",
+      "released": "Reservation of {name} ({stall}) released, no mail sent",
+      "movedBooked": "{name} is now on {stall}. The stall number changed; the mail to the vendor comes in a later step",
+      "sweep": "Reservations checked: {reminded, plural, one {# reminder} other {# reminders}} sent, {released, plural, one {# reservation} other {# reservations}} lapsed and cancelled",
+      "manualCreated": "Booking for {name} created; now drag it onto the plan or use “Place in …”",
+      "festplatzCreated": "{name}: fixed spot for {count, plural, one {# date} other {# dates}} of {market} {year} created",
+      "festplatzDeleted": "Fixed spot of {name} deleted"
     },
     "announce": {
       "placed": "{name} is now on {stall}",
-      "blocked": "No room there"
+      "blocked": "No room there",
+      "notDraft": "Only drafts can be taken off the plan; release reserved stalls with “Release”"
     },
     "printSheet": {
       "stall": "Stall",
@@ -111,8 +138,9 @@
       "length": "Length",
       "car": "Car",
       "status": "Status",
-      "proposed": "Proposal",
-      "rows": "Use per row"
+      "proposed": "Draft",
+      "rows": "Use per row",
+      "reserved": "Reserved"
     },
     "versions": {
       "title": "Versions",
@@ -124,7 +152,7 @@
       "saved": "Saved",
       "name": "Version name",
       "namePlaceholder": "e.g. cars at the back",
-      "hint": "Saves only the proposals; no mail is sent. Confirmed stalls stay unchanged when loading.",
+      "hint": "Saves only the drafts; no mail goes out. Reserved and fixed stalls stay unchanged when loading.",
       "empty": "No version saved yet.",
       "meta": "{count, plural, one {# proposal} other {# proposals}} · {date}",
       "load": "Load",
@@ -132,7 +160,6 @@
     },
     "why": {
       "title": "Doesn't fit anywhere right now",
-      "line": "{count, plural, one {Row} other {Rows}} {rows}: {why}",
       "noPower": "no power connection",
       "carNotAllowed": "no cars allowed",
       "carSlotsFull": "all car spaces taken ({slots})",
@@ -147,7 +174,18 @@
       "option": "doesn't fit: {why}",
       "toast": "Row {row}: {why}",
       "ghost": "doesn't fit: {why}",
-      "badge": "Fits nowhere"
+      "badge": "Fits nowhere",
+      "rows": "{count, plural, one {Row {rows}} other {Rows {rows}}}",
+      "rowsCount": "{count} rows",
+      "more": "{text} (+{count, plural, one {# more reason} other {# more reasons}})",
+      "all": {
+        "carNotAllowed": "No row where cars are allowed",
+        "noPower": "No row with power",
+        "carSlotsFull": "All car spaces are taken",
+        "tooLong": "No row is long enough",
+        "noGap": "No gap large enough anywhere",
+        "gapRule": "Only gaps that would leave remnants under 2 m"
+      }
     },
     "vendor": {
       "label": "Vendor list",
@@ -155,8 +193,109 @@
       "registered": "Newly added",
       "new": "Not in the list yet",
       "knownHint": "Already in the vendor list.",
-      "registeredHint": "Added to the vendor list after confirmation (prototype: simulation).",
-      "newHint": "Only enters the vendor list once the stall is confirmed, so spam and bad requests stay out."
+      "registeredHint": "Added to the vendor list on payment (fixed) (prototype: simulated).",
+      "newHint": "Joins the vendor list only once the stall is paid (fixed), so spam and bad requests stay out."
+    },
+    "ansicht": {
+      "label": "View",
+      "plan": "Plan",
+      "reservierungen": "Reservations",
+      "festplaetze": "Fixed spots"
+    },
+    "releasedNote": {
+      "unpaid": "Reservation {stall} lapsed on {date} (unpaid)",
+      "manual": "Reservation {stall} released on {date}"
+    },
+    "reservations": {
+      "stats": {
+        "reserved": "Reserved",
+        "fixed": "Fixed",
+        "paidSum": "{sum} paid",
+        "released": "Released"
+      },
+      "clock": {
+        "label": "Prototype date:",
+        "next": "+1 day",
+        "reset": "Today"
+      },
+      "filter": {
+        "all": "All open",
+        "soon": "Reminded or due today"
+      },
+      "markPaid": "{count, plural, =0 {Mark as paid} other {Mark # as paid}}",
+      "empty": "No open reservations. Platzkarten go out from the plan via “Send Platzkarte”.",
+      "selectAll": "Select all",
+      "select": "Select {name}",
+      "col": {
+        "stall": "Stall",
+        "vendor": "Vendor",
+        "amount": "Amount",
+        "reference": "Reference",
+        "due": "Pay by",
+        "reminder": "Reminder",
+        "actions": "Actions"
+      },
+      "dueToday": "Due today",
+      "reminded": "reminded {date}",
+      "reminderOn": "on {date}",
+      "noReminder": "none (window too short)",
+      "paid": "Paid",
+      "release": "Release reservation of {name}",
+      "rules": "Deadline and reminder come from Settings → Bookings. After the deadline an unpaid reservation is released automatically and the vendor gets a cancellation mail.",
+      "releasedTitle": "{count, plural, one {# released reservation} other {# released reservations}}",
+      "releasedUnpaid": "lapsed {date}",
+      "releasedManual": "released {date}"
+    },
+    "manual": {
+      "open": "Booking",
+      "title": "Enter a booking",
+      "subtitle": "{event} · {date}",
+      "cancel": "Cancel",
+      "create": "Create booking",
+      "source": {
+        "phone": "Phone",
+        "walkin": "In person"
+      },
+      "paidShort": "paid",
+      "lookup": "Search the vendor list",
+      "lookupPlaceholder": "Name, company, email or phone",
+      "knownVendor": "Taken from the vendor list.",
+      "name": "Name",
+      "company": "Company",
+      "phone": "Phone",
+      "email": "Email",
+      "emailHint": "Optional; needed for the Platzkarte by mail.",
+      "private": "Private",
+      "commercial": "Commercial",
+      "length": "Stall length (m)",
+      "car": "Car at stall",
+      "carLength": "Car length (m)",
+      "power": "Power",
+      "note": "Note",
+      "payment": {
+        "label": "Payment",
+        "mail": "Platzkarte by mail",
+        "paid": "Already paid (cash / on site)",
+        "mailHint": "As online: the Platzkarte goes out and the stall is reserved until the transfer arrives.",
+        "paidHint": "After placing, “Record as paid”: the stall is fixed and no mail goes out.",
+        "noEmail": "Without an email there's no Platzkarte by mail; the booking is recorded as paid."
+      }
+    },
+    "festplatz": {
+      "intro": "Fixed spots for {market} {year}: the stall is held on every date of the year.",
+      "empty": "No fixed spots yet. Click a stall (reserved or fixed) and choose “Make fixed spot”.",
+      "dates": "{active} of {total} dates",
+      "conflicts": "{count, plural, one {# conflict} other {# conflicts}}",
+      "manage": "Manage dates",
+      "manageHint": "Exceptions: untick a date when the vendor won't come. The stall is free on that date.",
+      "delete": "Delete fixed spot",
+      "state": {
+        "placed": "held",
+        "source": "original booking",
+        "optedOut": "opted out",
+        "conflict": "conflict: spot taken"
+      },
+      "paymentOpen": "Payment for fixed spots is still open (question for the owner)."
     }
   }
 }

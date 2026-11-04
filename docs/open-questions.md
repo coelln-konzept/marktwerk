@@ -42,6 +42,8 @@
 | 2026-11-04 | Unpaid reservations | **Released automatically** after **4 working days** (NRW holidays skipped), with an automatic reminder mail (timing **configurable in settings**, default 2 working days before) and a cancellation mail. Amends ADR 0014 for this case |
 | 2026-11-04 | Vendor list (bookings) | New people join the vendor list when their stall becomes **Fest** |
 | 2026-11-04 | Payment reference | One **short code** per Platzkarte, e.g. `RG-1211-B13` (assumed, owner did not object) |
+| 2026-11-04 | Manual bookings | "+ Buchung" for phone / in-person bookings; payment chosen per booking: Platzkarte by mail (two-step) or already paid (cash / on site → Fest directly, no mail). Spec 2026-11-04-manual-and-festplatz-booking |
+| 2026-11-04 | Festplatzbuchung | A Festplatz covers **every date of that market in the year** (same name + venue); single dates can be opted out (tucked away under "Termine verwalten"); conflicts are flagged, never double-booked. Payment open (client) |
 | 2026-10-21 (session 2) | Font | **Inter**, self-hosted via `@fontsource-variable/inter` (no Google request at runtime), tabular figures; system `ui-monospace` for kbd hints. Replaces Geist |
 | 2026-10-21 (session 2) | Start screen | **"Übersicht"** (`/`), one for everyone: KPI strip, season strip with hiring signal, Heute fällig, Dieses Wochenende. **No fixed master-detail** screen. Task detail drawer and season strip restored |
 | 2026-10-21 (session 2) | Sidebar | **Orte and Kontakte: own sidebar entries** (Orte after Veranstaltungen, Kontakte after Aussteller). Routes `/orte`, `/orte/[id]`, `/kontakte`. The prototype's sidebar does not show them |
@@ -143,6 +145,12 @@
    manager); staff and field see only the event counts.
 
 ## Open: client (next meeting / workshop)
+**Bookings (stall allocation prototype, 2026-11-04)**
+- **Festplatz payment:** how do vendors with a Festplatz (one stall at a market for the whole year) pay today:
+  once for the year, per date, or by instalments? Is there a discount? (Prototype holds the stall only.)
+- **Parking:** how are cars handled at each venue (behind the stall per row, specific stall numbers like
+  Riehler Gürtel A 1–50 / B 1–22, a separate area)? See research 12.
+
 **Timeline workshop (top priority, feeds M2)**
 - Per event type: what happens 6 months / 2 months / 2 weeks / 1 week before, on the day, after? Who does it?
   **How long does each take?**

@@ -13,13 +13,14 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { type ConversationStatus, folderPath } from "@marktwerk/core";
-import { Inbox, Search, SquarePen } from "lucide-react";
+import { ArrowLeft, Inbox, Search, SquarePen } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { useShell } from "@/components/shell/shell-context";
+import { useReservationSweep } from "@/components/standplan/reservation-sweep";
 import { useStandplanStore } from "@/components/standplan/store";
 import type { StandplanData } from "@/components/standplan/types";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,8 @@ export function PostfachView({
   const { showToast } = useShell();
   const { state, update, reset } = useMailStore();
   const { state: standplan } = useStandplanStore();
+  // Reservation reminders and releases also run when only the Postfach is open (prototype sweep).
+  useReservationSweep();
   const [mailbox, setMailbox] = useState<MailboxId | "alle">(
     demo.mailboxes.some((b) => b.id === initial.postfach)
       ? (initial.postfach as MailboxId)
@@ -365,7 +368,12 @@ export function PostfachView({
         screenReaderInstructions: { draggable: t("dnd.instructions") },
       }}
     >
-      <div className="grid min-h-[calc(100dvh-180px)] gap-4 lg:grid-cols-[220px_minmax(260px,340px)_minmax(0,1fr)] 2xl:grid-cols-[220px_340px_minmax(0,1fr)_300px]">
+      {/*
+        Columns by width: lg = folders + (list OR conversation, with a back button); xl = folders, list,
+        conversation; ≥1800 px also the Aktionen column (below that Aktionen opens as a dialog). Keeps
+        the reading pane wide enough for the form card and composer.
+      */}
+      <div className="grid min-h-[calc(100dvh-180px)] gap-4 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[200px_300px_minmax(0,1fr)] min-[1800px]:grid-cols-[220px_340px_minmax(0,1fr)_300px]">
         {/* Mailboxes + folders */}
         <nav aria-label={t("nav.label")} className="flex flex-col gap-4 text-small">
           <Link
@@ -464,7 +472,10 @@ export function PostfachView({
         {/* List */}
         <section
           aria-label={t("list.label")}
-          className="flex min-h-0 flex-col rounded-xl border bg-card"
+          className={cn(
+            "flex min-h-0 min-w-0 flex-col rounded-xl border bg-card",
+            current && "lg:max-xl:hidden",
+          )}
         >
           <div className="flex flex-col gap-2 border-b p-2">
             <div className="relative">
@@ -518,7 +529,21 @@ export function PostfachView({
         </section>
 
         {/* Conversation */}
-        <section aria-label={t("thread.label")} className="min-w-0">
+        <section
+          aria-label={t("thread.label")}
+          className={cn("min-w-0", !current && "lg:max-xl:hidden")}
+        >
+          {current && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mb-2 hidden lg:max-xl:inline-flex"
+              onClick={() => open(null)}
+            >
+              <ArrowLeft />
+              {t("thread.backToList")}
+            </Button>
+          )}
           {current ? (
             <ThreadView
               demo={demo}
@@ -553,7 +578,7 @@ export function PostfachView({
         </section>
 
         {/* Actions: own column on wide screens, a dialog below */}
-        <aside aria-label={t("actions.label")} className="hidden 2xl:block">
+        <aside aria-label={t("actions.label")} className="hidden min-[1800px]:block">
           {actionsPanel}
         </aside>
         {actionsOpen && current && (

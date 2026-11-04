@@ -45,8 +45,48 @@ export function useWhy() {
         return t("gapRule");
     }
   };
-  const line = (g: Group) =>
-    t("line", { rows: g.rowLabels.join(", "), count: g.rowLabels.length, why: one(g.reason) });
+  /** "Reihe A, C" for up to three rows, otherwise just the count ("13 Reihen"). */
+  const rowsText = (labels: string[]) =>
+    labels.length <= 3
+      ? t("rows", { count: labels.length, rows: labels.join(", ") })
+      : t("rowsCount", { count: labels.length });
+  const line = (g: Group) => `${rowsText(g.rowLabels)}: ${one(g.reason)}`;
+  /**
+   * One short sentence for the request card. When one reason applies to every row it says so plainly
+   * ("Keine Reihe, in der Autos erlaubt sind"); otherwise the most common reason, plus "+n" more.
+   */
+  const summary = (groups: Group[], totalRows: number): string => {
+    const main = [...groups].sort((a, b) => b.rowLabels.length - a.rowLabels.length)[0];
+    if (!main) return "";
+    const more = groups.length - 1;
+    const everywhere = main.rowLabels.length >= totalRows;
+    let text: string;
+    if (everywhere) {
+      switch (main.reason.kind) {
+        case "car_not_allowed":
+          text = t("all.carNotAllowed");
+          break;
+        case "no_power":
+          text = t("all.noPower");
+          break;
+        case "car_slots_full":
+          text = t("all.carSlotsFull");
+          break;
+        case "too_long":
+          text = t("all.tooLong");
+          break;
+        case "no_gap":
+          text = t("all.noGap");
+          break;
+        case "gap_rule":
+          text = t("all.gapRule");
+          break;
+      }
+    } else {
+      text = line(main);
+    }
+    return more > 0 ? t("more", { text, count: more }) : text;
+  };
   /** A practical next step for the dominant reason. */
   const hint = (groups: Group[]): string | null => {
     const kinds = new Set(groups.map((g) => g.reason.kind));
@@ -56,5 +96,5 @@ export function useWhy() {
     if (kinds.has("no_gap") || kinds.has("too_long")) return t("hintSpace");
     return null;
   };
-  return { one, line, hint };
+  return { one, line, summary, hint };
 }

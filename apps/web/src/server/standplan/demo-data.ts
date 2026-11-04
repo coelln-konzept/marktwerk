@@ -451,6 +451,25 @@ export async function loadStandplanDemo(
 
   return {
     mails: parsed,
-    data: { events, venues: [...venues.values()], items: finalItems, existing, unmatched },
+    data: {
+      events,
+      venues: [...venues.values()],
+      items: finalItems,
+      existing,
+      unmatched,
+      vendors: vendors.map((v) => ({
+        name:
+          v.displayName ??
+          ([v.firstName, v.lastName].filter(Boolean).join(" ") || v.companyName || v.email || ""),
+        companyName: v.companyName,
+        email: v.email ?? "",
+        phone: v.phone,
+        kind: v.kind === "commercial" ? ("commercial" as const) : ("private" as const),
+        categories: v.categories ?? [],
+        defaultLengthCm: v.defaultLengthCm,
+        hasCar: Boolean(v.hasCar),
+        carLengthCm: v.carLengthCm,
+      })),
+    },
   };
 }

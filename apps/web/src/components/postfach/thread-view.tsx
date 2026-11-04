@@ -6,6 +6,7 @@ import {
   CircleAlert,
   CircleCheck,
   CircleDashed,
+  Clock,
   Forward,
   MailOpen,
   MapPinned,
@@ -126,7 +127,7 @@ export function ThreadView({
             {conversation.subject}
           </h2>
           {onShowActions && (
-            <Button size="sm" className="2xl:hidden" onClick={onShowActions}>
+            <Button size="sm" className="min-[1800px]:hidden" onClick={onShowActions}>
               <PanelRight />
               {t("actions.open")}
             </Button>
@@ -455,95 +456,105 @@ function FormRequest({
     ["preferredSpot", t("spot"), req.preferredSpot?.raw ?? "–"],
   ];
   return (
-    <div className="grid gap-3 xl:grid-cols-2">
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-sunken p-2 font-mono text-[12px] leading-relaxed">
-        {m.text}
-      </pre>
-      <div className="flex flex-col gap-2">
-        {!p.ok && (
-          <p
-            role="alert"
-            className="flex gap-1.5 rounded-md bg-status-critical-bg p-2 text-status-critical text-tiny"
-          >
-            <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
-            {t("failed")}
-          </p>
-        )}
-        <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1">
-          {fields.map(([key, label, value]) => {
-            const issue = issueFor(key);
-            return (
-              <div key={key} className="contents">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className={cn(issue && !p.ok && "text-status-critical")}>
-                  {value || (issue ? `„${issue.value ?? ""}“` : "–")}
-                </dd>
-                <dd>
-                  {issue ? (
-                    <TriangleAlert
-                      className={cn("size-4", p.ok ? "text-status-warn" : "text-status-critical")}
-                      aria-label={t("issue")}
-                    />
-                  ) : (
-                    <CircleCheck className="size-4 text-status-ok" aria-label={t("ok")} />
-                  )}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
-        {req.note && (
-          <p className="rounded-md bg-status-warn-bg p-2 text-status-warn text-tiny">
-            <strong>{t("note")}: </strong>
-            {req.note}
-          </p>
-        )}
-        {items.length > 0 && (
-          <ul className="flex flex-col gap-1">
-            {items.map((item) => {
-              const ev = plan.events.find((e) => e.id === item.eventId);
-              const list =
-                standplan.placements[item.eventId] ??
-                (plan.existing[item.eventId] ?? []).map((x) => ({
-                  ...x,
-                  status: "assigned" as const,
-                }));
-              const pl = list.find((x) => x.itemId === item.id);
-              const row = plan.venues
-                .find((v) => v.id === ev?.venueId)
-                ?.zones.flatMap((z) => z.rows)
-                .find((r) => r.id === pl?.rowId);
+    // Side by side only when the reading pane itself is wide enough (container query, not the
+    // viewport): with the actions column open the pane is narrow even on a large screen.
+    <div className="@container">
+      <div className="grid gap-3 @2xl:grid-cols-2">
+        <pre className="min-w-0 overflow-x-auto whitespace-pre-wrap break-words rounded-md bg-sunken p-2 font-mono text-[12px] leading-relaxed">
+          {m.text}
+        </pre>
+        <div className="flex min-w-0 flex-col gap-2">
+          {!p.ok && (
+            <p
+              role="alert"
+              className="flex gap-1.5 rounded-md bg-status-critical-bg p-2 text-status-critical text-tiny"
+            >
+              <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
+              {t("failed")}
+            </p>
+          )}
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-1">
+            {fields.map(([key, label, value]) => {
+              const issue = issueFor(key);
               return (
-                <li key={item.id} className="flex flex-wrap items-center gap-2 text-tiny">
-                  <span className="font-medium">
-                    {ev ? formatDateWithWeekday(ev.startsOn, locale) : ""}
-                  </span>
-                  {pl && row ? (
-                    pl.status === "assigned" ? (
-                      <StatusBadge tone="ok" icon={CircleCheck}>
-                        {t("confirmed", { stall: stallNumber(row.label, pl.startCm) })}
-                      </StatusBadge>
-                    ) : (
-                      <StatusBadge tone="warn" icon={CircleDashed}>
-                        {t("proposed", { stall: stallNumber(row.label, pl.startCm) })}
-                      </StatusBadge>
-                    )
-                  ) : (
-                    <StatusBadge tone="info" icon={MapPinned}>
-                      {t("open")}
-                    </StatusBadge>
-                  )}
-                  <Link
-                    href={`/standplan?veranstaltung=${item.eventId}` as Route}
-                    className="ml-auto text-accent-soft-foreground underline-offset-4 hover:underline"
+                <div key={key} className="contents">
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd
+                    className={cn("min-w-0 break-words", issue && !p.ok && "text-status-critical")}
                   >
-                    {t("openPlan")}
-                  </Link>
-                </li>
+                    {value || (issue ? `„${issue.value ?? ""}“` : "–")}
+                  </dd>
+                  <dd>
+                    {issue ? (
+                      <TriangleAlert
+                        className={cn("size-4", p.ok ? "text-status-warn" : "text-status-critical")}
+                        aria-label={t("issue")}
+                      />
+                    ) : (
+                      <CircleCheck className="size-4 text-status-ok" aria-label={t("ok")} />
+                    )}
+                  </dd>
+                </div>
               );
             })}
-          </ul>
-        )}
+          </dl>
+          {req.note && (
+            <p className="rounded-md bg-status-warn-bg p-2 text-status-warn text-tiny">
+              <strong>{t("note")}: </strong>
+              {req.note}
+            </p>
+          )}
+          {items.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {items.map((item) => {
+                const ev = plan.events.find((e) => e.id === item.eventId);
+                const list =
+                  standplan.placements[item.eventId] ??
+                  (plan.existing[item.eventId] ?? []).map((x) => ({
+                    ...x,
+                    status: "fixed" as const,
+                  }));
+                const pl = list.find((x) => x.itemId === item.id);
+                const row = plan.venues
+                  .find((v) => v.id === ev?.venueId)
+                  ?.zones.flatMap((z) => z.rows)
+                  .find((r) => r.id === pl?.rowId);
+                return (
+                  <li key={item.id} className="flex flex-wrap items-center gap-2 text-tiny">
+                    <span className="font-medium">
+                      {ev ? formatDateWithWeekday(ev.startsOn, locale) : ""}
+                    </span>
+                    {pl && row ? (
+                      pl.status === "fixed" ? (
+                        <StatusBadge tone="ok" icon={CircleCheck}>
+                          {t("confirmed", { stall: stallNumber(row.label, pl.startCm) })}
+                        </StatusBadge>
+                      ) : pl.status === "reserved" ? (
+                        <StatusBadge tone="warn" icon={Clock}>
+                          {t("reserved", { stall: stallNumber(row.label, pl.startCm) })}
+                        </StatusBadge>
+                      ) : (
+                        <StatusBadge tone="warn" icon={CircleDashed}>
+                          {t("proposed", { stall: stallNumber(row.label, pl.startCm) })}
+                        </StatusBadge>
+                      )
+                    ) : (
+                      <StatusBadge tone="info" icon={MapPinned}>
+                        {t("open")}
+                      </StatusBadge>
+                    )}
+                    <Link
+                      href={`/standplan?veranstaltung=${item.eventId}` as Route}
+                      className="ml-auto text-accent-soft-foreground underline-offset-4 hover:underline"
+                    >
+                      {t("openPlan")}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

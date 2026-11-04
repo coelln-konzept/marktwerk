@@ -63,7 +63,8 @@
       "markSpam": "Spam",
       "notSpam": "Not spam",
       "spamManual": "Marked as spam by a person.",
-      "spamRules": "Recognised as spam automatically: {reasons}. “Not spam” brings it back."
+      "spamRules": "Recognised as spam automatically: {reasons}. “Not spam” brings it back.",
+      "backToList": "Back to the list"
     },
     "toast": {
       "status": "Status: {status}",
@@ -193,10 +194,11 @@
       "issue": "Problem",
       "ok": "recognised",
       "note": "Note",
-      "confirmed": "Confirmed {stall}",
-      "proposed": "Proposal {stall}",
+      "confirmed": "Fixed {stall}",
+      "proposed": "Draft {stall}",
       "open": "open",
-      "openPlan": "Open in stall plan"
+      "openPlan": "Open in stall plan",
+      "reserved": "Reserved {stall}"
     },
     "editor": {
       "bold": "Bold",

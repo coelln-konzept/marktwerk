@@ -2,13 +2,13 @@
   "standplan": {
     "title": "Standplan",
     "prototype": "Prototyp · Daten nur in diesem Browser",
-    "subtitle": "Anfragen aus dem Postfach auf Reihen ziehen, Vorschläge prüfen und bestätigen. Die Bestätigung geht als Mail an den Aussteller.",
+    "subtitle": "Anfragen aus dem Postfach auf Reihen ziehen und die Platzkarte senden. Der Platz ist dann reserviert, bis die Überweisung da ist; danach als bezahlt markieren (Fest).",
     "noEvents": "Keine kommenden Veranstaltungen mit Reihen gefunden. Lege beim Ort Zonen und Reihen an.",
     "mapRegion": "Lageplan",
     "sideRegion": "Veranstaltung und Anfragen",
     "event": "Veranstaltung",
     "autoplatz": "Autoplatz",
-    "confirmAll": "{count, plural, =0 {Bestätigen} other {# bestätigen und Mail senden}}",
+    "confirmAll": "{count, plural, =0 {Platzkarte senden} one {Platzkarte senden (#)} other {# Platzkarten senden}}",
     "print": "Drucken",
     "gapRule": "Keine Restlücken unter 2 m",
     "keysHint": "Ziehen: Anfrage aus der Liste auf eine Reihe ziehen, Stände auf dem Plan verschieben. Tastatur: Stand anklicken, dann ← → verschiebt 50 cm (mit Umschalt 1 m), ↑ ↓ wechselt die Reihe, Entf nimmt den Stand vom Plan, Esc hebt die Auswahl auf. Ohne Maus: in den Details „Platzieren in …“.",
@@ -30,8 +30,11 @@
       "declined": "Abgesagt"
     },
     "status": {
-      "proposed": "Vorschlag",
-      "assigned": "Bestätigt"
+      "proposed": "Entwurf",
+      "reserved": "Reserviert",
+      "reservedUntil": "Reserviert bis {date}",
+      "fixed": "Fest",
+      "festplatz": "Festplatz"
     },
     "stats": {
       "venue": "Ort",
@@ -40,11 +43,12 @@
       "fee": "+ {fee} Gebühr"
     },
     "legend": {
-      "existing": "Bestand",
-      "confirmed": "Bestätigt",
-      "proposed": "Vorschlag",
+      "proposed": "Entwurf",
+      "reserved": "Reserviert (wartet auf Zahlung)",
+      "fixed": "Fest (bezahlt)",
       "preferred": "Stammplatz-Reihe",
-      "car": "Auto am Stand"
+      "car": "Auto am Stand",
+      "festplatz": "Festplatz (ganzes Jahr)"
     },
     "map": {
       "label": "Lageplan {venue}",
@@ -80,11 +84,26 @@
       "unplaced": "noch nicht platziert",
       "placeIn": "Platzieren in …",
       "moveTo": "Verschieben nach …",
-      "confirm": "Bestätigen und Mail senden",
+      "confirm": "Platzkarte senden",
       "unplace": "Vom Plan nehmen",
       "decline": "Absagen",
       "original": "Original-Mail",
-      "sent": "Bestätigung gesendet am {date}"
+      "sent": "Zuletzt gesendet am {date}",
+      "status": "Status",
+      "reference": "Verwendungszweck",
+      "amount": "Betrag",
+      "due": "Zahlung bis",
+      "reminderOn": "Erinnerung am {date}",
+      "reminded": "Erinnert am {date}",
+      "noReminder": "keine Erinnerung (Frist zu kurz)",
+      "paid": "Bezahlt am",
+      "markPaid": "Als bezahlt markieren",
+      "release": "Freigeben",
+      "fixDirect": "Als bezahlt eintragen (Fest)",
+      "noEmail": "Keine E-Mail: als bezahlt eintragen oder E-Mail ergänzen",
+      "makeFestplatz": "Als Festplatz {year} übernehmen",
+      "festplatzHint": "Festplatz {year}: steht an allen Terminen dieses Markts.",
+      "manageFestplatz": "Termine verwalten"
     },
     "toast": {
       "placed": "{name} auf {stall} gesetzt",
@@ -92,17 +111,25 @@
       "declined": "Anfrage von {name} abgesagt",
       "noRoom": "In Reihe {row} ist dafür kein Platz",
       "autoplatz": "Autoplatz: {placed} vorgeschlagen, {left} ohne Platz",
-      "confirmed": "{count, plural, one {# Bestätigung} other {# Bestätigungen}} gesendet (Postfach → Gesendet)",
       "versionSaved": "„{name}“ gespeichert, keine Mail gesendet",
       "versionLoaded": "„{name}“ geladen",
       "versionLoadedSkipped": "„{name}“ geladen; {skipped, plural, one {# Stand passt} other {# Stände passen}} nicht mehr (inzwischen bestätigt oder belegt)",
       "versionDeleted": "„{name}“ gelöscht",
       "autoplatzWhy": "Autoplatz: {placed} vorgeschlagen, {left} ohne Platz (Gründe stehen an den Anfragen)",
-      "confirmedWithVendors": "{count, plural, one {# Bestätigung} other {# Bestätigungen}} gesendet; {added, plural, one {# neue Person} other {# neue Personen}} in die Ausstellerliste aufgenommen (Simulation)"
+      "reserved": "{count, plural, one {Platzkarte gesendet} other {# Platzkarten gesendet}}, reserviert bis {due} (Postfach → Gesendet)",
+      "paid": "{count, plural, one {# Stand ist} other {# Stände sind}} jetzt fest",
+      "paidWithVendors": "{count, plural, one {# Stand ist} other {# Stände sind}} jetzt fest; {added, plural, one {# neue Person} other {# neue Personen}} in die Ausstellerliste aufgenommen (Simulation)",
+      "released": "Reservierung von {name} ({stall}) freigegeben, keine Mail gesendet",
+      "movedBooked": "{name} steht jetzt auf {stall}. Die Platznummer hat sich geändert; die Mail an den Aussteller folgt in einem späteren Schritt",
+      "sweep": "Reservierungen geprüft: {reminded, plural, one {# Erinnerung} other {# Erinnerungen}} gesendet, {released, plural, one {# Reservierung} other {# Reservierungen}} verfallen und storniert",
+      "manualCreated": "Buchung für {name} angelegt; jetzt auf den Plan ziehen oder „Platzieren in …“",
+      "festplatzCreated": "{name}: Festplatz für {count, plural, one {# Termin} other {# Termine}} {market} {year} angelegt",
+      "festplatzDeleted": "Festplatz von {name} gelöscht"
     },
     "announce": {
       "placed": "{name} steht jetzt auf {stall}",
-      "blocked": "Dort ist kein Platz"
+      "blocked": "Dort ist kein Platz",
+      "notDraft": "Nur Entwürfe können vom Plan genommen werden; reservierte Stände über „Freigeben“"
     },
     "printSheet": {
       "stall": "Stand",
@@ -111,8 +138,9 @@
       "length": "Länge",
       "car": "Auto",
       "status": "Status",
-      "proposed": "Vorschlag",
-      "rows": "Auslastung je Reihe"
+      "proposed": "Entwurf",
+      "rows": "Auslastung je Reihe",
+      "reserved": "Reserviert"
     },
     "versions": {
       "title": "Versionen",
@@ -124,7 +152,7 @@
       "saved": "Gespeichert",
       "name": "Name der Version",
       "namePlaceholder": "z. B. Variante mit Autos hinten",
-      "hint": "Speichert nur die Vorschläge, es geht keine Mail raus. Bestätigte Stände bleiben beim Laden unverändert.",
+      "hint": "Speichert nur die Entwürfe, es geht keine Mail raus. Reservierte und feste Stände bleiben beim Laden unverändert.",
       "empty": "Noch keine Version gespeichert.",
       "meta": "{count, plural, one {# Vorschlag} other {# Vorschläge}} · {date}",
       "load": "Laden",
@@ -132,7 +160,6 @@
     },
     "why": {
       "title": "Passt aktuell nirgends",
-      "line": "{count, plural, one {Reihe} other {Reihen}} {rows}: {why}",
       "noPower": "kein Stromanschluss",
       "carNotAllowed": "keine Autos erlaubt",
       "carSlotsFull": "alle Autoplätze belegt ({slots})",
@@ -147,7 +174,18 @@
       "option": "passt nicht: {why}",
       "toast": "Reihe {row}: {why}",
       "ghost": "passt nicht: {why}",
-      "badge": "Passt nirgends"
+      "badge": "Passt nirgends",
+      "rows": "{count, plural, one {Reihe {rows}} other {Reihen {rows}}}",
+      "rowsCount": "{count} Reihen",
+      "more": "{text} (+{count, plural, one {# weiterer Grund} other {# weitere Gründe}})",
+      "all": {
+        "carNotAllowed": "Keine Reihe, in der Autos erlaubt sind",
+        "noPower": "Keine Reihe mit Strom",
+        "carSlotsFull": "Alle Autoplätze sind belegt",
+        "tooLong": "Keine Reihe ist lang genug",
+        "noGap": "Nirgends eine ausreichend große Lücke",
+        "gapRule": "Nur Lücken, die Reststücke unter 2 m lassen"
+      }
     },
     "vendor": {
       "label": "Ausstellerliste",
@@ -155,8 +193,109 @@
       "registered": "Neu aufgenommen",
       "new": "Noch nicht in der Liste",
       "knownHint": "Steht schon in der Ausstellerliste.",
-      "registeredHint": "Nach der Bestätigung in die Ausstellerliste aufgenommen (Prototyp: Simulation).",
-      "newHint": "Kommt erst mit der Bestätigung in die Ausstellerliste, so bleiben Spam und Fehlanfragen draußen."
+      "registeredHint": "Mit der Zahlung (Fest) in die Ausstellerliste aufgenommen (Prototyp: Simulation).",
+      "newHint": "Kommt erst in die Ausstellerliste, wenn der Stand bezahlt ist (Fest), so bleiben Spam und Fehlanfragen draußen."
+    },
+    "ansicht": {
+      "label": "Ansicht",
+      "plan": "Plan",
+      "reservierungen": "Reservierungen",
+      "festplaetze": "Festplätze"
+    },
+    "releasedNote": {
+      "unpaid": "Reservierung {stall} am {date} verfallen (nicht bezahlt)",
+      "manual": "Reservierung {stall} am {date} freigegeben"
+    },
+    "reservations": {
+      "stats": {
+        "reserved": "Reserviert",
+        "fixed": "Fest",
+        "paidSum": "{sum} bezahlt",
+        "released": "Freigegeben"
+      },
+      "clock": {
+        "label": "Prototyp-Datum:",
+        "next": "+1 Tag",
+        "reset": "Heute"
+      },
+      "filter": {
+        "all": "Alle offenen",
+        "soon": "Erinnert oder heute fällig"
+      },
+      "markPaid": "{count, plural, =0 {Als bezahlt markieren} other {# als bezahlt markieren}}",
+      "empty": "Keine offenen Reservierungen. Platzkarten gehen im Plan über „Platzkarte senden“ raus.",
+      "selectAll": "Alle auswählen",
+      "select": "{name} auswählen",
+      "col": {
+        "stall": "Platz",
+        "vendor": "Aussteller",
+        "amount": "Betrag",
+        "reference": "Verwendungszweck",
+        "due": "Zahlung bis",
+        "reminder": "Erinnerung",
+        "actions": "Aktionen"
+      },
+      "dueToday": "Heute fällig",
+      "reminded": "erinnert am {date}",
+      "reminderOn": "am {date}",
+      "noReminder": "keine (Frist zu kurz)",
+      "paid": "Bezahlt",
+      "release": "Reservierung von {name} freigeben",
+      "rules": "Frist und Erinnerung kommen aus Einstellungen → Buchungen. Nach der Frist wird eine unbezahlte Reservierung automatisch freigegeben und der Aussteller bekommt eine Stornomail.",
+      "releasedTitle": "{count, plural, one {# freigegebene Reservierung} other {# freigegebene Reservierungen}}",
+      "releasedUnpaid": "verfallen am {date}",
+      "releasedManual": "freigegeben am {date}"
+    },
+    "manual": {
+      "open": "Buchung",
+      "title": "Buchung eintragen",
+      "subtitle": "{event} · {date}",
+      "cancel": "Abbrechen",
+      "create": "Buchung anlegen",
+      "source": {
+        "phone": "Telefon",
+        "walkin": "Vor Ort"
+      },
+      "paidShort": "bezahlt",
+      "lookup": "In der Ausstellerliste suchen",
+      "lookupPlaceholder": "Name, Firma, E-Mail oder Telefon",
+      "knownVendor": "Aus der Ausstellerliste übernommen.",
+      "name": "Name",
+      "company": "Firma",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "emailHint": "Optional; nötig für die Platzkarte per Mail.",
+      "private": "Privat",
+      "commercial": "Gewerblich",
+      "length": "Standlänge (m)",
+      "car": "Auto am Stand",
+      "carLength": "Autolänge (m)",
+      "power": "Strom",
+      "note": "Notiz",
+      "payment": {
+        "label": "Bezahlung",
+        "mail": "Platzkarte per Mail",
+        "paid": "Schon bezahlt (bar / vor Ort)",
+        "mailHint": "Wie online: Platzkarte geht raus, der Platz ist reserviert, bis die Überweisung da ist.",
+        "paidHint": "Nach dem Platzieren direkt „Als bezahlt eintragen“: der Platz ist fest, es geht keine Mail raus.",
+        "noEmail": "Ohne E-Mail keine Platzkarte per Mail; die Buchung wird als bezahlt eingetragen."
+      }
+    },
+    "festplatz": {
+      "intro": "Festplätze für {market} {year}: der Stand ist an allen Terminen des Jahres belegt.",
+      "empty": "Noch keine Festplätze. Einen Stand anklicken (reserviert oder fest) und „Als Festplatz übernehmen“.",
+      "dates": "{active} von {total} Terminen",
+      "conflicts": "{count, plural, one {# Konflikt} other {# Konflikte}}",
+      "manage": "Termine verwalten",
+      "manageHint": "Ausnahmen: Termin abwählen, wenn der Aussteller dort nicht kommt. Der Platz ist an diesem Termin dann frei.",
+      "delete": "Festplatz löschen",
+      "state": {
+        "placed": "belegt",
+        "source": "Ursprungsbuchung",
+        "optedOut": "abgemeldet",
+        "conflict": "Konflikt: Platz belegt"
+      },
+      "paymentOpen": "Bezahlung von Festplätzen ist noch offen (Frage an die Geschäftsführung)."
     }
   }
 }

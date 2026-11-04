@@ -89,6 +89,23 @@ export interface BookingItem {
    * vendor list until their stall is confirmed (spam/noise from the form never gets in).
    */
   knownVendor: boolean;
+  /** Where the request came from; manual bookings are `phone` / `walkin` (spec 2026-11-04, manual). */
+  source?: "form" | "mail" | "phone" | "walkin";
+  /** Manual booking already paid (cash / on site): placed → Fest directly, no Platzkarte mail. */
+  paidUpfront?: boolean;
+}
+
+/** A vendor from the vendor table, for the lookup in the manual booking form (read-only). */
+export interface VendorOption {
+  name: string;
+  companyName: string | null;
+  email: string;
+  phone: string | null;
+  kind: "private" | "commercial";
+  categories: string[];
+  defaultLengthCm: number | null;
+  hasCar: boolean;
+  carLengthCm: number | null;
 }
 
 /** An already confirmed booking from before (old website / phone), so the plan isn't empty. */
@@ -107,4 +124,6 @@ export interface StandplanData {
   existing: Record<string, ExistingPlacement[]>;
   /** Mails whose request names an event/date we don't have. */
   unmatched: { mailId: string; eventName: string; date: string }[];
+  /** First vendors of the vendor table (read-only), for the manual booking lookup. */
+  vendors: VendorOption[];
 }

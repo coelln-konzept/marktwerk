@@ -56,7 +56,7 @@ export function variableValues(input: {
     ).find((i) => i.eventId === ev.id);
     const list =
       input.standplan.placements[ev.id] ??
-      (input.plan.existing[ev.id] ?? []).map((p) => ({ ...p, status: "assigned" as const }));
+      (input.plan.existing[ev.id] ?? []).map((p) => ({ ...p, status: "fixed" as const }));
     const p = item ? list.find((x) => x.itemId === item.id) : undefined;
     const venue = input.plan.venues.find((v) => v.id === ev.venueId);
     const row = venue?.zones.flatMap((z) => z.rows).find((r) => r.id === p?.rowId);

@@ -8,7 +8,8 @@
       "users": "Users & roles",
       "legal": "Legal values",
       "library": "Library",
-      "mail": "Mail"
+      "mail": "Mail",
+      "bookings": "Bookings"
     },
     "noValue": "–",
     "company": {
@@ -186,6 +187,26 @@
         "hu_interval_months_over_3500kg": "Vehicle inspection over 3.5 t"
       }
     },
-    "subtitleWithLegal": "Company data, logins with roles, the legal values marktwerk calculates with, and the library of markets and task templates."
+    "subtitleWithLegal": "Company data, logins with roles, the legal values marktwerk calculates with, and the library of markets and task templates.",
+    "bookings": {
+      "intro": "Prototype · stored only in this browser. Applies to the Platzkarte in the Standplan: the stall is reserved until the transfer arrives.",
+      "rulesTitle": "Payment deadline and reminder",
+      "paymentDays": "Payment deadline (working days)",
+      "paymentDaysHint": "From sending the Platzkarte; weekends and NRW holidays don't count. At the latest the working day before the market.",
+      "reminderDaysBefore": "Reminder (working days before the deadline)",
+      "reminderHint": "0 = on the last day of the deadline. If that is on or before the day the Platzkarte went out, there is no reminder.",
+      "example": "Example: Platzkarte sent on {sent} → pay by {due}.",
+      "exampleReminder": "Reminder on {date}; release and cancellation mail the day after if nothing arrived.",
+      "exampleNoReminder": "No reminder, the deadline is too short.",
+      "bankTitle": "Bank details on the Platzkarte",
+      "bankHint": "Demo values. The company enters the real bank details here; they don't belong in the code repository.",
+      "payee": "Payee",
+      "bank": "Bank",
+      "iban": "IBAN",
+      "bic": "BIC",
+      "referenceTitle": "Payment reference",
+      "referenceExample": "Example: Flohmarkt Riehler Gürtel on 12 Nov, stall B-13 → {ref}",
+      "referenceHint": "Short code from the event name, day and month, stall number. At most 20 characters: letters, digits and hyphens only."
+    }
   }
 }

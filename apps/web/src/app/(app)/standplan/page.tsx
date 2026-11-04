@@ -9,7 +9,8 @@ import { loadStandplanDemo } from "@/server/standplan/demo-data";
 
 /**
  * PROTOTYPE (branch exp/stand-allocation): stall allocation per event. Requests from the Postfach are
- * dragged onto rows; Autoplatz proposes, a person confirms and the vendor gets a confirmation mail.
+ * dragged onto rows; Autoplatz proposes; "Platzkarte senden" reserves the stall until the transfer arrives, a person then marks it Fest
+ * (two-step booking, spec 2026-11-04).
  * Data is read-only from Postgres; placements live in the browser until the booking tables exist.
  */
 export default async function StandplanPage({ searchParams }: PageProps<"/standplan">) {
@@ -25,6 +26,9 @@ export default async function StandplanPage({ searchParams }: PageProps<"/standp
       <StandplanView
         data={data}
         initialEventId={initial}
+        initialAnsicht={
+          sp.ansicht === "reservierungen" || sp.ansicht === "festplaetze" ? sp.ansicht : "plan"
+        }
         canWrite={can(actor.role, "vendor", "write")}
       />
     </Page>

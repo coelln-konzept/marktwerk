@@ -9,19 +9,26 @@ import {
   type NoFitReason,
   nearestFit,
   type Placement,
+  paymentDueDate,
+  paymentReference,
   quoteStall,
+  reminderDate,
   rowUtilisation,
   stallNumber,
 } from "@marktwerk/core";
 import {
+  Banknote,
   Car,
   Check,
   CircleAlert,
   CircleDashed,
+  Clock,
   GripVertical,
   Mail,
   MapPinned,
   Move,
+  Pin,
+  Plus,
   Printer,
   RotateCcw,
   RotateCw,
@@ -29,6 +36,7 @@ import {
   Sparkles,
   StickyNote,
   Trash2,
+  Unlock,
   UserCheck,
   UserPlus,
   X,
@@ -51,13 +59,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateWithWeekday, formatLength, formatMoney } from "@/lib/format";
+import { formatDateShort, formatDateWithWeekday, formatLength, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { confirmationMail } from "./confirmation";
+import { platzkarteMail, stallAmount } from "./booking-mails";
+import { type FestplatzState, festplatzOverlay, isFestplatzItem, seriesEvents } from "./festplatz";
+import { FestplatzPanel } from "./festplatz-panel";
 import { defaultLayout } from "./geometry";
+import { ManualBookingDialog } from "./manual-booking-dialog";
 import { type DropPreview, PlanMap } from "./plan-map";
+import { BOOKING_MAILBOX, useReservationSweep } from "./reservation-sweep";
+import { ReservationsPanel } from "./reservations-panel";
 import {
+  type FixedSpot,
   type PlanVersion,
+  prototypeToday,
+  type ReleasedRecord,
+  type Reservation,
   type RowGeom,
   type SentMail,
   type StandplanState,
@@ -80,14 +97,20 @@ type Drag = {
 };
 
 type Tab = "open" | "placed" | "declined";
+export type StandplanAnsicht = "plan" | "reservierungen" | "festplaetze";
+
+const conversationOf = (mailId: string | null) =>
+  mailId ? (mailId.startsWith("c-") ? mailId : `c-${mailId}`) : null;
 
 export function StandplanView({
   data,
   initialEventId,
+  initialAnsicht = "plan",
   canWrite,
 }: {
   data: StandplanData;
   initialEventId: string | null;
+  initialAnsicht?: StandplanAnsicht;
   canWrite: boolean;
 }) {
   const t = useTranslations("standplan");
@@ -107,23 +130,34 @@ export function StandplanView({
   const venue = data.venues.find((v) => v.id === ev?.venueId) ?? null;
   const rows = useMemo(() => venue?.zones.flatMap((z) => z.rows) ?? [], [venue]);
   const rowsById = useMemo(() => new Map(rows.map((r) => [r.id, r] as const)), [rows]);
-  const items = useMemo(
-    () =>
-      new Map(
-        [...data.items, ...state.manualItems]
-          .filter((i) => i.eventId === eventId)
-          .map((i) => [i.id, i] as const),
-      ),
-    [data.items, state.manualItems, eventId],
-  );
-
-  const placements: StoredPlacement[] = useMemo(() => {
+  const storedPlacements: StoredPlacement[] = useMemo(() => {
     if (!eventId) return [];
     return (
       state.placements[eventId] ??
-      (data.existing[eventId] ?? []).map((p) => ({ ...p, status: "assigned" as const }))
+      (data.existing[eventId] ?? []).map((p) => ({ ...p, status: "fixed" as const }))
     );
   }, [state.placements, data.existing, eventId]);
+  // Festplätze are derived per date on top of the stored placements (never stored per date).
+  const overlay = useMemo(
+    () =>
+      ev
+        ? festplatzOverlay(ev, state.fixedSpots, storedPlacements, rowsById)
+        : { placements: [], items: [], states: new Map<string, FestplatzState>() },
+    [ev, state.fixedSpots, storedPlacements, rowsById],
+  );
+  const placements = useMemo(
+    () => [...storedPlacements, ...overlay.placements],
+    [storedPlacements, overlay.placements],
+  );
+  const items = useMemo(
+    () =>
+      new Map(
+        [...data.items, ...state.manualItems, ...overlay.items]
+          .filter((i) => i.eventId === eventId)
+          .map((i) => [i.id, i] as const),
+      ),
+    [data.items, state.manualItems, overlay.items, eventId],
+  );
   const placedIds = useMemo(() => new Set(placements.map((p) => p.itemId)), [placements]);
   const declined = useMemo(() => new Set(state.declined), [state.declined]);
 
@@ -145,6 +179,16 @@ export function StandplanView({
         : "new";
 
   const [tab, setTab] = useState<Tab>("open");
+  const [ansicht, setAnsicht] = useState<StandplanAnsicht>(initialAnsicht);
+  const [manualOpen, setManualOpen] = useState(false);
+  const today = prototypeToday(state);
+  const settings = state.bookingSettings;
+  useReservationSweep((r) =>
+    showToast({ message: t("toast.sweep", { reminded: r.reminded, released: r.released }) }),
+  );
+  const releasedById = new Map(
+    state.released.filter((r) => r.eventId === eventId).map((r) => [r.itemId, r] as const),
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [editLayout, setEditLayout] = useState(false);
@@ -154,18 +198,30 @@ export function StandplanView({
   const [announce, setAnnounce] = useState("");
   const svgRef = useRef<SVGSVGElement | null>(null);
 
+  const urlFor = (id: string, view: StandplanAnsicht) =>
+    `/standplan?veranstaltung=${id}${view === "plan" ? "" : `&ansicht=${view}`}` as Route;
   const selectEvent = (id: string) => {
     setEventId(id);
     setSelectedId(null);
     setEditLayout(false);
-    router.replace(`/standplan?veranstaltung=${id}` as Route, { scroll: false });
+    router.replace(urlFor(id, ansicht), { scroll: false });
+  };
+  const selectAnsicht = (view: StandplanAnsicht) => {
+    setAnsicht(view);
+    setEditLayout(false);
+    if (eventId) router.replace(urlFor(eventId, view), { scroll: false });
   };
 
   const openItems = [...items.values()]
-    .filter((i) => i.mailId && !placedIds.has(i.id) && !declined.has(i.id))
+    .filter((i) => isRequest(i) && !placedIds.has(i.id) && !declined.has(i.id))
     .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
   const declinedItems = [...items.values()].filter((i) => declined.has(i.id));
   const proposals = placements.filter((p) => p.status === "proposed");
+  /** Drafts that get a Platzkarte: not the bookings already paid on site, and only with an email. */
+  const mailable = proposals.filter((p) => {
+    const i = items.get(p.itemId);
+    return i && !i.paidUpfront && /\S+@\S+/.test(i.email);
+  });
 
   // Why a request can't be placed: per row (drop/menu feedback) and over all rows (badge on the card).
   const candidateOf = (i: BookingItem) => ({
@@ -190,7 +246,11 @@ export function StandplanView({
       if (!eventId) return;
       update((s) => ({
         ...s,
-        placements: { ...s.placements, [eventId]: fn(placementsFor(s, data, eventId)) },
+        // Derived Festplatz stalls never go into the stored list.
+        placements: {
+          ...s.placements,
+          [eventId]: fn(placementsFor(s, data, eventId)).filter((p) => !p.festplatzId),
+        },
       }));
     },
     [eventId, update, data],
@@ -207,7 +267,7 @@ export function StandplanView({
         gapRule,
       );
       if (start === null) return null;
-      return { start, list: upsert(current, item, row.id, start) };
+      return { start, list: upsert(current, item, row, start) };
     },
     [gapRule],
   );
@@ -227,18 +287,27 @@ export function StandplanView({
       return;
     }
     const before = placements;
+    const prior = placements.find((p) => p.itemId === item.id);
     setEventPlacements(() => res.list);
     setSelectedId(item.id);
     const nr = stallNumber(row.label, res.start);
     setAnnounce(t("announce.placed", { name: item.vendorName, stall: nr }));
+    const renumbered =
+      prior &&
+      prior.status !== "proposed" &&
+      stallNumber(rowsById.get(prior.rowId)?.label ?? "", prior.startCm) !== nr;
     showToast({
-      message: t("toast.placed", { name: item.vendorName, stall: nr }),
+      message: renumbered
+        ? t("toast.movedBooked", { name: item.vendorName, stall: nr })
+        : t("toast.placed", { name: item.vendorName, stall: nr }),
       actionLabel: t("undo"),
       onAction: () => setEventPlacements(() => before),
     });
   };
 
+  /** Only drafts come off the plan; a reserved stall is released, a fixed one stays (cancellation later). */
   const unplace = (itemId: string) => {
+    if (placements.find((p) => p.itemId === itemId)?.status !== "proposed") return;
     const before = placements;
     setEventPlacements((list) => list.filter((p) => p.itemId !== itemId));
     if (selectedId === itemId) setSelectedId(null);
@@ -286,16 +355,38 @@ export function StandplanView({
     });
   };
 
+  /** Step 1: the Platzkarte goes out and the stall is reserved until the due date. */
   const confirm = (only?: string) => {
     if (!ev) return;
-    const targets = proposals.filter((p) => !only || p.itemId === only);
+    const targets = mailable.filter((p) => !only || p.itemId === only);
     if (targets.length === 0) return;
     const now = new Date().toISOString();
+    const reserved = new Map<string, Reservation>();
     const mails: SentMail[] = targets.flatMap((p) => {
       const item = items.get(p.itemId);
       const row = rowsById.get(p.rowId);
       if (!item || !row) return [];
-      const m = confirmationMail(item, ev, row, p);
+      const nr = stallNumber(row.label, p.startCm);
+      const dueOn = paymentDueDate(today, ev.startsOn, settings.paymentDays);
+      const reservation: Reservation = {
+        reservedOn: today,
+        dueOn,
+        reminderOn: reminderDate(today, dueOn, settings.reminderDaysBefore),
+        reference: paymentReference({
+          eventName: ev.name,
+          marketDate: ev.startsOn,
+          stallNumber: nr,
+        }),
+        amountCents: stallAmount(ev, p).totalCents,
+        stallNumber: nr,
+        vendorName: item.vendorName,
+        email: item.email,
+        conversationId: conversationOf(item.mailId),
+        eventName: ev.name,
+        eventDate: ev.startsOn,
+      };
+      reserved.set(p.itemId, reservation);
+      const m = platzkarteMail({ item, ev, row, p, reservation, settings });
       return [
         {
           id: `sent-${p.itemId}-${now}`,
@@ -309,23 +400,55 @@ export function StandplanView({
         },
       ];
     });
-    const ids = new Set(targets.map((p) => p.itemId));
     const before = state;
     const mailBefore = readMailState();
-    // The confirmation also becomes an outgoing message in the request's Postfach conversation.
+    // The Platzkarte also becomes an outgoing message in the request's Postfach conversation.
     for (const m of mails) {
-      const item = items.get(m.itemId);
-      if (!item?.mailId) continue;
+      const conversationId = conversationOf(items.get(m.itemId)?.mailId ?? null);
+      if (!conversationId) continue;
       appendOutgoing({
-        conversationId: item.mailId.startsWith("c-") ? item.mailId : `c-${item.mailId}`,
-        to: { name: item.vendorName, address: item.email },
-        fromAddress: "buchung@coelln-konzept.de",
+        conversationId,
+        to: { name: m.toName, address: m.toAddress },
+        fromAddress: BOOKING_MAILBOX,
         subject: m.subject,
         text: m.body,
         authorId: "standplan",
       });
     }
-    // Only now (confirmed) do new people enter the vendor list (SIMULATED; real build: insert `vendor`).
+    update((s) => ({
+      ...s,
+      placements: {
+        ...s.placements,
+        [ev.id]: placementsFor(s, data, ev.id).map((p) => {
+          const reservation = reserved.get(p.itemId);
+          return reservation ? { ...p, status: "reserved" as const, reservation } : p;
+        }),
+      },
+      sent: [...mails, ...s.sent],
+      released: s.released.filter((r) => !reserved.has(r.itemId)),
+    }));
+    const firstDue = [...reserved.values()][0]?.dueOn;
+    showToast({
+      message: t("toast.reserved", {
+        count: mails.length,
+        due: firstDue ? formatDateWithWeekday(firstDue, locale) : "",
+      }),
+      actionLabel: t("undo"),
+      onAction: () => {
+        update(() => before);
+        writeMailState(mailBefore);
+      },
+    });
+  };
+
+  /** Step 2: a person saw the transfer. The stall is fixed for good; new people join the vendor list. */
+  const markPaid = (ids: string[]) => {
+    if (!ev) return;
+    const targets = placements.filter((p) => p.status === "reserved" && ids.includes(p.itemId));
+    if (targets.length === 0) return;
+    const before = state;
+    const mailBefore = readMailState();
+    // Only now (fixed) do new people enter the vendor list (SIMULATED; real build: insert `vendor`).
     const { added } = registerVendors(
       targets.flatMap((p) => {
         const item = items.get(p.itemId);
@@ -343,25 +466,221 @@ export function StandplanView({
         ];
       }),
     );
+    const set = new Set(targets.map((p) => p.itemId));
     update((s) => ({
       ...s,
       placements: {
         ...s.placements,
         [ev.id]: placementsFor(s, data, ev.id).map((p) =>
-          ids.has(p.itemId) ? { ...p, status: "assigned" as const } : p,
+          set.has(p.itemId) && p.reservation
+            ? { ...p, status: "fixed" as const, reservation: { ...p.reservation, paidOn: today } }
+            : p,
         ),
       },
-      sent: [...mails, ...s.sent],
     }));
     showToast({
       message: added
-        ? t("toast.confirmedWithVendors", { count: mails.length, added })
-        : t("toast.confirmed", { count: mails.length }),
+        ? t("toast.paidWithVendors", { count: targets.length, added })
+        : t("toast.paid", { count: targets.length }),
       actionLabel: t("undo"),
       onAction: () => {
         update(() => before);
         writeMailState(mailBefore);
       },
+    });
+  };
+
+  /** Releases a reservation by hand (e.g. the vendor cancelled by phone). No mail goes out. */
+  const releaseManual = (itemId: string) => {
+    if (!ev) return;
+    const p = placements.find((x) => x.itemId === itemId && x.status === "reserved");
+    if (!p?.reservation) return;
+    const before = state;
+    const record: ReleasedRecord = {
+      itemId,
+      eventId: ev.id,
+      stallNumber: p.reservation.stallNumber,
+      reference: p.reservation.reference,
+      releasedOn: today,
+      reason: "manual",
+    };
+    update((s) => ({
+      ...s,
+      placements: {
+        ...s.placements,
+        [ev.id]: placementsFor(s, data, ev.id).filter((x) => x.itemId !== itemId),
+      },
+      released: [record, ...s.released],
+    }));
+    if (selectedId === itemId) setSelectedId(null);
+    showToast({
+      message: t("toast.released", { name: p.reservation.vendorName, stall: record.stallNumber }),
+      actionLabel: t("undo"),
+      onAction: () => update(() => before),
+    });
+  };
+
+  // --- manual bookings (phone / in person) -----------------------------------------------------
+  const createManual = (item: BookingItem) => {
+    update((s) => ({ ...s, manualItems: [...s.manualItems, item] }));
+    setManualOpen(false);
+    setTab("open");
+    setSelectedId(item.id);
+    showToast({
+      message: t("toast.manualCreated", { name: item.vendorName }),
+      actionLabel: t("undo"),
+      onAction: () =>
+        update((s) => ({ ...s, manualItems: s.manualItems.filter((i) => i.id !== item.id) })),
+    });
+  };
+
+  /** A booking paid on site: placed → Fest without a Platzkarte mail. */
+  const fixDirect = (itemId: string) => {
+    if (!ev) return;
+    const p = placements.find((x) => x.itemId === itemId && x.status === "proposed");
+    const item = items.get(itemId);
+    const row = p ? rowsById.get(p.rowId) : undefined;
+    if (!p || !item || !row) return;
+    const before = state;
+    const mailBefore = readMailState();
+    const nr = stallNumber(row.label, p.startCm);
+    const reservation: Reservation = {
+      reservedOn: today,
+      dueOn: today,
+      reminderOn: null,
+      reference: paymentReference({ eventName: ev.name, marketDate: ev.startsOn, stallNumber: nr }),
+      amountCents: stallAmount(ev, p).totalCents,
+      stallNumber: nr,
+      paidOn: today,
+      vendorName: item.vendorName,
+      email: item.email,
+      conversationId: null,
+      eventName: ev.name,
+      eventDate: ev.startsOn,
+    };
+    const { added } =
+      !item.knownVendor && item.email
+        ? registerVendors([
+            {
+              email: item.email,
+              name: item.vendorName,
+              companyName: item.companyName,
+              kind: item.kind,
+              phone: item.phone,
+              eventId: ev.id,
+              requestRef: item.requestRef,
+            },
+          ])
+        : { added: 0 };
+    update((s) => ({
+      ...s,
+      placements: {
+        ...s.placements,
+        [ev.id]: placementsFor(s, data, ev.id).map((x) =>
+          x.itemId === itemId ? { ...x, status: "fixed" as const, reservation } : x,
+        ),
+      },
+    }));
+    showToast({
+      message: added
+        ? t("toast.paidWithVendors", { count: 1, added })
+        : t("toast.paid", { count: 1 }),
+      actionLabel: t("undo"),
+      onAction: () => {
+        update(() => before);
+        writeMailState(mailBefore);
+      },
+    });
+  };
+
+  // --- Festplätze (whole-year stall at this market) ---------------------------------------------
+  const seriesSpots = ev
+    ? state.fixedSpots.filter(
+        (f) =>
+          f.seriesName === ev.name &&
+          f.venueId === ev.venueId &&
+          f.year === Number(ev.startsOn.slice(0, 4)),
+      )
+    : [];
+
+  const festplatzStateOn = (spot: FixedSpot, onEventId: string): FestplatzState => {
+    const target = data.events.find((e) => e.id === onEventId);
+    if (!target) return "conflict";
+    const venueRows = new Map(
+      (data.venues.find((v) => v.id === target.venueId)?.zones.flatMap((z) => z.rows) ?? []).map(
+        (r) => [r.id, r] as const,
+      ),
+    );
+    return (
+      festplatzOverlay(target, [spot], placementsFor(state, data, onEventId), venueRows).states.get(
+        spot.id,
+      ) ?? "conflict"
+    );
+  };
+
+  const makeFestplatz = (itemId: string) => {
+    if (!ev) return;
+    const p = storedPlacements.find((x) => x.itemId === itemId && x.status !== "proposed");
+    const item = items.get(itemId);
+    if (!p || !item) return;
+    const spot: FixedSpot = {
+      id: `fs-${Date.now().toString(36)}`,
+      vendorName: item.vendorName,
+      companyName: item.companyName,
+      email: item.email,
+      phone: item.phone,
+      kind: item.kind,
+      seriesName: ev.name,
+      venueId: ev.venueId,
+      year: Number(ev.startsOn.slice(0, 4)),
+      rowId: p.rowId,
+      startCm: p.startCm,
+      lengthCm: p.endCm - p.startCm,
+      car: p.car,
+      power: item.power,
+      optedOut: [],
+      sourceItemId: itemId,
+      sourceEventId: ev.id,
+      createdOn: today,
+    };
+    const dates = seriesEvents(data.events, spot).length;
+    update((s) => ({ ...s, fixedSpots: [...s.fixedSpots, spot] }));
+    showToast({
+      message: t("toast.festplatzCreated", {
+        name: item.companyName ?? item.vendorName,
+        count: dates,
+        market: ev.name,
+        year: spot.year,
+      }),
+      actionLabel: t("undo"),
+      onAction: () =>
+        update((s) => ({ ...s, fixedSpots: s.fixedSpots.filter((f) => f.id !== spot.id) })),
+    });
+  };
+
+  /** Opt a Festplatz out of one date (edge case) or back in. */
+  const toggleFestplatzDate = (spot: FixedSpot, onEventId: string) =>
+    update((s) => ({
+      ...s,
+      fixedSpots: s.fixedSpots.map((f) =>
+        f.id !== spot.id
+          ? f
+          : {
+              ...f,
+              optedOut: f.optedOut.includes(onEventId)
+                ? f.optedOut.filter((x) => x !== onEventId)
+                : [...f.optedOut, onEventId],
+            },
+      ),
+    }));
+
+  const deleteFestplatz = (spot: FixedSpot) => {
+    const before = state;
+    update((s) => ({ ...s, fixedSpots: s.fixedSpots.filter((f) => f.id !== spot.id) }));
+    showToast({
+      message: t("toast.festplatzDeleted", { name: spot.companyName ?? spot.vendorName }),
+      actionLabel: t("undo"),
+      onAction: () => update(() => before),
     });
   };
 
@@ -404,7 +723,7 @@ export function StandplanView({
   const loadVersion = (v: PlanVersion) => {
     if (!eventId) return;
     const before = state;
-    const assigned = placements.filter((p) => p.status === "assigned");
+    const assigned = placements.filter((p) => p.status !== "proposed");
     const assignedIds = new Set(assigned.map((p) => p.itemId));
     const next = [...assigned];
     let skipped = 0;
@@ -425,7 +744,7 @@ export function StandplanView({
     }
     update((s) => ({
       ...s,
-      placements: { ...s.placements, [eventId]: next },
+      placements: { ...s.placements, [eventId]: next.filter((p) => !p.festplatzId) },
       activeVersion: { ...s.activeVersion, [eventId]: v.id },
     }));
     setSelectedId(null);
@@ -564,7 +883,10 @@ export function StandplanView({
       const overList = document
         .elementsFromPoint(cur.x, cur.y)
         .some((el) => (el as HTMLElement).dataset?.dropUnplace);
-      if (overList && placedIds.has(item.id)) {
+      if (
+        overList &&
+        placementsRef.current.find((x) => x.itemId === item.id)?.status === "proposed"
+      ) {
         unplace(item.id);
         return;
       }
@@ -588,7 +910,7 @@ export function StandplanView({
 
   // --- keyboard on the map: move the selected stall ---------------------------------------------
   const onMapKey = (e: React.KeyboardEvent) => {
-    if (!canWrite || !selectedId || editLayout) return;
+    if (!canWrite || !selectedId || editLayout || isFestplatzItem(selectedId)) return;
     const p = placements.find((x) => x.itemId === selectedId);
     const item = items.get(selectedId);
     if (!p || !item) return;
@@ -618,7 +940,7 @@ export function StandplanView({
         setAnnounce(t("announce.blocked"));
         return;
       }
-      setEventPlacements((list) => upsert(list, item, target.id, fit));
+      setEventPlacements((list) => upsert(list, item, target, fit));
       setAnnounce(
         t("announce.placed", { name: item.vendorName, stall: stallNumber(target.label, fit) }),
       );
@@ -650,7 +972,8 @@ export function StandplanView({
       case "Delete":
       case "Backspace":
         e.preventDefault();
-        unplace(item.id);
+        if (p.status === "proposed") unplace(item.id);
+        else setAnnounce(t("announce.notDraft"));
         break;
       case "Escape":
         setSelectedId(null);
@@ -708,172 +1031,274 @@ export function StandplanView({
     <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
       {/* ---------- map column ---------- */}
       <section className="flex min-w-0 flex-col gap-3" aria-label={t("mapRegion")}>
-        <div className="flex flex-wrap items-center gap-2">
-          {canWrite && !editLayout && (
-            <>
-              <Button onClick={runAutoplatz} disabled={openItems.length === 0}>
-                <Sparkles />
-                {t("autoplatz")}
-              </Button>
-              <Button onClick={() => saveVersion()} disabled={proposals.length === 0}>
-                <Save />
-                {t("versions.save")}
-              </Button>
-              <Button variant="default" onClick={() => confirm()} disabled={proposals.length === 0}>
-                <Mail />
-                {t("confirmAll", { count: proposals.length })}
-              </Button>
-            </>
-          )}
-          <Button
-            variant={editLayout ? "default" : "outline"}
-            onClick={() => setEditLayout((v) => !v)}
-          >
-            <Move />
-            {editLayout ? t("layout.done") : t("layout.edit")}
-          </Button>
-          <Button onClick={() => window.print()}>
-            <Printer />
-            {t("print")}
-          </Button>
-          <label className="ml-auto flex items-center gap-2 text-small">
-            <input
-              type="checkbox"
-              checked={state.gapRule}
-              onChange={(e) => update((s) => ({ ...s, gapRule: e.target.checked }))}
-            />
-            {t("gapRule")}
-          </label>
-        </div>
-
-        {editLayout && (
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 text-small">
-            <span className="text-muted-foreground">{t("layout.hint")}</span>
-            {selRow && selGeom ? (
-              <span className="flex items-center gap-1">
-                <strong>{t("map.row", { label: selRow.label })}</strong>
-                <Button
-                  size="icon-sm"
-                  aria-label={t("layout.rotateLeft")}
-                  onClick={() => setRowGeom(selRow.id, { ...selGeom, angle: selGeom.angle - 5 })}
-                >
-                  <RotateCcw />
-                </Button>
-                <Input
-                  className="w-20"
-                  type="number"
-                  aria-label={t("layout.angle")}
-                  value={Math.round(selGeom.angle)}
-                  onChange={(e) =>
-                    setRowGeom(selRow.id, { ...selGeom, angle: Number(e.target.value) || 0 })
-                  }
-                />
-                <span>°</span>
-                <Button
-                  size="icon-sm"
-                  aria-label={t("layout.rotateRight")}
-                  onClick={() => setRowGeom(selRow.id, { ...selGeom, angle: selGeom.angle + 5 })}
-                >
-                  <RotateCw />
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setRowGeom(selRow.id, { ...selGeom, angle: selGeom.angle + 90 })}
-                >
-                  +90°
-                </Button>
-              </span>
-            ) : null}
-            <label className="flex items-center gap-2">
-              {t("layout.backdrop")}
-              <input
-                type="file"
-                accept="image/*"
-                className="max-w-52 text-tiny"
-                onChange={(e) => onBackdropFile(e.target.files?.[0])}
-              />
-            </label>
-            {backdrop && (
-              <>
-                {/* biome-ignore lint/a11y/noLabelWithoutControl: wraps a custom Input/NativeSelect control */}
-                <label className="flex items-center gap-1">
-                  {t("layout.backdropWidth")}
-                  <Input
-                    className="w-20"
-                    type="number"
-                    value={Math.round(backdrop.widthCm / 100)}
-                    onChange={(e) =>
-                      setBackdrop({ ...backdrop, widthCm: (Number(e.target.value) || 1) * 100 })
-                    }
-                  />
-                  m
-                </label>
-                <label className="flex items-center gap-1">
-                  {t("layout.opacity")}
-                  <input
-                    type="range"
-                    min={0.1}
-                    max={1}
-                    step={0.05}
-                    value={backdrop.opacity}
-                    onChange={(e) => setBackdrop({ ...backdrop, opacity: Number(e.target.value) })}
-                  />
-                </label>
-                <Button size="sm" variant="ghost" onClick={() => setBackdrop(undefined)}>
-                  {t("layout.removeBackdrop")}
-                </Button>
-              </>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                update((s) => {
-                  const { [venue.id]: _drop, ...rest } = s.layouts;
-                  return { ...s, layouts: rest };
-                })
-              }
-            >
-              {t("layout.reset")}
-            </Button>
-          </div>
-        )}
-
         <div
-          role="application"
-          aria-label={t("mapRegion")}
-          // biome-ignore lint/a11y/noNoninteractiveTabindex: the plan is a keyboard widget (arrow keys move the selected stall)
-          tabIndex={0}
-          onKeyDown={onMapKey}
-          aria-describedby="standplan-keys"
-          className="relative h-[calc(100dvh-260px)] min-h-[420px] overflow-hidden rounded-xl border bg-card focus-visible:outline-2 focus-visible:outline-ring"
+          role="tablist"
+          aria-label={t("ansicht.label")}
+          // Same look as the app's segmented controls (SegmentedLinks): a raised pill on a sunken track.
+          className="inline-flex w-fit max-w-full rounded-lg border border-input bg-sunken p-0.5"
         >
-          <PlanMap
-            venue={venue}
-            layout={layoutRows}
-            backdrop={backdrop}
+          {(["plan", "reservierungen", "festplaetze"] as const).map((key) => {
+            const active = ansicht === key;
+            const n =
+              key === "reservierungen"
+                ? placements.filter((p) => p.status === "reserved").length
+                : key === "festplaetze"
+                  ? seriesSpots.length
+                  : undefined;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => selectAnsicht(key)}
+                className={cn(
+                  "inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-3.5 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring",
+                  active
+                    ? "bg-card font-semibold text-foreground shadow-card ring-1 ring-input"
+                    : "text-foreground-2 hover:bg-hover",
+                )}
+              >
+                {key === "plan" ? (
+                  <MapPinned className="size-4" />
+                ) : key === "reservierungen" ? (
+                  <Clock className="size-4" />
+                ) : (
+                  <Pin className="size-4" />
+                )}
+                {t(`ansicht.${key}`)}
+                {n !== undefined && (
+                  <span
+                    className={cn(
+                      "inline-grid h-5 min-w-5 place-items-center rounded-full px-1 font-semibold text-[11.5px] tabular-nums",
+                      active
+                        ? "bg-accent-soft text-accent-soft-foreground"
+                        : "bg-status-neutral-bg text-foreground-2",
+                    )}
+                  >
+                    {n}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {ansicht === "reservierungen" ? (
+          <ReservationsPanel
+            ev={ev}
             placements={placements}
             items={items}
+            released={state.released.filter((r) => r.eventId === ev.id)}
+            today={today}
+            clockOffsetDays={state.clockOffsetDays}
+            canWrite={canWrite}
             selectedId={selectedId}
-            highlightRowLabel={highlight ?? null}
-            preview={preview}
-            editLayout={editLayout}
-            selectedRowId={selectedRowId}
-            onSelectPlacement={setSelectedId}
-            onSelectRow={setSelectedRowId}
-            onStartPlacementDrag={(e, id, grab) => {
-              const it = items.get(id);
-              if (it) startDrag(e, it, grab);
-            }}
-            onRowGeom={setRowGeom}
-            onBackdrop={setBackdrop}
-            svgRef={svgRef}
+            onSelect={setSelectedId}
+            onMarkPaid={markPaid}
+            onRelease={releaseManual}
+            onClock={(days) =>
+              update((s) => ({ ...s, clockOffsetDays: days === 0 ? 0 : s.clockOffsetDays + days }))
+            }
           />
-          <Legend />
-        </div>
-        <p id="standplan-keys" className="text-faint-foreground text-tiny">
-          {t("keysHint")}
-        </p>
+        ) : ansicht === "festplaetze" ? (
+          <FestplatzPanel
+            ev={ev}
+            spots={seriesSpots}
+            datesOf={(spot) => seriesEvents(data.events, spot)}
+            stallOf={(spot) => stallNumber(rowsById.get(spot.rowId)?.label ?? "?", spot.startCm)}
+            stateOf={festplatzStateOn}
+            canWrite={canWrite}
+            onToggleDate={toggleFestplatzDate}
+            onDelete={deleteFestplatz}
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              {canWrite && !editLayout && (
+                <>
+                  <Button onClick={() => setManualOpen(true)}>
+                    <Plus />
+                    {t("manual.open")}
+                  </Button>
+                  <Button onClick={runAutoplatz} disabled={openItems.length === 0}>
+                    <Sparkles />
+                    {t("autoplatz")}
+                  </Button>
+                  <Button onClick={() => saveVersion()} disabled={proposals.length === 0}>
+                    <Save />
+                    {t("versions.save")}
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={() => confirm()}
+                    disabled={mailable.length === 0}
+                  >
+                    <Mail />
+                    {t("confirmAll", { count: mailable.length })}
+                  </Button>
+                </>
+              )}
+              <Button
+                variant={editLayout ? "default" : "outline"}
+                onClick={() => setEditLayout((v) => !v)}
+              >
+                <Move />
+                {editLayout ? t("layout.done") : t("layout.edit")}
+              </Button>
+              <Button onClick={() => window.print()}>
+                <Printer />
+                {t("print")}
+              </Button>
+              <label className="ml-auto flex items-center gap-2 text-small">
+                <input
+                  type="checkbox"
+                  checked={state.gapRule}
+                  onChange={(e) => update((s) => ({ ...s, gapRule: e.target.checked }))}
+                />
+                {t("gapRule")}
+              </label>
+            </div>
+
+            {editLayout && (
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 text-small">
+                <span className="text-muted-foreground">{t("layout.hint")}</span>
+                {selRow && selGeom ? (
+                  <span className="flex items-center gap-1">
+                    <strong>{t("map.row", { label: selRow.label })}</strong>
+                    <Button
+                      size="icon-sm"
+                      aria-label={t("layout.rotateLeft")}
+                      onClick={() =>
+                        setRowGeom(selRow.id, { ...selGeom, angle: selGeom.angle - 5 })
+                      }
+                    >
+                      <RotateCcw />
+                    </Button>
+                    <Input
+                      className="w-20"
+                      type="number"
+                      aria-label={t("layout.angle")}
+                      value={Math.round(selGeom.angle)}
+                      onChange={(e) =>
+                        setRowGeom(selRow.id, { ...selGeom, angle: Number(e.target.value) || 0 })
+                      }
+                    />
+                    <span>°</span>
+                    <Button
+                      size="icon-sm"
+                      aria-label={t("layout.rotateRight")}
+                      onClick={() =>
+                        setRowGeom(selRow.id, { ...selGeom, angle: selGeom.angle + 5 })
+                      }
+                    >
+                      <RotateCw />
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        setRowGeom(selRow.id, { ...selGeom, angle: selGeom.angle + 90 })
+                      }
+                    >
+                      +90°
+                    </Button>
+                  </span>
+                ) : null}
+                <label className="flex items-center gap-2">
+                  {t("layout.backdrop")}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="max-w-52 text-tiny"
+                    onChange={(e) => onBackdropFile(e.target.files?.[0])}
+                  />
+                </label>
+                {backdrop && (
+                  <>
+                    {/* biome-ignore lint/a11y/noLabelWithoutControl: wraps a custom Input/NativeSelect control */}
+                    <label className="flex items-center gap-1">
+                      {t("layout.backdropWidth")}
+                      <Input
+                        className="w-20"
+                        type="number"
+                        value={Math.round(backdrop.widthCm / 100)}
+                        onChange={(e) =>
+                          setBackdrop({ ...backdrop, widthCm: (Number(e.target.value) || 1) * 100 })
+                        }
+                      />
+                      m
+                    </label>
+                    <label className="flex items-center gap-1">
+                      {t("layout.opacity")}
+                      <input
+                        type="range"
+                        min={0.1}
+                        max={1}
+                        step={0.05}
+                        value={backdrop.opacity}
+                        onChange={(e) =>
+                          setBackdrop({ ...backdrop, opacity: Number(e.target.value) })
+                        }
+                      />
+                    </label>
+                    <Button size="sm" variant="ghost" onClick={() => setBackdrop(undefined)}>
+                      {t("layout.removeBackdrop")}
+                    </Button>
+                  </>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    update((s) => {
+                      const { [venue.id]: _drop, ...rest } = s.layouts;
+                      return { ...s, layouts: rest };
+                    })
+                  }
+                >
+                  {t("layout.reset")}
+                </Button>
+              </div>
+            )}
+
+            <div
+              role="application"
+              aria-label={t("mapRegion")}
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: the plan is a keyboard widget (arrow keys move the selected stall)
+              tabIndex={0}
+              onKeyDown={onMapKey}
+              aria-describedby="standplan-keys"
+              className="relative h-[calc(100dvh-260px)] min-h-[420px] overflow-hidden rounded-xl border bg-card focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <PlanMap
+                venue={venue}
+                layout={layoutRows}
+                backdrop={backdrop}
+                placements={placements}
+                items={items}
+                selectedId={selectedId}
+                highlightRowLabel={highlight ?? null}
+                preview={preview}
+                editLayout={editLayout}
+                selectedRowId={selectedRowId}
+                onSelectPlacement={setSelectedId}
+                onSelectRow={setSelectedRowId}
+                onStartPlacementDrag={(e, id, grab) => {
+                  const it = items.get(id);
+                  // A Festplatz holds its spot on every date; it is not dragged on one date.
+                  if (isFestplatzItem(id)) setSelectedId(id);
+                  else if (it) startDrag(e, it, grab);
+                }}
+                onRowGeom={setRowGeom}
+                onBackdrop={setBackdrop}
+                svgRef={svgRef}
+              />
+              <Legend />
+            </div>
+            <p id="standplan-keys" className="text-faint-foreground text-tiny">
+              {t("keysHint")}
+            </p>
+          </>
+        )}
         <div aria-live="polite" className="sr-only">
           {announce}
         </div>
@@ -899,7 +1324,7 @@ export function StandplanView({
                 .filter((e) => data.venues.some((v) => v.id === e.venueId))
                 .map((e) => {
                   const n = [...data.items, ...state.manualItems].filter(
-                    (i) => i.eventId === e.id && i.mailId && !declined.has(i.id),
+                    (i) => i.eventId === e.id && isRequest(i) && !declined.has(i.id),
                   ).length;
                   return (
                     <option key={e.id} value={e.id}>
@@ -951,6 +1376,13 @@ export function StandplanView({
             onPlace={(rowId, wanted) => placeItem(selItem, rowId, wanted)}
             onUnplace={() => unplace(selItem.id)}
             onConfirm={() => confirm(selItem.id)}
+            onFixDirect={() => fixDirect(selItem.id)}
+            onMakeFestplatz={() => makeFestplatz(selItem.id)}
+            onManageFestplatz={() => selectAnsicht("festplaetze")}
+            festplatzYear={ev.startsOn.slice(0, 4)}
+            hasFestplatz={state.fixedSpots.some((f) => f.sourceItemId === selItem.id)}
+            onMarkPaid={() => markPaid([selItem.id])}
+            onRelease={() => releaseManual(selItem.id)}
             onDecline={() => decline(selItem.id)}
             sent={state.sent.find((m) => m.itemId === selItem.id)}
             blocked={selPlacement ? undefined : blockedById.get(selItem.id)}
@@ -1001,7 +1433,9 @@ export function StandplanView({
                     canWrite={canWrite}
                     dragging={drag?.itemId === i.id && drag.active}
                     blocked={blockedById.get(i.id)}
+                    totalRows={rows.length}
                     vendorStatus={vendorStatus(i)}
+                    released={releasedById.get(i.id)}
                     onPointerDown={(e) => startDrag(e, i, i.lengthCm / 2)}
                     onSelect={() => setSelectedId(i.id)}
                     onHover={(h) => setHoverId(h ? i.id : null)}
@@ -1039,15 +1473,7 @@ export function StandplanView({
                         <span className="text-muted-foreground tabular-nums">
                           {formatLength(p.endCm - p.startCm, locale)}
                         </span>
-                        {p.status === "proposed" ? (
-                          <StatusBadge tone="warn" icon={CircleDashed}>
-                            {t("status.proposed")}
-                          </StatusBadge>
-                        ) : (
-                          <StatusBadge tone="ok" icon={Check}>
-                            {t("status.assigned")}
-                          </StatusBadge>
-                        )}
+                        <PlacementBadge p={p} />
                       </button>
                     </li>
                   );
@@ -1075,6 +1501,15 @@ export function StandplanView({
           </div>
         </div>
       </aside>
+
+      {manualOpen && (
+        <ManualBookingDialog
+          ev={ev}
+          vendors={data.vendors}
+          onClose={() => setManualOpen(false)}
+          onCreate={createManual}
+        />
+      )}
 
       {drag?.active && (
         <div
@@ -1117,6 +1552,10 @@ export function StandplanView({
 
 // ---------------------------------------------------------------------------------------------------
 
+/** Requests to place: from a mail (form or Postfach capture) or entered by hand (phone / on site). */
+const isRequest = (i: BookingItem) =>
+  Boolean(i.mailId) || i.source === "phone" || i.source === "walkin";
+
 const toPlacement = (p: StoredPlacement): Placement => ({
   id: p.itemId,
   rowId: p.rowId,
@@ -1128,21 +1567,60 @@ const toPlacement = (p: StoredPlacement): Placement => ({
 function placementsFor(s: StandplanState, data: StandplanData, eventId: string): StoredPlacement[] {
   return (
     s.placements[eventId] ??
-    (data.existing[eventId] ?? []).map((p) => ({ ...p, status: "assigned" as const }))
+    (data.existing[eventId] ?? []).map((p) => ({ ...p, status: "fixed" as const }))
   );
 }
 
-/** Puts the item at (row, start); a moved stall needs a new confirmation, so it becomes "proposed". */
-function upsert(list: StoredPlacement[], item: BookingItem, rowId: string, startCm: number) {
+/**
+ * Puts the item at (row, start). A draft stays a draft; a reserved or fixed stall keeps its status and
+ * reservation (same due date and reference), only the stall number follows the move. Telling the vendor
+ * about a new stall number is a later step (spec §3).
+ */
+function upsert(list: StoredPlacement[], item: BookingItem, row: PlanRow, startCm: number) {
+  const prior = list.find((p) => p.itemId === item.id);
   const next: StoredPlacement = {
     itemId: item.id,
-    rowId,
+    rowId: row.id,
     startCm,
     endCm: startCm + item.lengthCm,
     car: item.carRequested,
-    status: "proposed",
+    status: prior?.status ?? "proposed",
+    reservation: prior?.reservation
+      ? { ...prior.reservation, stallNumber: stallNumber(row.label, startCm) }
+      : undefined,
   };
   return [...list.filter((p) => p.itemId !== item.id), next];
+}
+
+/** Entwurf · Reserviert (with due date) · Fest: status as colour + icon + text. */
+export function PlacementBadge({ p }: { p: StoredPlacement }) {
+  const t = useTranslations("standplan.status");
+  const locale = useLocale();
+  if (p.festplatzId)
+    return (
+      <StatusBadge tone="waiting" icon={Pin}>
+        {t("festplatz")}
+      </StatusBadge>
+    );
+  if (p.status === "proposed")
+    return (
+      <StatusBadge tone="info" icon={CircleDashed}>
+        {t("proposed")}
+      </StatusBadge>
+    );
+  if (p.status === "reserved")
+    return (
+      <StatusBadge tone="warn" icon={Clock}>
+        {p.reservation
+          ? t("reservedUntil", { date: formatDateShort(p.reservation.dueOn, locale) })
+          : t("reserved")}
+      </StatusBadge>
+    );
+  return (
+    <StatusBadge tone="ok" icon={Check}>
+      {t("fixed")}
+    </StatusBadge>
+  );
 }
 
 function VersionsCard({
@@ -1311,13 +1789,16 @@ function Legend() {
   return (
     <div className="absolute top-3 left-3 flex flex-wrap gap-3 rounded-lg border bg-card/95 px-3 py-1.5 text-tiny shadow-sm">
       <span className="flex items-center gap-1.5">
-        {sw("--status-neutral-bg", "--status-neutral-dot")} {t("existing")}
+        {sw("--status-info-bg", "--status-info-dot", true)} {t("proposed")}
       </span>
       <span className="flex items-center gap-1.5">
-        {sw("--status-ok-bg", "--status-ok-dot")} {t("confirmed")}
+        {sw("--status-warn-bg", "--status-warn-dot")} {t("reserved")}
       </span>
       <span className="flex items-center gap-1.5">
-        {sw("--status-warn-bg", "--status-warn-dot", true)} {t("proposed")}
+        {sw("--status-ok-bg", "--status-ok-dot")} {t("fixed")}
+      </span>
+      <span className="flex items-center gap-1.5">
+        {sw("--status-waiting-bg", "--status-waiting-dot")} {t("festplatz")}
       </span>
       <span className="flex items-center gap-1.5">
         {sw("--accent-soft", "--primary", true)} {t("preferred")}
@@ -1336,13 +1817,17 @@ function RequestCard({
   onSelect,
   onHover,
   blocked,
+  totalRows,
   vendorStatus,
+  released,
 }: {
   item: BookingItem;
   selected: boolean;
   canWrite: boolean;
   dragging: boolean;
+  released?: ReleasedRecord;
   blocked?: { reason: NoFitReason; rowLabels: string[] }[];
+  totalRows: number;
   onPointerDown: (e: React.PointerEvent) => void;
   onSelect: () => void;
   onHover: (h: boolean) => void;
@@ -1401,21 +1886,34 @@ function RequestCard({
               {item.preferredRaw}
             </span>
           )}
+          {(item.source === "phone" || item.source === "walkin") && (
+            <span className="inline-flex items-center gap-0.5 rounded bg-status-info-bg px-1 font-medium text-status-info">
+              {t(`manual.source.${item.source}`)}
+              {item.paidUpfront ? ` · ${t("manual.paidShort")}` : ""}
+            </span>
+          )}
           {vendorStatus !== "known" && <VendorBadge status={vendorStatus} />}
           {item.kind === "commercial" && <span>{t("commercial")}</span>}
           {item.categories.length > 0 && (
             <span className="truncate">{item.categories.join(", ")}</span>
           )}
         </span>
+        {released && (
+          <span className="mt-1 flex items-center gap-1 rounded-md bg-status-neutral-bg px-1.5 py-1 text-status-neutral text-tiny">
+            <Unlock className="size-3 shrink-0" />
+            {t(released.reason === "unpaid" ? "releasedNote.unpaid" : "releasedNote.manual", {
+              stall: released.stallNumber,
+              date: formatDateShort(released.releasedOn, locale),
+            })}
+          </span>
+        )}
         {blocked && (
           <span className="mt-1 flex flex-col gap-0.5 rounded-md bg-status-critical-bg px-1.5 py-1 text-status-critical text-tiny">
             <span className="flex items-center gap-1 font-semibold">
               <CircleAlert className="size-3 shrink-0" />
               {t("why.badge")}
             </span>
-            {blocked.slice(0, 2).map((g) => (
-              <span key={g.reason.kind}>{why.line(g)}</span>
-            ))}
+            <span>{why.summary(blocked, totalRows)}</span>
           </span>
         )}
         {item.note && (
@@ -1440,6 +1938,13 @@ function DetailCard({
   onPlace,
   onUnplace,
   onConfirm,
+  onFixDirect,
+  onMakeFestplatz,
+  onManageFestplatz,
+  festplatzYear,
+  hasFestplatz,
+  onMarkPaid,
+  onRelease,
   onDecline,
   sent,
   blocked,
@@ -1456,6 +1961,13 @@ function DetailCard({
   onPlace: (rowId: string, wantedCm: number) => void;
   onUnplace: () => void;
   onConfirm: () => void;
+  onFixDirect: () => void;
+  onMakeFestplatz: () => void;
+  onManageFestplatz: () => void;
+  festplatzYear: string;
+  hasFestplatz: boolean;
+  onMarkPaid: () => void;
+  onRelease: () => void;
   onDecline: () => void;
   sent?: SentMail;
   blocked?: { reason: NoFitReason; rowLabels: string[] }[];
@@ -1531,6 +2043,46 @@ function DetailCard({
             <span className="text-muted-foreground">{t("detail.unplaced")}</span>
           )}
         </dd>
+        {placement && (
+          <>
+            <dt className="text-muted-foreground">{t("detail.status")}</dt>
+            <dd>
+              <PlacementBadge p={placement} />
+            </dd>
+          </>
+        )}
+        {placement?.reservation && (
+          <>
+            <dt className="text-muted-foreground">{t("detail.reference")}</dt>
+            <dd className="font-mono">{placement.reservation.reference}</dd>
+            <dt className="text-muted-foreground">{t("detail.amount")}</dt>
+            <dd>{formatMoney(placement.reservation.amountCents, locale)}</dd>
+            {placement.status === "reserved" ? (
+              <>
+                <dt className="text-muted-foreground">{t("detail.due")}</dt>
+                <dd>
+                  {formatDateWithWeekday(placement.reservation.dueOn, locale)}
+                  <span className="block text-faint-foreground text-tiny">
+                    {placement.reservation.remindedOn
+                      ? t("detail.reminded", {
+                          date: formatDateShort(placement.reservation.remindedOn, locale),
+                        })
+                      : placement.reservation.reminderOn
+                        ? t("detail.reminderOn", {
+                            date: formatDateShort(placement.reservation.reminderOn, locale),
+                          })
+                        : t("detail.noReminder")}
+                  </span>
+                </dd>
+              </>
+            ) : placement.reservation.paidOn ? (
+              <>
+                <dt className="text-muted-foreground">{t("detail.paid")}</dt>
+                <dd>{formatDateWithWeekday(placement.reservation.paidOn, locale)}</dd>
+              </>
+            ) : null}
+          </>
+        )}
       </dl>
       {blocked && (
         <div
@@ -1563,7 +2115,20 @@ function DetailCard({
           })}
         </p>
       )}
-      {canWrite && (
+      {placement?.festplatzId && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-muted-foreground text-tiny">
+            {t("detail.festplatzHint", { year: festplatzYear })}
+          </span>
+          {canWrite && (
+            <Button size="sm" variant="ghost" onClick={onManageFestplatz}>
+              <Pin />
+              {t("detail.manageFestplatz")}
+            </Button>
+          )}
+        </div>
+      )}
+      {canWrite && !placement?.festplatzId && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {/* The click path for every drag (UX concept): choose a row, the stall goes to the nearest free spot. */}
           <NativeSelect
@@ -1590,13 +2155,42 @@ function DetailCard({
               );
             })}
           </NativeSelect>
-          {placement?.status === "proposed" && (
-            <Button size="sm" variant="default" onClick={onConfirm}>
-              <Mail />
-              {t("detail.confirm")}
-            </Button>
+          {placement?.status === "proposed" &&
+            (item.paidUpfront ? (
+              <Button size="sm" variant="default" onClick={onFixDirect}>
+                <Banknote />
+                {t("detail.fixDirect")}
+              </Button>
+            ) : /\S+@\S+/.test(item.email) ? (
+              <Button size="sm" variant="default" onClick={onConfirm}>
+                <Mail />
+                {t("detail.confirm")}
+              </Button>
+            ) : (
+              <span className="text-muted-foreground text-tiny">{t("detail.noEmail")}</span>
+            ))}
+          {placement &&
+            placement.status !== "proposed" &&
+            !hasFestplatz &&
+            !placement.festplatzId && (
+              <Button size="sm" variant="ghost" onClick={onMakeFestplatz}>
+                <Pin />
+                {t("detail.makeFestplatz", { year: festplatzYear })}
+              </Button>
+            )}
+          {placement?.status === "reserved" && (
+            <>
+              <Button size="sm" variant="default" onClick={onMarkPaid}>
+                <Banknote />
+                {t("detail.markPaid")}
+              </Button>
+              <Button size="sm" onClick={onRelease}>
+                <Unlock />
+                {t("detail.release")}
+              </Button>
+            </>
           )}
-          {placement && (
+          {placement?.status === "proposed" && (
             <Button size="sm" onClick={onUnplace}>
               <Trash2 />
               {t("detail.unplace")}
@@ -1679,7 +2273,13 @@ function PrintSheet({
                 </td>
                 <td>{formatLength(p.endCm - p.startCm, locale)}</td>
                 <td>{p.car ? "✓" : ""}</td>
-                <td>{p.status === "proposed" ? t("proposed") : ""}</td>
+                <td>
+                  {p.status === "proposed"
+                    ? t("proposed")
+                    : p.status === "reserved"
+                      ? t("reserved")
+                      : ""}
+                </td>
               </tr>
             );
           })}

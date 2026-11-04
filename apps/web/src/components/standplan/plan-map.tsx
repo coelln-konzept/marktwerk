@@ -391,8 +391,15 @@ function PlacedStall({
   onPointerDown: (e: React.PointerEvent<SVGGElement>) => void;
 }) {
   const proposed = p.status === "proposed";
+  // Entwurf (blue, dashed) · Reserviert (amber, waits for the transfer) · Fest (green) · Festplatz
+  const tone = p.festplatzId
+    ? "waiting"
+    : proposed
+      ? "info"
+      : p.status === "reserved"
+        ? "warn"
+        : "ok";
   const len = p.endCm - p.startCm;
-  const fromMail = item?.mailId != null;
   const name = item?.companyName ?? item?.vendorName ?? "?";
   const maxChars = Math.max(2, Math.floor(len / 55));
   return (
@@ -404,22 +411,8 @@ function PlacedStall({
         width={len - 12}
         height={row.depthCm - 12}
         rx={16}
-        fill={
-          proposed
-            ? "var(--status-warn-bg)"
-            : fromMail
-              ? "var(--status-ok-bg)"
-              : "var(--status-neutral-bg)"
-        }
-        stroke={
-          selected
-            ? "var(--primary)"
-            : proposed
-              ? "var(--status-warn-dot)"
-              : fromMail
-                ? "var(--status-ok-dot)"
-                : "var(--status-neutral-dot)"
-        }
+        fill={`var(--status-${tone}-bg)`}
+        stroke={selected ? "var(--primary)" : `var(--status-${tone}-dot)`}
         strokeWidth={selected ? 26 : 10}
         strokeDasharray={proposed ? "40 24" : undefined}
       />

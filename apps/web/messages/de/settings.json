@@ -8,7 +8,8 @@
       "users": "Benutzer & Rollen",
       "legal": "Rechtliche Werte",
       "library": "Bibliothek",
-      "mail": "Mail"
+      "mail": "Mail",
+      "bookings": "Buchungen"
     },
     "noValue": "–",
     "company": {
@@ -186,6 +187,26 @@
         "hu_interval_months_over_3500kg": "Hauptuntersuchung über 3,5 t"
       }
     },
-    "subtitleWithLegal": "Firmendaten, Logins mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen."
+    "subtitleWithLegal": "Firmendaten, Logins mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen.",
+    "bookings": {
+      "intro": "Prototyp · gespeichert nur in diesem Browser. Gilt für die Platzkarte im Standplan: Der Platz ist reserviert, bis die Überweisung da ist.",
+      "rulesTitle": "Zahlungsfrist und Erinnerung",
+      "paymentDays": "Zahlungsfrist (Arbeitstage)",
+      "paymentDaysHint": "Ab dem Versand der Platzkarte; Wochenenden und NRW-Feiertage zählen nicht. Spätestens der Werktag vor dem Markt.",
+      "reminderDaysBefore": "Erinnerung (Arbeitstage vor Fristende)",
+      "reminderHint": "0 = am letzten Tag der Frist. Fällt der Tag auf den Versandtag oder davor, gibt es keine Erinnerung.",
+      "example": "Beispiel: Platzkarte am {sent} gesendet → Zahlung bis {due}.",
+      "exampleReminder": "Erinnerung am {date}, Freigabe und Stornomail am Tag danach, wenn nichts eingegangen ist.",
+      "exampleNoReminder": "Keine Erinnerung, die Frist ist zu kurz.",
+      "bankTitle": "Bankverbindung auf der Platzkarte",
+      "bankHint": "Demo-Werte. Die echte Bankverbindung trägt die Firma hier ein; sie gehört nicht ins Code-Repository.",
+      "payee": "Empfänger",
+      "bank": "Bank",
+      "iban": "IBAN",
+      "bic": "BIC",
+      "referenceTitle": "Verwendungszweck",
+      "referenceExample": "Beispiel: Flohmarkt Riehler Gürtel am 12.11., Platz B-13 → {ref}",
+      "referenceHint": "Kürzel aus dem Namen der Veranstaltung, Tag und Monat, Platznummer. Höchstens 20 Zeichen, nur Buchstaben, Ziffern und Bindestrich."
+    }
   }
 }

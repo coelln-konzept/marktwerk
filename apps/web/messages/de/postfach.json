@@ -63,7 +63,8 @@
       "markSpam": "Spam",
       "notSpam": "Kein Spam",
       "spamManual": "Von einer Person als Spam markiert.",
-      "spamRules": "Automatisch als Spam erkannt: {reasons}. „Kein Spam“ holt die Mail zurück."
+      "spamRules": "Automatisch als Spam erkannt: {reasons}. „Kein Spam“ holt die Mail zurück.",
+      "backToList": "Zurück zur Liste"
     },
     "toast": {
       "status": "Status: {status}",
@@ -193,10 +194,11 @@
       "issue": "Problem",
       "ok": "erkannt",
       "note": "Anmerkung",
-      "confirmed": "Bestätigt {stall}",
-      "proposed": "Vorschlag {stall}",
+      "confirmed": "Fest {stall}",
+      "proposed": "Entwurf {stall}",
       "open": "offen",
-      "openPlan": "Im Standplan öffnen"
+      "openPlan": "Im Standplan öffnen",
+      "reserved": "Reserviert {stall}"
     },
     "editor": {
       "bold": "Fett",

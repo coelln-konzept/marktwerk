@@ -10,6 +10,8 @@ export const SETTINGS_PATHS = {
   library: "/einstellungen/bibliothek",
   /** PROTOTYPE (exp/stand-allocation): mail templates and signatures of the Postfach. */
   mail: "/einstellungen/mail",
+  /** PROTOTYPE (exp/stand-allocation): payment deadline and reminder of the two-step booking. */
+  bookings: "/einstellungen/buchungen",
 } as const;
 
 /**
@@ -27,9 +29,12 @@ export async function SettingsHeader({ actions }: { actions?: React.ReactNode })
       />
       <SettingsTabs
         label={t("tabsLabel")}
-        tabs={(["company", "users", "legal", "library", "mail"] as const)
+        tabs={(["company", "users", "legal", "library", "mail", "bookings"] as const)
           .filter((key) => key !== "legal" || isModuleVisible("team"))
-          .filter((key) => key !== "mail" || isModuleVisible("standplanPrototype"))
+          .filter(
+            (key) =>
+              (key !== "mail" && key !== "bookings") || isModuleVisible("standplanPrototype"),
+          )
           .map((key) => ({
             key,
             href: SETTINGS_PATHS[key],
