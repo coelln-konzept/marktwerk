@@ -55,8 +55,8 @@
         "permitsOk": "Permits ok"
       },
       "blockers": "What is holding up {name}",
-      "blockersMore": "+ {count} more",
-      "blockersMoreLink": "See all {count} more",
+      "topTasks": "{count, plural, one {Show top task} other {Show top # tasks}}",
+      "allInSummary": "All {count} in the summary",
       "permit": "Permit",
       "next": {
         "title": "Next weekend",

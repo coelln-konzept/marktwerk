@@ -202,21 +202,22 @@ leads nowhere.
 - **Zeitraum** (Bis Sonntag / 14 Tage / Alles) applies to the first day of the market; "Alles" is every upcoming market. The page has no subtitle line; on phones the "Neu" button of the top bar replaces the button next to the filters.
 
 ### Übersicht (start screen, one for everyone)
-Decisions 2026-10-29 ("Zwei Fragen", then the same day: per-market grouping and "Diese Woche" back): the weekend and
-what is due now side by side, the week below. No KPI strip, no season strip.
+Decisions 2026-10-29 ("Zwei Fragen", then the same day: per-market grouping and "Diese Woche" back): what is due now and
+the weekend side by side, the week below. No KPI strip, no season strip.
 1. **Date + KW line** and greeting.
-2. **Dieses Wochenende** (left from 1024 px, first on phones): per market of the weekend a **verdict** (Im Plan ● ·
-   Achtung ▲ · Nicht startklar ■, with the reasons, e.g. "4 überfällig · Genehmigungen ok"), its first blockers
-   (overdue, due today, missing permits; future-dated tasks don't block) and "+ N weitere", which **opens the rest in
-   place**; then a compact **Nächstes Wochenende** row.
-3. **Heute & überfällig** (right): **every** overdue and due-today item in the bands Überfällig · Heute, **bundled per
-   market** in ranking order (`rankDue`: Kernaufgaben first, then the soonest market), one-click Erledigt and
-   Zurückstellen with undo, due words from `DueBadge`.
+2. **Heute & überfällig** (left from 1024 px, first on phones; CF9-2): **every** overdue and due-today item in the
+   bands Überfällig · Heute, **bundled per market** in ranking order (`rankDue`: Kernaufgaben first, then the soonest
+   market), one-click Erledigt and Zurückstellen with undo, due words from `DueBadge`.
+3. **Dieses Wochenende** (right, simplified in CF9-2): per market of the weekend a **verdict** (Im Plan ● · Achtung ▲ ·
+   Nicht startklar ■, with the reasons, e.g. "4 überfällig · Genehmigungen ok"), and below it a **collapsed
+   "Top-5-Aufgaben anzeigen" toggle** (closed on every visit, not persisted) that reveals the market's first 5 blockers
+   (overdue, due today, missing permits; future-dated tasks don't block); with more than 5 a link "Alle N in der
+   Zusammenfassung" goes to the market. Hidden rows are skipped by J/K. Then a compact **Nächstes Wochenende** row.
 4. **Diese Woche** (full width below): the next 7 days, bundled per market, with the date next to the words
    ("Sa 31.10. · In 2 Tagen"); then the bands "Genehmigungen demnächst" (permits within the horizon) and "Wartet auf
    Rückmeldung".
 5. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
-In every list a market shows its first 3 items and a group its first 10 markets; **"+ N weitere bei …" / "+ N weitere
+In every list (except the weekend card, see 3) a market shows its first 3 items and a group its first 10 markets; **"+ N weitere bei …" / "+ N weitere
 Märkte" open the rest in place** (native disclosure, no navigation), drawn as a small bordered button with a chevron
 so it reads as clickable. Past 10 hidden rows of one market it **links to the market's Zusammenfassung** instead
 ("Alle N weiteren ansehen →"), so a card never unfolds a hundred rows (HN-05). Every market heading (weekend, next

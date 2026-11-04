@@ -88,8 +88,9 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         }
         title={t(`greeting.${part}`, { name: actor.firstName })}
       />
-      {/* One KeyboardRows around all cards: J/K walk the weekend, then today's list, then the week. */}
+      {/* One KeyboardRows around all cards: J/K walk today's list, then the weekend, then the week. */}
       <KeyboardRows className="grid items-start gap-4 lg:grid-cols-2">
+        <TodayCard due={overview.due} today={today} canSnooze={canWrite} />
         <WeekendCard
           weekend={overview.weekend}
           next={overview.nextWeekend}
@@ -97,7 +98,6 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           today={today}
           vorschauId={vorschauId}
         />
-        <TodayCard due={overview.due} today={today} canSnooze={canWrite} />
         <div className="min-w-0 lg:col-span-2">
           <WeekCard due={overview.due} today={today} canSnooze={canWrite} />
         </div>

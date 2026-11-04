@@ -55,8 +55,8 @@
         "permitsOk": "Genehmigungen ok"
       },
       "blockers": "Was {name} aufhält",
-      "blockersMore": "+ {count} weitere",
-      "blockersMoreLink": "Alle {count} weiteren ansehen",
+      "topTasks": "{count, plural, one {Wichtigste Aufgabe anzeigen} other {Top-#-Aufgaben anzeigen}}",
+      "allInSummary": "Alle {count} in der Zusammenfassung",
       "permit": "Genehmigung",
       "next": {
         "title": "Nächstes Wochenende",

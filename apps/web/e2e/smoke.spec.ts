@@ -11,7 +11,7 @@ test("Übersicht loads after login", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).first()).toBeVisible();
 });
 
-test('Übersicht: the weekend next to Heute & überfällig, Diese Woche below; "+ N weitere" opens in place; no KPI or season strip', async ({
+test('Übersicht: Heute & überfällig left, the weekend right with a collapsed Top-5 toggle, Diese Woche below; "+ N weitere" opens in place; no KPI or season strip', async ({
   page,
 }) => {
   await page.goto("/");
@@ -20,17 +20,36 @@ test('Übersicht: the weekend next to Heute & überfällig, Diese Woche below; "
   await expect(weekend).toBeVisible();
   await expect(due).toBeVisible();
   const [weekendBox, dueBox] = await Promise.all([weekend.boundingBox(), due.boundingBox()]);
-  // Two cards side by side on desktop: the weekend is the left one, the headings sit on one line (the
-  // due header carries count badges, so its heading can be a few px higher than the weekend's).
-  expect(weekendBox?.x ?? 0).toBeLessThan(dueBox?.x ?? 0);
+  // Two cards side by side on desktop: Heute & überfällig is the left one (CF9-2), the headings sit on one
+  // line (the due header carries count badges, so its heading can be a few px higher than the weekend's).
+  expect(dueBox?.x ?? 0).toBeLessThan(weekendBox?.x ?? 0);
   expect(Math.abs((weekendBox?.y ?? 0) - (dueBox?.y ?? 0))).toBeLessThan(24);
+
+  // The weekend's blockers are collapsed behind "Top-N-Aufgaben anzeigen" and show at most 5 rows.
+  const toggle = page.getByRole("button", {
+    name: /^(Top-\d+-Aufgaben|Wichtigste Aufgabe) anzeigen$/,
+  });
+  if ((await toggle.count()) > 0) {
+    const first = toggle.first();
+    const list = page.locator(`[id="${await first.getAttribute("aria-controls")}"]`);
+    await expect(first).toHaveAttribute("aria-expanded", "false");
+    await expect(list).toBeHidden();
+    await first.click();
+    await expect(first).toHaveAttribute("aria-expanded", "true");
+    await expect(list).toBeVisible();
+    const rows = await list.locator("li[data-row]").count();
+    expect(rows).toBeGreaterThan(0);
+    expect(rows).toBeLessThanOrEqual(5);
+    await first.click();
+    await expect(list).toBeHidden();
+  }
 
   // "Diese Woche" (the next 7 days, per market) runs across both columns below them.
   const week = page.getByRole("heading", { level: 2, name: "Diese Woche" });
   await expect(week).toBeVisible();
   const weekBox = await week.boundingBox();
   expect(weekBox?.y ?? 0).toBeGreaterThan(Math.max(weekendBox?.y ?? 0, dueBox?.y ?? 0));
-  expect(weekBox?.x ?? 0).toBeLessThan((dueBox?.x ?? 0) - 100);
+  expect(weekBox?.x ?? 0).toBeLessThan((weekendBox?.x ?? 0) - 100);
 
   // "+ N weitere" opens the rest in place instead of navigating away.
   const more = page
