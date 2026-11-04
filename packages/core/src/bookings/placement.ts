@@ -225,3 +225,61 @@ export function quoteStall(input: {
 export function stallNumber(rowLabel: string, startCm: number): string {
   return `${rowLabel}-${Math.floor(startCm / 100) + 1}`;
 }
+
+/** Why a stall cannot go anywhere on a row (shown to the person placing; never guessed around). */
+export type NoFitReason =
+  | { kind: "no_power" }
+  | { kind: "car_not_allowed" }
+  | { kind: "car_slots_full"; slots: number }
+  | { kind: "too_long"; rowLengthCm: number }
+  | { kind: "no_gap"; largestGapCm: number }
+  | { kind: "gap_rule"; largestGapCm: number };
+
+/**
+ * The reason a stall has no valid start on this row, or null when it fits somewhere. Checks the most
+ * fundamental requirement first (power, car allowed, car spaces, row length), then free gaps, then the
+ * optional gap rule.
+ */
+export function explainNoFit(
+  row: PlacementRow,
+  existing: readonly Placement[],
+  candidate: { lengthCm: number; car: boolean; power?: boolean },
+  ignoreId?: string,
+  gapRule: GapRule | null = null,
+): NoFitReason | null {
+  if (candidate.power && !row.power) return { kind: "no_power" };
+  if (candidate.car && !row.carAllowed) return { kind: "car_not_allowed" };
+  const onRow = existing.filter((p) => p.rowId === row.id && p.id !== ignoreId);
+  if (candidate.car && onRow.filter((p) => p.car).length >= row.carSlots) {
+    return { kind: "car_slots_full", slots: row.carSlots };
+  }
+  if (candidate.lengthCm > row.lengthCm) return { kind: "too_long", rowLengthCm: row.lengthCm };
+  const largestGapCm = Math.max(
+    0,
+    ...freeGaps(row, existing, ignoreId).map((g) => g.endCm - g.startCm),
+  );
+  if (largestGapCm < candidate.lengthCm) return { kind: "no_gap", largestGapCm };
+  if (nearestFit(row, existing, candidate, 0, ignoreId, gapRule) === null) {
+    return { kind: "gap_rule", largestGapCm };
+  }
+  return null;
+}
+
+/** Reasons over all rows, grouped (same reason → one entry with its row labels); empty if it fits. */
+export function explainUnplaceable(
+  rows: readonly PlacementRow[],
+  existing: readonly Placement[],
+  candidate: { lengthCm: number; car: boolean; power?: boolean },
+  ignoreId?: string,
+  gapRule: GapRule | null = null,
+): { reason: NoFitReason; rowLabels: string[] }[] {
+  const groups: { reason: NoFitReason; rowLabels: string[] }[] = [];
+  for (const row of rows) {
+    const reason = explainNoFit(row, existing, candidate, ignoreId, gapRule);
+    if (!reason) return [];
+    const same = groups.find((g) => JSON.stringify(g.reason) === JSON.stringify(reason));
+    if (same) same.rowLabels.push(row.label);
+    else groups.push({ reason, rowLabels: [row.label] });
+  }
+  return groups;
+}

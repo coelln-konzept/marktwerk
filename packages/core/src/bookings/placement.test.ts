@@ -3,6 +3,8 @@ import {
   autoPlace,
   checkFit,
   DEFAULT_GAP_RULE,
+  explainNoFit,
+  explainUnplaceable,
   nearestFit,
   type Placement,
   type PlacementRow,
@@ -126,5 +128,46 @@ describe("quoteStall / stallNumber", () => {
   it("numbers stalls by row and metre", () => {
     expect(stallNumber("A", 0)).toBe("A-1");
     expect(stallNumber("C", 1150)).toBe("C-12");
+  });
+});
+
+describe("explainNoFit / explainUnplaceable", () => {
+  const car = { lengthCm: 500, car: true };
+  it("names the reason per row, most fundamental first", () => {
+    expect(explainNoFit(rowA, [], car)).toEqual({ kind: "car_not_allowed" });
+    expect(explainNoFit(rowB, [at("c", "b", 0, 500, true)], car)).toEqual({
+      kind: "car_slots_full",
+      slots: 1,
+    });
+    expect(explainNoFit(rowB, [], { lengthCm: 1200, car: false })).toEqual({
+      kind: "too_long",
+      rowLengthCm: 1000,
+    });
+    expect(explainNoFit(rowB, [], { lengthCm: 300, car: false, power: true })).toEqual({
+      kind: "no_power",
+    });
+    expect(explainNoFit(rowB, [at("x", "b", 200, 800)], { lengthCm: 300, car: false })).toEqual({
+      kind: "no_gap",
+      largestGapCm: 200,
+    });
+  });
+  it("tells the gap rule apart from a missing gap", () => {
+    // free 400 cm at the end: a 300 cm stall would leave 100 cm → only the gap rule blocks it
+    const existing = [at("x", "a", 0, 1600)];
+    expect(
+      explainNoFit(rowA, existing, { lengthCm: 300, car: false }, undefined, DEFAULT_GAP_RULE),
+    ).toEqual({
+      kind: "gap_rule",
+      largestGapCm: 400,
+    });
+    expect(explainNoFit(rowA, existing, { lengthCm: 300, car: false })).toBeNull();
+  });
+  it("groups the reasons over all rows; empty when it fits somewhere", () => {
+    const groups = explainUnplaceable([rowA, rowB], [at("c", "b", 0, 500, true)], car);
+    expect(groups).toEqual([
+      { reason: { kind: "car_not_allowed" }, rowLabels: ["A"] },
+      { reason: { kind: "car_slots_full", slots: 1 }, rowLabels: ["B"] },
+    ]);
+    expect(explainUnplaceable([rowA, rowB], [], car)).toEqual([]);
   });
 });
