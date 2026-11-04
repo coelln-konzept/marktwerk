@@ -42,8 +42,8 @@ function foldQuery(q: string): string {
     .replace(/[%_\\]/g, (c) => `\\${c}`);
 }
 
-const LETTER_FROM = "äöüßéèêëáàâãåóòôõíìîïúùûýÿçñ";
-const LETTER_TO = "aouseeeeaaaaaooooiiiiuuuyycn";
+const LETTER_FROM = "äöüßéèêëáàâãåóòôõíìîïúùûýÿçñşŞšŠčČžŽśŚćĆğĞńŃłŁřŘťŤďĎňŇýÝźŹżŻąĄęĘőŐűŰ";
+const LETTER_TO = "aouseeeeaaaaaooooiiiiuuuyycnsssscczzssccggnnllrrttddnnyyzzzzaaeeoouu";
 /** Whitespace, quotes and brackets skipped before the first letter (as in core's `initialLetter`). */
 const LETTER_LEADING = "^[\\s\"'„“”‚‘’«»‹›`´()\\[\\]]+";
 

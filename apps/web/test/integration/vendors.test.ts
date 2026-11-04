@@ -28,6 +28,10 @@ const names = [
   "Øresund",
   "ßtrand",
   "Anna",
+  "Şahin",
+  "Čapek",
+  "Łukasz",
+  "ŁÓDŹ Trödel",
 ];
 
 async function seed(extra: Partial<typeof vendor.$inferInsert> = {}, list = names) {

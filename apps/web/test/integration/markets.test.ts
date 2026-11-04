@@ -170,6 +170,9 @@ describe("createMarket", () => {
     await db.update(eventPreset).set({ archivedAt: new Date() }).where(eq(eventPreset.id, gone.id));
     await db.update(eventPreset).set({ active: false }).where(eq(eventPreset.id, off.id));
     expect(await listMarketColorUsage()).toEqual({ petrol: ["A Markt", "B Markt"] });
+    // A market's own edit form leaves its own colour out of the legend usage.
+    const [own] = await db.select().from(eventPreset).where(eq(eventPreset.name, "A Markt"));
+    expect(await listMarketColorUsage(own?.id)).toEqual({ petrol: ["B Markt"] });
   });
 
   it("suggests the colour a following createMarket without colour assigns", async () => {

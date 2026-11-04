@@ -116,7 +116,8 @@
       "estimate": "Geschätzt",
       "assignee": "Zuständig",
       "role": "Rolle",
-      "completed": "Erledigt am"
+      "completed": "Erledigt am",
+      "notify": "Benachrichtigung"
     },
     "source": {
       "template": "Aus Ablaufvorlage",

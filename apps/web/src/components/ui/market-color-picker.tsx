@@ -2,7 +2,7 @@
 
 import { MARKET_COLORS } from "@marktwerk/core";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 import { OptionalMark } from "@/components/ui/label";
 import { marketColorClass } from "@/components/ui/market-marker";
 
@@ -26,6 +26,7 @@ export function MarketColorPicker({
   error?: ReactNode;
 }) {
   const t = useTranslations("templates.form.color");
+  const errorId = useId();
   const label = (key: string) => {
     const colour = t(`names.${key}` as never);
     const users = usage[key] ?? [];
@@ -36,7 +37,10 @@ export function MarketColorPicker({
   const used = MARKET_COLORS.filter((key) => (usage[key]?.length ?? 0) > 0);
 
   return (
-    <fieldset className="flex flex-col gap-2 sm:col-span-2">
+    <fieldset
+      className="flex flex-col gap-2 sm:col-span-2"
+      aria-describedby={error ? errorId : undefined}
+    >
       <legend className="mb-1 flex gap-2 font-medium text-small">
         {t("legend")}
         <OptionalMark />
@@ -90,7 +94,7 @@ export function MarketColorPicker({
         </ul>
       )}
       <p className="text-faint-foreground text-small">{t("hint")}</p>
-      {error}
+      {error && <div id={errorId}>{error}</div>}
     </fieldset>
   );
 }

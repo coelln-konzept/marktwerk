@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { auditLog, task } from "@marktwerk/db/schema";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -56,6 +57,26 @@ describe("task notify setting", () => {
       notify: { channels: ["whatsapp"], timing: "custom", at: "2026-11-05T08:30:00.000Z" },
     });
     expect((await getTask(custom.id)).notifyAt?.toISOString()).toBe("2026-11-05T08:30:00.000Z");
+  });
+
+  it("labels a notify-only change in the Verlauf (every audited field key has a tasks.fields label)", async () => {
+    const { id } = await createTask(owner, { title: "T", dueOn: "2026-11-10" });
+    await updateTask(owner, id, { notify: mail });
+    const [entry] = await db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "task.update"), eq(auditLog.entityId, id)));
+    const keys = Object.keys((entry?.diff as { after: object } | undefined)?.after ?? {});
+    expect(keys).toEqual(["notify"]);
+    for (const [locale, label] of [
+      ["de", "Benachrichtigung"],
+      ["en", "Notification"],
+    ] as const) {
+      const messages = JSON.parse(
+        readFileSync(new URL(`../../messages/${locale}/tasks.json`, import.meta.url), "utf8"),
+      ) as { tasks: { fields: Record<string, string> } };
+      for (const key of keys) expect(messages.tasks.fields[key], `${locale}:${key}`).toBe(label);
+    }
   });
 
   it("defaults to no notification", async () => {

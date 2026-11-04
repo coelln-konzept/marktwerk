@@ -116,7 +116,8 @@
       "estimate": "Estimated",
       "assignee": "Assigned to",
       "role": "Role",
-      "completed": "Done on"
+      "completed": "Done on",
+      "notify": "Notification"
     },
     "source": {
       "template": "From timeline template",

@@ -18,6 +18,7 @@ export function initialLetter(name: string | null | undefined): InitialLetter {
   const base = first
     .toUpperCase()
     .replace("ß", "S")
+    .replace("Ł", "L") // no decomposition of its own
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .charAt(0);

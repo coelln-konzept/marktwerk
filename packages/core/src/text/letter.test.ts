@@ -14,6 +14,11 @@ describe("initialLetter", () => {
     expect(initialLetter("Élan")).toBe("E");
     expect(initialLetter("ça va")).toBe("C");
     expect(initialLetter("ßtrand")).toBe("S");
+    expect(initialLetter("Şahin")).toBe("S");
+    expect(initialLetter("Čapek")).toBe("C");
+    expect(initialLetter("Łukasz")).toBe("L");
+    expect(initialLetter("łódź")).toBe("L");
+    expect(initialLetter("Őri")).toBe("O");
     // decomposed form (a + combining diaeresis)
     expect(initialLetter("Ärger")).toBe("A");
   });
