@@ -124,7 +124,8 @@ this list only (log it; `ux-concept.md` updated):
   `--row-tint` set per row; check light, dark, hover, selected and focus in the browser.
 
 **Neuen Markt anlegen** (`new-market-form.tsx`): add the swatch row from `preset-form.tsx` (extract a
-shared `MarketColorPicker`). Optional, "Keine" allowed, default "Keine". Each swatch's tooltip and a
+shared `MarketColorPicker`). Optional, "Keine" allowed; pre-selected is the colour `createMarket`
+already assigns today (least used, `nextMarketColor`), so quick creation keeps getting a colour. Each swatch's tooltip and a
 small legend under the row list the active markets already using that colour ("Petrol: Flohmarkt
 Heumarkt, Antikmarkt Altstadt"); unused colours read "noch frei". Data: a query returning
 `{color, presetNames[]}` for active presets, passed in from the sheet. The Marktvorlage form gets the
