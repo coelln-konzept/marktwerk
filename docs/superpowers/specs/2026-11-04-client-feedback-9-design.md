@@ -171,3 +171,14 @@ Umlauts and accents fold to their base letter (Ä→A, Ö→O, Ü→U, É→E); 
 Letters with no entries under the other active filters are shown disabled (not links); the active letter is
 marked (`aria-current`). Keyboard: normal links in tab order. Shared component
 `components/ui/letter-filter.tsx`; letter folding as a pure function in packages/core/src/text/ with Vitest.
+
+## Decisions after the final review (2026-11-04, product owner)
+
+- **Name:** the CF9-1 record is called **"Besprechung" / "Besprechungen"** in the UI (German; English UI
+  "Meeting(s)"), not "Termin": "Termin" keeps its glossary meaning (an event date). Code and tables stay
+  `appointment`. URL params follow the UI: `?neu=besprechung`, `?vorschau=besprechung:<id>` (nothing has
+  shipped, so no redirects needed). Kalender layer label "Besprechungen", Übersicht group "Besprechungen heute",
+  "+ Neu › Besprechung", palette "Besprechung anlegen". Glossary gets an entry for `appointment`.
+- **Visibility:** Besprechungen are for the office only. The `field` role does not see the Kalender layer,
+  "Besprechungen heute", or the Vorschau, and cannot open the dialog (layer availability and queries gated
+  on `can(role, "event", "write")`); contact details additionally need `contact:read`, venue links `venue:read`.
