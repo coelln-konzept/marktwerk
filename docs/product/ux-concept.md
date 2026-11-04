@@ -92,7 +92,7 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
   this tab, with its filters (drawers, Vorschau and filter changes don't count as pages, so it never reopens a closed
   drawer), or to the parent crumb when the page was opened directly. Then the visible search field "Suchen oder Befehl …" with Strg+K hint
   (opens the command palette), **"+ Neu"** (shortcut `C`; context-aware: new task on a board, new event in
-  Veranstaltungen…). "+ Neu" also offers **Besprechung** (CF9-1, right after "Einzeltermin", for everyone who may write events; also
+  Veranstaltungen…). "+ Neu" also offers **Besprechung** (CF9-1, right after "Einzeltermin", for everyone who may write events, i.e. the office; also
   Strg+K "Besprechung anlegen"): a modal dialog mounted in the app layout, so it opens on every page via `?neu=besprechung`
   (`&datum=YYYY-MM-DD` pre-fills the day, `&bearbeiten=<id>` edits an existing Besprechung; closing removes the parameters).
   Fields: Name, Datum, **Ganztägig** (switch, on; off shows Von/Bis), Wo (venue list or "Adresse eingeben …", one of the two),
@@ -280,7 +280,8 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
   cell of the month grid and every date cell of the list has a small "+" ("Besprechung am Mo 07.12.2026 anlegen") that opens
   the dialog with that date (`?neu=besprechung&datum=…`, Vorschau parameters dropped); it shows on hover and keyboard focus
   and always on touch screens. "+ Neu › Besprechung" pre-fills today. **Privacy:** the Vorschau shows the Ansprechpartner
-  block only with `contact` read and links the Ort only with `venue` read (plain text otherwise). Text lengths are capped (Name 200, Adresse 300, Notizen 2000, Kontakt 200 / E-Mail 254 / Telefon 40).
+  block only with `contact` read and links the Ort only with `venue` read (plain text otherwise). **Office only:** Besprechungen
+  need `event` write, so field users (and read-only roles) get no layer, no "Besprechungen heute" group and no Vorschau. Text lengths are capped (Name 200, Adresse 300, Notizen 2000, Kontakt 200 / E-Mail 254 / Telefon 40).
 - **Entries:** month chips show the full market name (up to two lines) with the market colour bar; every event
   chip and list row links to the event's Überblick (`/veranstaltungen/<id>`).
 - The layer selection is **saved per person** (`user_preference.saved_views`).

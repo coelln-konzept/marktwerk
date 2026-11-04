@@ -28,7 +28,7 @@ export async function AppointmentVorschau({
   reopenHref: string;
 }) {
   const actor = await getActor();
-  if (!can(actor.role, "event", "read")) return null;
+  if (!can(actor.role, "event", "write")) return null;
   const appointment = await getAppointment(id);
   if (!appointment) return null;
   const t = await getTranslations("appointments.vorschau");

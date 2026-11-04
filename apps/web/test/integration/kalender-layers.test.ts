@@ -201,14 +201,19 @@ describe("listCalendarDeadlines", () => {
 describe("layer selection", () => {
   it("offers each role only the module layers it may see", () => {
     expect(availableLayers("owner", false)).toEqual(ALL_LAYERS);
-    expect(availableLayers("staff", false)).toEqual([
-      "tasks",
-      "appointments",
-      "permits",
-      "obligations",
-    ]);
-    expect(availableLayers("field", false)).toEqual(["tasks", "appointments"]);
-    expect(availableLayers("field", true)).toEqual(["tasks", "appointments", "shifts"]);
+    expect(availableLayers("manager", false)).toEqual(ALL_LAYERS);
+    expect(availableLayers("staff", false)).toEqual(["tasks", "permits", "obligations"]);
+    expect(availableLayers("field", false)).toEqual(["tasks"]);
+    expect(availableLayers("field", true)).toEqual(["tasks", "shifts"]);
+  });
+
+  it("Besprechungen are office-only: the layer needs event write, so field users never get it", () => {
+    for (const role of ["owner", "manager"] as const) {
+      expect(availableLayers(role, true)).toContain("appointments");
+    }
+    for (const role of ["staff", "field"] as const) {
+      expect(availableLayers(role, true)).not.toContain("appointments");
+    }
   });
 
   it("round-trips through the URL", () => {
