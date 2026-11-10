@@ -52,7 +52,10 @@
       "missing": "fehlt",
       "given": "vorhanden",
       "addPhoto": "Foto hinzufügen",
-      "addAttachment": "Anhang hinzufügen"
+      "addAttachment": "Anhang hinzufügen",
+      "requirePhoto": "Foto verlangen",
+      "requireAttachment": "Anhang verlangen",
+      "requireHint": "Ohne Nachweis lässt sich die Aufgabe nicht abhaken."
     },
     "reason": {
       "waiting_external": {
@@ -117,7 +120,9 @@
       "assignee": "Zuständig",
       "role": "Rolle",
       "completed": "Erledigt am",
-      "notify": "Benachrichtigung"
+      "notify": "Benachrichtigung",
+      "requiresPhoto": "Foto als Nachweis",
+      "requiresAttachment": "Anhang als Nachweis"
     },
     "source": {
       "template": "Aus Ablaufvorlage",
