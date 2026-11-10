@@ -7,8 +7,9 @@ import { cn } from "@/lib/utils";
 /**
  * Event entry of the Kalender month grid: market marker (bar in the market colour, or the type square),
  * status icon (hourglass = geplant, check = bestätigt, … the same icons as the status badge) and the
- * name on up to two lines. The chip's tint stays the event type's. A multi-day event shows "Tag 2/3"
- * and joins its neighbour days (square corners on the side where it continues).
+ * name on up to two lines. The chip's tint stays the event type's. A multi-day event joins its neighbour
+ * days into one bar (square corners where it continues); on a `continuation` day the content is kept but
+ * invisible, so the bar has the same height, and "Tag 2/3" is only spoken and in the tooltip (UT-11 #1).
  */
 export function EventChip({
   href,
@@ -19,6 +20,7 @@ export function EventChip({
   statusLabel,
   span,
   spanLabel,
+  continuation = false,
 }: {
   href: string;
   typeKey: string;
@@ -31,6 +33,8 @@ export function EventChip({
   span?: { index: number; total: number };
   /** "Tag 2/3" */
   spanLabel?: string;
+  /** A later day of a multi-day event inside the same week: the bar continues without repeating the name. */
+  continuation?: boolean;
 }) {
   const cancelled = status === "cancelled";
   const Icon = EVENT_STATUS[status].icon;
@@ -49,16 +53,24 @@ export function EventChip({
         continuesAfter && "-mr-1.5 rounded-r-none pr-2.5",
       )}
     >
-      <MarketMarker
-        color={color}
-        typeKey={typeKey}
-        className={cn(color ? "h-3" : "size-2", "mt-[3px] shrink-0")}
-      />
-      <Icon aria-hidden className="mt-[2px] size-3 shrink-0" strokeWidth={2.25} />
       <span className="sr-only">{statusLabel}: </span>
-      <span className="min-w-0">
-        <span className={cn(cancelled && "line-through")}>{name}</span>
-        {spanLabel && <span className="tabular block font-normal opacity-80">{spanLabel}</span>}
+      <span
+        aria-hidden={continuation || undefined}
+        className={cn("contents", continuation && "[&>*]:invisible")}
+      >
+        <MarketMarker
+          color={color}
+          typeKey={typeKey}
+          className={cn(color ? "h-3" : "size-2", "mt-[3px] shrink-0")}
+        />
+        <Icon aria-hidden className="mt-[2px] size-3 shrink-0" strokeWidth={2.25} />
+        <span className="min-w-0">
+          <span className={cn(cancelled && "line-through")}>{name}</span>
+        </span>
+      </span>
+      <span className="sr-only">
+        {continuation ? name : ""}
+        {spanLabel ? `, ${spanLabel}` : ""}
       </span>
     </Link>
   );

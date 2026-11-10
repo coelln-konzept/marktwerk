@@ -25,7 +25,9 @@ describe("groupDeadlines", () => {
     const items = Array.from({ length: 70 }, (_, i) => permit(i, "decision"));
     const out = groupDeadlines(items);
     expect(out).toHaveLength(1);
-    expect(out[0]?.group).toEqual({ count: 70, kind: "decision" });
+    expect(out[0]?.group).toMatchObject({ count: 70, kind: "decision" });
+    // The summary keeps its members, so the Kalender can list exactly those permits.
+    expect(out[0]?.group?.members.map((m) => m.id)).toEqual(items.map((i) => i.id));
     expect(out[0]?.href).toBe("/genehmigungen");
   });
 

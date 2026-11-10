@@ -1,5 +1,5 @@
-import { addDays, dayDistance, isoWeek, mondayOf } from "@marktwerk/core";
-import { CalendarClock, CalendarX, Clock, Minus, OctagonAlert, Plus } from "lucide-react";
+import { addDays, dayDistance, daysBetween, isoWeek, mondayOf } from "@marktwerk/core";
+import { CalendarClock, CalendarX, Clock, OctagonAlert, Plus } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment } from "react";
@@ -10,11 +10,12 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
-import { formatDateShortYear } from "@/lib/format";
+import { formatDateShortYear, formatDateWithWeekday } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { AppointmentView } from "@/server/queries/appointments";
 import type { EventRow } from "@/server/queries/events";
 import { LAYER_ICONS } from "./deadline-chip";
+import { DeadlineGroup } from "./deadline-group";
 import type { DisplayItem } from "./group-deadlines";
 
 /** "Liste · 6 Wochen": the same entries as the month view, grouped by KW with one block per day. */
@@ -55,15 +56,12 @@ export async function CalendarList({
   const locale = await getLocale();
   const tAppt = await getTranslations("appointments");
 
+  // One row per event, on its first day in the range; a multi-day event says how long it runs (UT-11 #1).
   const byDay = new Map<string, EventRow[]>();
   for (const r of rows) {
-    for (
-      let d = r.startsOn < from ? from : r.startsOn;
-      d <= r.endsOn && d <= to;
-      d = addDays(d, 1)
-    ) {
-      byDay.set(d, [...(byDay.get(d) ?? []), r]);
-    }
+    const d = r.startsOn < from ? from : r.startsOn;
+    if (d > to || r.endsOn < from) continue;
+    byDay.set(d, [...(byDay.get(d) ?? []), r]);
   }
   const itemsByDay = new Map<string, DisplayItem[]>();
   for (const item of deadlines)
@@ -231,6 +229,14 @@ export async function CalendarList({
                         <EventTypeTag typeKey={r.typeKey} className="max-sm:hidden">
                           {locale === "en" ? r.typeNameEn : r.typeNameDe}
                         </EventTypeTag>
+                        {r.endsOn > r.startsOn && (
+                          <span className="tabular block text-muted-foreground text-tiny">
+                            {t("spanRange", {
+                              days: daysBetween(r.startsOn, r.endsOn) + 1,
+                              to: formatDateWithWeekday(r.endsOn, locale),
+                            })}
+                          </span>
+                        )}
                       </TD>
                       <TD className="hidden max-w-56 truncate sm:table-cell" title={r.venueName}>
                         {r.venueName}
@@ -304,24 +310,47 @@ export async function CalendarList({
                 const itemRows = items.map((item, i) => {
                   const Icon = LAYER_ICONS[item.layer];
                   const tone = item.tone ?? "neutral";
+                  const label = (
+                    <>
+                      <Icon aria-hidden className="size-4 shrink-0 text-foreground-2" />
+                      {item.text}
+                    </>
+                  );
+                  // A summary opens its members in place instead of the whole module (UT-11 #2).
+                  const summary = item.members ? (
+                    <DeadlineGroup
+                      aria={t("groupAria", { text: item.text })}
+                      title={item.text}
+                      items={item.members}
+                      allHref={item.href}
+                      allLabel={item.layer === "tasks" ? t("groupAllTasks") : t("groupAll")}
+                      className="mr-2 inline-flex items-center gap-1.5 rounded-md font-semibold hover:underline"
+                    >
+                      {label}
+                    </DeadlineGroup>
+                  ) : null;
                   return (
                     <TR
                       key={`${day}-${item.id}`}
-                      tabIndex={0}
-                      data-row
-                      data-href={item.href}
-                      className="cursor-pointer outline-hidden focus-visible:bg-selected"
+                      tabIndex={summary ? undefined : 0}
+                      data-row={summary ? undefined : true}
+                      data-href={summary ? undefined : item.href}
+                      className={cn(
+                        "outline-hidden focus-visible:bg-selected",
+                        !summary && "cursor-pointer",
+                      )}
                     >
                       {events.length + dayAppointments.length + i === 0 && dateCell}
                       <TD>
-                        <Link
-                          href={item.href as never}
-                          tabIndex={-1}
-                          className="mr-2 inline-flex items-center gap-1.5 font-semibold hover:underline"
-                        >
-                          <Icon aria-hidden className="size-4 shrink-0 text-foreground-2" />
-                          {item.text}
-                        </Link>
+                        {summary ?? (
+                          <Link
+                            href={item.href as never}
+                            tabIndex={-1}
+                            className="mr-2 inline-flex items-center gap-1.5 font-semibold hover:underline"
+                          >
+                            {label}
+                          </Link>
+                        )}
                         <span className="text-muted-foreground text-tiny">
                           {t(`layers.deadline.${item.layer}`)}
                           {item.kindLabel && !item.group ? ` · ${item.kindLabel}` : ""}
@@ -329,23 +358,26 @@ export async function CalendarList({
                       </TD>
                       <TD className="hidden sm:table-cell" />
                       <TD>
-                        <StatusBadge
-                          tone={tone}
-                          icon={
-                            tone === "critical" ? OctagonAlert : tone === "warn" ? Clock : Minus
-                          }
-                        >
-                          {t(`tone.${tone}`)}
-                        </StatusBadge>
+                        {/* Only urgent deadlines get a state; a calm one is no "Geplant" (UT-11 #3). */}
+                        {(tone === "warn" || tone === "critical") && (
+                          <StatusBadge
+                            tone={tone}
+                            icon={tone === "critical" ? OctagonAlert : Clock}
+                          >
+                            {t(`tone.${tone}`)}
+                          </StatusBadge>
+                        )}
                       </TD>
                       <TD className="hidden w-20 text-right sm:table-cell">
-                        <Link
-                          href={item.href as never}
-                          tabIndex={-1}
-                          className="inline-flex min-h-8 items-center rounded-lg border border-input px-3 font-medium hover:bg-hover"
-                        >
-                          {t("open")}
-                        </Link>
+                        {!summary && (
+                          <Link
+                            href={item.href as never}
+                            tabIndex={-1}
+                            className="inline-flex min-h-8 items-center rounded-lg border border-input px-3 font-medium hover:bg-hover"
+                          >
+                            {t("open")}
+                          </Link>
+                        )}
                       </TD>
                     </TR>
                   );
