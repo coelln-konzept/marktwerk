@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 import { EventTypeMarker } from "./event-type-tag";
 
 /*
- * "Marktfarbe" (decision 2026-10-22): a thin marker in the market's colour next to its name. Never a
- * background and never the only cue (the name always sits next to it). Class names are static strings so
- * Tailwind sees them; tokens live in globals.css (`--market-<key>`).
+ * "Marktfarbe" (decision 2026-10-22): a thin bar (or, on the events list, a round dot) in the market's colour
+ * next to its name. Never a background and never the only cue (the name always sits next to it). Class names
+ * are static strings so Tailwind sees them; tokens live in globals.css (`--market-<key>`).
  */
 
 const BAR: Record<MarketColor, string> = {
@@ -21,43 +21,28 @@ const BAR: Record<MarketColor, string> = {
   graphite: "bg-market-graphite",
 };
 
-const BORDER: Record<MarketColor, string> = {
-  plum: "border-l-market-plum",
-  rose: "border-l-market-rose",
-  brown: "border-l-market-brown",
-  sand: "border-l-market-sand",
-  olive: "border-l-market-olive",
-  petrol: "border-l-market-petrol",
-  cyan: "border-l-market-cyan",
-  slate: "border-l-market-slate",
-  indigo: "border-l-market-indigo",
-  graphite: "border-l-market-graphite",
-};
-
 /** Background class of a market colour swatch (for the picker); neutral for an unknown value. */
 export function marketColorClass(color: string | null | undefined): string {
   return isMarketColor(color) ? BAR[color] : "bg-status-neutral-dot";
 }
 
-/** Left-border colour class for a container that carries the market bar (use with `border-l-4`). */
-export function marketBorderClass(color: string | null | undefined): string | undefined {
-  return isMarketColor(color) ? BORDER[color] : undefined;
-}
-
 /**
- * A thin vertical bar in the market colour. Falls back to the event type's square when the event has no
+ * A thin vertical bar (`shape="dot"`: a 12px round dot, events list) in the market colour. Falls back to the event type's square when the event has no
  * preset colour, and renders nothing when neither is known. Decorative: the market name sits next to it.
  */
 export function MarketMarker({
   color,
   typeKey,
   size = "md",
+  shape = "bar",
   className,
 }: {
   color: string | null | undefined;
   typeKey?: string | null;
   /** `lg`: a taller, wider bar for lists where the market is the row's identity (Veranstaltungen). */
   size?: "md" | "lg";
+  /** `dot`: a round 12px dot instead of the bar (events list, CF9-4 option C); `size` is ignored. */
+  shape?: "bar" | "dot";
   className?: string;
 }) {
   if (isMarketColor(color))
@@ -67,7 +52,7 @@ export function MarketMarker({
         data-market-color={color}
         className={cn(
           "inline-block shrink-0 self-center rounded-full",
-          size === "lg" ? "h-7 w-1.5" : "h-4 w-1",
+          shape === "dot" ? "size-3" : size === "lg" ? "h-7 w-1.5" : "h-4 w-1",
           BAR[color],
           className,
         )}

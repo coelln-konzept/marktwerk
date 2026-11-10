@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { getActor } from "@/server/actor";
 import { getEvent } from "@/server/queries/events";
 import { listEventPermits } from "@/server/queries/permits";
-import { listStaffOptions } from "@/server/queries/tasks";
+import { getNotifySelf, listStaffOptions } from "@/server/queries/tasks";
 import { requirePermission } from "@/server/session";
 
 // No own title: like the other tabs it inherits "<Name> · marktwerk" from the event layout.
@@ -62,6 +62,7 @@ export default async function EventPermitsPage({
           <NewTaskButton
             eventId={event.id}
             staff={staff}
+            notifySelf={await getNotifySelf(actor)}
             canAssign={!isModuleHidden("team") && can(actor.role, "task", "assign")}
             today={today}
             defaultCategory="permits"

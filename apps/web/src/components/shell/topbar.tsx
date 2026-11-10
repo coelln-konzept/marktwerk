@@ -2,6 +2,7 @@
 
 import { Menu } from "@base-ui/react/menu";
 import {
+  CalendarClock,
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
@@ -19,11 +20,13 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { APPOINTMENT_PARAM } from "@/components/appointments/appointment-params";
 import { Kbd } from "@/components/ui/kbd";
 import type { Creatable } from "@/lib/creatable";
+import { hrefWith } from "@/lib/url";
 import { BackButton, useVisitedPages } from "./back-button";
 import { useShell } from "./shell-context";
 
@@ -83,6 +86,7 @@ function leadFor(pathname: string, eventId: string | undefined): "event" | Creat
 function NewMenu() {
   const t = useTranslations("topbar");
   const pathname = usePathname();
+  const search = useSearchParams();
   const { creatable } = useShell();
   const [open, setOpen] = useState(false);
   const venueId = VENUE_PAGE.exec(pathname)?.[1];
@@ -93,6 +97,12 @@ function NewMenu() {
     : eventId
       ? `/veranstaltungen/${eventId}/board?neu=1`
       : "/?neu=1";
+  // The dialog lives in the app layout, so it opens on any page; the page's own query (month, filters) stays.
+  const appointmentHref = hrefWith(pathname, Object.fromEntries(search.entries()), {
+    neu: APPOINTMENT_PARAM,
+    bearbeiten: undefined,
+    datum: undefined,
+  });
   const entries: {
     id: string;
     group: "event" | Creatable;
@@ -113,6 +123,13 @@ function NewMenu() {
       href: venueId ? `/veranstaltungen/neu?ort=${venueId}` : "/veranstaltungen/neu",
       label: t("newSingle"),
       icon: CalendarPlus,
+    },
+    {
+      id: "appointment",
+      group: "appointment",
+      href: appointmentHref,
+      label: t("newAppointment"),
+      icon: CalendarClock,
     },
     { id: "task", group: "task", href: taskHref, label: t("newTask"), icon: CircleCheck },
     {

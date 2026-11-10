@@ -76,6 +76,14 @@ export const taskStatus = app.enum("task_status", [
 ]);
 
 export const effortFeedback = app.enum("effort_feedback", ["as_planned", "longer", "shorter"]);
+export const taskNotifyTiming = app.enum("task_notify_timing", [
+  "on_create",
+  "due_day",
+  "before_1d",
+  "before_3d",
+  "before_7d",
+  "custom",
+]);
 export const approvalStatus = app.enum("approval_status", ["pending", "approved", "rejected"]);
 
 /** Kanban columns: Vorbereitung · Diese Woche · Heute · Erledigt. Derived unless overridden by a manual move. */
@@ -128,6 +136,16 @@ export const task = app.table(
      * digest while it is after today, back on the date itself. The due date is not touched.
      */
     snoozedUntil: date(),
+
+    /** "Benachrichtigung senden an" (CF9-3): saved now, sent once mail/WhatsApp are connected. */
+    notifyChannels: text().array().notNull().default([]),
+    notifyTiming: taskNotifyTiming(),
+    notifyAt: timestamp({ withTimezone: true }),
+    /**
+     * Who set the notification: the recipient while the Team module is hidden (decision 2026-11-04). Set by
+     * the service whenever channels are saved, null without channels.
+     */
+    notifyUserId: text().references(() => user.id, { onDelete: "set null" }),
 
     // effort
     estimateMinutes: integer().notNull().default(0),
@@ -182,6 +200,19 @@ export const task = app.table(
     uniqueIndex("task_checklist_stable_key")
       .on(t.checklistId, t.templateStableKey)
       .where(sql`${t.templateStableKey} is not null`),
+    check("task_notify_channels", sql`${t.notifyChannels} <@ array['email','whatsapp']::text[]`),
+    check(
+      "task_notify_custom",
+      sql`coalesce(${t.notifyTiming} = 'custom', false) = (${t.notifyAt} is not null)`,
+    ),
+    check(
+      "task_notify_empty",
+      sql`cardinality(${t.notifyChannels}) > 0 or ${t.notifyTiming} is null`,
+    ),
+    check(
+      "task_notify_user_empty",
+      sql`cardinality(${t.notifyChannels}) > 0 or ${t.notifyUserId} is null`,
+    ),
     check("task_estimate", sql`${t.estimateMinutes} >= 0`),
     check("task_rollover", sql`${t.rolloverCount} >= 0`),
     check("task_done_completed", sql`${t.status} <> 'done' or ${t.completedAt} is not null`),
@@ -229,7 +260,10 @@ export const taskDependency = app.table(
   ],
 );
 
-/** Comment thread of a task. @mentions notify the mentioned staff members. */
+/**
+ * Comment thread of a task. Read-only: commenting was dropped (client decision 2026-10-22); the table keeps
+ * older comments, which the task activity still lists.
+ */
 export const taskComment = app.table(
   "task_comment",
   {
@@ -247,19 +281,4 @@ export const taskComment = app.table(
     archivedAt: archivedAt(),
   },
   (t) => [index().on(t.taskId, t.createdAt)],
-);
-
-/** People who follow a task without owning it. */
-export const taskWatcher = app.table(
-  "task_watcher",
-  {
-    taskId: uuid()
-      .notNull()
-      .references(() => task.id, { onDelete: "cascade" }),
-    staffMemberId: uuid()
-      .notNull()
-      .references(() => staffMember.id, { onDelete: "cascade" }),
-    ...timestamps,
-  },
-  (t) => [primaryKey({ columns: [t.taskId, t.staffMemberId] }), index().on(t.staffMemberId)],
 );

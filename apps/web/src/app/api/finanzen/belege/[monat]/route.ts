@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { isModuleHidden } from "@/lib/modules";
 import { apiActor, forbiddenResponse, isForbiddenError } from "@/server/api";
 import {
   type BundleLabels,
@@ -16,6 +17,8 @@ export async function GET(
   request: Request,
   { params }: RouteContext<"/api/finanzen/belege/[monat]">,
 ) {
+  // Follows the Finance hide (`lib/modules.ts`) like the /finanzen pages.
+  if (isModuleHidden("finance")) return Response.json({ error: "not_found" }, { status: 404 });
   const actor = await apiActor();
   if (actor instanceof Response) return actor;
   const { monat } = await params;

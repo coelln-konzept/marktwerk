@@ -5,7 +5,6 @@ import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import {
   addCheckItem,
-  addComment,
   assignTask,
   createTask,
   moveTask,
@@ -497,42 +496,6 @@ describe("check items", () => {
   });
 });
 
-describe("comments and mentions", () => {
-  it("notifies mentioned staff (not the author) and stores who was mentioned", async () => {
-    const t = await insertTask({ title: "Schilder", eventId });
-    const result = await addComment(
-      office,
-      t.id,
-      "@Ben Test kannst du das übernehmen? cc @Anna Test",
-    );
-    expect(result.mentioned.sort()).toEqual([cat.staff.anna.id, cat.staff.ben.id].sort());
-    const [comment] = await db.select().from(taskComment).where(eq(taskComment.id, result.id));
-    expect(comment).toMatchObject({
-      authorStaffMemberId: cat.staff.anna.id,
-      authorUserId: office.id,
-    });
-    expect(comment?.mentionedStaffMemberIds.sort()).toEqual(
-      [cat.staff.anna.id, cat.staff.ben.id].sort(),
-    );
-
-    const notes = await notifications("mentioned");
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({
-      recipientStaffMemberId: cat.staff.ben.id,
-      dedupeKey: `task:${t.id}:mention:${result.id}`,
-    });
-    expect(notes[0]?.title).toContain("Anna Test");
-  });
-
-  it("rejects empty comments and comments on tasks you cannot see", async () => {
-    const t = await insertTask({ title: "A", eventId });
-    expect(await code(addComment(owner, t.id, "   "))).toBe("invalid_input");
-    expect(await code(addComment(owner, "00000000-0000-4000-8000-000000000000", "hi"))).toBe(
-      "not_found",
-    );
-  });
-});
-
 describe("createTask", () => {
   it("creates a manual task on an event, with a due date, estimate and assignee", async () => {
     const { id } = await createTask(owner, {
@@ -767,7 +730,6 @@ describe("permissions and field scoping", () => {
     expect((await getTask(mine)).status).toBe("in_progress");
     expect(await code(setTaskStatus(field, theirs, "in_progress", {}, clock))).toBe("not_found");
     expect(await code(moveTask(field, theirs, "today", { index: 0 }, {}, clock))).toBe("not_found");
-    expect(await code(addComment(field, theirs, "hallo"))).toBe("not_found");
     expect((await getTask(theirs)).status).toBe("todo");
   });
 
@@ -800,14 +762,6 @@ describe("permissions and field scoping", () => {
     await assignTask(office, theirs, cat.staff.ben.id);
     expect((await getTask(theirs)).assigneeId).toBe(cat.staff.ben.id);
   });
-
-  it("does not notify a mentioned field user about events they do not work at", async () => {
-    // Frieda works at "Mein Markt" only; a comment on a task of "Fremder Markt" mentions her
-    await addComment(owner, theirs, "@Frieda Platz bitte schauen");
-    expect(await notifications("mentioned")).toHaveLength(0);
-    await addComment(owner, mine, "@Frieda Platz bitte schauen");
-    expect(await notifications("mentioned")).toHaveLength(1);
-  });
 });
 
 describe("audit trail", () => {
@@ -817,14 +771,12 @@ describe("audit trail", () => {
     await assignTask(owner, t.id, cat.staff.ben.id);
     await setTaskStatus(owner, t.id, "in_progress", {}, clock);
     await updateTask(owner, t.id, { title: "B" });
-    await addComment(owner, t.id, "hi");
     const all = await db
       .select()
       .from(auditLog)
       .where(and(eq(auditLog.entityType, "task"), eq(auditLog.entityId, t.id)));
     expect(all.map((a) => a.action).sort()).toEqual([
       "task.assign",
-      "task.comment",
       "task.move",
       "task.status",
       "task.update",

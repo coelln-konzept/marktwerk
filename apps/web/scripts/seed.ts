@@ -7,7 +7,7 @@
  * obligations (M6).
  *
  * Idempotent: synthetic rows keep their ids and are inserted with ON CONFLICT DO NOTHING, so the
- * script is safe to run repeatedly. Usage: `pnpm db:seed` from the repo root.
+ * script is safe to run repeatedly. Run through `scripts/seed-today.ts` (`pnpm db:seed` from the repo root).
  */
 
 import { randomUUID } from "node:crypto";

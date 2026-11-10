@@ -1,4 +1,5 @@
 export * from "./_schema";
+export * from "./appointments";
 export * from "./audit";
 export * from "./auth";
 export * from "./catalogue";

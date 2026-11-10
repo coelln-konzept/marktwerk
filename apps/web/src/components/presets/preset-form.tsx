@@ -3,7 +3,6 @@
 import {
   checkPresetFields,
   type EventTimesInput,
-  MARKET_COLORS,
   normalizeClockTime,
   parseEuroCents,
 } from "@marktwerk/core";
@@ -15,8 +14,8 @@ import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label, OptionalMark } from "@/components/ui/label";
-import { marketColorClass } from "@/components/ui/market-marker";
+import { Label } from "@/components/ui/label";
+import { MarketColorPicker } from "@/components/ui/market-color-picker";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import type { PresetFormOptions } from "@/server/queries/presets";
 import type { PresetInput } from "@/server/services/presets";
@@ -63,11 +62,14 @@ export function PresetForm({
   edit,
   initial,
   options,
+  colorUsage,
 }: {
   /** Set when editing: the preset and its `updated_at` (ISO) as loaded, for the concurrency check. */
   edit?: { id: string; updatedAt: string };
   initial: PresetFormValues;
   options: PresetFormOptions;
+  /** Colour key → names of the other active markets using it (legend of the colour picker). */
+  colorUsage: Record<string, string[]>;
 }) {
   const t = useTranslations("templates.form");
   const locale = useLocale();
@@ -89,7 +91,6 @@ export function PresetForm({
   const [duties, setDuties] = useState<Record<string, string>>(initial.defaultDuties);
   const [active, setActive] = useState(initial.active);
   const [color, setColor] = useState<string | null>(initial.color ?? null);
-  const tColor = useTranslations("templates.form.color");
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
@@ -307,45 +308,13 @@ export function PresetForm({
             />
             {fieldError("duration")}
           </div>
-          <fieldset className="flex flex-col gap-2 sm:col-span-2">
-            <legend className="mb-1 flex gap-2 font-medium text-small">
-              {tColor("legend")}
-              <OptionalMark />
-            </legend>
-            <div className="flex flex-wrap items-center gap-2">
-              {MARKET_COLORS.map((key) => (
-                <label key={key} className="cursor-pointer">
-                  <input
-                    type="radio"
-                    name="preset-color"
-                    value={key}
-                    checked={color === key}
-                    onChange={() => setColor(key)}
-                    className="peer sr-only"
-                    aria-label={tColor("swatch", { name: tColor(`names.${key}`) })}
-                  />
-                  <span
-                    aria-hidden
-                    title={tColor(`names.${key}`)}
-                    className={`block size-7 rounded-md ${marketColorClass(key)} ring-offset-2 ring-offset-card peer-checked:ring-2 peer-checked:ring-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-ring`}
-                  />
-                </label>
-              ))}
-              <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-muted-foreground text-small has-checked:bg-selected has-checked:text-foreground has-focus-visible:outline-2 has-focus-visible:outline-ring">
-                <input
-                  type="radio"
-                  name="preset-color"
-                  value=""
-                  checked={color === null}
-                  onChange={() => setColor(null)}
-                  className="sr-only"
-                />
-                {tColor("none")}
-              </label>
-            </div>
-            <p className="text-faint-foreground text-small">{tColor("hint")}</p>
-            {fieldError("color")}
-          </fieldset>
+          <MarketColorPicker
+            name="preset-color"
+            value={color}
+            onChange={setColor}
+            usage={colorUsage}
+            error={fieldError("color")}
+          />
           <div className="flex flex-col justify-end gap-1.5">
             <label
               htmlFor="preset-active"

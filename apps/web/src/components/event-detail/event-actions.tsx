@@ -2,13 +2,14 @@
 
 import { Menu } from "@base-ui/react/menu";
 import type { EventStatus } from "@marktwerk/core/events/lifecycle";
-import { CalendarClock, Ellipsis, Pencil } from "lucide-react";
+import { CalendarClock, Ellipsis, Pencil, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { EVENT_STATUS } from "@/lib/status";
 import type { VenueOption } from "@/server/queries/venues";
 import type { EventBasics } from "@/server/services/event-details";
 import { BasicsDialog, type TypeChoice } from "./basics-dialog";
+import { DeleteDialog } from "./delete-dialog";
 import { MoveDialog } from "./move-dialog";
 import { useStatusChange } from "./status-menu";
 
@@ -16,7 +17,7 @@ const item =
   "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[disabled]:opacity-50 data-[highlighted]:bg-hover";
 
 /**
- * The "…" menu next to the event title: Bearbeiten, Verschieben and Status ändern in one place (UX pass
+ * The "…" menu next to the event title: Bearbeiten, Verschieben, Status ändern and (owner, manager) Veranstaltung löschen in one place (UX pass
  * 2026-10-22). Every action stays reachable by keyboard (Enter/Space opens the menu, arrows move, Esc
  * closes); the dialogs open from the items and keep their own focus handling.
  */
@@ -29,6 +30,7 @@ export function EventActions({
   venues,
   types,
   canMove,
+  canDelete = false,
   triggerClassName,
 }: {
   eventId: string;
@@ -39,6 +41,8 @@ export function EventActions({
   venues: VenueOption[];
   types: TypeChoice[];
   canMove: boolean;
+  /** Owner and manager: the last, destructive entry "Veranstaltung löschen". */
+  canDelete?: boolean;
   /** The list rows use a borderless trigger. */
   triggerClassName?: string;
 }) {
@@ -46,6 +50,7 @@ export function EventActions({
   const tStatus = useTranslations("status.event");
   const [basicsOpen, setBasicsOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const change = useStatusChange({ eventId, eventName, status });
 
   return (
@@ -91,6 +96,18 @@ export function EventActions({
                   })}
                 </Menu.Group>
               )}
+              {canDelete && (
+                <>
+                  <Menu.Separator className="my-1 h-px bg-border-subtle" />
+                  <Menu.Item
+                    className={`${item} text-status-critical`}
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 aria-hidden className="size-4" />
+                    {t("delete.open")}
+                  </Menu.Item>
+                </>
+              )}
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>
@@ -111,6 +128,9 @@ export function EventActions({
           open={moveOpen}
           onOpenChange={setMoveOpen}
         />
+      )}
+      {canDelete && (
+        <DeleteDialog eventId={eventId} open={deleteOpen} onOpenChange={setDeleteOpen} />
       )}
       {change.dialog}
     </>

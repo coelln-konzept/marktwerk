@@ -62,19 +62,20 @@
       },
       "color": {
         "legend": "Farbe des Markts",
-        "hint": "Ein schmaler Farbbalken neben dem Namen, damit du die Termine eines Markts auf einen Blick erkennst. Gilt für alle Termine dieses Markts.",
+        "hint": "Ein schmaler Farbbalken neben dem Namen (in der Veranstaltungsliste ein Farbpunkt), damit du die Termine eines Markts auf einen Blick erkennst. Gilt für alle Termine dieses Markts.",
         "none": "Keine Farbe",
-        "swatch": "Farbe: {name}",
+        "usedBy": "{name} – genutzt von: {markets}",
+        "free": "{name} – noch frei",
         "names": {
           "plum": "Pflaume",
           "rose": "Rosé",
           "brown": "Braun",
-          "sand": "Sand",
+          "sand": "Bernstein",
           "olive": "Oliv",
-          "petrol": "Petrol",
+          "petrol": "Türkis",
           "cyan": "Cyan",
-          "slate": "Schiefer",
-          "indigo": "Indigo",
+          "slate": "Blau",
+          "indigo": "Violett",
           "graphite": "Graphit"
         }
       },

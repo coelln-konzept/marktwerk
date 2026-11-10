@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
 import { PresetForm } from "@/components/presets/preset-form";
 import { Page, PageHeader } from "@/components/shell/page";
+import { listMarketColorUsage } from "@/server/queries/market-colors";
 import {
   getPresetForEdit,
   getPresetFormOptions,
@@ -27,6 +28,7 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
   const tLib = await getTranslations("settings");
   const tNav = await getTranslations("nav");
   const taskTemplates = await getPresetTaskTemplates(preset.id);
+  const colorUsage = await listMarketColorUsage(preset.id);
   const options = await getPresetFormOptions({
     eventTypeId: preset.eventTypeId,
     venueId: preset.venueId,
@@ -85,6 +87,7 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
       </p>
       <PresetForm
         options={options}
+        colorUsage={colorUsage}
         edit={{ id: preset.id, updatedAt: preset.updatedAt.toISOString() }}
         initial={{
           name: preset.name,

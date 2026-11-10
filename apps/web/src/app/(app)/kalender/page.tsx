@@ -1,5 +1,6 @@
 import {
   addDays,
+  can,
   daysBetween,
   daysInMonth,
   holidaysBetween,
@@ -12,6 +13,13 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { AppointmentChip } from "@/components/appointments/appointment-chip";
+import {
+  APPOINTMENT_PARAM,
+  appointmentVorschauId,
+  appointmentVorschauValue,
+} from "@/components/appointments/appointment-params";
+import { AppointmentVorschau } from "@/components/appointments/appointment-vorschau";
 import { DeadlineChip, LAYER_ICONS } from "@/components/kalender/deadline-chip";
 import { EventChip } from "@/components/kalender/event-chip";
 import {
@@ -44,6 +52,7 @@ import { HIDDEN_MODULES, isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUS } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
+import { listAppointmentsBetween } from "@/server/queries/appointments";
 import {
   getSavedLayers,
   listCalendarDeadlines,
@@ -67,6 +76,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const t = await getTranslations("kalenderPage");
   const tNav = await getTranslations("nav");
   const tCal = await getTranslations("calendar");
+  const tAppt = await getTranslations("appointments");
   const tStatus = await getTranslations("status.event");
   const locale = await getLocale();
   const today = todayIn();
@@ -76,6 +86,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const chosen = parseLayers(sp) ?? (await getSavedLayers(actor.id)) ?? DEFAULT_LAYERS;
   // "Nur meine Zuständigkeit" is not offered without Team: a saved selection must not narrow silently.
   const layers = canMine ? chosen : { ...chosen, mine: false };
+  const vorschauAppointment = appointmentVorschauId(param(sp.vorschau));
   const layersOpen = await getUiState("calendarLayers");
 
   // View: an explicit `?ansicht=` always wins. Without one phones (below md) open in Liste and wider
@@ -101,17 +112,28 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const to = view === "monat" ? addDays(mondayOf(monthLast), 6) : addDays(listFrom, LIST_DAYS - 1);
 
   const available = availableLayers(actor.role, actor.staffMemberId !== null, HIDDEN_MODULES);
-  const [rows, deadlines, venues] = await Promise.all([
+  // Besprechungen: "Nur Achtung und Kritisch" hides them (they have no urgency), "Nur meine Zuständigkeit" does not
+  // touch them; the Ort narrowing keeps those at that venue.
+  const showAppointments =
+    layers.deadlines.includes("appointments") &&
+    available.includes("appointments") &&
+    !layers.critical;
+  const [rows, deadlines, venues, allAppointments] = await Promise.all([
     listCalendarEvents(actor, { from, to }, layers),
     listCalendarDeadlines(actor, { from, to }, layers, today, HIDDEN_MODULES),
     listVenueOptions(actor),
+    showAppointments ? listAppointmentsBetween(from, to) : Promise.resolve([]),
   ]);
+  const appointments = layers.venue
+    ? allAppointments.filter((a) => a.venueId === layers.venue)
+    : allAppointments;
   const counts: Record<string, number> = {};
   for (const r of rows) counts[r.typeKey] = (counts[r.typeKey] ?? 0) + 1;
   const visible = rows.filter((r) => layers.types.includes(r.typeKey));
   // Entries per module layer for the panel counts (everything fetched is already switched on and allowed).
   const deadlineCounts: Record<string, number> = {};
   for (const d of deadlines) deadlineCounts[d.layer] = (deadlineCounts[d.layer] ?? 0) + 1;
+  if (appointments.length > 0) deadlineCounts.appointments = appointments.length;
 
   // Same-day, same-kind items collapse into one summary ("70 Genehmigungen: Entscheidung erwartet");
   // single entries put the object first and the verb last.
@@ -172,7 +194,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   if (view === "liste" && abValid) keep.ab = abParam;
 
   const holidayCount = allHolidays.size;
-  const visibleCount = visible.length + deadlines.length + (layers.holidays ? holidayCount : 0);
+  const visibleCount =
+    visible.length + appointments.length + deadlines.length + (layers.holidays ? holidayCount : 0);
   const changedCount = layersChangedCount(layers, available);
 
   // Weekend cap: Saturdays of weekends with 4+ events (cancelled ones don't count).
@@ -209,6 +232,36 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     }
     return out;
   });
+
+  // Besprechungen come before the deadlines of their day (all-day first, then by time: the query's order).
+  // "Besprechung anlegen" per day opens the dialog with that date; closing/editing links of a Vorschau are dropped.
+  const canCreateAppointment = can(actor.role, "appointment", "write");
+  const addHref = (day: string) =>
+    hrefWith(PATH, sp, {
+      neu: APPOINTMENT_PARAM,
+      datum: day,
+      vorschau: undefined,
+      bearbeiten: undefined,
+    });
+  const addLabel = (day: string) =>
+    t("addAppointment", { date: formatDateWithWeekday(day, locale) });
+  const appointmentLink = (id: string) =>
+    hrefWith(PATH, sp, { vorschau: appointmentVorschauValue(id) });
+  for (const a of appointments) {
+    entries.push({
+      key: `appointment-${a.id}`,
+      date: a.onDate,
+      node: (
+        <AppointmentChip
+          href={appointmentLink(a.id)}
+          title={a.title}
+          startsAt={a.startsAt}
+          allDayLabel={tAppt("chip.allDay")}
+          kindLabel={tAppt("chip.kind")}
+        />
+      ),
+    });
+  }
 
   for (const item of display) {
     entries.push({
@@ -297,6 +350,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               dayTitle={(day) => formatDateWithWeekday(day, locale)}
               moreHref={moreHref}
               moreListLabel={t("moreList")}
+              addHref={canCreateAppointment ? addHref : undefined}
+              addLabel={addLabel}
             />
           ) : (
             <CalendarList
@@ -305,25 +360,32 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               today={today}
               rows={visible}
               deadlines={display}
+              appointments={appointments}
+              appointmentHref={appointmentLink}
               holidays={holidays}
               hrefFor={eventHref}
               resetHref={hrefWith(PATH, {}, { ...layerParams(DEFAULT_LAYERS), ansicht: "liste" })}
+              addHref={canCreateAppointment ? addHref : undefined}
+              addLabel={addLabel}
             />
           )}
         </Panel>
-        {view === "monat" && visible.length === 0 && deadlines.length === 0 && (
-          <p className="m-0 flex flex-wrap items-center gap-x-3 text-muted-foreground text-small">
-            {t("emptyMonth")}
-            <Link
-              href={
-                hrefWith(PATH, {}, { ...layerParams(DEFAULT_LAYERS), monat: monthParam }) as never
-              }
-              className="font-medium text-accent-soft-foreground hover:underline"
-            >
-              {t("emptyReset")}
-            </Link>
-          </p>
-        )}
+        {view === "monat" &&
+          visible.length === 0 &&
+          deadlines.length === 0 &&
+          appointments.length === 0 && (
+            <p className="m-0 flex flex-wrap items-center gap-x-3 text-muted-foreground text-small">
+              {t("emptyMonth")}
+              <Link
+                href={
+                  hrefWith(PATH, {}, { ...layerParams(DEFAULT_LAYERS), monat: monthParam }) as never
+                }
+                className="font-medium text-accent-soft-foreground hover:underline"
+              >
+                {t("emptyReset")}
+              </Link>
+            </p>
+          )}
         <p className="m-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-tiny">
           {EVENT_TYPE_KEYS.filter((k) => layers.types.includes(k)).map((k) => (
             <span key={k} className="inline-flex items-center gap-1">
@@ -333,6 +395,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
           ))}
           {layers.deadlines
             .filter((l) => available.includes(l))
+            .filter((l) => l !== "appointments" || showAppointments)
             .map((l) => {
               const Icon = LAYER_ICONS[l];
               return (
@@ -363,6 +426,21 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
           {t.rich("keys", { k: (chunks) => <Kbd>{chunks}</Kbd> })}
         </p>
       </LayerPanel>
+
+      {vorschauAppointment && (
+        <AppointmentVorschau
+          id={vorschauAppointment}
+          closeHref={hrefWith(PATH, sp, { vorschau: undefined })}
+          editHref={hrefWith(PATH, sp, {
+            vorschau: undefined,
+            neu: APPOINTMENT_PARAM,
+            bearbeiten: vorschauAppointment,
+          })}
+          reopenHref={hrefWith(PATH, sp, {
+            vorschau: appointmentVorschauValue(vorschauAppointment),
+          })}
+        />
+      )}
 
       <KalenderShortcuts
         hrefs={{ t: todayHref, m: monthHref, l: listHref, prev: prevHref, next: nextHref }}

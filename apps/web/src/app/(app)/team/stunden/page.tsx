@@ -10,7 +10,7 @@ import { PeriodBadge } from "@/components/team/month-status";
 import { PersonMonthVorschau } from "@/components/team/person-month-vorschau";
 import { MonthNav, monthParam, TeamTabs } from "@/components/team/team-nav";
 import { buttonVariants } from "@/components/ui/button";
-import { formatDateShort, formatHours, todayIn } from "@/lib/format";
+import { formatDateShort, formatMinutesAsHours, todayIn } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { getMonthFigures, listShiftRows } from "@/server/queries/hours";
@@ -63,16 +63,16 @@ export default async function HoursPage({ searchParams }: PageProps<"/team/stund
       case "daily_max":
         return t("banner.dailyMax", {
           name,
-          hours: formatHours(w.minutes, locale),
+          hours: formatMinutesAsHours(w.minutes, locale),
           date,
-          limit: formatHours(w.limit, locale),
+          limit: formatMinutesAsHours(w.limit, locale),
         });
       case "rest_period":
         return t("banner.rest", {
           name,
-          rest: formatHours(w.restMinutes, locale),
+          rest: formatMinutesAsHours(w.restMinutes, locale),
           date,
-          limit: formatHours(w.limit, locale),
+          limit: formatMinutesAsHours(w.limit, locale),
         });
       case "break_missing":
         return t("banner.break", { name, date, minutes: w.required });

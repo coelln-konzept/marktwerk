@@ -45,6 +45,7 @@ export type DueItem = {
 
 export const CALENDAR_LAYERS = [
   "tasks",
+  "appointments",
   "permits",
   "shifts",
   "installments",

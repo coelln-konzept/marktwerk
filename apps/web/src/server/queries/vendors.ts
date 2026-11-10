@@ -1,4 +1,5 @@
 import "server-only";
+import { type InitialLetter, LETTERS } from "@marktwerk/core/text/letter";
 import { vendor } from "@marktwerk/db/schema";
 import { and, asc, eq, type SQL, sql } from "drizzle-orm";
 import { db } from "../db";
@@ -23,6 +24,8 @@ export type VendorFilters = {
   category?: string;
   regular?: boolean;
   car?: boolean;
+  /** A–Z selector (CF9-7): only vendors whose display name files under this letter. */
+  letter?: InitialLetter;
 };
 
 /** Same folding as the command palette search: "koln" finds "Köln", "muller" finds "Müller". */
@@ -39,7 +42,22 @@ function foldQuery(q: string): string {
     .replace(/[%_\\]/g, (c) => `\\${c}`);
 }
 
-function whereFor(f: VendorFilters, withCategory = true) {
+const LETTER_FROM = "äöüßéèêëáàâãåóòôõíìîïúùûýÿçñşŞšŠčČžŽśŚćĆğĞńŃłŁřŘťŤďĎňŇýÝźŹżŻąĄęĘőŐűŰ";
+const LETTER_TO = "aouseeeeaaaaaooooiiiiuuuyycnsssscczzssccggnnllrrttddnnyyzzzzaaeeoouu";
+/** Whitespace, quotes and brackets skipped before the first letter (as in core's `initialLetter`). */
+const LETTER_LEADING = "^[\\s\"'„“”‚‘’«»‹›`´()\\[\\]]+";
+
+/**
+ * SQL twin of `initialLetter` in packages/core: skip leading whitespace, quotes and brackets, fold the first
+ * character (umlauts, accents) and upper-case it; "A"–"Z" or "#". The vendor list is paged, so the letter
+ * has to be decided in the database, not on a loaded page.
+ */
+function letterOf(column: unknown) {
+  const first = sql`upper(translate(lower(substr(regexp_replace(${column}, ${LETTER_LEADING}, ''), 1, 1)), ${LETTER_FROM}, ${LETTER_TO}))`;
+  return sql<string>`(case when ${first} ~ '^[A-Z]$' then ${first} else '#' end)`;
+}
+
+function whereFor(f: VendorFilters, withCategory = true, withLetter = true) {
   const parts = [];
   const q = f.q?.trim();
   if (q) {
@@ -51,6 +69,7 @@ function whereFor(f: VendorFilters, withCategory = true) {
   if (withCategory && f.category) parts.push(sql`${f.category} = any(${vendor.categories})`);
   if (f.regular) parts.push(eq(vendor.isRegular, true));
   if (f.car) parts.push(eq(vendor.hasCar, true));
+  if (withLetter && f.letter) parts.push(sql`${letterOf(vendor.displayName)} = ${f.letter}`);
   return and(...parts);
 }
 
@@ -69,8 +88,6 @@ const listColumns = {
   newsletterConsent: vendor.newsletterConsent,
   createdOn: vendor.createdOn,
 };
-
-export type VendorRow = Awaited<ReturnType<typeof listVendors>>["rows"][number];
 
 /** One page of vendors, name order, plus the total for the current filters. */
 export async function listVendors(filters: VendorFilters, page: number) {
@@ -107,6 +124,20 @@ export async function countByCategory(filters: VendorFilters) {
       Object.entries(byCategory).map(([k, v]) => [k, Number(v)]),
     ) as Record<string, number>,
   };
+}
+
+/**
+ * The letters ("A"–"Z", "#") that have vendors under the other filters; the letter filter itself does not
+ * apply, so the selector keeps showing where else one could go.
+ */
+export async function listVendorLetters(filters: VendorFilters): Promise<InitialLetter[]> {
+  const letter = letterOf(vendor.displayName);
+  const rows = await db
+    .selectDistinct({ letter })
+    .from(vendor)
+    .where(whereFor(filters, true, false));
+  const present = new Set(rows.map((r) => r.letter));
+  return [...LETTERS, "#" as const].filter((l) => present.has(l));
 }
 
 /** Number of imported vendors, unfiltered (page header). */

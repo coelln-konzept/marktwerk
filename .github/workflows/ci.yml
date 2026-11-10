@@ -56,7 +56,7 @@ jobs:
 
   # Browser smoke test against the production build with the synthetic seed data.
   e2e:
-    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.56 can't install Chromium. Unpin after upgrading Playwright.
+    # Pinned: Playwright 1.56 cannot install Chromium on ubuntu-latest (26.04) yet.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:

@@ -2,7 +2,7 @@
 
 import { userPreference } from "@marktwerk/db/schema";
 import { sql } from "drizzle-orm";
-import { sanitizeLayers } from "@/components/kalender/layers";
+import { sanitizeLayers, savedLayerValue } from "@/components/kalender/layers";
 import { db } from "@/server/db";
 import { requireUser } from "@/server/session";
 
@@ -13,10 +13,11 @@ import { requireUser } from "@/server/session";
 export async function saveKalenderLayers(input: unknown): Promise<void> {
   const current = await requireUser();
   const layers = sanitizeLayers(input);
-  const patch = JSON.stringify({ kalender: layers });
+  const saved = savedLayerValue(layers);
+  const patch = JSON.stringify({ kalender: saved });
   await db
     .insert(userPreference)
-    .values({ userId: current.id, savedViews: { kalender: layers } })
+    .values({ userId: current.id, savedViews: { kalender: saved } })
     .onConflictDoUpdate({
       target: userPreference.userId,
       set: {

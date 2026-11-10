@@ -41,6 +41,9 @@ import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate, REASON_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { StaffOption, TaskDetail } from "@/server/queries/tasks";
+import type { NotifyInput } from "@/server/services/tasks";
+import type { NotifyRecipient } from "./notify-fields";
+import { NotifySection } from "./notify-section";
 import { SnoozeDialog, useSnoozePresets } from "./snooze";
 import { TaskActivity } from "./task-activity";
 import { TickMark } from "./task-tick";
@@ -106,6 +109,7 @@ export function TaskDrawer({
   const actions = useTaskActions({ staff, scopeEventId: task.eventId });
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
+  const [notifyEditing, setNotifyEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [reasonFor, setReasonFor] = useState<TaskStatusKey | null>(null);
@@ -113,6 +117,7 @@ export function TaskDrawer({
   const [snoozeDate, setSnoozeDate] = useState(false);
   const presets = useSnoozePresets(today);
   const tSnooze = useTranslations("tasks.snooze");
+  const tNotify = useTranslations("board.notify");
   const [newItem, setNewItem] = useState("");
   const uid = useId();
 
@@ -147,6 +152,40 @@ export function TaskDrawer({
     });
   }
 
+  /** While Team is hidden the recipient is whoever set the notification (the signed-in user by default). */
+  const recipient: NotifyRecipient | null = isModuleVisible("team")
+    ? task.assigneeName
+      ? {
+          kind: "person",
+          name: task.assigneeName,
+          hasEmail: task.assigneeHasEmail,
+          hasPhone: task.assigneeHasPhone,
+        }
+      : null
+    : task.notifyUser && task.notifyUser.name && task.notifyUser.id !== task.notifySelf.id
+      ? { kind: "person", name: task.notifyUser.name, hasEmail: null, hasPhone: null }
+      : { kind: "self", email: task.notifySelf.email, hasPhone: task.notifySelf.hasPhone };
+
+  /** Saves the notify setting; the editor stays open until this resolves without an error text. */
+  async function saveNotify(next: NotifyInput): Promise<string | null> {
+    const result = await editTask(task.id, { notify: next });
+    if (!result.ok) return actions.errorText(result.error);
+    const undo = { notify: task.notify };
+    if (!result.data.changed) {
+      showToast({ message: t("unchanged") });
+      return null;
+    }
+    showToast({
+      message: t("saved"),
+      actionLabel: tToast("undo"),
+      onAction: async () => {
+        const back = await editTask(task.id, undo);
+        showToast({ message: back.ok ? tToast("reverted") : actions.errorText(back.error) });
+      },
+    });
+    return null;
+  }
+
   /** Due date: saved once per committed value (blur, Enter or a pause), not again while that save runs. */
   function commitDue(value: string) {
     clearTimeout(dueTimer.current);
@@ -172,12 +211,13 @@ export function TaskDrawer({
     if (isOpen) return;
     clearTimeout(dueTimer.current);
     setEditing(false);
+    setNotifyEditing(false);
     setNote("");
     setNewItem("");
   }, [isOpen]);
 
   // Esc and × close at once. Typing that is not saved yet is kept: the first Esc only leaves the field.
-  const hasDraft = editing || note !== "" || newItem !== "";
+  const hasDraft = editing || notifyEditing || note !== "" || newItem !== "";
   useEffect(() => {
     if (!isOpen) return;
     function onKey(event: KeyboardEvent) {
@@ -548,6 +588,19 @@ export function TaskDrawer({
               </dd>
             </>
           )}
+
+          <dt className="text-muted-foreground text-small">{tNotify("title")}</dt>
+          <dd className="m-0">
+            <NotifySection
+              key={isOpen ? "open" : "closed"}
+              saved={task.notify}
+              recipient={recipient}
+              hasDue={task.dueOn !== null}
+              canWrite={canWrite && !finished}
+              onEditingChange={setNotifyEditing}
+              onSave={saveNotify}
+            />
+          </dd>
 
           {isModuleVisible("team") && task.dutyRoleName && (
             <>

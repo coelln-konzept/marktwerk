@@ -8,6 +8,14 @@ import { makeTask } from "@/app/(app)/board/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
+import { NotifyFields } from "@/components/task/notify-fields";
+import {
+  NO_NOTIFY,
+  type NotifyFormValue,
+  notifyInputOf,
+  notifyProblemOf,
+  RELATIVE_TIMINGS,
+} from "@/components/task/notify-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -16,13 +24,13 @@ import { Modal } from "@/components/ui/modal";
 import { formatDateShortYear, formatMonth } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { TASK_CATEGORIES } from "@/lib/task-ui";
-import type { EventOption, StaffOption } from "@/server/queries/tasks";
+import type { EventOption, NotifySelf, StaffOption } from "@/server/queries/tasks";
 import { useDrawerHrefs } from "./use-task-actions";
 
 type Category = (typeof TASK_CATEGORIES)[number];
 
 /** The one error shown in the form: its text and the field it is about (that field gets focus). */
-type FormError = { text: string; field: "title" | "hours" | null };
+type FormError = { text: string; field: "title" | "hours" | "notify" | null };
 
 /**
  * "+ Aufgabe" (shortcut C): a manual task on an event or without one. Seven fields, so a modal
@@ -36,6 +44,7 @@ export function NewTaskButton({
   eventId,
   events,
   staff,
+  notifySelf,
   canAssign,
   today,
   urlOnly = false,
@@ -48,6 +57,8 @@ export function NewTaskButton({
   /** Choice of events (board across events). */
   events?: EventOption[];
   staff: StaffOption[];
+  /** The signed-in user as notification recipient (while Team is hidden). */
+  notifySelf: NotifySelf;
   canAssign: boolean;
   today: string;
   urlOnly?: boolean;
@@ -60,6 +71,7 @@ export function NewTaskButton({
 }) {
   const t = useTranslations("tasks.create");
   const tCat = useTranslations("tasks.categories");
+  const tNotify = useTranslations("board.notify");
   const locale = useLocale();
   const { showToast } = useShell();
   const router = useRouter();
@@ -76,8 +88,10 @@ export function NewTaskButton({
   const [category, setCategory] = useState<Category>(defaultCategory);
   const [assignee, setAssignee] = useState("");
   const [description, setDescription] = useState("");
+  const [notify, setNotify] = useState<NotifyFormValue>(NO_NOTIFY);
   const titleRef = useRef<HTMLInputElement>(null);
   const hoursRef = useRef<HTMLInputElement>(null);
+  const whenRef = useRef<HTMLSelectElement>(null);
   const uid = useId();
 
   // Events grouped by month, in date order (the query sorts them), each labelled "Name · Sa 31.10.".
@@ -147,6 +161,7 @@ export function NewTaskButton({
     setCategory(defaultCategory);
     setAssignee("");
     setDescription("");
+    setNotify(NO_NOTIFY);
     setError(null);
   }
 
@@ -159,7 +174,14 @@ export function NewTaskButton({
 
   function fail(text: string, field: FormError["field"]) {
     setError({ text, field });
-    (field === "title" ? titleRef : field === "hours" ? hoursRef : null)?.current?.focus();
+    (field === "title"
+      ? titleRef
+      : field === "hours"
+        ? hoursRef
+        : field === "notify"
+          ? whenRef
+          : null
+    )?.current?.focus();
   }
 
   function submit(event: React.FormEvent) {
@@ -167,6 +189,8 @@ export function NewTaskButton({
     const minutes = hours.trim() === "" ? 0 : Math.round(Number(hours.replace(",", ".")) * 60);
     if (!title.trim()) return fail(t("errors.title_required"), "title");
     if (!Number.isFinite(minutes) || minutes < 0) return fail(t("errors.hours_invalid"), "hours");
+    const problem = notifyProblemOf(notify, due !== "");
+    if (problem) return fail(tNotify(`errors.${problem}`), "notify");
     setError(null);
     startTransition(async () => {
       const result = await makeTask({
@@ -177,6 +201,7 @@ export function NewTaskButton({
         category,
         description: description || null,
         assigneeId: canAssign && assignee ? assignee : null,
+        notify: notifyInputOf(notify),
       });
       if (!result.ok) {
         setError({
@@ -200,6 +225,7 @@ export function NewTaskButton({
     });
   }
 
+  const recipient = canAssign ? staff.find((s) => s.id === assignee) : undefined;
   const pastDue = due !== "" && due < today;
 
   return (
@@ -260,7 +286,16 @@ export function NewTaskButton({
                 id={`${uid}-due`}
                 type="date"
                 value={due}
-                onChange={(e) => setDue(e.target.value)}
+                onChange={(e) => {
+                  setDue(e.target.value);
+                  // A relative timing needs a due date: clearing it resets the "Wann" choice.
+                  if (
+                    e.target.value === "" &&
+                    notify.timing !== "" &&
+                    RELATIVE_TIMINGS.includes(notify.timing)
+                  )
+                    setNotify({ ...notify, timing: "" });
+                }}
                 aria-describedby={pastDue ? `${uid}-due-hint` : undefined}
               />
               {pastDue && (
@@ -326,6 +361,29 @@ export function NewTaskButton({
               </div>
             )}
           </div>
+          <NotifyFields
+            value={notify}
+            onChange={(next) => {
+              setNotify(next);
+              if (error?.field === "notify") setError(null);
+            }}
+            recipient={
+              isModuleVisible("team")
+                ? recipient
+                  ? {
+                      kind: "person",
+                      name: recipient.displayName,
+                      hasEmail: recipient.hasEmail,
+                      hasPhone: recipient.hasPhone,
+                    }
+                  : null
+                : { kind: "self", email: notifySelf.email, hasPhone: notifySelf.hasPhone }
+            }
+            hasDue={due !== ""}
+            whenRef={whenRef}
+            invalid={error?.field === "notify"}
+            describedBy={error?.field === "notify" ? `${uid}-error` : undefined}
+          />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${uid}-desc`} optional>
               {t("fields.description")}

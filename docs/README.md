@@ -1,7 +1,8 @@
 # marktwerk documentation
 
 Start here: **[HANDOFF.md](HANDOFF.md)** (current state & next steps), then **[product/vision.md](product/vision.md)** → **[product/roadmap.md](product/roadmap.md)**.
-Design output: [design/claude-design/a-classic/](design/claude-design/a-classic/INDEX.md) (clickable prototype, direction A, ADR 0019) · [design/component-inventory.md](design/component-inventory.md) (components → code, tokens).
+Design output: [design/claude-design/](design/claude-design/README.md) → [a-classic/](design/claude-design/a-classic/INDEX.md) (clickable prototype, direction A, ADR 0019; historical reference, the UX concept and the code win).
+Historical documents (finished plans, early prompts, wireframes, component inventory): [archive/](archive/README.md), not maintained.
 
 ## Product
 - [Vision & scope](product/vision.md): goals, non-goals, success metrics
@@ -9,9 +10,7 @@ Design output: [design/claude-design/a-classic/](design/claude-design/a-classic/
 - [Roles & personas](product/roles-and-personas.md)
 - [User flows](product/user-flows.md): Mermaid diagrams of the core lifecycles
 - **[UX concept](product/ux-concept.md)** (v2): principles, IA, app shell, pages/Vorschau/drawers, patterns, status vocabulary, visual system (§9 = tokens in `globals.css`)
-- [Wireframes v3](product/wireframes.md): low-fidelity wireframes for the classic-screens UI (direction A)
 - [Glossary DE ⇄ EN ⇄ code](product/glossary.md)
-- [Claude Design prompt for Phase 1 wireframes](product/claude-design-prompt.md) · [follow-up for the v1 design session (research-based improvements, no workspace)](product/claude-design-prompt-v1-update.md)
 
 ## Research
 - [01 Market landscape, German domain rules, payments](research/01-market-and-domain.md)
@@ -22,7 +21,7 @@ Design output: [design/claude-design/a-classic/](design/claude-design/a-classic/
 - [06 Staff: WhatsApp notifications, shifts & Minijob hours, kanban](research/06-staff-whatsapp-shifts-kanban.md)
 - [07 Inventory & rentals, payables & receipts, event P&L, vehicles](research/07-inventory-finance-fleet.md)
 - [08 Booking intake, confirmations/invoices, payment checks, newsletter, marketing](research/08-bookings-comms-newsletter.md)
-- [09 UI/UX: standards, references, customisable workspace](research/09-ui-ux-workspace.md)
+- [09 UI/UX: standards and references](research/09-ui-ux-workspace.md) (its workspace half is superseded by ADR 0019)
 - [10 UX/UI review and industry comparison (October 2026)](research/10-ux-review-2026-10.md)
 - **[11 User test, November 2026: findings, tasks (UT-xx), open decisions](research/11-user-test-2026-11.md)**
 
@@ -34,6 +33,7 @@ Design output: [design/claude-design/a-classic/](design/claude-design/a-classic/
 ## Development
 - [Setup](development/setup.md)
 - [Conventions](development/conventions.md)
-- [Deployment (Scalingo)](development/deployment.md)
+- [Testing](development/testing.md): unit, integration and e2e tests
+- [Deployment](development/deployment.md): dev on Vercel + Supabase (ADR 0017); Scalingo is the production candidate (ADR 0006)
 
 ## [Open questions & decisions log](open-questions.md)

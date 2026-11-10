@@ -14,7 +14,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   const { theme, density } = await getDisplayPreferences();
   return (
-    <html lang={locale} data-theme={theme} data-density={density}>
+    // suppressHydrationWarning: browser extensions (e.g. LanguageTool) add attributes to <html>
+    // before React hydrates. In dev, Next counts that mismatch as a runtime error and then does a
+    // full reload instead of a soft refresh on server changes. Only covers <html>'s own attributes.
+    <html lang={locale} data-theme={theme} data-density={density} suppressHydrationWarning>
       <body>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

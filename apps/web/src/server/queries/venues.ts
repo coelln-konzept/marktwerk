@@ -12,8 +12,6 @@ export function isUuid(value: string): boolean {
   return UUID.test(value);
 }
 
-export type VenueListRow = Awaited<ReturnType<typeof listVenues>>[number];
-
 /**
  * Locations for the Orte list. `upcoming` (number of upcoming, not cancelled events) is null for roles
  * that may not read events; for everyone else it only counts events they are allowed to see.
@@ -73,8 +71,6 @@ export async function listVenues(actor: Actor, today: string, q?: string) {
       };
     });
 }
-
-export type VenueDetail = NonNullable<Awaited<ReturnType<typeof getVenue>>>;
 
 export async function getVenue(id: string) {
   if (!isUuid(id)) return null;

@@ -1,6 +1,8 @@
 # Data model
 
-Status: **draft v0.5 (2026-10-21)**. Change in v0.5: the Phase 1 schema for M2–M6 exists (migration
+Status: **v0.6 (2026-11-10), current through migration `0013_drop_unused_watcher_sidebar`** (the 2026-11-10
+cleanup), which drops the table `task_watcher` and the column `user_preference.sidebar_collapsed` (both
+unused). `task_comment` stays, read-only, for old data: no UI or service writes comments any more. Change in v0.5: the Phase 1 schema for M2–M6 exists (migration
 `0002_phase1_modules`); where it deliberately differs from this text the line is marked "(implemented 0002: …)".
 Table list by file in `packages/db/src/schema/`: `templates.ts`, `tasks.ts`, `permits.ts`, `notifications.ts`,
 `staff.ts`, `money.ts`, `company.ts`, `documents.ts`. Change in v0.4: `workspace` removed; `user_preference` keeps theme, density,
@@ -115,7 +117,17 @@ erDiagram
   `confirmed` **automatically** once it has at least one required permit and all of them are granted
   (`shouldAutoConfirm`, evaluated by `autoConfirmEvents` after a permit is granted, linked or marked "not
   needed", and at the end of the logbook fill; audit `event.status` with `auto: true`, notification reason
-  `event_confirmed`). No required permit → stays planned (manual confirmation). Never moves back,
+  `event_confirmed`). **Cancelling an event cancels its open tasks** (`todo | in_progress | waiting_external |
+  blocked` → `cancelled`, same transaction, `changeEventStatus` is the only path; done/skipped stay): audit
+  `event.status` carries `cancelledTasks: [{id, from}]`. Leaving `cancelled` (undo toast, or → draft) reopens exactly
+  the tasks of the latest audit entry with `cancelledTasks` (each to its `from`, only if still `cancelled`; diff
+  `reopenedTaskIds`). Migration 0012 backfilled existing cancelled events (entry `backfill: true`, no actor).
+  **Deleting an event** (`deleteEvent`, owner/manager, name typed): `payable`, `expense`, `shift` and `document` reference it
+  with `on delete restrict` (documents also through `document.task_id` on the event's tasks), so any of them, archived
+  ones included, blocks the deletion (`blocked` with counts). Everything else cascades: tasks (with old comments, check
+  items, dependencies), checklists, duties, anchors, budget lines, income and permit links; the permit stays.
+  Audit `event.delete` (written first; `entity_id` is no foreign key) keeps a snapshot incl. the cascaded counts.
+  No required permit → stays planned (manual confirmation). Never moves back,
   the permit health keeps showing a withdrawn permit,
   **booking flags**: `booking_open` (bool), `fully_booked` (bool), `car_spaces_full` (bool);
   `price_per_m_cents` (copied from preset, overridable), `booking_fee_cents`, `target_revenue_cents?`,
@@ -124,6 +136,12 @@ erDiagram
   `booking_cutoff` (default: **Monday before** the event), `permit_decision`, custom. Missing anchor → task has no due date yet.
 - **event_duty**: `(event_id, duty_role_id)` → `staff_member_id`. Reassigning reassigns open, not individually
   reassigned tasks of that duty role.
+- **appointment** (Termin, CF9-1): a dated appointment of the business that is not a task and not an event.
+  `title`, `on_date` (date), `starts_at?`/`ends_at?` (`time`; all-day when empty; no overnight, the end is after the
+  start), `venue_id?` **or** `location_text?` (never both), `notes?`, who to reach out to: `contact_id?` (a saved
+  contact) **or** inline `contact_name?`/`contact_phone_e164?`/`contact_email?` (a typed contact can be saved as a
+  `contact` of kind `other` on creation, then only `contact_id` is set), `archived_at?`. Rules in `checkAppointment`
+  (`packages/core/src/appointments`), CHECK constraints mirror them. Service audit: `appointment.create|update|archive|restore`. Gated by the own `appointment` permission resource (read/write/delete; field has none).
 
 ### Templates, tasks, kanban
 - **checklist_template**, **template_version** (`draft | published | retired`, immutable when published),
@@ -164,15 +182,26 @@ erDiagram
   KPIs, the weekend blockers, the Kalender "Aufgaben" layer, the deadline sweep (reminders, escalation) and the daily
   digest; they stay on the board with a "Zurückgestellt bis …" badge. Set and cleared through `snoozeTask` /
   `unsnoozeTask` (audit `task.snooze` / `task.unsnooze`, undoable).)*
+  *(implemented 0009 (CF9-3): **notify setting** "Benachrichtigung senden an": `notify_channels text[]` (subset of
+  `email | whatsapp`, default empty), `notify_timing?` (enum `task_notify_timing`: `on_create | due_day | before_1d |
+  before_3d | before_7d | custom`) and `notify_at?` (instant, only for `custom`). Checks: channels are a subset of the
+  two values; `notify_timing = 'custom'` iff `notify_at` is set; no timing without a channel. The send instant is the pure
+  rule `notifyMoment` in `packages/core` (08:00 Berlin on the due day, or 1/3/7 days earlier). Saved only; nothing is sent
+  until mail/WhatsApp are connected.)*
+  *(implemented 0011 (CF9-3b): `notify_user_id?` (text → `user`, `on delete set null`): who set the notification and,
+  while the Team module is hidden, its recipient. Set by the service from the actor whenever channels are saved; check
+  `task_notify_user_empty`: no user without a channel.)*
   *(implemented 0002: task also has `obligation_id?` (source `obligation`), `skipped_reason`, the copied evidence
   flags `requires_photo/note/attachment`, `approver_staff_member_id?`, `completed_by_staff_member_id`; `board_column`
   is the enum `preparation | this_week | today | done`; `board_sort` is a double (fractional ordering);
   `labels` is `text[]`. Constraints: `status = done` needs `completed_at`; a partial unique index
   `(checklist_id, template_stable_key)` makes instantiation idempotent. `event_id` is nullable (company/permit tasks).)*
-- **task_check_item**, **task_dependency** (doesn't move dates), **task_comment**, **task_watcher**.
+- **task_check_item**, **task_dependency** (doesn't move dates), **task_comment** (read-only, old data).
+  *(`task_watcher` was dropped in the 2026-11-10 cleanup: it was never used.)*
   *(implemented 0002: a comment has `author_staff_member_id?` and `author_user_id?` (an office login may have no staff
   record), `mentioned_staff_member_ids`, `edited_at`, `archived_at`. **No UI offers comments any more** (client decision
-  2026-10-22, single user): the table and its data stay, nothing in the drawer shows or creates comments, and
+  2026-10-22, single user): the table and its data stay, nothing in the drawer shows or creates comments, the task-comment
+  service was removed on 2026-11-10, and
   comment/mention notifications are no longer produced from the UI. `requires_note` no longer blocks completion; when
   marking a task done an optional note is kept in the `task.status` / `task.move` audit entry (`diff.note`) and shown
   in the drawer ("Notiz") and the activity.)*
@@ -311,8 +340,9 @@ erDiagram
 
 ### UI preferences (ADR 0019)
 - **user_preference**: `user_id`, `theme` (`system | light | dark`), `density` (`standard | compact`),
-  `sidebar_collapsed`, `saved_views` (jsonb: per-user saved list filters and calendar layer selections, keyed by
-  view). Writes are preferences (server action with `requireUser()`, no `audit_log`). There is no `workspace` table
+  `saved_views` (jsonb: per-user saved list filters and calendar layer selections, keyed by
+  view). `sidebar_collapsed` was dropped on 2026-11-10 (never used; hiding the sidebar is the per-browser cookie
+  `mw_nav_hidden`). Writes are preferences (server action with `requireUser()`, no `audit_log`). There is no `workspace` table
   (classic screens, ADR 0019).
 
 ### Files, KB, audit

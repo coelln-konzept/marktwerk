@@ -97,7 +97,7 @@ export async function createMarketAction(
   input: MarketInput,
   /** Archiv: "Als Vorlage speichern" from this past event (its market's tasks are copied). */
   fromEventId?: string,
-): Promise<Result<{ id: string; color: string; template: { items: number } | null }>> {
+): Promise<Result<{ id: string; color: string | null; template: { items: number } | null }>> {
   await requirePermission("template", "write");
   const actor = await getActor();
   try {

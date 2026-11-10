@@ -33,7 +33,13 @@
       "moreAtMarketLink": "See all {count} more at {name}",
       "moreMarkets": "{count, plural, one {+ # more market} other {+ # more markets}}",
       "weekSubtitle": "{count, plural, =0 {nothing in the next 7 days} one {# item in the next 7 days, bundled per market} other {# items in the next 7 days, bundled per market}}",
-      "weekEmpty": "Nothing is due in the next 7 days."
+      "weekEmpty": "Nothing is due in the next 7 days.",
+      "upcomingEmpty": "No permits coming up.",
+      "appointments": {
+        "title": "Meetings today",
+        "count": "{count, plural, one {# meeting} other {# meetings}}",
+        "open": "Open meeting"
+      }
     },
     "weekend": {
       "title": "This weekend",
@@ -55,8 +61,8 @@
         "permitsOk": "Permits ok"
       },
       "blockers": "What is holding up {name}",
-      "blockersMore": "+ {count} more",
-      "blockersMoreLink": "See all {count} more",
+      "topTasks": "{count, plural, one {Show top task} other {Show top # tasks}}",
+      "allInSummary": "All {count} in the summary",
       "permit": "Permit",
       "next": {
         "title": "Next weekend",

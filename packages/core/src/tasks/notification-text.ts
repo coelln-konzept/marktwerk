@@ -21,13 +21,6 @@ export function assignedText(s: Subject, by: string) {
   };
 }
 
-export function mentionedText(s: Subject, by: string) {
-  return {
-    title: `${by} hat dich erwähnt`,
-    body: `In der Aufgabe „${s.title}“${where(s)}.`,
-  };
-}
-
 export function rolledOverText(s: Subject, count: number) {
   return {
     title: `Übertragen: ${s.title}`,

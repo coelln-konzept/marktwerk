@@ -41,6 +41,8 @@ export const HIDDEN_MODULES = {
   booking: true,
   /** PROTOTYPE on branch exp/stand-allocation: Postfach + Standplan (data in the browser only). */
   standplanPrototype: false,
+  /** Wissen's sidebar entry (cleanup 2026-11-10): the page is still a placeholder; the route answers by URL. */
+  knowledgeBase: true,
 } as const;
 
 export type HiddenModule = keyof typeof HIDDEN_MODULES;

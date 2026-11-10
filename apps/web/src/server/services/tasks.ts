@@ -6,16 +6,19 @@ import {
   berlinDay,
   boardColumnFor,
   can,
+  checkNotifySetting,
   compareCards,
   derivedColumn,
   dueAtForDate,
   fileEvidenceOf,
-  findMentions,
   isIsoDate,
   isOpenStatus,
   isValidSnoozeDate,
-  mentionedText,
   missingEvidence,
+  NOTIFY_CHANNELS,
+  NOTIFY_TIMINGS,
+  type NotifyChannel,
+  type NotifyTiming,
   OPEN_STATUSES,
   PAST_EVENT_SKIP_REASON,
   pastEventCutoff,
@@ -35,7 +38,6 @@ import {
   staffMember,
   task,
   taskCheckItem,
-  taskComment,
   user,
 } from "@marktwerk/db/schema";
 import { and, count, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
@@ -50,6 +52,7 @@ export type TaskError =
   | "invalid_status"
   | "invalid_column"
   | "invalid_staff"
+  | "invalid_notify"
   | "invalid_event"
   | "invalid_state"
   | "reason_required"
@@ -794,6 +797,67 @@ export async function skipPastEventTasks(
 }
 
 // ---------------------------------------------------------------------------------------------
+// notify setting ("Benachrichtigung senden an"): stored on the task, nothing is sent yet
+
+/** `at` is an ISO instant (only with timing `custom`). */
+export type NotifyInput = {
+  channels: NotifyChannel[];
+  timing: NotifyTiming | null;
+  at: string | null;
+};
+
+const NO_NOTIFY: NotifyInput = { channels: [], timing: null, at: null };
+
+/** The setting as saved on a task row, in the shape the audit diff and the patch use. */
+function notifyOf(row: Pick<TaskRow, "notifyChannels" | "notifyTiming" | "notifyAt">): NotifyInput {
+  return {
+    channels: NOTIFY_CHANNELS.filter((c) => row.notifyChannels.includes(c)),
+    timing: row.notifyTiming,
+    at: row.notifyAt ? row.notifyAt.toISOString() : null,
+  };
+}
+
+/** Validates the shape and normalizes it: channels deduplicated in fixed order, no channels = no timing. */
+function cleanNotify(input: NotifyInput | undefined): NotifyInput {
+  if (input === undefined) return NO_NOTIFY;
+  if (!input || typeof input !== "object" || !Array.isArray(input.channels))
+    throw new TaskInputError("invalid_input");
+  if (input.channels.some((c) => !NOTIFY_CHANNELS.includes(c)))
+    throw new TaskInputError("invalid_input");
+  const channels = NOTIFY_CHANNELS.filter((c) => input.channels.includes(c));
+  if (channels.length === 0) return NO_NOTIFY;
+  const timing = input.timing ?? null;
+  if (timing !== null && !NOTIFY_TIMINGS.includes(timing))
+    throw new TaskInputError("invalid_input");
+  let at: string | null = null;
+  if (input.at != null) {
+    const instant = typeof input.at === "string" ? new Date(input.at) : null;
+    if (!instant || Number.isNaN(instant.getTime())) throw new TaskInputError("invalid_input");
+    at = instant.toISOString();
+  }
+  return { channels, timing, at };
+}
+
+/** Rejects a setting that does not fit the task (relative timing without a due date, custom without a date, ...). */
+function assertNotifyFits(notify: NotifyInput, hasDue: boolean) {
+  const problem = checkNotifySetting(
+    {
+      channels: notify.channels,
+      timing: notify.timing,
+      at: notify.at ? new Date(notify.at) : null,
+    },
+    hasDue,
+  );
+  if (problem) throw new TaskInputError("invalid_notify");
+}
+
+const sameNotify = (a: NotifyInput, b: NotifyInput) =>
+  a.timing === b.timing &&
+  a.at === b.at &&
+  a.channels.length === b.channels.length &&
+  a.channels.every((c, i) => c === b.channels[i]);
+
+// ---------------------------------------------------------------------------------------------
 // edit
 
 export type TaskPatch = {
@@ -804,6 +868,8 @@ export type TaskPatch = {
   isKey?: boolean;
   /** `YYYY-MM-DD`, or null to clear. Editing it pins the date against anchor shifts. */
   dueOn?: string | null;
+  /** "Benachrichtigung senden an": channels and when. No channels clears the timing. */
+  notify?: NotifyInput;
   /**
    * Undo of a due-date edit: puts back the flags the edit set, so a date that followed the event date
    * keeps following it. Only honoured together with a `dueOn` change.
@@ -811,7 +877,10 @@ export type TaskPatch = {
   restoreFlags?: { dueOverridden: boolean; customized: boolean };
 };
 
-/** Title, description, estimate, Kernaufgabe flag and due date. Marks the task as customized and the due date as set by hand. */
+/**
+ * Title, description, estimate, Kernaufgabe flag, due date and notify setting. Marks the task as customized
+ * (except for a notify-only change) and the due date as set by hand.
+ */
 export async function updateTask(
   actor: Actor,
   taskId: string,
@@ -868,10 +937,30 @@ export async function updateTask(
         after.dueOn = patch.dueOn;
       }
     }
+    if (patch.notify !== undefined) {
+      const notify = cleanNotify(patch.notify);
+      const was = notifyOf(row);
+      if (!sameNotify(notify, was)) {
+        set.notifyChannels = notify.channels;
+        set.notifyTiming = notify.timing;
+        set.notifyAt = notify.at ? new Date(notify.at) : null;
+        // The recipient is whoever sets it (decision 2026-11-04); none without channels.
+        set.notifyUserId = notify.channels.length > 0 ? actor.id : null;
+        before.notify = { ...was, userId: row.notifyUserId };
+        after.notify = { ...notify, userId: set.notifyUserId };
+      }
+    }
+    // The moment is computed from the due date, so a relative timing cannot outlive it.
+    if ("notify" in after || "dueOn" in after) {
+      const hasDue = "dueOn" in after ? after.dueOn !== null : row.dueAt !== null;
+      assertNotifyFits("notify" in after ? cleanNotify(patch.notify) : notifyOf(row), hasDue);
+    }
 
     const fields = Object.keys(after);
     if (fields.length === 0) return { changed: false, fields };
-    set.customized = true;
+    // The notification preference is not a content edit: only that change leaves `customized` alone, so
+    // template propagation still updates the task.
+    if (fields.some((f) => f !== "notify")) set.customized = true;
     const restore = patch.restoreFlags;
     if (restore && "dueOn" in after) {
       if (typeof restore.dueOverridden !== "boolean" || typeof restore.customized !== "boolean")
@@ -976,104 +1065,6 @@ export async function setCheckItemDone(
 }
 
 // ---------------------------------------------------------------------------------------------
-// comments
-//
-// No UI offers commenting any more (client decision 2026-10-22). The service stays for the existing
-// `task_comment` data and the integration tests; a completion note lives in the audit entry instead.
-
-/** Stores a comment, resolves its @mentions and notifies the mentioned people (not the author). */
-async function insertComment(
-  tx: Tx,
-  actor: Actor,
-  row: TaskRow,
-  body: string,
-): Promise<{ id: string; mentioned: string[] }> {
-  const people = await tx
-    .select({
-      id: staffMember.id,
-      displayName: staffMember.displayName,
-      loginRole: user.role,
-    })
-    .from(staffMember)
-    .leftJoin(user, eq(user.id, staffMember.userId))
-    .where(and(eq(staffMember.active, true), isNull(staffMember.archivedAt)));
-  const mentioned = findMentions(body, people);
-
-  const [comment] = await tx
-    .insert(taskComment)
-    .values({
-      taskId: row.id,
-      authorStaffMemberId: actor.staffMemberId,
-      authorUserId: actor.id,
-      body,
-      mentionedStaffMemberIds: mentioned,
-    })
-    .returning({ id: taskComment.id });
-  if (!comment) throw new Error("comment missing");
-
-  const recipients = people.filter((p) => mentioned.includes(p.id) && p.id !== actor.staffMemberId);
-  // A field user only gets a link into events they work at.
-  const fieldIds = recipients.filter((p) => p.loginRole === "field").map((p) => p.id);
-  const allowedField =
-    fieldIds.length && row.eventId
-      ? new Set(
-          (
-            await tx
-              .select({ id: eventDuty.staffMemberId })
-              .from(eventDuty)
-              .where(
-                and(eq(eventDuty.eventId, row.eventId), inArray(eventDuty.staffMemberId, fieldIds)),
-              )
-          ).map((r) => r.id),
-        )
-      : new Set<string>();
-  const notify = recipients.filter(
-    (p) => p.loginRole !== "field" || (row.eventId !== null && allowedField.has(p.id)),
-  );
-  if (notify.length > 0) {
-    const text = mentionedText(
-      { title: row.title, eventName: await eventNameOf(tx, row.eventId) },
-      actor.displayName,
-    );
-    await insertNotifications(
-      tx,
-      notify.map((p) => ({
-        recipientStaffMemberId: p.id,
-        reason: "mentioned" as const,
-        subjectType: "task",
-        subjectId: row.id,
-        title: text.title,
-        body: text.body,
-        link: taskLink(row.id, row.eventId),
-        dedupeKey: `task:${row.id}:mention:${comment.id}`,
-      })),
-    );
-  }
-  return { id: comment.id, mentioned };
-}
-
-/** Adds a comment. Names written as "@Anna Meier" notify that person (`mentioned`). */
-export async function addComment(
-  actor: Actor,
-  taskId: string,
-  body: string,
-): Promise<{ id: string; mentioned: string[] }> {
-  need(actor, "write");
-  const text = cleanText(body);
-  if (!text) throw new TaskInputError("invalid_input");
-  return db.transaction(async (tx) => {
-    const row = await loadTask(tx, actor, taskId);
-    if (row.status === "cancelled") throw new TaskInputError("invalid_state");
-    const result = await insertComment(tx, actor, row, text);
-    await writeAudit(tx, actor, "task.comment", row.id, {
-      commentId: result.id,
-      mentioned: result.mentioned,
-    });
-    return result;
-  });
-}
-
-// ---------------------------------------------------------------------------------------------
 // create
 
 export type NewTask = {
@@ -1087,6 +1078,8 @@ export type NewTask = {
   priority?: TaskPriority;
   /** Needs the `assign` permission. */
   assigneeId?: string | null;
+  /** "Benachrichtigung senden an" (default: nobody). Relative timings need `dueOn`. */
+  notify?: NotifyInput;
 };
 
 /** A task made by hand (`source = manual`), on an event or without one. */
@@ -1101,6 +1094,8 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
   if (input.priority && !task.priority.enumValues.includes(input.priority))
     throw new TaskInputError("invalid_input");
   if (input.assigneeId) need(actor, "assign");
+  const notify = cleanNotify(input.notify);
+  assertNotifyFits(notify, input.dueOn != null);
 
   return db.transaction(async (tx) => {
     let eventName: string | null = null;
@@ -1147,6 +1142,10 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
         assigneeId: person?.id ?? null,
         assigneeOverridden: person !== null,
         customized: false,
+        notifyChannels: notify.channels,
+        notifyTiming: notify.timing,
+        notifyAt: notify.at ? new Date(notify.at) : null,
+        notifyUserId: notify.channels.length > 0 ? actor.id : null,
       })
       .returning({ id: task.id });
     if (!created) throw new Error("task missing");
@@ -1156,6 +1155,7 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
       dueOn: input.dueOn ?? null,
       estimateMinutes: estimate,
       assigneeId: person?.id ?? null,
+      notify: { ...notify, userId: notify.channels.length > 0 ? actor.id : null },
     });
     if (person && person.id !== actor.staffMemberId) {
       const text = assignedText({ title, eventName }, actor.displayName);

@@ -91,14 +91,12 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
       href: `${base}/board`,
       label: t("tabs.board"),
       count: {
-        text:
+        text: tBoard("tab.openShort", { count: tasks.open }),
+        alert: tasks.overdue > 0 ? tBoard("tab.overdue", { count: tasks.overdue }) : undefined,
+        sr:
           tasks.overdue > 0
             ? tBoard("tab.openOverdue", { open: tasks.open, overdue: tasks.overdue })
-            : tBoard("tab.openShort", { count: tasks.open }),
-        // On a phone the bar scrolls: the count shortens, the health shape still carries the overdue state.
-        short: tBoard("tab.openShort", { count: tasks.open }),
-        level: tasks.health ?? undefined,
-        sr: `${tBoard("tab.open", { count: tasks.open })}${tasks.health ? `, ${tHealth(tasks.health)}` : ""}`,
+            : tBoard("tab.open", { count: tasks.open }),
       },
     },
     ...(permits
@@ -198,6 +196,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
               status={event.status}
               startsOn={event.startsOn}
               canMove={canMoveEvent(event.status)}
+              canDelete={can(actor.role, "event", "delete")}
               venues={venues}
               types={types}
               basics={{

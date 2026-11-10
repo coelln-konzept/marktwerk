@@ -4,7 +4,13 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Avatar } from "@/components/ui/avatar";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
-import { formatDateShort, formatHours, formatMoney, formatMonth, formatNumber } from "@/lib/format";
+import {
+  formatDateShort,
+  formatMinutesAsHours,
+  formatMoney,
+  formatMonth,
+  formatNumber,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Actor } from "@/server/actor";
 import type { MonthFigures, ShiftRow } from "@/server/queries/hours";
@@ -71,9 +77,9 @@ export async function PersonMonthVorschau({
             label: t("hours"),
             value: (
               <span className="tabular">
-                {formatHours(row.month.workedMinutes, locale)}
+                {formatMinutesAsHours(row.month.workedMinutes, locale)}
                 {row.month.plannedMinutes > 0 &&
-                  ` + ${formatHours(row.month.plannedMinutes, locale)} ${t("planned")}`}
+                  ` + ${formatMinutesAsHours(row.month.plannedMinutes, locale)} ${t("planned")}`}
               </span>
             ),
           },
@@ -90,7 +96,7 @@ export async function PersonMonthVorschau({
                               locale,
                             ),
                           })
-                        : formatHours(mj.status.remainingMinutes, locale)}
+                        : formatMinutesAsHours(mj.status.remainingMinutes, locale)}
                     </span>
                   ),
                 },
@@ -190,13 +196,13 @@ export async function PersonMonthVorschau({
                   {" · "}
                   {w.code === "daily_max"
                     ? t("arbzgDailyMax", {
-                        hours: formatHours(w.minutes, locale),
-                        limit: formatHours(w.limit, locale),
+                        hours: formatMinutesAsHours(w.minutes, locale),
+                        limit: formatMinutesAsHours(w.limit, locale),
                       })
                     : w.code === "rest_period"
                       ? t("arbzgRest", {
-                          rest: formatHours(w.restMinutes, locale),
-                          limit: formatHours(w.limit, locale),
+                          rest: formatMinutesAsHours(w.restMinutes, locale),
+                          limit: formatMinutesAsHours(w.limit, locale),
                         })
                       : w.code === "break_missing"
                         ? t("arbzgBreak", { minutes: w.required })

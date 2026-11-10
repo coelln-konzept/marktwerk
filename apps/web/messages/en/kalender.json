@@ -46,7 +46,8 @@
         "installments": "Instalments & payments",
         "tasks": "Tasks",
         "obligations": "Vehicles & obligations",
-        "shifts": "Shifts"
+        "shifts": "Shifts",
+        "appointments": "Meetings"
       }
     },
     "gridCaption": "Calendar {month}",
@@ -69,6 +70,7 @@
     "nothingToday": "Nothing is scheduled today.",
     "moreAria": "Show {n, plural, one {# more entry} other {# more entries}} on {day}",
     "moreList": "In the list from this day",
+    "addAppointment": "Add meeting on {date}",
     "spanDay": "Day {index}/{total}",
     "permitKind": {
       "apply": "Application due",
