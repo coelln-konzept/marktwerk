@@ -33,7 +33,8 @@ The research-based improvements don't depend on docking and are kept in full.
      showing counts/health.
 4. **No** dockview, **no** `workspace` table, **no** workspace tabs, saved/named workspaces, team workspace templates or
    "folgt" linking. **No Next.js parallel routes.** No fixed master-detail screen (the optional Fiori variant is dropped).
-5. **`user_preference` stays:** theme, density, `sidebar_collapsed`, and per-user saved list filters and calendar layers
+5. **`user_preference` stays:** theme, density, `sidebar_collapsed` (dropped 2026-11-10, never used; the sidebar's
+   hidden state is a cookie), and per-user saved list filters and calendar layers
    (`saved_views` jsonb). Writes are preferences: server action with `requireUser()`, no `audit_log`.
 6. **Linkable overlays (proposal, implementation detail):** Vorschau and drawers are addressed by search params on the
    current page, e.g. `?vorschau=<type>:<id>` and `?detail=<type>:<id>`, so a link can be shared and the browser back

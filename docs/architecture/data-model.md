@@ -1,6 +1,8 @@
 # Data model
 
-Status: **draft v0.5 (2026-10-21)**. Change in v0.5: the Phase 1 schema for M2–M6 exists (migration
+Status: **v0.6 (2026-11-10), current through migration `0013_drop_unused_watcher_sidebar`** (the 2026-11-10
+cleanup), which drops the table `task_watcher` and the column `user_preference.sidebar_collapsed` (both
+unused). `task_comment` stays, read-only, for old data: no UI or service writes comments any more. Change in v0.5: the Phase 1 schema for M2–M6 exists (migration
 `0002_phase1_modules`); where it deliberately differs from this text the line is marked "(implemented 0002: …)".
 Table list by file in `packages/db/src/schema/`: `templates.ts`, `tasks.ts`, `permits.ts`, `notifications.ts`,
 `staff.ts`, `money.ts`, `company.ts`, `documents.ts`. Change in v0.4: `workspace` removed; `user_preference` keeps theme, density,
@@ -122,8 +124,8 @@ erDiagram
   `reopenedTaskIds`). Migration 0012 backfilled existing cancelled events (entry `backfill: true`, no actor).
   **Deleting an event** (`deleteEvent`, owner/manager, name typed): `payable`, `expense`, `shift` and `document` reference it
   with `on delete restrict` (documents also through `document.task_id` on the event's tasks), so any of them, archived
-  ones included, blocks the deletion (`blocked` with counts). Everything else cascades: tasks (with comments, check
-  items, dependencies, watchers), checklists, duties, anchors, budget lines, income and permit links; the permit stays.
+  ones included, blocks the deletion (`blocked` with counts). Everything else cascades: tasks (with old comments, check
+  items, dependencies), checklists, duties, anchors, budget lines, income and permit links; the permit stays.
   Audit `event.delete` (written first; `entity_id` is no foreign key) keeps a snapshot incl. the cascaded counts.
   No required permit → stays planned (manual confirmation). Never moves back,
   the permit health keeps showing a withdrawn permit,
@@ -194,10 +196,12 @@ erDiagram
   is the enum `preparation | this_week | today | done`; `board_sort` is a double (fractional ordering);
   `labels` is `text[]`. Constraints: `status = done` needs `completed_at`; a partial unique index
   `(checklist_id, template_stable_key)` makes instantiation idempotent. `event_id` is nullable (company/permit tasks).)*
-- **task_check_item**, **task_dependency** (doesn't move dates), **task_comment**, **task_watcher**.
+- **task_check_item**, **task_dependency** (doesn't move dates), **task_comment** (read-only, old data).
+  *(`task_watcher` was dropped in the 2026-11-10 cleanup: it was never used.)*
   *(implemented 0002: a comment has `author_staff_member_id?` and `author_user_id?` (an office login may have no staff
   record), `mentioned_staff_member_ids`, `edited_at`, `archived_at`. **No UI offers comments any more** (client decision
-  2026-10-22, single user): the table and its data stay, nothing in the drawer shows or creates comments, and
+  2026-10-22, single user): the table and its data stay, nothing in the drawer shows or creates comments, the task-comment
+  service was removed on 2026-11-10, and
   comment/mention notifications are no longer produced from the UI. `requires_note` no longer blocks completion; when
   marking a task done an optional note is kept in the `task.status` / `task.move` audit entry (`diff.note`) and shown
   in the drawer ("Notiz") and the activity.)*
@@ -336,8 +340,9 @@ erDiagram
 
 ### UI preferences (ADR 0019)
 - **user_preference**: `user_id`, `theme` (`system | light | dark`), `density` (`standard | compact`),
-  `sidebar_collapsed`, `saved_views` (jsonb: per-user saved list filters and calendar layer selections, keyed by
-  view). Writes are preferences (server action with `requireUser()`, no `audit_log`). There is no `workspace` table
+  `saved_views` (jsonb: per-user saved list filters and calendar layer selections, keyed by
+  view). `sidebar_collapsed` was dropped on 2026-11-10 (never used; hiding the sidebar is the per-browser cookie
+  `mw_nav_hidden`). Writes are preferences (server action with `requireUser()`, no `audit_log`). There is no `workspace` table
   (classic screens, ADR 0019).
 
 ### Files, KB, audit
