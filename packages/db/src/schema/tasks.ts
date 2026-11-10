@@ -260,7 +260,10 @@ export const taskDependency = app.table(
   ],
 );
 
-/** Comment thread of a task. @mentions notify the mentioned staff members. */
+/**
+ * Comment thread of a task. Read-only: commenting was dropped (client decision 2026-10-22); the table keeps
+ * older comments, which the task activity still lists.
+ */
 export const taskComment = app.table(
   "task_comment",
   {
@@ -278,19 +281,4 @@ export const taskComment = app.table(
     archivedAt: archivedAt(),
   },
   (t) => [index().on(t.taskId, t.createdAt)],
-);
-
-/** People who follow a task without owning it. */
-export const taskWatcher = app.table(
-  "task_watcher",
-  {
-    taskId: uuid()
-      .notNull()
-      .references(() => task.id, { onDelete: "cascade" }),
-    staffMemberId: uuid()
-      .notNull()
-      .references(() => staffMember.id, { onDelete: "cascade" }),
-    ...timestamps,
-  },
-  (t) => [primaryKey({ columns: [t.taskId, t.staffMemberId] }), index().on(t.staffMemberId)],
 );
