@@ -39,6 +39,84 @@ is loaded by the manual workflow `.github/workflows/seed-dev.yml`.
 Locally the same thing is `pnpm db:seed` (reads the root `.env` if there is one; in CI the variables come from the
 environment).
 
+## Branch environments on Neon (manual for now)
+A branch under test gets its own deployment and database next to `main` (test-environment spec §4.1, ADR 0021 in
+PR #24). The database host is **Neon** (decided 2026-11-10, `docs/open-questions.md`); `main` stays on Supabase. These
+steps are the manual version of the planned `pnpm env up | reset | down`.
+
+| Piece | Value |
+|---|---|
+| Neon project | `marktwerk-test` (`flat-rice-93609519`), owner: Arda's personal Neon org, free plan, `aws-eu-central-1`, Postgres 17, database `marktwerk` |
+| Root branch `main` | Empty. Holds the roles only: `neon_admin` (created with the project, member of `neon_superuser`, used for setup) and **`marktwerk_app`** (created by SQL: `LOGIN`, `CREATE` on the database, no superuser / `CREATEROLE` / `CREATEDB` / `BYPASSRLS`, not in `neon_superuser`). Child branches inherit both roles and passwords |
+| Per environment | `seed/<env>`: migrated with the **branch's own** migrations and seeded, then left alone (no connections, so no compute). `<env>`: child of it, the one the deployment uses |
+| App URLs | `DATABASE_URL` = `marktwerk_app` on the child's **pooled** host (`ep-…-pooler…`, PgBouncer transaction mode); `DATABASE_MIGRATION_URL` = same role on the **direct** host. Use `sslmode=verify-full` (node-postgres warns about `require`) |
+| Vercel | Preview variables **scoped to the git branch**: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `CRON_SECRET` (own random values, marked sensitive). They override the shared Preview values for that branch only; Production and other previews are untouched. `BETTER_AUTH_URL`/`APP_URL` stay shared: the branch URL is accepted through `VERCEL_BRANCH_URL` |
+| Mail | Off: the seed writes `settings.email_enabled = false`. Leave it off until the guarded transport (spec §5.1) exists |
+| Jobs | No cron for branch environments (spec §4.1); run a job by hand with `POST /api/cron/<job>` and the branch's `CRON_SECRET` if needed |
+| Free-tier budget | 10 branches per project: root + 2 per environment, so at most 4 environments at once |
+
+Why a seed parent per environment and not one shared base migrated with `main`'s migrations: Drizzle's migrator only
+applies migrations whose timestamp is newer than the newest one recorded in the database. A base at `main`'s latest
+migration would give a branch that is behind `main` a schema it doesn't know, and silently skip any branch migration
+dated earlier.
+
+Secrets never go into the repo or chat. Keep them in gitignored files in the worktree (`.env.*` is ignored):
+`.env.neon-admin` (`NEON_PROJECT_ID`, `NEON_ADMIN_URL`, `APP_ROLE_PASSWORD`), `.env.neon-seed-<env>` and
+`.env.neon-<env>` (`DATABASE_URL`, `DATABASE_MIGRATION_URL` for that branch), `.env.vercel-<env>` (`BETTER_AUTH_SECRET`,
+`CRON_SECRET`). Quote the values (`KEY='…'`): the Neon URLs contain `&`.
+
+### Current environments
+| Environment | Git branch | URL | Neon branches | Reference date | Logins |
+|---|---|---|---|---|---|
+| `exp-stand-allocation` | `exp/stand-allocation` | `https://marktwerk-git-exp-stand-allocation-ardas-s-projects.vercel.app` | `seed/exp-stand-allocation` (`br-jolly-butterfly-b9cydjpx`) → `exp-stand-allocation` (`br-cool-feather-b9l37jd1`) | **2026-11-10** | Owner only (`SEED_OWNER_*` from the local `.env`); staff logins skipped |
+
+Created 2026-11-10 from `exp/stand-allocation` at `0237e6a` (migrations 0000–0008).
+
+### One-time: project and app role
+1. `npx neonctl@latest auth` (browser login), then
+   `neonctl projects create --name marktwerk-test --region-id aws-eu-central-1 --pg-version 17 --database marktwerk --role neon_admin`.
+2. As `neon_admin` on `main`:
+   ```sql
+   CREATE ROLE marktwerk_app LOGIN PASSWORD '<random, from .env.neon-admin>';
+   GRANT CREATE ON DATABASE marktwerk TO marktwerk_app;
+   ```
+   The first migration creates schema `app` and Drizzle creates `drizzle`, so `marktwerk_app` owns both.
+
+### up `<env>` (from a worktree of the branch)
+1. `neonctl branches create --project-id <id> --name seed/<env> --parent main`
+2. Build the two URLs for `marktwerk_app` from `neonctl connection-string seed/<env> --role-name neon_admin`
+   (swap user and password; pooled host = endpoint id + `-pooler`) into `.env.neon-seed-<env>`.
+3. Migrate and seed with the branch's code (the exported variables win over the root `.env`):
+   ```bash
+   set -a; . ./.env.neon-seed-<env>; set +a
+   pnpm --filter @marktwerk/db migrate
+   SEED_OWNER_EMAIL=… SEED_OWNER_PASSWORD=… [SEED_STAFF_PASSWORD=…] pnpm db:seed
+   ```
+   The seed prints `synthetic data as of <date>`: record it in the table above.
+4. `neonctl branches create --project-id <id> --name <env> --parent seed/<env>`; build its URLs into `.env.neon-<env>`.
+5. Generate `BETTER_AUTH_SECRET` (`openssl rand -base64 32`) and `CRON_SECRET` (`openssl rand -hex 32`) into
+   `.env.vercel-<env>`.
+6. Add the four variables, each piped from the files, never typed on the command line:
+   `vercel env add <NAME> preview <git-branch> --sensitive` (in a directory linked to project `marktwerk`).
+7. Redeploy the branch's latest deployment (`vercel redeploy <deployment-url> --target preview`) or push to the
+   branch. The build migrates the child (no-op right after up).
+8. Check: `vercel curl /api/health --deployment <branch-url>` → `{"ok":true,"db":"up"}` (previews are behind
+   Vercel's deployment protection, hence `vercel curl`), and sign in as the seeded owner.
+
+### reset `<env>`
+1. `neonctl branches reset <env> --parent --project-id <id>`: the child is back to the seeded state in seconds
+   (same reference date as at up).
+2. Migrations the branch added since up are gone with it: run `pnpm --filter @marktwerk/db migrate` with
+   `.env.neon-<env>` loaded, or redeploy.
+3. **Rebuild the seed parent instead** when the branch's migration history changed (rebase onto newer `main`,
+   edited branch migration) or when you want data as of a new date: delete both branches and run *up* again from
+   step 1 (the Vercel variables need updating only if the endpoint host changed).
+
+### down `<env>`
+1. `vercel env rm <NAME> preview <git-branch> --yes` for the four variables.
+2. `neonctl branches delete <env> --project-id <id>`, then `neonctl branches delete seed/<env> --project-id <id>`.
+3. Delete the local `.env.neon-*<env>` and `.env.vercel-<env>` files and remove the row from the table above.
+
 ## Production (later): Scalingo candidate, ADR 0006
 Status: **plan, to be verified before the pilot.**
 
