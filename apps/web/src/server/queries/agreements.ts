@@ -12,8 +12,6 @@ export type AgreementDate = {
   event: { id: string; name: string; status: EventStatusKey } | null;
 };
 
-export type VenueAgreement = Awaited<ReturnType<typeof listVenueAgreements>>[number];
-
 async function withDates<T extends { id: string; fixedDates: string[] }>(rows: T[]) {
   if (rows.length === 0) return [];
   const linked = await db

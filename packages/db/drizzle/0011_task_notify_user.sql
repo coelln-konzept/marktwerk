@@ -1,0 +1,3 @@
+ALTER TABLE "app"."task" ADD COLUMN "notify_user_id" text;--> statement-breakpoint
+ALTER TABLE "app"."task" ADD CONSTRAINT "task_notify_user_id_user_id_fk" FOREIGN KEY ("notify_user_id") REFERENCES "app"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "app"."task" ADD CONSTRAINT "task_notify_user_empty" CHECK (cardinality("app"."task"."notify_channels") > 0 or "app"."task"."notify_user_id" is null);

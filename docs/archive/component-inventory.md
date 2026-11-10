@@ -1,12 +1,12 @@
 # Component inventory
 
 **2026-10-21 (session 2).** Components of the Claude Design prototype (direction A,
-[`a-classic/`](./claude-design/a-classic/INDEX.md)), mapped to code. Companion to
+[`a-classic/`](../design/claude-design/a-classic/INDEX.md)), mapped to code. Companion to
 [UX concept §9](../product/ux-concept.md#9-visual-system); tokens live in
 [`apps/web/src/app/globals.css`](../../apps/web/src/app/globals.css).
 
 - **Prototype** = anchor in `a-classic/index.html` (open `index.html#<Anchor>`; screen names in
-  [INDEX.md](./claude-design/a-classic/INDEX.md)). `#Legende` is the prototype's own component legend.
+  [INDEX.md](../design/claude-design/a-classic/INDEX.md)). `#Legende` is the prototype's own component legend.
 - **Code** = path under `apps/web/src/components/`. "page-local" means built inline in a page, not yet extracted.
 - **Primitive** = what backs it: `@base-ui/react` (1.9.0; M1 uses `Dialog` and `Menu`) or plain HTML/React. Base UI
   parts named here as "candidate" are not used yet; check the Base UI docs before wiring them.

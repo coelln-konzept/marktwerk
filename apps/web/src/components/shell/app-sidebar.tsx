@@ -125,7 +125,7 @@ export async function AppSidebar({
       href: "/wissen",
       label: t("knowledgeBase"),
       icon: <BookOpen />,
-      visible: can(r, "kb", "read"),
+      visible: isModuleVisible("knowledgeBase") && can(r, "kb", "read"),
     },
     {
       href: "/archiv",

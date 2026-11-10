@@ -11,15 +11,13 @@ import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { DueItem } from "@/server/queries/due";
 import type { Overview, WeekendBlock, WeekendMarket } from "@/server/queries/overview";
-import { MORE_IN_PLACE_MAX, MoreDisclosure } from "./due-groups";
 import { itemHref, itemPeek } from "./links";
 import { PeekLink } from "./peek-link";
+import { TopTasksToggle } from "./top-tasks-toggle";
 import { VerdictLine } from "./verdict-line";
 
-/** Blockers listed per market; more than two markets share the card, so they get fewer. */
-function blockerRows(markets: number): number {
-  return markets >= 3 ? 2 : 3;
-}
+/** Blockers behind the "Top-5-Aufgaben anzeigen" toggle of each market (CF9-2). */
+export const TOP_BLOCKERS = 5;
 
 const ROW =
   "flex cursor-pointer items-start gap-2 py-1.5 pr-4 pl-7 hover:bg-hover focus-visible:bg-selected";
@@ -82,20 +80,16 @@ function Blocker({
 async function MarketBlock({
   market,
   today,
-  rows,
   selected,
 }: {
   market: WeekendMarket;
   today: string;
-  rows: number;
   selected: boolean;
 }) {
   const t = await getTranslations("overview.weekend");
   const locale = await getLocale();
   const { row, verdict, blockers } = market;
   const href = `/veranstaltungen/${row.id}`;
-  const shown = blockers.slice(0, rows);
-  const rest = blockers.slice(rows);
   const reserveStar = isModuleVisible("keyTasks") && blockers.some((b) => b.isKey);
   return (
     <section
@@ -127,49 +121,30 @@ async function MarketBlock({
         </span>
         <VerdictLine verdict={verdict} />
       </div>
-      {shown.length > 0 && (
-        <ul
-          aria-label={t("blockers", { name: row.name })}
-          className="m-0 flex list-none flex-col p-0 pb-2"
-        >
-          {shown.map((item) => (
-            <Blocker
-              key={`${item.kind}-${item.id}`}
-              item={item}
-              today={today}
-              reserveStar={reserveStar}
-            />
-          ))}
-          {rest.length > 0 && (
-            // Opens the remaining blockers in place (decision 2026-10-29); past MORE_IN_PLACE_MAX it links to
-            // the market's Zusammenfassung ("Was fehlt") instead (handwritten notes HN-05).
-            <li className="list-none">
-              <MoreDisclosure
-                className="pl-6"
-                label={t("blockersMore", { count: rest.length })}
-                link={
-                  rest.length > MORE_IN_PLACE_MAX
-                    ? { href, label: t("blockersMoreLink", { count: rest.length }) }
-                    : undefined
-                }
-              >
-                <ul
-                  aria-label={t("blockers", { name: row.name })}
-                  className="m-0 -ml-6 flex list-none flex-col p-0"
-                >
-                  {rest.map((item) => (
-                    <Blocker
-                      key={`${item.kind}-${item.id}`}
-                      item={item}
-                      today={today}
-                      reserveStar={reserveStar}
-                    />
-                  ))}
-                </ul>
-              </MoreDisclosure>
-            </li>
+      {blockers.length > 0 && (
+        <TopTasksToggle label={t("topTasks", { count: Math.min(blockers.length, TOP_BLOCKERS) })}>
+          <ul
+            aria-label={t("blockers", { name: row.name })}
+            className="m-0 flex list-none flex-col p-0"
+          >
+            {blockers.slice(0, TOP_BLOCKERS).map((item) => (
+              <Blocker
+                key={`${item.kind}-${item.id}`}
+                item={item}
+                today={today}
+                reserveStar={reserveStar}
+              />
+            ))}
+          </ul>
+          {blockers.length > TOP_BLOCKERS && (
+            <Link
+              href={href as never}
+              className="ml-7 inline-flex min-h-8 items-center font-medium text-small hover:underline"
+            >
+              {t("allInSummary", { count: blockers.length })}
+            </Link>
           )}
-        </ul>
+        </TopTasksToggle>
       )}
     </section>
   );
@@ -177,9 +152,10 @@ async function MarketBlock({
 
 /**
  * "Dieses Wochenende", the first of the two questions on the Übersicht ("is the weekend on track?"): per
- * market one verdict line (Im Plan · Achtung · Nicht startklar, with the reasons) and the first blockers,
- * then one compact row for the weekend after. A market's name opens its Überblick; "+ N weitere" opens the
- * remaining blockers in place.
+ * market one verdict line (Im Plan · Achtung · Nicht startklar, with the reasons) and, collapsed behind
+ * "Top-5-Aufgaben anzeigen", its first {@link TOP_BLOCKERS} blockers (more link to the market's
+ * Zusammenfassung); then one compact row for the weekend after. A market's name opens its Überblick.
+ * Sits in the right column, Heute & überfällig in the left (CF9-2).
  */
 export async function WeekendCard({
   weekend,
@@ -202,7 +178,6 @@ export async function WeekendCard({
       to: formatDateShort(block.sunday, locale),
       week: formatWeek(block.saturday, locale),
     });
-  const rows = blockerRows(weekend.markets.length);
   return (
     <Panel aria-labelledby="weekend-title" className="flex min-w-0 flex-col">
       <PanelHeader>
@@ -246,7 +221,6 @@ export async function WeekendCard({
               key={market.row.id}
               market={market}
               today={today}
-              rows={rows}
               selected={vorschauId === market.row.id}
             />
           ))}

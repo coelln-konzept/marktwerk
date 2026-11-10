@@ -3,11 +3,8 @@
  * check_items). A note never blocks completion (client decision 2026-10-22): `requires_note` stays on the
  * template item as a hint, and completing offers an optional note instead. Photos and attachments are documents linked to the task
  * (`document.task_id`): a live document of kind "photo" is the photo, a live document of any other kind
- * is the attachment. Since the document upload exists they block completion like the note does.
+ * is the attachment. They block completion.
  */
-
-/** Photo/attachment evidence blocks completion (switched on with the document upload, M5/integration). */
-export const FILE_EVIDENCE_ENFORCED = true;
 
 /** What the live documents on a task prove: a "photo" document is the photo, any other kind the attachment. */
 export function fileEvidenceOf(kinds: readonly string[]): {
@@ -36,18 +33,7 @@ export type EvidenceKind = "check_items" | "photo" | "attachment";
 export function missingEvidence(input: EvidenceInput): EvidenceKind[] {
   const missing: EvidenceKind[] = [];
   if (input.openCheckItems > 0) missing.push("check_items");
-  if (FILE_EVIDENCE_ENFORCED) {
-    if (input.requiresPhoto && !input.hasPhoto) missing.push("photo");
-    if (input.requiresAttachment && !input.hasAttachment) missing.push("attachment");
-  }
+  if (input.requiresPhoto && !input.hasPhoto) missing.push("photo");
+  if (input.requiresAttachment && !input.hasAttachment) missing.push("attachment");
   return missing;
-}
-
-/** Required file evidence that cannot be given yet (only while {@link FILE_EVIDENCE_ENFORCED} is off). */
-export function pendingFileEvidence(input: EvidenceInput): ("photo" | "attachment")[] {
-  if (FILE_EVIDENCE_ENFORCED) return [];
-  const pending: ("photo" | "attachment")[] = [];
-  if (input.requiresPhoto && !input.hasPhoto) pending.push("photo");
-  if (input.requiresAttachment && !input.hasAttachment) pending.push("attachment");
-  return pending;
 }

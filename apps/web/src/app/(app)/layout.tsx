@@ -1,5 +1,8 @@
 import { can as roleCan } from "@marktwerk/core";
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
+import { AppointmentDialog } from "@/components/appointments/appointment-dialog";
+import { APPOINTMENT_PARAM } from "@/components/appointments/appointment-params";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShellProvider } from "@/components/shell/shell-context";
@@ -35,6 +38,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : []),
     ...(can("shift")
       ? [{ kind: "action" as const, title: t("shift"), href: "/team/schichten?neu=1" }]
+      : []),
+    ...(can("appointment")
+      ? [
+          {
+            kind: "action" as const,
+            title: t("appointment"),
+            href: `/kalender?neu=${APPOINTMENT_PARAM}`,
+          },
+        ]
       : []),
     ...(can("issue")
       ? [{ kind: "action" as const, title: t("issue"), href: "/firma/maengel?neu=1" }]
@@ -74,6 +86,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {/* The page renders its own top bar (banner) and <main id="main"> inside this column. */}
         <div className="min-w-0 flex-1">{children}</div>
       </div>
+      {can("appointment") && (
+        <Suspense>
+          <AppointmentDialog />
+        </Suspense>
+      )}
       <CommandPalette actions={actions} />
       <ShortcutsDialog />
       <ToastRegion />

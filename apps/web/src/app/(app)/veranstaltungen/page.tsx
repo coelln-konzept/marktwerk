@@ -34,6 +34,7 @@ import {
   listEventTypes,
   listSeasons,
 } from "@/server/queries/events";
+import { getMarketColorChoices } from "@/server/queries/market-colors";
 import { listPresetsForGeneration } from "@/server/queries/presets";
 import { listVenueOptions } from "@/server/queries/venues";
 import { requirePermission } from "@/server/session";
@@ -177,7 +178,11 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   // "Neuen Markt anlegen" needs template:write on top of event:write.
   const canCreateMarket = generating && can(actor.role, "template", "write");
   const marketOptions = canCreateMarket
-    ? { types: await listEventTypeOptions(), venues: await listVenueOptions() }
+    ? {
+        types: await listEventTypeOptions(),
+        venues: await listVenueOptions(),
+        colors: await getMarketColorChoices(),
+      }
     : undefined;
   // The active filters as text for the phone's "Filter" button (the search text is visible anyway).
   const activeType = typeKey ? types.find((x) => x.key === typeKey) : undefined;
@@ -413,7 +418,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                         </TD>
                         <TD className="max-sm:col-span-3 max-sm:col-start-1 max-sm:row-start-1 max-sm:h-auto max-sm:min-w-0 max-sm:p-0">
                           <span className="inline-flex items-center gap-2">
-                            <MarketMarker color={r.color} typeKey={r.typeKey} size="lg" />
+                            <MarketMarker color={r.color} typeKey={r.typeKey} shape="dot" />
                             <Link
                               href={href as never}
                               tabIndex={-1}
@@ -472,6 +477,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                                 status={r.status}
                                 startsOn={r.startsOn}
                                 canMove={canMoveEvent(r.status)}
+                                canDelete={can(actor.role, "event", "delete")}
                                 venues={venueOptions}
                                 types={typeChoices}
                                 basics={{

@@ -8,8 +8,23 @@ import {
   requiresReason,
 } from "@marktwerk/core/events/lifecycle";
 import { insertNotifications } from "@marktwerk/db";
-import { event, eventDuty, eventPermit, permit } from "@marktwerk/db/schema";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import {
+  auditLog,
+  checklist,
+  document,
+  event,
+  eventAnchor,
+  eventBudgetLine,
+  eventDuty,
+  eventIncome,
+  eventPermit,
+  expense,
+  payable,
+  permit,
+  shift,
+  task,
+} from "@marktwerk/db/schema";
+import { and, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
@@ -22,10 +37,16 @@ export type EventLifecycleError =
   | "invalid_transition"
   | "reason_required"
   | "conflict"
-  | "notes_too_long";
+  | "notes_too_long"
+  | "name_mismatch"
+  | "blocked";
 
 export class EventLifecycleInputError extends Error {
-  constructor(readonly code: EventLifecycleError) {
+  constructor(
+    readonly code: EventLifecycleError,
+    /** `blocked`: the {@link EventDeleteBlockers} that stop the deletion. */
+    readonly detail?: EventDeleteBlockers,
+  ) {
     super(code);
   }
 }
@@ -50,9 +71,87 @@ async function lockEvent(tx: Tx, id: string) {
   return row;
 }
 
+/** Tasks that are still to be done (the statuses before done / skipped / cancelled). */
+const OPEN_TASK = ["todo", "in_progress", "waiting_external", "blocked"] as const;
+type OpenTaskStatus = (typeof OPEN_TASK)[number];
+const isOpenTaskStatus = (v: unknown): v is OpenTaskStatus =>
+  typeof v === "string" && (OPEN_TASK as readonly string[]).includes(v);
+
+type CancelledTask = { id: string; from: OpenTaskStatus };
+
+/**
+ * THE one place that cancels the tasks of a cancelled event (product owner 2026-11-04): every open task of
+ * the event becomes "cancelled" so it disappears from all lists; done / skipped / cancelled ones stay as
+ * history. Returns `{id, from}` for the audit diff so the same tasks can be reopened later.
+ * Call inside the transaction of every change that sets an event to "cancelled".
+ */
+async function cancelOpenTasksOfEvent(tx: Tx, eventId: string): Promise<CancelledTask[]> {
+  const open = await tx
+    .select({ id: task.id, from: task.status })
+    .from(task)
+    .where(and(eq(task.eventId, eventId), inArray(task.status, [...OPEN_TASK])))
+    .orderBy(task.id)
+    .for("update");
+  if (open.length === 0) return [];
+  await tx
+    .update(task)
+    .set({ status: "cancelled" })
+    .where(
+      inArray(
+        task.id,
+        open.map((o) => o.id),
+      ),
+    );
+  return open.filter((o): o is CancelledTask => isOpenTaskStatus(o.from));
+}
+
+/**
+ * Reopens the tasks recorded by the most recent cancellation of the event: the latest "event.status" audit
+ * entry that carries `cancelledTasks` (a normal cancellation, an undo back to "abgesagt" or the migration
+ * backfill) unless a newer entry already reopened them (`reopenedTaskIds`). Each task goes back to its
+ * recorded status, but only while it is still "cancelled" (someone may have changed it since).
+ */
+async function reopenTasksOfEvent(tx: Tx, eventId: string): Promise<string[]> {
+  const [last] = await tx
+    .select({ diff: auditLog.diff })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.action, "event.status"),
+        eq(auditLog.entityId, eventId),
+        sql`(${auditLog.diff} ? 'cancelledTasks' or ${auditLog.diff} ? 'reopenedTaskIds')`,
+      ),
+    )
+    .orderBy(desc(auditLog.at), desc(auditLog.id))
+    .limit(1);
+  const recorded = (last?.diff as { cancelledTasks?: unknown } | null)?.cancelledTasks;
+  if (!Array.isArray(recorded)) return [];
+  const reopened: string[] = [];
+  for (const entry of recorded as { id?: unknown; from?: unknown }[]) {
+    if (typeof entry?.id !== "string" || !isOpenTaskStatus(entry.from)) continue;
+    const rows = await tx
+      .update(task)
+      .set({ status: entry.from })
+      .where(and(eq(task.id, entry.id), eq(task.eventId, eventId), eq(task.status, "cancelled")))
+      .returning({ id: task.id });
+    reopened.push(...rows.map((r) => r.id));
+  }
+  return reopened;
+}
+
+/** The task side of a status change: cancel when entering "abgesagt", reopen when leaving it. */
+async function cascadeToTasks(tx: Tx, eventId: string, from: EventStatus, to: EventStatus) {
+  if (to === "cancelled" && from !== "cancelled")
+    return { cancelledTasks: await cancelOpenTasksOfEvent(tx, eventId) };
+  if (from === "cancelled" && to !== "cancelled")
+    return { reopenedTaskIds: await reopenTasksOfEvent(tx, eventId) };
+  return {};
+}
+
 /**
  * Moves an event through its lifecycle (packages/core events/lifecycle). Cancelling needs a reason.
- * Writes audit "event.status" with {from, to, reason?}.
+ * Writes audit "event.status" with {from, to, reason?}. Cancelling also cancels the event's open tasks
+ * (`cancelledTasks: [{id, from}]` in the diff); leaving "abgesagt" reopens them (`reopenedTaskIds`).
  */
 export async function changeEventStatus(
   actor: Actor,
@@ -73,12 +172,18 @@ export async function changeEventStatus(
       .update(event)
       .set({ status: to, cancelledReason: requiresReason(to) ? trimmed : null })
       .where(eq(event.id, id));
+    const cascade = await cascadeToTasks(tx, id, current.status, to);
     await audit(tx, actor.id, [
       {
         action: "event.status",
         entityType: "event",
         entityId: id,
-        diff: { from: current.status, to, ...(requiresReason(to) ? { reason: trimmed } : {}) },
+        diff: {
+          from: current.status,
+          to,
+          ...(requiresReason(to) ? { reason: trimmed } : {}),
+          ...cascade,
+        },
       },
     ]);
     return { from: current.status, to, previousReason: current.cancelledReason };
@@ -213,12 +318,13 @@ export async function revertEventStatus(
       .update(event)
       .set({ status: previous, cancelledReason: reason })
       .where(eq(event.id, id));
+    const cascade = await cascadeToTasks(tx, id, expected, previous);
     await audit(tx, actor.id, [
       {
         action: "event.status",
         entityType: "event",
         entityId: id,
-        diff: { from: expected, to: previous, undo: true },
+        diff: { from: expected, to: previous, undo: true, ...cascade },
       },
     ]);
     return { from: expected, to: previous };
@@ -244,5 +350,142 @@ export async function updateEventNotes(actor: Actor, id: string, notes: string) 
       },
     ]);
     return { changed: true };
+  });
+}
+
+/** What keeps an event from being deleted: rows whose foreign key to the event (or to one of its tasks) restricts. */
+export type EventDeleteBlockers = {
+  payables: number;
+  expenses: number;
+  shifts: number;
+  documents: number;
+};
+
+export const hasDeleteBlockers = (b: EventDeleteBlockers) =>
+  b.payables + b.expenses + b.shifts + b.documents > 0;
+
+/**
+ * Counts the blockers (archived rows included: they still hold the foreign key). Documents count when
+ * attached to the event or to one of its tasks (`document.task_id` restricts the task cascade).
+ */
+export async function countEventDeleteBlockers(
+  tx: Pick<typeof db, "select">,
+  eventId: string,
+): Promise<EventDeleteBlockers> {
+  const one = async (q: PromiseLike<{ n: number }[]>) => (await q)[0]?.n ?? 0;
+  const [payables, expenses, shifts, documents] = await Promise.all([
+    one(tx.select({ n: count() }).from(payable).where(eq(payable.eventId, eventId))),
+    one(tx.select({ n: count() }).from(expense).where(eq(expense.eventId, eventId))),
+    one(tx.select({ n: count() }).from(shift).where(eq(shift.eventId, eventId))),
+    one(
+      tx
+        .select({ n: count() })
+        .from(document)
+        .where(
+          or(
+            eq(document.eventId, eventId),
+            inArray(
+              document.taskId,
+              tx.select({ id: task.id }).from(task).where(eq(task.eventId, eventId)),
+            ),
+          ),
+        ),
+    ),
+  ]);
+  return { payables, expenses, shifts, documents };
+}
+
+/** For the delete dialog: the event's name and what blocks deleting it. */
+export async function getEventDeleteInfo(
+  actor: Actor,
+  id: string,
+): Promise<{ name: string; blockers: EventDeleteBlockers }> {
+  if (!can(actor.role, "event", "delete")) forbidden();
+  const [row] = await db.select({ name: event.name }).from(event).where(eq(event.id, id));
+  if (!row) throw new EventLifecycleInputError("not_found");
+  return { name: row.name, blockers: await countEventDeleteBlockers(db, id) };
+}
+
+/**
+ * Deletes an event for good (product owner 2026-11-04): the caller must type the event's exact name
+ * (surrounding spaces ignored, case-sensitive). Refused while payments, expenses, shifts or documents hang
+ * on it. Everything that only belongs to the event goes with it through the foreign-key cascades (tasks and
+ * their comments / check items, checklists, duties, permit links, anchors, budget lines, income); the
+ * permit itself stays. The audit entry is written first and keeps a snapshot, since the event is gone after.
+ */
+export async function deleteEvent(
+  actor: Actor,
+  id: string,
+  confirmName: string,
+): Promise<{ name: string }> {
+  if (!can(actor.role, "event", "delete")) forbidden();
+  try {
+    return await deleteEventTx(actor, id, confirmName);
+  } catch (error) {
+    // A row that appeared between the blocker check and the delete (RESTRICT foreign key, SQLSTATE 23503):
+    // the transaction is rolled back, report it as "blocked" with fresh counts.
+    if (isForeignKeyViolation(error)) {
+      throw new EventLifecycleInputError("blocked", await countEventDeleteBlockers(db, id));
+    }
+    throw error;
+  }
+}
+
+function isForeignKeyViolation(error: unknown): boolean {
+  for (let e: unknown = error, depth = 0; e && depth < 4; depth++) {
+    if (typeof e === "object" && (e as { code?: unknown }).code === "23503") return true;
+    e = (e as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+async function deleteEventTx(actor: Actor, id: string, confirmName: string) {
+  return db.transaction(async (tx) => {
+    const [row] = await tx.select().from(event).where(eq(event.id, id)).for("update");
+    if (!row) throw new EventLifecycleInputError("not_found");
+    if (confirmName.trim() !== row.name.trim()) throw new EventLifecycleInputError("name_mismatch");
+    const blockers = await countEventDeleteBlockers(tx, id);
+    if (hasDeleteBlockers(blockers)) throw new EventLifecycleInputError("blocked", blockers);
+    const n = async (q: PromiseLike<{ n: number }[]>) => (await q)[0]?.n ?? 0;
+    const cascaded = {
+      tasks: await n(tx.select({ n: count() }).from(task).where(eq(task.eventId, id))),
+      checklists: await n(
+        tx.select({ n: count() }).from(checklist).where(eq(checklist.eventId, id)),
+      ),
+      duties: await n(tx.select({ n: count() }).from(eventDuty).where(eq(eventDuty.eventId, id))),
+      permitLinks: await n(
+        tx.select({ n: count() }).from(eventPermit).where(eq(eventPermit.eventId, id)),
+      ),
+      anchors: await n(
+        tx.select({ n: count() }).from(eventAnchor).where(eq(eventAnchor.eventId, id)),
+      ),
+      budgetLines: await n(
+        tx.select({ n: count() }).from(eventBudgetLine).where(eq(eventBudgetLine.eventId, id)),
+      ),
+      income: await n(
+        tx.select({ n: count() }).from(eventIncome).where(eq(eventIncome.eventId, id)),
+      ),
+    };
+    await audit(tx, actor.id, [
+      {
+        action: "event.delete",
+        entityType: "event",
+        entityId: id,
+        diff: {
+          name: row.name,
+          startsOn: row.startsOn,
+          endsOn: row.endsOn,
+          venueId: row.venueId,
+          eventTypeId: row.eventTypeId,
+          presetId: row.presetId,
+          status: row.status,
+          cancelledReason: row.cancelledReason,
+          archived: row.archivedAt !== null,
+          cascaded,
+        },
+      },
+    ]);
+    await tx.delete(event).where(eq(event.id, id));
+    return { name: row.name };
   });
 }

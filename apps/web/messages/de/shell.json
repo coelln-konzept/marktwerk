@@ -101,6 +101,7 @@
     "newPayable": "Zahlung",
     "newPermit": "Genehmigung",
     "newShift": "Schicht",
+    "newAppointment": "Besprechung",
     "newIssue": "Mangel melden",
     "showSidebar": "Seitenleiste einblenden",
     "skip": "Zum Inhalt springen",
@@ -144,6 +145,7 @@
       "payable": "Zahlung anlegen",
       "permit": "Genehmigung anlegen",
       "shift": "Schicht erfassen",
+      "appointment": "Besprechung anlegen",
       "issue": "Mangel melden",
       "settings": "Einstellungen öffnen",
       "notifications": "Benachrichtigungen öffnen"
@@ -248,5 +250,11 @@
   },
   "form": {
     "optional": "(optional)"
+  },
+  "letterFilter": {
+    "label": "Nach Anfangsbuchstaben filtern",
+    "all": "Alle",
+    "other": "Ziffern und Sonstiges",
+    "none": "keine Einträge"
   }
 }

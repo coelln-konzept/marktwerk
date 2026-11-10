@@ -21,6 +21,7 @@ import { getKeyTaskMatrix, getReadinessList } from "@/server/queries/board-overv
 import { getEventOverview } from "@/server/queries/event-overview";
 import {
   type BoardTask,
+  getNotifySelf,
   getPeopleRail,
   getTaskDetail,
   getWorkload,
@@ -139,6 +140,7 @@ export async function BoardScreen({
         eventId={eventId}
         events={events}
         staff={staff}
+        notifySelf={await getNotifySelf(actor)}
         canAssign={canAssign}
         today={today}
       />

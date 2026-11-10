@@ -6,10 +6,8 @@ staff WhatsApp, bookings, the shared inbox, inventory, market-day field mode and
 
 > **Next session: start with [docs/HANDOFF.md](docs/HANDOFF.md).**
 >
-> **Status:** Phase 0 complete (foundation). Plan revised after the client meeting
-> ([research 05](docs/research/05-client-meeting-2026-10.md)). Next: **Phase 1, "Digitise the work"**, starting with
-> M0.5 (synthetic data + Scalingo spike), then M1. See the [roadmap](docs/product/roadmap.md).
-> Dev hosting: Vercel + Supabase (free tiers); production host later. See [deployment](docs/development/deployment.md).
+> **Status:** Phase 1 is built; what's left before the pilot is in the [roadmap](docs/product/roadmap.md) (Status
+> 2026-11-10) and [HANDOFF](docs/HANDOFF.md). Dev: Vercel + Supabase; production host later ([deployment](docs/development/deployment.md)).
 
 ## Quick start
 ```bash
@@ -27,6 +25,8 @@ Details: [docs/development/setup.md](docs/development/setup.md)
 | `apps/worker` | pg-boss background jobs (deadline sweep, digests, mailbox sync) |
 | `packages/core` | Pure domain logic: permissions, relative dates, reminders |
 | `packages/db` | Drizzle schema, migrations, DB client |
+| `packages/jobs` | Background job handlers, shared by the worker (pg-boss) and the cron HTTP endpoint (serverless dev hosting) |
+| `packages/synthetic` | Deterministic, seeded synthetic development data (ADR 0016; never for production) |
 | `docs/` | Research, product plan, architecture, ADRs, dev guides ([index](docs/README.md)) |
 
 ## Stack

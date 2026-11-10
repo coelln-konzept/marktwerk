@@ -167,18 +167,6 @@ function healthOf(
   };
 }
 
-/** Counts per event type for the filter chips (same filters except the type itself). */
-export async function countByType(actor: Actor, filters: EventFilters) {
-  const rows = await db
-    .select({ key: eventType.key, n: count() })
-    .from(event)
-    .innerJoin(eventType, eq(eventType.id, event.eventTypeId))
-    .innerJoin(venue, eq(venue.id, event.venueId))
-    .where(where(actor, filters, false))
-    .groupBy(eventType.key);
-  return Object.fromEntries(rows.map((r) => [r.key, r.n])) as Record<string, number>;
-}
-
 export async function listEventTypes() {
   return db
     .select({

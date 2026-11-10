@@ -3,6 +3,7 @@
     "title": "Board",
     "tab": {
       "open": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}}",
+      "overdue": "{count} überfällig",
       "openShort": "{count} offen",
       "openOverdue": "{open} offen · {overdue} überfällig"
     },
@@ -137,6 +138,7 @@
       "invalid_input": "Die Eingabe ist nicht gültig.",
       "invalid_status": "Dieser Status ist nicht möglich.",
       "invalid_column": "Diese Spalte gibt es nicht.",
+      "invalid_notify": "Die Benachrichtigung passt nicht zum Fälligkeitsdatum.",
       "invalid_staff": "Diese Person kann nicht zugewiesen werden.",
       "invalid_event": "Diese Veranstaltung ist nicht verfügbar.",
       "invalid_state": "Das geht bei diesem Stand der Aufgabe nicht.",
@@ -144,6 +146,45 @@
       "evidence_missing": "„{title}“ kann noch nicht erledigt werden. Es fehlt: {what}.",
       "not_undoable": "Das lässt sich nicht mehr rückgängig machen.",
       "conflict": "Die Aufgabe wurde inzwischen geändert. Rückgängig ist nicht mehr möglich."
+    },
+    "notify": {
+      "legend": "Benachrichtigung senden an",
+      "title": "Benachrichtigung",
+      "channels": { "email": "Mail", "whatsapp": "WhatsApp" },
+      "when": "Wann",
+      "choose": "Bitte wählen",
+      "timing": {
+        "on_create": "Sofort beim Anlegen",
+        "due_day": "Am Fälligkeitstag",
+        "before_1d": "1 Tag vorher",
+        "before_3d": "3 Tage vorher",
+        "before_7d": "1 Woche vorher",
+        "custom": "Eigenes Datum/Uhrzeit"
+      },
+      "needsDue": "Braucht ein Fälligkeitsdatum",
+      "customAt": "Datum und Uhrzeit",
+      "customAtHint": "Uhrzeit in Deutschland (Europe/Berlin).",
+      "to": "An: {name}",
+      "toSelf": "An: dich ({email})",
+      "noPhoneSelf": "Du hast keine Telefonnummer hinterlegt.",
+      "summarySelf": "{channels} · {when} an dich",
+      "noAssignee": "Ohne zuständige Person wird nichts gesendet.",
+      "noEmail": "{name} hat keine E-Mail-Adresse hinterlegt.",
+      "noPhone": "{name} hat keine Telefonnummer hinterlegt.",
+      "pending": "Versand folgt, sobald Mail und WhatsApp angebunden sind.",
+      "none": "Keine Benachrichtigung",
+      "summary": "{channels} · {when} an {name}",
+      "summaryNobody": "{channels} · {when}, ohne zuständige Person",
+      "at": "am {date}",
+      "change": "Ändern",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "errors": {
+        "timing_required": "Bitte wählen, wann benachrichtigt wird.",
+        "at_required": "Bitte Datum und Uhrzeit angeben.",
+        "due_required": "Dieser Zeitpunkt braucht ein Fälligkeitsdatum.",
+        "unexpected_timing": "Die Angaben zur Benachrichtigung passen nicht zusammen."
+      }
     },
     "rail": {
       "title": "Team",

@@ -12,12 +12,3 @@ export const PHASES = ["pre", "live", "post"] as const;
 
 /** Venue kinds a condition can name (venue.kind enum). */
 export const VENUE_KINDS = ["outdoor_public", "outdoor_private", "indoor"] as const;
-
-/** Anchors with a name of their own; others are shown by their key. */
-export const KNOWN_ANCHORS = [
-  "event_day",
-  "setup_day",
-  "teardown_day",
-  "booking_cutoff",
-  "permit_decision",
-] as const;

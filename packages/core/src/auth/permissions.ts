@@ -13,6 +13,8 @@ export const PERMISSIONS = {
   settings: ["read", "manage"],
   venue: ["read", "write", "delete"],
   event: ["read", "write", "delete"],
+  /** Besprechungen: office only (owner, manager, staff). Field users have no access. */
+  appointment: ["read", "write", "delete"],
   template: ["read", "write", "delete"],
   task: ["read", "write", "assign", "delete"],
   permit: ["read", "write", "delete"],
@@ -52,6 +54,7 @@ const GRANTS: Record<Role, Grants> = {
     settings: ["read"],
     venue: ["read"],
     event: ["read"],
+    appointment: ["read", "write", "delete"],
     template: ["read"],
     task: ["read", "write", "assign"],
     permit: ["read", "write"],

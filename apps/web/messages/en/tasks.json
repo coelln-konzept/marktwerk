@@ -97,6 +97,7 @@
         "hours_invalid": "Please check the estimate in hours.",
         "invalid_input": "Please check the title and the date.",
         "invalid_event": "This event is not available.",
+        "invalid_notify": "The notification does not fit the due date.",
         "invalid_staff": "This person cannot be assigned."
       }
     },
@@ -115,7 +116,8 @@
       "estimate": "Estimated",
       "assignee": "Assigned to",
       "role": "Role",
-      "completed": "Done on"
+      "completed": "Done on",
+      "notify": "Notification"
     },
     "source": {
       "template": "From timeline template",

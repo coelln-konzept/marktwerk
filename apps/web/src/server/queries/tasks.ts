@@ -18,6 +18,9 @@ import {
   loadWeekStart,
   mondayOf,
   monthlyCapacityHours,
+  NOTIFY_CHANNELS,
+  type NotifyChannel,
+  type NotifyTiming,
   OPEN_STATUSES,
   pastEventCutoff,
   resolveRelativeDue,
@@ -255,15 +258,39 @@ export async function listBoardTasks(
 // ---------------------------------------------------------------------------------------------
 // people
 
-export type StaffOption = { id: string; displayName: string };
+export type StaffOption = {
+  id: string;
+  displayName: string;
+  /** For the notify hint ("hat keine E-Mail-Adresse hinterlegt"). Contact data itself never goes to the client. */
+  hasEmail: boolean;
+  hasPhone: boolean;
+};
 
 /** Active staff, for the assignee menus. */
 export async function listStaffOptions(): Promise<StaffOption[]> {
   return db
-    .select({ id: staffMember.id, displayName: staffMember.displayName })
+    .select({
+      id: staffMember.id,
+      displayName: staffMember.displayName,
+      hasEmail: sql<boolean>`coalesce(btrim(${staffMember.email}) <> '', false)`,
+      hasPhone: sql<boolean>`coalesce(btrim(${staffMember.phoneE164}) <> '', false)`,
+    })
     .from(staffMember)
     .where(and(eq(staffMember.active, true), isNull(staffMember.archivedAt)))
     .orderBy(asc(staffMember.displayName));
+}
+
+/** The signed-in user as a notification recipient: their own email, and whether their staff record has a phone. */
+export type NotifySelf = { id: string; email: string; hasPhone: boolean };
+
+export async function getNotifySelf(actor: Actor): Promise<NotifySelf> {
+  const [member] = actor.staffMemberId
+    ? await db
+        .select({ phone: staffMember.phoneE164 })
+        .from(staffMember)
+        .where(eq(staffMember.id, actor.staffMemberId))
+    : [];
+  return { id: actor.id, email: actor.email, hasPhone: !!member?.phone?.trim() };
 }
 
 export type EventOption = { id: string; name: string; startsOn: string; endsOn: string };
@@ -696,6 +723,14 @@ export type TaskDetail = {
   effortFeedback: "as_planned" | "longer" | "shorter" | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  assigneeHasEmail: boolean;
+  assigneeHasPhone: boolean;
+  /** "Benachrichtigung senden an": channels, when, and the custom instant (ISO). */
+  notify: { channels: NotifyChannel[]; timing: NotifyTiming | null; at: string | null };
+  /** Who set the notification (the recipient while Team is hidden); null name = deleted user. */
+  notifyUser: { id: string; name: string } | null;
+  /** The signed-in user as recipient: their own email (theirs to see) and whether they have a phone. */
+  notifySelf: NotifySelf;
   dutyRoleName: { de: string; en: string } | null;
   rolloverCount: number;
   requiresNote: boolean;
@@ -726,7 +761,14 @@ export async function getTaskDetail(
 ): Promise<TaskDetail | null> {
   if (!UUID.test(taskId)) return null;
   const assignee = db
-    .select({ id: staffMember.id, name: staffMember.displayName })
+    .select({
+      id: staffMember.id,
+      name: staffMember.displayName,
+      hasEmail: sql<boolean>`coalesce(btrim(${staffMember.email}) <> '', false)`.as("has_email"),
+      hasPhone: sql<boolean>`coalesce(btrim(${staffMember.phoneE164}) <> '', false)`.as(
+        "has_phone",
+      ),
+    })
     .from(staffMember)
     .as("assignee");
   const [row] = await db
@@ -734,15 +776,20 @@ export async function getTaskDetail(
       t: task,
       eventName: event.name,
       assigneeName: assignee.name,
+      assigneeHasEmail: assignee.hasEmail,
+      assigneeHasPhone: assignee.hasPhone,
+      notifyUserName: user.name,
       roleDe: dutyRole.nameDe,
       roleEn: dutyRole.nameEn,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
     .leftJoin(assignee, eq(assignee.id, task.assigneeId))
+    .leftJoin(user, eq(user.id, task.notifyUserId))
     .leftJoin(dutyRole, eq(dutyRole.id, task.dutyRoleId))
     .where(and(eq(task.id, taskId), visibleTasks(actor)));
   if (!row) return null;
+  const notifySelf = await getNotifySelf(actor);
   const t = row.t;
 
   const [items, activity, completedBy, documents] = await Promise.all([
@@ -803,6 +850,15 @@ export async function getTaskDetail(
     effortFeedback: t.effortFeedback,
     assigneeId: t.assigneeId,
     assigneeName: row.assigneeName,
+    assigneeHasEmail: row.assigneeHasEmail ?? false,
+    assigneeHasPhone: row.assigneeHasPhone ?? false,
+    notify: {
+      channels: NOTIFY_CHANNELS.filter((c) => t.notifyChannels.includes(c)),
+      timing: t.notifyTiming,
+      at: t.notifyAt ? t.notifyAt.toISOString() : null,
+    },
+    notifyUser: t.notifyUserId ? { id: t.notifyUserId, name: row.notifyUserName ?? "" } : null,
+    notifySelf,
     dutyRoleName: row.roleDe && row.roleEn ? { de: row.roleDe, en: row.roleEn } : null,
     rolloverCount: t.rolloverCount,
     requiresNote: t.requiresNote,

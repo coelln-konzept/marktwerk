@@ -1,5 +1,6 @@
 "use client";
 
+import { daysBetween, type MarketColor } from "@marktwerk/core";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { centsToInput, type EventFieldsValue } from "@/components/events/event-fields";
@@ -10,9 +11,6 @@ import type { EventTypeOption } from "@/server/queries/event-form";
 import type { PresetSource } from "@/server/queries/events";
 import type { VenueOption } from "@/server/queries/venues";
 
-const daysOf = (from: string, to: string) =>
-  Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000) + 1;
-
 /**
  * "Als Vorlage speichern" (Archiv › Vergangene Veranstaltungen, `?vorlage=<eventId>`): the new-market form,
  * prefilled from the past event. Nothing is saved until the person confirms; the market's tasks are copied
@@ -22,11 +20,13 @@ export function SaveAsPreset({
   source,
   types,
   venues,
+  colors,
   closeHref,
 }: {
   source: PresetSource;
   types: EventTypeOption[];
   venues: VenueOption[];
+  colors: { usage: Record<string, string[]>; suggested: MarketColor };
   closeHref: string;
 }) {
   const t = useTranslations("archive.preset");
@@ -41,7 +41,7 @@ export function SaveAsPreset({
     eventTypeId: source.eventTypeId,
     venueId: source.venueId,
     startsOn: "",
-    days: String(daysOf(source.startsOn, source.endsOn)),
+    days: String(daysBetween(source.startsOn, source.endsOn) + 1),
     times: { ...source.times },
     price: centsToInput(source.pricePerMCents, locale),
     fee: centsToInput(source.bookingFeeCents, locale),
@@ -61,6 +61,8 @@ export function SaveAsPreset({
       <NewMarketForm
         types={types}
         venues={venues}
+        colorUsage={colors.usage}
+        suggestedColor={colors.suggested}
         initialName={source.name}
         initialValue={initial}
         fromEventId={source.id}

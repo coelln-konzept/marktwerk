@@ -3,7 +3,7 @@
 import { Ban, TriangleAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatHours, formatMoney } from "@/lib/format";
+import { formatMinutesAsHours, formatMoney } from "@/lib/format";
 import type { LiveWarning } from "./live-warnings";
 
 /** Warnings while typing: ArbZG and Minijob, colour + icon + text, announced politely. */
@@ -15,13 +15,13 @@ export function WarningList({ warnings }: { warnings: LiveWarning[] }) {
     switch (w.code) {
       case "daily_max":
         return t("daily_max", {
-          hours: formatHours(w.minutes, locale),
-          limit: formatHours(w.limit, locale),
+          hours: formatMinutesAsHours(w.minutes, locale),
+          limit: formatMinutesAsHours(w.limit, locale),
         });
       case "rest_period":
         return t("rest_period", {
-          rest: formatHours(w.restMinutes, locale),
-          limit: formatHours(w.limit, locale),
+          rest: formatMinutesAsHours(w.restMinutes, locale),
+          limit: formatMinutesAsHours(w.limit, locale),
         });
       case "break_missing":
         return t("break_missing", { minutes: w.required });

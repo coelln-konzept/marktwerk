@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Avatar } from "@/components/ui/avatar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/panel";
-import { formatHours, formatMoney, formatNumber } from "@/lib/format";
+import { formatMinutesAsHours, formatMoney, formatNumber } from "@/lib/format";
 import { hrefWith } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { type MonthFigures, monthDays } from "@/server/queries/hours";
@@ -251,8 +251,10 @@ export async function MonthGrid({
                                 }
                                 title={
                                   over
-                                    ? t("overTenTitle", { hours: formatHours(minutes, locale) })
-                                    : formatHours(minutes, locale)
+                                    ? t("overTenTitle", {
+                                        hours: formatMinutesAsHours(minutes, locale),
+                                      })
+                                    : formatMinutesAsHours(minutes, locale)
                                 }
                                 className="grid h-full min-h-9 place-items-center hover:underline"
                               >
