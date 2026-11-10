@@ -551,12 +551,14 @@ test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembere
   const nav = page.getByRole("navigation", { name: "Hauptnavigation" }).first();
   for (const entry of ["Übersicht", "Veranstaltungen", "Kalender", "Genehmigungen"])
     await expect(nav.getByRole("link", { name: new RegExp(`^${entry}`) })).toBeVisible();
+  // PROTOTYPE (exp/stand-allocation): Postfach + Standplan are shown on this branch (HIDDEN_MODULES.standplanPrototype).
+  for (const entry of ["Postfach", "Standplan"])
+    await expect(nav.getByRole("link", { name: entry, exact: true })).toBeVisible();
   // Gone: Board, Logbuch, the "Später" group, Benachrichtigungen, Einstellungen, Firma.
   for (const entry of [
     "Board",
     "Logbuch",
     "Buchungen",
-    "Postfach",
     "Inventar",
     "Benachrichtigungen",
     "Einstellungen",
