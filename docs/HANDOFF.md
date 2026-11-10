@@ -16,7 +16,8 @@
   `estimates`, `notificationBell`, `calendarTasks`, `keyTasks`, `globalBoard`, `booking`. Flip a flag to bring a
   module back. Why each is hidden: [roadmap, Status](./product/roadmap.md#status-2026-11-10).
 - **Decisions:** [open-questions.md](./open-questions.md) (Decided table; superseded rows are marked).
-- **This branch (`work/2026-11-10`, cleanup PR):** docs tidy-up (this file, archive, roadmap status) plus code
+- **PR #28 (2026-11-10):** a task's photo/attachment evidence can be switched on or off in the task drawer's edit mode.
+- **Cleanup (PR #26, merged 2026-11-10):** docs tidy-up (this file, archive, roadmap status) plus code
   cleanup: the unused task-comment service goes (`task_comment` table kept for old data), `task_watcher` and
   `user_preference.sidebar_collapsed` are dropped, the `/wissen` sidebar entry is hidden (route stays, placeholder),
   and `/api/finanzen/belege` follows the Finance hide.
@@ -54,20 +55,14 @@ Follow [development/setup.md](./development/setup.md). Notes for the macOS machi
   German UI wording; market colours.
 
 ## Next steps
-1. **Finish this cleanup PR** (code + docs above), `pnpm check` green, browser-check the hidden entries.
-2. **Phase 1 exit (M6)**, see [roadmap, Status](./product/roadmap.md#status-2026-11-10):
-   - production hosting (Scalingo candidate) + backups (backup target: open question 1);
-   - S3 file storage (open question 2) and photo uploads from phones;
-   - user invitations / magic link; "Passwort vergessen" (needs SMTP; open question 4);
-   - DATEV export format (with the tax advisor);
-   - real client data instead of synthetic;
-   - pilot with the office, then go/no-go for Phase 2.
-3. **Test environment spec:** PR #24 (`docs/test-environment`: staging, branch environments, simulated clock,
-   scenarios), open for review.
-4. **Experimental:** `exp/stand-allocation` (Postfach + Standplan prototype) gets its own plan and roadmap; PR #25
-   documents its Neon branch environment.
-5. Open user-test items (UT-10 "Bezahlt", UT-11 Kalender polish, UT-12 data cleanup, UT-18/19 master data):
-   [research 11 §5](./research/11-user-test-2026-11.md).
+The step-by-step plan lives in the **[Marktwerk Fahrplan](https://claude.ai/artifact/Ei3Xy9VGSDWr5WsEujn639)**: every
+step from today to production and the pilot, each under 30 minutes with a done-check, ticked off there. Start every
+session from its "Next step" card. A stalled step is split into 23a, 23b … in the tracker; new bugs and user-test
+findings become steps there, not separate lists. Big picture and milestones stay in the
+[roadmap](./product/roadmap.md); decisions in [open-questions.md](./open-questions.md).
+
+Outside the Fahrplan: `exp/stand-allocation` (Postfach + Standplan prototype) has its own plan; PR #25 documents its
+Neon branch environment.
 
 ## Gotchas worth keeping
 - **Dev server reloads in a loop** ("Compiled in 1ms" after every request, `[Fast Refresh] rebuilding` on every load):
