@@ -112,6 +112,8 @@ export function TaskDrawer({
   const [notifyEditing, setNotifyEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
+  const [requiresPhoto, setRequiresPhoto] = useState(task.requiresPhoto);
+  const [requiresAttachment, setRequiresAttachment] = useState(task.requiresAttachment);
   const [reasonFor, setReasonFor] = useState<TaskStatusKey | null>(null);
   const [note, setNote] = useState("");
   const [snoozeDate, setSnoozeDate] = useState(false);
@@ -442,6 +444,8 @@ export function TaskDrawer({
               onClick={() => {
                 setTitle(task.title);
                 setDescription(task.description ?? "");
+                setRequiresPhoto(task.requiresPhoto);
+                setRequiresAttachment(task.requiresAttachment);
                 setEditing(true);
               }}
             >
@@ -685,6 +689,28 @@ export function TaskDrawer({
                 onChange={(e) => setDescription(e.target.value)}
                 className={TEXTAREA_CLASS}
               />
+              <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
+                <legend className="mb-1 font-semibold text-small">{t("evidence.title")}</legend>
+                <label className="flex min-h-8 items-center gap-2 text-small">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-(--primary)"
+                    checked={requiresPhoto}
+                    onChange={(e) => setRequiresPhoto(e.target.checked)}
+                  />
+                  {t("evidence.requirePhoto")}
+                </label>
+                <label className="flex min-h-8 items-center gap-2 text-small">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-(--primary)"
+                    checked={requiresAttachment}
+                    onChange={(e) => setRequiresAttachment(e.target.checked)}
+                  />
+                  {t("evidence.requireAttachment")}
+                </label>
+                <p className="m-0 text-muted-foreground text-tiny">{t("evidence.requireHint")}</p>
+              </fieldset>
               <div className="flex justify-end gap-2">
                 <Button onClick={() => setEditing(false)}>{t("cancel")}</Button>
                 <Button
@@ -692,8 +718,13 @@ export function TaskDrawer({
                   disabled={pending || title.trim() === ""}
                   onClick={() => {
                     save(
-                      { title, description },
-                      { title: task.title, description: task.description },
+                      { title, description, requiresPhoto, requiresAttachment },
+                      {
+                        title: task.title,
+                        description: task.description,
+                        requiresPhoto: task.requiresPhoto,
+                        requiresAttachment: task.requiresAttachment,
+                      },
                     );
                     setEditing(false);
                   }}
