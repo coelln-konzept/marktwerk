@@ -46,4 +46,5 @@ settled in the docs/ADRs. Log answers in `docs/open-questions.md` (Decided table
 - Biome is the only linter/formatter (`pnpm lint:fix`). TypeScript 6 (not 7, ADR 0007).
 
 ## Layout
-`apps/web` (Next.js) · `apps/worker` (pg-boss) · `packages/core` (domain logic) · `packages/db` (Drizzle) · `docs/`.
+`apps/web` (Next.js) · `apps/worker` (pg-boss) · `packages/core` (domain logic) · `packages/db` (Drizzle) ·
+`packages/jobs` (job handlers for worker + cron) · `packages/synthetic` (seeded dev data) · `docs/`.

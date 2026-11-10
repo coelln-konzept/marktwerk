@@ -9,7 +9,7 @@ import { PeriodBadge } from "@/components/team/month-status";
 import { monthParam } from "@/components/team/team-nav";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDate, formatHours, formatMoney, formatMonth, todayIn } from "@/lib/format";
+import { formatDate, formatMinutesAsHours, formatMoney, formatMonth, todayIn } from "@/lib/format";
 import { param } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { getActor } from "@/server/actor";
@@ -216,7 +216,7 @@ export default async function MonthClosePage({
           <span className="tabular text-muted-foreground text-small">
             {t("totals", {
               people: totals.people,
-              hours: formatHours(totals.minutes, locale),
+              hours: formatMinutesAsHours(totals.minutes, locale),
               minijob: formatMoney(totals.minijobCents, locale),
             })}
           </span>

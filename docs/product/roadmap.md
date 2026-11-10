@@ -1,10 +1,31 @@
 # Roadmap: MVP to full platform
 
-**Revision 3.1 (2026-10-21)**, rebuilt after the client meeting ([research 05](../research/05-client-meeting-2026-10.md)),
+**Revision 3.2 (2026-11-10)**, rebuilt after the client meeting ([research 05](../research/05-client-meeting-2026-10.md)),
 the follow-up research ([06](../research/06-staff-whatsapp-shifts-kanban.md), [07](../research/07-inventory-finance-fleet.md),
 [08](../research/08-bookings-comms-newsletter.md)) and the product owner's decisions of 2026-10-21.
 *Rev. 3.1 (session 2):* classic screens instead of the customisable workspace (ADR 0019), the company-wide **Kalender**
-module, start screen **Übersicht**.
+module, start screen **Übersicht**. *Rev. 3.2:* status after Phase 1 was built (below).
+
+## Status (2026-11-10)
+**Phase 1 (M1–M6) is built in code**, then reshaped by the UX review ([research 10](../research/10-ux-review-2026-10.md),
+PR #20), the user test and handwritten notes ([research 11](../research/11-user-test-2026-11.md), PR #21), client
+feedback 9 (PR #22: Besprechungen, Übersicht layout, task notification setting, market colours, A–Z) and PR #23
+(cancelled events cancel their tasks, Veranstaltung löschen). Decisions: [open-questions.md](../open-questions.md).
+
+**Hidden for now** (UI only; data, services and tests stay; one switch `HIDDEN_MODULES` in
+`apps/web/src/lib/modules.ts`):
+- **Team** and **Finanzen**, plus time **estimates**: client feedback 2026-10-22, marktwerk is a task monitoring panel
+  for one main user. Team allocation returns in Phase 4, finance later.
+- **Buchung** (vendor booking): Phase 2.
+- **Kernaufgaben**, the **global Board**, the **notification bell** and the Kalender's **Aufgaben** layer: user test
+  2026-11-03 (less complexity; every task belongs to an event, so the Übersicht and the event's Checkliste cover it).
+
+The milestone text below still describes the full scope; *(UI hidden for now)* marks the parts above.
+
+**Left for the M6 exit (pilot):** production hosting (Scalingo candidate) with backups; S3 file storage and phone photo
+uploads; user invitations / magic link; "Passwort vergessen" (needs SMTP); the DATEV export format; real client data
+instead of synthetic; then the pilot and the go/no-go for Phase 2. The Postfach + Standplan prototype on
+`exp/stand-allocation` gets its own plan.
 
 **Order: digitise → optimise → automate.** Phase 1 only *digitises* how the company works today: it records,
 shows and reminds. It doesn't change processes or message staff. **Scope: the current business**, i.e. flea markets
@@ -20,14 +41,14 @@ gantt
     axisFormat  %b %y
     section Phase 0
     Foundation (M0, done)                    :done, p0, 2026-10-20, 2w
-    Synthetic data + dev hosting (M0.5)      :m05, after p0, 1w
+    Synthetic data + dev hosting (M0.5)      :done, m05, after p0, 1w
     section Phase 1 · Digitise
-    M1 Events, presets, locations, vendors   :m1, after m05, 3w
-    M2 Templates, tasks & kanban             :m2, after m1, 4w
-    M3 Permit logbook & reminders            :m3, after m2, 3w
-    M4 Staff hours & Minijob                 :m4, after m3, 3w
-    M5 Payables, instalments, Übersicht      :m5, after m4, 3w
-    M6 Company tab & pilot                   :m6, after m5, 2w
+    M1 Events, presets, locations, vendors   :done, m1, after m05, 3w
+    M2 Templates, tasks & kanban             :done, m2, after m1, 4w
+    M3 Permit logbook & reminders            :done, m3, after m2, 3w
+    M4 Staff hours & Minijob                 :done, m4, after m3, 3w
+    M5 Payables, instalments, Übersicht      :done, m5, after m4, 3w
+    M6 Company tab & pilot                   :active, m6, after m5, 2w
     section Phase 2 · Optimise
     M7 Staff WhatsApp, magic links, shifts   :m7, after m6, 3w
     M8 Legacy website bridge                 :m8, after m7, 3w
@@ -81,7 +102,8 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
   pages with Vorschau and detail drawers, event tabs, theme (light/dark/system) and density switch, design tokens +
   base components from the Claude Design output ([`docs/design/claude-design/a-classic/`](../design/claude-design/a-classic/INDEX.md))
 - **Übersicht** (start screen, `/`): KPI strip and Dieses Wochenende from events; Heute fällig and the season strip
-  fill up as M2–M5 add tasks, permits, hours and payables
+  fill up as M2–M5 add tasks, permits, hours and payables *(KPI and season strip removed 2026-10-22/29; the Übersicht
+  is now Heute & überfällig, Dieses Wochenende, Genehmigungen demnächst, Diese Woche)*
 - **Kalender** module (`/kalender`): month view with KW + "Liste · 6 Wochen", layer panel saved per person; M1 ships the
   **events + NRW holidays** layers, the other layers arrive with their modules (tasks M2, permits M3, hours/shifts M4,
   instalments M5, vehicles & obligations M6, rental returns M12)
@@ -97,6 +119,7 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 - **Staff members** (with or without login), duty roles, default people per preset; users & permission roles
 - **Vendor list (read-only import)** from the synthetic dataset now, real export later (decision 2026-10-21)
 - Event page with tabs: Überblick · Board · Genehmigungen · Team · Geld · Dokumente · Notizen · Verlauf (counts/health per tab)
+  *(Team · Geld: UI hidden for now; Überblick and Board are now Zusammenfassung and Checkliste)*
 - *Inspiration:* their own PHP admin (preset → date), Crescat event types, VOIS|MARKT (dates from rhythm)
 - **Exit:** a full season of (synthetic, later real) events exists with correct dates, types and teams.
 
@@ -109,11 +132,14 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 - Instantiation on event creation (one service path); anchor change → preview → recalc → grouped notice
 - **Kanban board per event** (Vorbereitung · Diese Woche · Heute · Erledigt) + **people rail**: drop a card on a
   person to assign (undo toast); swimlanes by person; **load bars** (estimated hours vs. capacity)
+  *(UI hidden for now: the event tab is the Checkliste without Spalten; people rail and load bars go with Team)*
 - **Carry-over:** overdue unfinished tasks roll into "Heute" with ↻n; flagged to the manager after 3
 - **Task detail drawer** (description, check items, evidence, activity, status incl. "Wartet · Amt"; comments were dropped and snooze added on 2026-10-22)
 - My tasks, cross-event board, unassigned queue, keyboard shortcuts, Strg+K; Kalender layer *Aufgaben*
+  *(cross-event board, Kernaufgaben and the Aufgaben layer: UI hidden for now)*
 - **Workload & hiring view:** board "Arbeitslast" toggle (estimated hours per person/week), hours per event and per
   season; the **season strip** on Übersicht with the hiring signal ("≈ x Minijobber/Monat zusätzlich")
+  *(UI hidden for now, with estimates and Team)*
 - *Inspiration:* Linear swimlanes, Asana workload, Sunsama rollover, Paperless Pipeline anchors, Process Street versions
 - **Exit:** the workshop timelines run for every upcoming event; the boss sees hours per event.
 
@@ -132,18 +158,21 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 - **Legal parameters table** (2026: €13.90 / €603; 2027: €14.60 / €633)
 - **Shift records** per event entered **by the office** (from today's paper/WhatsApp info): planned/actual times,
   breaks; **§17 MiLoG** day-5 alert / day-7 deadline; versioned changes with reason; kept ≥ 2 years
-- **Team page:** hours & pay this month, **remaining allowance**, YTD, overrun months; amber/red warnings
+- **Team page** *(UI hidden for now)*: hours & pay this month, **remaining allowance**, YTD, overrun months; amber/red warnings
   (`minijobMonthStatus` in `@marktwerk/core`); ArbZG warnings for heavy weekends
 - **Month close:** lock → approve → **CSV export** (DATEV LODAS once agreed) → reminder 12th, deadline 15th
 - **Exit:** the monthly hours document is retired.
 
 ### M5: Payables, instalments & the complete Übersicht (≈ 3 weeks)
+*(Finance screens, the event Geld tab and the Geld filter/KPI: UI hidden for now. Only "Bezahlt" on a permit
+requirement is planned without them, decision 2026-11-03.)*
 - **Payables** with **instalment plans**, reminders (14 d / 3 d / due / overdue), mark paid (= the expense),
   linked from tasks/permits (single entry)
 - **Receipts** (photo/PDF) on payables/expenses; "missing receipt" counter; monthly bundle for the tax advisor
 - **Event money tab:** costs by category, plan → committed → actual (revenue from bookings in Phase 2)
 - **Übersicht complete:** ranked **"Heute fällig"** (tasks, permits, instalments, missing hours) with filter chips
   incl. **Geld**; KPI "Geld überfällig"; event health; Dieses Wochenende with all health columns
+  *(no KPI strip or filter chips on the Übersicht any more; the money dimension is masked while Finanzen is hidden)*
 - **Exit:** no instalment is paid late; the owner opens Übersicht instead of asking.
 
 ### M6: Company tab & pilot (≈ 2 weeks)

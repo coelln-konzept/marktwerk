@@ -89,8 +89,6 @@ const listColumns = {
   createdOn: vendor.createdOn,
 };
 
-export type VendorRow = Awaited<ReturnType<typeof listVendors>>["rows"][number];
-
 /** One page of vendors, name order, plus the total for the current filters. */
 export async function listVendors(filters: VendorFilters, page: number) {
   const where = whereFor(filters);

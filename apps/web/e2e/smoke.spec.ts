@@ -596,8 +596,10 @@ test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembere
   await expect(nav.getByRole("link", { name: "Orte", exact: true })).toBeHidden();
   await group.click();
   await expect(group).toHaveAttribute("aria-expanded", "true");
-  for (const entry of ["Orte", "Kontakte", "Aussteller", "Wissen", "Archiv", "Pflichten"])
+  for (const entry of ["Orte", "Kontakte", "Aussteller", "Archiv", "Pflichten"])
     await expect(nav.getByRole("link", { name: entry, exact: true })).toBeVisible();
+  // Wissen is still a placeholder: hidden from the sidebar (lib/modules.ts `knowledgeBase`).
+  await expect(nav.getByRole("link", { name: "Wissen", exact: true })).toHaveCount(0);
 
   // Remembered across a reload.
   await page.reload();

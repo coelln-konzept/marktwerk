@@ -1,6 +1,6 @@
 # Wireframes v3 (direction A: classic screens)
 
-**2026-10-21.** Based on the [UX concept v2](./ux-concept.md) and [ADR 0019](../architecture/adr/0019-classic-screens.md).
+**2026-10-21.** Based on the [UX concept v2](../product/ux-concept.md) and [ADR 0019](../architecture/adr/0019-classic-screens.md).
 v3 replaces the workspace version (v2): the app shell is a sidebar with pages, Vorschau and detail drawers; W1 is now
 the Kalender module (the workspace operations were removed). Low fidelity: structure, content and interaction, not
 visual design. German UI. Desktop frames ≈ 1440 px wide unless noted.

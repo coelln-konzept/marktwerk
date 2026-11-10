@@ -187,8 +187,6 @@ export async function getPresetForEdit(id: string) {
   return row ?? null;
 }
 
-export type PresetForEdit = NonNullable<Awaited<ReturnType<typeof getPresetForEdit>>>;
-
 /**
  * Choices of the Vorlage form: event types and venues that are not archived, duty roles in their
  * order, active staff. What the preset being edited already uses stays selectable even if it has

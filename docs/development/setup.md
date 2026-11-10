@@ -68,7 +68,7 @@ The repo has `apps/web/components.json`. From `apps/web`:
 pnpm dlx shadcn@latest add tooltip
 ```
 **Don't overwrite** the existing files in `src/components/ui/`: they are hand-written to match the Claude Design
-tokens (see `docs/design/component-inventory.md`). Restyle anything new to the tokens in `src/app/globals.css`.
+tokens (see the archived `docs/archive/component-inventory.md` and `globals.css`). Restyle anything new to the tokens in `src/app/globals.css`.
 Overlays and menus use Base UI (`@base-ui/react`) directly.
 
 ## Services in dev

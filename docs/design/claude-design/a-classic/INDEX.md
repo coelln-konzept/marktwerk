@@ -1,18 +1,23 @@
 # Claude Design output · direction A (classic screens)
 
+> **Historical (2026-10-21).** This prototype is kept as a reference and is not updated. Much has changed since
+> (hidden modules, Checkliste, Zusammenfassung, Archiv, Besprechungen). The current truth is
+> [`ux-concept.md`](../../../product/ux-concept.md) and the code.
+
 Clickable mid-fidelity prototype of the Phase 1 screens, produced in Claude Design from the v1 prompt
 (`git show a241381:docs/product/claude-design-prompt.md`) plus the follow-up
-[`claude-design-prompt-v1-update.md`](../../../product/claude-design-prompt-v1-update.md). Uploaded 2026-10-21.
+[`claude-design-prompt-v1-update.md`](../../../archive/claude-design-prompt-v1-update.md) (archived). Uploaded 2026-10-21.
 Chosen direction: **A, classic screens** ([ADR 0019](../../../architecture/adr/0019-classic-screens.md)).
 
 **How to view:** open `index.html` in a browser (self-contained; only Inter is loaded from Google Fonts). The
 floating button *Bildschirme (53)* switches screens; each screen also has its own anchor, e.g.
 `index.html#Event-Board`. The design tokens and components extracted from it are in
 [`apps/web/src/app/globals.css`](../../../../apps/web/src/app/globals.css) and
-[`../../component-inventory.md`](../../component-inventory.md).
+the archived [`component-inventory.md`](../../../archive/component-inventory.md).
 
-Where the prototype and [`wireframes.md`](../../../product/wireframes.md) differ, the prototype wins unless the
-decisions log says otherwise. Sample data in the prototype is illustrative (week of Wed 13.05.2026, KW 20).
+Where the prototype differs from [`ux-concept.md`](../../../product/ux-concept.md), the decisions log or the code,
+**that document and the code win**; the prototype (and the archived [`wireframes.md`](../../../archive/wireframes.md))
+are historical reference. Sample data in the prototype is illustrative (week of Wed 13.05.2026, KW 20).
 
 ## 1 · Übersicht (Geschäftsführung) · Kalender rechts
 
