@@ -1060,6 +1060,96 @@ export async function restorePermitStatus(
   });
 }
 
+// ---------------------------------------------------------------------------------------------
+// "Bezahlt" (UT-10)
+
+export type PermitFeePaidState = {
+  feePaidOn: string | null;
+  feePaidByStaffMemberId: string | null;
+};
+
+const feePaidStateOf = (row: PermitRow): PermitFeePaidState => ({
+  feePaidOn: row.feePaidOn,
+  feePaidByStaffMemberId: row.feePaidByStaffMemberId,
+});
+
+/**
+ * The "Bezahlt" toggle on a permit or use right: on stamps today (or `options.today`) and the acting staff
+ * member, off clears both. No amount (decision 2026-11-10); payables stay untouched. Switching it to the
+ * state it already has changes nothing. Returns the previous state for the undo toast. Audited as
+ * "permit.fee_paid".
+ */
+export async function setPermitFeePaid(
+  actor: Actor,
+  id: string,
+  paid: boolean,
+  options: { today?: string } = {},
+): Promise<{ changed: boolean; current: PermitFeePaidState; previous: PermitFeePaidState }> {
+  if (!can(actor.role, "permit", "write")) forbidden();
+  if (typeof paid !== "boolean") throw new PermitInputError("invalid_status");
+  const today = options.today ?? todayIn();
+  if (!isIsoDate(today)) throw new PermitInputError("invalid_date");
+  return db.transaction(async (tx) => {
+    const row = await lockPermit(tx, id);
+    const previous = feePaidStateOf(row);
+    if ((row.feePaidOn !== null) === paid) return { changed: false, current: previous, previous };
+    const current: PermitFeePaidState = paid
+      ? { feePaidOn: today, feePaidByStaffMemberId: actor.staffMemberId }
+      : { feePaidOn: null, feePaidByStaffMemberId: null };
+    await tx.update(permit).set(current).where(eq(permit.id, id));
+    await audit(tx, actor.id, [
+      {
+        action: "permit.fee_paid",
+        entityType: "permit",
+        entityId: id,
+        diff: { paid, from: previous, to: current },
+      },
+    ]);
+    return { changed: true, current, previous };
+  });
+}
+
+/**
+ * Undo of `setPermitFeePaid`: writes `previous` back, but only while the permit still has the paid day the
+ * toggle left (`expectedFeePaidOn`), so a newer change is never overwritten.
+ */
+export async function restorePermitFeePaid(
+  actor: Actor,
+  id: string,
+  expectedFeePaidOn: string | null,
+  previous: PermitFeePaidState,
+): Promise<{ changed: boolean }> {
+  if (!can(actor.role, "permit", "write")) forbidden();
+  const feePaidOn = checkedDate(previous.feePaidOn);
+  const paidBy = previous.feePaidByStaffMemberId ?? null;
+  if (paidBy !== null && !isUuid(paidBy)) throw new PermitInputError("invalid_staff");
+  return db.transaction(async (tx) => {
+    const row = await lockPermit(tx, id);
+    if (row.feePaidOn !== expectedFeePaidOn) throw new PermitInputError("conflict");
+    let restored: PermitFeePaidState = {
+      feePaidOn,
+      feePaidByStaffMemberId: feePaidOn === null ? null : paidBy,
+    };
+    if (restored.feePaidByStaffMemberId !== null) {
+      const [person] = await tx
+        .select({ id: staffMember.id })
+        .from(staffMember)
+        .where(eq(staffMember.id, restored.feePaidByStaffMemberId));
+      if (!person) restored = { ...restored, feePaidByStaffMemberId: null };
+    }
+    await tx.update(permit).set(restored).where(eq(permit.id, id));
+    await audit(tx, actor.id, [
+      {
+        action: "permit.fee_paid",
+        entityType: "permit",
+        entityId: id,
+        diff: { paid: feePaidOn !== null, from: feePaidStateOf(row), to: restored, undo: true },
+      },
+    ]);
+    return { changed: true };
+  });
+}
+
 /**
  * Makes a superseded permit valid again ("Ersetzt" clicked by mistake, handwritten notes 2026-11): back to
  * the status it had before (granted or rejected, read from the audit log) with the tasks that were

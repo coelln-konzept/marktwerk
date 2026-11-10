@@ -121,6 +121,13 @@ export const permit = app.table(
     /** What was handed out, e.g. `{ stickers: 100 }`. */
     deliverablesReceived: jsonb().$type<PermitDeliverables>().notNull().default({}),
     responsibleStaffMemberId: uuid().references(() => staffMember.id, { onDelete: "set null" }),
+    /**
+     * "Bezahlt": the day the company paid the fee for this permit or use right (city, landowner), set by
+     * the toggle on the event's Genehmigungen tab. No amount needed (decision 2026-11-10, UT-10); a fee with
+     * an amount is still a `payable`, which this flag does not touch.
+     */
+    feePaidOn: date(),
+    feePaidByStaffMemberId: uuid().references(() => staffMember.id, { onDelete: "set null" }),
     /** Renewal chain: the permit this one replaces. */
     supersedesId: uuid().references((): AnyPgColumn => permit.id, { onDelete: "set null" }),
     notes: text(),
@@ -133,6 +140,10 @@ export const permit = app.table(
     index().on(t.status, t.applyBy),
     index().on(t.responsibleStaffMemberId),
     index().on(t.validUntil),
+    check(
+      "permit_fee_paid_by",
+      sql`${t.feePaidByStaffMemberId} is null or ${t.feePaidOn} is not null`,
+    ),
     check(
       "permit_validity",
       sql`${t.validFrom} is null or ${t.validUntil} is null or ${t.validUntil} >= ${t.validFrom}`,

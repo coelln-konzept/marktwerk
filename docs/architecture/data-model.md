@@ -216,7 +216,9 @@ erDiagram
 - **permit** (instance): requirement link, `category`, `permit_type`, title, authority, `reference_no`,
   `status` (`not_started | preparing | applied | granted | rejected | not_required | superseded`), `apply_by`,
   `applied_at?`, `expected_decision_on?`, `granted_at?`, `valid_from?`, `valid_until?`, `conditions`,
-  `deliverables_received` (e.g. stickers: 100), `responsible_staff_member_id?`, `supersedes_id?`, notes.
+  `deliverables_received` (e.g. stickers: 100), `responsible_staff_member_id?`, `supersedes_id?`, notes,
+  `fee_paid_on?` + `fee_paid_by_staff_member_id?` (0014, UT-10: the "Bezahlt" toggle, no amount; set by
+  `setPermitFeePaid`, audited as `permit.fee_paid`; payables with `permit_id` are not touched).
   Fees → `payable` (with instalments). Derived flags: `expiring`, `expired`.
   *(implemented 0002: `permit` also has `venue_id?` and `season?` (denormalised from the requirement so the logbook
   groups by location without a join and ad-hoc permits work); all dates are `date`; `apply_by`, `status` default
