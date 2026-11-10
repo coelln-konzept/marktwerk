@@ -35,10 +35,6 @@ export function weeklyCapacityHours(
   return valid?.contractedHoursPerWeek ?? fallback;
 }
 
-export function minutesToHours(minutes: number): number {
-  return minutes / 60;
-}
-
 export type LoadLevel = "ok" | "warn" | "critical";
 
 /** Under 80 % of capacity is fine, up to 100 % is near the limit, above is overloaded. */

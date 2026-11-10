@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fileEvidenceOf, missingEvidence, pendingFileEvidence } from "./evidence";
+import { fileEvidenceOf, missingEvidence } from "./evidence";
 import { taskHealth } from "./health";
-import { findMentions } from "./mentions";
 import {
   DEFAULT_WEEKLY_CAPACITY_HOURS,
   hiringSignal,
@@ -102,38 +101,12 @@ describe("missingEvidence", () => {
     expect(missingEvidence(input)).toEqual(["photo", "attachment"]);
     expect(missingEvidence({ ...input, hasPhoto: true })).toEqual(["attachment"]);
     expect(missingEvidence({ ...input, hasPhoto: true, hasAttachment: true })).toEqual([]);
-    expect(pendingFileEvidence(input)).toEqual([]);
   });
   it("reads photo and attachment off the document kinds", () => {
     expect(fileEvidenceOf([])).toEqual({ hasPhoto: false, hasAttachment: false });
     expect(fileEvidenceOf(["photo"])).toEqual({ hasPhoto: true, hasAttachment: false });
     expect(fileEvidenceOf(["photo", "other"])).toEqual({ hasPhoto: true, hasAttachment: true });
     expect(fileEvidenceOf(["invoice"])).toEqual({ hasPhoto: false, hasAttachment: true });
-  });
-});
-
-describe("findMentions", () => {
-  const people = [
-    { id: "a", displayName: "Anna Meier" },
-    { id: "b", displayName: "Anna Meier-Schulz" },
-    { id: "c", displayName: "Ben Test" },
-    { id: "d", displayName: "Jörg Müller" },
-  ];
-  it("finds full display names, case-insensitively and with umlauts", () => {
-    expect(findMentions("Bitte @anna meier und @Jörg Müller prüfen", people).sort()).toEqual([
-      "a",
-      "d",
-    ]);
-  });
-  it("prefers the longest name and needs a word boundary", () => {
-    expect(findMentions("@Anna Meier-Schulz bitte", people)).toEqual(["b"]);
-    expect(findMentions("@Anna Meiers bitte", people)).toEqual([]);
-    expect(findMentions("mail@Ben Test", people)).toEqual([]);
-    expect(findMentions("@Ben Test, ok?", people)).toEqual(["c"]);
-  });
-  it("ignores names without @ and mentions twice only once", () => {
-    expect(findMentions("Anna Meier weiß Bescheid", people)).toEqual([]);
-    expect(findMentions("@Ben Test @Ben Test", people)).toEqual(["c"]);
   });
 });
 

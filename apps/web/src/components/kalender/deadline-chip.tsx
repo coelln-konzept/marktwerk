@@ -9,8 +9,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { HealthShape } from "@/components/ui/health";
+import { TONES } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
-import type { CalendarItem, CalendarLayer } from "@/server/queries/due";
+import type { CalendarLayer } from "@/server/queries/due";
 import type { DisplayItem } from "./group-deadlines";
 
 export const LAYER_ICONS: Record<CalendarLayer, LucideIcon> = {
@@ -20,13 +21,6 @@ export const LAYER_ICONS: Record<CalendarLayer, LucideIcon> = {
   shifts: Users,
   installments: Wallet,
   obligations: Truck,
-};
-
-export const TONE_CLASSES: Record<NonNullable<CalendarItem["tone"]>, string> = {
-  ok: "bg-status-ok-bg text-status-ok",
-  warn: "bg-status-warn-bg text-status-warn",
-  critical: "bg-status-critical-bg text-status-critical",
-  neutral: "bg-status-neutral-bg text-foreground-2",
 };
 
 /**
@@ -53,7 +47,8 @@ export function DeadlineChip({
       title={`${layerLabel}: ${[item.kindLabel, item.text].filter(Boolean).join(": ")}`}
       className={cn(
         "flex items-start gap-1 rounded-md px-1 py-0.5 font-medium text-tiny leading-snug hover:brightness-95",
-        TONE_CLASSES[tone],
+        TONES[tone],
+        tone === "neutral" && "text-foreground-2",
         grouped && "font-semibold",
       )}
     >

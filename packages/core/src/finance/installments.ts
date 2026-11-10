@@ -1,4 +1,4 @@
-import { addDays, daysBetween, daysInMonth, isoDate } from "../dates/calendar";
+import { daysBetween, daysInMonth, isoDate } from "../dates/calendar";
 
 /**
  * Payables and their instalments (Raten). Money is integer cents, dates are "YYYY-MM-DD". A payable's
@@ -137,8 +137,6 @@ export function nextOpenInstallment<T extends InstallmentLike>(
 /** Reminder stages for an unpaid instalment (14 days, 3 days, due day, overdue). */
 export type InstallmentReminderStage = "d14" | "d3" | "due" | "overdue";
 
-export const REMINDER_STAGES: readonly InstallmentReminderStage[] = ["d14", "d3", "due", "overdue"];
-
 /**
  * Which reminder applies today: the *closest* stage already reached, so an instalment created 10 days
  * before its due date gets the 14-day reminder right away. Null while it is more than 14 days away.
@@ -170,9 +168,4 @@ export function installmentUrgency(
   if (days < 0) return "overdue";
   if (days === 0) return "today";
   return days <= 7 ? "soon" : null;
-}
-
-/** Last day of the "this week" window used by the focus list ("Diese Woche fällig" = the next 7 days). */
-export function weekWindowEnd(today: string): string {
-  return addDays(today, 7);
 }

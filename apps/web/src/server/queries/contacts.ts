@@ -26,8 +26,6 @@ const columns = {
   notes: contact.notes,
 };
 
-export type ContactRow = Awaited<ReturnType<typeof listContacts>>["rows"][number];
-
 /**
  * All contacts matching the search (every word must match name, contact person, city, postcode, e-mail or
  * the phone number's digits, in any order; umlaut-insensitive), plus the count per

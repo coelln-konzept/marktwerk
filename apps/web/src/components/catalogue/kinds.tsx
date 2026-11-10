@@ -43,7 +43,3 @@ export function ContactKindBadge({ kind, label }: { kind: string; label: string 
     </StatusBadge>
   );
 }
-
-export function contactKindIcon(kind: string): LucideIcon {
-  return CONTACT_ICONS[kind] ?? CircleEllipsis;
-}

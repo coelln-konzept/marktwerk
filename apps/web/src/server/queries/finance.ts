@@ -5,6 +5,7 @@ import {
   type BudgetRow,
   type BudgetTotals,
   can,
+  daysBetween,
   derivePayableStatus,
   eventMoneyHealth,
   type HealthLevel,
@@ -469,16 +470,10 @@ function listRank(p: PayableRow, today: string): [number, number, number] {
   }
   const due = p.next?.dueOn ?? "9999-12-31";
   if (p.status === "overdue") {
-    const days = Math.max(1, daysSince(due, today));
+    const days = Math.max(1, daysBetween(due, today));
     return [0, -(days * (p.critical ? 2 : 1)), 0];
   }
   return [p.critical ? 1 : 2, Number(due.replaceAll("-", "")), -p.openCents];
-}
-
-function daysSince(date: string, today: string): number {
-  return Math.round(
-    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86_400_000,
-  );
 }
 
 function matchesView(p: PayableRow, view: StatusView, today: string): boolean {

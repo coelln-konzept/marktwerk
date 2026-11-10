@@ -111,9 +111,6 @@ importers:
 
   apps/worker:
     dependencies:
-      '@marktwerk/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@marktwerk/db':
         specifier: workspace:*
         version: link:../../packages/db
