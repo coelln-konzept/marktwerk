@@ -1,6 +1,6 @@
 "use client";
 
-import type { MarketColor } from "@marktwerk/core";
+import { daysBetween, type MarketColor } from "@marktwerk/core";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { centsToInput, type EventFieldsValue } from "@/components/events/event-fields";
@@ -10,9 +10,6 @@ import { Modal } from "@/components/ui/modal";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { PresetSource } from "@/server/queries/events";
 import type { VenueOption } from "@/server/queries/venues";
-
-const daysOf = (from: string, to: string) =>
-  Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000) + 1;
 
 /**
  * "Als Vorlage speichern" (Archiv › Vergangene Veranstaltungen, `?vorlage=<eventId>`): the new-market form,
@@ -44,7 +41,7 @@ export function SaveAsPreset({
     eventTypeId: source.eventTypeId,
     venueId: source.venueId,
     startsOn: "",
-    days: String(daysOf(source.startsOn, source.endsOn)),
+    days: String(daysBetween(source.startsOn, source.endsOn) + 1),
     times: { ...source.times },
     price: centsToInput(source.pricePerMCents, locale),
     fee: centsToInput(source.bookingFeeCents, locale),

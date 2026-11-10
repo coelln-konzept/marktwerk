@@ -363,8 +363,6 @@ export async function missingPermitCount(
 // ---------------------------------------------------------------------------------------------
 // One permit (drawer)
 
-export type PermitDetail = NonNullable<Awaited<ReturnType<typeof getPermit>>>;
-
 export async function getPermit(actor: Actor, id: string, today: string) {
   if (!can(actor.role, "permit", "read") || !isPermitId(id)) return null;
   const [row] = await db

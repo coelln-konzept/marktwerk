@@ -156,6 +156,6 @@ export function todayIn(timeZone = "Europe/Berlin", now: Date = new Date()): str
 }
 
 /** 7,5 Std. / 7.5 h (minutes in). */
-export function formatHours(minutes: number, locale: string): string {
+export function formatMinutesAsHours(minutes: number, locale: string): string {
   return `${formatNumber(minutes / 60, locale, 2)} ${locale === "en" ? "h" : "Std."}`;
 }

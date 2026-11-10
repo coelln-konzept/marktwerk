@@ -85,6 +85,20 @@
       "when": 1793791921177,
       "tag": "0011_task_notify_user",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793806881551,
+      "tag": "0012_cancel_tasks_of_cancelled_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794301535965,
+      "tag": "0013_drop_unused_watcher_sidebar",
+      "breakpoints": true
     }
   ]
 }

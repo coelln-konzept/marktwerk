@@ -420,6 +420,40 @@ describe("permit status flow", () => {
     }
   });
 
+  it("undo / reinstate leaves the tasks of a cancelled event alone", async () => {
+    const p = await newPermit();
+    const [linked] = await db.select().from(task).where(eq(task.permitId, p.id));
+    const [ev] = await db.select().from(event);
+    if (!linked || !ev) throw new Error("fixture");
+    await db.update(task).set({ eventId: ev.id }).where(eq(task.id, linked.id));
+
+    const skipped = await setPermitStatus(owner, p.id, "not_required");
+    expect(skipped.closedTaskIds).toContain(linked.id);
+    await changeEventStatus(owner, ev.id, "cancelled", "Sturm");
+    const restored = await restorePermitStatus(
+      owner,
+      p.id,
+      "not_required",
+      skipped.previous,
+      skipped.closedTaskIds,
+    );
+    expect(restored.changed).toBe(true);
+    expect((await db.select().from(task).where(eq(task.id, linked.id)))[0]?.status).toBe(
+      "cancelled",
+    );
+
+    // reinstate path (superseded -> back): the cancelled event's task stays cancelled as well.
+    await db.update(task).set({ status: "todo" }).where(eq(task.id, linked.id));
+    await setPermitStatus(owner, p.id, "granted");
+    await setPermitStatus(owner, p.id, "superseded");
+    await db.update(event).set({ status: "cancelled" }).where(eq(event.id, ev.id));
+    await db.update(task).set({ status: "cancelled" }).where(eq(task.id, linked.id));
+    await reinstatePermit(owner, p.id);
+    expect((await db.select().from(task).where(eq(task.id, linked.id)))[0]?.status).toBe(
+      "cancelled",
+    );
+  });
+
   it("allows staff to change status but only owner/manager to archive; field is forbidden", async () => {
     const p = await newPermit();
     const staff = await createActor("staff");

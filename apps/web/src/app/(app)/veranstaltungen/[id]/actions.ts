@@ -17,7 +17,10 @@ import {
 import { EventDutyInputError, setEventDuty } from "@/server/services/event-duties";
 import {
   changeEventStatus,
+  deleteEvent,
+  type EventDeleteBlockers,
   EventLifecycleInputError,
+  getEventDeleteInfo,
   revertEventStatus,
   updateEventNotes,
 } from "@/server/services/event-lifecycle";
@@ -199,4 +202,37 @@ export async function saveBasics(eventId: string, basics: EventBasics) {
 /** Undo toast of saveBasics. */
 export async function undoBasics(eventId: string, previous: EventBasics, saved: EventBasics) {
   return detailsAction((actor) => updateEventBasics(actor, eventId, previous, saved));
+}
+
+/** "Veranstaltung löschen": loads the name and what blocks the deletion before the dialog asks for the name. */
+export async function loadDeleteInfo(
+  eventId: string,
+): Promise<ActionResult<{ name: string; blockers: EventDeleteBlockers }>> {
+  await requirePermission("event", "delete");
+  const actor = await getActor();
+  try {
+    return { ok: true, data: await getEventDeleteInfo(actor, eventId) };
+  } catch (error) {
+    if (error instanceof EventLifecycleInputError) return { ok: false, error: error.code };
+    throw error;
+  }
+}
+
+/**
+ * Deletes the event for good once `confirmName` matches. No refresh here: the caller navigates away from
+ * the deleted page (or refreshes the list itself).
+ */
+export async function removeEvent(
+  eventId: string,
+  confirmName: string,
+): Promise<ActionResult<{ name: string }> & { blockers?: EventDeleteBlockers }> {
+  await requirePermission("event", "delete");
+  const actor = await getActor();
+  try {
+    return { ok: true, data: await deleteEvent(actor, eventId, confirmName) };
+  } catch (error) {
+    if (error instanceof EventLifecycleInputError)
+      return { ok: false, error: error.code, blockers: error.detail };
+    throw error;
+  }
 }

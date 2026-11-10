@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 
 export type Tone = "ok" | "warn" | "critical" | "neutral" | "info" | "waiting";
 
-const TONES: Record<Tone, string> = {
+/** Background + text colour per tone; shared with the Kalender deadline chips. */
+export const TONES: Record<Tone, string> = {
   ok: "bg-status-ok-bg text-status-ok",
   warn: "bg-status-warn-bg text-status-warn",
   critical: "bg-status-critical-bg text-status-critical",
@@ -43,20 +44,6 @@ export function StatusBadge({
     >
       <Icon aria-hidden className="size-3.5 shrink-0" strokeWidth={2} />
       {children}
-    </span>
-  );
-}
-
-/** "↻2": task carried over for n days. */
-export function RolloverBadge({ count, label }: { count: number; label: string }) {
-  return (
-    <span
-      title={label}
-      className="tabular inline-flex h-5 items-center gap-0.5 whitespace-nowrap rounded-sm bg-status-warn-bg px-1.5 font-bold text-[11.5px] text-status-warn"
-    >
-      <span aria-hidden>↻</span>
-      {count}
-      <span className="sr-only">{label}</span>
     </span>
   );
 }

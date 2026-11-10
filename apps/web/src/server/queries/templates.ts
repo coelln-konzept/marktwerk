@@ -165,8 +165,6 @@ export async function getTemplateForEditor(id: string) {
   return { ...template, versions: versions.get(id) ?? [], presets: presets.get(id) ?? [] };
 }
 
-export type TemplateEditorData = NonNullable<Awaited<ReturnType<typeof getTemplateForEditor>>>;
-
 /** The items of a version in order. */
 export async function getVersionItems(versionId: string) {
   return db
@@ -175,8 +173,6 @@ export async function getVersionItems(versionId: string) {
     .where(eq(templateItem.versionId, versionId))
     .orderBy(asc(templateItem.sort), asc(templateItem.createdAt));
 }
-
-export type VersionItem = Awaited<ReturnType<typeof getVersionItems>>[number];
 
 /** Choices for the item editor and the preset links. */
 export async function getTemplateOptions() {
@@ -221,8 +217,6 @@ export async function getTemplateOptions() {
     presets,
   };
 }
-
-export type TemplateOptions = Awaited<ReturnType<typeof getTemplateOptions>>;
 
 /** How many existing markets there are (none follows the Grundvorlage; they all use templates of their own). */
 export async function countExistingMarkets(): Promise<number> {

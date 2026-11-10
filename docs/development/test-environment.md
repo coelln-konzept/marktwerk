@@ -1,6 +1,6 @@
 # Test environment ("Probebetrieb"): design
 
-Date: 2026-11-04 · Status: **draft, open decisions in §9** · Decision record: [ADR 0021](../../architecture/adr/0021-test-environment.md)
+Date: 2026-11-04 · Status: **draft, open decisions in §9** · Decision record: [ADR 0021](../architecture/adr/0021-test-environment.md)
 
 Before the company uses marktwerk for real, and every time a big change lands afterwards, we want one place where
 the whole product can be exercised end to end: email going out and coming in, booking requests, stall

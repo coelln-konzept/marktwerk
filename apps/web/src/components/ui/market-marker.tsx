@@ -21,27 +21,9 @@ const BAR: Record<MarketColor, string> = {
   graphite: "bg-market-graphite",
 };
 
-const BORDER: Record<MarketColor, string> = {
-  plum: "border-l-market-plum",
-  rose: "border-l-market-rose",
-  brown: "border-l-market-brown",
-  sand: "border-l-market-sand",
-  olive: "border-l-market-olive",
-  petrol: "border-l-market-petrol",
-  cyan: "border-l-market-cyan",
-  slate: "border-l-market-slate",
-  indigo: "border-l-market-indigo",
-  graphite: "border-l-market-graphite",
-};
-
 /** Background class of a market colour swatch (for the picker); neutral for an unknown value. */
 export function marketColorClass(color: string | null | undefined): string {
   return isMarketColor(color) ? BAR[color] : "bg-status-neutral-dot";
-}
-
-/** Left-border colour class for a container that carries the market bar (use with `border-l-4`). */
-export function marketBorderClass(color: string | null | undefined): string | undefined {
-  return isMarketColor(color) ? BORDER[color] : undefined;
 }
 
 /**

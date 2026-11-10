@@ -11,11 +11,9 @@ import {
   derivedColumn,
   dueAtForDate,
   fileEvidenceOf,
-  findMentions,
   isIsoDate,
   isOpenStatus,
   isValidSnoozeDate,
-  mentionedText,
   missingEvidence,
   NOTIFY_CHANNELS,
   NOTIFY_TIMINGS,
@@ -40,7 +38,6 @@ import {
   staffMember,
   task,
   taskCheckItem,
-  taskComment,
   user,
 } from "@marktwerk/db/schema";
 import { and, count, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
@@ -1064,104 +1061,6 @@ export async function setCheckItemDone(
       title: item.title,
     });
     return { changed: true };
-  });
-}
-
-// ---------------------------------------------------------------------------------------------
-// comments
-//
-// No UI offers commenting any more (client decision 2026-10-22). The service stays for the existing
-// `task_comment` data and the integration tests; a completion note lives in the audit entry instead.
-
-/** Stores a comment, resolves its @mentions and notifies the mentioned people (not the author). */
-async function insertComment(
-  tx: Tx,
-  actor: Actor,
-  row: TaskRow,
-  body: string,
-): Promise<{ id: string; mentioned: string[] }> {
-  const people = await tx
-    .select({
-      id: staffMember.id,
-      displayName: staffMember.displayName,
-      loginRole: user.role,
-    })
-    .from(staffMember)
-    .leftJoin(user, eq(user.id, staffMember.userId))
-    .where(and(eq(staffMember.active, true), isNull(staffMember.archivedAt)));
-  const mentioned = findMentions(body, people);
-
-  const [comment] = await tx
-    .insert(taskComment)
-    .values({
-      taskId: row.id,
-      authorStaffMemberId: actor.staffMemberId,
-      authorUserId: actor.id,
-      body,
-      mentionedStaffMemberIds: mentioned,
-    })
-    .returning({ id: taskComment.id });
-  if (!comment) throw new Error("comment missing");
-
-  const recipients = people.filter((p) => mentioned.includes(p.id) && p.id !== actor.staffMemberId);
-  // A field user only gets a link into events they work at.
-  const fieldIds = recipients.filter((p) => p.loginRole === "field").map((p) => p.id);
-  const allowedField =
-    fieldIds.length && row.eventId
-      ? new Set(
-          (
-            await tx
-              .select({ id: eventDuty.staffMemberId })
-              .from(eventDuty)
-              .where(
-                and(eq(eventDuty.eventId, row.eventId), inArray(eventDuty.staffMemberId, fieldIds)),
-              )
-          ).map((r) => r.id),
-        )
-      : new Set<string>();
-  const notify = recipients.filter(
-    (p) => p.loginRole !== "field" || (row.eventId !== null && allowedField.has(p.id)),
-  );
-  if (notify.length > 0) {
-    const text = mentionedText(
-      { title: row.title, eventName: await eventNameOf(tx, row.eventId) },
-      actor.displayName,
-    );
-    await insertNotifications(
-      tx,
-      notify.map((p) => ({
-        recipientStaffMemberId: p.id,
-        reason: "mentioned" as const,
-        subjectType: "task",
-        subjectId: row.id,
-        title: text.title,
-        body: text.body,
-        link: taskLink(row.id, row.eventId),
-        dedupeKey: `task:${row.id}:mention:${comment.id}`,
-      })),
-    );
-  }
-  return { id: comment.id, mentioned };
-}
-
-/** Adds a comment. Names written as "@Anna Meier" notify that person (`mentioned`). */
-export async function addComment(
-  actor: Actor,
-  taskId: string,
-  body: string,
-): Promise<{ id: string; mentioned: string[] }> {
-  need(actor, "write");
-  const text = cleanText(body);
-  if (!text) throw new TaskInputError("invalid_input");
-  return db.transaction(async (tx) => {
-    const row = await loadTask(tx, actor, taskId);
-    if (row.status === "cancelled") throw new TaskInputError("invalid_state");
-    const result = await insertComment(tx, actor, row, text);
-    await writeAudit(tx, actor, "task.comment", row.id, {
-      commentId: result.id,
-      mentioned: result.mentioned,
-    });
-    return result;
   });
 }
 

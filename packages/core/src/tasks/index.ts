@@ -3,7 +3,6 @@ export * from "./board";
 export * from "./board-drop";
 export * from "./evidence";
 export * from "./health";
-export * from "./mentions";
 export * from "./notification-text";
 export * from "./notify-moment";
 export * from "./readiness";

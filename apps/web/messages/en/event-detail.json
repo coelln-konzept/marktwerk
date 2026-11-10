@@ -47,7 +47,7 @@
     },
     "cancel": {
       "title": "Cancel event",
-      "description": "“{name}” will be marked as cancelled. The reason shows in the history; you can undo the cancellation right afterwards.",
+      "description": "“{name}” will be marked as cancelled. Open tasks are cancelled with it. The reason shows in the history; you can undo the cancellation right afterwards.",
       "reason": "Reason for cancelling",
       "placeholder": "e.g. permit refused, weather warning …",
       "submit": "Cancel event",
@@ -294,6 +294,30 @@
       },
       "undo": "Undo",
       "failed": "That didn't work. Please try again."
+    },
+    "delete": {
+      "open": "Delete event",
+      "title": "Delete this event permanently?",
+      "blockedTitle": "This event can't be deleted",
+      "description": "The event and everything that belongs only to it – tasks, checklist, notes, permit links, duty assignments – will be deleted for good. This cannot be undone.",
+      "typeName": "To confirm, type the event's name:",
+      "submit": "Delete permanently",
+      "cancel": "Cancel",
+      "close": "Close",
+      "loading": "Checking …",
+      "deleted": "“{name}” deleted.",
+      "blockedIntro": "This event cannot be deleted because the following is still attached to it:",
+      "blockedHint": "You can cancel the event instead, or remove what is attached first.",
+      "payables": "{count, plural, one {# payment} other {# payments}}",
+      "expenses": "{count, plural, one {# expense} other {# expenses}}",
+      "shifts": "{count, plural, one {# shift} other {# shifts}}",
+      "documents": "{count, plural, one {# document} other {# documents}}",
+      "errors": {
+        "name_mismatch": "The name does not match.",
+        "not_found": "This event no longer exists.",
+        "blocked": "This event cannot be deleted because something is still attached to it.",
+        "generic": "That did not work. Please try again."
+      }
     },
     "move": {
       "open": "Move",

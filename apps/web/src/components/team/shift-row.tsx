@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateShort, formatHours } from "@/lib/format";
+import { formatDateShort, formatMinutesAsHours } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SELECT_CLASS } from "../settings/select-class";
 import { draftMinutes, type LiveWarning, liveWarnings } from "./live-warnings";
@@ -326,7 +326,7 @@ export function ShiftRowEditor({
           <div className="flex min-w-16 flex-col">
             <span className="text-faint-foreground text-tiny">{t("hours")}</span>
             <span className={cn("tabular font-semibold", overDay && "text-status-critical")}>
-              {minutes === null ? t("none") : formatHours(minutes, locale)}
+              {minutes === null ? t("none") : formatMinutesAsHours(minutes, locale)}
             </span>
           </div>
         )}

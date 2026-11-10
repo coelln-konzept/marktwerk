@@ -477,6 +477,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                                 status={r.status}
                                 startsOn={r.startsOn}
                                 canMove={canMoveEvent(r.status)}
+                                canDelete={can(actor.role, "event", "delete")}
                                 venues={venueOptions}
                                 types={typeChoices}
                                 basics={{
