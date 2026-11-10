@@ -21,12 +21,18 @@ import { buildPermitRequirements, buildPermits } from "./generators/permits";
 import { buildShifts } from "./generators/shifts";
 import { buildChecklistTemplates, buildTasks } from "./generators/tasks";
 import { buildVendors } from "./generators/vendors";
+import { clockFor } from "./lib/clock";
 import { createRng } from "./lib/rng";
 import type { Dataset, EventType } from "./types";
 
 export interface GenerateOptions {
-  /** Defaults to SEED. The reference date is fixed and cannot be changed. */
+  /** Defaults to SEED. */
   seed?: number;
+  /**
+   * "Today" as `YYYY-MM-DD` for every status and due date, and the base of the two seasons (this year and the
+   * next). Defaults to `REFERENCE_DATE` (`SYNTHETIC_REFERENCE_DATE` or the fixed default).
+   */
+  referenceDate?: string;
 }
 
 /**
@@ -35,7 +41,8 @@ export interface GenerateOptions {
  */
 export function generateDataset(options: GenerateOptions = {}): Dataset {
   const rng = createRng(options.seed ?? SEED);
-  const today = REFERENCE_DATE;
+  const clock = clockFor(options.referenceDate ?? REFERENCE_DATE);
+  const today = clock.today;
 
   const settings = buildSettings(rng);
   const legalParameters = buildLegalParameters(rng);
@@ -62,7 +69,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     return id;
   };
 
-  const checklistTemplates = buildChecklistTemplates(rng, eventTypes);
+  const checklistTemplates = buildChecklistTemplates(rng, eventTypes, clock);
   const templateIdByTypeKey = new Map(
     checklistTemplates.map((template) => [
       eventTypeKeyById.get(template.eventTypeId) ?? "",
@@ -77,19 +84,25 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     templateIdByTypeKey,
     dutyDefaults: duties,
   });
-  const { events: scheduledEvents, eventAnchors } = buildEvents(rng, eventPresets, {
-    eventTypes,
-    venues,
-    venueBlueprintByName,
-    templateIdByTypeKey,
-    dutyDefaults: duties,
-  });
+  const { events: scheduledEvents, eventAnchors } = buildEvents(
+    rng,
+    eventPresets,
+    {
+      eventTypes,
+      venues,
+      venueBlueprintByName,
+      templateIdByTypeKey,
+      dutyDefaults: duties,
+    },
+    clock,
+  );
 
   const tasks = buildTasks(rng, {
     events: scheduledEvents,
     eventAnchors,
     templates: checklistTemplates,
     dutyRoleIdByKey,
+    clock,
   });
 
   const permitRequirements = buildPermitRequirements(rng, {
@@ -97,22 +110,17 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     venueBlueprintByName,
     contactIdByKey: contactBundle.idByKey,
   });
-  const appliedFor2027ByVenueId = new Map(
-    venues.map((venue) => [
-      venue.id,
-      venueBlueprintByName.get(venue.name)?.permitsApplied2027 ?? false,
-    ]),
-  );
   const permitBundle = buildPermits(rng, {
     events: scheduledEvents,
     eventTypes,
     requirements: permitRequirements,
-    appliedFor2027ByVenueId,
     permitsStaffId: duties.permits,
+    clock,
   });
 
   const vehicles = buildVehicles(rng);
   const obligations = buildObligations(rng, {
+    clock,
     vehicles,
     logisticsStaffId: staffId("logistics_lead"),
     officeManagerStaffId: staffId("office_manager"),
@@ -121,6 +129,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
   const money = buildPayablesAndInstallments(
     rng,
     {
+      clock,
       venues,
       venueBlueprintByName,
       contactIdByKey: contactBundle.idByKey,
@@ -150,6 +159,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
   const shifts = buildShifts(rng, {
     events: scheduledEvents,
     today,
+    season: clock.season,
     contracts: people.employmentContracts,
     crewStaffIds,
     recordedById: staffId("office_manager"),
@@ -158,7 +168,13 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
   });
 
   const vendors = buildVendors(rng);
-  const bookings = buildBookings(rng, { events: scheduledEvents, eventTypes, venues, vendors });
+  const bookings = buildBookings(rng, {
+    events: scheduledEvents,
+    eventTypes,
+    venues,
+    vendors,
+    clock,
+  });
   const events = scheduledEvents.map((event) => {
     const flags = bookings.flagsByEventId.get(event.id);
     return flags
