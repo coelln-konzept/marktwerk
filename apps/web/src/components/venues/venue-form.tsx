@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import { createVenueAction, updateVenueAction } from "@/app/(app)/orte/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
@@ -19,6 +19,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
 import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
+import { RecordPicker } from "@/components/ui/record-picker";
 import { formatLength } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { VenueFormValues } from "./defaults";
@@ -61,7 +62,11 @@ export function VenueForm({
   const [city, setCity] = useState(initial.city);
   const [bundesland, setBundesland] = useState(initial.bundesland);
   const [accessInfo, setAccessInfo] = useState(initial.accessInfo ?? "");
-  const [landowner, setLandowner] = useState(initial.landownerContactId ?? "");
+  const [landowner, setLandowner] = useState<string | null>(initial.landownerContactId);
+  const landownerOptions = useMemo(
+    () => landowners.map((l) => ({ id: l.id, label: l.name, hint: l.city })),
+    [landowners],
+  );
   const [capacity, setCapacity] = useState(
     initial.capacityCm === null ? "" : formatMetres(initial.capacityCm, locale),
   );
@@ -274,21 +279,17 @@ export function VenueForm({
                 <Label htmlFor={f("landowner")} optional>
                   {tf("landowner")}
                 </Label>
-                <select
+                <RecordPicker
                   id={f("landowner")}
+                  options={landownerOptions}
                   value={landowner}
+                  onChange={setLandowner}
+                  allowNone
+                  noneLabel={tf("noLandowner")}
+                  placeholder={tf("noLandowner")}
                   aria-describedby={`${uid}-landowner`}
-                  className={SELECT_CLASS}
-                  onChange={(e) => setLandowner(e.target.value)}
-                  {...invalid(f("landowner"))}
-                >
-                  <option value="">{tf("noLandowner")}</option>
-                  {landowners.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.city ? `${l.name} · ${l.city}` : l.name}
-                    </option>
-                  ))}
-                </select>
+                  aria-invalid={error?.field === f("landowner")}
+                />
                 <p id={`${uid}-landowner`} className={hint}>
                   {tf("landownerHint")}
                 </p>
