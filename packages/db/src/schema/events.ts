@@ -167,3 +167,58 @@ export const eventDuty = app.table(
   },
   (t) => [primaryKey({ columns: [t.eventId, t.dutyRoleId] }), index().on(t.staffMemberId)],
 );
+
+/** Saison status (research 13 §6.2): changed by hand only (undo toast); a new record starts from its dates. */
+export const eventSeasonStatus = app.enum("event_season_status", [
+  "planning",
+  "dates_set",
+  "closed",
+]);
+
+/**
+ * "Saison": one record per market (preset) and calendar year (research 13 §6). Carries the work done once per
+ * market and season (Termine planen, Genehmigung beantragen …) in its own checklist, and exists before any date
+ * of that season does. Kept by the nightly job `event-seasons` for the current and the next year and by
+ * "Markt planen" (`ensureEventSeason`, one service path).
+ */
+export const eventSeason = app.table(
+  "event_season",
+  {
+    id: id(),
+    presetId: uuid()
+      .notNull()
+      .references(() => eventPreset.id, { onDelete: "restrict" }),
+    /** The calendar year (same meaning as `event.season`). */
+    season: integer().notNull(),
+    /** The first date expected before any event exists (last season moved by a year, else 1 January). */
+    expectedStart: date().notNull(),
+    status: eventSeasonStatus().notNull().default("planning"),
+    notes: text(),
+    ...timestamps,
+    archivedAt: archivedAt(),
+  },
+  (t) => [
+    unique().on(t.presetId, t.season),
+    index().on(t.season),
+    check("event_season_year", sql`${t.season} between 1900 and 9999`),
+  ],
+);
+
+/**
+ * Named dates of a season, the same shape as `event_anchor`: `season_start` (first non-cancelled event of the
+ * season, else `expected_start`) and `season_end` (last day of its last non-cancelled event; no row without
+ * dates). Season template items are due relative to these.
+ */
+export const eventSeasonAnchor = app.table(
+  "event_season_anchor",
+  {
+    id: id(),
+    seasonId: uuid()
+      .notNull()
+      .references(() => eventSeason.id, { onDelete: "cascade" }),
+    key: text().notNull(),
+    date: date().notNull(),
+    ...timestamps,
+  },
+  (t) => [unique().on(t.seasonId, t.key)],
+);

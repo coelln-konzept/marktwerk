@@ -52,6 +52,12 @@ export const dayMode = app.enum("day_mode", ["calendar", "business"]);
  * Templates
  * --------------------------------------------------------------------------------------------- */
 
+/**
+ * What a template item belongs to (research 13 §6.1): `event` items become tasks of every event of the market,
+ * `season` items tasks of the market's Saison record (once per season), due relative to the season anchors.
+ */
+export const templateItemScope = app.enum("template_item_scope", ["event", "season"]);
+
 /** What a template instantiates into: an event timeline, or the preparation checklist of one permit. */
 export const templateKind = app.enum("template_kind", ["event", "permit"]);
 
@@ -179,6 +185,11 @@ export const templateItem = app.table(
      * without its own duty role (`duty_role_id` null) takes the parent's.
      */
     ownDue: boolean().notNull().default(false),
+    /**
+     * `event` (default) or `season`: a season item is instantiated on the Saison record only and hangs on a season
+     * anchor (`season_start`, `season_end`). A child item belongs to its parent's scope.
+     */
+    scope: templateItemScope().notNull().default("event"),
     /** Only instantiate for matching events; null = always. */
     condition: jsonb().$type<TemplateItemCondition>(),
     ...timestamps,

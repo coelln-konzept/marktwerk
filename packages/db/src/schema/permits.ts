@@ -14,7 +14,7 @@ import {
 import { archivedAt, id, timestamps } from "./_columns";
 import { app } from "./_schema";
 import { contact, eventType, venue } from "./catalogue";
-import { event } from "./events";
+import { event, eventSeason } from "./events";
 import { staffMember } from "./people";
 import { permitType } from "./permit-type";
 import { checklistTemplate } from "./templates";
@@ -104,6 +104,11 @@ export const permit = app.table(
     venueId: uuid().references(() => venue.id, { onDelete: "restrict" }),
     /** Season (year) the permit is for; null for multi-year / standing permits. */
     season: integer(),
+    /**
+     * The Saison record a season permit belongs to (research 13 §6.1), next to `venue_id` / `season`. Column only
+     * for now; the link (one apply task per season permit) is Fahrplan R11.
+     */
+    seasonId: uuid().references(() => eventSeason.id, { onDelete: "set null" }),
     category: permitCategory().notNull(),
     permitType: permitType().notNull(),
     title: text().notNull(),
@@ -129,6 +134,7 @@ export const permit = app.table(
   },
   (t) => [
     index().on(t.venueId, t.season),
+    index().on(t.seasonId),
     index().on(t.requirementId),
     index().on(t.status, t.applyBy),
     index().on(t.responsibleStaffMemberId),

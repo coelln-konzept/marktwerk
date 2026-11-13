@@ -16,7 +16,7 @@ import { archivedAt, id, timestamps } from "./_columns";
 import { app } from "./_schema";
 import { user } from "./auth";
 import { obligation } from "./company";
-import { event } from "./events";
+import { event, eventSeason } from "./events";
 import { payable } from "./money";
 import { dutyRole, staffMember } from "./people";
 import { permit } from "./permits";
@@ -30,13 +30,17 @@ import {
   templateVersion,
 } from "./templates";
 
-/** A named list of tasks: the timeline of one event, or the preparation steps of one permit. */
+/**
+ * A named list of tasks: the timeline of one event, the season work of one Saison record (research 13 §6), or the
+ * preparation steps of one permit. Exactly one owner (check `checklist_one_owner`).
+ */
 export const checklist = app.table(
   "checklist",
   {
     id: id(),
     eventId: uuid().references(() => event.id, { onDelete: "cascade" }),
     permitId: uuid().references(() => permit.id, { onDelete: "cascade" }),
+    seasonId: uuid().references(() => eventSeason.id, { onDelete: "cascade" }),
     /** Template and the exact version it was instantiated from (null = hand-made). */
     templateId: uuid().references(() => checklistTemplate.id, { onDelete: "set null" }),
     templateVersionId: uuid().references(() => templateVersion.id, { onDelete: "set null" }),
@@ -48,8 +52,9 @@ export const checklist = app.table(
   (t) => [
     index().on(t.eventId),
     index().on(t.permitId),
+    index().on(t.seasonId),
     index().on(t.templateVersionId),
-    check("checklist_one_owner", sql`not (${t.eventId} is not null and ${t.permitId} is not null)`),
+    check("checklist_one_owner", sql`num_nonnulls(${t.eventId}, ${t.permitId}, ${t.seasonId}) = 1`),
   ],
 );
 
@@ -99,6 +104,8 @@ export const task = app.table(
 
     // origin
     eventId: uuid().references(() => event.id, { onDelete: "cascade" }),
+    /** Season work (research 13 §6): the task belongs to a Saison record, not to an event. */
+    seasonId: uuid().references(() => eventSeason.id, { onDelete: "cascade" }),
     checklistId: uuid().references(() => checklist.id, { onDelete: "cascade" }),
     templateItemId: uuid().references(() => templateItem.id, { onDelete: "set null" }),
     /** Survives template versions (the item row differs per version). */
@@ -191,6 +198,7 @@ export const task = app.table(
   },
   (t) => [
     index().on(t.eventId, t.status),
+    index().on(t.seasonId, t.status),
     index().on(t.assigneeId, t.status, t.dueAt),
     index().on(t.status, t.dueAt),
     index().on(t.checklistId),
