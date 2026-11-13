@@ -749,7 +749,7 @@ describe("queries", () => {
     expect(vehicles[0]).toMatchObject({ worstStatus: "overdue", openIssues: 0 });
   });
 
-  it("offers dueItems (7 days) and calendarItems with the shapes Übersicht and Kalender expect", async () => {
+  it("offers dueItems (reminder running) and calendarItems with the shapes Übersicht and Kalender expect", async () => {
     const vehicleId = await newVehicle();
     const overdue = await newObligation({
       title: "HU",
@@ -778,7 +778,8 @@ describe("queries", () => {
         id: soon,
         title: "Versicherung",
         dueOn: "2026-10-27",
-        urgency: "soon",
+        // Inside its 14-day "Erinnerung ab" window: due now on the Übersicht.
+        urgency: "today",
         href: `/firma/pflichten/${soon}`,
         meta: undefined,
         assigneeName: "Anna Test",

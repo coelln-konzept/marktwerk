@@ -49,7 +49,10 @@ export type WeekendBlock = {
  * (decision 2026-10-29, grouped per market like before the "Zwei Fragen" redesign).
  */
 export type OverviewDue = {
-  /** "Heute & überfällig": all overdue and due-today items. */
+  /**
+   * "Heute & überfällig": all overdue and due-today items. Pflichten count as due today from their
+   * "Erinnerung ab" day on (`company.dueItems`), with their real due date.
+   */
   items: DueItem[];
   /** "Diese Woche": due in the next 7 days, then permits within the horizon and waits for others. */
   later: DueItem[];
