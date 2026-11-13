@@ -1,5 +1,5 @@
 import { addDays, dayDistance, daysBetween, isoWeek, mondayOf } from "@marktwerk/core";
-import { CalendarClock, CalendarX, Clock, OctagonAlert, Plus } from "lucide-react";
+import { CalendarClock, CalendarX, Clock, OctagonAlert, Plus, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment } from "react";
@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { rowFocus, Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
 import { formatDateShortYear, formatDateWithWeekday } from "@/lib/format";
+import type { CalendarHoliday } from "@/lib/holidays";
 import { cn } from "@/lib/utils";
 import type { AppointmentView } from "@/server/queries/appointments";
 import type { EventRow } from "@/server/queries/events";
@@ -44,7 +45,7 @@ export async function CalendarList({
   appointments?: AppointmentView[];
   /** Link to a Besprechung's Vorschau. */
   appointmentHref?: (id: string) => string;
-  holidays: Map<string, string>;
+  holidays: Map<string, CalendarHoliday>;
   /** Link to an event (its Überblick). */
   hrefFor: (id: string) => string;
   resetHref: string;
@@ -162,7 +163,7 @@ export async function CalendarList({
                       className={cn(
                         "group/day w-20 align-top @md:w-28 @3xl:w-44 @3xl:whitespace-nowrap",
                         day === today && "bg-selected",
-                        holiday && "text-status-critical",
+                        holiday?.dayOff && "text-status-critical",
                       )}
                     >
                       <span className="tabular font-semibold">
@@ -178,7 +179,23 @@ export async function CalendarList({
                           {relative(day)}
                         </span>
                       )}
-                      {holiday && <span className="block font-semibold text-tiny">{holiday}</span>}
+                      {holiday && (
+                        <span
+                          className={cn(
+                            "flex items-center gap-0.5 font-semibold text-tiny",
+                            !holiday.dayOff && "text-status-warn",
+                          )}
+                        >
+                          {holiday.quiet && (
+                            <TriangleAlert
+                              aria-hidden
+                              className="size-3 shrink-0 text-status-warn"
+                              strokeWidth={2.5}
+                            />
+                          )}
+                          {holiday.name}
+                        </span>
+                      )}
                       {addHref && addLabel && (
                         <Link
                           href={addHref(day) as never}
@@ -197,7 +214,7 @@ export async function CalendarList({
                       <TR key={day}>
                         {dateCell}
                         <TD colSpan={4} className="text-muted-foreground">
-                          {holiday ? t("legend.holiday") : t("nothingToday")}
+                          {holiday?.quiet ?? (holiday ? t("legend.holiday") : t("nothingToday"))}
                         </TD>
                       </TR>
                     );

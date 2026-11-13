@@ -10,7 +10,10 @@ import {
   endsOnFor,
   expandRRule,
   groupConsecutiveDates,
+  type Holiday,
+  type HolidayWeekend,
   holidaysBetween,
+  holidayWeekendsBetween,
   isoDate,
   isoWeek,
   mondayOf,
@@ -25,6 +28,7 @@ import {
   CopyCheck,
   Plus,
   Search,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -44,6 +48,7 @@ import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Kbd } from "@/components/ui/kbd";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { formatDate, formatDateWithWeekday, formatMonth, formatWeek, todayIn } from "@/lib/format";
+import { quietHoursValues } from "@/lib/holidays";
 import { cn } from "@/lib/utils";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { DatePreview, GenerationPreview } from "@/server/queries/generation-preview";
@@ -126,6 +131,7 @@ export function GenerateSheet({
   openNewMarket?: boolean;
 }) {
   const t = useTranslations("generate");
+  const tNotes = useTranslations("holidayNotes");
   const locale = useLocale();
   const router = useRouter();
   const { showToast, showError } = useShell();
@@ -190,8 +196,14 @@ export function GenerateSheet({
   const notesState =
     contextState === "ready" ? "ready" : contextState === "error" ? "error" : "loading";
 
+  // Holidays incl. the stille Tage (Volkstrauertag, Totensonntag, Heiligabend) and the Easter/Whitsun weekends.
   const holidays = useMemo(
-    () => holidaysBetween(addDays(windowFrom, -7), addDays(windowTo, 7)),
+    () =>
+      holidaysBetween(addDays(windowFrom, -7), addDays(windowTo, 7), "NW", { observances: true }),
+    [windowFrom, windowTo],
+  );
+  const holidayWeekends = useMemo(
+    () => holidayWeekendsBetween(addDays(windowFrom, -7), addDays(windowTo, 7)),
     [windowFrom, windowTo],
   );
 
@@ -743,12 +755,17 @@ export function GenerateSheet({
                       today={today}
                       selected={selected}
                       holidays={holidays}
+                      holidayWeekends={holidayWeekends}
                       venueBusy={venueBusy}
                       tabDay={tabDay}
                       onFocusDay={setFocusDay}
                       onToggle={toggle}
                       chosenLabel={(n) => t("chosen", { n })}
-                      labels={{ busy: t("day.busy") }}
+                      labels={{
+                        busy: t("day.busy"),
+                        quiet: (h) =>
+                          h.quiet ? tNotes("quiet", quietHoursValues(h.quiet)) : undefined,
+                      }}
                     />
                   ))}
                 </fieldset>
@@ -763,6 +780,20 @@ export function GenerateSheet({
                   <li className="flex items-center gap-1.5">
                     <span className="font-semibold text-status-critical">3</span>
                     {t("legend.holiday")}
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="relative grid size-5 place-items-center text-[11px]">
+                      2
+                      <QuietBadge />
+                    </span>
+                    {tNotes("legendQuiet")}
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="relative grid size-5 place-items-center text-[11px]">
+                      5
+                      <WeekendBar />
+                    </span>
+                    {tNotes("legendWeekend")}
                   </li>
                   <li className="flex items-center gap-1.5">
                     <span className="grid size-5 place-items-center rounded-full border-2 border-status-critical-dot font-semibold text-[11px]">
@@ -1069,6 +1100,34 @@ function MonthSelect({
   );
 }
 
+/** Stiller Feiertag marker (FeiertG NW §6): an amber warning badge on the day's top right corner. */
+function QuietBadge({ selected = false }: { selected?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "absolute -top-1 -right-1 grid size-3.5 place-items-center rounded-full bg-status-warn-bg text-status-warn ring-1 ring-card",
+        selected && "ring-primary-foreground",
+      )}
+    >
+      <TriangleAlert className="size-2.5" strokeWidth={2.75} />
+    </span>
+  );
+}
+
+/** Easter or Whitsun weekend (Sa–Mo): a quiet short bar under the day number. */
+function WeekendBar({ selected = false }: { selected?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "absolute bottom-0.5 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full bg-status-info-dot",
+        selected && "bg-primary-foreground/70",
+      )}
+    />
+  );
+}
+
 function MonthPicker({
   month,
   locale,
@@ -1077,6 +1136,7 @@ function MonthPicker({
   today,
   selected,
   holidays,
+  holidayWeekends,
   venueBusy,
   tabDay,
   onFocusDay,
@@ -1090,14 +1150,15 @@ function MonthPicker({
   weekLabel: string;
   today: string;
   selected: string[];
-  holidays: Map<string, { nameDe: string; nameEn: string }>;
+  holidays: Map<string, Holiday>;
+  holidayWeekends: Map<string, HolidayWeekend>;
   venueBusy: Set<string>;
   /** The one day that is a tab stop (roving tabindex). */
   tabDay: string;
   onFocusDay: (day: string) => void;
   onToggle: (day: string, shift: boolean) => void;
   chosenLabel: (n: number) => string;
-  labels: { busy: string };
+  labels: { busy: string; quiet: (holiday: Holiday) => string | undefined };
 }) {
   const [y, m] = month.split("-").map(Number) as [number, number];
   const first = isoDate(y, m, 1);
@@ -1134,6 +1195,7 @@ function MonthPicker({
               {week.map((day) => {
                 if (day < first || day > last) return <td key={day} />;
                 const holiday = holidays.get(day);
+                const weekend = holidayWeekends.get(day);
                 const isSelected = selected.includes(day);
                 const busy = venueBusy.has(day);
                 const dow = weekday(day);
@@ -1143,8 +1205,17 @@ function MonthPicker({
                     ? holiday.nameEn
                     : holiday.nameDe
                   : undefined;
+                // A real holiday is red; the stille Tage that are no holiday (Volkstrauertag, Totensonntag,
+                // Heiligabend) only get the warning badge. Warnings never block the selection.
+                const dayOff = holiday && !holiday.observance;
+                const quiet = holiday ? labels.quiet(holiday) : undefined;
                 // Tooltip and screen reader text carry what the markers show (colour alone is not enough).
-                const notes = [name, busy ? labels.busy : undefined].filter(Boolean);
+                const notes = [
+                  name,
+                  quiet,
+                  weekend ? (locale === "en" ? weekend.nameEn : weekend.nameDe) : undefined,
+                  busy ? labels.busy : undefined,
+                ].filter(Boolean);
                 return (
                   <td key={day} className="p-0">
                     <button
@@ -1160,19 +1231,21 @@ function MonthPicker({
                       className={cn(
                         "tabular relative mx-auto grid size-7 cursor-pointer place-items-center rounded-lg text-small hover:bg-hover disabled:cursor-not-allowed disabled:opacity-35 max-sm:size-10",
                         (dow === 6 || dow === 0) && "font-semibold",
-                        holiday && "text-status-critical",
+                        dayOff && "text-status-critical",
                         busy && "rounded-full border-2 border-status-critical-dot",
                         isSelected &&
                           "bg-primary font-semibold text-primary-foreground hover:bg-primary-hover",
                       )}
                     >
                       {Number(day.slice(8, 10))}
-                      {holiday && (
+                      {dayOff && (
                         <span
                           aria-hidden
                           className="absolute top-0.5 size-1 rounded-full bg-status-critical-dot"
                         />
                       )}
+                      {quiet && <QuietBadge selected={isSelected} />}
+                      {weekend && <WeekendBar selected={isSelected} />}
                     </button>
                   </td>
                 );
