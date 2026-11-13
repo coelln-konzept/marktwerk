@@ -166,6 +166,18 @@
    says "Wenn es ein Konto gibt, kommt gleich eine E-Mail" (no account enumeration); the link works once for one
    hour; a reset revokes all sessions and writes `audit_log`. Done when the reset works locally against Mailpit.
 
+**UX audit round 1 (2026-11-13, details in [ux-audit/round-1.md](ux-audit/round-1.md)): not built until decided**
+- **UX-D1 Tick confirm:** keep the "Aufgabe erledigt?" dialog (decision D1) or drop it for a struck-through row with inline Rückgängig? Measured: clearing 5 tasks costs 10 clicks. Audit recommends dropping it; until then the dialog stays, focus moves to "Ja, erledigt", and every completion path uses the same rule.
+- **UX-D3 Moving a Termin and "Antrag bis":** recompute permit deadlines on a move (hand-edited ones untouched, shown in the preview, undo), only warn, or ask per move? Today nothing changes.
+- **UX-D6 "Meine Aufgaben" while Team is hidden:** a light "Zuständig" picker over users plus a "Meine" filter, scope field users to their events, or wait for Team?
+- **UX-D7 Hidden modules:** one "noch nicht freigeschaltet" page for all hidden routes (Finanzen, Team, Board, Wissen, Rechtliches)? And when does Finanzen return?
+- **UX-D8 Permit fee while Finanzen is hidden:** a simple "Gebühr (€)" field on the permit, payables from the permit drawer, or nothing until Finanzen returns?
+- **UX-D10 Document types:** allow Word/Excel/ODT/CSV/TXT/EML/ZIP for events, permits and Orte (checked by content, served as download; receipts stay PDF/images)?
+- **UX-D11 What Benachrichtigungen is for:** a live list with the Übersicht's rules plus "neu seit letztem Besuch", a "new since" inbox with unread state, or fold it into the Übersicht?
+- **UX-D12 Navigation:** sidebar entries "Märkte & Vorlagen" and "Einstellungen" (today only via the avatar menu), and rename /firma to what it holds (e.g. "Fuhrpark & Pflichten")?
+- **UX-D16 Season rollover:** "Saison fortschreiben" per market (last year's dates moved to the same weekday, combined preview) instead of planning 17 markets one by one?
+- **UX-D17 Template apply and overdue tasks:** when a new template version would create tasks already overdue, create them (today), skip them, or choose in the preview?
+
 ## Assumed during the Phase 1 integration (confirm or change)
 1. **"Heute fällig" order:** overdue, then today, then this week; inside a group permits > instalments (money) >
    tasks > hours > obligations, then oldest date first (Überfällig by market since 2026-10-28, see Decided) (`packages/core/src/deadlines/due-ranking.ts`). The list shows
@@ -184,6 +196,16 @@
 6. **Season strip workload** (estimated hours, capacity, hiring signal) was shown to roles with `team:read` (owner,
    manager). **No longer shown:** the Übersicht has had no season strip since 2026-10-22 (checked in the code
    2026-11-10), and estimates and Team are hidden. Revisit when Team returns.
+
+7. **UX audit round 1 defaults (2026-11-13, built in the round-1 fix batches; confirm or change):**
+   - **Typed German date field** (UX-001): one shared field takes "5.3.", "05.03.26", "heute", "morgen", shows weekday and KW, has a picker; half-typed dates are an error at the field instead of being dropped.
+   - **Beantragt → expected decision** (UX-017): marking a permit applied shows an optional "Entscheidung erwartet bis" field, prefilled when the requirement has a typical date; left empty, the permit says "Antwort wird nicht überwacht".
+   - **Ort without requirements** (UX-011): shown as "noch nicht geklärt", never as "keine Genehmigung nötig".
+   - **Duplicates** (UX-028): Kontakt, Ort and Markt warn while typing with a link to the existing record; nothing is blocked.
+   - **Pflicht without due date** (UX-022): shown as "Fälligkeit fehlt" (warn colour) instead of "in Ordnung".
+   - **Undated tasks** (UX-013): a "Weitere Aufgaben" group on the Übersicht; search opens tasks in the drawer instead of the hidden board.
+   - **Long Übersicht groups** (UX-006): each group shows about 5 rows plus "+ N weitere"; on phones Heute comes first.
+   - **Template apply** (UX-012/019): stays irreversible for now, but step 2 says so plainly; the double-click that skipped the preview is fixed.
 
 ## Open: client (next meeting / workshop)
 **Timeline workshop (top priority, feeds M2)**
