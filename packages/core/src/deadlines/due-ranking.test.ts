@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { countByDueFilter, dueFilterOf, isDueFilter, type Rankable, rankDue } from "./due-ranking";
+import {
+  countByDueFilter,
+  dueFilterOf,
+  isDueFilter,
+  type Rankable,
+  rankDue,
+  splitByRows,
+} from "./due-ranking";
 
 const item = (
   kind: Rankable["kind"],
@@ -120,6 +127,21 @@ describe("rankDue", () => {
       ]);
     });
 
+    it("inside a market (and among items without one) puts the oldest first, before the kind", () => {
+      const ranked = rank([
+        at("Permit, yesterday", "2026-10-24", { kind: "permit", dueOn: "2026-10-20" }),
+        at("Task, four weeks", "2026-10-24", { dueOn: "2026-09-23" }),
+        at("No market, new", null, { kind: "permit", dueOn: "2026-10-19" }),
+        at("No market, old", null, { kind: "obligation", dueOn: "2026-09-01" }),
+      ]);
+      expect(ranked.map((i) => i.title)).toEqual([
+        "Task, four weeks",
+        "Permit, yesterday",
+        "No market, old",
+        "No market, new",
+      ]);
+    });
+
     it("leaves the other groups ordered by kind, not by market", () => {
       const ranked = rank([
         { ...item("task", "today", TODAY, "Task"), eventStartsOn: "2026-10-24" },
@@ -149,5 +171,26 @@ describe("filters", () => {
     expect(isDueFilter("money")).toBe(true);
     expect(isDueFilter("nope")).toBe(false);
     expect(isDueFilter(undefined)).toBe(false);
+  });
+});
+
+describe("splitByRows", () => {
+  const one = (n: number) => n;
+
+  it("takes entries until the rows reach the budget, the rest is hidden", () => {
+    expect(splitByRows([1, 1, 1, 1, 1, 1, 1], one, 5)).toEqual([
+      [1, 1, 1, 1, 1],
+      [1, 1],
+    ]);
+  });
+
+  it("never splits an entry: two markets of three rows show six", () => {
+    expect(splitByRows([3, 3, 1], one, 5)).toEqual([[3, 3], [1]]);
+  });
+
+  it("always shows the first entry, and nothing is hidden when all fit", () => {
+    expect(splitByRows([9, 1], one, 5)).toEqual([[9], [1]]);
+    expect(splitByRows([2, 2], one, 5)).toEqual([[2, 2], []]);
+    expect(splitByRows([], one, 5)).toEqual([[], []]);
   });
 });

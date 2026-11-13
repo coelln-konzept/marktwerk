@@ -10,9 +10,11 @@
  *   3. only in "Überfällig" (product owner, 2026-10-28): then by market, the soonest market on top. Markets
  *      that start today or later come first (earliest first), then markets that already started (latest
  *      first), then items without a market;
- *   4. then by kind: Genehmigungen > Raten (Geld) > Aufgaben > Stunden > Pflichten
+ *   4. only in "Überfällig" (UX audit round 1, UX-006): then the oldest due date first, so a row four weeks
+ *      late does not hide behind one that is a day late;
+ *   5. then by kind: Genehmigungen > Raten (Geld) > Aufgaben > Stunden > Pflichten
  *      (a missed permit or a late payment costs money or the event; an open task rarely does);
- *   5. then the oldest due date first, then the title (stable, alphabetical).
+ *   6. then the oldest due date first, then the title (stable, alphabetical).
  */
 
 export type RankableDueKind = "task" | "permit" | "installment" | "hours" | "obligation";
@@ -64,7 +66,7 @@ export function compareDue(a: Rankable, b: Rankable, today: string): number {
   return (
     URGENCY_PRIORITY[a.urgency] - URGENCY_PRIORITY[b.urgency] ||
     Number(b.isKey === true) - Number(a.isKey === true) ||
-    (a.urgency === "overdue" ? compareMarket(a, b, today) : 0) ||
+    (a.urgency === "overdue" ? compareMarket(a, b, today) || a.dueOn.localeCompare(b.dueOn) : 0) ||
     DUE_KIND_PRIORITY[a.kind] - DUE_KIND_PRIORITY[b.kind] ||
     a.dueOn.localeCompare(b.dueOn) ||
     a.title.localeCompare(b.title, "de")
@@ -74,6 +76,26 @@ export function compareDue(a: Rankable, b: Rankable, today: string): number {
 /** A new array in display order; the input is not changed. `today` is the Berlin day (`YYYY-MM-DD`). */
 export function rankDue<T extends Rankable>(items: readonly T[], today: string): T[] {
   return [...items].sort((a, b) => compareDue(a, b, today));
+}
+
+/**
+ * A capped list (UX-006: each group of the Übersicht shows about `budget` rows, "+ N weitere" opens the rest):
+ * the first entries until they fill `budget` rows (at least one entry; an entry is never split, so the last
+ * one may go past the budget), and the rest. `rowsOf` says how many rows an entry takes, e.g. a market with
+ * three of its items.
+ */
+export function splitByRows<T>(
+  entries: readonly T[],
+  rowsOf: (entry: T) => number,
+  budget: number,
+): [T[], T[]] {
+  let used = 0;
+  let count = 0;
+  while (count < entries.length && (count === 0 || used < budget)) {
+    used += rowsOf(entries[count] as T);
+    count += 1;
+  }
+  return [entries.slice(0, count), entries.slice(count)];
 }
 
 /** Filter chips of "Heute fällig": one per kind plus "Alle". Obligations are the chip "Firma". */
