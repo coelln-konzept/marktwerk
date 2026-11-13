@@ -27,3 +27,4 @@ consequences. Statuses: *proposed*, *accepted*, *superseded by NNNN*, *open* (a 
 | [0020](0020-board-drag-and-drop.md) | Board drag and drop with dnd-kit (pointer/touch); keyboard mode stays our own | accepted |
 | [0021](0021-subtasks.md) | Subtasks (one level) replace task checklists and task dependencies | accepted |
 | [0022](0022-zeitplan.md) | A market's times are a Zeitplan of windows (team / vendors / visitors) | accepted |
+| [0023](0023-test-environments.md) | Test environments: deployed dev app + Neon branch environments; mail fence; no staging/simulation for now | accepted |
