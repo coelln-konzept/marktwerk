@@ -159,6 +159,8 @@ export async function previewGeneration(
           const version = versions.get(link.templateId);
           if (!version) continue;
           for (const d of desiredTasks(version, ev, defaults).desired) {
+            // Lists count top-level tasks; subtasks show under their parent (ADR 0021).
+            if (d.parentKey) continue;
             tasks += 1;
             countDue(d.dueAt);
             if (d.permitType) templatePermitTypes.add(d.permitType);

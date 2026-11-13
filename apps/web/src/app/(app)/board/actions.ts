@@ -4,7 +4,6 @@ import type { BoardColumn, TaskStatusKey } from "@marktwerk/core";
 import { refresh } from "next/cache";
 import { getActor } from "@/server/actor";
 import {
-  addCheckItem,
   assignTask,
   createTask,
   deleteTask,
@@ -14,8 +13,8 @@ import {
   moveTask,
   type NewTask,
   restoreTask,
-  setCheckItemDone,
   setEffortFeedback,
+  setTaskParent,
   setTaskStatus,
   snoozeTask,
   TaskInputError,
@@ -108,16 +107,18 @@ export async function giveEffortFeedback(taskId: string, feedback: EffortFeedbac
   return run(() => setEffortFeedback(actor, taskId, feedback));
 }
 
-export async function tickCheckItem(taskId: string, itemId: string, done: boolean) {
+/** "Unteraufgabe hinzufügen" in the task drawer (ADR 0021). */
+export async function newSubtask(parentId: string, title: string) {
   await requirePermission("task", "write");
   const actor = await getActor();
-  return run(() => setCheckItemDone(actor, taskId, itemId, done));
+  return run(() => createTask(actor, { title, parentId }));
 }
 
-export async function newCheckItem(taskId: string, title: string) {
+/** "Unteraufgabe von…" / "Aus Hauptaufgabe lösen" (null), later the drag in the Checkliste (ADR 0021). */
+export async function setParent(taskId: string, parentId: string | null) {
   await requirePermission("task", "write");
   const actor = await getActor();
-  return run(() => addCheckItem(actor, taskId, title));
+  return run(() => setTaskParent(actor, taskId, parentId));
 }
 
 /** "Zurückstellen": hides the task from the due lists until `until` (`YYYY-MM-DD`, after today). */

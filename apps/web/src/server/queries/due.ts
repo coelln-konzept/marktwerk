@@ -41,6 +41,8 @@ export type DueItem = {
   /** Permits can belong to several events (the upcoming ones they are required for). */
   eventIds?: string[];
   assigneeName?: string | null;
+  /** Tasks with subtasks (ADR 0021): progress and how many open ones are overdue (they flag the task). */
+  subtasks?: { done: number; total: number; overdue: number };
 };
 
 export const CALENDAR_LAYERS = [

@@ -255,11 +255,11 @@ function CardContent({
           </span>
         )}
         <span className="ml-auto flex items-center gap-1.5">
-          {task.checkTotal > 0 && (
+          {task.subtasksTotal > 0 && (
             <span className="tabular inline-flex items-center gap-1 text-muted-foreground text-tiny">
               <ListChecks aria-hidden className="size-3.5" />
               <span className="sr-only">{tTasks("checks")}: </span>
-              {task.checkDone}/{task.checkTotal}
+              {task.subtasksDone}/{task.subtasksTotal}
             </span>
           )}
           {task.requiresPhoto && !finished && (

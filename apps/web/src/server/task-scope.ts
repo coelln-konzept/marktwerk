@@ -1,5 +1,6 @@
 import "server-only";
 import { pastEventCutoff, resolveRelativeDue } from "@marktwerk/core";
+import { isOwnWorkItem, isTopLevel } from "@marktwerk/db";
 import { event, task } from "@marktwerk/db/schema";
 import { and, eq, exists, gte, isNull, or, type SQL, sql } from "drizzle-orm";
 import { type Actor, visibleEvents } from "./actor";
@@ -45,11 +46,14 @@ export function notOfPastEvent(today: string): SQL {
 }
 
 /**
- * Whose tasks the Übersicht and the Kalender show: owners and managers see all visible tasks, everybody
- * else their own (the Kalender narrows further with "Nur meine Zuständigkeit").
+ * Whose tasks the Übersicht and the Kalender show: owners and managers see all visible top-level tasks (subtasks
+ * count through their parent, ADR 0021), everybody else their own list: their top-level tasks plus the subtasks
+ * assigned to them whose parent is somebody else's (`isOwnWorkItem`). The Kalender narrows to the own list with
+ * "Nur meine Zuständigkeit".
  */
 export function deadlineScope(actor: Actor, mineOnly = false): SQL {
-  if (!mineOnly && (actor.role === "owner" || actor.role === "manager")) return visibleTasks(actor);
+  if (!mineOnly && (actor.role === "owner" || actor.role === "manager"))
+    return and(visibleTasks(actor), isTopLevel()) as SQL;
   if (!actor.staffMemberId) return sql`false`;
-  return and(visibleTasks(actor), eq(task.assigneeId, actor.staffMemberId)) as SQL;
+  return and(visibleTasks(actor), eq(task.assigneeId, actor.staffMemberId), isOwnWorkItem()) as SQL;
 }

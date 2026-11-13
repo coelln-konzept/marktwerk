@@ -59,8 +59,9 @@ type Form = {
   requiresAttachment: boolean;
   isKey: boolean;
   permitType: string;
-  checkItems: string;
-  dependsOnKeys: string[];
+  /** Child items (ADR 0021): kept as they are; the editor for them comes with the template UI step. */
+  parentKey: string | null;
+  ownDue: boolean;
   eventTypeKeys: string[];
   venueKinds: string[];
   venueIds: string[];
@@ -92,8 +93,8 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
       requiresAttachment: false,
       isKey: false,
       permitType: "",
-      checkItems: "",
-      dependsOnKeys: [],
+      parentKey: null,
+      ownDue: false,
       eventTypeKeys: [],
       venueKinds: [],
       venueIds: [],
@@ -116,8 +117,8 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
     requiresAttachment: item.requiresAttachment,
     isKey: item.isKey,
     permitType: item.permitType ?? "",
-    checkItems: item.checkItems.join("\n"),
-    dependsOnKeys: item.dependsOnKeys,
+    parentKey: item.parentKey,
+    ownDue: item.ownDue,
     eventTypeKeys: item.condition?.eventTypeKeys ?? [],
     venueKinds: item.condition?.venueKinds ?? [],
     venueIds: item.condition?.venueIds ?? [],
@@ -149,12 +150,9 @@ function toFields(form: Form): TemplateItemFields {
     requiresAttachment: form.requiresAttachment,
     isKey: form.isKey,
     permitType: (form.permitType || null) as TemplateItemFields["permitType"],
-    checkItems: form.checkItems
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean),
     approverDutyRoleId: form.approverDutyRoleId || null,
-    dependsOnKeys: form.dependsOnKeys,
+    parentKey: form.parentKey,
+    ownDue: form.ownDue,
     condition: normalizeCondition(condition),
   };
 }
@@ -585,52 +583,6 @@ export function ItemDrawer({
                   </label>
                 ))}
               </fieldset>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="item-steps" optional>
-                  {t("drawer.checkItems")}
-                </Label>
-                <textarea
-                  id="item-steps"
-                  rows={4}
-                  className={TEXTAREA_CLASS}
-                  value={form.checkItems}
-                  disabled={disabled}
-                  aria-invalid={invalid("checkItems")}
-                  onChange={(e) => set({ checkItems: e.target.value })}
-                />
-                <p className="text-muted-foreground text-tiny">{t("drawer.checkItemsHint")}</p>
-                {fieldError("checkItems")}
-              </div>
-
-              {items.filter((i) => i.key !== item?.key).length > 0 && (
-                <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-1 flex gap-2 font-semibold text-small">
-                    {t("drawer.dependsOn")}
-                    <OptionalMark />
-                  </legend>
-                  <div className="flex max-h-44 flex-col gap-1.5 overflow-y-auto rounded-lg border p-2">
-                    {items
-                      .filter((i) => i.key !== item?.key)
-                      .map((i) => (
-                        <label key={i.key} className="flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 size-4 accent-(--primary)"
-                            checked={form.dependsOnKeys.includes(i.key)}
-                            disabled={disabled}
-                            onChange={() =>
-                              set({ dependsOnKeys: toggle(form.dependsOnKeys, i.key) })
-                            }
-                          />
-                          {i.title}
-                        </label>
-                      ))}
-                  </div>
-                  <p className="text-muted-foreground text-tiny">{t("drawer.dependsOnHint")}</p>
-                  {fieldError("dependsOnKeys")}
-                </fieldset>
-              )}
 
               <fieldset className="flex flex-col gap-2 rounded-lg border p-3">
                 <legend className="flex gap-2 px-1 font-semibold text-small">

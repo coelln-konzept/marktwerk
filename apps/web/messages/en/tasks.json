@@ -43,12 +43,12 @@
       "finished": "Finished"
     },
     "estimate": "Estimate",
-    "checks": "Checklist",
+    "checks": "Subtasks",
     "evidence": {
       "title": "Evidence",
       "photo": "Photo",
       "attachment": "Attachment",
-      "check_items": "tick off the whole checklist",
+      "subtasks": "finish the open subtasks",
       "missing": "missing",
       "given": "given",
       "addPhoto": "Add photo",
@@ -145,9 +145,10 @@
     "dueSetByHand": "set by hand, no longer follows the event date",
     "description": "Description",
     "noDescription": "No description.",
-    "checklist": "Checklist · {done}/{total}",
-    "addCheckItem": "Add a step",
-    "addCheckItemButton": "Add step",
+    "subtasks": "Subtasks · {done}/{total}",
+    "addSubtask": "Add a subtask",
+    "addSubtaskButton": "Add subtask",
+    "parentTask": "Subtask of “{title}”",
     "feedback": {
       "title": "How was the effort?",
       "as_planned": "As planned",

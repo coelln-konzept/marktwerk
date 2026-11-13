@@ -13,9 +13,11 @@ import {
   type OverviewTask,
   type PermitProgress,
   permitProgress,
+  resolveRelativeDue,
   type TaskProgress,
   taskProgress,
 } from "@marktwerk/core";
+import { isTopLevel, subtaskAggregates } from "@marktwerk/db";
 import { eventPermit, permit, task } from "@marktwerk/db/schema";
 import { and, eq, isNull, ne } from "drizzle-orm";
 import type { Actor } from "../actor";
@@ -59,9 +61,18 @@ export async function getEventOverview(
             isKey: task.isKey,
             snoozedUntil: task.snoozedUntil,
             boardSort: task.boardSort,
+            ...subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00")),
           })
           .from(task)
-          .where(and(visibleTasks(actor), eq(task.eventId, event.id), ne(task.status, "cancelled")))
+          .where(
+            and(
+              visibleTasks(actor),
+              // Top-level tasks with their subtask progress (ADR 0021).
+              isTopLevel(),
+              eq(task.eventId, event.id),
+              ne(task.status, "cancelled"),
+            ),
+          )
       : null,
     can(actor.role, "permit", "read")
       ? db
@@ -90,6 +101,9 @@ export async function getEventOverview(
       isKey: r.isKey,
       snoozedUntil: r.snoozedUntil,
       boardSort: r.boardSort,
+      subtasksDone: r.subtasksDone,
+      subtasksTotal: r.subtasksTotal,
+      subtasksOverdue: r.subtasksOverdue,
     })) ?? null;
 
   return {
