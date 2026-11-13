@@ -233,6 +233,60 @@ describe("logbook query", () => {
     expect(detail?.linkableEvents.map((e) => e.name)).toEqual(["Zwei"]);
     expect(await getPermit(owner, "nope", TODAY)).toBeNull();
     expect(await getPermit(field, p.id, TODAY)).toBeNull();
+
+    // A deleted (cancelled) task, e.g. a season permit's duplicate apply task, is not listed.
+    await db.insert(task).values({
+      permitId: p.id,
+      source: "template",
+      title: "Wasser beantragen (Duplikat)",
+      status: "cancelled",
+    });
+    expect((await getPermit(owner, p.id, TODAY))?.tasks).toHaveLength(1);
+  });
+
+  it("shows 'Antwort überfällig' for a filed permit past its expected decision date", async () => {
+    const e = await makeEvent("2026-12-06", "Advent");
+    const overdue = await makePermit({
+      title: "Überfällig",
+      status: "applied",
+      expectedDecisionOn: "2026-10-20",
+    });
+    const today = await makePermit({
+      title: "Heute",
+      status: "applied",
+      expectedDecisionOn: TODAY,
+    });
+    await makePermit({ title: "Ohne Datum", status: "applied" });
+    await makePermit({ title: "Erteilt", status: "granted", expectedDecisionOn: "2026-10-01" });
+    await db.insert(eventPermit).values([
+      { eventId: e.id, permitId: overdue.id },
+      { eventId: e.id, permitId: today.id },
+    ]);
+
+    const logbook = await listLogbook(owner, { season: 2026 }, TODAY);
+    expect(Object.fromEntries(logbook.rows.map((r) => [r.title, r.state]))).toEqual({
+      Überfällig: "answer_overdue",
+      Heute: "applied",
+      "Ohne Datum": "applied",
+      Erteilt: "granted",
+    });
+    expect(logbook.counts.answer_overdue).toBe(1);
+    expect(
+      (await listLogbook(owner, { season: 2026, state: "answer_overdue" }, TODAY)).rows.map(
+        (r) => r.title,
+      ),
+    ).toEqual(["Überfällig"]);
+    // Chasing the authority is "Jetzt zu tun" and counts in the sidebar badge (product owner 2026-11-13);
+    // the one decided today is not overdue yet.
+    expect(logbook.needsAction).toBe(1);
+    expect((await listLogbook(owner, { focus: "fehlt" }, TODAY)).rows.map((r) => r.title)).toEqual([
+      "Überfällig",
+    ]);
+    expect(await missingPermitCount(owner, TODAY)).toBe(1);
+    // The drawer reads the same; a day later the one due today is overdue too.
+    expect((await getPermit(owner, overdue.id, TODAY))?.state).toBe("answer_overdue");
+    expect((await getPermit(owner, today.id, TODAY))?.state).toBe("applied");
+    expect((await getPermit(owner, today.id, "2026-10-22"))?.state).toBe("answer_overdue");
   });
 });
 

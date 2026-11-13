@@ -165,7 +165,10 @@ erDiagram
   instantiation and propagation), `requires_approval_by?`, `condition` (on event
   type/venue attributes), sort), `permit_type?` (0008: the item applies for a permit of that type, e.g.
   "Marktgenehmigung beantragen" → `market_permit`; its tasks get `task.permit_id` = the event's permit of that type
-  via `linkPermitTasks` and complete automatically once that permit is applied for or granted).
+  via `linkPermitTasks` and complete automatically once that permit is applied for or granted). A permit that
+  covers several events (cadence `per_season | per_year | multi_year | standing`) gets **one** apply task: the
+  first covered event carries it, the untouched duplicates of the other events are deleted (`cancelled`, audited
+  `task.delete`, restorable), see `splitApplyTasks`; interim until the Saison record (research 13 §6).
   *(implemented 0002: `task_category` also has `office` (the synthetic Büro tasks); `phase` is `pre | live | post`;
   `priority` is `low | normal | high`; `checklist_template.kind` (`event | permit`, a permit-prep template has
   kind `permit`) and `event_type_id?`; `template_version` has `published_at`, `published_by_id`, `change_note`, a

@@ -12,8 +12,10 @@ import {
   type PermitStatus,
   permitCovers,
   permitCoversApplication,
+  permitCoversSeveralEvents,
   resolveRelativeDue,
   seasonFor,
+  splitApplyTasks,
 } from "@marktwerk/core";
 import { insertNotifications } from "@marktwerk/db";
 import {
@@ -53,7 +55,7 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { type AutoConfirmSource, autoConfirmEvents } from "./event-lifecycle";
-import { completeTasksForPermit } from "./tasks";
+import { cancelDuplicatePermitTasks, completeTasksForPermit } from "./tasks";
 
 export type PermitErrorCode =
   | "not_found"
@@ -376,26 +378,38 @@ export async function fillLogbookForEvents(
  * `task.permit_id` = the event's permit of that type (required permits first, then the one that is
  * furthest along). Called after instantiation, the logbook fill, linking a permit to events and applying
  * requirements to existing events. Idempotent; tasks that already carry a permit are left alone.
+ *
+ * A permit that covers several events (season, year, multi-year, standing) gets **one** apply task, not
+ * one per covered market (research 10, Fahrplan 18). The apply work stays with one event: the event of
+ * an apply task the permit has already, else the earliest one (`splitApplyTasks`); the untouched template
+ * tasks of every other event are removed (`cancelled`, the app's "Löschen", restorable in the Verlauf).
+ * With its own "beantragen" task (no event) all of them go. Tasks somebody has worked on or finished are
+ * only linked. Interim until the Saison record carries season tasks (research 13 §6). Single-event
+ * permits keep one task per event.
+ *
  * With an `actor`, open tasks whose permit is applied for / granted are completed right away (audited as
- * "task.status", reason "Genehmigung beantragt/erteilt"). Returns the linked task ids per permit and the
- * completed ones.
+ * "task.status", reason "Genehmigung beantragt/erteilt"). Returns the number of linked tasks, the completed
+ * and the removed ones.
  */
 export async function linkPermitTasks(
   tx: Tx,
   eventIds: readonly string[],
   actor?: Pick<Actor, "id"> & { staffMemberId?: string | null },
-): Promise<{ linked: number; completedTaskIds: string[] }> {
-  const result = { linked: 0, completedTaskIds: [] as string[] };
+): Promise<{ linked: number; completedTaskIds: string[]; cancelledTaskIds: string[] }> {
+  const result = { linked: 0, completedTaskIds: [] as string[], cancelledTaskIds: [] as string[] };
   const ids = [...new Set(eventIds)];
   if (ids.length === 0) return result;
   const open = await tx
     .select({
       id: task.id,
       eventId: task.eventId,
+      status: task.status,
+      startsOn: event.startsOn,
       permitType: templateItem.permitType,
     })
     .from(task)
     .innerJoin(templateItem, eq(templateItem.id, task.templateItemId))
+    .leftJoin(event, eq(event.id, task.eventId))
     .where(
       and(
         inArray(task.eventId, ids),
@@ -413,11 +427,13 @@ export async function linkPermitTasks(
       permitId: permit.id,
       permitType: permit.permitType,
       status: permit.status,
+      cadence: permitRequirement.cadence,
       required: eventPermit.required,
       createdAt: permit.createdAt,
     })
     .from(eventPermit)
     .innerJoin(permit, eq(permit.id, eventPermit.permitId))
+    .leftJoin(permitRequirement, eq(permitRequirement.id, permit.requirementId))
     .where(
       and(
         inArray(eventPermit.eventId, ids),
@@ -428,22 +444,63 @@ export async function linkPermitTasks(
   const rank = (c: (typeof candidates)[number]) =>
     (c.required && c.status !== "not_required" ? 0 : 100) + COVER_PREFERENCE.indexOf(c.status);
 
-  const byPermit = new Map<string, string[]>();
+  const byPermit = new Map<string, (typeof open)[number][]>();
   for (const t of open) {
     const best = candidates
       .filter((c) => c.eventId === t.eventId && c.permitType === t.permitType)
       .sort((a, b) => rank(a) - rank(b) || a.createdAt.getTime() - b.createdAt.getTime())[0];
     if (!best) continue;
-    byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t.id]);
+    byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t]);
   }
-  for (const [permitId, taskIds] of byPermit) {
-    await tx.update(task).set({ permitId }).where(inArray(task.id, taskIds));
-    result.linked += taskIds.length;
+
+  // Permits covering several events: the events of the apply tasks they have already.
+  const cadenceOf = new Map(candidates.map((c) => [c.permitId, c.cadence]));
+  const shared = [...byPermit.keys()].filter((id) => permitCoversSeveralEvents(cadenceOf.get(id)));
+  const existing =
+    shared.length === 0
+      ? []
+      : await tx
+          .selectDistinct({ permitId: task.permitId, eventId: task.eventId })
+          .from(task)
+          .where(
+            and(
+              inArray(task.permitId, shared),
+              inArray(task.source, ["permit", "template"]),
+              ne(task.status, "cancelled"),
+            ),
+          );
+
+  const duplicatesOf = new Map<string, string[]>();
+  for (const [permitId, tasks] of byPermit) {
+    await tx
+      .update(task)
+      .set({ permitId })
+      .where(
+        inArray(
+          task.id,
+          tasks.map((t) => t.id),
+        ),
+      );
+    result.linked += tasks.length;
+    if (!shared.includes(permitId)) continue;
+    const { duplicates } = splitApplyTasks(
+      tasks,
+      existing.filter((e) => e.permitId === permitId).map((e) => e.eventId),
+    );
+    if (duplicates.length > 0)
+      duplicatesOf.set(
+        permitId,
+        duplicates.map((d) => d.id),
+      );
   }
+  for (const [permitId, taskIds] of duplicatesOf)
+    result.cancelledTaskIds.push(
+      ...(await cancelDuplicatePermitTasks(tx, actor, permitId, taskIds)),
+    );
   if (!actor) return result;
 
   const statusOf = new Map(candidates.map((c) => [c.permitId, c.status]));
-  for (const [permitId, taskIds] of byPermit) {
+  for (const [permitId, tasks] of byPermit) {
     const status = statusOf.get(permitId);
     if (!status || !permitCoversApplication(status)) continue;
     result.completedTaskIds.push(
@@ -451,7 +508,7 @@ export async function linkPermitTasks(
         tx,
         { id: actor.id, staffMemberId: actor.staffMemberId ?? null },
         permitId,
-        taskIds,
+        tasks.map((t) => t.id).filter((id) => !result.cancelledTaskIds.includes(id)),
       )),
     );
   }

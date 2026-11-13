@@ -117,6 +117,12 @@ export type PermitDisplayState =
   | "not_due"
   | "preparing"
   | "applied"
+  /**
+   * Logbook only: filed (Beantragt), but the date the authority was expected to decide has passed
+   * ("Antwort überfällig", research 10): time to chase the authority. Set by `logbookDisplayState`
+   * (`isAnswerOverdue`).
+   */
+  | "answer_overdue"
   | "granted"
   | "expiring"
   | "expired"
@@ -189,15 +195,34 @@ export const DISPLAY_STATE_SEVERITY: Record<PermitDisplayState, number> = {
   rejected: 0,
   expired: 1,
   missing: 2,
-  preparing: 3,
-  not_due: 4,
-  applied: 5,
-  expiring: 6,
-  granted: 7,
-  not_required: 8,
-  past: 9,
-  superseded: 10,
+  // Chasing the authority comes right after "Fehlt": it needs the office, but the application is in.
+  answer_overdue: 3,
+  preparing: 4,
+  not_due: 5,
+  applied: 6,
+  expiring: 7,
+  granted: 8,
+  not_required: 9,
+  past: 10,
+  superseded: 11,
 };
+
+/**
+ * "Antwort überfällig": the permit is filed (Beantragt) and the date the authority was expected to decide
+ * (`permit.expected_decision_on`, filled from the requirement's usual decision day) lies before today. On
+ * the expected day itself it is still just waiting; without an expected date it never is overdue. One
+ * rule for the logbook state, the event health and "Was fehlt". Dates are Berlin `YYYY-MM-DD`.
+ */
+export function isAnswerOverdue(
+  permit: { status: PermitStatus; expectedDecisionOn?: string | null },
+  today: string,
+): boolean {
+  return (
+    permit.status === "applied" &&
+    permit.expectedDecisionOn != null &&
+    permit.expectedDecisionOn < today
+  );
+}
 
 /** Within this many days of the event a permit that is not granted yet is critical. */
 export const PERMIT_CRITICAL_DAYS = 14;
@@ -249,7 +274,7 @@ export function eventPermitHealth(
     if (overdue || close) return "critical";
     if (p.status === "applied") {
       // Waiting for the authority is fine until the expected decision has passed.
-      if (p.expectedDecisionOn != null && p.expectedDecisionOn < today) level = "warn";
+      if (isAnswerOverdue(p, today)) level = "warn";
       continue;
     }
     // Not filed yet: actionable once the apply-by date is within the horizon (or unknown).
