@@ -247,17 +247,31 @@ test("Task drawer: Erledigt and Wartet are buttons, the status badge opens every
   // An open task offers no "Wieder öffnen"; that one belongs to finished tasks only.
   await expect(drawer.getByRole("button", { name: "Wieder öffnen" })).toHaveCount(0);
   // The status badge itself opens every status; the current one is marked and can't be picked again.
-  await drawer.getByRole("button", { name: /^Status ändern \(jetzt: / }).click();
+  // The seeded task may be Offen or already In Arbeit: switch to the other one and back.
+  const statusBadge = drawer.getByRole("button", { name: /^Status ändern \(jetzt: / });
+  const current = /jetzt: ([^)]+)\)/.exec(
+    (await statusBadge.getAttribute("aria-label")) ?? "",
+  )?.[1];
+  expect(["Offen", "In Arbeit"]).toContain(current);
+  const other = current === "Offen" ? "In Arbeit" : "Offen";
+  await statusBadge.click();
   const menu = page.getByRole("menu");
   for (const entry of ["Offen", "In Arbeit", "Wartet", "Blockiert", "Übersprungen", "Erledigt"])
     await expect(menu.getByRole("menuitem", { name: entry, exact: true })).toBeVisible();
-  // Picking one applies it at once; the badge then names it, and the menu takes it back to Offen.
-  await menu.getByRole("menuitem", { name: "In Arbeit", exact: true }).click();
-  const badge = drawer.getByRole("button", { name: "Status ändern (jetzt: In Arbeit)" });
+  // The current one is marked and can't be picked again.
+  await expect(menu.getByRole("menuitem", { name: current as string, exact: true })).toBeDisabled();
+  // Picking one applies it at once; the badge then names it, and the menu takes it back.
+  await menu.getByRole("menuitem", { name: other, exact: true }).click();
+  const badge = drawer.getByRole("button", { name: `Status ändern (jetzt: ${other})` });
   await expect(badge).toBeVisible();
   await badge.click();
-  await page.getByRole("menu").getByRole("menuitem", { name: "Offen", exact: true }).click();
-  await expect(drawer.getByRole("button", { name: "Status ändern (jetzt: Offen)" })).toBeVisible();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: current as string, exact: true })
+    .click();
+  await expect(
+    drawer.getByRole("button", { name: `Status ändern (jetzt: ${current})` }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   // The carried-over count and the origin are not shown; the footer hint is gone.
   await expect(drawer.getByText("übertragen")).toHaveCount(0);
