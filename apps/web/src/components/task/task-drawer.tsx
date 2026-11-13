@@ -100,7 +100,7 @@ export function TaskDrawer({
   const tStatus = useTranslations("tasks.status");
   const tToast = useTranslations("board.toast");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const search = useSearchParams();
   const router = useRouter();
   // The URL says whether the drawer is open: closing replaces it before the server has answered.
@@ -137,7 +137,7 @@ export function TaskDrawer({
     startTransition(async () => {
       const result = await editTask(id, patch);
       if (!result.ok) {
-        showToast({ message: actions.errorText(result.error) });
+        showError(actions.errorText(result.error));
         return;
       }
       if (!result.data.changed) {
@@ -153,7 +153,8 @@ export function TaskDrawer({
         actionLabel: tToast("undo"),
         onAction: async () => {
           const back = await editTask(id, undo);
-          showToast({ message: back.ok ? tToast("reverted") : actions.errorText(back.error) });
+          if (back.ok) showToast({ message: tToast("reverted") });
+          else showError(actions.errorText(back.error));
         },
       });
     });
@@ -187,7 +188,8 @@ export function TaskDrawer({
       actionLabel: tToast("undo"),
       onAction: async () => {
         const back = await editTask(task.id, undo);
-        showToast({ message: back.ok ? tToast("reverted") : actions.errorText(back.error) });
+        if (back.ok) showToast({ message: tToast("reverted") });
+        else showError(actions.errorText(back.error));
       },
     });
     return null;
@@ -213,7 +215,7 @@ export function TaskDrawer({
     startTransition(async () => {
       const result = await newSubtask(task.id, value);
       if (result.ok) setNewItem("");
-      else showToast({ message: actions.errorText(result.error) });
+      else showError(actions.errorText(result.error));
     });
   }
 
@@ -283,7 +285,8 @@ export function TaskDrawer({
     startTransition(async () => {
       const next = task.effortFeedback === value ? null : value;
       const result = await giveEffortFeedback(task.id, next);
-      showToast({ message: result.ok ? t("feedback.saved") : actions.errorText(result.error) });
+      if (result.ok) showToast({ message: t("feedback.saved") });
+      else showError(actions.errorText(result.error));
     });
   }
 

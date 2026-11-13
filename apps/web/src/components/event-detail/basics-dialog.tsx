@@ -47,7 +47,7 @@ export function BasicsDialog({
   const t = useTranslations("eventDetail.basics");
   const tWarn = useTranslations("generate.warn");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const { confirm, dialog } = useConfirm();
   const [name, setName] = useState(basics.name);
   const [days, setDays] = useState(String(basics.durationDays));
@@ -150,7 +150,8 @@ export function BasicsDialog({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoBasics(eventId, previous, next);
-          showToast({ message: undone.ok ? t("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });

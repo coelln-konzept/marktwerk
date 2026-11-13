@@ -137,7 +137,7 @@ export function BoardDnd({
   const t = useTranslations("board");
   const tNest = useTranslations("board.nest");
   const board = useBoard();
-  const { showToast } = useShell();
+  const { showError } = useShell();
   const problemText = useNestProblemText();
   const reducedMotion = usePrefersReducedMotion();
   const [state, setState] = useState<DragState>(IDLE);
@@ -310,7 +310,7 @@ export function BoardDnd({
       const parent = board.taskById(nest.parentId);
       if (!parent) return;
       if (nest.problem) {
-        showToast({ message: problemText(nest.problem, task.title, parent.title), tone: "error" });
+        showError(problemText(nest.problem, task.title, parent.title));
         return;
       }
       board.actions.setParent(task, parent);

@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Avatar } from "@/components/ui/avatar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { rowFocus } from "@/components/ui/table";
 import { formatMinutesAsHours, formatMoney, formatNumber } from "@/lib/format";
 import { hrefWith } from "@/lib/url";
 import { cn } from "@/lib/utils";
@@ -190,15 +191,16 @@ export async function MonthGrid({
                       data-row
                       data-peek={peek}
                       data-href={peek}
-                      aria-selected={personId === row.staffMemberId}
+                      aria-current={personId === row.staffMemberId}
                       className={cn(
-                        "group/row border-border-subtle border-b outline-hidden hover:bg-hover focus-visible:bg-selected aria-selected:bg-selected",
+                        "group/row border-border-subtle border-b hover:bg-hover aria-[current=true]:bg-selected",
+                        rowFocus,
                         !row.active && "text-muted-foreground",
                       )}
                     >
                       <th
                         scope="row"
-                        className="sticky left-0 z-[1] min-w-48 bg-card px-3 py-1.5 text-left font-normal group-hover/row:bg-hover group-aria-selected/row:bg-selected"
+                        className="sticky left-0 z-[1] min-w-48 bg-card px-3 py-1.5 text-left font-normal group-hover/row:bg-hover group-focus-visible/row:bg-selected group-aria-[current=true]/row:bg-selected"
                       >
                         <Link
                           href={peek as never}

@@ -26,13 +26,13 @@ export function MarkAllCompanyButton({
   iconOnlyOnPhone?: boolean;
 }) {
   const t = useTranslations("notificationCenter");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function run() {
     startTransition(async () => {
       const result = await markAllCompanyReadAction(art, markt);
-      if (!result.ok) return showToast({ message: t("errors.generic") });
+      if (!result.ok) return showError(t("errors.generic"));
       const { ids } = result.data;
       if (ids.length === 0) return showToast({ message: t("toast.nothingToMark") });
       showToast({

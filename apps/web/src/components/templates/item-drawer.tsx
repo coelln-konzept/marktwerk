@@ -227,7 +227,7 @@ export function ItemDrawer({
   const offsetText = useOffsetText();
   const locale = useLocale();
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError: showErrorToast } = useShell();
   const [form, setForm] = useState(() => initialForm(item, newPhase));
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -350,7 +350,7 @@ export function ItemDrawer({
         actionLabel: t("drawer.children.undo"),
         onAction: async () => {
           const back = await addItemAction(versionId, childFields, afterKey, beforeKey);
-          if (!back.ok) showToast({ message: errorText(back.error), tone: "error" });
+          if (!back.ok) showErrorToast(errorText(back.error));
         },
       });
     });

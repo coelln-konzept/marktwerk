@@ -64,11 +64,23 @@ export function TH({
   );
 }
 
+/**
+ * Keyboard focus on a list row (KeyboardRows, J/K, Tab): the selected tint plus a 2px inset ring in the
+ * accent. The tint alone is ~1.1:1 against the card and doesn't count as a visible focus (WCAG 2.4.7).
+ * Use it on every focusable row instead of `outline-hidden focus-visible:bg-selected`.
+ */
+export const rowFocus =
+  "focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
+
+/**
+ * A table row. The row whose Vorschau/drawer is open carries `aria-current` (not `aria-selected`, which
+ * is only valid inside grid/listbox roles) and gets the selected tint.
+ */
 export function TR({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       className={cn(
-        "group/row border-border-subtle border-b last:border-b-0 hover:bg-hover aria-selected:bg-selected",
+        "group/row border-border-subtle border-b last:border-b-0 hover:bg-hover aria-[current=true]:bg-selected",
         className,
       )}
       {...props}

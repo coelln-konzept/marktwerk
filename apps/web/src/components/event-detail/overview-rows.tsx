@@ -18,6 +18,7 @@ import { TaskTick } from "@/components/task/task-tick";
 import { DueBadge } from "@/components/ui/due-badge";
 import { focusNeighbourRow } from "@/components/ui/keyboard-rows";
 import { StatusBadge, type Tone } from "@/components/ui/status-badge";
+import { rowFocus } from "@/components/ui/table";
 import { formatDateShort, formatDateShortYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -29,9 +30,6 @@ import { cn } from "@/lib/utils";
 
 const taskHref = (eventId: string, taskId: string) =>
   `/veranstaltungen/${eventId}?aufgabe=${taskId}` as never;
-
-const rowFocus =
-  "scroll-mt-20 focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
 
 /** The row's status as the user sees it: the tick applies before the server has answered. */
 function useOptimisticStatus(status: TaskStatusKey) {
@@ -99,7 +97,7 @@ export function MissingTaskRow({
         }
       }}
       className={cn(
-        "flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover",
+        "flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover scroll-mt-20",
         rowFocus,
         done && "opacity-60",
       )}
@@ -196,7 +194,7 @@ export function KeyTaskItem({
         }
       }}
       className={cn(
-        "flex cursor-pointer items-center gap-x-2.5 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover",
+        "flex cursor-pointer items-center gap-x-2.5 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover scroll-mt-20",
         rowFocus,
       )}
     >

@@ -36,7 +36,7 @@ export function PermitStatusFlow({
 }) {
   const t = useTranslations("permitDrawer");
   const tState = useTranslations("permitStatus");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
   const { primary, secondary, menu } = splitPermitTransitions(status);
   const none = !primary && secondary.length === 0 && menu.length === 0;
@@ -56,7 +56,7 @@ export function PermitStatusFlow({
   function move(to: PermitStatus) {
     startTransition(async () => {
       const result = await changePermitStatus(permitId, to);
-      if (!result.ok) return showToast({ message: errorText(result.error) });
+      if (!result.ok) return showError(errorText(result.error));
       const { changed, previous, closedTaskIds } = result.data;
       if (!changed) return showToast({ message: t("statusUnchanged", { status: label(to) }) });
       showToast({
@@ -67,7 +67,8 @@ export function PermitStatusFlow({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoPermitStatus(permitId, to, previous, closedTaskIds);
-          showToast({ message: undone.ok ? t("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -77,14 +78,15 @@ export function PermitStatusFlow({
   function reinstate() {
     startTransition(async () => {
       const result = await reinstatePermitAction(permitId);
-      if (!result.ok) return showToast({ message: errorText(result.error) });
+      if (!result.ok) return showError(errorText(result.error));
       const { status: back } = result.data;
       showToast({
         message: t("reinstated", { status: label(back) }),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await changePermitStatus(permitId, "superseded");
-          showToast({ message: undone.ok ? t("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });

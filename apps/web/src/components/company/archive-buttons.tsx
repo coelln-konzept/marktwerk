@@ -21,7 +21,7 @@ import { useErrorText } from "./shared";
 export function ArchiveObligationButton({ id, title }: { id: string; title: string }) {
   const t = useTranslations("company");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
 
@@ -29,7 +29,7 @@ export function ArchiveObligationButton({ id, title }: { id: string; title: stri
     startTransition(async () => {
       const result = await archiveObligationAction(id);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       router.push("/firma/pflichten" as never);
@@ -38,11 +38,9 @@ export function ArchiveObligationButton({ id, title }: { id: string; title: stri
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await restoreObligationAction(id);
-          showToast({
-            message: undone.ok
-              ? t("obligation.restored", { title: undone.data.title })
-              : errorText(undone.error),
-          });
+          if (undone.ok)
+            showToast({ message: t("obligation.restored", { title: undone.data.title }) });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -64,7 +62,7 @@ export function ArchiveObligationButton({ id, title }: { id: string; title: stri
 export function ArchiveVehicleButton({ id, name }: { id: string; name: string }) {
   const t = useTranslations("company");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
 
@@ -72,7 +70,7 @@ export function ArchiveVehicleButton({ id, name }: { id: string; name: string })
     startTransition(async () => {
       const result = await archiveVehicleAction(id);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       router.push("/firma/fahrzeuge" as never);
@@ -81,11 +79,8 @@ export function ArchiveVehicleButton({ id, name }: { id: string; name: string })
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await restoreVehicleAction(id);
-          showToast({
-            message: undone.ok
-              ? t("vehicle.restored", { name: undone.data.name })
-              : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("vehicle.restored", { name: undone.data.name }) });
+          else showError(errorText(undone.error));
         },
       });
     });

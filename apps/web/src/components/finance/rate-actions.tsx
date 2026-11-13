@@ -31,7 +31,7 @@ export function RateActions({
 }) {
   const t = useTranslations("finance.rate");
   const tErrors = useTranslations("finance.errors");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   const errorText = (code: string) =>
@@ -40,17 +40,14 @@ export function RateActions({
   function cancel() {
     startTransition(async () => {
       const result = await cancelInstallmentAction(rate.id);
-      if (!result.ok) return showToast({ message: errorText(result.error) });
+      if (!result.ok) return showError(errorText(result.error));
       showToast({
         message: t("cancelled", { position: rate.position }),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await reopenInstallmentsAction([rate.id]);
-          showToast({
-            message: undone.ok
-              ? t("reopened", { position: rate.position })
-              : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("reopened", { position: rate.position }) });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -59,9 +56,8 @@ export function RateActions({
   function reopen() {
     startTransition(async () => {
       const result = await reopenInstallmentsAction([rate.id]);
-      showToast({
-        message: result.ok ? t("reopened", { position: rate.position }) : errorText(result.error),
-      });
+      if (result.ok) showToast({ message: t("reopened", { position: rate.position }) });
+      else showError(errorText(result.error));
     });
   }
 
@@ -92,18 +88,16 @@ export function RateActions({
 export function CancelPayableButton({ payableId, title }: { payableId: string; title: string }) {
   const t = useTranslations("finance.detail");
   const tErrors = useTranslations("finance.errors");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function cancel() {
     startTransition(async () => {
       const result = await cancelPayableAction(payableId);
       if (!result.ok) {
-        showToast({
-          message: tErrors.has(result.error as never)
-            ? tErrors(result.error as never)
-            : tErrors("generic"),
-        });
+        showError(
+          tErrors.has(result.error as never) ? tErrors(result.error as never) : tErrors("generic"),
+        );
         return;
       }
       const ids = result.data.cancelledIds;
@@ -112,7 +106,8 @@ export function CancelPayableButton({ payableId, title }: { payableId: string; t
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await reopenInstallmentsAction(ids);
-          showToast({ message: undone.ok ? t("reopenedToast", { title }) : tErrors("generic") });
+          if (undone.ok) showToast({ message: t("reopenedToast", { title }) });
+          else showError(tErrors("generic"));
         },
       });
     });

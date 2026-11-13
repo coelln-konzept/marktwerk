@@ -28,7 +28,7 @@ export function OdometerButton({
   const t = useTranslations("company");
   const to = useTranslations("company.odometer");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -57,7 +57,8 @@ export function OdometerButton({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoOdometerAction(vehicleId, previous, next);
-          showToast({ message: undone.ok ? to("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: to("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });

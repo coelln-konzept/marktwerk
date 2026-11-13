@@ -18,6 +18,7 @@ import { SnoozeMenu } from "@/components/task/snooze";
 import { DueBadge, dueLook } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
+import { rowFocus } from "@/components/ui/table";
 import { formatDateShortYear } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
@@ -139,7 +140,8 @@ function DueRow({
       // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter/Space (KeyboardRows)
       tabIndex={0}
       className={cn(
-        "grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 py-1.5 pr-4 hover:bg-hover focus-visible:bg-selected @md:flex @md:items-center",
+        "grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 py-1.5 pr-4 hover:bg-hover @md:flex @md:items-center",
+        rowFocus,
         nested ? "pl-8" : "border-border-subtle border-b py-2 pl-4 last:border-b-0",
       )}
     >

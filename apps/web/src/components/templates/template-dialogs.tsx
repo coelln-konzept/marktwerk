@@ -184,7 +184,7 @@ export function TemplateSettingsButton({
 }) {
   const t = useTranslations("taskTemplates");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
@@ -204,11 +204,8 @@ export function TemplateSettingsButton({
         actionLabel: t("form.undo"),
         onAction: async () => {
           const undone = await archiveTemplateAction(template.id, false);
-          showToast({
-            message: undone.ok
-              ? t("form.restored", { name: template.name })
-              : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("form.restored", { name: template.name }) });
+          else showError(errorText(undone.error));
         },
       });
     });

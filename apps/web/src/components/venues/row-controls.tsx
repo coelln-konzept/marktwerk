@@ -13,7 +13,7 @@ import { useErrorText } from "./shared";
 /** Edit and delete buttons at the end of a row; delete shows an undo toast instead of asking. */
 export function RowControls({ row, zone }: { row: RowValues; zone: { id: string; name: string } }) {
   const t = useTranslations("venues.manage");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -22,7 +22,7 @@ export function RowControls({ row, zone }: { row: RowValues; zone: { id: string;
     startTransition(async () => {
       const result = await deleteRowAction(row.id);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       showToast({
@@ -30,11 +30,8 @@ export function RowControls({ row, zone }: { row: RowValues; zone: { id: string;
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await restoreRowAction(row.id);
-          showToast({
-            message: undone.ok
-              ? t("row.restored", { row: undone.data.label })
-              : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("row.restored", { row: undone.data.label }) });
+          else showError(errorText(undone.error));
         },
       });
     });

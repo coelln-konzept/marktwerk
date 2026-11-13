@@ -45,7 +45,7 @@ export function PayDialog({
   const tMethods = useTranslations("finance.methods");
   const tErrors = useTranslations("finance.errors");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [paidOn, setPaidOn] = useState(today);
@@ -101,11 +101,8 @@ export function PayDialog({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoPaymentAction(rate.id, previous, paidAmountCents);
-          showToast({
-            message: undone.ok
-              ? t("reverted", { position: rate.position })
-              : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("reverted", { position: rate.position }) });
+          else showError(errorText(undone.error));
         },
       });
     });

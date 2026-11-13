@@ -19,13 +19,13 @@ export function MarkAllReadButton({
   compact?: boolean;
 }) {
   const t = useTranslations("notificationsPage");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function run() {
     startTransition(async () => {
       const result = await markAllReadAction(group);
-      if (!result.ok) return showToast({ message: t("errors.generic") });
+      if (!result.ok) return showError(t("errors.generic"));
       const { ids } = result.data;
       if (ids.length === 0) return showToast({ message: t("nothingToMark") });
       showToast({

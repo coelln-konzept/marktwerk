@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 /** "Entfernen": archives the agreement; the undo toast restores it (no confirmation dialog). */
 export function RemoveAgreementButton({ id }: { id: string }) {
   const t = useTranslations("agreements");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
   return (
     <Button
@@ -21,7 +21,7 @@ export function RemoveAgreementButton({ id }: { id: string }) {
       onClick={() =>
         startTransition(async () => {
           const result = await removeAgreement(id);
-          if (!result.ok) return showToast({ message: t("errors.generic") });
+          if (!result.ok) return showError(t("errors.generic"));
           showToast({
             message: t("removed"),
             actionLabel: t("undo"),

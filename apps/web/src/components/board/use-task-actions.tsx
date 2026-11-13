@@ -83,7 +83,7 @@ export function useTaskActions({
   const tTasks = useTranslations("tasks");
   const tShell = useTranslations("errors");
   const locale = useLocale();
-  const { showToast, confirm } = useShell();
+  const { showToast, showError, confirm } = useShell();
   const router = useRouter();
   const drawer = useDrawerHrefs();
   const [pending, startTransition] = useTransition();
@@ -127,15 +127,12 @@ export function useTaskActions({
         actionLabel: t("toast.undo"),
         onAction: async () => {
           const result = await callAction(() => undoChange(auditId));
-          showToast(
-            result.ok
-              ? { message: t("toast.reverted") }
-              : { message: errorText(result.error), tone: "error" },
-          );
+          if (result.ok) showToast({ message: t("toast.reverted") });
+          else showError(errorText(result.error));
         },
       });
     },
-    [showToast, t, errorText],
+    [showToast, showError, t, errorText],
   );
 
   /**
@@ -146,22 +143,23 @@ export function useTaskActions({
   const fail = useCallback(
     (result: Extract<Result, { ok: false }>, task: TaskRef) => {
       if (result.error === "evidence_missing") {
-        showToast({
-          message: t("errors.evidence_missing", {
+        showError(
+          t("errors.evidence_missing", {
             title: task.title,
             what: evidenceText(result.detail, result.count),
           }),
-          tone: "error",
-          actionLabel: t("toast.open"),
-          // "Öffnen" goes somewhere; Strg+Z must not trigger it.
-          undoable: false,
-          onAction: () => router.push(drawer.open(task.id) as never),
-        });
+          {
+            actionLabel: t("toast.open"),
+            // "Öffnen" goes somewhere; Strg+Z must not trigger it.
+            undoable: false,
+            onAction: () => router.push(drawer.open(task.id) as never),
+          },
+        );
         return;
       }
-      showToast({ message: errorText(result.error), tone: "error" });
+      showError(errorText(result.error));
     },
-    [showToast, t, evidenceText, errorText, router, drawer],
+    [showError, t, evidenceText, errorText, router, drawer],
   );
 
   /**
@@ -290,16 +288,13 @@ export function useTaskActions({
                 break;
               }
             }
-            showToast(
-              failure
-                ? { message: errorText(failure), tone: "error" }
-                : { message: t("toast.reverted") },
-            );
+            if (failure) showError(errorText(failure));
+            else showToast({ message: t("toast.reverted") });
           },
         });
       });
     },
-    [apply, staff, scopeEventId, fail, showToast, t, errorText],
+    [apply, staff, scopeEventId, fail, showToast, showError, t, errorText],
   );
 
   const setStatus = useCallback(
@@ -384,13 +379,11 @@ export function useTaskActions({
         apply?.({ kind: "parent", id: task.id, parentId: parent?.id ?? null });
         const result = await callAction(() => setParentAction(task.id, parent?.id ?? null));
         if (!result.ok) {
-          showToast({
-            message:
-              result.error === "invalid_parent"
-                ? nestProblemText(result.detail?.[0], task.title, parent?.title ?? "")
-                : errorText(result.error),
-            tone: "error",
-          });
+          showError(
+            result.error === "invalid_parent"
+              ? nestProblemText(result.detail?.[0], task.title, parent?.title ?? "")
+              : errorText(result.error),
+          );
           return;
         }
         if (!result.data.changed) return;
@@ -404,7 +397,7 @@ export function useTaskActions({
         );
       });
     },
-    [apply, showToast, nestProblemText, errorText, showUndo, t],
+    [apply, showError, nestProblemText, errorText, showUndo, t],
   );
 
   return {

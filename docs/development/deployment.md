@@ -10,7 +10,30 @@
 
 Vercel environment variables: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
 (the production `*.vercel.app` URL), `APP_URL` (same), `CRON_SECRET`, `APP_TIMEZONE=Europe/Berlin`, and the mail
-fence variables below (`APP_ENV`, `MAIL_CATCH_ALL`, optional `MAIL_ALLOWLIST`).
+fence variables below (`APP_ENV`, `MAIL_CATCH_ALL`, optional `MAIL_ALLOWLIST`). `MIGRATE_ON_PREVIEW=1` exists only as a
+branch-scoped Preview variable of a branch environment (below).
+
+### Migrations in the Vercel build
+`apps/web/vercel.json` runs `pnpm --filter @marktwerk/db migrate:build` before `next build`.
+`packages/db/scripts/migrate-on-build.ts` decides from Vercel's `VERCEL_ENV` whether to run `drizzle-kit migrate`
+(rules in `migrate-gate.ts`, tested by `pnpm --filter @marktwerk/db test`):
+
+| Build | Migrates? |
+|---|---|
+| `VERCEL_ENV=production` (pushes to `main`) | Yes |
+| `VERCEL_ENV=preview` (every other branch) | **Only with `MIGRATE_ON_PREVIEW=1`.** Otherwise the log says `[migrate] Skipped: Vercel preview build without MIGRATE_ON_PREVIEW=1…` and the build goes on |
+| No `VERCEL_ENV` (local, CI, a future host) | Yes, as before |
+
+Why: a preview without its own branch database uses the **shared Preview** `DATABASE_URL`. The repo does not record
+which database that is; as the only other hosted database is Supabase `marktwerk-dev`, assume it is the dev database
+the deployed app uses. Migrating it from a PR build would change a shared database before the PR is reviewed or merged
+(audit 2026-11-13, PR #47's `pg_trgm` migration). So a plain preview of a branch with a new migration runs against
+the old schema: pages that need the new columns fail there until the branch has its own environment or is merged.
+
+**Set `MIGRATE_ON_PREVIEW=1` only as a Preview variable scoped to the git branch of a branch environment**, next to
+that branch's own `DATABASE_URL` / `DATABASE_MIGRATION_URL` (see *up* below). Never as a shared Preview value and never
+on Production (production migrates anyway). Only the exact value `1` opts in. The script runs with Node's built-in type
+stripping, so the Vercel project needs Node 22.18 or newer (`.nvmrc`: 24).
 
 ### Outbound mail fence (ADR 0023)
 Every mail the SMTP transport sends (`createMailTransport` in `packages/jobs`, the one path for the queued mails and
@@ -64,8 +87,9 @@ is loaded by the manual workflow `.github/workflows/seed-dev.yml`.
    empties **every app table except the sign-in tables** (`user`, `session`, `account`, `verification`,
    `user_preference`; `apps/web/scripts/wipe-app-data.ts`), so logins keep working and are linked to the new staff
    records by e-mail. Everything else (templates, markets, dates, tasks, permits, contacts, vendors, money, settings)
-   is replaced. Destructive: ask the product owner first. Re-running never changes existing logins or passwords. The seed does
-   **not** migrate: migrations run in the Vercel build (`vercel.json`), so deploy first when the schema changed.
+   is replaced. Destructive: ask the product owner first. Re-running never changes existing logins or passwords. The
+   seed does **not** migrate: migrations run in the Vercel production build (`vercel.json`, see *Migrations in the
+   Vercel build*), so deploy `main` first when the schema changed.
 
 Locally the same thing is `pnpm db:seed` (reads the root `.env` if there is one; in CI the variables come from the
 environment); `pnpm db:wipe -- --yes` empties the app data first (logins kept).
@@ -81,7 +105,7 @@ The database host is **Neon** (decided 2026-11-10); `main` stays on Supabase. Th
 | Root branch `main` | Empty. Holds the roles only: `neon_admin` (created with the project, member of `neon_superuser`, used for setup) and **`marktwerk_app`** (created by SQL: `LOGIN`, `CREATE` on the database, no superuser / `CREATEROLE` / `CREATEDB` / `BYPASSRLS`, not in `neon_superuser`). Child branches inherit both roles and passwords |
 | Per environment | `seed/<env>`: migrated with the **branch's own** migrations and seeded, then left alone (no connections, so no compute). `<env>`: child of it, the one the deployment uses |
 | App URLs | `DATABASE_URL` = `marktwerk_app` on the child's **pooled** host (`ep-…-pooler…`, PgBouncer transaction mode); `DATABASE_MIGRATION_URL` = same role on the **direct** host. Use `sslmode=verify-full` (node-postgres warns about `require`) |
-| Vercel | Preview variables **scoped to the git branch**: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `CRON_SECRET` (own random values, marked sensitive). They override the shared Preview values for that branch only; Production and other previews are untouched. `BETTER_AUTH_URL`/`APP_URL` stay shared: the branch URL is accepted through `VERCEL_BRANCH_URL` |
+| Vercel | Preview variables **scoped to the git branch**: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `CRON_SECRET` (own random values, marked sensitive) and `MIGRATE_ON_PREVIEW=1` (lets the branch's preview builds migrate its own database). They override the shared Preview values for that branch only; Production and other previews are untouched. `BETTER_AUTH_URL`/`APP_URL` stay shared: the branch URL is accepted through `VERCEL_BRANCH_URL` |
 | Mail | Off: the seed writes `settings.email_enabled = false`. Before switching it on, make sure the branch's deployment has `APP_ENV=preview` and `MAIL_CATCH_ALL` (shared Preview values or branch-scoped ones, see *Outbound mail fence* above), then set `SMTP_*` |
 | Jobs | No cron for branch environments; run a job by hand with `POST /api/cron/<job>` and the branch's `CRON_SECRET` if needed |
 | Free-tier budget | 10 branches per project: root + 2 per environment, so at most 4 environments at once |
@@ -102,6 +126,9 @@ Secrets never go into the repo or chat. Keep them in gitignored files in the wor
 | `exp-stand-allocation` | `exp/stand-allocation` | `https://marktwerk-git-exp-stand-allocation-ardas-s-projects.vercel.app` | `seed/exp-stand-allocation` (`br-jolly-butterfly-b9cydjpx`) → `exp-stand-allocation` (`br-cool-feather-b9l37jd1`) | **2026-11-10** | Owner only (`SEED_OWNER_*` from the local `.env`); staff logins skipped |
 
 Created 2026-11-10 from `exp/stand-allocation` at `0237e6a` (migrations 0000–0008).
+`MIGRATE_ON_PREVIEW=1` (branch-scoped) is still to be added for this environment: until then its preview builds skip
+migrations, so run `pnpm --filter @marktwerk/db migrate` with `.env.neon-exp-stand-allocation` loaded after a new
+branch migration.
 
 ### One-time: project and app role
 1. `npx neonctl@latest auth` (browser login), then
@@ -127,10 +154,13 @@ Created 2026-11-10 from `exp/stand-allocation` at `0237e6a` (migrations 0000–0
 4. `neonctl branches create --project-id <id> --name <env> --parent seed/<env>`; build its URLs into `.env.neon-<env>`.
 5. Generate `BETTER_AUTH_SECRET` (`openssl rand -base64 32`) and `CRON_SECRET` (`openssl rand -hex 32`) into
    `.env.vercel-<env>`.
-6. Add the four variables, each piped from the files, never typed on the command line:
+6. Add the four secret variables, each piped from the files, never typed on the command line:
    `vercel env add <NAME> preview <git-branch> --sensitive` (in a directory linked to project `marktwerk`).
+   Then the opt-in, **only after** the branch's `DATABASE_URL` / `DATABASE_MIGRATION_URL` are in place:
+   `printf 1 | vercel env add MIGRATE_ON_PREVIEW preview <git-branch>`.
 7. Redeploy the branch's latest deployment (`vercel redeploy <deployment-url> --target preview`) or push to the
-   branch. The build migrates the child (no-op right after up).
+   branch. The build log must show `[migrate] Vercel preview build with MIGRATE_ON_PREVIEW=1 (branch database)`; it
+   migrates the child (no-op right after up).
 8. Check: `vercel curl /api/health --deployment <branch-url>` → `{"ok":true,"db":"up"}` (previews are behind
    Vercel's deployment protection, hence `vercel curl`), and sign in as the seeded owner.
 
@@ -144,7 +174,7 @@ Created 2026-11-10 from `exp/stand-allocation` at `0237e6a` (migrations 0000–0
    step 1 (the Vercel variables need updating only if the endpoint host changed).
 
 ### down `<env>`
-1. `vercel env rm <NAME> preview <git-branch> --yes` for the four variables.
+1. `vercel env rm <NAME> preview <git-branch> --yes` for the five variables (`MIGRATE_ON_PREVIEW` first).
 2. `neonctl branches delete <env> --project-id <id>`, then `neonctl branches delete seed/<env> --project-id <id>`.
 3. Delete the local `.env.neon-*<env>` and `.env.vercel-<env>` files and remove the row from the table above.
 

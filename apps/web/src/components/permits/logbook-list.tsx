@@ -12,7 +12,7 @@ import { DueBadge } from "@/components/ui/due-badge";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
 import { Segments } from "@/components/ui/segmented-links";
-import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
+import { rowFocus, Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
 import { formatDate, formatDateShortYear, formatMoney, todayIn } from "@/lib/format";
 import { hrefWith } from "@/lib/url";
 import type { LogbookRow } from "@/server/queries/permits";
@@ -117,8 +117,8 @@ export async function LogbookList({
                       data-row
                       data-peek={peek}
                       data-href={peek}
-                      aria-selected={selectedId === r.id}
-                      className="outline-hidden focus-visible:bg-selected"
+                      aria-current={selectedId === r.id}
+                      className={rowFocus}
                     >
                       <TD className="max-w-64">
                         <Link

@@ -45,7 +45,7 @@ export function ZoneControls({
   count: number;
 }) {
   const t = useTranslations("venues.manage");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [renaming, setRenaming] = useState(false);
   const [addingRow, setAddingRow] = useState(false);
@@ -55,7 +55,7 @@ export function ZoneControls({
     startTransition(async () => {
       const result = await moveZoneAction(zone.id, direction);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       showToast({
@@ -74,7 +74,7 @@ export function ZoneControls({
     startTransition(async () => {
       const result = await deleteZoneAction(zone.id);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       const { name, rowCount } = result.data;
@@ -86,11 +86,8 @@ export function ZoneControls({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await restoreZoneAction(zone.id);
-          showToast({
-            message: undone.ok
-              ? t("zone.restored", { zone: undone.data.name })
-              : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("zone.restored", { zone: undone.data.name }) });
+          else showError(errorText(undone.error));
         },
       });
     });

@@ -425,7 +425,10 @@ Design prototype; change colours there only). The first component-by-component m
 WCAG 2.2 AA from the start (internal tools are likely outside the EAA/BFSG, but the Phase 4 vendor booking form isn't,
 and components are shared). Focus visible everywhere, logical tab order per page; focus moves into an opened
 Vorschau/drawer and returns to the originating row on close; every icon button labelled, contrast checked in both
-themes, reduced-motion respected.
+themes, reduced-motion respected. A focused list row shows the selected tint **plus** a 2 px inset ring in the accent
+(one shared `rowFocus` class in `components/ui/table.tsx`; the tint alone is too faint); the row whose Vorschau or
+drawer is open carries `aria-current` (`aria-selected` is only for grid/listbox roles). Status dots and meter fills
+are ≥ 3:1 on the card and the sunken meter track, white text on the "ok" dot ≥ 4.5:1.
 
 ## 11. Rollout (change management)
 1. Sandbox with synthetic data; the office manager tries Übersicht + board first; the owner starts on Übersicht.

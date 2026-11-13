@@ -9,6 +9,7 @@ import { TaskTick, TickMark } from "@/components/task/task-tick";
 import { Avatar } from "@/components/ui/avatar";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { rowFocus } from "@/components/ui/table";
 import { formatDateShort, formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
@@ -203,7 +204,8 @@ function AblaufRow({ task, parent }: { task: BoardTask; parent?: BoardTask }) {
       tabIndex={0}
       onKeyDown={onKeyDown}
       className={cn(
-        "scroll-mt-28 grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-x-2 border-border-subtle border-b px-2 py-1.5 last:border-b-0 hover:bg-hover focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:grid-cols-[2rem_minmax(0,1fr)_8rem_10rem_6rem_2rem] sm:py-1",
+        "scroll-mt-28 grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-x-2 border-border-subtle border-b px-2 py-1.5 last:border-b-0 hover:bg-hover sm:grid-cols-[2rem_minmax(0,1fr)_8rem_10rem_6rem_2rem] sm:py-1",
+        rowFocus,
         parent && "pl-8 sm:pl-10",
         finished && "bg-sunken",
         drag.dragging && "opacity-50",

@@ -30,7 +30,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { useConfirm } from "@/components/ui/confirm";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
+import { rowFocus, Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
 import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import { PHASES } from "./labels";
@@ -99,7 +99,7 @@ export function ItemGrid({
   const offsetText = useOffsetText();
   const roleName = new Map(roles.map((r) => [r.id, r.name]));
   const titleOf = new Map(items.map((i) => [i.key, i.title]));
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const { confirm, dialog } = useConfirm();
   const [pending, startTransition] = useTransition();
 
@@ -120,7 +120,7 @@ export function ItemGrid({
   function run(work: () => Promise<{ ok: boolean; error?: string }>, message?: string) {
     startTransition(async () => {
       const result = await work();
-      if (!result.ok) showToast({ message: errorText(result.error ?? "generic") });
+      if (!result.ok) showError(errorText(result.error ?? "generic"));
       else if (message) showToast({ message });
     });
   }
@@ -195,8 +195,8 @@ export function ItemGrid({
                       tabIndex={0}
                       data-row
                       data-href={href(item.key)}
-                      aria-selected={selectedKey === item.key}
-                      className="outline-hidden focus-visible:bg-selected"
+                      aria-current={selectedKey === item.key}
+                      className={rowFocus}
                     >
                       <TD className="tabular w-10 whitespace-nowrap text-right text-muted-foreground">
                         {number}
