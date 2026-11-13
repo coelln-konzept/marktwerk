@@ -57,7 +57,8 @@ export function PermitEvents({
         message: t("eventRemoved"),
         actionLabel: t("undo"),
         onAction: async () => {
-          await linkEventsAction(permitId, [row.id]);
+          const undone = await linkEventsAction(permitId, [row.id]);
+          if (!undone.ok) showError(errorText(undone.error));
         },
       });
     });
