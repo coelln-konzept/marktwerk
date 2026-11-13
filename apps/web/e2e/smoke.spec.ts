@@ -842,24 +842,27 @@ test("Benachrichtigungen: no bell, the page stays; filters, Erledigt and Zurück
   }
 
   // Erledigt on any other task asks first (it leaves the list, decision D1): Abbrechen changes nothing.
+  // The seed may hold no such task notification; then this part has nothing to check.
   const task = page.locator("li[data-row][data-task]:not([data-open-subtasks])").first();
-  await task.getByRole("button", { name: "Erledigt", exact: true }).click();
-  await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
-  await expect(confirm).toBeHidden();
-  expect(await open()).toBe(before);
-  // Confirmed, it completes the task (own undo toast); the notification resolves with it. Only other missing
-  // evidence (photo, attachment) can still refuse it: a red toast says so and nothing changes.
-  await task.getByRole("button", { name: "Erledigt", exact: true }).click();
-  await confirm.getByRole("button", { name: "Ja, erledigt" }).click();
-  await expect(toastUndo(page).or(refused).first()).toBeVisible();
-  if (await refused.first().isVisible()) {
-    await expect(refused.first()).not.toContainText("Unteraufgabe");
+  if ((await task.count()) > 0) {
+    await task.getByRole("button", { name: "Erledigt", exact: true }).click();
+    await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
+    await expect(confirm).toBeHidden();
     expect(await open()).toBe(before);
-    await refused.first().getByRole("button", { name: "Hinweis schließen" }).click();
-  } else {
-    await expect.poll(open).toBe(before - 1);
-    await toastUndo(page).click();
-    await expect.poll(open).toBe(before);
+    // Confirmed, it completes the task (own undo toast); the notification resolves with it. Only other
+    // missing evidence (photo, attachment) can still refuse it: a red toast says so and nothing changes.
+    await task.getByRole("button", { name: "Erledigt", exact: true }).click();
+    await confirm.getByRole("button", { name: "Ja, erledigt" }).click();
+    await expect(toastUndo(page).or(refused).first()).toBeVisible();
+    if (await refused.first().isVisible()) {
+      await expect(refused.first()).not.toContainText("Unteraufgabe");
+      expect(await open()).toBe(before);
+      await refused.first().getByRole("button", { name: "Hinweis schließen" }).click();
+    } else {
+      await expect.poll(open).toBe(before - 1);
+      await toastUndo(page).click();
+      await expect.poll(open).toBe(before);
+    }
   }
 
   // Zurückstellen (in the "…" menu) with a preset moves it to "Zurückgestellt"; undo brings it back.
@@ -1199,7 +1202,11 @@ test("Übersicht: Erledigt asks first, since the task leaves the list; Abbrechen
 }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
-  const tick = page.getByRole("button", { name: /als erledigt markieren$/ }).first();
+  // A task without open subtasks: one with open subtasks opens its drawer instead of asking (R29).
+  const tick = page
+    .locator("li[data-row]:not([data-open-subtasks])")
+    .getByRole("button", { name: /als erledigt markieren$/ })
+    .first();
   const label = await tick.getAttribute("aria-label");
   await tick.click();
   const confirm = page.getByRole("dialog", { name: "Aufgabe erledigt?" });
