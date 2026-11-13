@@ -92,9 +92,22 @@ export function useTaskActions({
     [t, tShell],
   );
 
+  /** "2 offene Unteraufgaben, Foto fehlt": what still blocks "Erledigt". */
   const evidenceText = useCallback(
-    (detail: string[] | undefined) =>
-      (detail ?? []).map((d) => tTasks(`evidence.${d}` as never)).join(", "),
+    (detail: string[] | undefined, openSubtasks: number | undefined) =>
+      (detail ?? [])
+        .map((d) =>
+          d === "subtasks"
+            ? openSubtasks
+              ? tTasks("evidence.openSubtasks", { count: openSubtasks })
+              : tTasks("evidence.subtasks")
+            : d === "photo"
+              ? tTasks("evidence.photoMissing")
+              : d === "attachment"
+                ? tTasks("evidence.attachmentMissing")
+                : tTasks(`evidence.${d}` as never),
+        )
+        .join(", "),
     [tTasks],
   );
 
@@ -131,7 +144,7 @@ export function useTaskActions({
         showToast({
           message: t("errors.evidence_missing", {
             title: task.title,
-            what: evidenceText(result.detail),
+            what: evidenceText(result.detail, result.count),
           }),
           tone: "error",
           actionLabel: t("toast.open"),
@@ -146,6 +159,35 @@ export function useTaskActions({
     [showToast, t, evidenceText, errorText, router, drawer],
   );
 
+  /**
+   * "Hauptaufgabe auch erledigen?" (D2-11): after the last open subtask was finished, a second toast offers
+   * to complete the parent too. Its action is a plain status change with the usual undo toast; it only goes
+   * forward, so Strg+Z must not trigger it.
+   */
+  const offerParent = useCallback(
+    (parent: { id: string; title: string }) => {
+      const ref: TaskRef = { id: parent.id, title: parent.title, status: "todo" };
+      showToast({
+        message: t("toast.parentReady", { title: parent.title }),
+        actionLabel: t("toast.completeParent"),
+        undoable: false,
+        onAction: () =>
+          new Promise<void>((resolve) =>
+            startTransition(async () => {
+              apply?.({ kind: "status", id: parent.id, status: "done" });
+              const result = await callAction(() => setStatusAction(parent.id, "done"));
+              if (result.ok) {
+                if (result.data.changed)
+                  showUndo(t("toast.done", { title: parent.title }), result.data.auditId);
+              } else fail(result, ref);
+              resolve();
+            }),
+          ),
+      });
+    },
+    [apply, showToast, showUndo, fail, t],
+  );
+
   const run = useCallback(
     (
       patch: OptimisticPatch | null,
@@ -158,12 +200,13 @@ export function useTaskActions({
         const result = await callAction(call);
         if (result.ok) {
           if (result.data.changed) showUndo(success, result.data.auditId);
+          if (result.data.parentReady) offerParent(result.data.parentReady);
           return;
         }
         fail(result, task);
       });
     },
-    [apply, showUndo, fail],
+    [apply, showUndo, fail, offerParent],
   );
 
   const move = useCallback(
@@ -340,5 +383,13 @@ export function useTaskActions({
 }
 
 type Result =
-  | { ok: true; data: { changed: boolean; auditId: string | null } }
-  | { ok: false; error: string; detail?: string[] };
+  | {
+      ok: true;
+      data: {
+        changed: boolean;
+        auditId: string | null;
+        /** Status changes: the parent whose subtasks are all finished now (ADR 0021). */
+        parentReady?: { id: string; title: string } | null;
+      };
+    }
+  | { ok: false; error: string; detail?: string[]; count?: number };

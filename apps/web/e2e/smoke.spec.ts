@@ -1318,3 +1318,61 @@ test("Veranstaltung löschen: the button stays disabled until the exact name is 
   await expect(page.getByRole("heading", { level: 1, name })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Weitere Aktionen für/ })).toHaveCount(0);
 });
+
+test('Task drawer: subtasks are added with Enter, ticked off, and "Hauptaufgabe auch erledigen?" completes the parent', async ({
+  page,
+}) => {
+  // A fresh task (no subtasks yet), created from an event's Genehmigungen tab; it opens in the event's drawer.
+  await page.goto("/veranstaltungen");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/genehmigungen`);
+  await page.waitForLoadState("networkidle"); // hydrated, so the button reacts
+  await page.getByRole("button", { name: "Aufgabe", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Neue Aufgabe" });
+  const title = `E2E Plakate ${Date.now()}`;
+  await dialog.getByLabel("Titel").fill(title);
+  await dialog.getByRole("button", { name: "Aufgabe anlegen" }).click();
+  await expect(page).toHaveURL(/[?&]aufgabe=/);
+  await page.waitForLoadState("networkidle");
+  const drawer = page.getByRole("dialog", { name: title });
+  await expect(drawer).toBeVisible();
+  const toasts = page.getByRole("region", { name: "Hinweise" });
+
+  // Two subtasks, each added with Enter; the field empties for the next one.
+  const add = drawer.getByRole("textbox", { name: "Unteraufgabe hinzufügen" });
+  for (const sub of ["Plakate drucken", "Plakate aufhängen"]) {
+    await add.fill(sub);
+    await add.press("Enter");
+    await expect(drawer.getByRole("link", { name: sub, exact: true })).toBeVisible();
+    await expect(add).toHaveValue("");
+  }
+  await expect(drawer.getByText("0/2 erledigt", { exact: true })).toBeVisible();
+
+  // The parent can't be done while they are open; the toast says how many.
+  await drawer.getByRole("button", { name: "Erledigt", exact: true }).click();
+  await expect(
+    toasts.getByText(`„${title}“ kann noch nicht erledigt werden: 2 offene Unteraufgaben.`),
+  ).toBeVisible();
+
+  // Ticking both: the last one offers to complete the parent too.
+  await drawer.getByRole("button", { name: "„Plakate drucken“ als erledigt markieren" }).click();
+  await expect(drawer.getByText("1/2 erledigt", { exact: true })).toBeVisible();
+  await drawer.getByRole("button", { name: "„Plakate aufhängen“ als erledigt markieren" }).click();
+  await expect(drawer.getByText("2/2 erledigt", { exact: true })).toBeVisible();
+  await expect(
+    toasts.getByText(
+      `Alle Unteraufgaben von „${title}“ sind erledigt. Hauptaufgabe auch erledigen?`,
+    ),
+  ).toBeVisible();
+  await toasts.getByRole("button", { name: "Hauptaufgabe erledigen" }).click();
+
+  // The parent is done, with the usual undo toast.
+  await expect(toasts.getByText(`„${title}“ erledigt`, { exact: true })).toBeVisible();
+  await expect(
+    drawer.getByRole("button", { name: "Status ändern (jetzt: Erledigt)" }),
+  ).toBeVisible();
+
+  // Clean up: delete the throwaway task.
+  await drawer.getByRole("button", { name: `„${title}“ löschen` }).click();
+  await expect(drawer).toBeHidden();
+});

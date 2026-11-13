@@ -127,7 +127,9 @@
       "snoozed": "“{title}” snoozed until {date}",
       "unsnoozed": "Snooze of “{title}” ended",
       "deleted": "“{title}” deleted",
-      "restored": "“{title}” restored"
+      "restored": "“{title}” restored",
+      "parentReady": "All subtasks of “{title}” are done. Complete the main task too?",
+      "completeParent": "Complete main task"
     },
     "confirmDone": {
       "title": "Task done?",
@@ -146,7 +148,7 @@
       "invalid_event": "This event is not available.",
       "invalid_state": "That is not possible in the task's current state.",
       "reason_required": "Please give a reason.",
-      "evidence_missing": "“{title}” cannot be marked done yet. Missing: {what}.",
+      "evidence_missing": "“{title}” can't be marked done yet: {what}.",
       "not_undoable": "This can no longer be undone.",
       "invalid_parent": "That can't be a subtask here (one level only, same event, parent still open).",
       "conflict": "The task has changed since. Undo is no longer possible."
