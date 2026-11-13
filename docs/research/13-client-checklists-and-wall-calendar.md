@@ -1,6 +1,6 @@
-# Research 12 — The client's own checklists and wall calendar (November 2026)
+# Research 13 — The client's own checklists and wall calendar (November 2026)
 
-*Session 2026-11-13. Draft for review, not committed. Sources: five plain-text checklists written by the client
+*Session 2026-11-13. Numbered 13 because user test 2 took 12 the same day; its §5 (data shape) is part of this scope. Sources: five plain-text checklists written by the client
 (Altstadt 2-Tage, Riehler Gürtel, Nippes 1-Tag, Hoffnungsthal twice: the "1 day event" file is the newer one and
 adds "PVBT und Werbung abhängen") and a photo of the office wall calendar "Jahresübersicht 2027" with its legend.
 This is the first real description of how the markets are run. Unless the client changes it, it becomes the source of
@@ -14,7 +14,7 @@ Every sheet has the same shape: **a heading with a time offset, then sub-lines**
 | Level | Example | Maps to |
 |---|---|---|
 | Heading + offset | "Genehmigung 6 months before the first Termin" | a task (template item) |
-| Sub-line | "Antrag stellen", "Festsetzung" | a check item on that task (`template_item.check_items`, already in the drawer) |
+| Sub-line | "Antrag stellen", "Festsetzung" | a **subtask** of that task (ADR 0021: `template_item.parent_key`, `task.parent_task_id`; check items are gone) |
 | "execution day" line | einweisen, flyer verteilen, nachkassieren, Tageswache "Ordner", Verkehr regeln, Reinigung | **its own task** (phase `live`, on that market day; decided 2026-11-13) |
 
 ### 1.2 Three kinds of timing
@@ -33,7 +33,7 @@ Units are months, days and hours ("96 hours before is the deadline, reminder 6 d
 ### 1.3 The common core (→ Grundvorlage)
 Items that appear on all four markets:
 
-| When | Task | Check items |
+| When | Task | Subtasks |
 |---|---|---|
 | Season −8 months (first date) | Termine planen | Rhythmus (monthly), Notiz |
 | Season −6 months (first date) | Genehmigung beantragen | Antrag stellen, Festsetzung (fee notice) |
@@ -74,7 +74,7 @@ Rodenkirchen Ma… (A) · Rodenkirchen Ma… (M) · Kerpen Stadtfest (S) · Kerp
 Kerpener Trödelmarkt (T).
 **Coelln Antik & Design** (black magnets with letters): Neumarkt (N) · Rheinauhafen L… (RL) · Rheinauhafen S… (RF) ·
 Flora (F) · Gürzenich (G) · Rodenkirchen Ma… (M).
-Hoffnungsthal is **not** in the legend; it is handwritten on 12 Sep.
+Hoffnungsthal is **not** in the legend; it is handwritten on 12 Sep. It is a Coelln Konzept market (Arda, 2026-11-13).
 
 **Scope (Arda, 2026-11-13): Coelln Antik & Design is a separate company and stays out of marktwerk for now.** The
 ink colours and the unidentified tags are parked; every Coelln Konzept series will get dates.
@@ -138,7 +138,7 @@ Rheinauhafen ×2, Flora, Gürzenich, Rodenkirchen (Antik & Design). Flora and G�
 | G12 | **Hour-based deadlines** with an earlier reminder | PVBT "96 hours before is the deadline, reminder 6 days before" | Small (offset + due time + notify setting exist) |
 | G13 | Manual "geplant → bereit" after talking to city and Ortsring, not only automatic on granted permits | Hoffnungsthal | Wording/flow check |
 
-Already covered: per-market template copies of the master (0007, `owner_preset_id`); check items on template items;
+Already covered: per-market template copies of the master (0007, `owner_preset_id`); subtasks (ADR 0021, being built);
 `teardown_day` anchor for the last day of multi-day markets (exists in core, the seed does not create it yet);
 planned → confirmed status; season permits (`cadence = per_season`); Termine (appointments).
 
@@ -158,7 +158,9 @@ season.
 | Templates | 4 per-type templates (39–40 items) + derived master | **Grundvorlage** = the core of 1.3; **own templates** for Altstadt, Riehler Gürtel, Nippes, Hoffnungsthal verbatim from the client; every other market gets a master copy plus marked assumptions until the client sends its sheet |
 | Season tasks | none (one apply task per covered event) | Termine planen and Genehmigung once per series and season (needs G1, or an interim) |
 | Tasks | 5,774 | ≈ 15–25 per event → **~1,300–1,800** plus ~2 season tasks per series |
-| Permits | 6 types, per venue | Genehmigung/Sondernutzung per series and season (with Festsetzung → payable), Plakatierung, PVBT per event (96 h), Standrohr, Schaustellerliste (Hoffnungsthal) |
+| Permits | 6 types, per venue | Genehmigung/Sondernutzung per series and season, **Festsetzung as its own type `market_fixing`** (§ 69 GewO, research 12 D2-8) with its fee → payable, Plakatierung, PVBT per event (96 h), Standrohr, Schaustellerliste (Hoffnungsthal) |
+| Venue fields (Ort) | — | `kind` = `municipal` / `private`; `name` may be empty (derived from the address) — research 12 §5 |
+| Market rules and times | `times` (4 fields), rules on the event type | `rules` per market (copied from the event type) and a **Zeitplan** (`schedule` rows, ADR 0022) on markets and events — research 12 §5 |
 | Contacts | 30 generic | City offices (Köln, Kerpen, Rösrath), Ortsring, DRK, school Hausmeister, traffic-safety firm, electrician, banner/sign printer, Hohlkammerplatten supplier, water supplier — fictional names and numbers |
 | Duty roles | 7 | Add Ordner/Tageswache, Nachtwache, Verkehr, Einweisung, Nachkassieren (or map them onto existing roles) |
 | Vendors/bookings | 1,500 / 6,411 | Out of scope here (UT-12b already plans ≈5 per market) |
@@ -166,7 +168,7 @@ season.
 ### Order of work (to be split into Fahrplan steps of ≤ 30 min once agreed)
 1. Agree the open questions below with Arda (and Jerome where marked).
 2. New dictionaries: venues, presets with date rules, brands, Kürzel.
-3. Template dictionaries: Grundvorlage + four client templates with check items; seed creates the master and the
+3. Template dictionaries: Grundvorlage + four client templates with child items (`parent_key`); seed creates the master and the
    owned copies (instead of per-type templates).
 4. Season tasks: interim (first event of the series per season carries them) or G1 proper.
 5. Permits, contacts, duty roles, payables (Festsetzung) to match.
@@ -179,7 +181,7 @@ season.
 **For Arda (product decisions)**
 1. ~~Season-level tasks (G1).~~ **Decided 2026-11-13: a Saison record per market and year** (see section 6).
 2. ~~Market-day block.~~ **Decided 2026-11-13: each market-day line is its own task** (phase `live`, anchored on
-   that market day, with its own duty role); sub-lines everywhere else become check items.
+   that market day, with its own duty role); sub-lines everywhere else become subtasks (ADR 0021).
 3. ~~Real names in synthetic data.~~ **Decided 2026-11-13: real market and place names** (Nippes Wilhelmplatz,
    Riehler Gürtel, Südbrücke, RheinEnergie Stadion, Hoffnungsthal …) and real authority types (Stadt Köln, Stadt
    Rösrath, Stadt Kerpen). People, phone numbers, e-mail addresses and private organisations (traffic-safety firm,
@@ -187,9 +189,10 @@ season.
 
 **For Jerome (facts)** — answered by Arda 2026-11-13: Antik & Design is a separate company, not included now;
 ink colours, unidentified tags and the client vocabulary ("Elektro Klein", "Dobner", "repetitive 1 monthly") are parked;
-every series will get dates. Still open (Fahrplan R4):
-4. Is Hoffnungsthal a Coelln Konzept market? Why is it not on the legend?
-5. Sheets for the remaining markets, or should they start as the Grundvorlage?
+every series will get dates. Fahrplan R4:
+4. **Hoffnungsthal is a Coelln Konzept market** (Arda, 2026-11-13), even though it is missing from the legend.
+5. Sheets for the remaining markets: not answered yet. Until they arrive, those markets start as a copy of the
+   Grundvorlage, with their extra items marked as assumptions.
 
 ## 6. Saison record — proposed design (decided in principle 2026-11-13)
 
