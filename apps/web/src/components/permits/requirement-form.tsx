@@ -4,12 +4,13 @@ import { PERMIT_CADENCES } from "@marktwerk/core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import {
   archiveRequirementAction,
   createRequirementAction,
   updateRequirementAction,
 } from "@/app/(app)/orte/[id]/genehmigungen/actions";
+import { ContactPicker } from "@/components/contacts/contact-picker";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
@@ -65,6 +66,9 @@ const ERROR_FIELD: Record<string, Field> = {
   invalid_text: "notes",
 };
 
+/** "+ Neu" in the Behörde picker creates an authority. */
+const AUTHORITY_KINDS = ["authority"] as const;
+
 /**
  * Create / edit a permit requirement of a venue. About a dozen fields, so a page rather than a modal
  * (UX concept §4). Saving a change shows an undo toast that writes the previous values back.
@@ -74,12 +78,15 @@ export function RequirementForm({
   requirementId,
   initial,
   contacts,
+  canCreateContact,
   eventTypes,
 }: {
   venueId: string;
   requirementId?: string;
   initial?: RequirementInput;
-  contacts: { id: string; name: string }[];
+  contacts: { id: string; name: string; city: string | null }[];
+  /** `contact:write`: the Behörde picker offers "+ Neu". */
+  canCreateContact: boolean;
   eventTypes: { id: string; name: string }[];
 }) {
   const t = useTranslations("requirements");
@@ -118,6 +125,10 @@ export function RequirementForm({
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
+  const contactOptions = useMemo(
+    () => contacts.map((c) => ({ id: c.id, label: c.name, hint: c.city })),
+    [contacts],
+  );
   const fid = (name: string) => `${uid}-${name}`;
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
@@ -283,20 +294,18 @@ export function RequirementForm({
           {field(
             "authority",
             tForm("authority"),
-            <select
+            <ContactPicker
               id={fid("authority")}
-              value={authority}
-              onChange={(e) => setAuthority(e.target.value)}
-              className={SELECT_CLASS}
+              options={contactOptions}
+              value={authority || null}
+              onChange={(id) => setAuthority(id ?? "")}
+              allowNone
+              noneLabel={tForm("noAuthority")}
+              placeholder={tForm("noAuthority")}
+              kinds={AUTHORITY_KINDS}
+              canCreate={canCreateContact}
               {...invalid("authority")}
-            >
-              <option value="">{tForm("noAuthority")}</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>,
+            />,
           )}
         </PanelBody>
       </Panel>

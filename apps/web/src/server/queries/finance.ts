@@ -938,7 +938,7 @@ export type FinanceOptions = {
   venues: { id: string; name: string; city: string }[];
   vehicles: { id: string; name: string; plate: string }[];
   staff: { id: string; name: string }[];
-  contacts: { id: string; name: string }[];
+  contacts: { id: string; name: string; city: string | null }[];
 };
 
 /** Everything the payable, expense and filter forms pick from. */
@@ -976,7 +976,7 @@ export async function listFinanceOptions(includeEventId?: string | null): Promis
       .where(and(eq(staffMember.active, true), isNull(staffMember.archivedAt)))
       .orderBy(asc(staffMember.displayName)),
     db
-      .select({ id: contact.id, name: contact.name })
+      .select({ id: contact.id, name: contact.name, city: contact.city })
       .from(contact)
       .where(isNull(contact.archivedAt))
       .orderBy(asc(contact.name)),

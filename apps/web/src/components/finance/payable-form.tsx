@@ -12,8 +12,9 @@ import { Plus, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useRef, useState, useTransition } from "react";
+import { useId, useMemo, useRef, useState, useTransition } from "react";
 import { createPayableAction, updatePayableAction } from "@/app/(app)/finanzen/actions";
+import { ContactPicker } from "@/components/contacts/contact-picker";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,8 @@ const CATEGORIES = [
   "other",
 ] as const;
 const VAT_RATES = ["19", "7", "0"] as const;
+/** Any kind may be paid; "+ Neu" starts with Lieferant, the usual one. */
+const COUNTERPARTY_KINDS = ["supplier", "service", "authority", "landowner", "other"] as const;
 
 type Row = { key: string; id?: string; dueOn: string; amount: string };
 
@@ -87,11 +90,21 @@ const EMPTY: PayableFormValues = {
   permitId: "",
 };
 
-type FieldName = "title" | "total" | "event" | "venue" | "season" | "vehicle" | "plan" | "form";
+type FieldName =
+  | "title"
+  | "total"
+  | "counterparty"
+  | "event"
+  | "venue"
+  | "season"
+  | "vehicle"
+  | "plan"
+  | "form";
 
 const ERROR_FIELD: Record<string, FieldName> = {
   title_required: "title",
   invalid_amount: "total",
+  invalid_contact: "counterparty",
   invalid_event: "event",
   invalid_venue: "venue",
   invalid_season: "season",
@@ -116,12 +129,15 @@ export function PayableForm({
   initial,
   initialPlan,
   edit,
+  canCreateContact,
 }: {
   options: FinanceOptions;
   today: string;
   initial?: Partial<PayableFormValues>;
   initialPlan?: { id?: string; dueOn: string; amountCents: number }[];
   edit?: { id: string; updatedAt: string; locked: LockedRate[] };
+  /** `contact:write`: the Empfänger picker offers "+ Neu". */
+  canCreateContact: boolean;
 }) {
   const t = useTranslations("finance.form");
   const tScopes = useTranslations("finance.scopes");
@@ -139,6 +155,10 @@ export function PayableForm({
   const nextKey = () => `row-${++keyCounter.current}`;
 
   const [values, setValues] = useState<PayableFormValues>({ ...EMPTY, ...initial });
+  const contactOptions = useMemo(
+    () => options.contacts.map((c) => ({ id: c.id, label: c.name, hint: c.city })),
+    [options.contacts],
+  );
   const [total, setTotal] = useState(
     initial?.totalGrossCents ? centsToInput(initial.totalGrossCents, decimalComma) : "",
   );
@@ -308,20 +328,26 @@ export function PayableForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={id("counterparty")}>{t("counterparty")}</Label>
-            <select
+            <ContactPicker
               id={id("counterparty")}
-              value={values.counterpartyContactId}
-              onChange={(e) => set("counterpartyContactId", e.target.value)}
-              className={SELECT_CLASS}
-            >
-              <option value="">{t("noCounterparty")}</option>
-              {options.contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-faint-foreground text-small">{t("counterpartyHint")}</p>
+              options={contactOptions}
+              value={values.counterpartyContactId || null}
+              onChange={(contactId) => set("counterpartyContactId", contactId ?? "")}
+              allowNone
+              noneLabel={t("noCounterparty")}
+              placeholder={t("noCounterparty")}
+              kinds={COUNTERPARTY_KINDS}
+              canCreate={canCreateContact}
+              aria-describedby={
+                error?.field === "counterparty"
+                  ? `${id("counterparty-hint")} ${id("error")}`
+                  : id("counterparty-hint")
+              }
+              aria-invalid={error?.field === "counterparty"}
+            />
+            <p id={id("counterparty-hint")} className="text-faint-foreground text-small">
+              {t("counterpartyHint")}
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={id("category")}>{t("category")}</Label>

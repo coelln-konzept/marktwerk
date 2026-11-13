@@ -2,8 +2,9 @@
 
 import { Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import { savePermitAction } from "@/app/(app)/genehmigungen/actions";
+import { ContactPicker } from "@/components/contacts/contact-picker";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
@@ -39,6 +40,9 @@ const ERROR_FIELD: Record<string, keyof PermitFormValues> = {
   invalid_text: "notes",
 };
 
+/** "+ Neu" in the Behörde picker creates an authority. */
+const AUTHORITY_KINDS = ["authority"] as const;
+
 /**
  * "Bearbeiten" in the permit drawer: reference number, dates, validity, stickers received, conditions,
  * notes and who is responsible. The drawer is a record surface, so the form is inline (not a modal).
@@ -49,13 +53,16 @@ export function PermitEditForm({
   initial,
   deliverables,
   contacts,
+  canCreateContact,
   staff,
 }: {
   permitId: string;
   initial: PermitFormValues;
   /** The other received deliverables, kept untouched when the sticker count changes. */
   deliverables: Record<string, number | undefined>;
-  contacts: { id: string; name: string }[];
+  contacts: { id: string; name: string; city: string | null }[];
+  /** `contact:write`: the Behörde picker offers "+ Neu". */
+  canCreateContact: boolean;
   staff: { id: string; name: string }[];
 }) {
   const t = useTranslations("permitDrawer");
@@ -66,6 +73,10 @@ export function PermitEditForm({
   const [values, setValues] = useState<PermitFormValues>(initial);
   const [error, setError] = useState<{ field: keyof PermitFormValues | null; code: string } | null>(
     null,
+  );
+  const contactOptions = useMemo(
+    () => contacts.map((c) => ({ id: c.id, label: c.name, hint: c.city })),
+    [contacts],
   );
   const fid = (name: string) => `${uid}-${name}`;
   const set = (name: keyof PermitFormValues) => (value: string) =>
@@ -166,20 +177,18 @@ export function PermitEditForm({
           <Label htmlFor={fid("authorityContactId")} optional>
             {t("form.authority")}
           </Label>
-          <select
+          <ContactPicker
             id={fid("authorityContactId")}
-            value={values.authorityContactId}
-            onChange={(e) => set("authorityContactId")(e.target.value)}
-            className={SELECT_CLASS}
+            options={contactOptions}
+            value={values.authorityContactId || null}
+            onChange={(id) => set("authorityContactId")(id ?? "")}
+            allowNone
+            noneLabel={t("form.noAuthority")}
+            placeholder={t("form.noAuthority")}
+            kinds={AUTHORITY_KINDS}
+            canCreate={canCreateContact}
             {...invalid("authorityContactId")}
-          >
-            <option value="">{t("form.noAuthority")}</option>
-            {contacts.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={fid("responsibleStaffMemberId")} optional>
