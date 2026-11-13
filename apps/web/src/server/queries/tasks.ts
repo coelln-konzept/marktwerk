@@ -792,6 +792,9 @@ export type SubtaskRow = {
   assigneeName: string | null;
   /** Open and due before today (not waiting, not snoozed). */
   overdue: boolean;
+  /** For the undo of a due-date edit in the drawer (`TaskPatch.restoreFlags`). */
+  dueOverridden: boolean;
+  customized: boolean;
 };
 
 /** One task with its subtasks and activity (its audit entries), or null if the actor may not see it. */
@@ -934,6 +937,8 @@ export async function listSubtasks(parentId: string, today: string): Promise<Sub
       snoozedUntil: task.snoozedUntil,
       assigneeId: task.assigneeId,
       assigneeName: staffMember.displayName,
+      dueOverridden: task.dueOverridden,
+      customized: task.customized,
     })
     .from(task)
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
@@ -954,6 +959,8 @@ export async function listSubtasks(parentId: string, today: string): Promise<Sub
       assigneeId: r.assigneeId,
       assigneeName: r.assigneeName,
       overdue: isSubtaskOverdue({ status: r.status, dueOn, snoozedUntil: r.snoozedUntil }, today),
+      dueOverridden: r.dueOverridden,
+      customized: r.customized,
     };
   });
 }

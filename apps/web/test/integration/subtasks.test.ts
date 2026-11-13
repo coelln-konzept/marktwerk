@@ -178,6 +178,10 @@ describe("subtask services", () => {
     expect(await problem(setTaskStatus(owner, parent.id, "done", {}, clock))).toBe(
       "evidence_missing:subtasks",
     );
+    // the refusal says how many are open ("2 offene Unteraufgaben")
+    const refused = await setTaskStatus(owner, parent.id, "done", {}, clock).catch((e) => e);
+    expect(refused).toBeInstanceOf(TaskInputError);
+    expect((refused as TaskInputError).count).toBe(2);
     expect((await setTaskStatus(owner, one.id, "done", {}, clock)).parentReady).toBeNull();
     const last = await setTaskStatus(owner, two.id, "done", {}, clock);
     expect(last.parentReady).toEqual({ id: parent.id, title: "Plakate" });
@@ -279,6 +283,9 @@ describe("subtask services", () => {
         assigneeId: cat.staff.ben.id,
         assigneeName: "Ben Test",
         overdue: true,
+        // a due date given at creation is set by hand; the drawer's undo of a due edit restores these flags
+        dueOverridden: true,
+        customized: false,
       },
     ]);
   });

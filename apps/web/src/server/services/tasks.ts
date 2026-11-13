@@ -69,6 +69,8 @@ export class TaskInputError extends Error {
      * `invalid_parent`: the `NestingProblem`.
      */
     readonly detail: string[] = [],
+    /** For `evidence_missing` with "subtasks": how many subtasks are still open (the toast names it). */
+    readonly count?: number,
   ) {
     super(code);
   }
@@ -300,7 +302,12 @@ async function statusPatch(
       openSubtasks,
       ...fileEvidenceOf(files.map((f) => f.kind)),
     });
-    if (missing.length > 0) throw new TaskInputError("evidence_missing", missing);
+    if (missing.length > 0)
+      throw new TaskInputError(
+        "evidence_missing",
+        missing,
+        openSubtasks > 0 ? openSubtasks : undefined,
+      );
     patch.completedAt = now.toISOString();
     patch.completedByStaffMemberId = actor.staffMemberId;
     // A finished task always sits in Erledigt; the manual-move override has served its purpose.

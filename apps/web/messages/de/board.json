@@ -127,7 +127,9 @@
       "snoozed": "„{title}“ zurückgestellt bis {date}",
       "unsnoozed": "Zurückstellung von „{title}“ aufgehoben",
       "deleted": "„{title}“ gelöscht",
-      "restored": "„{title}“ wiederhergestellt"
+      "restored": "„{title}“ wiederhergestellt",
+      "parentReady": "Alle Unteraufgaben von „{title}“ sind erledigt. Hauptaufgabe auch erledigen?",
+      "completeParent": "Hauptaufgabe erledigen"
     },
     "confirmDone": {
       "title": "Aufgabe erledigt?",
@@ -146,7 +148,7 @@
       "invalid_event": "Diese Veranstaltung ist nicht verfügbar.",
       "invalid_state": "Das geht bei diesem Stand der Aufgabe nicht.",
       "reason_required": "Bitte einen Grund angeben.",
-      "evidence_missing": "„{title}“ kann noch nicht erledigt werden. Es fehlt: {what}.",
+      "evidence_missing": "„{title}“ kann noch nicht erledigt werden: {what}.",
       "not_undoable": "Das lässt sich nicht mehr rückgängig machen.",
       "conflict": "Die Aufgabe wurde inzwischen geändert. Rückgängig ist nicht mehr möglich.",
       "invalid_parent": "Als Unteraufgabe geht das hier nicht (nur eine Ebene, gleiche Veranstaltung, Hauptaufgabe offen)."
