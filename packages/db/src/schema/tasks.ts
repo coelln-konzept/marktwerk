@@ -7,7 +7,6 @@ import {
   doublePrecision,
   index,
   integer,
-  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -107,6 +106,10 @@ export const task = app.table(
     permitId: uuid().references(() => permit.id, { onDelete: "set null" }),
     payableId: uuid().references(() => payable.id, { onDelete: "set null" }),
     obligationId: uuid().references(() => obligation.id, { onDelete: "set null" }),
+    /**
+     * Subtask of this task (ADR 0021). One level only: a parent has no parent, and a task with subtasks is no
+     * subtask (service guard plus the trigger `task_one_level_subtasks`, migration 0019).
+     */
     parentTaskId: uuid().references((): AnyPgColumn => task.id, { onDelete: "set null" }),
     source: taskSource().notNull().default("manual"),
 
@@ -217,46 +220,6 @@ export const task = app.table(
     check("task_rollover", sql`${t.rolloverCount} >= 0`),
     check("task_done_completed", sql`${t.status} <> 'done' or ${t.completedAt} is not null`),
     check("task_not_own_parent", sql`${t.parentTaskId} is null or ${t.parentTaskId} <> ${t.id}`),
-  ],
-);
-
-/** A small step inside a task (from the template's `check_items` or added by hand). */
-export const taskCheckItem = app.table(
-  "task_check_item",
-  {
-    id: id(),
-    taskId: uuid()
-      .notNull()
-      .references(() => task.id, { onDelete: "cascade" }),
-    title: text().notNull(),
-    sort: integer().notNull().default(0),
-    done: boolean().notNull().default(false),
-    doneAt: timestamp({ withTimezone: true }),
-    doneByStaffMemberId: uuid().references(() => staffMember.id, { onDelete: "set null" }),
-    ...timestamps,
-  },
-  (t) => [
-    index().on(t.taskId, t.sort),
-    check("task_check_item_done", sql`${t.done} = (${t.doneAt} is not null)`),
-  ],
-);
-
-/** "Task A needs task B first." Informational: does not move dates. */
-export const taskDependency = app.table(
-  "task_dependency",
-  {
-    taskId: uuid()
-      .notNull()
-      .references(() => task.id, { onDelete: "cascade" }),
-    dependsOnTaskId: uuid()
-      .notNull()
-      .references(() => task.id, { onDelete: "cascade" }),
-    ...timestamps,
-  },
-  (t) => [
-    primaryKey({ columns: [t.taskId, t.dependsOnTaskId] }),
-    index().on(t.dependsOnTaskId),
-    check("task_dependency_not_self", sql`${t.taskId} <> ${t.dependsOnTaskId}`),
   ],
 );
 

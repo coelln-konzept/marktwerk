@@ -15,10 +15,12 @@ import {
   isOpenStatus,
   isValidSnoozeDate,
   missingEvidence,
+  type NestingProblem,
   NOTIFY_CHANNELS,
   NOTIFY_TIMINGS,
   type NotifyChannel,
   type NotifyTiming,
+  nestingProblem,
   OPEN_STATUSES,
   PAST_EVENT_SKIP_REASON,
   pastEventCutoff,
@@ -37,8 +39,6 @@ import {
   notification,
   staffMember,
   task,
-  taskCheckItem,
-  user,
 } from "@marktwerk/db/schema";
 import { and, count, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
@@ -58,12 +58,16 @@ export type TaskError =
   | "reason_required"
   | "evidence_missing"
   | "not_undoable"
+  | "invalid_parent"
   | "conflict";
 
 export class TaskInputError extends Error {
   constructor(
     readonly code: TaskError,
-    /** For `evidence_missing`: which evidence is missing ("note", "check_items"). */
+    /**
+     * For `evidence_missing`: which evidence is missing ("subtasks", "photo", "attachment"). For
+     * `invalid_parent`: the `NestingProblem`.
+     */
     readonly detail: string[] = [],
   ) {
     super(code);
@@ -106,6 +110,8 @@ type TaskState = {
   assigneeOverridden: boolean;
   /** `YYYY-MM-DD` (Berlin) the task is snoozed until, or null. */
   snoozedUntil: string | null;
+  /** The parent task (subtask, ADR 0021), or null. */
+  parentTaskId: string | null;
 };
 type StateKey = keyof TaskState;
 
@@ -120,6 +126,7 @@ const STATE_KEYS: StateKey[] = [
   "assigneeId",
   "assigneeOverridden",
   "snoozedUntil",
+  "parentTaskId",
 ];
 
 function stateOf(row: TaskRow): TaskState {
@@ -134,6 +141,7 @@ function stateOf(row: TaskRow): TaskState {
     assigneeId: row.assigneeId,
     assigneeOverridden: row.assigneeOverridden,
     snoozedUntil: row.snoozedUntil,
+    parentTaskId: row.parentTaskId,
   };
 }
 
@@ -277,10 +285,7 @@ async function statusPatch(
   } else if (to === "waiting_external" || to === "blocked") {
     patch.waitingReason = reason;
   } else if (to === "done") {
-    const [{ openItems } = { openItems: 0 }] = await tx
-      .select({ openItems: count() })
-      .from(taskCheckItem)
-      .where(and(eq(taskCheckItem.taskId, row.id), eq(taskCheckItem.done, false)));
+    const openSubtasks = await openSubtaskCount(tx, row.id);
     // Photo and attachment are live documents on the task: kind "photo" = photo, any other kind = attachment.
     const files =
       row.requiresPhoto || row.requiresAttachment
@@ -292,7 +297,7 @@ async function statusPatch(
     const missing = missingEvidence({
       requiresPhoto: row.requiresPhoto,
       requiresAttachment: row.requiresAttachment,
-      openCheckItems: openItems,
+      openSubtasks,
       ...fileEvidenceOf(files.map((f) => f.kind)),
     });
     if (missing.length > 0) throw new TaskInputError("evidence_missing", missing);
@@ -301,13 +306,58 @@ async function statusPatch(
     // A finished task always sits in Erledigt; the manual-move override has served its purpose.
     patch.boardColumn = null;
   }
+  // Reopening a finished subtask needs an open parent (a done parent has no open subtasks).
+  if (isOpenStatus(to) && !isOpenStatus(row.status) && row.parentTaskId) {
+    const [parent] = await tx
+      .select({ status: task.status })
+      .from(task)
+      .where(eq(task.id, row.parentTaskId));
+    if (parent && !isOpenStatus(parent.status))
+      throw new TaskInputError("invalid_parent", [
+        parent.status === "cancelled" ? "parent_cancelled" : "parent_closed",
+      ]);
+  }
   return { patch, note: to === "done" ? note : null };
+}
+
+/** Subtasks of a task that are still open (the done gate). */
+async function openSubtaskCount(tx: Tx, taskId: string): Promise<number> {
+  const [row] = await tx
+    .select({ n: count() })
+    .from(task)
+    .where(and(eq(task.parentTaskId, taskId), inArray(task.status, [...OPEN_STATUSES])));
+  return row?.n ?? 0;
+}
+
+/**
+ * After a subtask was finished: its parent, when that is still open and has no open subtask left (the UI then
+ * offers "Hauptaufgabe auch erledigen?", D2-11). Null otherwise.
+ */
+async function parentReadyAfter(
+  tx: Tx,
+  row: Pick<TaskRow, "parentTaskId">,
+  to: TaskStatusKey,
+): Promise<{ id: string; title: string } | null> {
+  if (!row.parentTaskId || (to !== "done" && to !== "skipped")) return null;
+  const [parent] = await tx
+    .select({ id: task.id, title: task.title, status: task.status })
+    .from(task)
+    .where(eq(task.id, row.parentTaskId));
+  if (!parent || !isOpenStatus(parent.status)) return null;
+  if ((await openSubtaskCount(tx, parent.id)) > 0) return null;
+  return { id: parent.id, title: parent.title };
 }
 
 export type TaskChange = {
   changed: boolean;
   /** Audit entry to pass to {@link undoTaskChange}; null when nothing changed. */
   auditId: string | null;
+};
+
+/** A status change of a subtask that finished the last open one names the parent to offer completing. */
+export type ParentReady = {
+  /** The open parent whose subtasks are all finished now ("Hauptaufgabe auch erledigen?"), else null. */
+  parentReady: { id: string; title: string } | null;
 };
 
 /**
@@ -320,7 +370,7 @@ export async function setTaskStatus(
   to: TaskStatusKey,
   input: StatusInput = {},
   at?: TaskClock,
-): Promise<TaskChange & { from: TaskStatusKey }> {
+): Promise<TaskChange & ParentReady & { from: TaskStatusKey }> {
   need(actor, "write");
   const { now } = clock(at);
   return db.transaction(async (tx) => {
@@ -329,7 +379,8 @@ export async function setTaskStatus(
     const { patch, note } = await statusPatch(tx, actor, row, to, input, now);
     const after = { ...before, ...patch };
     const diff = stateDiff(before, after);
-    if (diff.keys.length === 0) return { changed: false, auditId: null, from: row.status };
+    if (diff.keys.length === 0)
+      return { changed: false, auditId: null, from: row.status, parentReady: null };
 
     await tx.update(task).set(columnsOf(patch)).where(eq(task.id, row.id));
     const auditId = await writeAudit(tx, actor, "task.status", row.id, {
@@ -339,7 +390,12 @@ export async function setTaskStatus(
       after: diff.after,
       ...(note ? { note } : {}),
     });
-    return { changed: true, auditId, from: row.status };
+    return {
+      changed: true,
+      auditId,
+      from: row.status,
+      parentReady: await parentReadyAfter(tx, row, to),
+    };
   });
 }
 
@@ -426,7 +482,7 @@ export async function moveTask(
   position: MovePosition = { index: Number.MAX_SAFE_INTEGER },
   scope: MoveScope = {},
   at?: TaskClock,
-): Promise<TaskChange & { column: BoardColumn }> {
+): Promise<TaskChange & ParentReady & { column: BoardColumn }> {
   need(actor, "write");
   if (!BOARD_COLUMNS.includes(column)) throw new TaskInputError("invalid_column");
   if ("index" in position && !(Number.isInteger(position.index) && position.index >= 0))
@@ -443,7 +499,8 @@ export async function moveTask(
 
     if (column === "done") {
       // Finished already: nothing to do. Otherwise this is "mark done".
-      if (!isOpenStatus(row.status)) return { changed: false, auditId: null, column };
+      if (!isOpenStatus(row.status))
+        return { changed: false, auditId: null, column, parentReady: null };
       ({ patch, note } = await statusPatch(tx, actor, row, "done", {}, now));
     } else {
       if (!isOpenStatus(row.status)) {
@@ -475,7 +532,7 @@ export async function moveTask(
 
     const after = { ...before, ...patch };
     const diff = stateDiff(before, after);
-    if (diff.keys.length === 0) return { changed: false, auditId: null, column };
+    if (diff.keys.length === 0) return { changed: false, auditId: null, column, parentReady: null };
 
     await tx.update(task).set(columnsOf(patch)).where(eq(task.id, row.id));
     const auditId = await writeAudit(tx, actor, "task.move", row.id, {
@@ -484,7 +541,8 @@ export async function moveTask(
       after: diff.after,
       ...(note ? { note } : {}),
     });
-    return { changed: true, auditId, column };
+    const parentReady = column === "done" ? await parentReadyAfter(tx, row, "done") : null;
+    return { changed: true, auditId, column, parentReady };
   });
 }
 
@@ -512,6 +570,8 @@ async function columnCards(
     .where(
       and(
         visibleTasks(actor),
+        // The board shows top-level cards; subtasks sit under their parent (ADR 0021).
+        isNull(task.parentTaskId),
         ne(task.id, exceptId),
         inArray(task.status, ["todo", "in_progress", "waiting_external", "blocked"]),
         scope.eventId ? eq(task.eventId, scope.eventId) : undefined,
@@ -661,7 +721,11 @@ const UNDOABLE = [
   "task.unsnooze",
   "task.delete",
   "task.restore",
+  "task.parent",
 ];
+
+/** Subtasks a delete cancelled (and a restore reopened) with their parent: id and the status before. */
+type SubtaskChange = { id: string; from: TaskStatusKey };
 
 /**
  * Undo toast: reverts one of the actor's own moves, assignments or status changes, but only while the
@@ -677,7 +741,10 @@ export async function undoTaskChange(
   return db.transaction((tx) => undoEntry(tx, actor, auditId));
 }
 
-/** Undo toast of a bulk change (cleanup): all entries are reverted in one transaction, or none. */
+/**
+ * Undo toast of a bulk change (cleanup): all entries are reverted in one transaction, or none. Last change first,
+ * so a parent the cleanup skipped after its subtasks is open again before they are (ADR 0021).
+ */
 export async function undoTaskChanges(
   actor: Actor,
   auditIds: string[],
@@ -685,7 +752,7 @@ export async function undoTaskChanges(
   need(actor, "write");
   for (const id of auditIds) checkId(id, "not_undoable");
   return db.transaction(async (tx) => {
-    for (const id of auditIds) await undoEntry(tx, actor, id);
+    for (const id of [...auditIds].reverse()) await undoEntry(tx, actor, id);
     return { undone: auditIds.length };
   });
 }
@@ -706,7 +773,11 @@ async function undoEntry(
         inArray(auditLog.action, UNDOABLE),
       ),
     );
-  const diff = entry?.diff as { before?: Partial<TaskState>; after?: Partial<TaskState> } | null;
+  const diff = entry?.diff as {
+    before?: Partial<TaskState>;
+    after?: Partial<TaskState>;
+    subtasks?: SubtaskChange[];
+  } | null;
   if (!entry?.entityId || !diff?.before || !diff.after) throw new TaskInputError("not_undoable");
   if ("assigneeId" in diff.before) need(actor, "assign");
   // Undoing a delete brings the task back, undoing a restore deletes it again: both are deleting rights.
@@ -720,8 +791,12 @@ async function undoEntry(
   }
   // A person who has been deactivated since cannot be put back.
   if (diff.before.assigneeId) await activeStaff(tx, diff.before.assigneeId);
+  await assertUndoKeepsTree(tx, row, diff.before);
 
   await tx.update(task).set(columnsOf(diff.before)).where(eq(task.id, row.id));
+  // A delete took the open subtasks with it, a restore brought them back: undo does the reverse.
+  if (entry.action === "task.delete") await reopenSubtasks(tx, row.id, diff.subtasks ?? []);
+  if (entry.action === "task.restore") await cancelSubtasks(tx, row.id, diff.subtasks ?? []);
   if (entry.action === "task.assign") {
     // the person was told "assigned"; take that back while they have not read it
     await tx
@@ -742,6 +817,183 @@ async function undoEntry(
   return { taskId: row.id, action: entry.action };
 }
 
+/**
+ * Undo must not break the subtask rules that hold since: putting a task back under a parent needs that nesting to
+ * be allowed now, reopening a subtask needs an open parent, and finishing a parent again needs its subtasks done.
+ */
+async function assertUndoKeepsTree(tx: Tx, row: TaskRow, before: Partial<TaskState>) {
+  const parentId = "parentTaskId" in before ? (before.parentTaskId ?? null) : row.parentTaskId;
+  const status = before.status ?? row.status;
+  if ("parentTaskId" in before && parentId !== null) {
+    const parent = await lockedParent(tx, parentId);
+    if (!parent || (await nestingProblemOf(tx, row, status, parent)) !== null)
+      throw new TaskInputError("conflict");
+  } else if (before.status && isOpenStatus(status) && parentId !== null) {
+    const [parent] = await tx
+      .select({ status: task.status })
+      .from(task)
+      .where(eq(task.id, parentId));
+    if (parent && !isOpenStatus(parent.status)) throw new TaskInputError("conflict");
+  }
+  if (before.status === "done" && (await openSubtaskCount(tx, row.id)) > 0)
+    throw new TaskInputError("conflict");
+}
+
+// ---------------------------------------------------------------------------------------------
+// subtasks (ADR 0021)
+
+type ParentRow = Pick<
+  TaskRow,
+  "id" | "title" | "eventId" | "parentTaskId" | "status" | "checklistId" | "phase" | "category"
+>;
+
+/** The parent row, locked (no scope check: the caller checked the task and the nesting rules decide). */
+async function lockedParent(tx: Tx, parentId: string): Promise<ParentRow | null> {
+  const [parent] = await tx
+    .select({
+      id: task.id,
+      title: task.title,
+      eventId: task.eventId,
+      parentTaskId: task.parentTaskId,
+      status: task.status,
+      checklistId: task.checklistId,
+      phase: task.phase,
+      category: task.category,
+    })
+    .from(task)
+    .where(eq(task.id, parentId))
+    .for("update");
+  return parent ?? null;
+}
+
+async function nestingProblemOf(
+  tx: Tx,
+  row: Pick<TaskRow, "id" | "eventId">,
+  status: TaskStatusKey,
+  parent: ParentRow,
+): Promise<NestingProblem | null> {
+  const [child] = await tx
+    .select({ id: task.id })
+    .from(task)
+    .where(eq(task.parentTaskId, row.id))
+    .limit(1);
+  return nestingProblem({
+    taskId: row.id,
+    taskEventId: row.eventId,
+    taskHasSubtasks: child !== undefined,
+    taskOpen: isOpenStatus(status),
+    parent,
+  });
+}
+
+/** A parent the actor can see, locked; `invalid_parent` ("not_found") otherwise. */
+async function visibleParent(tx: Tx, actor: Actor, parentId: string): Promise<ParentRow> {
+  checkId(parentId, "invalid_parent");
+  const [visible] = await tx
+    .select({ id: task.id })
+    .from(task)
+    .where(and(eq(task.id, parentId), visibleTasks(actor)));
+  const parent = visible ? await lockedParent(tx, parentId) : null;
+  if (!parent) throw new TaskInputError("invalid_parent", ["not_found"]);
+  return parent;
+}
+
+/**
+ * "Unteraufgabe von…" / "Aus Hauptaufgabe lösen" and the drag in the Checkliste (ADR 0021): the one path that
+ * nests a task under another (`parentId`) or lifts it out (`null`). One level only, inside one event, never under
+ * a deleted or finished parent while the task is open (`nestingProblem`; `invalid_parent` with the problem as
+ * detail). The parent must be visible to the actor too. Audited as `task.parent`, undoable.
+ */
+export async function setTaskParent(
+  actor: Actor,
+  taskId: string,
+  parentId: string | null,
+): Promise<TaskChange & { parentTitle: string | null }> {
+  need(actor, "write");
+  if (parentId !== null) checkId(parentId, "invalid_parent");
+  return db.transaction(async (tx) => {
+    const row = await loadTask(tx, actor, taskId);
+    if (row.status === "cancelled") throw new TaskInputError("invalid_state");
+    if (row.parentTaskId === parentId) return { changed: false, auditId: null, parentTitle: null };
+    let parentTitle: string | null = null;
+    if (parentId !== null) {
+      const parent = await visibleParent(tx, actor, parentId);
+      const problem = await nestingProblemOf(tx, row, row.status, parent);
+      if (problem) throw new TaskInputError("invalid_parent", [problem]);
+      parentTitle = parent.title;
+    }
+    const before = stateOf(row);
+    const after: TaskState = { ...before, parentTaskId: parentId };
+    await tx.update(task).set({ parentTaskId: parentId }).where(eq(task.id, row.id));
+    const fromTitle = row.parentTaskId
+      ? ((await tx.select({ title: task.title }).from(task).where(eq(task.id, row.parentTaskId)))[0]
+          ?.title ?? null)
+      : null;
+    const auditId = await writeAudit(tx, actor, "task.parent", row.id, {
+      ...stateDiff(before, after),
+      fromTitle,
+      toTitle: parentTitle,
+    });
+    return { changed: true, auditId, parentTitle };
+  });
+}
+
+/** Cancels the open subtasks of a deleted parent; returns them with their previous status (for the audit). */
+async function cancelOpenSubtasks(tx: Tx, parentId: string): Promise<SubtaskChange[]> {
+  const open = await tx
+    .select({ id: task.id, from: task.status })
+    .from(task)
+    .where(and(eq(task.parentTaskId, parentId), inArray(task.status, [...OPEN_STATUSES])))
+    .orderBy(task.id)
+    .for("update");
+  if (open.length > 0)
+    await tx
+      .update(task)
+      .set({ status: "cancelled" })
+      .where(
+        inArray(
+          task.id,
+          open.map((o) => o.id),
+        ),
+      );
+  return open;
+}
+
+/** Puts recorded subtasks back to their status, those still cancelled and still under this parent. */
+async function reopenSubtasks(
+  tx: Tx,
+  parentId: string,
+  subtasks: SubtaskChange[],
+): Promise<SubtaskChange[]> {
+  const reopened: SubtaskChange[] = [];
+  for (const s of subtasks) {
+    if (!UUID.test(s.id) || !isOpenStatus(s.from)) continue;
+    const [row] = await tx
+      .update(task)
+      .set({ status: s.from })
+      .where(and(eq(task.id, s.id), eq(task.parentTaskId, parentId), eq(task.status, "cancelled")))
+      .returning({ id: task.id });
+    if (row) reopened.push(s);
+  }
+  return reopened;
+}
+
+/** Cancels recorded subtasks again (undo of a restore), those still open and under this parent. */
+async function cancelSubtasks(tx: Tx, parentId: string, subtasks: SubtaskChange[]) {
+  const ids = subtasks.map((s) => s.id).filter((id) => UUID.test(id));
+  if (ids.length === 0) return;
+  await tx
+    .update(task)
+    .set({ status: "cancelled" })
+    .where(
+      and(
+        inArray(task.id, ids),
+        eq(task.parentTaskId, parentId),
+        inArray(task.status, [...OPEN_STATUSES]),
+      ),
+    );
+}
+
 // ---------------------------------------------------------------------------------------------
 // delete and restore (user test 2, UT2-13)
 
@@ -758,9 +1010,12 @@ export async function deleteTask(actor: Actor, taskId: string): Promise<TaskChan
     const before = stateOf(row);
     const after: TaskState = { ...before, status: "cancelled" };
     await tx.update(task).set({ status: "cancelled" }).where(eq(task.id, row.id));
+    // Its open subtasks go with it (ADR 0021); finished ones stay as they are.
+    const subtasks = await cancelOpenSubtasks(tx, row.id);
     const auditId = await writeAudit(tx, actor, "task.delete", row.id, {
       ...stateDiff(before, after),
       title: row.title,
+      ...(subtasks.length > 0 ? { subtasks } : {}),
     });
     return { changed: true, auditId };
   });
@@ -775,6 +1030,15 @@ export async function restoreTask(actor: Actor, taskId: string): Promise<TaskCha
   return db.transaction(async (tx) => {
     const row = await loadTask(tx, actor, taskId);
     if (row.status !== "cancelled") throw new TaskInputError("invalid_state");
+    // A subtask comes back only under a parent that is there.
+    if (row.parentTaskId) {
+      const [parent] = await tx
+        .select({ status: task.status })
+        .from(task)
+        .where(eq(task.id, row.parentTaskId));
+      if (parent?.status === "cancelled")
+        throw new TaskInputError("invalid_parent", ["parent_cancelled"]);
+    }
     const [deleted] = await tx
       .select({ diff: auditLog.diff })
       .from(auditLog)
@@ -787,16 +1051,24 @@ export async function restoreTask(actor: Actor, taskId: string): Promise<TaskCha
       )
       .orderBy(sql`${auditLog.at} desc, ${auditLog.id} desc`)
       .limit(1);
-    const previous = (deleted?.diff as { before?: { status?: TaskStatusKey } } | null)?.before
-      ?.status;
+    const deletedDiff = deleted?.diff as {
+      before?: { status?: TaskStatusKey };
+      subtasks?: SubtaskChange[];
+    } | null;
+    const previous = deletedDiff?.before?.status;
     const status: TaskStatusKey =
       previous && TASK_STATUSES.includes(previous) && previous !== "cancelled" ? previous : "todo";
     const before = stateOf(row);
     const after: TaskState = { ...before, status };
     await tx.update(task).set({ status }).where(eq(task.id, row.id));
+    // The subtasks the delete took with it come back too (a finished parent keeps none open).
+    const subtasks = isOpenStatus(status)
+      ? await reopenSubtasks(tx, row.id, deletedDiff?.subtasks ?? [])
+      : [];
     const auditId = await writeAudit(tx, actor, "task.restore", row.id, {
       ...stateDiff(before, after),
       title: row.title,
+      ...(subtasks.length > 0 ? { subtasks } : {}),
     });
     return { changed: true, auditId };
   });
@@ -836,11 +1108,29 @@ export async function skipPastEventTasks(
           eventIds ? inArray(task.eventId, eventIds) : undefined,
         ),
       );
+    // The subtasks of a skipped task are left over as well (one audit entry each, so each is undoable); a
+    // subtask on its own (somebody's own item) is skipped as listed. Subtasks go first: their parent follows.
+    const listed = new Set(ids.map((r) => r.id));
+    const subtasks =
+      ids.length === 0
+        ? []
+        : await tx
+            .select({ id: task.id })
+            .from(task)
+            .where(
+              and(
+                inArray(task.parentTaskId, [...listed]),
+                inArray(task.status, [...OPEN_STATUSES]),
+              ),
+            );
+    const order = [...subtasks.filter((r) => !listed.has(r.id)), ...ids];
     const auditIds: string[] = [];
-    for (const { id } of ids) {
+    let skipped = 0;
+    for (const { id } of order) {
       // Lock each task and look again: it may have been finished or skipped since the list was read.
       const row = await loadTask(tx, actor, id);
       if (!isOpenStatus(row.status)) continue;
+      if (listed.has(row.id)) skipped += 1;
       const before = stateOf(row);
       const { patch } = await statusPatch(
         tx,
@@ -862,7 +1152,7 @@ export async function skipPastEventTasks(
         }),
       );
     }
-    return { skipped: auditIds.length, auditIds };
+    return { skipped, auditIds };
   });
 }
 
@@ -1080,74 +1370,6 @@ export async function setEffortFeedback(
 }
 
 // ---------------------------------------------------------------------------------------------
-// check items
-
-export async function addCheckItem(
-  actor: Actor,
-  taskId: string,
-  title: string,
-): Promise<{ id: string }> {
-  need(actor, "write");
-  const clean = cleanTitle(title);
-  return db.transaction(async (tx) => {
-    const row = await loadTask(tx, actor, taskId);
-    if (row.status === "cancelled") throw new TaskInputError("invalid_state");
-    const [last] = await tx
-      .select({ sort: sql<number>`coalesce(max(${taskCheckItem.sort}), 0)::int` })
-      .from(taskCheckItem)
-      .where(eq(taskCheckItem.taskId, row.id));
-    const [item] = await tx
-      .insert(taskCheckItem)
-      .values({ taskId: row.id, title: clean, sort: (last?.sort ?? 0) + 1 })
-      .returning({ id: taskCheckItem.id });
-    if (!item) throw new Error("check item missing");
-    await writeAudit(tx, actor, "task.check", row.id, {
-      op: "add",
-      itemId: item.id,
-      title: clean,
-    });
-    return item;
-  });
-}
-
-export async function setCheckItemDone(
-  actor: Actor,
-  taskId: string,
-  itemId: string,
-  done: boolean,
-  at?: TaskClock,
-): Promise<{ changed: boolean }> {
-  need(actor, "write");
-  checkId(itemId);
-  const { now } = clock(at);
-  return db.transaction(async (tx) => {
-    const row = await loadTask(tx, actor, taskId);
-    if (row.status === "cancelled") throw new TaskInputError("invalid_state");
-    const [item] = await tx
-      .select()
-      .from(taskCheckItem)
-      .where(and(eq(taskCheckItem.id, itemId), eq(taskCheckItem.taskId, row.id)))
-      .for("update");
-    if (!item) throw new TaskInputError("not_found");
-    if (item.done === done) return { changed: false };
-    await tx
-      .update(taskCheckItem)
-      .set({
-        done,
-        doneAt: done ? now : null,
-        doneByStaffMemberId: done ? actor.staffMemberId : null,
-      })
-      .where(eq(taskCheckItem.id, item.id));
-    await writeAudit(tx, actor, "task.check", row.id, {
-      op: done ? "tick" : "untick",
-      itemId: item.id,
-      title: item.title,
-    });
-    return { changed: true };
-  });
-}
-
-// ---------------------------------------------------------------------------------------------
 // create
 
 export type NewTask = {
@@ -1163,9 +1385,14 @@ export type NewTask = {
   assigneeId?: string | null;
   /** "Benachrichtigung senden an" (default: nobody). Relative timings need `dueOn`. */
   notify?: NotifyInput;
+  /**
+   * "Unteraufgabe hinzufügen" (ADR 0021): the new task becomes a subtask of this one. It takes the parent's
+   * event (an `eventId` that differs is `invalid_parent`), checklist, phase and category (unless given).
+   */
+  parentId?: string | null;
 };
 
-/** A task made by hand (`source = manual`), on an event or without one. */
+/** A task made by hand (`source = manual`), on an event or without one, or as a subtask of another. */
 export async function createTask(actor: Actor, input: NewTask): Promise<{ id: string }> {
   need(actor, "write");
   const title = cleanTitle(input.title);
@@ -1181,13 +1408,27 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
   assertNotifyFits(notify, input.dueOn != null);
 
   return db.transaction(async (tx) => {
+    let eventId = input.eventId ?? null;
+    let parent: ParentRow | null = null;
+    if (input.parentId) {
+      parent = await visibleParent(tx, actor, input.parentId);
+      if (input.eventId === undefined) eventId = parent.eventId;
+      const problem = nestingProblem({
+        taskId: "",
+        taskEventId: eventId,
+        taskHasSubtasks: false,
+        taskOpen: true,
+        parent,
+      });
+      if (problem) throw new TaskInputError("invalid_parent", [problem]);
+    }
     let eventName: string | null = null;
-    if (input.eventId) {
-      checkId(input.eventId, "invalid_event");
+    if (eventId) {
+      checkId(eventId, "invalid_event");
       const [found] = await tx
         .select({ name: event.name })
         .from(event)
-        .where(and(eq(event.id, input.eventId), isNull(event.archivedAt)));
+        .where(and(eq(event.id, eventId), isNull(event.archivedAt)));
       if (!found) throw new TaskInputError("invalid_event");
       // Field users: only events they work at.
       if (actor.role === "field") {
@@ -1197,7 +1438,7 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
               .from(eventDuty)
               .where(
                 and(
-                  eq(eventDuty.eventId, input.eventId),
+                  eq(eventDuty.eventId, eventId),
                   eq(eventDuty.staffMemberId, actor.staffMemberId),
                 ),
               )
@@ -1213,11 +1454,14 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
     const [created] = await tx
       .insert(task)
       .values({
-        eventId: input.eventId ?? null,
+        eventId,
+        parentTaskId: parent?.id ?? null,
+        checklistId: parent?.checklistId ?? null,
+        phase: parent?.phase ?? null,
         source: "manual",
         title,
         description,
-        category: input.category ?? "general",
+        category: input.category ?? parent?.category ?? "general",
         priority: input.priority ?? "normal",
         estimateMinutes: estimate,
         dueAt: input.dueOn ? dueAtForDate(input.dueOn, null) : null,
@@ -1234,7 +1478,8 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
     if (!created) throw new Error("task missing");
     const auditId = await writeAudit(tx, actor, "task.create", created.id, {
       title,
-      eventId: input.eventId ?? null,
+      eventId,
+      ...(parent ? { parentTaskId: parent.id, parentTitle: parent.title } : {}),
       dueOn: input.dueOn ?? null,
       estimateMinutes: estimate,
       assigneeId: person?.id ?? null,
@@ -1250,7 +1495,7 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
           subjectId: created.id,
           title: text.title,
           body: text.body,
-          link: taskLink(created.id, input.eventId ?? null),
+          link: taskLink(created.id, eventId),
           dedupeKey: assignedKey(created.id, auditId),
         },
       ]);

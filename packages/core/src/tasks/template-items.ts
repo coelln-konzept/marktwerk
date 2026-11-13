@@ -31,7 +31,6 @@ export const STANDARD_ANCHOR_KEYS = [
 
 export const TEMPLATE_TITLE_MAX = 200;
 export const TEMPLATE_TEXT_MAX = 5000;
-export const MAX_CHECK_ITEMS = 30;
 export const MAX_ESTIMATE_MINUTES = 100_000;
 export const MAX_ITEMS_PER_VERSION = 300;
 
@@ -121,9 +120,14 @@ export type TemplateItemFields = {
   isKey: boolean;
   /** The permit this item applies for ("Gehört zur Genehmigung"); its task links to the event's permit of that type. */
   permitType: PermitTypeKey | null;
-  checkItems: string[];
   approverDutyRoleId: string | null;
-  dependsOnKeys: string[];
+  /**
+   * Child item (ADR 0021): the `stable_key` of the item whose task this item's task becomes a subtask of; null =
+   * a top-level item. Checked against the version by `checkItemTree`.
+   */
+  parentKey: string | null;
+  /** Child items: own anchor, offset, day mode and time (true) or the parent's (false). */
+  ownDue: boolean;
   condition: ItemCondition | null;
 };
 
@@ -138,8 +142,7 @@ export type ItemIssueCode =
   | "invalid_offset"
   | "invalid_time"
   | "invalid_estimate"
-  | "invalid_check_items"
-  | "invalid_depends"
+  | "invalid_parent"
   | "invalid_permit_type"
   | "invalid_condition";
 
@@ -154,8 +157,7 @@ export type ItemIssueField =
   | "offsetDays"
   | "dueTime"
   | "estimateMinutes"
-  | "checkItems"
-  | "dependsOnKeys"
+  | "parentKey"
   | "permitType"
   | "condition";
 
@@ -196,16 +198,9 @@ export function checkTemplateItem(item: TemplateItemFields): ItemIssue[] {
     item.estimateMinutes > MAX_ESTIMATE_MINUTES
   )
     add("invalid_estimate", "estimateMinutes");
-  if (
-    !Array.isArray(item.checkItems) ||
-    item.checkItems.length > MAX_CHECK_ITEMS ||
-    item.checkItems.some(
-      (c) => typeof c !== "string" || c.trim() === "" || c.length > TEMPLATE_TITLE_MAX,
-    )
-  )
-    add("invalid_check_items", "checkItems");
-  if (!Array.isArray(item.dependsOnKeys) || item.dependsOnKeys.some((k) => typeof k !== "string"))
-    add("invalid_depends", "dependsOnKeys");
+  if (item.parentKey !== null && (typeof item.parentKey !== "string" || item.parentKey === ""))
+    add("invalid_parent", "parentKey");
+  if (typeof item.ownDue !== "boolean") add("invalid_parent", "parentKey");
   if (item.permitType !== null && !isOneOf(PERMIT_TYPES, item.permitType))
     add("invalid_permit_type", "permitType");
   const c = item.condition;
@@ -218,45 +213,6 @@ export function checkTemplateItem(item: TemplateItemFields): ItemIssue[] {
       ))
   )
     add("invalid_condition", "condition");
-  return issues;
-}
-
-export type DependencyIssue = {
-  key: string;
-  code: "unknown_dependency" | "self_dependency" | "dependency_cycle";
-};
-
-/**
- * Dependencies must point at other items of the same version and must not form a loop. Dependencies are
- * informational (they never move dates), but a loop would make "waits for" unanswerable.
- */
-export function checkDependencies(
-  items: readonly { stableKey: string; dependsOnKeys: readonly string[] }[],
-): DependencyIssue[] {
-  const issues: DependencyIssue[] = [];
-  const known = new Map(items.map((i) => [i.stableKey, i.dependsOnKeys]));
-  for (const item of items) {
-    for (const dep of item.dependsOnKeys) {
-      if (dep === item.stableKey) issues.push({ key: item.stableKey, code: "self_dependency" });
-      else if (!known.has(dep)) issues.push({ key: item.stableKey, code: "unknown_dependency" });
-    }
-  }
-  // Depth-first search for loops (white/grey/black colouring).
-  const state = new Map<string, 1 | 2>();
-  const reported = new Set<string>();
-  const visit = (key: string, path: string[]) => {
-    state.set(key, 1);
-    for (const dep of known.get(key) ?? []) {
-      if (dep === key || !known.has(dep)) continue;
-      if (state.get(dep) === 1) {
-        for (const member of path.slice(path.indexOf(dep))) reported.add(member);
-        reported.add(dep);
-      } else if (!state.has(dep)) visit(dep, [...path, dep]);
-    }
-    state.set(key, 2);
-  };
-  for (const item of items) if (!state.has(item.stableKey)) visit(item.stableKey, [item.stableKey]);
-  for (const key of reported) issues.push({ key, code: "dependency_cycle" });
   return issues;
 }
 

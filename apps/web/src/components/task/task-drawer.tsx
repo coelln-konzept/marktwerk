@@ -18,12 +18,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
-import {
-  editTask,
-  giveEffortFeedback,
-  newCheckItem,
-  tickCheckItem,
-} from "@/app/(app)/board/actions";
+import { editTask, giveEffortFeedback, newSubtask, setStatus } from "@/app/(app)/board/actions";
 import { ReasonDialog } from "@/components/board/reason-dialog";
 import { CategoryTag, DueLine } from "@/components/board/task-bits";
 import { useTaskActions } from "@/components/board/use-task-actions";
@@ -129,7 +124,9 @@ export function TaskDrawer({
   const uid = useId();
 
   const finished = task.status === "done" || task.status === "skipped";
-  const checkDone = task.checkItems.filter((c) => c.done).length;
+  const subtasksDone = task.subtasks.filter(
+    (s) => s.status === "done" || s.status === "skipped",
+  ).length;
   const ref = { id: task.id, title: task.title, status: task.status };
 
   /** Saves a change; `undo` is the patch that puts the old values back (the toast's "Rückgängig"). */
@@ -169,7 +166,7 @@ export function TaskDrawer({
           hasPhone: task.assigneeHasPhone,
         }
       : null
-    : task.notifyUser && task.notifyUser.name && task.notifyUser.id !== task.notifySelf.id
+    : task.notifyUser?.name && task.notifyUser.id !== task.notifySelf.id
       ? { kind: "person", name: task.notifyUser.name, hasEmail: null, hasPhone: null }
       : { kind: "self", email: task.notifySelf.email, hasPhone: task.notifySelf.hasPhone };
 
@@ -759,64 +756,79 @@ export function TaskDrawer({
           )}
         </Section>
 
-        <Section title={t("checklist", { done: checkDone, total: task.checkItems.length })}>
-          {task.checkItems.length > 0 && (
-            <ul className="flex flex-col gap-1">
-              {task.checkItems.map((item) => (
-                <li key={item.id}>
-                  <label className="flex min-h-8 cursor-pointer items-center gap-2 text-small">
-                    <input
-                      type="checkbox"
-                      checked={item.done}
-                      disabled={!canWrite || pending}
-                      onChange={(e) =>
-                        startTransition(async () => {
-                          const result = await tickCheckItem(task.id, item.id, e.target.checked);
-                          if (!result.ok) showToast({ message: actions.errorText(result.error) });
-                        })
-                      }
-                      className="size-4 accent-[var(--primary)]"
-                    />
-                    <span className={item.done ? "text-muted-foreground line-through" : undefined}>
-                      {item.title}
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
-          {canWrite && (
-            <form
-              className="flex gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const value = newItem.trim();
-                if (!value) return;
-                startTransition(async () => {
-                  const result = await newCheckItem(task.id, value);
-                  if (result.ok) setNewItem("");
-                  else showToast({ message: actions.errorText(result.error) });
-                });
-              }}
-            >
-              <Input
-                aria-label={t("addCheckItem")}
-                placeholder={t("addCheckItem")}
-                value={newItem}
-                maxLength={200}
-                onChange={(e) => setNewItem(e.target.value)}
-              />
-              <Button
-                type="submit"
-                size="icon"
-                aria-label={t("addCheckItemButton")}
-                disabled={pending || !newItem.trim()}
+        {task.parent && (
+          <p className="m-0 text-muted-foreground text-small">
+            {t("parentTask", { title: task.parent.title })}
+          </p>
+        )}
+        {/* Subtasks (ADR 0021). Interim list: tick and add; assignee, due and nesting come with the UI step. */}
+        {!task.parent && (
+          <Section title={t("subtasks", { done: subtasksDone, total: task.subtasks.length })}>
+            {task.subtasks.length > 0 && (
+              <ul className="flex flex-col gap-1">
+                {task.subtasks.map((item) => {
+                  const done = item.status === "done" || item.status === "skipped";
+                  return (
+                    <li key={item.id}>
+                      <label className="flex min-h-8 cursor-pointer items-center gap-2 text-small">
+                        <input
+                          type="checkbox"
+                          checked={done}
+                          disabled={!canWrite || pending}
+                          onChange={(e) =>
+                            startTransition(async () => {
+                              const result = await setStatus(
+                                item.id,
+                                e.target.checked ? "done" : "todo",
+                              );
+                              if (!result.ok)
+                                showToast({ message: actions.errorText(result.error) });
+                            })
+                          }
+                          className="size-4 accent-[var(--primary)]"
+                        />
+                        <span className={done ? "text-muted-foreground line-through" : undefined}>
+                          {item.title}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {canWrite && (
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const value = newItem.trim();
+                  if (!value) return;
+                  startTransition(async () => {
+                    const result = await newSubtask(task.id, value);
+                    if (result.ok) setNewItem("");
+                    else showToast({ message: actions.errorText(result.error) });
+                  });
+                }}
               >
-                <Plus aria-hidden />
-              </Button>
-            </form>
-          )}
-        </Section>
+                <Input
+                  aria-label={t("addSubtask")}
+                  placeholder={t("addSubtask")}
+                  value={newItem}
+                  maxLength={200}
+                  onChange={(e) => setNewItem(e.target.value)}
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  aria-label={t("addSubtaskButton")}
+                  disabled={pending || !newItem.trim()}
+                >
+                  <Plus aria-hidden />
+                </Button>
+              </form>
+            )}
+          </Section>
+        )}
 
         {(task.requiresPhoto || task.requiresAttachment) && (
           <Section title={t("evidence.title")}>

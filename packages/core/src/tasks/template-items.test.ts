@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   applicableItems,
-  checkDependencies,
   checkTemplateItem,
   hasCondition,
   insertPoint,
@@ -34,9 +33,9 @@ const item = (patch: Partial<TemplateItemFields> = {}): TemplateItemFields => ({
   requiresAttachment: false,
   isKey: false,
   permitType: null,
-  checkItems: [],
   approverDutyRoleId: null,
-  dependsOnKeys: [],
+  parentKey: null,
+  ownDue: false,
   condition: null,
   ...patch,
 });
@@ -98,38 +97,14 @@ describe("checkTemplateItem", () => {
     expect(codes({ offsetDays: -366 })).toEqual(["invalid_offset"]);
     expect(codes({ dueTime: "25:00" })).toEqual(["invalid_time"]);
     expect(codes({ estimateMinutes: -1 })).toEqual(["invalid_estimate"]);
-    expect(codes({ checkItems: ["ok", " "] })).toEqual(["invalid_check_items"]);
+    expect(codes({ parentKey: "" })).toEqual(["invalid_parent"]);
+    expect(codes({ parentKey: "marktgenehmigung" })).toEqual([]);
     expect(codes({ phase: "later" as never })).toEqual(["invalid_phase"]);
     expect(codes({ category: "misc" as never })).toEqual(["invalid_category"]);
     expect(codes({ priority: "urgent" as never })).toEqual(["invalid_priority"]);
     expect(codes({ dayMode: "weekdays" as never })).toEqual(["invalid_day_mode"]);
     expect(codes({ permitType: "visa" as never })).toEqual(["invalid_permit_type"]);
     expect(codes({ permitType: "market_permit" })).toEqual([]);
-  });
-});
-
-describe("checkDependencies", () => {
-  it("accepts a chain and an independent item", () => {
-    expect(
-      checkDependencies([
-        { stableKey: "a", dependsOnKeys: [] },
-        { stableKey: "b", dependsOnKeys: ["a"] },
-        { stableKey: "c", dependsOnKeys: ["a", "b"] },
-      ]),
-    ).toEqual([]);
-  });
-
-  it("finds unknown targets, self references and loops", () => {
-    const issues = checkDependencies([
-      { stableKey: "a", dependsOnKeys: ["c"] },
-      { stableKey: "b", dependsOnKeys: ["a", "zzz"] },
-      { stableKey: "c", dependsOnKeys: ["b"] },
-      { stableKey: "d", dependsOnKeys: ["d"] },
-    ]);
-    expect(issues).toContainEqual({ key: "b", code: "unknown_dependency" });
-    expect(issues).toContainEqual({ key: "d", code: "self_dependency" });
-    const cycle = issues.filter((i) => i.code === "dependency_cycle").map((i) => i.key);
-    expect(new Set(cycle)).toEqual(new Set(["a", "b", "c"]));
   });
 });
 

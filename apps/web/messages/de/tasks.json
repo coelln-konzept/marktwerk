@@ -43,12 +43,12 @@
       "finished": "Abgeschlossen"
     },
     "estimate": "Schätzung",
-    "checks": "Checkliste",
+    "checks": "Unteraufgaben",
     "evidence": {
       "title": "Nachweis",
       "photo": "Foto",
       "attachment": "Anhang",
-      "check_items": "Checkliste vollständig abhaken",
+      "subtasks": "offene Unteraufgaben abschließen",
       "missing": "fehlt",
       "given": "vorhanden",
       "addPhoto": "Foto hinzufügen",
@@ -145,9 +145,10 @@
     "dueSetByHand": "von Hand gesetzt, folgt dem Veranstaltungstermin nicht mehr",
     "description": "Beschreibung",
     "noDescription": "Keine Beschreibung.",
-    "checklist": "Checkliste · {done}/{total}",
-    "addCheckItem": "Schritt hinzufügen",
-    "addCheckItemButton": "Schritt anlegen",
+    "subtasks": "Unteraufgaben · {done}/{total}",
+    "addSubtask": "Unteraufgabe hinzufügen",
+    "addSubtaskButton": "Unteraufgabe anlegen",
+    "parentTask": "Unteraufgabe von „{title}“",
     "feedback": {
       "title": "Wie war der Aufwand?",
       "as_planned": "Wie geplant",

@@ -1,4 +1,4 @@
-import { auditLog, checklist, event, task, taskCheckItem } from "@marktwerk/db/schema";
+import { auditLog, checklist, event, task } from "@marktwerk/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
@@ -73,7 +73,7 @@ const tasksOf = (eventId: string) =>
 
 /**
  * Version 2: the permit task is renamed and due earlier, "Abrechnung" is gone, "Aufbau" gets a duty
- * role, and "Foto der Fläche" is new (with check items).
+ * role, and "Foto der Fläche" is new.
  */
 async function publishVersion2() {
   const draft = await createDraft(owner, templateId);
@@ -91,7 +91,7 @@ async function publishVersion2() {
   await addTemplateItem(
     owner,
     draft.versionId,
-    baseItem({ title: "Foto der Fläche", checkItems: ["Vorher", "Nachher"], offsetDays: 1 }),
+    baseItem({ title: "Foto der Fläche", offsetDays: 1 }),
   );
   await publishDraft(owner, draft.versionId, "Version 2");
   return draft;
@@ -230,14 +230,6 @@ describe("applyTemplateVersion", () => {
     });
     const photo = await taskOf(e2, "foto_der_flaeche");
     expect(photo).toMatchObject({ source: "template", dueAt: expect.any(Date) });
-    expect(
-      (
-        await db
-          .select()
-          .from(taskCheckItem)
-          .where(eq(taskCheckItem.taskId, photo?.id ?? ""))
-      ).map((c) => c.title),
-    ).toEqual(["Vorher", "Nachher"]);
 
     // Untouched events stay as they were; the checklist knows its version.
     expect(await taskOf(e1, "foto_der_flaeche")).toBeUndefined();

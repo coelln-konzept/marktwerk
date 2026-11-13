@@ -7,7 +7,9 @@ import {
   holidaysBetween,
   holidayWindow,
   type ItemCondition,
+  inheritedItem,
   type PlanItem,
+  parentsFirst,
   taskDueInstant,
 } from "@marktwerk/core";
 import {
@@ -20,13 +22,11 @@ import {
   eventType,
   settings,
   task,
-  taskCheckItem,
-  taskDependency,
   templateItem,
   templateVersion,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { Actor } from "../actor";
 import type { db } from "../db";
 import { audit } from "./audit";
@@ -210,6 +210,8 @@ export async function loadPublishedVersions(
 /** What a template item turns into for one event (due date and assignee worked out). */
 export type DesiredTask = PlanItem & {
   itemId: string;
+  /** Child item (ADR 0021): the parent item's stable key; its task becomes a subtask of the parent's task. */
+  parentKey: string | null;
   anchorKey: string;
   offsetDays: number;
   dayMode: "calendar" | "business";
@@ -273,18 +275,27 @@ export function desiredTask(
       ? (ev.duties.get(item.approverDutyRoleId) ?? null)
       : null,
     sort: item.sort,
+    parentKey: item.parentKey,
   };
 }
 
-/** Items of a version that apply to the event, as the tasks they would become. */
+/**
+ * Items of a version that apply to the event, as the tasks they would become: parents first, then child items
+ * (ADR 0021), which apply only together with their parent and take its schedule and duty role unless they have
+ * their own (`inheritedItem`). The returned items carry those resolved values.
+ */
 export function desiredTasks(
   version: TemplateVersionContent,
   ev: EventContext,
   defaults: DueDefaults,
 ): { desired: DesiredTask[]; items: TemplateItemRow[] } {
-  const items = applicableItems(
+  const applicable = applicableItems(
     version.items.map((i) => ({ ...i, condition: i.condition as ItemCondition | null })),
     ev.facts,
+  );
+  const byKey = new Map(version.items.map((i) => [i.stableKey, i]));
+  const items = parentsFirst(applicable).map((i) =>
+    i.parentKey ? inheritedItem(i, byKey.get(i.parentKey) ?? null) : i,
   );
   const context = { defaults, holidays: holidaysFor(ev, items) };
   return { desired: items.map((i) => desiredTask(i, ev, context)), items };
@@ -293,102 +304,98 @@ export function desiredTasks(
 // ---------------------------------------------------------------------------------------------
 // Writing tasks
 
-/** Check items (sub-steps) of the tasks that were just created. */
-async function insertCheckItems(
-  tx: Tx,
-  created: { id: string; templateStableKey: string | null }[],
-  itemsByKey: Map<string, TemplateItemRow>,
-) {
-  const rows = created.flatMap((t) => {
-    const item = t.templateStableKey ? itemsByKey.get(t.templateStableKey) : undefined;
-    return (item?.checkItems ?? []).map((title, index) => ({ taskId: t.id, title, sort: index }));
-  });
-  for (const part of chunks(rows)) await tx.insert(taskCheckItem).values(part);
+/** The task values of a desired item for one event's checklist. */
+function taskValues(ev: EventContext, checklistId: string, d: DesiredTask) {
+  return {
+    eventId: ev.id,
+    checklistId,
+    templateItemId: d.itemId,
+    templateStableKey: d.stableKey,
+    source: "template" as const,
+    title: d.title,
+    description: d.description,
+    phase: d.phase as "pre" | "live" | "post",
+    category: d.category as (typeof task.$inferInsert)["category"],
+    priority: d.priority as "low" | "normal" | "high",
+    dutyRoleId: d.dutyRoleId,
+    assigneeId: d.assigneeId,
+    anchorKey: d.anchorKey,
+    offsetDays: d.offsetDays,
+    dayMode: d.dayMode,
+    dueAt: d.dueAt === null ? null : new Date(d.dueAt),
+    estimateMinutes: d.estimateMinutes,
+    requiresPhoto: d.requiresPhoto,
+    requiresNote: d.requiresNote,
+    requiresAttachment: d.requiresAttachment,
+    isKey: d.isKey,
+    approverStaffMemberId: d.approverStaffMemberId,
+    // Keeps the template order inside a kanban column until someone moves cards around.
+    boardSort: d.sort,
+  };
 }
 
 /**
- * Dependencies between the tasks of one checklist ("needs B first", informational). Only for the items
- * named in `keys`; targets that have no task in the checklist (item not applicable) are skipped.
+ * Tasks of the checklist by template stable key (top-level ones only: the possible parents of child items).
  */
-export async function linkDependencies(
+export async function parentTasksByKey(
   tx: Tx,
   checklistId: string,
-  items: TemplateItemRow[],
-  keys: ReadonlySet<string>,
-) {
-  const withDeps = items.filter((i) => keys.has(i.stableKey) && i.dependsOnKeys.length > 0);
-  if (withDeps.length === 0) return;
-  const tasks = await tx
+  keys: readonly string[],
+): Promise<Map<string, string>> {
+  if (keys.length === 0) return new Map();
+  const rows = await tx
     .select({ id: task.id, key: task.templateStableKey })
     .from(task)
-    .where(eq(task.checklistId, checklistId));
-  const idOf = new Map(tasks.flatMap((t) => (t.key ? [[t.key, t.id] as const] : [])));
-  const rows = withDeps.flatMap((item) => {
-    const taskId = idOf.get(item.stableKey);
-    if (!taskId) return [];
-    return item.dependsOnKeys.flatMap((dep) => {
-      const dependsOnTaskId = idOf.get(dep);
-      return dependsOnTaskId && dependsOnTaskId !== taskId ? [{ taskId, dependsOnTaskId }] : [];
-    });
-  });
-  for (const part of chunks(rows))
-    await tx.insert(taskDependency).values(part).onConflictDoNothing();
+    .where(
+      and(
+        eq(task.checklistId, checklistId),
+        isNull(task.parentTaskId),
+        isNotNull(task.templateStableKey),
+        inArray(task.templateStableKey, [...new Set(keys)]),
+      ),
+    );
+  return new Map(rows.flatMap((r) => (r.key ? [[r.key, r.id] as const] : [])));
 }
 
-/** Inserts tasks for desired items into a checklist; existing ones (same stable key) are skipped. */
+/**
+ * Inserts tasks for desired items into a checklist; existing ones (same stable key) are skipped. Top-level items
+ * first, then child items as subtasks of their parent item's task (ADR 0021); a child whose parent has no task in
+ * the checklist is skipped. Returns how many tasks were created.
+ */
 export async function insertTemplateTasks(
   tx: Tx,
   ev: EventContext,
   checklistId: string,
   desired: DesiredTask[],
-  items: TemplateItemRow[],
 ): Promise<number> {
   if (desired.length === 0) return 0;
-  const itemsByKey = new Map(items.map((i) => [i.stableKey, i]));
-  const created: { id: string; templateStableKey: string | null }[] = [];
-  for (const part of chunks(desired)) {
-    const rows = await tx
-      .insert(task)
-      .values(
-        part.map((d) => ({
-          eventId: ev.id,
-          checklistId,
-          templateItemId: d.itemId,
-          templateStableKey: d.stableKey,
-          source: "template" as const,
-          title: d.title,
-          description: d.description,
-          phase: d.phase as "pre" | "live" | "post",
-          category: d.category as (typeof task.$inferInsert)["category"],
-          priority: d.priority as "low" | "normal" | "high",
-          dutyRoleId: d.dutyRoleId,
-          assigneeId: d.assigneeId,
-          anchorKey: d.anchorKey,
-          offsetDays: d.offsetDays,
-          dayMode: d.dayMode,
-          dueAt: d.dueAt === null ? null : new Date(d.dueAt),
-          estimateMinutes: d.estimateMinutes,
-          requiresPhoto: d.requiresPhoto,
-          requiresNote: d.requiresNote,
-          requiresAttachment: d.requiresAttachment,
-          isKey: d.isKey,
-          approverStaffMemberId: d.approverStaffMemberId,
-          // Keeps the template order inside a kanban column until someone moves cards around.
-          boardSort: d.sort,
-        })),
-      )
-      .onConflictDoNothing()
-      .returning({ id: task.id, templateStableKey: task.templateStableKey });
-    created.push(...rows);
-    await insertCheckItems(tx, rows, itemsByKey);
+  let created = 0;
+  const insert = async (rows: (ReturnType<typeof taskValues> & { parentTaskId?: string })[]) => {
+    for (const part of chunks(rows)) {
+      const inserted = await tx
+        .insert(task)
+        .values(part)
+        .onConflictDoNothing()
+        .returning({ id: task.id });
+      created += inserted.length;
+    }
+  };
+  await insert(desired.filter((d) => !d.parentKey).map((d) => taskValues(ev, checklistId, d)));
+  const children = desired.filter((d) => d.parentKey);
+  if (children.length > 0) {
+    const parents = await parentTasksByKey(
+      tx,
+      checklistId,
+      children.map((d) => d.parentKey as string),
+    );
+    await insert(
+      children.flatMap((d) => {
+        const parentTaskId = parents.get(d.parentKey as string);
+        return parentTaskId ? [{ ...taskValues(ev, checklistId, d), parentTaskId }] : [];
+      }),
+    );
   }
-  await linkDependencies(
-    tx,
-    checklistId,
-    items,
-    new Set(created.map((c) => c.templateStableKey ?? "")),
-  );
-  return created.length;
+  return created;
 }
 
 /** The checklist of an event for a template (created when missing; idempotent). */
@@ -431,7 +438,7 @@ export type InstantiationSummary = { checklists: number; tasks: number };
  * THE one service path that turns timeline templates into work (CLAUDE.md, data model "Generating events"):
  * for each new event one checklist per template linked to its preset (current published version) and one
  * task per applicable item, due at anchor + offset, assigned to whoever holds the item's duty role at the
- * event. Called by `instantiateEvents` inside its transaction; safe to call again (nothing is duplicated:
+ * event; child items become subtasks of their parent item's task (ADR 0021). Called by `instantiateEvents` inside its transaction; safe to call again (nothing is duplicated:
  * the checklist is reused and the partial unique index skips tasks that exist).
  */
 export async function instantiateTemplatesForEvents(
@@ -471,8 +478,8 @@ export async function instantiateTemplatesForEvents(
       const version = versions.get(link.templateId);
       if (!version) continue;
       const list = await ensureChecklist(tx, ev, version, index);
-      const { desired, items } = desiredTasks(version, ev, defaults);
-      const count = await insertTemplateTasks(tx, ev, list.id, desired, items);
+      const { desired } = desiredTasks(version, ev, defaults);
+      const count = await insertTemplateTasks(tx, ev, list.id, desired);
       if (list.created) summary.checklists += 1;
       summary.tasks += count;
       if (list.created || count > 0)

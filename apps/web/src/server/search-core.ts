@@ -11,7 +11,8 @@ import {
   vendor,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, inArray, isNull, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { formatDateShortYear, formatWeek } from "@/lib/format";
 import { escapeLike, escapeRegex, formatIsoDates, phoneDigits, tokenize } from "@/lib/search-query";
 import { type Actor, visibleEvents } from "./actor";
@@ -181,12 +182,15 @@ export async function searchAs(
     // With several words the event's name counts ("halteverbot bonn"); one word only looks at the title,
     // or "bonn" would list every task of every Bonn market.
     const m = matcher(tokens, task.title, tokens.length > 1 ? [event.name] : []);
+    // Subtasks are found too (ADR 0021); their parent's title tells where they sit.
+    const parentTask = alias(task, "parent_task");
     const result = await db
       .select({
         id: task.id,
         title: task.title,
         eventId: task.eventId,
         status: task.status,
+        parentTitle: parentTask.title,
         eventName: event.name,
         eventStartsOn: event.startsOn,
         score: m.score,
@@ -195,6 +199,7 @@ export async function searchAs(
       })
       .from(task)
       .leftJoin(event, sql`${event.id} = ${task.eventId}`)
+      .leftJoin(parentTask, eq(parentTask.id, task.parentTaskId))
       .where(and(visibleTasks(actor), m.where))
       // Best match first; then open tasks, then the most recently finished ones.
       .orderBy(
@@ -211,9 +216,15 @@ export async function searchAs(
         kind: "task",
         title: r.title,
         // The same task title exists once per event: name and date tell them apart.
-        subtitle: r.eventName
-          ? `${r.eventName}${r.eventStartsOn ? ` · ${formatDateShortYear(r.eventStartsOn, locale)}` : ""}`
-          : undefined,
+        subtitle:
+          [
+            r.parentTitle,
+            r.eventName
+              ? `${r.eventName}${r.eventStartsOn ? ` · ${formatDateShortYear(r.eventStartsOn, locale)}` : ""}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" › ") || undefined,
         href: taskLink(r.id, r.eventId),
         score: r.score,
       });

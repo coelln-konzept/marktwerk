@@ -137,8 +137,8 @@ erDiagram
   `reopenedTaskIds`). Migration 0012 backfilled existing cancelled events (entry `backfill: true`, no actor).
   **Deleting an event** (`deleteEvent`, owner/manager, name typed): `payable`, `expense`, `shift` and `document` reference it
   with `on delete restrict` (documents also through `document.task_id` on the event's tasks), so any of them, archived
-  ones included, blocks the deletion (`blocked` with counts). Everything else cascades: tasks (with old comments, check
-  items, dependencies), checklists, duties, anchors, budget lines, income and permit links; the permit stays.
+  ones included, blocks the deletion (`blocked` with counts). Everything else cascades: tasks (with their subtasks and
+  old comments), checklists, duties, anchors, budget lines, income and permit links; the permit stays.
   Audit `event.delete` (written first; `entity_id` is no foreign key) keeps a snapshot incl. the cascaded counts.
   No required permit → stays planned (manual confirmation). Never moves back,
   the permit health keeps showing a withdrawn permit,
@@ -161,8 +161,8 @@ erDiagram
   **template_item** (`stable_key`, title, description, `phase`, `category` (`general | permits | logistics |
   communication | finance | staff`), `anchor_key`, `offset_days`, `day_mode` (`calendar | business`), `due_time?`,
   `duty_role_id?`, `priority`, **`estimate_minutes`**, evidence (`requires_photo`, `requires_note`,
-  `requires_attachment`, `check_items`), `is_key` (Kernaufgabe, manual flag, copied to the task by
-  instantiation and propagation), `requires_approval_by?`, `depends_on_keys`, `condition` (on event
+  `requires_attachment`), `is_key` (Kernaufgabe, manual flag, copied to the task by
+  instantiation and propagation), `requires_approval_by?`, `condition` (on event
   type/venue attributes), sort), `permit_type?` (0008: the item applies for a permit of that type, e.g.
   "Marktgenehmigung beantragen" → `market_permit`; its tasks get `task.permit_id` = the event's permit of that type
   via `linkPermitTasks` and complete automatically once that permit is applied for or granted).
@@ -179,6 +179,15 @@ erDiagram
   publishes it as v1 and links it through `event_preset_template`; from then on it is independent of the master
   (no propagation). Existing presets keep their links to the per-type templates. Library lists of "other"
   templates exclude the master and owned copies.)*
+  *(0019, [ADR 0021](adr/0021-subtasks.md): **child items** replace `check_items` ("Teilschritte") and
+  `depends_on_keys` (both dropped). `parent_key?` is the `stable_key` of another item of the same version (composite
+  foreign key `(version_id, parent_key) → (version_id, stable_key)`, `on delete cascade`: deleting a parent deletes its
+  children; check `template_item_not_own_parent`); one level only (`checkItemTree` in `packages/core`, checked by the
+  template service on add/update/publish). A child's task becomes a subtask of the parent item's task. **`own_due`**
+  (default false): false = the child takes the parent's `anchor_key`, `offset_days`, `day_mode` and `due_time`; a
+  child without `duty_role_id` takes the parent's role (`inheritedItem`). A child applies only together with its parent
+  (`parentsFirst`). Migration: each `check_items` entry became a child item `<parent key>__teil_<n>` with the parent's
+  phase, category, priority and schedule, placed right below the parent.)*
 - **checklist**: `event_id?`, `permit_id?`, `template_version_id?`, name. *(implemented 0002: + `template_id?`, `sort`,
   `archived_at`; a check forbids both `event_id` and `permit_id`.)*
 - **task**: origin (`event_id?`, `checklist_id?`, `template_item_id?`, `template_stable_key?`, `permit_id?`,
@@ -190,6 +199,30 @@ erDiagram
   skipped | cancelled`, `waiting_reason?`, `completed_at?`, `completed_by?`, `approval_status?`);
   **kanban** (`board_column?` override, `board_sort`); **carry-over** (`rollover_count`, `last_rolled_at`);
   template tracking (`customized`, `removed_from_template`).
+  *(0019, [ADR 0021](adr/0021-subtasks.md): **subtasks** use `parent_task_id` (`on delete set null`). One level: the
+  trigger `task_one_level_subtasks` refuses a parent that is itself a subtask and a task with subtasks becoming one
+  (check `task_not_own_parent` refuses itself); the services check first (`nestingProblem`: same event, parent not
+  deleted, an open task not under a finished parent). One path nests and lifts out: `setTaskParent(actor, taskId,
+  parentId | null)` (audit `task.parent` with `before/after.parentTaskId`, undoable); `createTask({ parentId })` adds
+  one (takes the parent's event, checklist, phase, category). **Done gate**: a task with open subtasks can't be done
+  (`missingEvidence` → `subtasks`); `setTaskStatus`/`moveTask` return `parentReady` when the last open subtask was
+  finished (the UI offers to complete the parent). A finished subtask can't be reopened under a finished parent.
+  **Delete**: `deleteTask` cancels the parent's open subtasks too (`task.delete` diff `subtasks: [{id, from}]`);
+  undo and `restoreTask` reopen them (the `task.restore` diff records them, its undo cancels them again).
+  **Lists** (shared SQL in `packages/db/src/task-tree.ts`): every list and count works on top-level tasks
+  (`isTopLevel`) and carries `subtasksTotal` (not cancelled), `subtasksDone` (done/skipped), `subtasksOverdue` (open,
+  due before today, not waiting, not snoozed); an overdue subtask makes its parent overdue (`isOverdueWithSubtasks`,
+  counted once). A person's own list (their Übersicht/Kalender, "Nur meine", digest, people rail, workload) holds
+  **work items** (`isOwnWorkItem`): top-level tasks plus subtasks assigned to somebody other than the parent's assignee.
+  **Jobs**: the deadline sweep, digest and company notifications use the parent with `flaggedDueAt` (the earliest
+  overdue open subtask flags it); a subtask of somebody else's task reminds its own assignee; escalations only through
+  the top-level task; the carry-over rolls subtasks of open parents but only own work items notify. Assignment
+  notifications go to the subtask's assignee. Template instantiation and propagation create subtasks from child items
+  (matched by `stable_key`; a removed child item cancels its subtask, a moved one follows its new parent).
+  Migration: every `task_check_item` became a subtask (title; ticked → `done` with `completed_at` / `completed_by` from
+  `done_at` / `done_by`; unticked → `todo`, or `skipped` under a finished parent; the parent's event, checklist, phase,
+  category, priority, duty role, schedule and due date; no assignee; linked to the child item from the template when
+  position and title match). `task_dependency` was dropped.)*
   *(implemented 0004: **`snoozed_until date?`**, a Berlin calendar date. A task is snoozed while it is after today and is
   back on the date itself (no job); the due date is untouched. Snoozed tasks are left out of the Übersicht due list and
   KPIs, the weekend blockers, the Kalender "Aufgaben" layer, the deadline sweep (reminders, escalation) and the daily
@@ -209,7 +242,8 @@ erDiagram
   is the enum `preparation | this_week | today | done`; `board_sort` is a double (fractional ordering);
   `labels` is `text[]`. Constraints: `status = done` needs `completed_at`; a partial unique index
   `(checklist_id, template_stable_key)` makes instantiation idempotent. `event_id` is nullable (company/permit tasks).)*
-- **task_check_item**, **task_dependency** (doesn't move dates), **task_comment** (read-only, old data).
+- **task_comment** (read-only, old data). *(`task_check_item` and `task_dependency` were replaced by subtasks and
+  dropped in 0020, ADR 0021.)*
   *(`task_watcher` was dropped in the 2026-11-10 cleanup: it was never used.)*
   *(implemented 0002: a comment has `author_staff_member_id?` and `author_user_id?` (an office login may have no staff
   record), `mentioned_staff_member_ids`, `edited_at`, `archived_at`. **No UI offers comments any more** (client decision

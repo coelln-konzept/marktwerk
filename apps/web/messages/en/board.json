@@ -148,6 +148,7 @@
       "reason_required": "Please give a reason.",
       "evidence_missing": "“{title}” cannot be marked done yet. Missing: {what}.",
       "not_undoable": "This can no longer be undone.",
+      "invalid_parent": "That can't be a subtask here (one level only, same event, parent still open).",
       "conflict": "The task has changed since. Undo is no longer possible."
     },
     "notify": {

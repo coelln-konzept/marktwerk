@@ -138,7 +138,10 @@ export function ItemGrid({
                 </TGroup>
                 {rows.map((item, indexInPhase) => {
                   number += 1;
-                  const deps = item.dependsOnKeys.map((k) => titleOf.get(k) ?? k);
+                  const children = items.filter((i) => i.parentKey === item.key).length;
+                  const parentTitle = item.parentKey
+                    ? (titleOf.get(item.parentKey) ?? item.parentKey)
+                    : null;
                   const conditionText = [
                     ...(item.condition?.eventTypeKeys ?? []),
                     ...(item.condition?.venueKinds ?? []).map((k) =>
@@ -175,27 +178,26 @@ export function ItemGrid({
                           </span>
                         )}
                         <span className="ml-2 inline-flex items-center gap-2 align-middle text-muted-foreground text-tiny">
-                          {item.checkItems.length > 0 && (
+                          {children > 0 && (
                             <span
                               className="inline-flex items-center gap-0.5"
-                              title={t("grid.checkItems", { count: item.checkItems.length })}
+                              title={t("grid.children", { count: children })}
                             >
                               <ListChecks aria-hidden className="size-3.5" />
-                              {item.checkItems.length}
+                              {children}
                               <span className="sr-only">
-                                {t("grid.checkItems", { count: item.checkItems.length })}
+                                {t("grid.children", { count: children })}
                               </span>
                             </span>
                           )}
-                          {deps.length > 0 && (
+                          {parentTitle && (
                             <span
                               className="inline-flex items-center gap-0.5"
-                              title={t("grid.dependsOn", { titles: deps.join(", ") })}
+                              title={t("grid.childOf", { title: parentTitle })}
                             >
                               <Link2 aria-hidden className="size-3.5" />
-                              {deps.length}
                               <span className="sr-only">
-                                {t("grid.dependsOn", { titles: deps.join(", ") })}
+                                {t("grid.childOf", { title: parentTitle })}
                               </span>
                             </span>
                           )}

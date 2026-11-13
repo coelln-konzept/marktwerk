@@ -134,6 +134,20 @@
       "when": 1794573596555,
       "tag": "0018_drop_times",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794575786963,
+      "tag": "0019_subtasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794575841710,
+      "tag": "0020_drop_check_items_dependencies",
+      "breakpoints": true
     }
   ]
 }

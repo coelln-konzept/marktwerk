@@ -8,6 +8,7 @@ import {
   daysBetween,
   dueState,
   ESCALATION_AFTER_DAYS,
+  flaggedDueAt,
   reminderDedupeKey,
   resolveRelativeDue,
 } from "@marktwerk/core";
@@ -17,7 +18,10 @@ import {
   event,
   eventPermit,
   insertNotifications,
+  isOwnWorkItem,
+  isTopLevel,
   type NewNotification,
+  parentIsOpen,
   permit,
   staffMember,
   task,
@@ -29,6 +33,7 @@ import {
   escalationRecipients,
   notOfPastEvent,
   OPEN_TASK_STATUSES,
+  openSubtaskDues,
   queueImmediateEmails,
 } from "./shared";
 
@@ -70,6 +75,9 @@ function taskLink(t: { id: string; eventId: string | null }): string {
  *
  * - Open tasks with a due date and an assignee: "fällig in n Tagen" at the stages of their priority, and
  *   "überfällig". Tasks made for a permit (`source = permit`) are left to the permit's own reminders.
+ *   Subtasks (ADR 0021): an overdue subtask makes its parent overdue (reminder to the parent's assignee, counted
+ *   once); a subtask assigned to somebody other than the parent's assignee also reminds that person (it is on
+ *   their own list). Subtasks never escalate on their own, only through their parent.
  * - Permits: `permit_apply_by` (30/14/7 days, overdue) while the application is not filed,
  *   `permit_decision_due` (7 days, overdue) while it waits for the authority, and the expiry of granted
  *   permits (60/30 days) that still cover an upcoming event. Recipient is the responsible person, else the
@@ -112,14 +120,17 @@ async function stageTasks(db: Database, now: Date, today: string, out: Staged[])
       assigneeId: task.assigneeId,
       eventId: task.eventId,
       eventName: event.name,
+      parentTaskId: task.parentTaskId,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
     .where(
       and(
         inArray(task.status, [...OPEN_TASK_STATUSES]),
-        isNotNull(task.dueAt),
         isNotNull(task.assigneeId),
+        // The assignee's own items: top-level tasks and subtasks of somebody else's (still open) task.
+        isOwnWorkItem(),
+        parentIsOpen(),
         // Snoozed tasks neither remind nor escalate until their snooze date.
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         ne(task.source, "permit"),
@@ -128,11 +139,20 @@ async function stageTasks(db: Database, now: Date, today: string, out: Staged[])
         notOfPastEvent(today),
       ),
     );
+  const subDues = await openSubtaskDues(
+    db,
+    rows.filter((t) => t.parentTaskId === null).map((t) => t.id),
+    today,
+  );
   for (const t of rows) {
-    if (!t.dueAt || !t.assigneeId) continue;
-    const state = dueState(t.dueAt, now, DEFAULT_TASK_REMINDER_DAYS[t.priority]);
+    if (!t.assigneeId) continue;
+    // An overdue subtask flags its parent: the parent reminds with the subtask's (earlier) date.
+    const flagged = flaggedDueAt(t.dueAt, subDues.get(t.id) ?? [], now);
+    if (!flagged.dueAt) continue;
+    const dueAt = flagged.dueAt;
+    const state = dueState(dueAt, now, DEFAULT_TASK_REMINDER_DAYS[t.priority]);
     if (state.kind === "none") continue;
-    const dueOn = berlinDate(t.dueAt);
+    const dueOn = berlinDate(dueAt);
     if (state.kind === "overdue" && daysBetween(dueOn, today) > BACKLOG_AFTER_DAYS) continue;
     const context = t.eventName ? ` · ${t.eventName}` : "";
     const overdue = state.kind === "overdue";
@@ -145,9 +165,11 @@ async function stageTasks(db: Database, now: Date, today: string, out: Staged[])
       title: overdue
         ? `Überfällig: ${t.title}${context}`
         : `Fällig ${inDays(daysBetween(today, dueOn))}: ${t.title}${context}`,
-      body: `Fällig am ${germanDate(dueOn)}`,
+      body: flagged.fromSubtask
+        ? `Unteraufgabe fällig am ${germanDate(dueOn)}`
+        : `Fällig am ${germanDate(dueOn)}`,
       link: taskLink(t),
-      dedupeKey: reminderDedupeKey("task", t.id, state, t.dueAt),
+      dedupeKey: reminderDedupeKey("task", t.id, state, dueAt),
       immediate: overdue && t.priority === "high",
     });
   }
@@ -328,7 +350,8 @@ async function escalate(
       and(
         inArray(task.status, [...OPEN_TASK_STATUSES]),
         eq(task.priority, "high"),
-        isNotNull(task.dueAt),
+        // Escalations go through the top-level task (an overdue subtask flags it).
+        isTopLevel(),
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),
@@ -336,13 +359,19 @@ async function escalate(
         notOfPastEvent(today),
       ),
     );
+  const escalationSubDues = await openSubtaskDues(
+    db,
+    tasks.map((t) => t.id),
+    today,
+  );
   for (const t of tasks) {
-    if (t.dueAt)
+    const { dueAt } = flaggedDueAt(t.dueAt, escalationSubDues.get(t.id) ?? [], now);
+    if (dueAt)
       targets.push({
         type: "task",
         id: t.id,
         title: t.title,
-        dueAt: t.dueAt,
+        dueAt,
         who: t.who,
         link: taskLink(t),
       });
