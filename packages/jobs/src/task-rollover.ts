@@ -2,6 +2,7 @@ import {
   berlinDay,
   escalatedText,
   escalationDedupeKey,
+  isOwnWorkItem,
   OPEN_STATUSES,
   resolveRelativeDue,
   rolledOverText,
@@ -14,6 +15,7 @@ import {
   escalationLog,
   event,
   insertNotifications,
+  parentIsOpen,
   staffMember,
   task,
   user,
@@ -29,6 +31,8 @@ import { and, eq, inArray, isNull, lt, notExists, or, sql } from "drizzle-orm";
  * Idempotent: a task is counted at most once per Berlin calendar day (the UPDATE only matches tasks
  * not yet rolled today), and notifications carry a dedupe key per task and count, so a second run the
  * same day, or a late one, changes nothing. Tasks of cancelled or archived events are left alone.
+ * Subtasks (ADR 0021) roll over too while their parent is open, but only somebody's own items notify: a subtask
+ * tells its assignee only when the parent is somebody else's, and never escalates (that goes through the parent).
  * The rules themselves (`isRolloverCandidate`, `shouldEscalate`) are in @marktwerk/core.
  */
 export async function taskRollover(
@@ -52,6 +56,7 @@ export async function taskRollover(
           inArray(task.status, [...OPEN_STATUSES]),
           lt(task.dueAt, todayStart),
           or(isNull(task.lastRolledAt), lt(task.lastRolledAt, todayStart)),
+          parentIsOpen(),
           notExists(
             tx
               .select({ one: event.id })
@@ -71,8 +76,27 @@ export async function taskRollover(
         eventId: task.eventId,
         assigneeId: task.assigneeId,
         count: task.rolloverCount,
+        parentTaskId: task.parentTaskId,
       });
     if (rolled.length === 0) return { rolled: 0, notified: 0, escalated: 0 };
+
+    // Whose subtask: a subtask counts as its assignee's own item only when the parent is somebody else's.
+    const parentIds = [...new Set(rolled.flatMap((r) => (r.parentTaskId ? [r.parentTaskId] : [])))];
+    const parentAssignee = new Map(
+      (parentIds.length
+        ? await tx
+            .select({ id: task.id, assigneeId: task.assigneeId })
+            .from(task)
+            .where(inArray(task.id, parentIds))
+        : []
+      ).map((p) => [p.id, p.assigneeId]),
+    );
+    const ownItem = (r: (typeof rolled)[number]) =>
+      isOwnWorkItem({
+        parentTaskId: r.parentTaskId,
+        assigneeId: r.assigneeId,
+        parentAssigneeId: r.parentTaskId ? (parentAssignee.get(r.parentTaskId) ?? null) : null,
+      });
 
     const eventIds = [...new Set(rolled.flatMap((r) => (r.eventId ? [r.eventId] : [])))];
     const people = [...new Set(rolled.flatMap((r) => (r.assigneeId ? [r.assigneeId] : [])))];
@@ -111,7 +135,7 @@ export async function taskRollover(
     const notified = await insertNotifications(
       tx,
       rolled.flatMap((r) => {
-        if (!r.assigneeId) return [];
+        if (!r.assigneeId || !ownItem(r)) return [];
         const text = rolledOverText(subject(r), r.count);
         return [
           {
@@ -129,7 +153,7 @@ export async function taskRollover(
       }),
     );
 
-    const escalating = rolled.filter((r) => shouldEscalate(r.count));
+    const escalating = rolled.filter((r) => r.parentTaskId === null && shouldEscalate(r.count));
     let escalated = 0;
     if (escalating.length > 0 && managers.length > 0) {
       escalated = await insertNotifications(

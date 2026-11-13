@@ -1,7 +1,7 @@
 import "server-only";
 import {
   can,
-  checkDependencies,
+  checkItemTree,
   checkTemplateItem,
   clockTime,
   type ItemIssueCode,
@@ -40,8 +40,6 @@ export type TemplateError =
   | "too_many_items"
   | "invalid_role"
   | "invalid_preset"
-  | "invalid_dependency"
-  | "dependency_cycle"
   | "invalid_note"
   | "master_exists"
   | "master_protected"
@@ -89,9 +87,9 @@ export function itemFields(row: ItemRow): TemplateItemFields {
     requiresAttachment: row.requiresAttachment,
     isKey: row.isKey,
     permitType: row.permitType,
-    checkItems: row.checkItems,
     approverDutyRoleId: row.approverDutyRoleId,
-    dependsOnKeys: row.dependsOnKeys,
+    parentKey: row.parentKey,
+    ownDue: row.ownDue,
     condition: row.condition ?? null,
   };
 }
@@ -100,7 +98,7 @@ function assertShape(input: TemplateItemFields) {
   if (input === null || typeof input !== "object") throw new TemplateInputError("invalid_input");
 }
 
-/** Trims text, drops blank sub-steps and duplicate keys; validation happens afterwards. */
+/** Trims text and empties blank references; validation happens afterwards. */
 function normalizeItem(input: TemplateItemFields): TemplateItemFields {
   assertShape(input);
   const text = (value: string | null) => {
@@ -116,10 +114,8 @@ function normalizeItem(input: TemplateItemFields): TemplateItemFields {
       input.dueTime === null || input.dueTime === ""
         ? null
         : (clockTime(input.dueTime) ?? input.dueTime),
-    checkItems: Array.isArray(input.checkItems)
-      ? input.checkItems.map((c) => (typeof c === "string" ? c.trim() : c)).filter((c) => c !== "")
-      : input.checkItems,
-    dependsOnKeys: Array.isArray(input.dependsOnKeys) ? [...new Set(input.dependsOnKeys)] : [],
+    parentKey: input.parentKey || null,
+    ownDue: input.ownDue ?? false,
     permitType: input.permitType || null,
     dutyRoleId: input.dutyRoleId || null,
     approverDutyRoleId: input.approverDutyRoleId || null,
@@ -143,16 +139,13 @@ async function checkRoles(tx: Tx, ids: (string | null)[]) {
   if (found.length !== wanted.length) throw new TemplateInputError("invalid_role");
 }
 
-/** Dependencies of one item against the other items of the version (unknown targets, loops). */
-function checkItemDependencies(
-  items: { stableKey: string; dependsOnKeys: readonly string[] }[],
-  key?: string,
-) {
-  const [issue] = checkDependencies(items);
-  if (!issue) return;
-  if (issue.code === "dependency_cycle")
-    throw new TemplateInputError("dependency_cycle", "dependsOnKeys", issue.key);
-  throw new TemplateInputError("invalid_dependency", "dependsOnKeys", key ?? issue.key);
+/**
+ * Child items of the version (ADR 0021): every `parentKey` names another item of the version that is not a child
+ * itself (one level).
+ */
+function checkItemParents(items: { stableKey: string; parentKey: string | null }[], key?: string) {
+  const [issue] = checkItemTree(items);
+  if (issue) throw new TemplateInputError("invalid_parent", "parentKey", key ?? issue.key);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -554,7 +547,7 @@ export async function publishDraft(
       tx,
       items.flatMap((i) => [i.dutyRoleId, i.approverDutyRoleId]),
     );
-    checkItemDependencies(items);
+    checkItemParents(items);
 
     const [published] = await tx
       .select()
@@ -658,10 +651,13 @@ export async function addTemplateItem(
     if (items.length >= MAX_ITEMS_PER_VERSION) throw new TemplateInputError("too_many_items");
     await checkRoles(tx, [fields.dutyRoleId, fields.approverDutyRoleId]);
     const key = uniqueItemKey(fields.title, new Set(items.map((i) => i.stableKey)));
-    checkItemDependencies([
-      ...items.map((i) => ({ stableKey: i.stableKey, dependsOnKeys: i.dependsOnKeys })),
-      { stableKey: key, dependsOnKeys: fields.dependsOnKeys },
-    ]);
+    checkItemParents(
+      [
+        ...items.map((i) => ({ stableKey: i.stableKey, parentKey: i.parentKey })),
+        { stableKey: key, parentKey: fields.parentKey },
+      ],
+      key,
+    );
     const [row] = await tx
       .insert(templateItem)
       .values({
@@ -705,10 +701,10 @@ export async function updateTemplateItem(
     const row = await lockItem(tx, version.id, key);
     await checkRoles(tx, [fields.dutyRoleId, fields.approverDutyRoleId]);
     const items = await itemsOf(tx, version.id);
-    checkItemDependencies(
+    checkItemParents(
       items.map((i) => ({
         stableKey: i.stableKey,
-        dependsOnKeys: i.stableKey === key ? fields.dependsOnKeys : i.dependsOnKeys,
+        parentKey: i.stableKey === key ? fields.parentKey : i.parentKey,
       })),
       key,
     );
@@ -732,7 +728,7 @@ export async function updateTemplateItem(
   });
 }
 
-/** Removes a row from the draft; other rows no longer depend on it. */
+/** Removes a row from the draft; its child items go with it (foreign key cascade, ADR 0021). */
 export async function deleteTemplateItem(
   actor: Actor,
   versionId: string,
@@ -742,15 +738,12 @@ export async function deleteTemplateItem(
   return db.transaction(async (tx) => {
     const { version } = await lockDraft(tx, versionId);
     const row = await lockItem(tx, version.id, key);
+    const children = await tx
+      .select({ key: templateItem.stableKey })
+      .from(templateItem)
+      .where(and(eq(templateItem.versionId, version.id), eq(templateItem.parentKey, key)));
     await tx.delete(templateItem).where(eq(templateItem.id, row.id));
     const rest = await itemsOf(tx, version.id);
-    for (const item of rest) {
-      if (item.dependsOnKeys.includes(key))
-        await tx
-          .update(templateItem)
-          .set({ dependsOnKeys: item.dependsOnKeys.filter((k) => k !== key) })
-          .where(eq(templateItem.id, item.id));
-    }
     await resequence(
       tx,
       version.id,
@@ -761,7 +754,12 @@ export async function deleteTemplateItem(
         action: "template.item_delete",
         entityType: "template_version",
         entityId: version.id,
-        diff: { version: version.version, key, title: row.title },
+        diff: {
+          version: version.version,
+          key,
+          title: row.title,
+          ...(children.length > 0 ? { children: children.map((c) => c.key) } : {}),
+        },
       },
     ]);
     return { title: row.title };

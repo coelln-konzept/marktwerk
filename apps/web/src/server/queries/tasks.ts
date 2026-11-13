@@ -12,6 +12,7 @@ import {
   type HealthLevel,
   type HiringSignal,
   hiringSignal,
+  isSubtaskOverdue,
   isWaitingPastDue,
   type LoadLevel,
   loadLevel,
@@ -30,6 +31,7 @@ import {
   weeklyCapacityHours,
   weekStarts,
 } from "@marktwerk/core";
+import { isOverdueWithSubtasks, isOwnWorkItem, isTopLevel, subtaskAggregates } from "@marktwerk/db";
 import {
   auditLog,
   dutyRole,
@@ -40,7 +42,6 @@ import {
   eventType,
   staffMember,
   task,
-  taskCheckItem,
   user,
 } from "@marktwerk/db/schema";
 import {
@@ -101,8 +102,10 @@ export type BoardTask = {
   /** The column the card shows in (override or derived). */
   column: BoardColumn;
   rolloverCount: number;
-  checkTotal: number;
-  checkDone: number;
+  /** Subtasks (ADR 0021): not deleted ones, finished ones, open overdue ones (an overdue one flags the card). */
+  subtasksTotal: number;
+  subtasksDone: number;
+  subtasksOverdue: number;
   /** Day the task was finished (done tasks), `YYYY-MM-DD`. */
   completedOn: string | null;
   requiresNote: boolean;
@@ -135,6 +138,7 @@ export type BoardData = { tasks: BoardTask[]; truncated: boolean };
 
 /**
  * Cards for the board: open tasks plus finished ones of the last 14 days (Erledigt), cancelled ones never.
+ * Top-level tasks only, each with its subtask progress (ADR 0021).
  * One event's board is its Checkliste (user test 2026-11), so there every finished task counts.
  * Within a column they are in display order (`board_sort`, then due date).
  */
@@ -150,8 +154,7 @@ export async function listBoardTasks(
   const horizon =
     horizonDays === null ? null : resolveRelativeDue(addDays(today, horizonDays + 1), 0, "00:00");
 
-  const checkTotal = sql<number>`(select count(*)::int from ${taskCheckItem} where ${taskCheckItem.taskId} = ${task.id})`;
-  const checkDone = sql<number>`(select count(*)::int from ${taskCheckItem} where ${taskCheckItem.taskId} = ${task.id} and ${taskCheckItem.done})`;
+  const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
 
   const rows = await db
     .select({
@@ -182,8 +185,9 @@ export async function listBoardTasks(
       requiresAttachment: task.requiresAttachment,
       snoozedUntil: task.snoozedUntil,
       removedFromTemplate: task.removedFromTemplate,
-      checkTotal,
-      checkDone,
+      subtasksTotal: sub.subtasksTotal,
+      subtasksDone: sub.subtasksDone,
+      subtasksOverdue: sub.subtasksOverdue,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
@@ -193,6 +197,7 @@ export async function listBoardTasks(
     .where(
       and(
         visibleTasks(actor),
+        isTopLevel(),
         scope.eventId ? eq(task.eventId, scope.eventId) : notOfPastEvent(today),
         or(
           and(
@@ -241,8 +246,9 @@ export async function listBoardTasks(
     boardSort: r.boardSort,
     column: boardColumnFor(r, today),
     rolloverCount: r.rolloverCount,
-    checkTotal: r.checkTotal,
-    checkDone: r.checkDone,
+    subtasksTotal: r.subtasksTotal,
+    subtasksDone: r.subtasksDone,
+    subtasksOverdue: r.subtasksOverdue,
     completedOn: r.completedAt ? berlinDay(r.completedAt) : null,
     requiresNote: r.requiresNote,
     requiresPhoto: r.requiresPhoto,
@@ -375,6 +381,8 @@ export async function getPeopleRail(
       .where(
         and(
           visibleTasks(actor),
+          // Per person: their top-level tasks and the subtasks they have of somebody else's task (ADR 0021).
+          isOwnWorkItem(),
           inArray(task.status, OPEN),
           scope.eventId && UUID.test(scope.eventId)
             ? eq(task.eventId, scope.eventId)
@@ -391,6 +399,7 @@ export async function getPeopleRail(
       .where(
         and(
           visibleTasks(actor),
+          isOwnWorkItem(),
           inArray(task.status, OPEN),
           notOfPastEvent(today),
           isNotNull(task.assigneeId),
@@ -488,6 +497,7 @@ export async function getWorkload(actor: Actor, today: string, count = 8): Promi
       .where(
         and(
           visibleTasks(actor),
+          isOwnWorkItem(),
           inArray(task.status, OPEN),
           notOfPastEvent(today),
           isNotNull(task.dueAt),
@@ -505,6 +515,7 @@ export async function getWorkload(actor: Actor, today: string, count = 8): Promi
       .where(
         and(
           visibleTasks(actor),
+          isOwnWorkItem(),
           inArray(task.status, OPEN),
           notOfPastEvent(today),
           isNull(task.dueAt),
@@ -637,7 +648,10 @@ export type EventTaskSummary = {
   health: ReturnType<typeof taskHealth>;
 };
 
-/** Count and health for the "Board" tab of the event header. */
+/**
+ * Count and health for the "Board" tab of the event header: top-level tasks; a task counts as overdue when it
+ * or one of its open subtasks is (ADR 0021).
+ */
 export async function eventTaskSummary(
   actor: Actor,
   eventId: string,
@@ -649,12 +663,14 @@ export async function eventTaskSummary(
   const [row] = await db
     .select({
       open: sql<number>`count(*)::int`,
-      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart} and ${task.status} <> 'waiting_external'))::int`,
+      overdue: sql<number>`(count(*) filter (where ${isOverdueWithSubtasks(today, todayStart)}))::int`,
       blocked: sql<number>`(count(*) filter (where ${task.status} = 'blocked'))::int`,
       maxRollover: sql<number>`coalesce(max(${task.rolloverCount}), 0)::int`,
     })
     .from(task)
-    .where(and(visibleTasks(actor), eq(task.eventId, eventId), inArray(task.status, OPEN)));
+    .where(
+      and(visibleTasks(actor), isTopLevel(), eq(task.eventId, eventId), inArray(task.status, OPEN)),
+    );
   if (!row) return none;
   return { ...row, health: taskHealth(row) };
 }
@@ -673,7 +689,10 @@ export async function taskHealthByEvent(
   return new Map([...summary].map(([id, s]) => [id, s.health]));
 }
 
-/** Open tasks, overdue ones (waiting tasks are not overdue), blocked ones and the health per event. */
+/**
+ * Open top-level tasks, overdue ones (waiting tasks are not overdue; an overdue subtask makes its parent
+ * overdue), blocked ones and the health per event.
+ */
 export async function taskSummaryByEvent(
   actor: Actor,
   eventIds: string[],
@@ -687,12 +706,19 @@ export async function taskSummaryByEvent(
     .select({
       eventId: task.eventId,
       open: sql<number>`count(*)::int`,
-      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart} and ${task.status} <> 'waiting_external'))::int`,
+      overdue: sql<number>`(count(*) filter (where ${isOverdueWithSubtasks(today, todayStart)}))::int`,
       blocked: sql<number>`(count(*) filter (where ${task.status} = 'blocked'))::int`,
       maxRollover: sql<number>`coalesce(max(${task.rolloverCount}), 0)::int`,
     })
     .from(task)
-    .where(and(visibleTasks(actor), inArray(task.eventId, eventIds), inArray(task.status, OPEN)))
+    .where(
+      and(
+        visibleTasks(actor),
+        isTopLevel(),
+        inArray(task.eventId, eventIds),
+        inArray(task.status, OPEN),
+      ),
+    )
     .groupBy(task.eventId);
   for (const { eventId, ...row } of rows)
     if (eventId) result.set(eventId, { ...row, health: taskHealth(row) });
@@ -738,7 +764,10 @@ export type TaskDetail = {
   requiresAttachment: boolean;
   completedAt: string | null;
   completedByName: string | null;
-  checkItems: { id: string; title: string; done: boolean }[];
+  /** The parent when this task is a subtask (ADR 0021), else null. */
+  parent: { id: string; title: string; status: TaskStatusKey } | null;
+  /** Subtasks (not deleted ones), in their order. Empty for a subtask (one level). */
+  subtasks: SubtaskRow[];
   /** Files attached to the task (photos and attachments: the evidence), newest first. */
   documents: DocumentRow[];
   hasPhoto: boolean;
@@ -753,7 +782,19 @@ export type TaskDetail = {
   link: string;
 };
 
-/** One task with check items and activity (its audit entries), or null if the actor may not see it. */
+/** One subtask as the task drawer lists it (tick, title, assignee, due). */
+export type SubtaskRow = {
+  id: string;
+  title: string;
+  status: TaskStatusKey;
+  dueOn: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  /** Open and due before today (not waiting, not snoozed). */
+  overdue: boolean;
+};
+
+/** One task with its subtasks and activity (its audit entries), or null if the actor may not see it. */
 export async function getTaskDetail(
   actor: Actor,
   taskId: string,
@@ -792,12 +833,14 @@ export async function getTaskDetail(
   const notifySelf = await getNotifySelf(actor);
   const t = row.t;
 
-  const [items, activity, completedBy, documents] = await Promise.all([
-    db
-      .select({ id: taskCheckItem.id, title: taskCheckItem.title, done: taskCheckItem.done })
-      .from(taskCheckItem)
-      .where(eq(taskCheckItem.taskId, taskId))
-      .orderBy(asc(taskCheckItem.sort), asc(taskCheckItem.createdAt)),
+  const [subtasks, parent, activity, completedBy, documents] = await Promise.all([
+    listSubtasks(taskId, today),
+    t.parentTaskId
+      ? db
+          .select({ id: task.id, title: task.title, status: task.status })
+          .from(task)
+          .where(eq(task.id, t.parentTaskId))
+      : Promise.resolve([]),
     db
       .select({
         id: auditLog.id,
@@ -866,7 +909,8 @@ export async function getTaskDetail(
     requiresAttachment: t.requiresAttachment,
     completedAt: t.completedAt ? t.completedAt.toISOString() : null,
     completedByName: completedBy[0]?.name ?? null,
-    checkItems: items,
+    parent: parent[0] ?? null,
+    subtasks,
     documents: files,
     hasPhoto: evidence.hasPhoto,
     hasAttachment: evidence.hasAttachment,
@@ -878,12 +922,51 @@ export async function getTaskDetail(
   };
 }
 
+/** The subtasks of a task (not deleted ones): board order, then due date and creation. */
+export async function listSubtasks(parentId: string, today: string): Promise<SubtaskRow[]> {
+  if (!UUID.test(parentId)) return [];
+  const rows = await db
+    .select({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      dueAt: task.dueAt,
+      snoozedUntil: task.snoozedUntil,
+      assigneeId: task.assigneeId,
+      assigneeName: staffMember.displayName,
+    })
+    .from(task)
+    .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
+    .where(and(eq(task.parentTaskId, parentId), ne(task.status, "cancelled")))
+    .orderBy(
+      asc(task.boardSort),
+      sql`${task.dueAt} asc nulls last`,
+      asc(task.createdAt),
+      asc(task.id),
+    );
+  return rows.map((r) => {
+    const dueOn = r.dueAt ? berlinDay(r.dueAt) : null;
+    return {
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      dueOn,
+      assigneeId: r.assigneeId,
+      assigneeName: r.assigneeName,
+      overdue: isSubtaskOverdue({ status: r.status, dueOn, snoozedUntil: r.snoozedUntil }, today),
+    };
+  });
+}
+
 // ---------------------------------------------------------------------------------------------
 // Übersicht + Kalender feeds (shapes in ./due)
 
 const DUE_LIMIT = 300;
 
-/** Open and overdue tasks in the actor's Übersicht scope (KPI "Offene Aufgaben"). */
+/**
+ * Open and overdue tasks in the actor's Übersicht scope (KPI "Offene Aufgaben"): top-level tasks (or the actor's
+ * own list); a task with an overdue subtask counts as overdue, once.
+ */
 export async function openTaskCounts(
   actor: Actor,
   today: string,
@@ -892,7 +975,7 @@ export async function openTaskCounts(
   const [row] = await db
     .select({
       open: sql<number>`count(*)::int`,
-      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart} and ${task.status} <> 'waiting_external'))::int`,
+      overdue: sql<number>`(count(*) filter (where ${isOverdueWithSubtasks(today, todayStart)}))::int`,
     })
     .from(task)
     .where(
@@ -970,9 +1053,18 @@ export async function openEffortByEvent(
   return new Map(rows.flatMap((r) => (r.eventId ? [[r.eventId, r.minutes] as const] : [])));
 }
 
-/** Open tasks that are overdue, due today or within the next 7 days (Übersicht "Heute fällig"). */
+/**
+ * Open tasks that are overdue, due today or within the next 7 days (Übersicht "Heute fällig"), plus tasks with
+ * an overdue subtask (flagged as overdue through their parent, ADR 0021; an undated one shows that subtask's
+ * date). Each carries its subtask progress.
+ */
 export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> {
   const until = resolveRelativeDue(addDays(today, 8), 0, "00:00");
+  const todayStart = resolveRelativeDue(today, 0, "00:00");
+  const sub = subtaskAggregates(today, todayStart);
+  const firstOverdueSubtask = sql<Date | null>`(select min(st."due_at") from "app"."task" st
+    where st."parent_task_id" = ${task.id} and st."status" in ('todo', 'in_progress', 'blocked')
+      and st."due_at" < ${todayStart} and (st."snoozed_until" is null or st."snoozed_until" <= ${today}))`;
   const rows = await db
     .select({
       id: task.id,
@@ -986,6 +1078,10 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       isKey: task.isKey,
       status: task.status,
       assigneeName: staffMember.displayName,
+      subtasksTotal: sub.subtasksTotal,
+      subtasksDone: sub.subtasksDone,
+      subtasksOverdue: sub.subtasksOverdue,
+      firstOverdueSubtask,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
@@ -998,26 +1094,28 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
         inArray(task.status, OPEN),
         notSnoozed(today),
         notOfPastEvent(today),
-        isNotNull(task.dueAt),
-        lt(task.dueAt, until),
+        or(and(isNotNull(task.dueAt), lt(task.dueAt, until)), sql`${sub.subtasksOverdue} > 0`),
       ),
     )
     .orderBy(asc(task.dueAt), asc(task.title))
     .limit(DUE_LIMIT);
   return rows.map((r) => {
-    const dueOn = berlinDay(r.dueAt as Date);
+    const overdueSubtask = r.subtasksOverdue > 0;
+    const dueOn = berlinDay((r.dueAt ?? new Date(r.firstOverdueSubtask as Date | string)) as Date);
     return {
       kind: "task" as const,
       id: r.id,
       title: r.title,
       dueOn,
-      urgency: isWaitingPastDue({ status: r.status, dueOn }, today)
-        ? ("waiting" as const)
-        : dueOn < today
-          ? ("overdue" as const)
-          : dueOn === today
-            ? ("today" as const)
-            : ("soon" as const),
+      urgency: overdueSubtask
+        ? ("overdue" as const)
+        : isWaitingPastDue({ status: r.status, dueOn }, today)
+          ? ("waiting" as const)
+          : dueOn < today
+            ? ("overdue" as const)
+            : dueOn === today
+              ? ("today" as const)
+              : ("soon" as const),
       href: taskLink(r.id, r.eventId),
       meta: r.eventName ?? undefined,
       metaHref: r.eventId ? `/veranstaltungen/${r.eventId}` : undefined,
@@ -1027,6 +1125,15 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       eventStartsOn: r.eventStartsOn,
       isKey: r.isKey,
       assigneeName: r.assigneeName,
+      ...(r.subtasksTotal > 0
+        ? {
+            subtasks: {
+              done: r.subtasksDone,
+              total: r.subtasksTotal,
+              overdue: r.subtasksOverdue,
+            },
+          }
+        : {}),
     };
   });
 }
@@ -1044,6 +1151,7 @@ export async function calendarItems(
 ): Promise<CalendarItem[]> {
   const start = resolveRelativeDue(from, 0, "00:00");
   const end = resolveRelativeDue(addDays(to, 1), 0, "00:00");
+  const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
   const rows = await db
     .select({
       id: task.id,
@@ -1051,6 +1159,7 @@ export async function calendarItems(
       dueAt: task.dueAt,
       eventId: task.eventId,
       status: task.status,
+      subtasksOverdue: sub.subtasksOverdue,
     })
     .from(task)
     .where(
@@ -1074,13 +1183,17 @@ export async function calendarItems(
       date,
       title: r.title,
       href: taskLink(r.id, r.eventId),
-      tone: isWaitingPastDue({ status: r.status, dueOn: date }, today)
-        ? ("neutral" as const)
-        : date < today
+      // An overdue subtask flags its parent (ADR 0021).
+      tone:
+        r.subtasksOverdue > 0
           ? ("critical" as const)
-          : date === today
-            ? ("warn" as const)
-            : ("neutral" as const),
+          : isWaitingPastDue({ status: r.status, dueOn: date }, today)
+            ? ("neutral" as const)
+            : date < today
+              ? ("critical" as const)
+              : date === today
+                ? ("warn" as const)
+                : ("neutral" as const),
     };
   });
 }

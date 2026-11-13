@@ -32,6 +32,7 @@ import {
   loadDueDefaults,
   loadEventContexts,
   loadPublishedVersions,
+  parentTasksByKey,
   type TemplateItemRow,
   type TemplateVersionContent,
 } from "./task-instantiation";
@@ -71,10 +72,12 @@ export type ApplyEventPlan = {
   add: { key: string; title: string; dueAt: number | null }[];
   update: { taskId: string; key: string; title: string; changes: PropagationChange[] }[];
   remove: { taskId: string; title: string }[];
+  /** Subtasks whose child item is gone: they are cancelled (ADR 0021). */
+  cancel: { taskId: string; title: string }[];
   keep: { taskId: string; title: string; reason: KeepReason }[];
   /** Tasks that already match their item. */
   same: number;
-  /** add + update + remove */
+  /** add + update + remove + cancel */
   size: number;
 };
 
@@ -100,10 +103,14 @@ type Plan = {
 function existingTasks(
   rows: { task: typeof task.$inferSelect; permitType: string | null }[],
 ): ExistingTask[] {
+  // A subtask's parent is matched by its template key (null when the parent is not from the template).
+  const keyOf = new Map(rows.map(({ task: r }) => [r.id, r.templateStableKey]));
   return rows.map(({ task: r, permitType }) => ({
     permitType,
     id: r.id,
     templateStableKey: r.templateStableKey,
+    parentTaskId: r.parentTaskId,
+    parentKey: r.parentTaskId ? (keyOf.get(r.parentTaskId) ?? null) : null,
     status: r.status,
     customized: r.customized,
     removedFromTemplate: r.removedFromTemplate,
@@ -240,6 +247,7 @@ async function computePlans(
           changes: u.changes,
         })),
         remove: plan.remove.map((t) => ({ taskId: t.id, title: t.title })),
+        cancel: plan.cancel.map((t) => ({ taskId: t.id, title: t.title })),
         keep: plan.keep.map((k) => ({ taskId: k.task.id, title: k.task.title, reason: k.reason })),
         same: plan.same,
         size: planSize(plan),
@@ -289,13 +297,22 @@ export type ApplyResult = {
   added: number;
   updated: number;
   removed: number;
-  perEvent: { eventId: string; added: number; updated: number; removed: number }[];
+  /** Subtasks cancelled because their child item is gone (ADR 0021). */
+  cancelled: number;
+  perEvent: {
+    eventId: string;
+    added: number;
+    updated: number;
+    removed: number;
+    cancelled: number;
+  }[];
 };
 
 /**
  * THE one service path that brings existing events to a newer template version (CLAUDE.md: deliberate,
  * never automatic). For each chosen event: new items become tasks, open untouched tasks take over the
- * changed fields, open untouched tasks of vanished items are marked `removed_from_template`. Done,
+ * changed fields, open untouched tasks of vanished items are marked `removed_from_template` (subtasks of vanished
+ * child items are cancelled; child items are matched by `stable_key` like any item, ADR 0021). Done,
  * skipped, cancelled and customised tasks are never touched, nor are due dates / assignees that were set
  * by hand. The merge is planned again inside the transaction, so it equals the preview (or fails with
  * `not_applicable` for an event that stopped qualifying).
@@ -323,7 +340,14 @@ export async function applyTemplateVersion(
     const { version, plans } = await computePlans(tx, templateId, chosen);
     if (plans.length !== chosen.length) throw new TemplateApplyError("not_applicable");
 
-    const result: ApplyResult = { events: 0, added: 0, updated: 0, removed: 0, perEvent: [] };
+    const result: ApplyResult = {
+      events: 0,
+      added: 0,
+      updated: 0,
+      removed: 0,
+      cancelled: 0,
+      perEvent: [],
+    };
     const entries: Parameters<typeof audit>[2] = [];
     for (const p of plans) {
       const list = p.checklistId
@@ -331,7 +355,7 @@ export async function applyTemplateVersion(
         : await ensureChecklist(tx, p.ev, version, p.sort);
       let added = 0;
       if (p.plan.add.length > 0) {
-        added = await insertTemplateTasks(tx, p.ev, list.id, p.plan.add, p.items);
+        added = await insertTemplateTasks(tx, p.ev, list.id, p.plan.add);
       }
       for (const u of p.plan.update) {
         const d = u.item;
@@ -376,6 +400,21 @@ export async function applyTemplateVersion(
               p.plan.remove.map((t) => t.id),
             ),
           );
+      if (p.plan.cancel.length > 0)
+        await tx
+          .update(task)
+          .set({ status: "cancelled" })
+          .where(
+            inArray(
+              task.id,
+              p.plan.cancel.map((t) => t.id),
+            ),
+          );
+      await moveToNewParents(
+        tx,
+        list.id,
+        p.plan.update.filter((u) => u.changes.includes("parent")),
+      );
 
       await tx
         .update(checklist)
@@ -384,11 +423,13 @@ export async function applyTemplateVersion(
 
       const updated = p.plan.update.length;
       const removed = p.plan.remove.length;
+      const cancelled = p.plan.cancel.length;
       result.events += 1;
       result.added += added;
       result.updated += updated;
       result.removed += removed;
-      result.perEvent.push({ eventId: p.ev.id, added, updated, removed });
+      result.cancelled += cancelled;
+      result.perEvent.push({ eventId: p.ev.id, added, updated, removed, cancelled });
       entries.push({
         action: "template.apply",
         entityType: "event",
@@ -402,6 +443,7 @@ export async function applyTemplateVersion(
           added,
           updated,
           removed,
+          cancelled,
           kept: p.plan.keep.length,
         },
       });
@@ -415,4 +457,37 @@ export async function applyTemplateVersion(
     );
     return result;
   });
+}
+
+/**
+ * Child items that moved to another parent (or to the top) in the new version: their tasks follow. Lifting out
+ * goes first, so a task that loses its subtasks can become one; a move that would break the one-level rule (the
+ * task has subtasks of its own, or the new parent is a subtask) is left as it is.
+ */
+async function moveToNewParents(
+  tx: Tx,
+  checklistId: string,
+  moves: { task: ExistingTask; item: DesiredTask }[],
+) {
+  if (moves.length === 0) return;
+  const lifts = moves.filter((m) => !m.item.parentKey);
+  for (const m of lifts)
+    await tx.update(task).set({ parentTaskId: null }).where(eq(task.id, m.task.id));
+  const nests = moves.filter((m) => m.item.parentKey);
+  const parents = await parentTasksByKey(
+    tx,
+    checklistId,
+    nests.map((m) => m.item.parentKey as string),
+  );
+  for (const m of nests) {
+    const parentId = parents.get(m.item.parentKey as string);
+    if (!parentId || parentId === m.task.id) continue;
+    const [child] = await tx
+      .select({ id: task.id })
+      .from(task)
+      .where(eq(task.parentTaskId, m.task.id))
+      .limit(1);
+    if (child) continue;
+    await tx.update(task).set({ parentTaskId: parentId }).where(eq(task.id, m.task.id));
+  }
 }

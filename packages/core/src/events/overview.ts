@@ -26,6 +26,10 @@ export type OverviewTask = {
   snoozedUntil: string | null;
   /** Position in the template (`board_sort`): breaks ties on the same day so Aufbau comes before Abbau. */
   boardSort?: number;
+  /** Subtasks (ADR 0021): progress and open overdue ones (an overdue subtask flags the task). */
+  subtasksDone?: number;
+  subtasksTotal?: number;
+  subtasksOverdue?: number;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -124,7 +128,7 @@ export type MissingTask = OverviewTask & {
  */
 export function missingReason(task: OverviewTask, today: string): MissingReason | null {
   if (!isOpenStatus(task.status) || isSnoozed(task, today)) return null;
-  if (isOverdueTask(task, today)) return "overdue";
+  if (isOverdueTask(task, today) || (task.subtasksOverdue ?? 0) > 0) return "overdue";
   if (task.status === "blocked") return "blocked";
   if (task.status === "waiting_external") return "waiting";
   if (task.dueOn !== null && task.dueOn === today) return "today";
@@ -197,6 +201,7 @@ export function keyTaskState(task: OverviewTask, today: string): KeyTaskState | 
   if (task.status === "cancelled") return null;
   if (isFinishedStatus(task.status)) return "done";
   if (isSnoozed(task, today)) return "snoozed";
+  if ((task.subtasksOverdue ?? 0) > 0) return "overdue";
   if (isWaitingPastDue(task, today)) return "waiting";
   if (task.dueOn !== null && task.dueOn < today) return "overdue";
   if (task.dueOn !== null && task.dueOn <= addDays(today, OVERVIEW_SOON_DAYS)) return "soon";

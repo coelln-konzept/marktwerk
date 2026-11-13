@@ -10,7 +10,7 @@ import {
   task,
   user,
 } from "@marktwerk/db";
-import { and, eq, gte, inArray, isNull, or, type SQL } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lte, ne, or, type SQL } from "drizzle-orm";
 
 /** Tasks that are still to be done. */
 export const OPEN_TASK_STATUSES = ["todo", "in_progress", "waiting_external", "blocked"] as const;
@@ -27,6 +27,39 @@ export function notOfPastEvent(today: string): SQL {
     gte(event.endsOn, pastEventCutoff(today)),
     gte(task.dueAt, resolveRelativeDue(today, 0, "00:00")),
   ) as SQL;
+}
+
+/**
+ * Due instants of the open subtasks of these parents that can be overdue (not waiting for somebody else, not
+ * snoozed on `today`), per parent. With `flaggedDueAt` (@marktwerk/core) an overdue subtask flags its parent, so
+ * the jobs count it once, through the parent (ADR 0021).
+ */
+export async function openSubtaskDues(
+  db: Database,
+  parentIds: readonly string[],
+  today: string,
+): Promise<Map<string, Date[]>> {
+  const result = new Map<string, Date[]>();
+  if (parentIds.length === 0) return result;
+  const rows = await db
+    .select({ parentTaskId: task.parentTaskId, dueAt: task.dueAt })
+    .from(task)
+    .where(
+      and(
+        inArray(task.parentTaskId, [...new Set(parentIds)]),
+        inArray(task.status, [...OPEN_TASK_STATUSES]),
+        ne(task.status, "waiting_external"),
+        isNotNull(task.dueAt),
+        or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
+      ),
+    );
+  for (const r of rows) {
+    if (!r.parentTaskId || !r.dueAt) continue;
+    const list = result.get(r.parentTaskId) ?? [];
+    list.push(r.dueAt);
+    result.set(r.parentTaskId, list);
+  }
+  return result;
 }
 
 /** The business date (YYYY-MM-DD) of an instant in the company's time zone. */

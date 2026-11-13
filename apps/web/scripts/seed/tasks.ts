@@ -1,7 +1,7 @@
 /**
  * M2 seed, part 2: one checklist per event (made from the event type's template version) and the tasks
- * in it. Checklist ids are derived from event + template, so re-running never duplicates them. Comments,
- * check items, dependencies and watchers are not part of the synthetic dataset and stay empty.
+ * in it. Checklist ids are derived from event + template, so re-running never duplicates them. Comments
+ * and subtasks (ADR 0021, `parent_task_id`) are not part of the synthetic dataset yet and stay empty.
  */
 
 import { schema } from "@marktwerk/db";

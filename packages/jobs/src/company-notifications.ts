@@ -2,10 +2,12 @@ import {
   type CompanyKind,
   type CompanySeverity,
   companyDedupeKey,
+  flaggedDueAt,
   PERMIT_HORIZON_DEFAULT_DAYS,
   permitApplyKind,
   permitDecisionKind,
   permitExpiryKind,
+  resolveRelativeDue,
   taskKind,
   taskLink,
   taskSeverity,
@@ -15,14 +17,15 @@ import {
   event,
   eventPermit,
   insertCompanyNotifications,
+  isTopLevel,
   type NewCompanyNotification,
   notification,
   permit,
   settings,
   task,
 } from "@marktwerk/db";
-import { and, eq, inArray, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
-import { berlinDate, notOfPastEvent, OPEN_TASK_STATUSES } from "./shared";
+import { and, eq, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
+import { berlinDate, notOfPastEvent, OPEN_TASK_STATUSES, openSubtaskDues } from "./shared";
 
 export type CompanySweepResult = {
   /** New company-wide notifications. */
@@ -39,7 +42,8 @@ type Wanted = NewCompanyNotification & { snoozed: boolean };
  * Company-wide notifications (decision 2026-10-22), the content of the notification center of owner and
  * manager: every important item once, no recipient, one shared state, no email.
  *
- * - Tasks of current markets: overdue, or due soon (today/tomorrow, Kernaufgaben 3 days ahead).
+ * - Tasks of current markets: overdue, or due soon (today/tomorrow, Kernaufgaben 3 days ahead). Top-level tasks
+ *   only; an overdue subtask makes its parent overdue (one notification, through the parent, ADR 0021).
  * - Permits: apply-by within the permit horizon, a decision due within a week, and granted permits that
  *   end before a market that needs them. Permits count by their own dates, not by how far away the
  *   market is (decision 2026-10-29).
@@ -106,7 +110,7 @@ async function wantTasks(db: Database, today: string, out: Wanted[]) {
     .where(
       and(
         inArray(task.status, [...OPEN_TASK_STATUSES]),
-        isNotNull(task.dueAt),
+        isTopLevel(),
         // The permit's own item (apply-by) covers the logbook's "beantragen" task.
         ne(task.source, "permit"),
         or(isNull(task.eventId), and(isNull(event.archivedAt), ne(event.status, "cancelled"))),
@@ -114,9 +118,16 @@ async function wantTasks(db: Database, today: string, out: Wanted[]) {
         notOfPastEvent(today),
       ),
     );
+  const subDues = await openSubtaskDues(
+    db,
+    rows.map((t) => t.id),
+    today,
+  );
+  const todayStart = resolveRelativeDue(today, 0, "00:00");
   for (const t of rows) {
-    if (!t.dueAt) continue;
-    const dueOn = berlinDate(t.dueAt);
+    const { dueAt } = flaggedDueAt(t.dueAt, subDues.get(t.id) ?? [], todayStart);
+    if (!dueAt) continue;
+    const dueOn = berlinDate(dueAt);
     const kind = taskKind(dueOn, today, t.isKey);
     if (!kind) continue;
     // A task that waits for somebody else is never overdue (it shows "wartet seit …", UX pass 2026-10-22).
