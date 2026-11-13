@@ -10,6 +10,7 @@ import {
   isPermitHistory,
   isUnfiled,
   logbookDisplayState,
+  missingPermits,
   PERMIT_HORIZON_DEFAULT_DAYS,
   type PermitActionTier,
   type PermitDisplayState,
@@ -677,6 +678,50 @@ export async function permitSummaryByEvent(
         own.length === 0 ? null : eventPermitHealth(own, e.startsOn, today, e.endsOn, horizonDays),
       missing: countMissingPermits(own, e.startsOn, today, e.endsOn, horizonDays),
     });
+  }
+  return result;
+}
+
+/**
+ * How many permits each event is missing, by the rule of the event Zusammenfassung's "Was fehlt"
+ * (`missingPermits`: needed, not covering the event yet and needing action), one query for all events (the
+ * Übersicht's weekend box). Without `permit:read` every event maps to 0, as "Was fehlt" shows no permits then.
+ */
+export async function missingPermitsByEvent(
+  actor: Actor,
+  events: { id: string; startsOn: string; endsOn: string }[],
+  today: string,
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>(events.map((e) => [e.id, 0]));
+  if (events.length === 0 || !can(actor.role, "permit", "read")) return result;
+  const [rows, horizonDays] = await Promise.all([
+    db
+      .select({
+        eventId: eventPermit.eventId,
+        id: permit.id,
+        title: permit.title,
+        required: eventPermit.required,
+        status: permit.status,
+        applyBy: permit.applyBy,
+        expectedDecisionOn: permit.expectedDecisionOn,
+        validUntil: permit.validUntil,
+      })
+      .from(eventPermit)
+      .innerJoin(permit, eq(permit.id, eventPermit.permitId))
+      .where(
+        and(
+          inArray(
+            eventPermit.eventId,
+            events.map((e) => e.id),
+          ),
+          isNull(permit.archivedAt),
+        ),
+      ),
+    getPermitHorizonDays(),
+  ]);
+  for (const e of events) {
+    const own = rows.filter((r) => r.eventId === e.id);
+    result.set(e.id, missingPermits(own, e.startsOn, today, e.endsOn, horizonDays).length);
   }
   return result;
 }

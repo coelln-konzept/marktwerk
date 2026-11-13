@@ -6,7 +6,7 @@
       "evening": "Guten Abend, {name}"
     },
     "due": {
-      "title": "Heute & überfällig",
+      "title": "Heute & nächste Tage",
       "emptyTitle": "Nichts fällig.",
       "emptyHint": "Überfälliges und Heutiges aus Genehmigungen, Aufgaben und Pflichten erscheint hier.",
       "openItem": "Öffnen: {title}",
@@ -50,7 +50,8 @@
         "done": "{done} von {total} erledigt",
         "overdue": "{count} überfällig",
         "none": "Noch keine Aufgaben"
-      }
+      },
+      "permitsMissing": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}"
     },
     "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
     "cleanup": {

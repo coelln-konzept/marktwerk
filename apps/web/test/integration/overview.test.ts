@@ -1,8 +1,10 @@
-import { obligation, permit, shift, vehicle } from "@marktwerk/db/schema";
+import { eventPermit, obligation, permit, shift, vehicle } from "@marktwerk/db/schema";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import type { DueItem } from "@/server/queries/due";
+import { getEventOverview } from "@/server/queries/event-overview";
+import type { EventRow } from "@/server/queries/events";
 import { getOverview, listDueItems } from "@/server/queries/overview";
 import { createPayable } from "@/server/services/payables";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -370,6 +372,44 @@ describe("Dieses Wochenende", () => {
     await insertTask({ title: "Unteraufgabe", eventId: weekendEvent, parentTaskId: parent.id });
     const { weekend } = await getOverview(owner, TODAY);
     expect(weekend.markets[0]?.checklist).toMatchObject({ done: 2, total: 5 });
+  });
+
+  it('counts missing permits by the rule of "Was fehlt"', async () => {
+    // No permit yet: nothing is missing.
+    expect((await getOverview(owner, TODAY)).weekend.markets[0]?.permitsMissing).toBe(0);
+    const link = async (patch: Partial<typeof permit.$inferInsert>, required = true) => {
+      const [row] = await db
+        .insert(permit)
+        .values({
+          venueId: cat.venue.id,
+          category: "city",
+          permitType: "water",
+          title: "Wasser",
+          season: 2026,
+          ...patch,
+        })
+        .returning();
+      await db
+        .insert(eventPermit)
+        .values({ eventId: weekendEvent, permitId: row?.id as string, required });
+    };
+    // Missing: not filed; granted but ending before the market; filed but not granted three days before
+    // the market (within 14 days of it, a filed permit counts too).
+    await link({ title: "Offen", status: "not_started" });
+    await link({ title: "Zu kurz", status: "granted", validUntil: "2026-10-23" });
+    await link({ title: "Beantragt", status: "applied", applyBy: "2026-10-30" });
+    // Not missing: granted, optional, not required, superseded, archived.
+    await link({ title: "Erteilt", status: "granted" });
+    await link({ title: "Optional", status: "not_started" }, false);
+    await link({ title: "Nicht nötig", status: "not_required" });
+    await link({ title: "Abgelöst", status: "superseded" });
+    await link({ title: "Archiviert", status: "not_started", archivedAt: new Date() });
+
+    const [market] = (await getOverview(owner, TODAY)).weekend.markets;
+    expect(market?.permitsMissing).toBe(3);
+    // The same permits the event's Zusammenfassung lists under "Was fehlt".
+    const { permits } = await getEventOverview(owner, market?.row as EventRow, TODAY);
+    expect(permits?.missing.map((p) => p.title).sort()).toEqual(["Beantragt", "Offen", "Zu kurz"]);
   });
 
   it("is the Saturday and Sunday of the current week from Monday to Sunday, also on Sunday evening", async () => {

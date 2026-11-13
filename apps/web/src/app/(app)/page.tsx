@@ -42,7 +42,7 @@ function berlinHour(timeZone = "Europe/Berlin"): number {
 }
 
 /**
- * The Übersicht (decision 2026-11-13): the main panel "Heute & überfällig" (Überfällig · Heute · Nächste
+ * The Übersicht (decision 2026-11-13): the main panel "Heute & nächste Tage" (Überfällig · Heute · Nächste
  * Tage, per market) on the left, the weekend box (the weekend's events with their Checkliste progress) top
  * right, the permits coming up at the bottom. A task opens its drawer here (`?aufgabe=<id>`, like on the
  * board), a market its Vorschau (`?vorschau=<id>`).

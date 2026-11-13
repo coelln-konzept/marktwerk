@@ -12,7 +12,7 @@ import type { OverviewDue } from "@/server/queries/overview";
 import { DueGroups } from "./due-groups";
 
 /**
- * "Heute & überfällig", the main panel of the Übersicht (decision 2026-11-13): what to do today and what the
+ * "Heute & nächste Tage", the main panel of the Übersicht (decision 2026-11-13): what to do today and what the
  * next days need. Today's Besprechungen first, then the groups Überfällig · Heute · Nächste Tage (due in the
  * next 7 days, with the date) and, when there are any, the tasks waiting for somebody else. Each group is
  * bundled per market in ranking order (`rankDue`: Kernaufgaben first, the soonest market first), with
@@ -71,7 +71,7 @@ export async function TodayCard({
 }
 
 /**
- * "Besprechungen heute": the first group of "Heute & überfällig", above the overdue items. All-day Besprechungen come
+ * "Besprechungen heute": the first group of "Heute & nächste Tage", above the overdue items. All-day Besprechungen come
  * first, then by time; a row opens the Besprechung's Vorschau (`/?vorschau=besprechung:<id>`).
  */
 async function AppointmentsToday({

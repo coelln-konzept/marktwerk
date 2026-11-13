@@ -1,4 +1,4 @@
-import { ArrowRight, CircleAlert, CircleCheck, ListChecks } from "lucide-react";
+import { ArrowRight, CircleAlert, CircleCheck, ListChecks, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -60,8 +60,8 @@ function ChecklistStatus({ checklist, name }: { checklist: Checklist; name: stri
 }
 
 /**
- * One event of the box: name (opens the event), the eye for its Vorschau, date · Ort, and the Checkliste
- * status. A J/K row like every other on the Übersicht (Enter opens the event, Space its Vorschau).
+ * One event of the box: name (opens the event), the eye for its Vorschau, date · Ort, the Checkliste status
+ * and, only when some are missing, "N Genehmigungen fehlen" in red (the rule of "Was fehlt"). A J/K row like every other on the Übersicht (Enter opens the event, Space its Vorschau).
  */
 async function EventItem({
   market,
@@ -73,7 +73,8 @@ async function EventItem({
   selected: boolean;
 }) {
   const locale = await getLocale();
-  const { row, checklist } = market;
+  const t = await getTranslations("overview.weekend");
+  const { row, checklist, permitsMissing } = market;
   const href = `/veranstaltungen/${row.id}`;
   return (
     <li
@@ -102,6 +103,12 @@ async function EventItem({
         {row.venueName && <> · {row.venueName}</>}
       </span>
       {checklist && <ChecklistStatus checklist={checklist} name={row.name} />}
+      {permitsMissing > 0 && (
+        <span className="inline-flex items-center gap-1 font-medium text-small text-status-critical">
+          <ShieldAlert aria-hidden className="size-3.5 shrink-0" />
+          <span className="tabular">{t("permitsMissing", { count: permitsMissing })}</span>
+        </span>
+      )}
     </li>
   );
 }
@@ -110,7 +117,7 @@ async function EventItem({
  * "Dieses Wochenende" (decision 2026-11-13): an information box, not a task list. A tinted card without row
  * lines that names the weekend's events (name, date, Ort) with how far each Checkliste is, and links to all
  * events. With nothing planned this weekend it shows the next events instead, with one line saying so. The
- * tasks themselves live in "Heute & überfällig".
+ * tasks themselves live in "Heute & nächste Tage".
  */
 export async function WeekendCard({
   weekend,

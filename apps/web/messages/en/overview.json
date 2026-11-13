@@ -6,7 +6,7 @@
       "evening": "Good evening, {name}"
     },
     "due": {
-      "title": "Today & overdue",
+      "title": "Today & next days",
       "emptyTitle": "Nothing is due.",
       "emptyHint": "Anything overdue or due today from permits, tasks and obligations shows up here.",
       "openItem": "Open: {title}",
@@ -50,7 +50,8 @@
         "done": "{done} of {total} done",
         "overdue": "{count} overdue",
         "none": "No tasks yet"
-      }
+      },
+      "permitsMissing": "{count, plural, one {# permit missing} other {# permits missing}}"
     },
     "keys": "Space: preview · Enter: open · J/K: next/previous row",
     "cleanup": {

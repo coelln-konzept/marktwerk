@@ -15,7 +15,7 @@ test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the 
   page,
 }) => {
   await page.goto("/");
-  const due = page.getByRole("heading", { level: 2, name: "Heute & überfällig" });
+  const due = page.getByRole("heading", { level: 2, name: "Heute & nächste Tage" });
   const weekend = page.getByRole("heading", { level: 2, name: "Dieses Wochenende" });
   const permits = page.getByRole("heading", { level: 2, name: "Genehmigungen demnächst" });
   for (const heading of [due, weekend, permits]) await expect(heading).toBeVisible();
@@ -27,7 +27,7 @@ test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the 
   expect(Math.abs((weekendBox?.y ?? 0) - (dueBox?.y ?? 0))).toBeLessThan(24);
 
   // The headings sit above their cards (option C): each section is named by its h2, the card follows it.
-  const main = page.getByRole("region", { name: "Heute & überfällig" });
+  const main = page.getByRole("region", { name: "Heute & nächste Tage" });
   const box = page.getByRole("region", { name: "Dieses Wochenende" });
 
   // The main panel holds the groups Überfällig, Heute and Nächste Tage (the former "Diese Woche"), in
@@ -1478,7 +1478,7 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   await expect(page.getByText("Besprechung angelegt")).toBeVisible();
   await expect(dialog).toBeHidden();
 
-  // Übersicht: first group of "Heute & überfällig", all-day Besprechungen first.
+  // Übersicht: first group of "Heute & nächste Tage", all-day Besprechungen first.
   const group = page.getByRole("region", { name: "Besprechungen heute" });
   await expect(group).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();

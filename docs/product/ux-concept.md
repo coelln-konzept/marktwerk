@@ -37,7 +37,7 @@ win**; the prototype is historical reference only.
 
 ```
 marktwerk
-├── Übersicht                 ← start screen for everyone (Heute & überfällig with Nächste Tage, Dieses Wochenende, Genehmigungen demnächst; no KPI or season strip)
+├── Übersicht                 ← start screen for everyone (Heute & nächste Tage, Dieses Wochenende, Genehmigungen demnächst; no KPI or season strip)
 ├── (Board)                   ← hidden since 2026-11-03 (`globalBoard`), route answers by URL: Bereitschaft · Spalten
 ├── Veranstaltungen           ← list · calendar · "Markt planen"
 │   └── Veranstaltung         ← tabs: Zusammenfassung · Checkliste · Genehmigungen · Dokumente · Notizen · Verlauf (Team, Geld hidden)
@@ -167,7 +167,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 
 | View | Route | Purpose |
 |---|---|---|
-| Übersicht | `/` | Start screen for everyone: Heute & überfällig (main panel, with Nächste Tage), Dieses Wochenende (info box), Genehmigungen demnächst (bottom; no KPI or season strip) |
+| Übersicht | `/` | Start screen for everyone: Heute & nächste Tage (main panel), Dieses Wochenende (info box), Genehmigungen demnächst (bottom; no KPI or season strip) |
 | Kalender | `/kalender` | Company-wide calendar with layers (below) |
 | Board | `/board` (**hidden** since 2026-11-03: no sidebar entry, nothing links here; the route still answers) | Views in the "Ansicht" control (`?ansicht=`): **Bereitschaft** (default), Spalten (kanban); **Matrix** is hidden with the Kernaufgaben (2026-11, an old link falls back to Bereitschaft); Nach Person and Arbeitslast return with the team module; the old `gruppiert` falls back to Bereitschaft. See "Board views" below |
 | Aufgabe | drawer `?aufgabe=<id>` on the event's Checkliste (`/veranstaltungen/[id]/board`), its Zusammenfassung and the Übersicht (also on the hidden `/board`; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity (a closed disclosure), status: **Erledigt** as a toggle (primary while open; pressed and green with the filled tick while done or skipped, a second click reopens), **Wartet auf Amt** toggle, and the status badge itself ("Status: <badge> ⌄", colour + icon + text) opens a menu with every status (Offen · In Arbeit · Wartet · Blockiert · Übersprungen · Erledigt, the current one ticked); Wartet, Blockiert and Übersprungen ask for a reason as before (HN-04). The carried-over count and the origin of the task are not shown; the "Kernaufgabe" toggle explains itself in one line and the star carries the tooltip "Kernaufgabe – eine Aufgabe, die jeder Markt braucht" (no comments, client decision 2026-10-22). **Benachrichtigung** (CF9-3): one line "Mail · 1 Tag vorher an dich" (Team visible: "… an Anna") with "Ändern" opening the same fields as "Neue Aufgabe" inline (saved through `updateTask`, undo toast): checkboxes Mail / WhatsApp, select "Wann" (Sofort beim Anlegen · Am Fälligkeitstag · 1 Tag vorher · 3 Tage vorher · 1 Woche vorher · Eigenes Datum/Uhrzeit, the relative ones disabled without a due date; custom shows a date-time field read as Berlin time), recipient line "An: dich (<E-Mail>)" while Team is hidden (the signed-in user who sets it, stored as `notify_user_id`; WhatsApp hint "Du hast keine Telefonnummer hinterlegt."), "An: <Zuständig>" once Team is visible (hints for a missing assignee / email / phone from has-flags only, no staff contact data in the browser), and the always-visible note "Versand folgt, sobald Mail und WhatsApp angebunden sind." (nothing is sent yet). "Neue Aufgabe" shows the same fields below the category row |
@@ -220,7 +220,7 @@ Decisions 2026-10-29 ("Zwei Fragen", per-market grouping), reworked by the produ
 clutter, sections clearly told apart): **one main panel** for what to do, a separate **info box** for the weekend, the
 permits at the bottom. No KPI strip, no season strip. Section titles sit outside their cards (see "Section headings" in §6).
 1. **Date + KW line** and greeting.
-2. **Heute & überfällig**, the main panel (left and widest from 1024 px, first on phones): the one place that says
+2. **Heute & nächste Tage**, the main panel (named "Heute & überfällig" until 2026-11-13; left and widest from 1024 px, first on phones): the one place that says
    what to do today and what the next days need. Its groups, each opened by a coloured band (colour + icon + text +
    count): **Überfällig** · **Heute** · **Nächste Tage** (what the former "Diese Woche" section held: everything due in
    the next 7 days, with the date next to the words, "Sa 31.10. · In 2 Tagen") and, only when there are any, **Wartet
@@ -239,7 +239,7 @@ permits at the bottom. No KPI strip, no season strip. Section titles sit outside
    marker and name (opens the event), the eye for its Vorschau, date · Ort, and the **status of its Checkliste**: a
    small meter plus "12 von 20 erledigt" (top-level tasks the person may see, done and skipped count as finished,
    cancelled ones not at all, like the Zusammenfassung), in red with the "!" and "· 3 überfällig" when tasks are
-   overdue, green with the tick when all are done, neutral otherwise ("Noch keine Aufgaben" without tasks). The link
+   overdue, green with the tick when all are done, neutral otherwise ("Noch keine Aufgaben" without tasks). Below it, only when a required permit is missing, one red line with the shield icon: "1 Genehmigung fehlt" / "2 Genehmigungen fehlen" (the rule of "Was fehlt", core `missingPermits`; nothing without `permit:read`). The link
    **"Alle Veranstaltungen"** sits next to the heading. No date-range line. When nothing is planned this weekend the
    same card shows **the next events** (the first one after the weekend and the others up to the end of its weekend,
    at most 4) under the line "An diesem Wochenende ist nichts geplant. Als Nächstes:". The former verdict (Im Plan ·

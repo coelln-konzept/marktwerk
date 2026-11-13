@@ -23,7 +23,7 @@ import * as permits from "./permits";
 import type { ChecklistProgress } from "./tasks";
 import * as tasks from "./tasks";
 
-/** One event of the weekend box: the event and how far its Checkliste is. */
+/** One event of the weekend box: the event, how far its Checkliste is and how many permits it misses. */
 export type WeekendMarket = {
   row: EventRow;
   /**
@@ -31,6 +31,8 @@ export type WeekendMarket = {
    * parent overdue). Null for roles that may not read tasks.
    */
   checklist: (ChecklistProgress & { overdue: number }) | null;
+  /** Missing permits by the rule of "Was fehlt" (`missingPermitsByEvent`); 0 without `permit:read`. */
+  permitsMissing: number;
 };
 
 export type WeekendBlock = {
@@ -44,7 +46,7 @@ export const NEXT_EVENTS_MAX = 4;
 
 /**
  * Every module's due items in ranking order (`rankDue`), split for the lists of the Übersicht (decision
- * 2026-11-13: one main panel "Heute & überfällig" with the groups Überfällig · Heute · Nächste Tage; the
+ * 2026-11-13: one main panel "Heute & nächste Tage" with the groups Überfällig · Heute · Nächste Tage; the
  * permits further out sit at the bottom of the page).
  */
 export type OverviewDue = {
@@ -132,15 +134,23 @@ export async function getOverview(
     (e) => e.startsOn <= weekend.sunday && e.endsOn >= weekend.saturday,
   );
   const next = onWeekend.length === 0 ? nextEventsAfter(active, weekend.sunday) : [];
-  const progress = can(actor.role, "task", "read")
-    ? await tasks.checklistProgressByEvent(
-        actor,
-        [...onWeekend, ...next].map((e) => e.id),
-      )
-    : new Map<string, ChecklistProgress>();
+  const shown = [...onWeekend, ...next];
+  const [progress, missing] = await Promise.all([
+    can(actor.role, "task", "read")
+      ? tasks.checklistProgressByEvent(
+          actor,
+          shown.map((e) => e.id),
+        )
+      : new Map<string, ChecklistProgress>(),
+    permits.missingPermitsByEvent(actor, shown, today),
+  ]);
   const market = (row: EventRow): WeekendMarket => {
     const own = progress.get(row.id);
-    return { row, checklist: own ? { ...own, overdue: row.reasons.tasksOverdue } : null };
+    return {
+      row,
+      checklist: own ? { ...own, overdue: row.reasons.tasksOverdue } : null,
+      permitsMissing: missing.get(row.id) ?? 0,
+    };
   };
   const urgent = dueItems.filter((i) => i.urgency === "overdue" || i.urgency === "today");
 
