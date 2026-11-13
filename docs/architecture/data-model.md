@@ -94,7 +94,8 @@ erDiagram
   types (design, workshop, tournament) are added as data later. Names, colour, rules jsonb: `new_goods_max_share` (e.g. 0.3), `banned_goods`
   (e.g. batteries, phone cases), `online_booking_allowed` (false for food), `default_price_per_m_cents`
   (1500), `default_booking_fee_cents` (250).
-- **venue** (location): name, address, lat/lng, city, `kind`, `bundesland`, capacity, access info,
+- **venue** (location): name (optional in the form; empty → "Stadt – Straße"), address, lat/lng, city,
+  `kind` (`municipal` | `private`, "Städtisch" / "Privat", UT2-03), `bundesland`, capacity, access info,
   `landowner_contact_id?`, `custom_fields`, archived_at.
 - **zone / row**: zones with rows (`length_cm`, `depth_cm`, `car_allowed`, `car_slots`, `power`, `water`).
   Phase 1 needs zones + capacity; rows matter from M8.

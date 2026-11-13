@@ -648,7 +648,7 @@ describe("events of a permit", () => {
     // Only an event at the permit's venue.
     const [other] = await db
       .insert(venue)
-      .values({ name: "Anderswo", kind: "outdoor_public", city: "Köln" })
+      .values({ name: "Anderswo", kind: "municipal", city: "Köln" })
       .returning();
     await expect(
       createPermit(owner, {

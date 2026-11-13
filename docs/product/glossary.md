@@ -33,6 +33,7 @@ comes to the event (client's explicit rule, research 05).
 | Termin | Date / occurrence | `event.starts_on` | The old website calls each event date a "Termin". |
 | Besprechung | Meeting | `appointment` | An office appointment with a contact (not a task, not an event date). Office only (own `appointment` grant: owner, manager, staff). |
 | Ort / Veranstaltungsort / Gelände | Location / venue | `venue` | Physical place (square, promenade, car park, hall). |
+| Städtisch / Privat | Municipal / private | `venue.kind = municipal / private` | Who owns the Ort: the city (permits from the city) or a private owner (Eigentümer). |
 | Zone / Reihe | Zone / row | `zone`, `row` | Area of a venue; rows have a length in metres. |
 | Standplatz | Stall | `stall` / placement | Position of a vendor at an event (metre interval on a row). |
 | laufender Meter (lfm) | Linear metre | `length_cm` | Frontage length; main pricing unit (€15/m standard). |

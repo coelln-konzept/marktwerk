@@ -56,7 +56,7 @@ async function codeOf(promise: Promise<unknown>) {
 
 const venueInput = (patch: Partial<VenueInput> = {}): VenueInput => ({
   name: "Rheinwiese",
-  kind: "outdoor_public",
+  kind: "municipal",
   street: "Am Rhein 1",
   postalCode: "50667",
   city: "Köln",
@@ -108,7 +108,7 @@ describe("createVenue", () => {
     const [row] = await db.select().from(venue).where(eq(venue.id, id));
     expect(row).toMatchObject({
       name: "Rheinwiese Süd",
-      kind: "outdoor_public",
+      kind: "municipal",
       street: null,
       postalCode: "50667",
       city: "Köln",

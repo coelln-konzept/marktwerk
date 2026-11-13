@@ -232,11 +232,11 @@ describe("archiveContact / unarchiveContact", () => {
     const { id } = await createContact(owner, { ...valid, kind: "landowner" });
     const [place] = await db
       .insert(venue)
-      .values({ name: "Messeplatz", kind: "outdoor_public", city: "Köln", landownerContactId: id })
+      .values({ name: "Messeplatz", kind: "municipal", city: "Köln", landownerContactId: id })
       .returning();
     const [other] = await db
       .insert(venue)
-      .values({ name: "Hafenhalle", kind: "indoor", city: "Köln" })
+      .values({ name: "Hafenhalle", kind: "private", city: "Köln" })
       .returning();
     if (!place || !other) throw new Error("seed failed");
     await db.insert(locationAgreement).values({

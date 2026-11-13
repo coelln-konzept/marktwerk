@@ -15,7 +15,7 @@ import {
   uniqueItemKey,
 } from "./template-items";
 
-const facts = { eventTypeKey: "flea", venueId: "v1", venueKind: "outdoor_public" };
+const facts = { eventTypeKey: "flea", venueId: "v1", venueKind: "municipal" };
 
 const item = (patch: Partial<TemplateItemFields> = {}): TemplateItemFields => ({
   title: "Marktgenehmigung beantragen",
@@ -54,14 +54,14 @@ describe("itemApplies", () => {
     expect(itemApplies({ eventTypeKeys: ["street_fair"] }, facts)).toBe(false);
     expect(itemApplies({ venueIds: ["v1"] }, facts)).toBe(true);
     expect(itemApplies({ venueIds: ["v2"] }, facts)).toBe(false);
-    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["indoor"] }, facts)).toBe(false);
-    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["outdoor_public"] }, facts)).toBe(
+    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["private"] }, facts)).toBe(false);
+    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["municipal"] }, facts)).toBe(
       true,
     );
   });
 
   it("a venue kind condition does not match a venue without kind", () => {
-    expect(itemApplies({ venueKinds: ["indoor"] }, { ...facts, venueKind: null })).toBe(false);
+    expect(itemApplies({ venueKinds: ["private"] }, { ...facts, venueKind: null })).toBe(false);
   });
 
   it("filters a list of items and keeps their order", () => {

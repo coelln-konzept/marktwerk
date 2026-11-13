@@ -20,9 +20,8 @@
       "actions": "Aktionen"
     },
     "kinds": {
-      "outdoor_public": "Öffentlicher Platz",
-      "outdoor_private": "Privatgelände",
-      "indoor": "Halle"
+      "municipal": "Städtisch",
+      "private": "Privat"
     },
     "upcomingTitle": "Kommende Veranstaltungen (ohne abgesagte)",
     "preview": "Vorschau: {name}",

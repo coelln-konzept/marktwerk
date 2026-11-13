@@ -60,7 +60,8 @@ export const contact = app.table(
   (t) => [index().on(t.kind)],
 );
 
-export const venueKind = app.enum("venue_kind", ["outdoor_public", "outdoor_private", "indoor"]);
+/** "Städtisch" / "Privat" (user test 2, UT2-03; until 0016: outdoor_public, outdoor_private, indoor). */
+export const venueKind = app.enum("venue_kind", ["municipal", "private"]);
 
 /** A location ("Ort"). */
 export const venue = app.table("venue", {

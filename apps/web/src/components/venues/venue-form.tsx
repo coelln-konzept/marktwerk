@@ -7,6 +7,7 @@ import {
   isPostalCode,
   parseCoordinate,
   parseMetresToCm,
+  VENUE_KINDS,
   VENUE_NAME_MAX,
   venueNameFromAddress,
 } from "@marktwerk/core";
@@ -27,7 +28,7 @@ import { cn } from "@/lib/utils";
 import type { VenueFormValues } from "./defaults";
 import { fieldOfVenueError, SELECT_CLASS, useErrorText } from "./shared";
 
-const KINDS = ["outdoor_public", "outdoor_private", "indoor"] as const;
+const KINDS = VENUE_KINDS;
 
 /**
  * "Neuer Ort" and "Ort bearbeiten": a page, not a modal, because a venue has more than eight fields

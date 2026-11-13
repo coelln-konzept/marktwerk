@@ -20,9 +20,8 @@
       "actions": "Actions"
     },
     "kinds": {
-      "outdoor_public": "Public square",
-      "outdoor_private": "Private site",
-      "indoor": "Hall"
+      "municipal": "Municipal",
+      "private": "Private"
     },
     "upcomingTitle": "Upcoming events (excluding cancelled)",
     "preview": "Preview: {name}",

@@ -16,3 +16,15 @@ export function venueNameFromAddress(
   const name = c && s ? `${c} – ${s}` : c || s;
   return name.slice(0, VENUE_NAME_MAX).trim();
 }
+
+/** Ort types (user test 2, UT2-03): "Städtisch" / "Privat". */
+export const VENUE_KINDS = ["municipal", "private"] as const;
+export type VenueKindKey = (typeof VENUE_KINDS)[number];
+
+/**
+ * A venue kind as stored today, also from data written before UT2-03 (outdoor_public → municipal,
+ * outdoor_private / indoor → private), e.g. a synthetic dataset that still uses the old kinds.
+ */
+export function toVenueKind(kind: string): VenueKindKey {
+  return kind === "municipal" || kind === "outdoor_public" ? "municipal" : "private";
+}

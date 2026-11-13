@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { VENUE_NAME_MAX, venueNameFromAddress } from "./name";
+import { toVenueKind, VENUE_NAME_MAX, venueNameFromAddress } from "./name";
 
 describe("venueNameFromAddress", () => {
   it("joins city and street with a dash", () => {
@@ -15,5 +15,15 @@ describe("venueNameFromAddress", () => {
   it("is empty without a city and street, and never longer than the limit", () => {
     expect(venueNameFromAddress("", "")).toBe("");
     expect(venueNameFromAddress("K", "x".repeat(300))).toHaveLength(VENUE_NAME_MAX);
+  });
+});
+
+describe("toVenueKind", () => {
+  it("maps the old kinds onto Städtisch / Privat and keeps the new ones", () => {
+    expect(toVenueKind("outdoor_public")).toBe("municipal");
+    expect(toVenueKind("outdoor_private")).toBe("private");
+    expect(toVenueKind("indoor")).toBe("private");
+    expect(toVenueKind("municipal")).toBe("municipal");
+    expect(toVenueKind("private")).toBe("private");
   });
 });

@@ -55,7 +55,7 @@ export async function seedCatalogue() {
     .returning();
   const [place] = await db
     .insert(venue)
-    .values({ name: "Messeplatz Test", kind: "outdoor_public", city: "Köln" })
+    .values({ name: "Messeplatz Test", kind: "municipal", city: "Köln" })
     .returning();
   const [anna, ben] = await db
     .insert(staffMember)

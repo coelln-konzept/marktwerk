@@ -309,7 +309,7 @@ describe("createEventsFromAgreement", () => {
     const { id } = await newAgreement();
     const [other] = await db
       .insert(venue)
-      .values({ name: "Anderer Platz", kind: "indoor", city: "Bonn" })
+      .values({ name: "Anderer Platz", kind: "private", city: "Bonn" })
       .returning();
     await db
       .update(eventPreset)
