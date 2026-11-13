@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { eventTypeClasses } from "@/components/ui/event-type-tag";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EVENT_STATUS, type EventStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
+import { EventPopoverTrigger } from "./event-popover";
 
 /**
  * Event entry of the Kalender month grid: market marker (bar in the market colour, or the type square),
@@ -10,8 +10,10 @@ import { cn } from "@/lib/utils";
  * name on up to two lines. The chip's tint stays the event type's. A multi-day event joins its neighbour
  * days into one bar (square corners where it continues); on a `continuation` day the content is kept but
  * invisible, so the bar has the same height, and "Tag 2/3" is only spoken and in the tooltip (UT-11 #1).
+ * A click opens the event popover in place (UT2-08); the chip stays a link to the event for a new tab.
  */
 export function EventChip({
+  eventId,
   href,
   typeKey,
   color,
@@ -22,6 +24,8 @@ export function EventChip({
   spanLabel,
   continuation = false,
 }: {
+  eventId: string;
+  /** The event page (middle-click, "open in new tab"). */
   href: string;
   typeKey: string;
   color?: string | null;
@@ -41,12 +45,12 @@ export function EventChip({
   const continuesBefore = span !== undefined && span.index > 1;
   const continuesAfter = span !== undefined && span.index < span.total;
   return (
-    <Link
-      href={href as never}
-      scroll={false}
+    <EventPopoverTrigger
+      eventId={eventId}
+      href={href}
       title={[name, statusLabel, spanLabel].filter(Boolean).join(" · ")}
       className={cn(
-        "flex items-start gap-1 break-words rounded-md px-1 py-0.5 font-medium text-tiny leading-snug hover:bg-hover",
+        "flex cursor-pointer items-start gap-1 break-words rounded-md px-1 py-0.5 font-medium text-tiny leading-snug hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:outline-2 data-[popup-open]:outline-ring",
         eventTypeClasses(typeKey),
         cancelled && "opacity-70",
         continuesBefore && "-ml-1.5 rounded-l-none pl-2.5",
@@ -72,6 +76,6 @@ export function EventChip({
         {continuation ? name : ""}
         {spanLabel ? `, ${spanLabel}` : ""}
       </span>
-    </Link>
+    </EventPopoverTrigger>
   );
 }
