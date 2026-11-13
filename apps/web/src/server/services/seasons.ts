@@ -1,5 +1,13 @@
 import "server-only";
-import { can, type SeasonEventDates, seasonAnchors } from "@marktwerk/core";
+import {
+  can,
+  canChangeSeasonStatus,
+  expectedStartProblem,
+  isSeasonStatus,
+  type SeasonEventDates,
+  type SeasonStatus,
+  seasonAnchors,
+} from "@marktwerk/core";
 import { event, eventSeason } from "@marktwerk/db/schema";
 import {
   type EnsuredSeason,
@@ -77,7 +85,9 @@ export type SeasonDatesCause =
   | "event_update"
   | "event_status"
   | "event_delete"
-  | "event_archive";
+  | "event_archive"
+  /** `expected_start` edited on the market page (while the season has no dates). */
+  | "expected_start";
 
 /** The anchors that exist (a null `season_end` has no row), as the shift path reads them. */
 const anchorMap = (anchors: Record<string, string | null>) =>
@@ -185,4 +195,110 @@ export async function planSeasonShiftForMove(
     shifted.push(...(await planTaskShift(x, { seasonId: row.id }, anchorMap(anchors))));
   }
   return shifted;
+}
+
+/** The active season record, locked for the change. */
+async function lockSeason(tx: Tx, seasonId: string) {
+  if (!UUID.test(seasonId)) throw new SeasonInputError("season_not_found");
+  const [row] = await tx
+    .select({
+      id: eventSeason.id,
+      presetId: eventSeason.presetId,
+      season: eventSeason.season,
+      status: eventSeason.status,
+      expectedStart: eventSeason.expectedStart,
+    })
+    .from(eventSeason)
+    .where(and(eq(eventSeason.id, seasonId), isNull(eventSeason.archivedAt)))
+    .for("update");
+  if (!row) throw new SeasonInputError("season_not_found");
+  return row;
+}
+
+/**
+ * Manual status switch on the market page (research 13 §6.2: planning → dates_set → closed, undo toast; nothing
+ * changes it automatically). Every change between two statuses is allowed (`canChangeSeasonStatus`), so the undo
+ * is the same call back. `expectedFrom` is the status the page showed: a different one is a `conflict` (someone
+ * else changed it). Permission → transaction → audit `season.status` {from, to}.
+ */
+export async function setSeasonStatus(
+  actor: Actor,
+  seasonId: string,
+  to: string,
+  expectedFrom?: string,
+): Promise<{ from: SeasonStatus; to: SeasonStatus }> {
+  if (!can(actor.role, "event", "write")) forbidden();
+  if (!isSeasonStatus(to)) throw new SeasonInputError("invalid_status");
+  return db.transaction(async (tx) => {
+    const row = await lockSeason(tx, seasonId);
+    if (expectedFrom !== undefined && row.status !== expectedFrom)
+      throw new SeasonInputError("conflict");
+    if (!canChangeSeasonStatus(row.status, to)) throw new SeasonInputError("invalid_transition");
+    await tx
+      .update(eventSeason)
+      .set({ status: to, updatedAt: new Date() })
+      .where(eq(eventSeason.id, row.id));
+    await audit(tx, actor.id, [
+      {
+        action: "season.status",
+        entityType: "event_season",
+        entityId: row.id,
+        diff: { presetId: row.presetId, season: row.season, from: row.status, to },
+      },
+    ]);
+    return { from: row.status, to };
+  });
+}
+
+/**
+ * "Erwartet ab" on the market page (decision 2026-11-13): the first date expected while the season has no dates.
+ * Refused once it has dates (`has_dates`), outside the season's year (`outside_season`) and for a malformed date
+ * (`invalid_date`); `expectedFrom` guards against a stale page (`conflict`). The anchor `season_start` follows and
+ * open, not overridden season tasks move with it through the one shift path (`syncSeasonsTx`, audited as
+ * `season.anchors`). Audit `season.expected_start` {from, to}. The undo is the same call back.
+ */
+export async function setSeasonExpectedStart(
+  actor: Actor,
+  seasonId: string,
+  date: string,
+  expectedFrom?: string,
+): Promise<{ from: string; to: string; changed: boolean; tasksShifted: number }> {
+  if (!can(actor.role, "event", "write")) forbidden();
+  return db.transaction(async (tx) => {
+    const row = await lockSeason(tx, seasonId);
+    if (expectedFrom !== undefined && row.expectedStart !== expectedFrom)
+      throw new SeasonInputError("conflict");
+    const problem = expectedStartProblem(
+      date,
+      row.season,
+      await seasonEventDates(tx, row.presetId, row.season),
+    );
+    if (problem) throw new SeasonInputError(problem);
+    if (row.expectedStart === date)
+      return { from: date, to: date, changed: false, tasksShifted: 0 };
+    await tx
+      .update(eventSeason)
+      .set({ expectedStart: date, updatedAt: new Date() })
+      .where(eq(eventSeason.id, row.id));
+    await audit(tx, actor.id, [
+      {
+        action: "season.expected_start",
+        entityType: "event_season",
+        entityId: row.id,
+        diff: { presetId: row.presetId, season: row.season, from: row.expectedStart, to: date },
+      },
+    ]);
+    const [sync] = await syncSeasonsTx(
+      tx,
+      actor,
+      [{ presetId: row.presetId, season: row.season }],
+      "expected_start",
+    );
+    return {
+      from: row.expectedStart,
+      to: date,
+      changed: true,
+      tasksShifted: sync?.shifted.length ?? 0,
+    };
+  });
 }

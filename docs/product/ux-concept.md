@@ -186,7 +186,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 | Aussteller | `/aussteller` | Vendor list (read-only): Name, Sortiment, Stadt, Stammaussteller; the rest in the Vorschau. **A–Z selector** (CF9-7, shared with Kontakte): a row "Alle · A B C … Z · #" above the list filters by the first letter of the display name the list sorts by (`?buchstabe=A–Z|#`; Ä→A, Ö→O, Ü→U, É→E, "#" = digits and anything else; leading quotes/brackets are skipped); combines with search and the other filters, drops the page, letters with no entries under the other filters are disabled (not links), the active one has `aria-current` |
 | Kontakte | `/kontakte` | Authorities, landowners, suppliers, services (Vorschau `?vorschau=<id>`). The same **A–Z selector** as on Aussteller (`?buchstabe=`; the kind chips' counts follow the letter) |
 | Einstellungen → Bibliothek | `/einstellungen/bibliothek` | Grundvorlage (master task template), Märkte (presets with venue, rhythm, own task template; Vorschau `?vorschau=<id>`), "Weitere Ablaufvorlagen" (collapsed, the old per-type templates). There is no "Vorlagen" sidebar entry; `/vorlagen` redirects here |
-| Markt bearbeiten | `/vorlagen/[id]` | Edit form of a market (preset); the colour picker lists the *other* active markets per colour (legend + tooltips) |
+| Markt bearbeiten | `/vorlagen/[id]` | The market page: first its **Saison panels** (below, "Saison panel"), then the edit form of the market (preset); the colour picker lists the *other* active markets per colour (legend + tooltips). A season task opens the task drawer in place (`?aufgabe=<id>`) |
 | Vorlage (Ablauf) | `/vorlagen/ablauf/[id]` | Timeline template editor (Excel-like grid + timeline ruler); used for the Grundvorlage, a market's own template and the other templates, its back link goes to the Bibliothek |
 | Wissen | `/wissen` | Knowledge base. The sidebar entry is hidden for now (2026-11); the route stays as a placeholder |
 | Benachrichtigungen | `/benachrichtigungen` | Owner/manager: the company-wide notification center (below). Staff/field: their personal inbox. Entry: Strg+K and the Übersicht link (the bell is hidden since 2026-11), no sidebar entry |
@@ -194,6 +194,37 @@ Every view is a route-level page; drawers are listed where a record usually open
 
 Modules whose data arrives in a later milestone exist from M1 as routes with a "coming soon" page, so the sidebar never
 leads nowhere.
+
+### Market page and its Saison panel (Fahrplan R12, research 13 §6.3)
+The market page (`/vorlagen/<id>`, "Markt bearbeiten") opens with one **"Saison <Jahr>"** section per season record,
+above the edit form: the current calendar year (Berlin) first, the next year's underneath once its record exists
+(the nightly job makes it; archived records are left out). Each is a `Panel` with its title outside the card
+(§6 "Section headings"), the open-task count as `meta` ("3 offen") and the status switch on the right.
+- **Status**: "Status: <badge> ⌄" (colour + icon + text, §7: In Planung · Termine stehen · Abgeschlossen) opens a menu
+  with all three in the order planning → dates_set → closed, the current one ticked. Every change is allowed
+  (`canChangeSeasonStatus`), applies at once and shows an undo toast ("Saison 2027: Termine stehen" · Rückgängig);
+  nothing switches by itself. When `suggestedSeasonStatus` has a next step, one line under the start offers it as a
+  button: "Die Termine sind angelegt. [Auf „Termine stehen“ setzen]" (planning with dates) or "Der letzte Termin ist
+  vorbei und keine Saisonaufgabe ist offen. [Saison abschließen]".
+- **Start** (first row of the card): with dates "Erster Termin Sa 27.03.2027 · KW 12" and "7 Termine, letzter am
+  So 31.10.2027" (cancelled and archived events do not count); without dates "Erwartet ab So 09.05.2027" with
+  "KW 18 · noch keine Termine. Mit dem ersten Termin gilt dessen Datum." and an **"Ändern"** button (decision
+  2026-11-13: editable on the market page) that turns the line into a date field with Speichern / Abbrechen (Esc).
+  The date must lie in the season's year (the error stays at the field); `season_start` and the open, not overridden
+  season tasks move with it; undo toast ("Saison 2027 erwartet ab … · 2 Aufgaben verschoben" · Rückgängig). Once the
+  season has dates the field is gone.
+- **Tasks**: the season's top-level tasks, open ones first by due date (none last), each row with the shared tick
+  (no question first: the row stays and moves to "Erledigt"; a second click reopens; `E` ticks the focused row),
+  the title opening the task drawer in place (`?aufgabe=<id>`), the due badge with the date, "Zurückgestellt bis …"
+  while snoozed, and the assignee (avatar + name, "Niemand zuständig" muted; shown here although the Team module is
+  hidden, since the page's own form sets the market's default duties). Finished tasks (done, skipped) fold into
+  "› Erledigt (n)". Empty: "Keine Saisonaufgaben. …"; all done: "Alle Saisonaufgaben erledigt".
+- **No record yet** for the current year: the section shows "Noch keine Saison 2026", a one-line explanation and
+  **"Saison anlegen"** (primary), which runs `ensureEventSeason` (the one path) and confirms with a plain toast
+  ("Saison 2026 angelegt · 3 Aufgaben").
+- Rules: `seasonStartInfo`, `canEditExpectedStart`, `expectedStartProblem`, `seasonTaskList` and `nextSeasonStatus` in
+  `packages/core/src/events/season.ts`; query `getMarketSeasons`; services `setSeasonStatus` and
+  `setSeasonExpectedStart` (`event:write`, audit `season.status` / `season.expected_start`).
 
 ### Board views (across events, decision 2026-10-22)
 > The global Board (`/board`) is **hidden** since 2026-11-03 (`HIDDEN_MODULES.globalBoard`); Bereitschaft, Matrix and
@@ -394,6 +425,7 @@ announcements in German via `aria-live`.
 | Hours | OK · Grenze nah · Über Grenze (zulässig?) · Unzulässig | green · amber · amber ⚠ · red ⛔ |
 | Health | Im Plan · Achtung · Kritisch | green ● · amber ▲ · red ■ (shape differs, too) |
 | Events (lifecycle) | Entwurf (manual only) · geplant (start state of every new event) · bestätigt (automatic once all required permits are granted) · läuft · abgeschlossen · abgesagt (cancelling also cancels the event's open tasks so they vanish from every list; undo or leaving "abgesagt" reopens exactly those); from M10 also abgerechnet (`closed`, after financial close-out) | label badge; health shown separately (● ▲ ■) |
+| Saison | In Planung · Termine stehen · Abgeschlossen (changed by hand only, undo toast) | blue dashed circle · green calendar-check · grey lock |
 
 ## 8. Content & language
 

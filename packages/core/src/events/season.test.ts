@@ -2,16 +2,21 @@ import { describe, expect, it } from "vitest";
 import { isoWeek, weekday } from "../dates/calendar";
 import {
   canChangeSeasonStatus,
+  canEditExpectedStart,
   expectedStartFromLastSeason,
+  expectedStartProblem,
   initialSeasonStatus,
   isSeasonAnchorKey,
   isSeasonStatus,
+  nextSeasonStatus,
   SEASON_ANCHOR_KEYS,
   SEASON_STATUSES,
   seasonAnchors,
   seasonEnd,
   seasonStart,
+  seasonStartInfo,
   seasonsToKeep,
+  seasonTaskList,
   suggestedSeasonStatus,
 } from "./season";
 
@@ -252,5 +257,109 @@ describe("seasonsToKeep", () => {
     // 23:30 UTC on 31 December is already 00:30 on 1 January in Berlin (CET, UTC+1).
     expect(seasonsToKeep(new Date("2026-12-31T23:30:00Z"))).toEqual([2027, 2028]);
     expect(seasonsToKeep(new Date("2026-12-31T22:59:00Z"))).toEqual([2026, 2027]);
+  });
+});
+
+describe("nextSeasonStatus", () => {
+  it("steps planning → dates_set → closed and stops there", () => {
+    expect(nextSeasonStatus("planning")).toBe("dates_set");
+    expect(nextSeasonStatus("dates_set")).toBe("closed");
+    expect(nextSeasonStatus("closed")).toBeNull();
+  });
+});
+
+describe("seasonStartInfo", () => {
+  it("is the expected start while the season has no dates", () => {
+    expect(seasonStartInfo([], "2027-03-07")).toEqual({
+      kind: "expected",
+      expectedStart: "2027-03-07",
+    });
+  });
+
+  it("is the first and last date and the count once events exist; cancelled ones do not count", () => {
+    const events = [
+      ev("2027-06-05", "2027-06-06"),
+      ev("2027-03-07"),
+      ev("2027-02-07", "2027-02-07", "cancelled"),
+      ev("2027-10-03"),
+    ];
+    expect(seasonStartInfo(events, "2027-01-01")).toEqual({
+      kind: "dates",
+      firstDate: "2027-03-07",
+      lastDate: "2027-10-03",
+      events: 3,
+    });
+  });
+
+  it("falls back to the expected start when only cancelled events are left", () => {
+    expect(seasonStartInfo([ev("2027-03-07", "2027-03-07", "cancelled")], "2027-03-14")).toEqual({
+      kind: "expected",
+      expectedStart: "2027-03-14",
+    });
+  });
+});
+
+describe("expected start edits", () => {
+  it("are allowed only while the season has no (non-cancelled) dates", () => {
+    expect(canEditExpectedStart([])).toBe(true);
+    expect(canEditExpectedStart([ev("2027-03-07", "2027-03-07", "cancelled")])).toBe(true);
+    expect(canEditExpectedStart([ev("2027-03-07")])).toBe(false);
+  });
+
+  it("need a real date in the season's year", () => {
+    expect(expectedStartProblem("2027-03-07", 2027, [])).toBeNull();
+    expect(expectedStartProblem("2027-01-01", 2027, [])).toBeNull();
+    expect(expectedStartProblem("2027-12-31", 2027, [])).toBeNull();
+    expect(expectedStartProblem("2026-12-31", 2027, [])).toBe("outside_season");
+    expect(expectedStartProblem("2028-01-01", 2027, [])).toBe("outside_season");
+    expect(expectedStartProblem("2027-02-30", 2027, [])).toBe("invalid_date");
+    expect(expectedStartProblem("7.3.2027", 2027, [])).toBe("invalid_date");
+    expect(expectedStartProblem("", 2027, [])).toBe("invalid_date");
+  });
+
+  it("are refused once the season has dates", () => {
+    expect(expectedStartProblem("2027-03-07", 2027, [ev("2027-04-04")])).toBe("has_dates");
+  });
+
+  it("keep a date across the DST switch as it is (dates, not instants)", () => {
+    // Last Sunday of March 2027 is the switch to summer time.
+    expect(expectedStartProblem("2027-03-28", 2027, [])).toBeNull();
+    expect(expectedStartProblem("2027-10-31", 2027, [])).toBeNull();
+  });
+});
+
+describe("seasonTaskList", () => {
+  const task = (title: string, status: string, dueOn: string | null) => ({
+    title,
+    status,
+    dueOn,
+  });
+
+  it("lists open tasks first by due date (none last), then the finished ones; cancelled ones never", () => {
+    const { open, finished } = seasonTaskList([
+      task("Standplan", "todo", null),
+      task("Genehmigung beantragen", "in_progress", "2027-01-15"),
+      task("Termine planen", "done", "2026-12-01"),
+      task("Werbung", "cancelled", "2027-02-01"),
+      task("Plakate", "waiting", "2026-12-20"),
+      task("Flyer", "skipped", "2026-11-30"),
+    ]);
+    expect(open.map((t) => t.title)).toEqual(["Plakate", "Genehmigung beantragen", "Standplan"]);
+    expect(finished.map((t) => t.title)).toEqual(["Flyer", "Termine planen"]);
+  });
+
+  it("orders tasks due on the same day by title (German collation)", () => {
+    const { open } = seasonTaskList([
+      task("Zelte", "todo", "2027-01-10"),
+      task("Ämter anschreiben", "todo", "2027-01-10"),
+      task("Bühne", "todo", "2027-01-10"),
+    ]);
+    expect(open.map((t) => t.title)).toEqual(["Ämter anschreiben", "Bühne", "Zelte"]);
+  });
+
+  it("does not change the input", () => {
+    const input = [task("B", "todo", "2027-02-01"), task("A", "todo", "2027-01-01")];
+    seasonTaskList(input);
+    expect(input.map((t) => t.title)).toEqual(["B", "A"]);
   });
 });
