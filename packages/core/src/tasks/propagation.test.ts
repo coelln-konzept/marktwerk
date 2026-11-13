@@ -165,4 +165,38 @@ describe("planPropagation", () => {
       1,
     );
   });
+
+  it("adds child items as subtasks, but not under a closed parent", () => {
+    const child = item("a__teil_1", { parentKey: "a" });
+    expect(planPropagation([item("a"), child], [task("a")]).add).toEqual([child]);
+    expect(planPropagation([item("a"), child], [task("a", { status: "done" })]).add).toEqual([]);
+    // the parent is new as well: both are added
+    expect(planPropagation([item("a"), child], []).add.map((i) => i.stableKey)).toEqual([
+      "a",
+      "a__teil_1",
+    ]);
+  });
+
+  it("cancels the subtask of a removed child item instead of marking it", () => {
+    const sub = task("a__teil_1", { parentTaskId: "task-a", parentKey: "a" });
+    const plan = planPropagation([item("a")], [task("a"), sub]);
+    expect(plan.cancel).toEqual([sub]);
+    expect(plan.remove).toEqual([]);
+    expect(planSize(plan)).toBe(1);
+    // done or customised subtasks stay
+    const kept = planPropagation(
+      [item("a")],
+      [task("a"), { ...sub, status: "done" }, { ...sub, id: "s2", customized: true }],
+    );
+    expect(kept.cancel).toEqual([]);
+    expect(kept.keep.map((k) => k.reason)).toEqual(["closed", "customized"]);
+  });
+
+  it("notices a child item that moved to another parent or to the top", () => {
+    const sub = task("c", { parentTaskId: "task-a", parentKey: "a" });
+    expect(
+      planPropagation([item("b"), item("c", { parentKey: "b" })], [sub]).update[0]?.changes,
+    ).toEqual(["parent"]);
+    expect(planPropagation([item("c")], [sub]).update[0]?.changes).toEqual(["parent"]);
+  });
 });

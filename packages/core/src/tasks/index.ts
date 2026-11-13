@@ -8,5 +8,6 @@ export * from "./notify-moment";
 export * from "./readiness";
 export * from "./rollover";
 export * from "./snooze";
+export * from "./subtasks";
 export * from "./waiting";
 export * from "./workload";

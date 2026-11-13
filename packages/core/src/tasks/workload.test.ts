@@ -88,11 +88,11 @@ describe("missingEvidence", () => {
   const base = {
     requiresPhoto: false,
     requiresAttachment: false,
-    openCheckItems: 0,
+    openSubtasks: 0,
   };
-  it("needs open check items to be ticked; a note is never required", () => {
+  it("needs open subtasks to be finished; a note is never required", () => {
     expect(missingEvidence(base)).toEqual([]);
-    expect(missingEvidence({ ...base, openCheckItems: 2 })).toEqual(["check_items"]);
+    expect(missingEvidence({ ...base, openSubtasks: 2 })).toEqual(["subtasks"]);
     // a template item that asks for a note (requiresNote) does not block completion any more
     expect(missingEvidence({ ...base, requiresNote: true } as typeof base)).toEqual([]);
   });

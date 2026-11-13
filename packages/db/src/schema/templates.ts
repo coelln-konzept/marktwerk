@@ -3,6 +3,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -166,12 +167,18 @@ export const templateItem = app.table(
      * granted (UX pass 2026-10-22: no false "overdue" for permits that are already in).
      */
     permitType: permitType(),
-    /** Titles of the sub-steps; become `task_check_item` rows on instantiation. */
-    checkItems: jsonb().$type<string[]>().notNull().default([]),
     /** Duty role whose holder has to approve before the task counts as done. */
     approverDutyRoleId: uuid().references(() => dutyRole.id, { onDelete: "set null" }),
-    /** `stable_key`s of items in the same version this one depends on (does not move dates). */
-    dependsOnKeys: text().array().notNull().default([]),
+    /**
+     * Child item (ADR 0021): the `stable_key` of another item of the same version, whose task this item's task
+     * becomes a subtask of. One level only (the parent has no `parent_key`). Null = a top-level item.
+     */
+    parentKey: text(),
+    /**
+     * Child items only: true = own anchor, offset, day mode and time; false (default) = the parent's. A child
+     * without its own duty role (`duty_role_id` null) takes the parent's.
+     */
+    ownDue: boolean().notNull().default(false),
     /** Only instantiate for matching events; null = always. */
     condition: jsonb().$type<TemplateItemCondition>(),
     ...timestamps,
@@ -180,6 +187,17 @@ export const templateItem = app.table(
     unique().on(t.versionId, t.stableKey),
     index().on(t.versionId, t.sort),
     index().on(t.dutyRoleId),
+    index().on(t.versionId, t.parentKey),
+    // A child belongs to an item of its own version; deleting the parent deletes its children.
+    foreignKey({
+      name: "template_item_parent",
+      columns: [t.versionId, t.parentKey],
+      foreignColumns: [t.versionId, t.stableKey],
+    }).onDelete("cascade"),
+    check(
+      "template_item_not_own_parent",
+      sql`${t.parentKey} is null or ${t.parentKey} <> ${t.stableKey}`,
+    ),
     check("template_item_estimate", sql`${t.estimateMinutes} >= 0`),
   ],
 );
