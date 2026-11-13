@@ -5,11 +5,13 @@
 
 import { permitCoversApplication } from "@marktwerk/core";
 import { schema } from "@marktwerk/db";
-import { and, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, notExists } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { insertAll, type SeedContext, type Tx } from "./shared";
 
 /** The permit that is further along wins when several of one type cover an event (as in the service). */
 const STATUS_ORDER = ["granted", "applied", "preparing", "not_started", "rejected", "not_required"];
+const OPEN = ["todo", "in_progress", "waiting_external", "blocked"] as const;
 
 /**
  * Seed counterpart of `linkPermitTasks` (apps/web/src/server/services/permits.ts; the seed cannot import the
@@ -61,13 +63,21 @@ async function linkPermitTasks(tx: Tx) {
     linked += ids.length;
     const status = statusOf.get(permitId);
     if (!status || !permitCoversApplication(status)) continue;
+    // A task with open subtasks stays open, as in the service (the done gate, ADR 0021).
+    const sub = alias(task, "sub");
     const closed = await tx
       .update(task)
       .set({ status: "done", completedAt: new Date() })
       .where(
         and(
           inArray(task.id, ids),
-          inArray(task.status, ["todo", "in_progress", "waiting_external", "blocked"]),
+          inArray(task.status, OPEN),
+          notExists(
+            tx
+              .select({ id: sub.id })
+              .from(sub)
+              .where(and(eq(sub.parentTaskId, task.id), inArray(sub.status, OPEN))),
+          ),
         ),
       )
       .returning({ id: task.id });
