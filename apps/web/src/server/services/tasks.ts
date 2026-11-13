@@ -910,7 +910,15 @@ async function assertUndoKeepsTree(tx: Tx, row: TaskRow, before: Partial<TaskSta
 
 type ParentRow = Pick<
   TaskRow,
-  "id" | "title" | "eventId" | "parentTaskId" | "status" | "checklistId" | "phase" | "category"
+  | "id"
+  | "title"
+  | "eventId"
+  | "seasonId"
+  | "parentTaskId"
+  | "status"
+  | "checklistId"
+  | "phase"
+  | "category"
 >;
 
 /** The parent row, locked (no scope check: the caller checked the task and the nesting rules decide). */
@@ -920,6 +928,7 @@ async function lockedParent(tx: Tx, parentId: string): Promise<ParentRow | null>
       id: task.id,
       title: task.title,
       eventId: task.eventId,
+      seasonId: task.seasonId,
       parentTaskId: task.parentTaskId,
       status: task.status,
       checklistId: task.checklistId,
@@ -1521,6 +1530,8 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
       .insert(task)
       .values({
         eventId,
+        // A subtask belongs where its parent belongs: the parent's Saison too (R13).
+        seasonId: eventId ? null : (parent?.seasonId ?? null),
         parentTaskId: parent?.id ?? null,
         checklistId: parent?.checklistId ?? null,
         phase: parent?.phase ?? null,

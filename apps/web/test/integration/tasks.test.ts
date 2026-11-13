@@ -236,6 +236,17 @@ describe("assignTask", () => {
     });
   });
 
+  it("a subtask added under a season task belongs to the same Saison (R13)", async () => {
+    const season = await insertSeason(cat);
+    const parent = await insertTask({ title: "Termine planen", seasonId: season.id });
+    const { id } = await createTask(owner, { title: "Rhythmus festlegen", parentId: parent.id });
+    expect(await getTask(id)).toMatchObject({
+      seasonId: season.id,
+      eventId: null,
+      parentTaskId: parent.id,
+    });
+  });
+
   it("unassigns (and still marks the assignment as done by hand) without notifying", async () => {
     const t = await insertTask({ title: "A", eventId, assigneeId: cat.staff.anna.id });
     await assignTask(owner, t.id, null);
