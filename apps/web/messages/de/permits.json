@@ -390,5 +390,57 @@
     "emptyHint": "Am Ort {venue} sind noch keine Anforderungen hinterlegt. Mit Anforderungen entstehen die Genehmigungen und ihre Aufgaben automatisch.",
     "emptyAction": "Anforderungen am Ort anlegen",
     "logbook": "Alle Genehmigungen"
+  },
+  "venueNeeds": {
+    "title": "Was braucht dieser Ort?",
+    "open": "Was braucht dieser Ort?",
+    "intro": {
+      "created": "„{name}“ ist angelegt. Vorausgewählt ist, was ein Ort der Art „{kind}“ meist braucht. Du kannst alles ändern oder überspringen.",
+      "kindChanged": "„{name}“ ist jetzt „{kind}“. Vorausgewählt ist, was ein Ort dieser Art meist braucht. Du kannst alles ändern oder überspringen.",
+      "manual": "Welche Genehmigungen eine Veranstaltung an „{name}“ braucht. Neue Veranstaltungen legen sie daraus selbst an."
+    },
+    "mainTitle": "Genehmigungen",
+    "extrasTitle": "Weitere, falls nötig",
+    "types": {
+      "market_permit": {
+        "label": "Marktgenehmigung (Sondernutzung)",
+        "hint": "Von der Stadt, einmal je Saison"
+      },
+      "landowner_ok": {
+        "label": "Einverständnis des Eigentümers",
+        "hint": "Vom Eigentümer des Geländes, einmal je Saison"
+      },
+      "market_fixing": {
+        "label": "Festsetzung (§ 69 GewO)",
+        "hint": "Von der Stadt, einmal je Saison"
+      },
+      "water": {
+        "label": "Standrohr",
+        "hint": "Wasser vom Hydranten, je Termin"
+      },
+      "no_parking": {
+        "label": "PVBT (Halteverbot)",
+        "hint": "Halteverbotsschilder, je Termin"
+      },
+      "signage": {
+        "label": "Plakatierung",
+        "hint": "Plakate mit Aufklebern der Stadt, einmal je Saison"
+      },
+      "toilets": {
+        "label": "Toiletten",
+        "hint": "Toilettenwagen oder Anlage, einmal je Saison"
+      }
+    },
+    "removing": "Wird beim Ort entfernt: {list}",
+    "detailsHint": "Vorlauf, Behörde, Gebühr und Antragsfenster trägst du danach beim Ort unter „Genehmigungen und Zustimmungen“ ein.",
+    "skip": "Überspringen",
+    "save": "Speichern",
+    "saved": "Genehmigungen für „{name}“ gespeichert{added, plural, =0 {} other {: # neu}}{removed, plural, =0 {} other {, # entfernt}}.",
+    "unchanged": "Keine Änderungen.",
+    "undo": "Rückgängig",
+    "undone": "Genehmigungen zurückgesetzt.",
+    "errors": {
+      "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+    }
   }
 }

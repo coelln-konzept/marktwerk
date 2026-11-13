@@ -390,5 +390,57 @@
     "emptyHint": "No requirements are set up for {venue} yet. With requirements, the permits and their tasks are created automatically.",
     "emptyAction": "Set up requirements at the venue",
     "logbook": "All permits"
+  },
+  "venueNeeds": {
+    "title": "What does this venue need?",
+    "open": "What does this venue need?",
+    "intro": {
+      "created": "“{name}” is created. Pre-selected is what a “{kind}” venue usually needs. You can change everything or skip.",
+      "kindChanged": "“{name}” is now “{kind}”. Pre-selected is what such a venue usually needs. You can change everything or skip.",
+      "manual": "Which permits an event at “{name}” needs. New events create them from this."
+    },
+    "mainTitle": "Permits",
+    "extrasTitle": "More, if needed",
+    "types": {
+      "market_permit": {
+        "label": "Market permit (special use)",
+        "hint": "From the city, once per season"
+      },
+      "landowner_ok": {
+        "label": "Landowner consent",
+        "hint": "From the owner of the ground, once per season"
+      },
+      "market_fixing": {
+        "label": "Market fixing (§ 69 GewO)",
+        "hint": "From the city, once per season"
+      },
+      "water": {
+        "label": "Standpipe",
+        "hint": "Water from the hydrant, per date"
+      },
+      "no_parking": {
+        "label": "No-parking signs (PVBT)",
+        "hint": "No-parking signs, per date"
+      },
+      "signage": {
+        "label": "Posters",
+        "hint": "Posters with the city's stickers, once per season"
+      },
+      "toilets": {
+        "label": "Toilets",
+        "hint": "Toilet trailer or facility, once per season"
+      }
+    },
+    "removing": "Will be removed from the venue: {list}",
+    "detailsHint": "Add lead time, authority, fee and application window afterwards under “Permits and consents” on the venue.",
+    "skip": "Skip",
+    "save": "Save",
+    "saved": "Permits for “{name}” saved{added, plural, =0 {} other {: # new}}{removed, plural, =0 {} other {, # removed}}.",
+    "unchanged": "No changes.",
+    "undo": "Undo",
+    "undone": "Permits reset.",
+    "errors": {
+      "generic": "That did not work. Please try again."
+    }
   }
 }
