@@ -97,6 +97,11 @@
       "undo": "Rückgängig",
       "restored": "{name} wiederhergestellt.",
       "failed": "Das hat nicht geklappt."
+    },
+    "quick": {
+      "title": "Kontakt anlegen",
+      "titleKind": "{kind} anlegen",
+      "description": "Nur das Nötigste. Adresse und Notizen ergänzt du später beim Kontakt."
     }
   }
 }

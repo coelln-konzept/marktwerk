@@ -16,6 +16,10 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useMemo, useState, useTransition } from "react";
 import { createVenueAction, updateVenueAction } from "@/app/(app)/orte/actions";
+import {
+  ContactQuickCreate,
+  type CreatedContact,
+} from "@/components/contacts/contact-quick-create";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -67,9 +71,15 @@ export function VenueForm({
   const [bundesland, setBundesland] = useState(initial.bundesland);
   const [accessInfo, setAccessInfo] = useState(initial.accessInfo ?? "");
   const [landowner, setLandowner] = useState<string | null>(initial.landownerContactId);
+  // Eigentümer created in place (UT2-04) join the options until the page data has them.
+  const [createdLandowners, setCreatedLandowners] = useState<CreatedContact[]>([]);
+  const [newLandowner, setNewLandowner] = useState<string | null>(null);
   const landownerOptions = useMemo(
-    () => landowners.map((l) => ({ id: l.id, label: l.name, hint: l.city })),
-    [landowners],
+    () => [
+      ...landowners.map((l) => ({ id: l.id, label: l.name, hint: l.city })),
+      ...createdLandowners.filter((c) => !landowners.some((l) => l.id === c.id)),
+    ],
+    [landowners, createdLandowners],
   );
   const [capacity, setCapacity] = useState(
     initial.capacityCm === null ? "" : formatMetres(initial.capacityCm, locale),
@@ -302,6 +312,17 @@ export function VenueForm({
                   placeholder={tf("noLandowner")}
                   aria-describedby={`${uid}-landowner`}
                   aria-invalid={error?.field === f("landowner")}
+                  onCreate={(text) => setNewLandowner(text)}
+                />
+                <ContactQuickCreate
+                  open={newLandowner !== null}
+                  onOpenChange={(open) => !open && setNewLandowner(null)}
+                  name={newLandowner ?? ""}
+                  kinds={["landowner"]}
+                  onCreated={(created) => {
+                    setCreatedLandowners((prev) => [...prev, created]);
+                    setLandowner(created.id);
+                  }}
                 />
                 <p id={`${uid}-landowner`} className={hint}>
                   {tf("landownerHint")}

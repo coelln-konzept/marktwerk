@@ -97,6 +97,11 @@
       "undo": "Undo",
       "restored": "{name} restored.",
       "failed": "That didn't work."
+    },
+    "quick": {
+      "title": "New contact",
+      "titleKind": "New {kind}",
+      "description": "Just the essentials. Add the address and notes later on the contact."
     }
   }
 }
