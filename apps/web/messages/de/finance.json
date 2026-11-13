@@ -160,7 +160,7 @@
       "vehicle": "Fahrzeug",
       "venue": "Ort",
       "season": "Saison (Jahr)",
-      "pick": "Bitte wählen",
+      "pick": "Auswählen …",
       "total": "Gesamtbetrag (brutto)",
       "totalHint": "Summe aller Raten, inklusive Umsatzsteuer.",
       "vat": "Umsatzsteuer",

@@ -22,7 +22,7 @@
     "cols": {
       "name": "Name",
       "kind": "Art",
-      "person": "Ansprechpartner:in",
+      "person": "Ansprechpartner",
       "phone": "Telefon",
       "email": "E-Mail",
       "city": "Ort",
@@ -36,7 +36,7 @@
     "none": "–",
     "vorschau": {
       "kind": "Kontakt",
-      "person": "Ansprechpartner:in",
+      "person": "Ansprechpartner",
       "phone": "Telefon",
       "email": "E-Mail",
       "address": "Adresse",
@@ -64,7 +64,7 @@
       "kind": "Art",
       "name": "Name / Organisation",
       "namePlaceholder": "z. B. Ordnungsamt Köln",
-      "contactPerson": "Ansprechpartner:in",
+      "contactPerson": "Ansprechpartner",
       "phone": "Telefon",
       "phoneHint": "Deutsche Nummern werden einheitlich gespeichert (+49 …).",
       "phoneNormalized": "Wird gespeichert als {value}",

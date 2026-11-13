@@ -44,7 +44,7 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     lat: 50.9364,
     lng: 6.9608,
     accessInfo:
-      "Anfahrt über die Pipinstraße. Zufahrt für Aussteller:innen bis 09:30 Uhr, danach nur noch zu Fuß.",
+      "Anfahrt über die Pipinstraße. Zufahrt für Aussteller bis 09:30 Uhr, danach nur noch zu Fuß.",
     zones: ["Heumarkt", "Alter Markt"],
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",

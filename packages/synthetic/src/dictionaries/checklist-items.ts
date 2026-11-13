@@ -187,7 +187,7 @@ const BRINGTO_EINLADEN = item({
 
 const EINWEISEN = marketDay({
   key: "einweisen",
-  title: "Aussteller:innen einweisen",
+  title: "Aussteller einweisen",
   category: "logistics",
   dueTime: "07:00",
   dutyRoleKey: CLIENT_DUTY.briefing,
@@ -394,7 +394,7 @@ const STROM_WASSER_ORGANISIEREN = item({
   dutyRoleKey: "water_power",
   estimateMinutes: 60,
   children: [
-    { key: "bedarf", title: "Strombedarf der Aussteller:innen abfragen", estimateMinutes: 30 },
+    { key: "bedarf", title: "Strombedarf der Aussteller abfragen", estimateMinutes: 30 },
     { key: "bringto", title: "Kabel und Verteiler in die Bringto übernehmen", estimateMinutes: 15 },
   ],
 });
@@ -466,7 +466,7 @@ export type ClientMarketKey = "altstadt" | "riehler-guertel" | "nippes" | "hoffn
 const ALTSTADT = fromMaster({
   change: {
     [GENEHMIGUNG.key]: { offsetDays: -210 }, // 7 months
-    einweisen: { title: "Aussteller:innen einweisen (1. Tag)" },
+    einweisen: { title: "Aussteller einweisen (1. Tag)" },
     tageswache_ordner: { title: "Tageswache „Ordner“ stellen (1. Tag)" },
     nachkassieren: { title: "Standgebühren nachkassieren (1. Tag)" },
     flyer_verteilen: { title: "Flyer verteilen (1. Tag)" },

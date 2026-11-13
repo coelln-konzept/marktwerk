@@ -43,15 +43,15 @@
       "unassigned": "Nicht zugewiesen"
     },
     "horizon": {
+      "14": "14 Tage",
       "label": "Zeitraum",
       "woche": "Bis Sonntag",
-      "14": "14 Tage",
       "alle": "Alles"
     },
     "empty": {
       "board": "Noch keine Aufgaben. Mit „Aufgabe“ legst du eine an, oder sie kommen aus der Ablaufvorlage der Veranstaltung.",
       "filtered": "Keine Treffer. Setze die Filter zurück, um alle Aufgaben zu sehen.",
-      "noStaff": "Für dein Konto ist kein Teammitglied hinterlegt",
+      "noStaff": "Du bist als Benutzer keinem Teammitglied zugeordnet",
       "noStaffHint": "Deshalb gibt es keine „Meine Aufgaben“. Wähle „Alle“, um alle Aufgaben zu sehen."
     },
     "truncated": "Es gibt mehr Aufgaben, als hier geladen werden. Grenze den Zeitraum oder die Kategorie ein.",
@@ -164,7 +164,7 @@
         "whatsapp": "WhatsApp"
       },
       "when": "Wann",
-      "choose": "Bitte wählen",
+      "choose": "Auswählen …",
       "timing": {
         "on_create": "Sofort beim Anlegen",
         "due_day": "Am Fälligkeitstag",
