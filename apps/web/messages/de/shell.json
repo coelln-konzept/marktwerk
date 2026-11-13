@@ -30,7 +30,7 @@
   "roles": {
     "owner": "Geschäftsführung",
     "manager": "Büroleitung",
-    "staff": "Mitarbeiter:in",
+    "staff": "Mitarbeiter",
     "field": "Platzteam"
   },
   "login": {
@@ -41,7 +41,7 @@
     "submitting": "Anmelden …",
     "error": "E-Mail oder Passwort ist falsch.",
     "errorOrigin": "Von dieser Adresse aus ist keine Anmeldung möglich. Bitte öffne die Hauptadresse von marktwerk.",
-    "errorBanned": "Dieses Konto ist gesperrt. Bitte wende dich an die Geschäftsführung.",
+    "errorBanned": "Dieser Benutzer ist gesperrt. Bitte wende dich an die Geschäftsführung.",
     "errorRateLimit": "Zu viele Anmeldeversuche. Bitte warte einen Moment und versuche es erneut.",
     "errorUnknown": "Die Anmeldung ist gerade nicht möglich. Bitte versuche es später erneut."
   },

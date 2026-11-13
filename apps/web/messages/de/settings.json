@@ -1,7 +1,7 @@
 {
   "settings": {
     "title": "Einstellungen",
-    "subtitle": "Firmendaten, Logins mit Rollen und die Bibliothek der Märkte und Aufgabenvorlagen.",
+    "subtitle": "Firmendaten, Benutzer mit Rollen und die Bibliothek der Märkte und Aufgabenvorlagen.",
     "tabsLabel": "Bereiche der Einstellungen",
     "tabs": {
       "company": "Firma",
@@ -47,7 +47,7 @@
         "iban": "Leerzeichen sind egal.",
         "timeZone": "Fest eingestellt: Veranstaltungstage und Fristen gelten immer in dieser Zeitzone.",
         "bundesland": "Feiertage sind derzeit nur für Nordrhein-Westfalen hinterlegt.",
-        "defaultLocale": "Sprache, die für neue Logins vorgesehen ist.",
+        "defaultLocale": "Sprache, die für neue Benutzer vorgesehen ist.",
         "defaultDueTime": "Uhrzeit für Aufgaben aus Vorlagen ohne eigene Fälligkeitszeit.",
         "emailEnabled": "Solange das ausgeschaltet ist, verschickt marktwerk keine E-Mails. Benachrichtigungen in der App funktionieren weiterhin.",
         "dailyDigestEnabled": "Täglich eine Zusammenfassung dessen, was fällig ist, per E-Mail versenden.",
@@ -95,14 +95,14 @@
     },
     "users": {
       "title": "Benutzer & Rollen",
-      "subtitle": "{count, plural, one {# Login} other {# Logins}} · Rollen bestimmen, was jemand sehen und ändern darf.",
-      "readOnly": "Nur die Geschäftsführung kann Rollen ändern und Logins deaktivieren.",
+      "subtitle": "{count, plural, one {# Benutzer} other {# Benutzer}} · Rollen bestimmen, was jemand sehen und ändern darf.",
+      "readOnly": "Nur die Geschäftsführung kann Rollen ändern und Benutzer deaktivieren.",
       "invite": "Benutzer einladen",
-      "inviteSoon": "Kommt später: Wie neue Logins angelegt werden, ist noch nicht entschieden.",
-      "caption": "Logins mit Rolle, verknüpfter Person und Status",
-      "empty": "Noch keine Logins vorhanden.",
+      "inviteSoon": "Kommt später: Wie neue Benutzer angelegt werden, ist noch nicht entschieden.",
+      "caption": "Benutzer mit Rolle, verknüpfter Person und Status",
+      "empty": "Noch keine Benutzer vorhanden.",
       "cols": {
-        "user": "Login",
+        "user": "Benutzer",
         "role": "Rolle",
         "staff": "Verknüpfte Person",
         "lastSignIn": "Zuletzt angemeldet",
@@ -124,7 +124,7 @@
       "reactivateFor": "{name} reaktivieren",
       "lastOwner": "Letzte aktive Geschäftsführung: Rolle und Status sind gesperrt, bis jemand anderes diese Rolle hat.",
       "lastOwnerShort": "Letzte Geschäftsführung",
-      "fieldNoStaff": "Ohne verknüpfte Person sieht dieses Platzteam-Login keine Veranstaltungen.",
+      "fieldNoStaff": "Ohne verknüpfte Person sieht dieser Platzteam-Benutzer keine Veranstaltungen.",
       "roleHints": {
         "owner": "Alles, auch Benutzer und Firmendaten",
         "manager": "Alles außer Benutzer und Firmendaten",
@@ -142,11 +142,11 @@
         "relinkReverted": "Verknüpfung von {name} rückgängig gemacht."
       },
       "errors": {
-        "not_found": "Dieses Login gibt es nicht mehr.",
+        "not_found": "Diesen Benutzer gibt es nicht mehr.",
         "invalid_role": "Diese Rolle gibt es nicht.",
         "last_owner": "Es muss mindestens eine aktive Geschäftsführung bleiben.",
         "staff_not_found": "Diese Person gibt es nicht mehr.",
-        "staff_taken": "Diese Person gehört schon zu einem anderen Login.",
+        "staff_taken": "Diese Person gehört schon zu einem anderen Benutzer.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
       }
     },
@@ -185,6 +185,6 @@
         "hu_interval_months_over_3500kg": "Hauptuntersuchung über 3,5 t"
       }
     },
-    "subtitleWithLegal": "Firmendaten, Logins mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen."
+    "subtitleWithLegal": "Firmendaten, Benutzer mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen."
   }
 }

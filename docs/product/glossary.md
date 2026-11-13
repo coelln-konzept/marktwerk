@@ -6,6 +6,22 @@ the words in the UI and the identifiers in code. **Add a row before introducing 
 **Words we never use:** "customer"/"Kunde". It's ambiguous. A **vendor** rents a stall; a **visitor**
 comes to the event (client's explicit rule, research 05).
 
+## Wording
+Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Applies to the German UI texts
+(`apps/web/messages/de`) and to the German texts in `packages/synthetic`.
+
+1. **"Markt" and "Veranstaltung" stay as they are.** Neither is renamed.
+2. **Plain forms for people words**, no ":in", ":innen", "\*innen" or "/-innen": "Aussteller", "Ansprechpartner",
+   "Mitarbeiter", "Teilnehmer". Use a neutral word (Team, Person, Geschäftsführung) where it fits naturally; don't
+   force one. Check articles, plurals and endings after the change ("von Winzern", "von Produzenten").
+3. **"bitte" only in error and missing-input messages** ("Bitte noch einmal versuchen.", "Bitte einen Grund
+   angeben."). Labels, hints, help texts, placeholders, empty states and confirmations go without it ("Grund angeben",
+   select placeholder "Auswählen …"). A key used both as a hint and as an error counts as an error.
+4. **"Benutzer" and "Anmelden".** Someone who can sign in is a "Benutzer"; the action is "Anmelden" (sign-in page,
+   buttons). "Login" never appears in German UI text ("Benutzer" or "Anmeldung", depending on the meaning), and
+   "Konto" becomes "Benutzer" where it means the same ("Arbeitszeitkonto" is a different word and stays). Message
+   keys in code keep their names.
+
 ## People
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
@@ -13,9 +29,9 @@ comes to the event (client's explicit rule, research 05).
 | Besucher | Visitor | `visitor` | Comes to an event. Only relevant for communication (flyers, newsletter, social). |
 | Stammaussteller (Stammhändler) | Regular vendor | `vendor.is_regular` | Comes repeatedly, "family"; follows to new events. |
 | Stammplatz | Usual spot | `regular_spot` | Preferred stall of a regular, a *preference*, not a right. |
-| Mitarbeiter:in | Staff member | `staff_member` | A person who works for the company (office or field). May have no login. |
-| Benutzer:in | User | `user` | Someone with a marktwerk login (linked to a staff member). |
-| Minijobber:in | Mini-jobber | `contract_type = minijob` | Employee under the Minijob earnings limit. |
+| Mitarbeiter | Staff member | `staff_member` | A person who works for the company (office or field). May have no login. |
+| Benutzer | User | `user` | Someone who can sign in to marktwerk (linked to a staff member). UI-DE never says "Login" or "Konto"; the action is "Anmelden". |
+| Minijobber | Mini-jobber | `contract_type = minijob` | Employee under the Minijob earnings limit. |
 | Geschäftsführung | Owner | `role: owner` | Permission role. |
 | Büroleitung | Office manager | `role: manager` | Permission role. Receives escalations. |
 | Platzteam | Field crew | `role: field` / staff without login | Works on event days; reached via WhatsApp. |

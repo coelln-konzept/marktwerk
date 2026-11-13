@@ -77,7 +77,7 @@
       },
       "system": "System",
       "empty": "Noch keine Änderungen.",
-      "noAccess": "Das Firmenprotokoll sehen Inhaber:in und Leitung.",
+      "noAccess": "Das Firmenprotokoll sehen Geschäftsführung und Büroleitung.",
       "actions": {
         "task_status": "Aufgabe: Status → {status}",
         "task_undo": "Aufgabe: rückgängig gemacht",

@@ -53,7 +53,7 @@
         "name": "Name",
         "type": "Art",
         "venue": "Ort",
-        "choose": "Bitte wählen",
+        "choose": "Auswählen …",
         "retired": "(nicht mehr aktiv)",
         "duration": "Dauer (Tage)",
         "active": "Aktiv",

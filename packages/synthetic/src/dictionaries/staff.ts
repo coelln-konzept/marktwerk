@@ -158,7 +158,7 @@ export const FIELD_CREW_BLUEPRINTS: readonly StaffBlueprint[] = [
     defaultDuties: ["briefing"],
     crew: true,
     hasEmail: false,
-    notes: "Weist die Aussteller:innen am Markttag ein.",
+    notes: "Weist die Aussteller am Markttag ein.",
   },
 ];
 
