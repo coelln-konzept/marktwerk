@@ -229,14 +229,17 @@ export default async function TemplateEditorPage({
         <Panel>
           <PanelBody>
             <TimelineRuler
-              items={items.map((i) => ({
-                key: i.key,
-                title: i.title,
-                phase: i.phase,
-                offsetDays: i.offsetDays,
-                dayMode: i.dayMode,
-                anchorKey: i.anchorKey,
-              }))}
+              // Child items without their own due date sit on their parent's spot (ADR 0021).
+              items={items
+                .filter((i) => i.parentKey === null || i.ownDue)
+                .map((i) => ({
+                  key: i.key,
+                  title: i.title,
+                  phase: i.phase,
+                  offsetDays: i.offsetDays,
+                  dayMode: i.dayMode,
+                  anchorKey: i.anchorKey,
+                }))}
               baseHref={baseHref}
             />
           </PanelBody>

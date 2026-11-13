@@ -7,9 +7,9 @@ import {
   Camera,
   ChevronDown,
   Copy,
+  CornerDownRight,
   FileText,
   Filter,
-  Link2,
   ListChecks,
   MoreHorizontal,
   Paperclip,
@@ -37,13 +37,46 @@ import { PHASES } from "./labels";
 import { useOffsetText } from "./offset-text";
 import type { ItemView, RoleChoice } from "./types";
 
+/** One grid line: a top-level row, or a child item right under its parent (ADR 0021). */
+type GridRow = { item: ItemView; number: string; siblings: ItemView[]; children: number };
+
+/**
+ * The rows of one phase in display order: top-level rows of the phase in their order, each followed by its
+ * child items (children stand in their parent's phase; a child whose parent is missing shows as top-level).
+ */
+function phaseRows(
+  items: ItemView[],
+  phase: ItemView["phase"],
+  start: number,
+): { rows: GridRow[]; tops: number } {
+  const keys = new Set(items.map((i) => i.key));
+  const isTop = (i: ItemView) => i.parentKey === null || !keys.has(i.parentKey);
+  const tops = items.filter((i) => isTop(i) && i.phase === phase);
+  const rows: GridRow[] = [];
+  tops.forEach((item, index) => {
+    const children = items.filter((i) => i.parentKey === item.key);
+    const number = String(start + index + 1);
+    rows.push({ item, number, siblings: tops, children: children.length });
+    children.forEach((child, childIndex) => {
+      rows.push({
+        item: child,
+        number: `${number}.${childIndex + 1}`,
+        siblings: children,
+        children: 0,
+      });
+    });
+  });
+  return { rows, tops: tops.length };
+}
+
 const MENU_ITEM =
   "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[disabled]:opacity-45 data-[highlighted]:bg-hover";
 
 /**
  * The Excel-like grid of a template version (UX concept §4/§5): rows grouped by phase, one line each with
- * category, anchor + offset, role, time, priority, effort and evidence. A row opens the editor drawer
- * (`?zeile=<key>`); in the draft each row has a menu (up, down, duplicate, delete) instead of dragging.
+ * category, anchor + offset, role, time, priority, effort and evidence; child items (ADR 0021) are indented
+ * right under their parent ("3.1"). A row opens the editor drawer (`?zeile=<key>`); in the draft each row has
+ * a menu (up, down among its siblings, duplicate, delete) instead of dragging.
  * Published and retired versions are shown read-only.
  */
 export function ItemGrid({
@@ -93,9 +126,13 @@ export function ItemGrid({
   }
 
   async function remove(item: ItemView) {
+    const children = items.filter((i) => i.parentKey === item.key).length;
     const ok = await confirm({
       title: t("delete.title", { title: item.title }),
-      description: t("delete.description"),
+      description:
+        children > 0
+          ? t("delete.descriptionChildren", { count: children })
+          : t("delete.description"),
       confirmLabel: t("delete.confirm"),
       cancelLabel: t("delete.cancel"),
     });
@@ -103,7 +140,7 @@ export function ItemGrid({
       run(() => deleteItemAction(versionId, item.key), t("delete.done", { title: item.title }));
   }
 
-  let number = 0;
+  let topCount = 0;
   return (
     <>
       <KeyboardRows>
@@ -128,20 +165,23 @@ export function ItemGrid({
             </tr>
           </THead>
           {PHASES.map((phase) => {
-            const rows = items.filter((i) => i.phase === phase);
-            const total = rows.reduce((sum, r) => sum + r.estimateMinutes, 0);
+            const { rows, tops } = phaseRows(items, phase, topCount);
+            topCount += tops;
+            const total = rows.reduce((sum, r) => sum + r.item.estimateMinutes, 0);
             return (
               <tbody key={phase}>
                 <TGroup colSpan={10}>
-                  {t(`phases.${phase}`)} · {t("grid.count", { count: rows.length })}
+                  {t(`phases.${phase}`)} · {t("grid.count", { count: tops })}
+                  {rows.length > tops && (
+                    <> · {t("grid.children", { count: rows.length - tops })}</>
+                  )}
                   {total > 0 && isModuleVisible("estimates") && <> · {minutes(total)}</>}
                 </TGroup>
-                {rows.map((item, indexInPhase) => {
-                  number += 1;
-                  const children = items.filter((i) => i.parentKey === item.key).length;
-                  const parentTitle = item.parentKey
-                    ? (titleOf.get(item.parentKey) ?? item.parentKey)
-                    : null;
+                {rows.map(({ item, number, siblings, children }) => {
+                  const indexInSiblings = siblings.indexOf(item);
+                  const parentTitle = item.parentKey ? (titleOf.get(item.parentKey) ?? null) : null;
+                  const isChild = parentTitle !== null;
+                  const inherits = isChild && !item.ownDue;
                   const conditionText = [
                     ...(item.condition?.eventTypeKeys ?? []),
                     ...(item.condition?.venueKinds ?? []).map((k) =>
@@ -158,13 +198,29 @@ export function ItemGrid({
                       aria-selected={selectedKey === item.key}
                       className="outline-hidden focus-visible:bg-selected"
                     >
-                      <TD className="tabular w-10 text-right text-muted-foreground">{number}</TD>
-                      <TD className="min-w-56 max-w-96">
+                      <TD className="tabular w-10 whitespace-nowrap text-right text-muted-foreground">
+                        {number}
+                      </TD>
+                      <TD className={cn("min-w-56 max-w-96", isChild && "pl-8")}>
+                        {isChild && (
+                          <span
+                            className="-ml-5 mr-1 inline-flex align-middle text-muted-foreground"
+                            title={t("grid.childOf", { title: parentTitle })}
+                          >
+                            <CornerDownRight aria-hidden className="size-3.5" />
+                            <span className="sr-only">
+                              {t("grid.childOf", { title: parentTitle })}:{" "}
+                            </span>
+                          </span>
+                        )}
                         <Link
                           href={href(item.key) as never}
                           scroll={false}
                           tabIndex={-1}
-                          className="font-semibold text-accent-soft-foreground hover:underline"
+                          className={cn(
+                            "text-accent-soft-foreground hover:underline",
+                            isChild ? "font-medium" : "font-semibold",
+                          )}
                         >
                           {item.title}
                         </Link>
@@ -190,17 +246,6 @@ export function ItemGrid({
                               </span>
                             </span>
                           )}
-                          {parentTitle && (
-                            <span
-                              className="inline-flex items-center gap-0.5"
-                              title={t("grid.childOf", { title: parentTitle })}
-                            >
-                              <Link2 aria-hidden className="size-3.5" />
-                              <span className="sr-only">
-                                {t("grid.childOf", { title: parentTitle })}
-                              </span>
-                            </span>
-                          )}
                           {conditionText && (
                             <span
                               className="inline-flex items-center"
@@ -216,22 +261,38 @@ export function ItemGrid({
                       </TD>
                       <TD className="whitespace-nowrap">{t(`categories.${item.category}`)}</TD>
                       <TD className="min-w-40">
-                        <span className="tabular block font-medium">
-                          {offsetText.full(item.offsetDays, item.dayMode)}
-                        </span>
-                        <span className="block text-muted-foreground text-tiny">
-                          {anchorName(item.anchorKey)}
-                          {item.dayMode === "business" && <> · {t("grid.businessDays")}</>}
-                        </span>
+                        {inherits ? (
+                          <span className="text-muted-foreground text-small">
+                            {t("grid.inherited")}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="tabular block font-medium">
+                              {offsetText.full(item.offsetDays, item.dayMode)}
+                            </span>
+                            <span className="block text-muted-foreground text-tiny">
+                              {anchorName(item.anchorKey)}
+                              {item.dayMode === "business" && <> · {t("grid.businessDays")}</>}
+                            </span>
+                          </>
+                        )}
                       </TD>
                       <TD className="tabular whitespace-nowrap">
-                        {item.dueTime ?? (
-                          <span className="text-faint-foreground">{t("grid.defaultTime")}</span>
+                        {inherits ? (
+                          <span className="text-faint-foreground">–</span>
+                        ) : (
+                          (item.dueTime ?? (
+                            <span className="text-faint-foreground">{t("grid.defaultTime")}</span>
+                          ))
                         )}
                       </TD>
                       <TD className="whitespace-nowrap">
                         {item.dutyRoleId ? (
                           (roleName.get(item.dutyRoleId) ?? "?")
+                        ) : isChild ? (
+                          <span className="text-muted-foreground text-small">
+                            {t("grid.inherited")}
+                          </span>
                         ) : (
                           <span className="text-faint-foreground">–</span>
                         )}
@@ -308,7 +369,7 @@ export function ItemGrid({
                                   <>
                                     <Menu.Item
                                       className={MENU_ITEM}
-                                      disabled={indexInPhase === 0}
+                                      disabled={indexInSiblings <= 0}
                                       onClick={() =>
                                         run(() => moveItemAction(versionId, item.key, "up"))
                                       }
@@ -321,7 +382,7 @@ export function ItemGrid({
                                     </Menu.Item>
                                     <Menu.Item
                                       className={MENU_ITEM}
-                                      disabled={indexInPhase === rows.length - 1}
+                                      disabled={indexInSiblings === siblings.length - 1}
                                       onClick={() =>
                                         run(() => moveItemAction(versionId, item.key, "down"))
                                       }

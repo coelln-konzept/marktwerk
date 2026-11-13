@@ -120,7 +120,8 @@
       "businessDays": "business days",
       "defaultTime": "default",
       "rowMenu": "Actions for {title}",
-      "add": "Add task to “{phase}”"
+      "add": "Add task to “{phase}”",
+      "inherited": "same as parent"
     },
     "menu": {
       "edit": "Edit",
@@ -136,7 +137,8 @@
       "description": "The row disappears from the draft. Tasks in existing events stay as they are.",
       "confirm": "Delete",
       "cancel": "Cancel",
-      "done": "“{title}” deleted"
+      "done": "“{title}” deleted",
+      "descriptionChildren": "{count, plural, one {The row and its subtask disappear from the draft.} other {The row and its # subtasks disappear from the draft.}} Tasks in existing events stay as they are."
     },
     "drawer": {
       "newTitle": "New task",
@@ -182,7 +184,35 @@
       "saved": "“{title}” saved",
       "added": "“{title}” added",
       "unchanged": "Nothing to save.",
-      "offsetNow": "That means: {text}"
+      "offsetNow": "That means: {text}",
+      "childOf": "Subtask of “{title}”",
+      "openParent": "Open “{title}”",
+      "parent": "Subtask of",
+      "standalone": "Standalone (not a subtask)",
+      "parentHint": "Subtasks are created under their parent task at every event and stay in its phase.",
+      "hasChildrenHint": "This task has subtasks, so it cannot become a subtask itself (one level only).",
+      "ownDue": "Own due date",
+      "ownDueHint": "Unticked, the subtask is due like its parent task and moves along when the parent's due date changes.",
+      "inheritedDue": "Due like the parent task: {text}",
+      "roleAsParent": "Same as parent task",
+      "children": {
+        "legend": "Subtasks",
+        "hint": "Subtasks are due like the parent task and go to the same role unless you set something else.",
+        "empty": "No subtasks yet.",
+        "newLabel": "New subtask",
+        "newPlaceholder": "Title of the subtask",
+        "add": "Subtask",
+        "added": "“{title}” added as a subtask",
+        "edit": "Edit “{title}”",
+        "up": "Move “{title}” up",
+        "down": "Move “{title}” down",
+        "remove": "Remove “{title}”",
+        "removed": "“{title}” removed",
+        "undo": "Undo",
+        "ownDue": "due {text}",
+        "saveFirst": "Please save or cancel first: the changes to this task would be lost otherwise.",
+        "newItemHint": "You can add subtasks once the task has been added."
+      }
     },
     "links": {
       "title": "Used by presets",
@@ -226,7 +256,9 @@
         "addLabel": "New task",
         "updateLabel": "Task is updated",
         "removeLabel": "Task is removed",
-        "overdue": "{count, plural, one {# would be overdue at once} other {# would be overdue at once}}"
+        "overdue": "{count, plural, one {# would be overdue at once} other {# would be overdue at once}}",
+        "cancel": "{count, plural, one {# subtask is cancelled} other {# subtasks are cancelled}}",
+        "cancelLabel": "Subtask is cancelled"
       },
       "changes": {
         "restored": "back in the template",
@@ -249,7 +281,7 @@
         "customized": "edited by hand",
         "closed": "done or closed"
       },
-      "rules": "Due dates and assignments set by hand are kept on changed tasks. Nothing is deleted.",
+      "rules": "Due dates and assignments set by hand are kept on changed tasks. Subtasks whose row was removed are cancelled. Nothing is deleted.",
       "cancel": "Cancel",
       "back": "Back",
       "next": "Continue to preview",
@@ -274,7 +306,8 @@
       "overdueTotal": "{count, plural, one {# new task would be} other {# new tasks would be}} overdue at once: the date has already passed. The task is still created.",
       "previewIntroNone": "{events, plural, one {# event} other {# events}}: no changes to the tasks.",
       "doneNothing": "Applied to {names}: no changes to the tasks",
-      "doneNames": "{first} and {more} more"
+      "doneNames": "{first} and {more} more",
+      "cancelled": "the subtask is no longer in the template and is cancelled, not deleted"
     },
     "phases": {
       "pre": "Preparation",
