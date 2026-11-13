@@ -367,6 +367,7 @@
       "invalid_estimate": "Please enter the effort in whole minutes.",
       "invalid_parent": "The parent row does not exist in this version or is a subtask itself (one level only).",
       "invalid_permit_type": "Please pick a permit type from the list.",
+      "invalid_scope": "Please choose event or season.",
       "invalid_condition": "The condition is not valid.",
       "invalid_name": "Please enter a name (at most 120 characters).",
       "invalid_type": "This type no longer exists.",

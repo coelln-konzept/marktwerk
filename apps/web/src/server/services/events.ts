@@ -29,6 +29,7 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { fillLogbookForEvents } from "./permits";
+import { ensureSeasonsTx, syncSeasonsTx } from "./seasons";
 import { instantiateTemplatesForEvents } from "./task-instantiation";
 
 /** At most this many events per run (a full season of one preset is ~10). */
@@ -178,6 +179,15 @@ export async function instantiateEvents(
     created.map((c) => c.id),
     actor,
   );
+  // Saison (research 13 §6.2): the market has its record for every season it now has dates in, and the anchors
+  // of records that existed already follow the new dates (their open season tasks move along).
+  if (template.presetId) {
+    const presetId = template.presetId;
+    const seasons = [...new Set(created.map((c) => Number(c.startsOn.slice(0, 4))))].sort();
+    const keys = seasons.map((season) => ({ presetId, season }));
+    await ensureSeasonsTx(tx, actor, keys, source === "agreement" ? "agreement" : "markt_planen");
+    await syncSeasonsTx(tx, actor, keys, "event_create");
+  }
   await audit(
     tx,
     actor.id,
@@ -368,7 +378,7 @@ export async function undoGeneratedEvents(actor: Actor, ids: string[]) {
           untouched.map((u) => u.id),
         ),
       )
-      .returning({ id: event.id });
+      .returning({ id: event.id, presetId: event.presetId, season: event.season });
     await audit(
       tx,
       actor.id,
@@ -379,6 +389,8 @@ export async function undoGeneratedEvents(actor: Actor, ids: string[]) {
         diff: { reason: "undo" },
       })),
     );
+    // Archived dates no longer count for their season (R10).
+    await syncSeasonsTx(tx, actor, archived, "event_archive");
     return archived.length;
   });
 }

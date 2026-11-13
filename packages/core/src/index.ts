@@ -26,6 +26,7 @@ export * from "./events/rrule";
 export * from "./events/rrule-describe";
 export * from "./events/schedule";
 export * from "./events/scheduling";
+export * from "./events/season";
 export * from "./finance/budget";
 export * from "./finance/csv";
 export * from "./finance/files";

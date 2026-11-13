@@ -1,3 +1,4 @@
+import { isSeasonAnchorKey } from "../events/season";
 import { PERMIT_TYPES, type PermitTypeKey } from "../permits/status";
 import { clockTime, type DayMode, MAX_OFFSET_DAYS } from "./due";
 
@@ -19,6 +20,21 @@ export const TASK_PRIORITIES = ["low", "normal", "high"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
 export const DAY_MODES = ["calendar", "business"] as const;
+
+/**
+ * What an item belongs to (research 13 §6.1): `event` items become tasks of every event of the market, `season`
+ * items tasks of its Saison record, once per season.
+ */
+export const TEMPLATE_ITEM_SCOPES = ["event", "season"] as const;
+export type TemplateItemScope = (typeof TEMPLATE_ITEM_SCOPES)[number];
+
+/**
+ * Season items hang only on season anchors (`season_start`, `season_end`), event items never on them. Custom
+ * event anchors stay free text.
+ */
+export function anchorFitsScope(scope: TemplateItemScope, anchorKey: string): boolean {
+  return scope === "season" ? isSeasonAnchorKey(anchorKey) : !isSeasonAnchorKey(anchorKey);
+}
 
 /** Named event dates a template item can hang on (more can exist: custom anchors, permit decision). */
 export const STANDARD_ANCHOR_KEYS = [
@@ -128,6 +144,11 @@ export type TemplateItemFields = {
   parentKey: string | null;
   /** Child items: own anchor, offset, day mode and time (true) or the parent's (false). */
   ownDue: boolean;
+  /**
+   * `event` or `season` (research 13 §6.1); absent = unchanged on update, `event` for a new item. A child item
+   * always takes its parent's scope (the template service sets it).
+   */
+  scope?: TemplateItemScope;
   condition: ItemCondition | null;
 };
 
@@ -144,6 +165,7 @@ export type ItemIssueCode =
   | "invalid_estimate"
   | "invalid_parent"
   | "invalid_permit_type"
+  | "invalid_scope"
   | "invalid_condition";
 
 export type ItemIssueField =
@@ -159,6 +181,7 @@ export type ItemIssueField =
   | "estimateMinutes"
   | "parentKey"
   | "permitType"
+  | "scope"
   | "condition";
 
 export type ItemIssue = { code: ItemIssueCode; field: ItemIssueField };
@@ -183,7 +206,18 @@ export function checkTemplateItem(item: TemplateItemFields): ItemIssue[] {
   if (!isOneOf(TASK_CATEGORIES, item.category)) add("invalid_category", "category");
   if (!isOneOf(TASK_PRIORITIES, item.priority)) add("invalid_priority", "priority");
   if (!isOneOf(DAY_MODES, item.dayMode)) add("invalid_day_mode", "dayMode");
+  const scopeValid = item.scope === undefined || isOneOf(TEMPLATE_ITEM_SCOPES, item.scope);
+  if (!scopeValid) add("invalid_scope", "scope");
   if (typeof item.anchorKey !== "string" || !ANCHOR_KEY.test(item.anchorKey))
+    add("invalid_anchor", "anchorKey");
+  // Own schedule (a top-level item, or a child with its own due date): its anchor must fit its scope. Checked once
+  // the scope is known: the service resolves it first (the stored one, the parent's for a child, else `event`).
+  else if (
+    item.scope !== undefined &&
+    scopeValid &&
+    (item.parentKey === null || item.ownDue === true) &&
+    !anchorFitsScope(item.scope, item.anchorKey)
+  )
     add("invalid_anchor", "anchorKey");
   if (
     !Number.isInteger(item.offsetDays) ||

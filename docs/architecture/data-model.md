@@ -147,6 +147,32 @@ erDiagram
   `health_override?` + reason, `custom_fields`, notes, `cancelled_reason?`.
 - **event_anchor**: `(event_id, key)` → `date`. Keys: `event_day` (= starts_on), `setup_day`, `teardown_day`,
   `booking_cutoff` (default: **Monday before** the event), `permit_decision`, custom. Missing anchor → task has no due date yet.
+- **event_season** ("Saison", research 13 §6, migration `0022_saison`): one record per market and calendar year for the
+  work done **once per market and season** (Termine planen, Genehmigung beantragen …), existing before any date of that
+  season does. `preset_id` → `event_preset` (`on delete restrict`), `season` (integer year, same meaning as
+  `event.season`, check 1900–9999), unique `(preset_id, season)`; `expected_start` (`date`: the first date expected
+  before any event exists = last season's first non-cancelled date moved to the same weekday and ISO week, core
+  `expectedStartFromLastSeason`; **1 January** without history, decision 2026-11-13); `status` (enum
+  `event_season_status`: `planning | dates_set | closed`; a new record starts `planning` without dates, `dates_set`
+  with dates and `closed` when its last date has already passed (`initialSeasonStatus`); later changes are manual
+  only (`canChangeSeasonStatus`, `suggestedSeasonStatus` says what the UI offers; no automatic switch)); `notes?`,
+  `archived_at?`, timestamps. **One path creates records**: `ensureEventSeasonTx` (`packages/jobs/src/seasons.ts`;
+  web wrapper `ensureEventSeason` with the `event:write` check), idempotent (an existing record is never changed),
+  audit `season.create` (`diff`: preset, season, expected start, status, anchors, `source` `job | markt_planen |
+  agreement | event_move | manual`, tasks). Called by the nightly job `event-seasons` (current and next Berlin year for
+  every active, not archived market; actor null), by "Markt planen" / agreement dates for every season they create
+  dates in, and when an event is moved into another year. A record created `closed` gets no season tasks (nothing
+  left to prepare; its overdue tasks would only be noise).
+- **event_season_anchor**: `(season_id, key)` → `date`, the same shape as `event_anchor` (`season_id` →
+  `event_season`, `on delete cascade`). Keys (core `SEASON_ANCHOR_KEYS`): **`season_start`** = first day of the
+  season's earliest non-cancelled, not archived event, else `expected_start`; **`season_end`** = last day of its latest
+  non-cancelled event, **no row** while the season has no date (a task on it then has no due date, or keeps its
+  date). Recomputed by `syncSeasonsTx` (`apps/web/src/server/services/seasons.ts`) whenever an event of the season is
+  created, moved (also its length), cancelled or reopened, deleted, or archived by the generation undo; open, not
+  overridden season tasks follow through the event shift path (`planTaskShift` / `shiftTasks` with a season owner;
+  done tasks never move). Audit `season.anchors` (`{from, to}` per key, `cause`, `tasksShifted`); `event.move` /
+  `event.update` add `seasonTasksShifted`. The Verschieben preview lists the season tasks that would move
+  (`seasonShifting`, not shown in the UI yet).
 - **event_duty**: `(event_id, duty_role_id)` → `staff_member_id`. Reassigning reassigns open, not individually
   reassigned tasks of that duty role.
 - **appointment** (Termin, CF9-1): a dated appointment of the business that is not a task and not an event.
@@ -191,8 +217,19 @@ erDiagram
   child without `duty_role_id` takes the parent's role (`inheritedItem`). A child applies only together with its parent
   (`parentsFirst`). Migration: each `check_items` entry became a child item `<parent key>__teil_<n>` with the parent's
   phase, category, priority and schedule, placed right below the parent.)*
+  *(0022, research 13 §6.1: **`scope`** (enum `template_item_scope`: `event | season`, default `event`). `event` items
+  become tasks of every event of the market, `season` items tasks of its Saison record once per season; one template
+  (the Grundvorlage, a market's own copy) holds both kinds. A season item hangs only on a season anchor
+  (`season_start`, `season_end`), an event item never on one (core `anchorFitsScope`, checked by `checkTemplateItem`
+  once the scope is known). A child item always has its parent's scope (the template service sets it like the phase;
+  changing a parent's scope moves its children and is refused when a child's own date no longer fits). An update
+  without a scope keeps the stored one. Event instantiation, propagation and the generation preview skip season
+  items.)*
 - **checklist**: `event_id?`, `permit_id?`, `template_version_id?`, name. *(implemented 0002: + `template_id?`, `sort`,
-  `archived_at`; a check forbids both `event_id` and `permit_id`.)*
+  `archived_at`; a check forbids both `event_id` and `permit_id`.)* *(0022: + `season_id?` → `event_season`
+  (`on delete cascade`); check `checklist_one_owner` is now **exactly one** of event, permit or season
+  (`num_nonnulls(...) = 1`; the migration stops with a readable message if a checklist without owner exists). A
+  season checklist is made only for templates that have season items for that market.)*
 - **task**: origin (`event_id?`, `checklist_id?`, `template_item_id?`, `template_stable_key?`, `permit_id?`,
   `payable_id?`, `parent_task_id?`, `source` (`template | manual | permit | permit_condition | obligation |
   rental | email | system`)), title, description, `phase?`, `category`, `priority`, labels;
@@ -202,6 +239,10 @@ erDiagram
   skipped | cancelled`, `waiting_reason?`, `completed_at?`, `completed_by?`, `approval_status?`);
   **kanban** (`board_column?` override, `board_sort`); **carry-over** (`rollover_count`, `last_rolled_at`);
   template tracking (`customized`, `removed_from_template`).
+  *(0022: **`season_id?`** → `event_season` (`on delete cascade`, index `(season_id, status)`): a task of a Saison
+  record (`event_id` null), made by the season instantiation from `season` items, assigned through the market's
+  `default_duties`, due relative to the season anchors. Lists, digest and labels "<Markt> · Saison 2027" come with
+  Fahrplan R12/R13.)*
   *(0019, [ADR 0021](adr/0021-subtasks.md): **subtasks** use `parent_task_id` (`on delete set null`). One level: the
   trigger `task_one_level_subtasks` refuses a parent that is itself a subtask and a task with subtasks becoming one
   (check `task_not_own_parent` refuses itself); the services check first (`nestingProblem`: same event, parent not
@@ -272,6 +313,8 @@ erDiagram
   groups by location without a join and ad-hoc permits work); all dates are `date`; `apply_by`, `status` default
   `not_started`; `conditions` is `text[]`; `permit_requirement.event_type_id?`, `archived_at`; month-days are text
   `MM-DD` with a check; `permit_type` has the full list of the data model, the synthetic data uses six.)*
+  *(0022: `season_id?` → `event_season` (`on delete set null`, indexed), next to `venue_id` / `season`: the Saison
+  record a season permit belongs to. Column only; the link and "one apply task per season permit" are Fahrplan R11.)*
 - **event_permit**: `(event_id, permit_id, required)`. *(implemented 0002: primary key `(event_id, permit_id)`.)*
 - **Logbook** = a view over permits + agreements + (M11) equipment + documents, grouped by location and category,
   showing *held / pending / missing* for upcoming events.
@@ -417,7 +460,21 @@ createEvent(preset | agreement, date [, durationDays]):
       (undo "Rückgängig" after a run: audit-based, an event qualifies while its audit trail holds only
        event.create (+ that automatic confirmation); status is not looked at)
       (M11) equipment requirements ← preset
+      Saison (R8/R10): ensureEventSeasonTx for every (preset, year) with a new date, then syncSeasonsTx
+          (existing records recompute season_start/season_end; open season tasks follow)
       audit; grouped "assigned" notifications (debounced)
+```
+
+### Saison records (research 13 §6; nightly 00:20, idempotent)
+```
+event-seasons (packages/jobs/src/seasons.ts, cron 20 0 * * * Europe/Berlin):
+  for each active, not archived preset, for season in [current Berlin year, next year]:
+    ensureEventSeasonTx(preset, season)   -- one transaction per market; existing records untouched
+      expected_start = expectedStartFromLastSeason(first non-cancelled date of season − 1) or 1 January
+      anchors from the season's events; status = initialSeasonStatus
+      unless closed: instantiate the season items of the preset's templates
+          (the event path in packages/jobs/src/task-instantiation.ts with a season context)
+      audit season.create (actor null)
 ```
 
 ### Kanban columns (derived, overridable)
