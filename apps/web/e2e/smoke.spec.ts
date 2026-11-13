@@ -1288,7 +1288,9 @@ test("Veranstaltung löschen: the button stays disabled until the exact name is 
   await page.goto("/veranstaltungen/neu");
   await page.waitForLoadState("networkidle");
   await page.getByLabel("Name", { exact: true }).fill(name);
-  await page.getByLabel("Ort", { exact: true }).selectOption({ index: 1 });
+  // The Ort is a searchable picker (UT2-07): open it and take the first Ort.
+  await page.getByRole("combobox", { name: "Ort", exact: true }).click();
+  await page.getByRole("option").first().click();
   await page.getByLabel("Erster Tag").fill("2031-05-17");
   await page.getByRole("button", { name: "Veranstaltung anlegen" }).click();
   await expect(page).toHaveURL(/\/veranstaltungen\/[0-9a-f-]{36}/);
