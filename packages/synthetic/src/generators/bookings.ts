@@ -1,5 +1,5 @@
-import { REFERENCE_DATE, SEASONS } from "../constants";
 import { BOOKING_COMMENTS } from "../dictionaries/texts";
+import type { Clock } from "../lib/clock";
 import { addDays, berlinInstant, daysBetween, mondayBefore } from "../lib/dates";
 import type { Rng } from "../lib/rng";
 import type {
@@ -20,6 +20,7 @@ export interface BookingContext {
   eventTypes: EventType[];
   venues: Venue[];
   vendors: Vendor[];
+  clock: Clock;
 }
 
 export interface BookingsBundle {
@@ -29,13 +30,13 @@ export interface BookingsBundle {
   flagsByEventId: Map<string, { fullyBooked: boolean; carSpacesFull: boolean }>;
 }
 
-/** Events that take online bookings in the 2026 season: completed, closed or confirmed flea and antique. */
-function bookableEvents(events: Event[], eventTypes: EventType[]): Event[] {
+/** Events that take online bookings in the current season: completed, closed or confirmed flea and antique. */
+function bookableEvents(events: Event[], eventTypes: EventType[], season: number): Event[] {
   const keyById = new Map(eventTypes.map((type) => [type.id, type.key]));
   return events
     .filter(
       (event) =>
-        event.season === SEASONS[0] &&
+        event.season === season &&
         ["completed", "closed", "confirmed"].includes(event.status) &&
         ["flea", "antique"].includes(keyById.get(event.eventTypeId) ?? ""),
     )
@@ -67,14 +68,15 @@ function paymentFor(
   rng: Rng,
   dueOn: string,
   priceCents: number,
+  today: string,
 ): { status: PaymentStatus; paidOn: string | null; paidAmountCents: number | null } {
-  if (dueOn >= REFERENCE_DATE) {
+  if (dueOn >= today) {
     // Not yet due: a few are already paid, the rest are not due.
     return rng.chance(0.2)
       ? { status: "paid", paidOn: addDays(dueOn, -rng.int(1, 5)), paidAmountCents: priceCents }
       : { status: "not_due", paidOn: null, paidAmountCents: null };
   }
-  const overdueDays = daysBetween(dueOn, REFERENCE_DATE);
+  const overdueDays = daysBetween(dueOn, today);
   // Most vendors pay before the event. Unpaid ones show "open" for a week, then "overdue".
   const unpaidShare = overdueDays <= 14 ? 0.25 : 0.03;
   if (rng.chance(unpaidShare)) {
@@ -122,7 +124,7 @@ export function buildBookings(rng: Rng, ctx: BookingContext): BookingsBundle {
   const bookingDates: BookingDate[] = [];
   const flagsByEventId = new Map<string, { fullyBooked: boolean; carSpacesFull: boolean }>();
 
-  for (const event of bookableEvents(ctx.events, ctx.eventTypes)) {
+  for (const event of bookableEvents(ctx.events, ctx.eventTypes, ctx.clock.season)) {
     const venue = venueById.get(event.venueId);
     if (!venue) throw new Error(`Event ${event.id} references an unknown venue`);
     const pool = keyById.get(event.eventTypeId) === "antique" ? antiquePool : fleaPool;
@@ -154,7 +156,7 @@ export function buildBookings(rng: Rng, ctx: BookingContext): BookingsBundle {
           ? `WEB-${event.season}-${String(legacyCounter++).padStart(6, "0")}`
           : null;
       const messageId = source === "email" ? `<${rng.uuid()}@example.org>` : null;
-      const upcoming = event.startsOn >= REFERENCE_DATE;
+      const upcoming = event.startsOn >= ctx.clock.today;
       let status: BookingRequestStatus = "accepted";
       if (rng.chance(0.04)) status = "withdrawn";
       else if (upcoming && rng.chance(0.1)) status = "new";
@@ -224,7 +226,7 @@ export function buildBookings(rng: Rng, ctx: BookingContext): BookingsBundle {
       const priceCents =
         Math.round((lengthCm * event.pricePerMCents) / 100) + event.bookingFeeCents;
       const dueOn = mondayBefore(event.startsOn);
-      const payment = paymentFor(rng, dueOn, priceCents);
+      const payment = paymentFor(rng, dueOn, priceCents, ctx.clock.today);
       placedDate.set(entry.index, {
         id: rng.uuid(),
         bookingRequestId: request.id,
@@ -246,7 +248,7 @@ export function buildBookings(rng: Rng, ctx: BookingContext): BookingsBundle {
         paidOn: payment.paidOn,
         paidAmountCents: payment.paidAmountCents,
         attendance:
-          event.startsOn < REFERENCE_DATE ? (rng.chance(0.03) ? "no_show" : "checked_in") : null,
+          event.startsOn < ctx.clock.today ? (rng.chance(0.03) ? "no_show" : "checked_in") : null,
       });
     }
 

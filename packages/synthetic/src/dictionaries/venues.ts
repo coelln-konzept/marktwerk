@@ -18,8 +18,6 @@ export interface VenueBlueprint {
   waterAuthorityKey: string | null;
   /** Key into CONTACT_BLUEPRINTS of the landowner, or null when the city owns the ground. */
   landownerKey: string | null;
-  /** Whether the market permit for the 2027 season is already applied for (drives planned vs. draft). */
-  permitsApplied2027: boolean;
   /** Köln Altstadt: the city collects applications in a window and decides in January. */
   collectiveApplication: boolean;
 }
@@ -41,7 +39,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: null,
-    permitsApplied2027: true,
     collectiveApplication: true,
   },
   {
@@ -58,7 +55,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: "nippes_grund",
-    permitsApplied2027: true,
     collectiveApplication: false,
   },
   {
@@ -75,7 +71,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: null,
-    permitsApplied2027: false,
     collectiveApplication: false,
   },
   {
@@ -93,7 +88,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_bonn",
     waterAuthorityKey: "stadtwerke_bonn_standrohr",
     landownerKey: null,
-    permitsApplied2027: true,
     collectiveApplication: false,
   },
   {
@@ -110,7 +104,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_neuss",
     waterAuthorityKey: "neuss_hydranten",
     landownerKey: null,
-    permitsApplied2027: false,
     collectiveApplication: false,
   },
   {
@@ -127,7 +120,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_duesseldorf",
     waterAuthorityKey: null,
     landownerKey: "bilk_hahn",
-    permitsApplied2027: false,
     collectiveApplication: false,
   },
   {
@@ -144,7 +136,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_leverkusen",
     waterAuthorityKey: null,
     landownerKey: null,
-    permitsApplied2027: true,
     collectiveApplication: false,
   },
   {
@@ -161,7 +152,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_bergisch",
     waterAuthorityKey: null,
     landownerKey: null,
-    permitsApplied2027: false,
     collectiveApplication: false,
   },
   {
@@ -178,7 +168,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_bruehl",
     waterAuthorityKey: null,
     landownerKey: "bruehl_schloss",
-    permitsApplied2027: true,
     collectiveApplication: false,
   },
   {
@@ -195,7 +184,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_siegburg",
     waterAuthorityKey: null,
     landownerKey: null,
-    permitsApplied2027: true,
     collectiveApplication: false,
   },
   {
@@ -212,7 +200,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_linz",
     waterAuthorityKey: null,
     landownerKey: null,
-    permitsApplied2027: false,
     collectiveApplication: false,
   },
   {
@@ -229,7 +216,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_troisdorf",
     waterAuthorityKey: null,
     landownerKey: "troisdorf_liegenschaften",
-    permitsApplied2027: true,
     collectiveApplication: false,
   },
 ];

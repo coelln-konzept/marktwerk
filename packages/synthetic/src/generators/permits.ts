@@ -1,6 +1,6 @@
-import { REFERENCE_DATE, SEASONS } from "../constants";
 import { PERMIT_TYPE_BLUEPRINTS } from "../dictionaries/permits";
 import type { VenueBlueprint } from "../dictionaries/venues";
+import { type Clock, earlierOf } from "../lib/clock";
 import { addDays } from "../lib/dates";
 import type { Rng } from "../lib/rng";
 import type {
@@ -11,7 +11,6 @@ import type {
   PermitCadence,
   PermitCategory,
   PermitRequirement,
-  PermitStatus,
   PermitType,
   Venue,
 } from "../types";
@@ -151,9 +150,8 @@ export interface PermitContext {
   events: Event[];
   eventTypes: EventType[];
   requirements: PermitRequirement[];
-  /** Venue id → whether the market permit for the 2027 season is already applied for. */
-  appliedFor2027ByVenueId: Map<string, boolean>;
   permitsStaffId: string;
+  clock: Clock;
 }
 
 /** Earliest non-cancelled event date for a venue in a season (used for per-season apply-by dates). */
@@ -165,55 +163,94 @@ function firstEventDate(events: Event[], venueId: string, season: number): strin
   return dates[0] ?? null;
 }
 
-function permitStatus(
-  applyBy: string,
-  season: number,
-  appliedFor2027: boolean,
-): {
-  status: PermitStatus;
+/** Typical days the authority needs to decide, per permit type. */
+const TURNAROUND_DAYS: Record<PermitType, number> = {
+  market_permit: 60,
+  water: 21,
+  signage: 28,
+  no_parking: 14,
+  toilets: 14,
+  landowner_ok: 30,
+};
+
+/** A well-run office files this many days before the apply-by date, and starts preparing a month earlier. */
+const FILING_BUFFER_DAYS = 45;
+const PREPARING_DAYS = 30;
+/** Deliberately late permits (apply-by passed, not filed): kept as examples of what "Fehlt" looks like. */
+const LATE_EXAMPLES = 2;
+/** Only permits whose apply-by passed this recently may become a late example. */
+const LATE_WINDOW_DAYS = 30;
+
+interface Decision {
+  status: Permit["status"];
   appliedAt: string | null;
   expectedDecisionOn: string | null;
   grantedAt: string | null;
-} {
-  if (season === SEASONS[0]) {
-    return {
-      status: "granted",
-      appliedAt: addDays(applyBy, -10),
-      expectedDecisionOn: addDays(applyBy, 20),
-      grantedAt: addDays(applyBy, 20),
-    };
-  }
-  if (appliedFor2027) {
-    const appliedAt = addDays(REFERENCE_DATE, -20);
-    return {
-      status: "applied",
-      appliedAt,
-      expectedDecisionOn: addDays(appliedAt, 60),
-      grantedAt: null,
-    };
-  }
-  const preparing = applyBy <= addDays(REFERENCE_DATE, 60);
-  return {
+}
+
+/**
+ * Where a permit stands today. Per-season and per-event permits follow the office's rhythm: preparing from
+ * `apply-by − 75 days`, filed around `apply-by − 45 days` (never later than yesterday), decided after the
+ * authority's typical turnaround (spread by a little jitter, so decisions do not pile up on one day). A decision
+ * that lies in the past means granted. A permit is never undecided past the first event it covers.
+ * Collective applications follow the venue's submission window instead.
+ */
+function decide(
+  rng: Rng,
+  clock: Clock,
+  requirement: PermitRequirement,
+  season: number,
+  applyBy: string,
+  eventDate: string,
+): Decision {
+  const today = clock.today;
+  const notFiled = (preparing: boolean): Decision => ({
     status: preparing ? "preparing" : "not_started",
     appliedAt: null,
     expectedDecisionOn: null,
     grantedAt: null,
-  };
+  });
+  const filed = (appliedAt: string, decisionOn: string): Decision =>
+    decisionOn <= today
+      ? { status: "granted", appliedAt, expectedDecisionOn: decisionOn, grantedAt: decisionOn }
+      : { status: "applied", appliedAt, expectedDecisionOn: decisionOn, grantedAt: null };
+
+  const startMd = requirement.submissionWindowStartMd;
+  const decisionMd = requirement.expectedDecisionMd;
+  if (startMd !== null && decisionMd !== null) {
+    const windowStart = `${season - 1}-${startMd}`;
+    const decisionOn = `${season}-${decisionMd}`;
+    if (today < windowStart) return notFiled(today >= addDays(windowStart, -PREPARING_DAYS));
+    const appliedAt = addDays(windowStart, rng.int(2, 25));
+    if (appliedAt > today) return notFiled(true);
+    return filed(appliedAt, decisionOn);
+  }
+
+  const target = addDays(applyBy, -FILING_BUFFER_DAYS);
+  if (today < target) return notFiled(today >= addDays(target, -PREPARING_DAYS));
+  const wished = addDays(target, rng.int(-10, 7));
+  const appliedAt = earlierOf(wished, addDays(today, -rng.int(1, 4)));
+  let decisionOn = addDays(appliedAt, TURNAROUND_DAYS[requirement.permitType] + rng.int(-5, 10));
+  const latest = addDays(eventDate, -2);
+  if (decisionOn > latest && latest >= appliedAt) decisionOn = latest;
+  return filed(appliedAt, decisionOn);
 }
 
 export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
+  const clock = ctx.clock;
   const permits: Permit[] = [];
   const eventPermits: EventPermit[] = [];
   const feeCentsByPermitId = new Map<string, number>();
+  /** Permits that may become a late example afterwards: [permit, first event date it covers]. */
+  const lateCandidates: [Permit, string][] = [];
 
   const typeKeyById = new Map(ctx.eventTypes.map((type) => [type.id, type.key]));
 
-  for (const season of SEASONS) {
+  for (const season of [clock.season, clock.nextSeason]) {
     for (const requirement of ctx.requirements) {
       const venueEvents = ctx.events.filter(
         (e) => e.venueId === requirement.venueId && e.season === season && e.status !== "cancelled",
       );
-      const appliedFor2027 = ctx.appliedFor2027ByVenueId.get(requirement.venueId) ?? false;
       const isCollective = requirement.submissionWindowEndMd !== null;
 
       const makePermit = (
@@ -221,10 +258,18 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
         validFrom: string,
         validUntil: string,
         eventOwner: Event | null,
+        decision: Decision,
       ): Permit => {
-        const decision = permitStatus(applyBy, season, appliedFor2027);
         const stickers = requirement.deliverables.stickers;
-        const received = stickers !== undefined && season === SEASONS[0] ? { stickers } : {};
+        const received =
+          stickers !== undefined && decision.status === "granted" ? { stickers } : {};
+        const notes = !isCollective
+          ? null
+          : decision.status === "granted"
+            ? `Sammelantrag ${season - 1}/${season} über die Stadt bearbeitet.`
+            : decision.status === "applied"
+              ? `Antrag ${season} eingereicht, Entscheidung der Stadt im Januar erwartet.`
+              : null;
         const permit: Permit = {
           id: rng.uuid(),
           requirementId: requirement.id,
@@ -245,10 +290,7 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
           conditions: [...PERMIT_TYPE_BLUEPRINTS[requirement.permitType].conditions],
           deliverablesReceived: received,
           responsibleStaffMemberId: ctx.permitsStaffId,
-          notes:
-            isCollective && season === SEASONS[0]
-              ? "Sammelantrag 2025/26 über die Stadt bearbeitet."
-              : null,
+          notes,
         };
         feeCentsByPermitId.set(permit.id, requirement.typicalFeeCents);
         permits.push(permit);
@@ -256,13 +298,19 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
       };
 
       if (requirement.cadence === "multi_year") {
-        if (season !== SEASONS[0]) continue;
-        const permit = makePermit("2025-03-01", "2025-01-01", "2029-12-31", null);
-        permit.status = "granted";
-        permit.grantedAt = "2025-03-01";
-        permit.appliedAt = "2025-02-01";
-        permit.expectedDecisionOn = null;
-        for (const event of venueEvents) {
+        // One landowner OK for years: granted last year, valid for the current and the next season.
+        if (season !== clock.season) continue;
+        const grantedAt = `${season - 1}-03-01`;
+        const permit = makePermit(grantedAt, `${season - 1}-01-01`, `${season + 3}-12-31`, null, {
+          status: "granted",
+          appliedAt: `${season - 1}-02-01`,
+          expectedDecisionOn: null,
+          grantedAt,
+        });
+        const covered = ctx.events.filter(
+          (e) => e.venueId === requirement.venueId && e.status !== "cancelled",
+        );
+        for (const event of covered) {
           eventPermits.push({
             id: rng.uuid(),
             eventId: event.id,
@@ -277,22 +325,12 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
         const first = firstEventDate(ctx.events, requirement.venueId, season);
         if (first === null) continue;
         const applyBy = isCollective
-          ? `${season - 1}-11-30`
+          ? `${season - 1}-${requirement.submissionWindowEndMd}`
           : addDays(first, -requirement.leadTimeDays);
-        const permit = makePermit(applyBy, `${season}-01-01`, `${season}-12-31`, null);
-        if (isCollective && season === SEASONS[0]) {
-          // Altstadt 2026: applied in November 2025, granted in January 2026.
-          permit.appliedAt = "2025-11-20";
-          permit.expectedDecisionOn = "2026-01-15";
-          permit.grantedAt = "2026-01-15";
-        }
-        if (isCollective && season !== SEASONS[0]) {
-          // Altstadt: applied in the autumn window, decision expected in January.
-          permit.status = "applied";
-          permit.appliedAt = "2026-10-05";
-          permit.expectedDecisionOn = "2027-01-15";
-          permit.notes = "Antrag 2027 eingereicht, Entscheidung der Stadt im Januar erwartet.";
-        }
+        const decision = decide(rng, clock, requirement, season, applyBy, first);
+        const permit = makePermit(applyBy, `${season}-01-01`, `${season}-12-31`, null, decision);
+        if (!isCollective && requirement.permitType !== "market_permit")
+          lateCandidates.push([permit, first]);
         for (const event of venueEvents) {
           const required = !(
             requirement.permitType === "toilets" &&
@@ -306,9 +344,9 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
       // per_event: one permit per event (no-parking orders are issued per date).
       for (const event of venueEvents) {
         const applyBy = addDays(event.startsOn, -requirement.leadTimeDays);
-        const validFrom = event.startsOn;
-        const validUntil = event.endsOn;
-        const permit = makePermit(applyBy, validFrom, validUntil, event);
+        const decision = decide(rng, clock, requirement, season, applyBy, event.startsOn);
+        const permit = makePermit(applyBy, event.startsOn, event.endsOn, event, decision);
+        lateCandidates.push([permit, event.startsOn]);
         eventPermits.push({
           id: rng.uuid(),
           eventId: event.id,
@@ -318,5 +356,31 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
       }
     }
   }
+
+  markLateExamples(rng, clock, lateCandidates);
   return { permits, eventPermits, feeCentsByPermitId };
+}
+
+/**
+ * Turns up to `LATE_EXAMPLES` permits whose apply-by passed a few days ago back into "not filed": the first
+ * stays `not_started` (shows as Fehlt), the second `preparing`. They are the deliberate exceptions in an
+ * otherwise well-run office; only permits of markets still ahead qualify.
+ */
+function markLateExamples(rng: Rng, clock: Clock, candidates: [Permit, string][]): void {
+  const windowStart = addDays(clock.today, -LATE_WINDOW_DAYS);
+  const eligible = candidates.filter(
+    ([permit, eventDate]) =>
+      permit.applyBy < clock.today &&
+      permit.applyBy >= windowStart &&
+      eventDate > addDays(clock.today, 14),
+  );
+  const picked = rng.shuffle(eligible).slice(0, LATE_EXAMPLES);
+  picked.forEach(([permit], index) => {
+    permit.status = index === 0 ? "not_started" : "preparing";
+    permit.appliedAt = null;
+    permit.expectedDecisionOn = null;
+    permit.grantedAt = null;
+    permit.deliverablesReceived = {};
+    permit.notes = "Antrag noch nicht gestellt, die Frist ist überschritten.";
+  });
 }
