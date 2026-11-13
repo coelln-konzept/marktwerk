@@ -34,8 +34,7 @@
     "legend": {
       "selected": "selected",
       "holiday": "NRW holiday",
-      "venueBusy": "venue already booked",
-      "weekendFull": "already 3+ events that weekend"
+      "venueBusy": "venue already booked"
     },
     "shiftHint": "+ click: same weekday in between",
     "summary": "{count, plural, =0 {No dates selected yet} one {# date selected} other {# dates selected}}",
@@ -53,12 +52,9 @@
     },
     "warn": {
       "holiday": "{name} (holiday)",
-      "weekend": "event no. {n} that weekend (more than {max})",
       "venue": "Venue booked: {name}",
       "overlap": "overlaps another selected date",
       "none": "no notes",
-      "weekendFull": "event no. {n} that weekend, which fills it (maximum {max})",
-      "weekendWith": "already there: {names}",
       "past": "is in the past – all tasks would be overdue at once",
       "checking": "checking …",
       "unchecked": "could not be checked"
@@ -156,8 +152,7 @@
     "allExist": "All selected dates exist already. Use “Add anyway” to create some of them regardless.",
     "createWithSkipped": "{count} new · {skipped} already exist",
     "day": {
-      "busy": "venue booked",
-      "weekendFull": "weekend full"
+      "busy": "venue booked"
     },
     "context": {
       "loading": "Loading bookings …",

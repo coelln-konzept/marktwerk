@@ -52,32 +52,14 @@ describe("checkCandidates", () => {
     expect(checks.map((c) => c.overlapsCandidate)).toEqual([null, "2026-06-06"]);
   });
 
-  it("counts existing events and earlier candidates against the weekend cap of 4", () => {
-    const existing = [
-      event("a", "v1", "2026-05-16"),
-      event("b", "v2", "2026-05-16"),
-      event("c", "v3", "2026-05-17"),
-    ];
-    const checks = checkCandidates(
-      [
-        { venueId: "v4", startsOn: "2026-05-17", endsOn: "2026-05-17" },
-        { venueId: "v5", startsOn: "2026-05-16", endsOn: "2026-05-16" },
-      ],
+  it("gives no hint for a busy weekend at other venues (UT2-11: no weekend count)", () => {
+    const existing = ["a", "b", "c", "d", "e"].map((id, i) => event(id, `v${i + 1}`, "2026-05-16"));
+    const [check] = checkCandidates(
+      [{ venueId: "v9", startsOn: "2026-05-16", endsOn: "2026-05-17" }],
       existing,
     );
-    expect(checks.map((c) => [c.startsOn, c.weekendLoad[0]?.count, c.overWeekendCap])).toEqual([
-      ["2026-05-16", 4, false],
-      ["2026-05-17", 5, true],
-    ]);
-  });
-
-  it("does not count weekday events against a weekend", () => {
-    const [check] = checkCandidates(
-      [{ venueId: "v1", startsOn: "2026-05-13", endsOn: "2026-05-13" }],
-      [],
-    );
-    expect(check?.weekendLoad).toEqual([]);
-    expect(check?.overWeekendCap).toBe(false);
+    expect(check).toMatchObject({ holidays: [], venueConflicts: [], overlapsCandidate: null });
+    expect(Object.keys(check ?? {})).not.toContain("weekendLoad");
   });
 });
 

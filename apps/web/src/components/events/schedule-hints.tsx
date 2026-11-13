@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  addDays,
   type CandidateCheck,
   checkCandidates,
   endsOnFor,
@@ -87,19 +86,6 @@ export function ScheduleHints({
       valid && endsOn ? checkCandidates([{ venueId, startsOn, endsOn }], existing)[0] : undefined,
     [valid, venueId, startsOn, endsOn, existing],
   );
-  const weekendMarkets = useMemo(() => {
-    const byWeekend = new Map<string, string[]>();
-    if (!check) return byWeekend;
-    for (const w of check.weekendLoad) {
-      byWeekend.set(
-        w.saturday,
-        existing
-          .filter((e) => e.startsOn <= addDays(w.saturday, 1) && e.endsOn >= w.saturday)
-          .map((e) => e.name),
-      );
-    }
-    return byWeekend;
-  }, [check, existing]);
   // "idle" with a valid check cannot happen (the request starts with the first render after the
   // inputs became valid); treat the instant before as loading.
   const notesState = state === "ready" ? "ready" : state === "error" ? "error" : "loading";
@@ -119,7 +105,7 @@ export function ScheduleHints({
           <p className="tabular text-foreground-2 text-small">
             {formatDateRange(check.startsOn, endsOn, locale)}
           </p>
-          <CandidateNotes check={check} state={notesState} weekendMarkets={weekendMarkets} />
+          <CandidateNotes check={check} state={notesState} />
           {state === "error" && (
             <button
               type="button"

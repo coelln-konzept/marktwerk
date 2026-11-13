@@ -1,8 +1,5 @@
-import { addDays, eachDay, weekendsTouched } from "../dates/calendar";
+import { addDays, eachDay } from "../dates/calendar";
 import { type Bundesland, type Holiday, holidaysBetween } from "../dates/holidays";
-
-/** Business rule from the client meeting: at most this many events on one weekend. */
-export const MAX_EVENTS_PER_WEEKEND = 4;
 
 export type ScheduledEvent = {
   id: string;
@@ -21,10 +18,6 @@ export type CandidateCheck = Candidate & {
   venueConflicts: Pick<ScheduledEvent, "id" | "name" | "startsOn">[];
   /** Start date of an earlier candidate in the same batch at the same venue that overlaps, if any. */
   overlapsCandidate: string | null;
-  /** For each weekend touched (keyed by Saturday): how many events it has including this candidate. */
-  weekendLoad: { saturday: string; count: number }[];
-  /** True if any touched weekend would exceed the cap. */
-  overWeekendCap: boolean;
 };
 
 /** Last day of a candidate from its first day and the preset's duration. */
@@ -79,16 +72,15 @@ function overlaps(
 }
 
 /**
- * Checks dates picked in "Aus Vorlage erzeugen" against existing events: NRW holidays, the same venue
- * already booked, and the weekend cap. Candidates are checked in date order and count against each
- * other, so picking five Sundays in one weekend flags the fifth. Warnings never block: the office decides.
+ * Checks dates picked in "Aus Vorlage erzeugen" against existing events: NRW holidays and the same venue
+ * already booked (also by an earlier candidate of the same batch). No weekend count: the office plans
+ * markets of the same weekend on purpose (user test 2, UT2-11). Warnings never block: the office decides.
  */
 export function checkCandidates(
   candidates: Candidate[],
   existing: ScheduledEvent[],
-  options: { maxPerWeekend?: number; bundesland?: Bundesland } = {},
+  options: { bundesland?: Bundesland } = {},
 ): CandidateCheck[] {
-  const cap = options.maxPerWeekend ?? MAX_EVENTS_PER_WEEKEND;
   if (candidates.length === 0) return [];
   const sorted = [...candidates].sort((a, b) =>
     a.startsOn < b.startsOn ? -1 : a.startsOn > b.startsOn ? 1 : 0,
@@ -97,20 +89,8 @@ export function checkCandidates(
   const to = sorted.reduce((max, c) => (c.endsOn > max ? c.endsOn : max), from);
   const holidays = holidaysBetween(from, to, options.bundesland);
 
-  const weekendCount = new Map<string, number>();
-  for (const event of existing) {
-    for (const saturday of weekendsTouched(event.startsOn, event.endsOn)) {
-      weekendCount.set(saturday, (weekendCount.get(saturday) ?? 0) + 1);
-    }
-  }
-
   const accepted: Candidate[] = [];
   return sorted.map((candidate) => {
-    const weekendLoad = weekendsTouched(candidate.startsOn, candidate.endsOn).map((saturday) => {
-      const count = (weekendCount.get(saturday) ?? 0) + 1;
-      weekendCount.set(saturday, count);
-      return { saturday, count };
-    });
     const venueConflicts = existing
       .filter((e) => e.venueId === candidate.venueId && overlaps(e, candidate))
       .map(({ id, name, startsOn }) => ({ id, name, startsOn }));
@@ -124,8 +104,6 @@ export function checkCandidates(
       }),
       venueConflicts,
       overlapsCandidate: earlier?.startsOn ?? null,
-      weekendLoad,
-      overWeekendCap: weekendLoad.some((w) => w.count > cap),
     };
   });
 }
