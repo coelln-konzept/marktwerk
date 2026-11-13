@@ -25,3 +25,5 @@ consequences. Statuses: *proposed*, *accepted*, *superseded by NNNN*, *open* (a 
 | [0018](0018-workspace-architecture.md) | Customisable workspace: docking shell, view registry, server-side layouts | superseded by 0019 |
 | [0019](0019-classic-screens.md) | Classic screens instead of a customisable workspace | accepted |
 | [0020](0020-board-drag-and-drop.md) | Board drag and drop with dnd-kit (pointer/touch); keyboard mode stays our own | accepted |
+| [0021](0021-subtasks.md) | Subtasks (one level) replace task checklists and task dependencies | accepted |
+| [0022](0022-zeitplan.md) | A market's times are a Zeitplan of windows (team / vendors / visitors) | accepted |
