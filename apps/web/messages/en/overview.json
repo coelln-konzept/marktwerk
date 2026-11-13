@@ -25,13 +25,22 @@
         "today": "Today",
         "soon": "Next few days",
         "upcoming": "Permits coming up",
-        "waiting": "Waiting for a reply"
+        "waiting": "Waiting for a reply",
+        "other": "More tasks"
       },
       "eventCount": "{count} due",
       "moreAtMarket": "+ {count} more at {name}",
       "moreAtMarketLink": "See all {count} more at {name}",
-      "moreMarkets": "{count, plural, one {+ # more market} other {+ # more markets}}",
-      "moreEntries": "{count, plural, one {+ # more entry} other {+ # more entries}}",
+      "moreItems": "+ {count} more",
+      "phoneShow": "Show",
+      "phoneHide": "Hide",
+      "waiting": "Waiting",
+      "waitingFor": "Waiting for: {reason}",
+      "reminder": "Reminder · due in {count, plural, one {# day} other {# days}}",
+      "other": {
+        "hint": "Tasks without an event that have no date or are due later.",
+        "noDate": "No date"
+      },
       "upcomingEmpty": "No permits coming up.",
       "appointments": {
         "title": "Meetings today",
@@ -51,7 +60,12 @@
         "overdue": "{count} overdue",
         "none": "No tasks yet"
       },
-      "permitsMissing": "{count, plural, one {# permit missing} other {# permits missing}}"
+      "permitsMissing": "{count, plural, one {# permit missing} other {# permits missing}}",
+      "permits": {
+        "ok": "Permits complete",
+        "ending": "Permit expires before the event",
+        "open": "Permits not settled yet"
+      }
     },
     "keys": "Space: preview · Enter: open · J/K: next/previous row",
     "cleanup": {

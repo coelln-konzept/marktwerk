@@ -25,13 +25,22 @@
         "today": "Heute",
         "soon": "Nächste Tage",
         "upcoming": "Genehmigungen demnächst",
-        "waiting": "Wartet auf Rückmeldung"
+        "waiting": "Wartet auf Rückmeldung",
+        "other": "Weitere Aufgaben"
       },
       "eventCount": "{count} fällig",
       "moreAtMarket": "+ {count} weitere bei {name}",
       "moreAtMarketLink": "Alle {count} weiteren bei {name} ansehen",
-      "moreMarkets": "{count, plural, one {+ # weiterer Markt} other {+ # weitere Märkte}}",
-      "moreEntries": "{count, plural, one {+ # weiterer Eintrag} other {+ # weitere Einträge}}",
+      "moreItems": "+ {count} weitere",
+      "phoneShow": "Anzeigen",
+      "phoneHide": "Ausblenden",
+      "waiting": "Wartet",
+      "waitingFor": "Wartet auf: {reason}",
+      "reminder": "Erinnerung · fällig in {count, plural, one {# Tag} other {# Tagen}}",
+      "other": {
+        "hint": "Aufgaben ohne Veranstaltung, die ohne Datum oder erst später fällig sind.",
+        "noDate": "Ohne Datum"
+      },
       "upcomingEmpty": "Keine Genehmigungen in Sicht.",
       "appointments": {
         "title": "Besprechungen heute",
@@ -51,7 +60,12 @@
         "overdue": "{count} überfällig",
         "none": "Noch keine Aufgaben"
       },
-      "permitsMissing": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}"
+      "permitsMissing": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}",
+      "permits": {
+        "ok": "Genehmigungen vollständig",
+        "ending": "Genehmigung läuft vor der Veranstaltung ab",
+        "open": "Genehmigungen noch nicht geklärt"
+      }
     },
     "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
     "cleanup": {

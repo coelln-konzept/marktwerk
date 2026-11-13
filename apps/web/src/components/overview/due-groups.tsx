@@ -1,5 +1,7 @@
+import { daysBetween, splitByRows } from "@marktwerk/core";
 import {
   ArrowRight,
+  BellRing,
   CalendarDays,
   ChevronRight,
   CircleCheck,
@@ -18,6 +20,7 @@ import { SnoozeMenu } from "@/components/task/snooze";
 import { DueBadge, dueLook } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { rowFocus } from "@/components/ui/table";
 import { formatDateShortYear } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
@@ -25,6 +28,7 @@ import { cn } from "@/lib/utils";
 import type { DueItem, DueKind, DueUrgency } from "@/server/queries/due";
 import { itemHref, itemPeek } from "./links";
 import { PeekLink } from "./peek-link";
+import { PhoneCollapse } from "./phone-collapse";
 
 const KIND_ICONS: Record<DueKind, LucideIcon> = {
   permit: ShieldCheck,
@@ -35,7 +39,7 @@ const KIND_ICONS: Record<DueKind, LucideIcon> = {
 };
 
 /** Each urgency group opens with a band in its status colour (colour + icon + text). */
-const BAND: Record<DueUrgency, { icon: LucideIcon; className: string }> = {
+export const BAND: Record<DueUrgency, { icon: LucideIcon; className: string }> = {
   overdue: {
     icon: dueLook("overdue").icon,
     className: "border-status-critical-dot/30 bg-status-critical-bg text-status-critical",
@@ -54,8 +58,12 @@ const BAND: Record<DueUrgency, { icon: LucideIcon; className: string }> = {
 
 /** Items shown per market before "+ N weitere bei …", which opens the rest in place. */
 export const DUE_PER_MARKET = 3;
-/** Markets (and single items) shown per group before "+ N weitere Märkte", which opens the rest in place. */
-export const DUE_PREVIEW_CLUSTERS = 10;
+/**
+ * Rows a group shows before "+ N weitere", which opens the rest in place (UX-006, default of UX audit round 1:
+ * "about 5"). Markets are never split: a group shows whole markets (each with up to {@link DUE_PER_MARKET}
+ * rows) until this many rows are on screen.
+ */
+export const GROUP_ROWS = 5;
 
 type Cluster = {
   /** The market bar: an event, or a Saison ("<Markt> · Saison <Jahr>", research 13 §6.3). */
@@ -150,6 +158,13 @@ function DueRow({
     item.assigneeName && isModuleVisible("team")
       ? t("assignee", { name: item.assigneeName })
       : null;
+  // What a "Wartet" task waits for (UX-064); the badge says since when.
+  const waitingFor = item.waiting?.reason ? t("waitingFor", { reason: item.waiting.reason }) : null;
+  // A Pflicht from its "Erinnerung ab" day on sits under Heute with its real (later) due date: say so.
+  const reminderDays =
+    item.kind === "obligation" && item.urgency === "today" && item.dueOn > today
+      ? daysBetween(today, item.dueOn)
+      : null;
   return (
     <li
       data-row
@@ -199,7 +214,7 @@ function DueRow({
             {item.title}
           </Link>
         </div>
-        {(kindLabel || meta || assignee) && (
+        {(kindLabel || meta || assignee || waitingFor) && (
           <span
             className={cn(
               "block break-words text-muted-foreground text-small",
@@ -225,10 +240,27 @@ function DueRow({
                 {assignee}
               </>
             )}
+            {waitingFor && (
+              <>
+                {(meta || assignee) && " · "}
+                <span className="font-medium text-foreground-2">{waitingFor}</span>
+              </>
+            )}
           </span>
         )}
       </div>
-      <div className="col-start-2 flex items-center gap-2 @md:col-auto @md:shrink-0">
+      <div className="col-start-2 flex flex-wrap items-center gap-2 @md:col-auto @md:shrink-0">
+        {reminderDays !== null && (
+          <StatusBadge tone="info" icon={BellRing}>
+            <span className="tabular">{t("reminder", { count: reminderDays })}</span>
+          </StatusBadge>
+        )}
+        {/* Waiting before its date: the task is still marked as waiting right away. */}
+        {item.waiting && item.urgency !== "waiting" && (
+          <StatusBadge tone="waiting" icon={dueLook("waiting").icon}>
+            {t("waiting")}
+          </StatusBadge>
+        )}
         <DueBadge
           dueOn={item.dueOn}
           today={today}
@@ -377,9 +409,10 @@ async function MarketDate({ date, today }: { date: string; today: string }) {
 
 /**
  * Due items by urgency group (Überfällig · Heute · Nächste Tage · Genehmigungen demnächst · Wartet), each
- * group bundled per market in ranking order. A market shows its first three items and a group its first
- * ten markets; "+ N weitere" opens the rest in place. `bandless` groups skip their band (the section heading
- * already names them).
+ * group bundled per market in ranking order. A market shows its first three items and a group about
+ * {@link GROUP_ROWS} rows; "+ N weitere" opens the rest in place. `bandless` groups skip their band (the
+ * section heading already names them). On phones (below 768 px) `phoneFirst` moves to the top and the
+ * `phoneCollapsed` groups shrink to one line with their count (UX-006).
  */
 export async function DueGroups({
   items,
@@ -387,12 +420,16 @@ export async function DueGroups({
   today,
   canSnooze,
   bandless = [],
+  phoneFirst,
+  phoneCollapsed = [],
 }: {
   items: DueItem[];
   groups: DueUrgency[];
   today: string;
   canSnooze: boolean;
   bandless?: DueUrgency[];
+  phoneFirst?: DueUrgency;
+  phoneCollapsed?: DueUrgency[];
 }) {
   const t = await getTranslations("overview.due");
   const tTasks = await getTranslations("tasks");
@@ -427,21 +464,28 @@ export async function DueGroups({
       {groups.map((urgency) => {
         const rows = items.filter((i) => i.urgency === urgency);
         if (rows.length === 0) return null;
-        const all = clusters(rows, seasonName);
-        const shown = all.slice(0, DUE_PREVIEW_CLUSTERS);
-        const hidden = all.slice(DUE_PREVIEW_CLUSTERS);
+        const [shown, hidden] = splitByRows(
+          clusters(rows, seasonName),
+          (c) => (c.event ? Math.min(c.items.length, DUE_PER_MARKET) : c.items.length),
+          GROUP_ROWS,
+        );
+        const hiddenCount = hidden.reduce((sum, c) => sum + c.items.length, 0);
         const Band = BAND[urgency].icon;
-        return (
+        const collapsed = phoneCollapsed.includes(urgency);
+        const section = (
           // A group without its own band is named by the panel around it (no second landmark of that name).
           <section
             key={urgency}
             aria-label={bandless.includes(urgency) ? undefined : t(`groups.${urgency}`)}
+            className={cn(!collapsed && phoneFirst === urgency && "max-md:order-first")}
           >
             {!bandless.includes(urgency) && (
               <h3
                 className={cn(
                   "m-0 flex items-center gap-2 border-y px-4 py-2 font-semibold text-body",
                   BAND[urgency].className,
+                  // On phones the one-line button of PhoneCollapse stands in for the band.
+                  collapsed && "max-md:hidden",
                 )}
               >
                 <Band aria-hidden className="size-4 shrink-0" />
@@ -455,12 +499,7 @@ export async function DueGroups({
               {shown.map(render)}
               {hidden.length > 0 && (
                 <li className="list-none border-border-subtle border-t px-3 py-1">
-                  <MoreDisclosure
-                    // Rows without a market (Pflichten, permits no market needs) are not "Märkte".
-                    label={t(hidden.every((c) => c.event) ? "moreMarkets" : "moreEntries", {
-                      count: hidden.length,
-                    })}
-                  >
+                  <MoreDisclosure label={t("moreItems", { count: hiddenCount })}>
                     <ul className="m-0 -mx-3 flex list-none flex-col border-border-subtle border-t p-0">
                       {hidden.map(render)}
                     </ul>
@@ -469,6 +508,20 @@ export async function DueGroups({
               )}
             </ul>
           </section>
+        );
+        if (!collapsed) return section;
+        return (
+          <PhoneCollapse
+            key={urgency}
+            label={t(`groups.${urgency}`)}
+            count={rows.length}
+            icon={<Band aria-hidden className="size-4 shrink-0" />}
+            bandClassName={BAND[urgency].className}
+            showLabel={t("phoneShow")}
+            hideLabel={t("phoneHide")}
+          >
+            {section}
+          </PhoneCollapse>
         );
       })}
     </div>

@@ -344,11 +344,16 @@ describe("Pflichten reminders (research 10)", () => {
     expect(all).not.toContain("Archiviert");
   });
 
-  it("they rank after the other items of their group", async () => {
+  it("they rank after the other items of their group, but in Überfällig the oldest goes first (UX-006)", async () => {
     const { due } = await getOverview(owner, TODAY);
     const kinds = due.items.filter((i) => i.urgency === "today").map((i) => i.kind);
     expect(kinds.slice(-2)).toEqual(["obligation", "obligation"]);
-    expect(due.items.filter((i) => i.urgency === "overdue").at(-1)?.title).toBe("KSK-Meldung");
+    // Both without a market: the Pflicht three weeks late before the permit two days late.
+    expect(
+      due.items
+        .filter((i) => i.urgency === "overdue" && !i.eventStartsOn)
+        .map((i) => `${i.kind}:${i.title}`),
+    ).toEqual(["obligation:KSK-Meldung", "permit:Wassergenehmigung"]);
   });
 
   it('the reminder starts on the day of "Erinnerung ab", not the day before', async () => {
@@ -370,6 +375,91 @@ describe("Pflichten reminders (research 10)", () => {
     expect(obligations((await getOverview(owner, TODAY)).due.items).map((i) => i.title)).toEqual([
       "KSK-Meldung",
     ]);
+  });
+});
+
+describe('"Wartet" tasks (UX-064)', () => {
+  it("every row of a waiting task says what it waits for, also before its date", async () => {
+    const today = await insertTask({
+      title: "Wartet heute",
+      eventId: weekendEvent,
+      status: "waiting_external",
+      waitingReason: "  Rückmeldung Ordnungsamt ",
+      dueAt: dueOn(TODAY),
+    });
+    const past = await insertTask({
+      title: "Wartet seit Montag",
+      eventId: weekendEvent,
+      status: "waiting_external",
+      waitingReason: "",
+      dueAt: dueOn("2026-10-19"),
+    });
+    const { due } = await getOverview(owner, TODAY);
+    expect(due.items.find((i) => i.id === today.id)).toMatchObject({
+      urgency: "today",
+      waiting: { reason: "Rückmeldung Ordnungsamt" },
+    });
+    // An empty reason is no reason; past its date the task is in "Wartet auf Rückmeldung".
+    expect(due.later.find((i) => i.id === past.id)).toMatchObject({
+      urgency: "waiting",
+      waiting: { reason: null },
+    });
+    // Tasks that do not wait carry nothing.
+    expect(due.items.find((i) => i.title === "Heutige Aufgabe")?.waiting).toBeUndefined();
+  });
+});
+
+describe('"Weitere Aufgaben" (UX-013)', () => {
+  it("lists open tasks without market or Saison that no due group shows: undated or due later", async () => {
+    const { anna } = cat.staff;
+    const undated = await insertTask({ title: "Lager aufräumen", assigneeId: anna.id });
+    const later = await insertTask({ title: "Steuerberater", dueAt: dueOn("2026-11-30") });
+    const waiting = await insertTask({
+      title: "Angebot Zeltverleih",
+      status: "waiting_external",
+      waitingReason: "Angebot",
+    });
+    // Left out: shown in a due group, snoozed, finished, a subtask, a Saison task, an event task.
+    await insertTask({ title: "Diese Woche", dueAt: dueOn("2026-10-23") });
+    await insertTask({ title: "Zurückgestellt", snoozedUntil: "2026-10-30" });
+    await insertTask({ title: "Fertig", status: "done", completedAt: new Date() });
+    await insertTask({ title: "Unteraufgabe", parentTaskId: undated.id });
+    await insertTask({ title: "Saisonaufgabe", seasonId: (await insertSeason(cat)).id });
+
+    const { otherTasks, due } = await getOverview(owner, TODAY);
+    // The dated one first, then the undated ones, newest first.
+    expect(otherTasks.map((t) => t.title)).toEqual([
+      "Steuerberater",
+      "Angebot Zeltverleih",
+      "Lager aufräumen",
+    ]);
+    expect(otherTasks.find((t) => t.id === later.id)?.dueOn).toBe("2026-11-30");
+    expect(otherTasks.find((t) => t.id === undated.id)).toMatchObject({
+      dueOn: null,
+      assigneeName: anna.displayName,
+      waiting: null,
+    });
+    expect(otherTasks.find((t) => t.id === waiting.id)?.waiting).toEqual({ reason: "Angebot" });
+    // Never twice: what a due group shows stays out.
+    const shown = new Set([...due.items, ...due.later].map((i) => i.id));
+    expect(otherTasks.some((t) => shown.has(t.id))).toBe(false);
+    expect([...due.items, ...due.later].some((i) => i.title === "Diese Woche")).toBe(true);
+
+    // A snoozed task comes back on its day.
+    vi.setSystemTime(new Date("2026-10-30T10:00:00+01:00"));
+    const back = await getOverview(owner, "2026-10-30");
+    expect(back.otherTasks.map((t) => t.title)).toContain("Zurückgestellt");
+  });
+
+  it("staff and field users only see their own", async () => {
+    await insertTask({ title: "Annas Notiz", assigneeId: cat.staff.anna.id });
+    await insertTask({ title: "Bens Notiz", assigneeId: cat.staff.ben.id });
+    await insertTask({ title: "Niemandes Notiz" });
+    for (const actor of [staffActor, fieldActor]) {
+      expect((await getOverview(actor, TODAY)).otherTasks.map((t) => t.title)).toEqual([
+        "Annas Notiz",
+      ]);
+    }
   });
 });
 
@@ -447,6 +537,32 @@ describe("Dieses Wochenende", () => {
     // The same permits the event's Zusammenfassung lists under "Was fehlt".
     const { permits } = await getEventOverview(owner, market?.row as EventRow, TODAY);
     expect(permits?.missing.map((p) => p.title).sort()).toEqual(["Beantragt", "Offen", "Zu kurz"]);
+  });
+
+  it("says where the permits stand: not settled, missing, ending early, complete (UX-064)", async () => {
+    const status = async (actor: Actor = owner) =>
+      (await getOverview(actor, TODAY)).weekend.markets[0]?.permitStatus;
+    // No permit linked yet: "noch nicht geklärt", never "keine nötig".
+    expect(await status()).toBe("open");
+    const [held] = await db
+      .insert(permit)
+      .values({
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "water",
+        title: "Wasser",
+        season: 2026,
+        status: "not_started",
+      })
+      .returning();
+    await db
+      .insert(eventPermit)
+      .values({ eventId: weekendEvent, permitId: held?.id as string, required: true });
+    expect(await status()).toBe("missing");
+    await db.update(permit).set({ status: "granted" });
+    expect(await status()).toBe("ok");
+    // Field users may not read permits: no line.
+    expect(await status(fieldActor)).toBeNull();
   });
 
   it("is the Saturday and Sunday of the current week from Monday to Sunday, also on Sunday evening", async () => {
