@@ -10,6 +10,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { VenuePicker } from "@/components/venues/venue-picker";
 import { formatDateWithWeekday } from "@/lib/format";
 import type { VenueOption } from "@/server/queries/venues";
 import type { EventBasics, EventSchedulePreview } from "@/server/services/event-details";
@@ -208,24 +209,20 @@ export function BasicsDialog({
           <div className="grid grid-cols-[1fr_7rem] gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="basics-venue">{t("venue")}</Label>
-              <select
+              <VenuePicker
                 id="basics-venue"
+                venues={
+                  venues.some((v) => v.id === basics.venueId)
+                    ? venues
+                    : [{ id: basics.venueId, name: t("archivedVenue"), city: null }, ...venues]
+                }
                 value={venueId}
-                className={SELECT_CLASS}
-                onChange={(e) => {
-                  setVenueId(e.target.value);
-                  refreshPreview(days, e.target.value);
+                canCreate
+                onChange={(next) => {
+                  setVenueId(next);
+                  refreshPreview(days, next);
                 }}
-              >
-                {!venues.some((v) => v.id === basics.venueId) && (
-                  <option value={basics.venueId}>{t("archivedVenue")}</option>
-                )}
-                {venues.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.city} · {v.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="basics-days">{t("days")}</Label>

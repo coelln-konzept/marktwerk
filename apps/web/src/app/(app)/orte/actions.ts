@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import { type Actor, getActor } from "@/server/actor";
+import { listLandownerOptions } from "@/server/queries/venues";
 import {
   archiveVenue,
   createRow,
@@ -47,6 +48,12 @@ async function run<T>(
 // Venue ---------------------------------------------------------------------------------------
 
 /** "Neuer Ort": the form navigates to the new venue afterwards, so no refresh here. */
+/** The Eigentümer to pick from in the Ort quick form (loaded when it opens, not with every page). */
+export async function landownerOptionsAction() {
+  await requirePermission("venue", "write");
+  return listLandownerOptions();
+}
+
 export async function createVenueAction(input: VenueInput) {
   await requirePermission("venue", "write");
   return run((actor) => createVenue(actor, input), { refreshPage: false });

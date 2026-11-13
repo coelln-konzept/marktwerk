@@ -216,6 +216,10 @@
       "presets": "Markets at this venue",
       "noPresets": "There is no market for this venue.",
       "presetInactive": "inactive"
+    },
+    "quick": {
+      "title": "New location",
+      "description": "Address and type are enough. Add zones, rows and access later on the location's page."
     }
   }
 }

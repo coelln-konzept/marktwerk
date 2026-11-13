@@ -216,6 +216,10 @@
       "presets": "Märkte an diesem Ort",
       "noPresets": "Für diesen Ort gibt es keinen Markt.",
       "presetInactive": "inaktiv"
+    },
+    "quick": {
+      "title": "Ort anlegen",
+      "description": "Adresse und Art reichen. Zonen, Reihen und Zufahrt ergänzt du später auf der Seite des Ortes."
     }
   }
 }
