@@ -109,7 +109,8 @@
       "move": "Verschieben nach …",
       "status": "Status",
       "reopen": "Wieder öffnen",
-      "done": "Erledigt"
+      "done": "Erledigt",
+      "delete": "Löschen"
     },
     "toast": {
       "moved": "„{title}“ nach {column} verschoben",
@@ -124,7 +125,9 @@
       "undo": "Rückgängig",
       "open": "Öffnen",
       "snoozed": "„{title}“ zurückgestellt bis {date}",
-      "unsnoozed": "Zurückstellung von „{title}“ aufgehoben"
+      "unsnoozed": "Zurückstellung von „{title}“ aufgehoben",
+      "deleted": "„{title}“ gelöscht",
+      "restored": "„{title}“ wiederhergestellt"
     },
     "confirmDone": {
       "title": "Aufgabe erledigt?",
@@ -150,7 +153,10 @@
     "notify": {
       "legend": "Benachrichtigung senden an",
       "title": "Benachrichtigung",
-      "channels": { "email": "Mail", "whatsapp": "WhatsApp" },
+      "channels": {
+        "email": "Mail",
+        "whatsapp": "WhatsApp"
+      },
       "when": "Wann",
       "choose": "Bitte wählen",
       "timing": {

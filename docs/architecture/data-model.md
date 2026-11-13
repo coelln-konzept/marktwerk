@@ -104,8 +104,14 @@ erDiagram
   `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M11), active,
   **`color`** (Marktfarbe: a key of the palette in `packages/core/src/events/market-colors.ts`, shown as a thin
   bar next to the market's name; assigned as the least used one when a market is created, editable in the
-  market editor; null = fall back to the event type's colour). A preset is a real market ("Flohmarkt Nippes")
-  with its venue built in (decision 2026-10-22).
+  market editor; null = fall back to the event type's colour), **`rules`** (Marktregeln, jsonb with the same
+  shape as `event_type.rules`, not null; decision D2-3 / UT2-12): a new market copies its event type's rules
+  (`insertPreset`), migration 0015 filled the existing presets the same way, and from then on they are the
+  market's own: edited on the event page ("Marktregeln bearbeiten", `updateMarketRules`, template:write,
+  audited as `preset.rules` with `{from, to}`), applying to every event of that market. Changing the type's
+  rules later doesn't touch them. The event page shows the preset's rules; events without a preset show
+  their type's rules read-only. A preset is a real market ("Flohmarkt Nippes") with its venue built in
+  (decision 2026-10-22).
 - **location_agreement**: `venue_id`, counterparty contact, `valid_from`, `valid_until`, `fixed_dates` (date[]),
   terms, documents. Generates events. Doesn't replace permits.
 

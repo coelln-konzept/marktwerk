@@ -1,7 +1,7 @@
 "use client";
 
-import { type CandidateCheck, MAX_EVENTS_PER_WEEKEND } from "@marktwerk/core";
-import { CalendarClock, Flag, Loader2, TriangleAlert, XCircle } from "lucide-react";
+import type { CandidateCheck } from "@marktwerk/core";
+import { CalendarClock, Loader2, TriangleAlert, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { todayIn } from "@/lib/format";
 
@@ -10,18 +10,12 @@ export function isPastCandidate(c: Pick<CandidateCheck, "startsOn">): boolean {
   return c.startsOn < todayIn();
 }
 
-/** The new date is the last one the weekend allows (the one that fills it), not yet over the cap. */
-function fillsWeekend(c: CandidateCheck): boolean {
-  return !c.overWeekendCap && c.weekendLoad.some((w) => w.count === MAX_EVENTS_PER_WEEKEND);
-}
-
-/** Number of hints for one candidate date (holidays, venue booked, overlap, weekend, past). */
+/** Number of hints for one candidate date (holidays, venue booked, overlap, past). */
 export function candidateWarningCount(c: CandidateCheck): number {
   return (
     c.holidays.length +
     c.venueConflicts.length +
     (c.overlapsCandidate ? 1 : 0) +
-    (c.overWeekendCap || fillsWeekend(c) ? 1 : 0) +
     (isPastCandidate(c) ? 1 : 0)
   );
 }
@@ -31,30 +25,18 @@ export function candidateWarningCount(c: CandidateCheck): number {
  * erzeugen", "Einzeltermin", agreement dates). Hints never block; the office decides.
  *
  * `state`: while the existing events are still loading (or loading failed) "keine Hinweise" must not
- * be shown: the venue and weekend checks depend on them. `weekendMarkets` names the events already on a
- * weekend (keyed by Saturday) for the weekend line.
+ * be shown: the venue check depends on them. No weekend hint: markets of the same weekend are planned on
+ * purpose (user test 2, UT2-11).
  */
 export function CandidateNotes({
   check,
   state = "ready",
-  weekendMarkets,
 }: {
   check: CandidateCheck;
   state?: "ready" | "loading" | "error";
-  weekendMarkets?: ReadonlyMap<string, string[]>;
 }) {
   const t = useTranslations("generate");
   const locale = useLocale();
-  const full = check.weekendLoad.filter((w) =>
-    check.overWeekendCap ? w.count > MAX_EVENTS_PER_WEEKEND : w.count === MAX_EVENTS_PER_WEEKEND,
-  );
-  const weekendNames = [...new Set(full.flatMap((w) => weekendMarkets?.get(w.saturday) ?? []))];
-  const weekendCount = Math.max(...check.weekendLoad.map((w) => w.count));
-  const weekendText = (key: "warn.weekend" | "warn.weekendFull") =>
-    t(key, { n: weekendCount, max: MAX_EVENTS_PER_WEEKEND }) +
-    (weekendNames.length > 0
-      ? ` · ${t("warn.weekendWith", { names: weekendNames.join(", ") })}`
-      : "");
   const count = candidateWarningCount(check);
   return (
     <ul className="flex flex-col gap-0.5 text-small">
@@ -70,18 +52,6 @@ export function CandidateNotes({
           {t("warn.holiday", { name: locale === "en" ? h.nameEn : h.nameDe })}
         </li>
       ))}
-      {check.overWeekendCap && (
-        <li className="flex items-center gap-1 text-status-warn">
-          <Flag aria-hidden className="size-3.5 shrink-0" />
-          {weekendText("warn.weekend")}
-        </li>
-      )}
-      {fillsWeekend(check) && (
-        <li className="flex items-center gap-1 text-status-warn">
-          <Flag aria-hidden className="size-3.5 shrink-0" />
-          {weekendText("warn.weekendFull")}
-        </li>
-      )}
       {check.venueConflicts.map((v) => (
         <li key={v.id} className="flex items-center gap-1 text-status-critical">
           <XCircle aria-hidden className="size-3.5 shrink-0" />

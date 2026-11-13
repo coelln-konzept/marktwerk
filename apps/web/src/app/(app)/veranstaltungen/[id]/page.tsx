@@ -26,7 +26,7 @@ import { requirePermission } from "@/server/session";
 
 /**
  * Tab "Zusammenfassung": is this market on track, and what's missing? Status line, Was fehlt, Kernaufgaben,
- * Nächste Termine; Eckdaten and Regeln der Art stay collapsed. Task rows open the task drawer
+ * Nächste Termine; Eckdaten and Marktregeln stay collapsed. Task rows open the task drawer
  * (`?aufgabe=<id>`), permit rows the permit drawer (`?genehmigung=<id>`), both right here.
  */
 export default async function EventOverviewPage({
@@ -61,6 +61,7 @@ export default async function EventOverviewPage({
         staff={await listStaffOptions()}
         canWrite={canWriteTasks}
         canAssign={false}
+        canDelete={can(actor.role, "task", "delete")}
         today={today}
         closeHref={closeHref}
       />
@@ -84,7 +85,7 @@ export default async function EventOverviewPage({
       </div>
       <div className="flex flex-col gap-3">
         <FactsPanel event={event} canWrite={canWrite} />
-        <RulesPanel event={event} />
+        <RulesPanel event={event} canEditMarket={can(actor.role, "template", "write")} />
       </div>
       {isModuleVisible("team") && <TeamSummaryPanel event={event} />}
       {drawer}

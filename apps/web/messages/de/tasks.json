@@ -212,6 +212,8 @@
     "reopen": "Wieder öffnen",
     "removedFromTemplate": "Nicht mehr in der Vorlage",
     "removedFromTemplateHint": "Die Vorlage enthält diese Aufgabe nicht mehr. Sie bleibt offen, bis du sie erledigst oder überspringst.",
-    "reopenAria": "„{title}“ wieder öffnen"
+    "reopenAria": "„{title}“ wieder öffnen",
+    "delete": "Löschen",
+    "deleteAria": "„{title}“ löschen"
   }
 }

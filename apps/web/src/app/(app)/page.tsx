@@ -85,6 +85,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         staff={staff}
         canWrite={canWrite}
         canAssign={!isModuleHidden("team") && can(actor.role, "task", "assign")}
+        canDelete={can(actor.role, "task", "delete")}
         today={today}
         closeHref={closeHref}
       />

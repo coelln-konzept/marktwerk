@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, CircleAlert, Flag, Megaphone, TriangleAlert, XCircle } from "lucide-react";
+import { ChevronRight, CircleAlert, Megaphone, TriangleAlert, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { moveToDate, previewMove, undoMove } from "@/app/(app)/veranstaltungen/[id]/actions";
@@ -131,9 +131,7 @@ export function MoveDialog({
   const hints =
     (preview?.announced ? 1 : 0) +
     (preview && preview.tasksOverdueAfter > 0 ? 1 : 0) +
-    (check
-      ? check.holidays.length + check.venueConflicts.length + (check.overWeekendCap ? 1 : 0)
-      : 0);
+    (check ? check.holidays.length + check.venueConflicts.length : 0);
 
   return (
     <Modal
@@ -271,12 +269,6 @@ export function MoveDialog({
                     {tWarn("holiday", { name: locale === "en" ? h.nameEn : h.nameDe })}
                   </li>
                 ))}
-                {check?.overWeekendCap && (
-                  <li className="flex items-center gap-1.5 text-status-warn">
-                    <Flag aria-hidden className="size-3.5" />
-                    {tWarn("weekend", { n: Math.max(...check.weekendLoad.map((w) => w.count)) })}
-                  </li>
-                )}
                 {check?.venueConflicts.map((v) => (
                   <li key={v.id} className="flex items-center gap-1.5 text-status-critical">
                     <XCircle aria-hidden className="size-3.5" />

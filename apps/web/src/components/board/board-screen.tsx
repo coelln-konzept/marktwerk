@@ -122,6 +122,7 @@ export async function BoardScreen({
         staff={staff}
         canWrite={canWrite}
         canAssign={canAssign}
+        canDelete={can(actor.role, "task", "delete")}
         today={today}
         closeHref={closeHref}
       />
@@ -350,6 +351,7 @@ export async function BoardScreen({
           weekLabel={formatWeek(today, locale)}
           canWrite={canWrite}
           canAssign={canAssign}
+          canDelete={can(actor.role, "task", "delete")}
           scopeEventId={eventId ?? null}
           eventEndsOn={eventEndsOn ?? null}
           eventStartsOn={eventStartsOn ?? null}

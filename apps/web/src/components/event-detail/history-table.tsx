@@ -34,9 +34,12 @@ function asObject<T>(value: unknown): T {
 export async function HistoryTable({
   entries,
   canRestore = false,
+  canRestoreDeleted = false,
 }: {
   entries: HistoryEntry[];
   canRestore?: boolean;
+  /** Deleted tasks come back with the deleting right (`task:delete`, UT2-13). */
+  canRestoreDeleted?: boolean;
 }) {
   const t = await getTranslations("eventDetail.history");
   const tStatus = await getTranslations("status.event");
@@ -132,6 +135,10 @@ export async function HistoryTable({
       }
       case "task.unsnooze":
         return { text: t("taskUnsnoozed", { title: entry.subject ?? "?" }) };
+      case "task.delete":
+        return { text: t("taskDeleted", { title: entry.subject ?? "?" }) };
+      case "task.restore":
+        return { text: t("taskRestored", { title: entry.subject ?? "?" }) };
       case "task.undo":
         return { text: t("taskUndone", { title: entry.subject ?? "?" }) };
       case "document.upload":
@@ -146,8 +153,12 @@ export async function HistoryTable({
   }
 
   const restore = (entry: HistoryEntry) =>
-    canRestore && entry.restoreTaskId ? (
-      <RestoreTaskButton taskId={entry.restoreTaskId} title={entry.subject ?? "?"} />
+    entry.restoreTaskId && (entry.restoreDeleted ? canRestoreDeleted : canRestore) ? (
+      <RestoreTaskButton
+        taskId={entry.restoreTaskId}
+        title={entry.subject ?? "?"}
+        deleted={entry.restoreDeleted}
+      />
     ) : null;
 
   return (

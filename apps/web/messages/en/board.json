@@ -109,7 +109,8 @@
       "move": "Move to…",
       "status": "Status",
       "reopen": "Reopen",
-      "done": "Done"
+      "done": "Done",
+      "delete": "Delete"
     },
     "toast": {
       "moved": "“{title}” moved to {column}",
@@ -124,7 +125,9 @@
       "undo": "Undo",
       "open": "Open",
       "snoozed": "“{title}” snoozed until {date}",
-      "unsnoozed": "Snooze of “{title}” ended"
+      "unsnoozed": "Snooze of “{title}” ended",
+      "deleted": "“{title}” deleted",
+      "restored": "“{title}” restored"
     },
     "confirmDone": {
       "title": "Task done?",
@@ -150,7 +153,10 @@
     "notify": {
       "legend": "Send notification to",
       "title": "Notification",
-      "channels": { "email": "Email", "whatsapp": "WhatsApp" },
+      "channels": {
+        "email": "Email",
+        "whatsapp": "WhatsApp"
+      },
       "when": "When",
       "choose": "Please choose",
       "timing": {

@@ -23,6 +23,8 @@ export type BoardContextValue = {
   staff: StaffOption[];
   canWrite: boolean;
   canAssign: boolean;
+  /** "Löschen" in the card menu (`task:delete`). */
+  canDelete: boolean;
   /** Show the event name on the card (boards across events). */
   showEvent: boolean;
   /** Cards can be lifted and moved with the keyboard (not in the grouped list). */

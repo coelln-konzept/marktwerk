@@ -1,6 +1,6 @@
 "use client";
 
-import { Flag, TriangleAlert, XCircle } from "lucide-react";
+import { TriangleAlert, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { previewBasics, saveBasics, undoBasics } from "@/app/(app)/veranstaltungen/[id]/actions";
@@ -156,9 +156,7 @@ export function BasicsDialog({
   }
 
   const check = preview?.check;
-  const hints = check
-    ? check.holidays.length + check.venueConflicts.length + (check.overWeekendCap ? 1 : 0)
-    : 0;
+  const hints = check ? check.holidays.length + check.venueConflicts.length : 0;
 
   return (
     <>
@@ -266,12 +264,6 @@ export function BasicsDialog({
                     {tWarn("holiday", { name: locale === "en" ? h.nameEn : h.nameDe })}
                   </li>
                 ))}
-                {check?.overWeekendCap && (
-                  <li className="flex items-center gap-1.5 text-status-warn">
-                    <Flag aria-hidden className="size-3.5" />
-                    {tWarn("weekend", { n: Math.max(...check.weekendLoad.map((w) => w.count)) })}
-                  </li>
-                )}
                 {check?.venueConflicts.map((v) => (
                   <li key={v.id} className="flex items-center gap-1.5 text-status-critical">
                     <XCircle aria-hidden className="size-3.5" />

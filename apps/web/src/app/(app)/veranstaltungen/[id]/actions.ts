@@ -1,5 +1,6 @@
 "use server";
 
+import type { MarketRules } from "@marktwerk/core";
 import { refresh } from "next/cache";
 import { type Actor, getActor } from "@/server/actor";
 import {
@@ -24,6 +25,7 @@ import {
   revertEventStatus,
   updateEventNotes,
 } from "@/server/services/event-lifecycle";
+import { PresetInputError, updateMarketRules } from "@/server/services/presets";
 import { requirePermission } from "@/server/session";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string; from?: string };
@@ -161,6 +163,33 @@ export async function saveFacts(eventId: string, facts: EventFacts) {
 /** Undo toast of saveFacts. */
 export async function undoFacts(eventId: string, previous: EventFacts, saved: EventFacts) {
   return detailsAction((actor) => updateEventFacts(actor, eventId, previous, saved));
+}
+
+/** Runs a change to the event's market (template:write); input errors become a result code. */
+async function marketAction<T>(run: (actor: Actor) => Promise<T>): Promise<ActionResult<T>> {
+  await requirePermission("template", "write");
+  const actor = await getActor();
+  try {
+    const data = await run(actor);
+    refresh();
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof PresetInputError) {
+      if (error.code === "conflict" || error.code === "not_found") refresh();
+      return { ok: false, error: error.code };
+    }
+    throw error;
+  }
+}
+
+/** "Marktregeln bearbeiten": the rules of the event's market, for every date of that market. */
+export async function saveMarketRules(presetId: string, rules: MarketRules) {
+  return marketAction((actor) => updateMarketRules(actor, presetId, rules));
+}
+
+/** Undo toast of saveMarketRules. */
+export async function undoMarketRules(presetId: string, previous: MarketRules, saved: MarketRules) {
+  return marketAction((actor) => updateMarketRules(actor, presetId, previous, saved));
 }
 
 /** "Buchung": one booking flag on or off. */

@@ -12,9 +12,10 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import {
@@ -86,6 +87,7 @@ export function TaskDrawer({
   staff,
   canWrite,
   canAssign,
+  canDelete = false,
   today,
   closeHref,
 }: {
@@ -93,6 +95,8 @@ export function TaskDrawer({
   staff: StaffOption[];
   canWrite: boolean;
   canAssign: boolean;
+  /** "Löschen" (UT2-13): owner, manager and staff (`task:delete`). */
+  canDelete?: boolean;
   today: string;
   closeHref: string;
 }) {
@@ -102,6 +106,7 @@ export function TaskDrawer({
   const locale = useLocale();
   const { showToast } = useShell();
   const search = useSearchParams();
+  const router = useRouter();
   // The URL says whether the drawer is open: closing replaces it before the server has answered.
   const isOpen = search.get("aufgabe") === task.id || search.get("detail") === `task:${task.id}`;
   const dueTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -366,6 +371,20 @@ export function TaskDrawer({
               {tStatus(task.status)}
             </StatusBadge>
           </span>
+        )}
+        {canDelete && (
+          <button
+            type="button"
+            aria-label={t("deleteAria", { title: task.title })}
+            onClick={() => {
+              actions.remove(ref);
+              router.replace(closeHref as never);
+            }}
+            className="ml-auto inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-muted-foreground text-small hover:bg-hover hover:text-status-critical focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <Trash2 aria-hidden className="size-4" />
+            {t("delete")}
+          </button>
         )}
       </div>
       {task.status === "waiting_external" && (

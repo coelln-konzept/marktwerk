@@ -16,7 +16,6 @@ import {
   mondayOf,
   parseRRule,
   weekday,
-  weekendsTouched,
 } from "@marktwerk/core";
 import {
   CalendarDays,
@@ -256,15 +255,6 @@ export function GenerateSheet({
     }
     return days;
   }, [existing, preset]);
-  /** Names of the events on each weekend (keyed by Saturday): the weekend marker and the preview say which. */
-  const weekendMarkets = useMemo(() => {
-    const names = new Map<string, string[]>();
-    for (const e of existing) {
-      for (const saturday of weekendsTouched(e.startsOn, e.endsOn))
-        names.set(saturday, [...(names.get(saturday) ?? []), e.name]);
-    }
-    return names;
-  }, [existing]);
 
   // Step 3: what the dates bring along (tasks, tasks due on day one, permits), worked out on the server.
   const [preview, setPreview] = useState<PreviewState>({ state: "idle" });
@@ -746,16 +736,11 @@ export function GenerateSheet({
                       selected={selected}
                       holidays={holidays}
                       venueBusy={venueBusy}
-                      weekendMarkets={weekendMarkets}
                       tabDay={tabDay}
                       onFocusDay={setFocusDay}
                       onToggle={toggle}
                       chosenLabel={(n) => t("chosen", { n })}
-                      labels={{
-                        busy: t("day.busy"),
-                        weekendFull: t("day.weekendFull"),
-                        weekendWith: (names) => t("warn.weekendWith", { names }),
-                      }}
+                      labels={{ busy: t("day.busy") }}
                     />
                   ))}
                 </fieldset>
@@ -776,16 +761,6 @@ export function GenerateSheet({
                       6
                     </span>
                     {t("legend.venueBusy")}
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <span className="relative grid size-5 place-items-center font-semibold text-[11px]">
-                      1
-                      <span
-                        aria-hidden
-                        className="absolute inset-x-0.5 bottom-0 h-[3px] rounded-full bg-status-warn-dot"
-                      />
-                    </span>
-                    {t("legend.weekendFull")}
                   </li>
                 </ul>
                 <p className="touch:hidden text-muted-foreground text-tiny">
@@ -945,13 +920,7 @@ export function GenerateSheet({
                                   </span>
                                 ) : null}
                               </p>
-                              {check && (
-                                <CandidateNotes
-                                  check={check}
-                                  state={notesState}
-                                  weekendMarkets={weekendMarkets}
-                                />
-                              )}
+                              {check && <CandidateNotes check={check} state={notesState} />}
                             </>
                           )}
                         </div>
@@ -1101,7 +1070,6 @@ function MonthPicker({
   selected,
   holidays,
   venueBusy,
-  weekendMarkets,
   tabDay,
   onFocusDay,
   onToggle,
@@ -1116,14 +1084,12 @@ function MonthPicker({
   selected: string[];
   holidays: Map<string, { nameDe: string; nameEn: string }>;
   venueBusy: Set<string>;
-  /** Names of the events per weekend (keyed by Saturday); 3 or more = the weekend is full. */
-  weekendMarkets: Map<string, string[]>;
   /** The one day that is a tab stop (roving tabindex). */
   tabDay: string;
   onFocusDay: (day: string) => void;
   onToggle: (day: string, shift: boolean) => void;
   chosenLabel: (n: number) => string;
-  labels: { busy: string; weekendFull: string; weekendWith: (names: string) => string };
+  labels: { busy: string };
 }) {
   const [y, m] = month.split("-").map(Number) as [number, number];
   const first = isoDate(y, m, 1);
@@ -1163,9 +1129,6 @@ function MonthPicker({
                 const isSelected = selected.includes(day);
                 const busy = venueBusy.has(day);
                 const dow = weekday(day);
-                const saturday = dow === 6 ? day : dow === 0 ? addDays(day, -1) : null;
-                const weekendNames = saturday ? (weekendMarkets.get(saturday) ?? []) : [];
-                const full = weekendNames.length >= 3;
                 const past = day <= today;
                 const name = holiday
                   ? locale === "en"
@@ -1173,13 +1136,7 @@ function MonthPicker({
                     : holiday.nameDe
                   : undefined;
                 // Tooltip and screen reader text carry what the markers show (colour alone is not enough).
-                const notes = [
-                  name,
-                  busy ? labels.busy : undefined,
-                  full
-                    ? `${labels.weekendFull} (${labels.weekendWith(weekendNames.join(", "))})`
-                    : undefined,
-                ].filter(Boolean);
+                const notes = [name, busy ? labels.busy : undefined].filter(Boolean);
                 return (
                   <td key={day} className="p-0">
                     <button
@@ -1206,13 +1163,6 @@ function MonthPicker({
                         <span
                           aria-hidden
                           className="absolute top-0.5 size-1 rounded-full bg-status-critical-dot"
-                        />
-                      )}
-                      {/* Own element, so a venue-busy ring and a full weekend show together. */}
-                      {full && (
-                        <span
-                          aria-hidden
-                          className="absolute inset-x-1.5 bottom-[3px] h-[3px] rounded-full bg-status-warn-dot"
                         />
                       )}
                     </button>

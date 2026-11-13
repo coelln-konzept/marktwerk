@@ -38,6 +38,7 @@ import type { EventDetail } from "@/server/queries/events";
 import { FactsDialog } from "./facts-dialog";
 import { KeyTaskItem, MissingTaskRow } from "./overview-rows";
 import { roleName } from "./role-name";
+import { RulesDialog } from "./rules-dialog";
 
 const ANCHOR_ORDER = ["event_day", "setup_day", "teardown_day", "booking_cutoff"] as const;
 
@@ -533,18 +534,30 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
   );
 }
 
-/** "Regeln der Art": new-goods share, banned goods, online booking; collapsed with a one-line summary. */
-export async function RulesPanel({ event }: { event: EventDetail }) {
+/**
+ * "Marktregeln": new-goods share, banned goods, online booking; collapsed with a one-line summary. An event
+ * of a market shows the market's rules (decision D2-3), editable with template:write; an event without a
+ * market shows its event type's rules, read-only.
+ */
+export async function RulesPanel({
+  event,
+  canEditMarket,
+}: {
+  event: EventDetail;
+  canEditMarket: boolean;
+}) {
   const t = await getTranslations("eventDetail.overview.rules");
   const tFacts = await getTranslations("eventDetail.overview.facts");
   const locale = await getLocale();
-  const rules = event.type.rules;
-  const share = formatNumber(Math.round(rules.newGoodsMaxShare * 100), locale, 0);
+  const { preset } = event;
+  const rules = preset ? preset.rules : event.type.rules;
+  // The dialog takes shares like 12,5 %, so show up to two decimals.
+  const share = formatNumber(Math.round(rules.newGoodsMaxShare * 10_000) / 100, locale, 2);
   const online = rules.onlineBookingAllowed ? tFacts("yes") : tFacts("no");
   return (
     <Disclosure
       id="rules-title"
-      title={t("title")}
+      title={preset ? t("marketTitle") : t("title")}
       summary={t("summary", {
         share,
         online,
@@ -555,6 +568,11 @@ export async function RulesPanel({ event }: { event: EventDetail }) {
       })}
     >
       <PanelBody>
+        {preset && canEditMarket && (
+          <div className="mb-3 flex justify-end">
+            <RulesDialog presetId={preset.id} presetName={preset.name} rules={preset.rules} />
+          </div>
+        )}
         <ul className="flex flex-col gap-0.5">
           <li>{tFacts("newGoods", { share })}</li>
           <li>
@@ -564,6 +582,9 @@ export async function RulesPanel({ event }: { event: EventDetail }) {
           </li>
           <li>{tFacts("onlineBooking", { value: online })}</li>
         </ul>
+        <p className="mt-3 text-faint-foreground text-small">
+          {preset ? t("marketSource", { market: preset.name }) : t("typeSource")}
+        </p>
       </PanelBody>
     </Disclosure>
   );

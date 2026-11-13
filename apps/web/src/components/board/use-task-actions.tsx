@@ -6,7 +6,9 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useTransition } from "react";
 import {
   assignCard,
+  deleteCard,
   moveCard,
+  restoreCard,
   setStatus as setStatusAction,
   snoozeCard,
   undoChange,
@@ -25,7 +27,9 @@ export type OptimisticPatch =
   | { kind: "move"; id: string; column: BoardColumn; afterId: string | null }
   | { kind: "assign"; id: string; assigneeId: string | null; assigneeName: string | null }
   | { kind: "status"; id: string; status: TaskStatusKey }
-  | { kind: "snooze"; id: string; until: string | null };
+  | { kind: "snooze"; id: string; until: string | null }
+  /** Deleted: gone from the board at once. */
+  | { kind: "remove"; id: string };
 
 type Person = { id: string; displayName: string };
 
@@ -301,7 +305,38 @@ export function useTaskActions({
     [run, t],
   );
 
-  return { pending, move, assign, moveAndAssign, setStatus, snooze, unsnooze, errorText, drawer };
+  /** "Löschen" (UT2-13): no question first; the toast offers undo. */
+  const remove = useCallback(
+    (task: TaskRef) =>
+      run(
+        { kind: "remove", id: task.id },
+        task,
+        () => deleteCard(task.id),
+        t("toast.deleted", { title: task.title }),
+      ),
+    [run, t],
+  );
+
+  /** "Wiederherstellen" of a deleted task (Verlauf). */
+  const restore = useCallback(
+    (task: TaskRef) =>
+      run(null, task, () => restoreCard(task.id), t("toast.restored", { title: task.title })),
+    [run, t],
+  );
+
+  return {
+    pending,
+    move,
+    assign,
+    moveAndAssign,
+    setStatus,
+    snooze,
+    unsnooze,
+    remove,
+    restore,
+    errorText,
+    drawer,
+  };
 }
 
 type Result =

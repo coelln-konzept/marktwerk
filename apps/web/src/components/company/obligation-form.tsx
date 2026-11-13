@@ -16,6 +16,7 @@ import { createObligationAction, updateObligationAction } from "@/app/(app)/firm
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { FORM_SECTION, FORM_SECTION_TITLE } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
@@ -236,7 +237,6 @@ export function ObligationForm({
   const f = (key: string) => `${uid}-${key}`;
   const invalid = (field: string) =>
     error?.field === field ? { "aria-invalid": true as const } : {};
-  const legend = "mb-3 font-semibold text-[15px]";
   const cell = "flex flex-col gap-1.5";
   const hint = "text-faint-foreground text-small";
   const backHref = editing ? `/firma/pflichten/${obligationId}` : "/firma/pflichten";
@@ -250,7 +250,7 @@ export function ObligationForm({
       }}
     >
       <Panel>
-        <PanelBody className="flex flex-col gap-7">
+        <PanelBody className="flex flex-col gap-6">
           {!editing && (
             <fieldset className="m-0 min-w-0 border-0 p-0">
               <div className={cn(cell, "max-w-md")}>
@@ -278,8 +278,8 @@ export function ObligationForm({
             </fieldset>
           )}
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("basics")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("basics")}</legend>
             <div className="grid gap-4 sm:grid-cols-6">
               <div className={cn(cell, "sm:col-span-4")}>
                 <Label htmlFor={f("title")}>{tf("title")}</Label>
@@ -369,8 +369,8 @@ export function ObligationForm({
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("schedule")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("schedule")}</legend>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className={cell}>
                 <Label htmlFor={f("intervalMonths")} optional>
@@ -461,8 +461,8 @@ export function ObligationForm({
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("responsibleSection")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("responsibleSection")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
                 <Label htmlFor={f("responsible")}>{tf("responsible")}</Label>

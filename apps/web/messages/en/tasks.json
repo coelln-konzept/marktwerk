@@ -212,6 +212,8 @@
     "reopen": "Reopen",
     "removedFromTemplate": "No longer in the template",
     "removedFromTemplateHint": "The template no longer contains this task. It stays open until you complete or skip it.",
-    "reopenAria": "Reopen “{title}”"
+    "reopenAria": "Reopen “{title}”",
+    "delete": "Delete",
+    "deleteAria": "Delete “{title}”"
   }
 }

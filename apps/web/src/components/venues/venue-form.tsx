@@ -16,6 +16,7 @@ import { createVenueAction, updateVenueAction } from "@/app/(app)/orte/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { FORM_SECTION, FORM_SECTION_TITLE } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
 import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
@@ -135,7 +136,6 @@ export function VenueForm({
   const invalid = (field: string) =>
     error?.field === field ? { "aria-invalid": true as const } : {};
   const f = (key: string) => `venue-${key}`;
-  const legend = "mb-3 font-semibold text-[15px]";
   const cell = "flex flex-col gap-1.5";
   const hint = "text-faint-foreground text-small";
 
@@ -148,9 +148,9 @@ export function VenueForm({
       }}
     >
       <Panel>
-        <PanelBody className="flex flex-col gap-7">
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("basics")}</legend>
+        <PanelBody className="flex flex-col gap-6">
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("basics")}</legend>
             <div className="grid gap-4 sm:grid-cols-[1fr_14rem]">
               <div className={cell}>
                 <Label htmlFor={f("name")}>{tf("name")}</Label>
@@ -183,8 +183,8 @@ export function VenueForm({
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("address")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("address")}</legend>
             <div className="grid gap-4 sm:grid-cols-6">
               <div className={cn(cell, "sm:col-span-6")}>
                 <Label htmlFor={f("street")} optional>
@@ -249,8 +249,8 @@ export function VenueForm({
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("access")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("access")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cn(cell, "sm:col-span-2")}>
                 <Label htmlFor={f("access")} optional>
@@ -296,8 +296,8 @@ export function VenueForm({
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("capacitySection")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("capacitySection")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
                 <Label htmlFor={f("capacity")} optional>

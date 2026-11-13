@@ -177,11 +177,15 @@ await db.transaction(async (tx) => {
   }
 
   // Marktfarbe: assigned in creation order, each preset gets the least used colour so far.
+  // Marktregeln (D2-3): each preset starts with a copy of its event type's rules.
   const presetColors: string[] = [];
+  const typeRules = new Map(data.eventTypes.map((t) => [t.id, t.rules]));
   const presetRows = data.eventPresets.map(({ checklistTemplateId: _template, ...p }) => {
     const color = nextMarketColor(presetColors);
     presetColors.push(color);
-    return { ...p, color };
+    const rules = typeRules.get(p.eventTypeId);
+    if (!rules) throw new Error(`preset ${p.id}: unknown event type ${p.eventTypeId}`);
+    return { ...p, color, rules: structuredClone(rules) };
   });
   await insertAll(tx, schema.eventPreset, presetRows, "presets");
   await insertAll(

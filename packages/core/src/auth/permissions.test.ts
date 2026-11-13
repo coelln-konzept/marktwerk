@@ -27,6 +27,9 @@ describe("can", () => {
     expect(can("staff", "appointment", "read")).toBe(true);
     expect(can("staff", "appointment", "write")).toBe(true);
     expect(can("staff", "appointment", "delete")).toBe(true);
+    // Tasks: staff may delete (user test 2, D2-6), field users may not.
+    expect(can("staff", "task", "delete")).toBe(true);
+    expect(can("field", "task", "delete")).toBe(false);
     expect(can("field", "appointment", "read")).toBe(false);
     expect(can("field", "appointment", "write")).toBe(false);
   });

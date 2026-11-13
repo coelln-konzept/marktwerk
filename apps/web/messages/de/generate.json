@@ -34,8 +34,7 @@
     "legend": {
       "selected": "gewählt",
       "holiday": "Feiertag NRW",
-      "venueBusy": "Ort bereits belegt",
-      "weekendFull": "schon 3+ Veranstaltungen am Wochenende"
+      "venueBusy": "Ort bereits belegt"
     },
     "shiftHint": "+ Klick: gleiche Wochentage dazwischen",
     "summary": "{count, plural, =0 {Noch keine Termine gewählt} one {# Termin gewählt} other {# Termine gewählt}}",
@@ -53,12 +52,9 @@
     },
     "warn": {
       "holiday": "{name} (Feiertag)",
-      "weekend": "{n}. Veranstaltung an diesem Wochenende (mehr als {max})",
       "venue": "Ort belegt: {name}",
       "overlap": "überschneidet sich mit einem anderen gewählten Termin",
       "none": "keine Hinweise",
-      "weekendFull": "{n}. Veranstaltung an diesem Wochenende, damit ist es voll (Maximum {max})",
-      "weekendWith": "dort schon: {names}",
       "past": "liegt in der Vergangenheit – alle Aufgaben wären sofort überfällig",
       "checking": "wird geprüft …",
       "unchecked": "konnte nicht geprüft werden"
@@ -156,8 +152,7 @@
     "allExist": "Alle gewählten Termine gibt es schon. Mit „Doch anlegen“ legst du einzelne trotzdem an.",
     "createWithSkipped": "{count} neue · {skipped} gibt es schon",
     "day": {
-      "busy": "Ort belegt",
-      "weekendFull": "Wochenende voll"
+      "busy": "Ort belegt"
     },
     "context": {
       "loading": "Belegung wird geladen …",

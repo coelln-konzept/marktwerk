@@ -6,11 +6,14 @@ import {
   type EventTimesInput,
   isMarketColor,
   type MarketColor,
+  type MarketRules,
   nextMarketColor,
   normalizeClockTime,
+  normalizeMarketRules,
   type PresetFieldsInput,
   type PresetIssueCode,
   presetKeyBase,
+  sameMarketRules,
 } from "@marktwerk/core";
 import {
   checklistTemplate,
@@ -41,6 +44,8 @@ export type PresetError =
   | "invalid_staff"
   | "invalid_input"
   | "event_not_found"
+  | "invalid_share"
+  | "invalid_banned_goods"
   | "conflict";
 
 /**
@@ -287,6 +292,12 @@ async function insertPreset(
     }
   }
   if (!key) throw new Error("could not find a free preset key");
+  // Marktregeln (D2-3): a new market starts with a copy of its event type's rules.
+  const [type] = await tx
+    .select({ rules: eventType.rules })
+    .from(eventType)
+    .where(eq(eventType.id, input.eventTypeId));
+  if (!type) throw new PresetInputError("invalid_type", "type");
 
   const [row] = await tx
     .insert(eventPreset)
@@ -305,6 +316,7 @@ async function insertPreset(
       defaultDuties: input.defaultDuties,
       active: input.active,
       color,
+      rules: type.rules,
     })
     .returning({ id: eventPreset.id });
   if (!row) throw new Error("insert failed");
@@ -500,5 +512,56 @@ export async function updatePreset(
       { action: "preset.update", entityType: "event_preset", entityId: id, diff: { changes } },
     ]);
     return { changed: true, updatedAt };
+  });
+}
+
+/**
+ * "Marktregeln bearbeiten" on the event page (UT2-12, decision D2-3): the market's own rules, which apply
+ * to every event of this market (permission template:write, like every other change to a market). The
+ * event type's rules stay as they are. `expected` (undo toast) applies the change only while the market
+ * still has those rules. Nothing to change → no write, no audit entry. Audited as "preset.rules" with
+ * {from, to}.
+ */
+export async function updateMarketRules(
+  actor: Actor,
+  presetId: string,
+  rawRules: MarketRules,
+  expected?: MarketRules,
+): Promise<{ changed: boolean; previous: MarketRules; rules: MarketRules }> {
+  if (!can(actor.role, "template", "write")) forbidden();
+  if (typeof presetId !== "string" || !UUID_RE.test(presetId))
+    throw new PresetInputError("not_found");
+  const checked = normalizeMarketRules(rawRules);
+  if (!checked.ok) throw new PresetInputError(checked.error);
+  const rules = checked.rules;
+  let expectedRules: MarketRules | undefined;
+  if (expected !== undefined) {
+    const parsed = normalizeMarketRules(expected);
+    if (!parsed.ok) throw new PresetInputError("invalid_input");
+    expectedRules = parsed.rules;
+  }
+
+  return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ rules: eventPreset.rules })
+      .from(eventPreset)
+      .where(and(eq(eventPreset.id, presetId), isNull(eventPreset.archivedAt)))
+      .for("update");
+    if (!current) throw new PresetInputError("not_found");
+    const previous = current.rules;
+    if (expectedRules && !sameMarketRules(previous, expectedRules))
+      throw new PresetInputError("conflict");
+    if (sameMarketRules(previous, rules)) return { changed: false, previous, rules };
+
+    await tx.update(eventPreset).set({ rules }).where(eq(eventPreset.id, presetId));
+    await audit(tx, actor.id, [
+      {
+        action: "preset.rules",
+        entityType: "event_preset",
+        entityId: presetId,
+        diff: { from: previous, to: rules, ...(expectedRules ? { undo: true } : {}) },
+      },
+    ]);
+    return { changed: true, previous, rules };
   });
 }
