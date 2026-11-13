@@ -20,7 +20,12 @@ import {
 } from "./generators/people";
 import { buildPermitRequirements, buildPermits } from "./generators/permits";
 import { buildShifts } from "./generators/shifts";
-import { buildChecklistTemplates, buildTasks } from "./generators/tasks";
+import {
+  buildMarketTemplates,
+  buildMasterTemplate,
+  buildTasks,
+  withTeardownAnchors,
+} from "./generators/tasks";
 import { buildVendors } from "./generators/vendors";
 import { clockFor } from "./lib/clock";
 import { createRng } from "./lib/rng";
@@ -70,24 +75,20 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     return id;
   };
 
-  const checklistTemplates = buildChecklistTemplates(rng, eventTypes, clock);
-  const templateIdByTypeKey = new Map(
-    checklistTemplates.map((template) => [
-      eventTypeKeyById.get(template.eventTypeId) ?? "",
-      template.id,
-    ]),
-  );
+  // The Grundvorlage first; every preset gets its own copy once the presets exist (buildMarketTemplates).
+  const masterTemplate = buildMasterTemplate(rng, clock);
+  const templateIdByTypeKey = new Map(eventTypes.map((type) => [type.key, masterTemplate.id]));
 
-  const eventPresets = buildEventPresets(rng, PRESET_BLUEPRINTS, {
+  const blueprintPresets = buildEventPresets(rng, PRESET_BLUEPRINTS, {
     eventTypes,
     venues,
     venueBlueprintByName,
     templateIdByTypeKey,
     dutyDefaults: duties,
   });
-  const { events: scheduledEvents, eventAnchors } = buildEvents(
+  const { events: scheduledEvents, eventAnchors: scheduledAnchors } = buildEvents(
     rng,
-    eventPresets,
+    blueprintPresets,
     PRESET_BLUEPRINTS,
     {
       eventTypes,
@@ -98,11 +99,21 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     },
     clock,
   );
+  const eventAnchors = withTeardownAnchors(rng, scheduledEvents, scheduledAnchors);
+
+  const marketTemplates = buildMarketTemplates(rng, blueprintPresets, eventTypes, clock);
+  const checklistTemplates = [masterTemplate, ...marketTemplates.templates];
+  const eventPresets = blueprintPresets.map((preset) => ({
+    ...preset,
+    checklistTemplateId:
+      marketTemplates.templateIdByPresetId.get(preset.id) ?? preset.checklistTemplateId,
+  }));
 
   const tasks = buildTasks(rng, {
     events: scheduledEvents,
     eventAnchors,
     templates: checklistTemplates,
+    templateIdByPresetId: marketTemplates.templateIdByPresetId,
     dutyRoleIdByKey,
     clock,
   });

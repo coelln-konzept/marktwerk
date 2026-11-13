@@ -1,7 +1,10 @@
 import {
-  CHECKLIST_ITEM_BLUEPRINTS,
-  ITEM_PERMIT_TYPES,
-  KEY_ITEM_KEYS,
+  assumedChecklist,
+  CLIENT_CHECKLISTS,
+  CLIENT_MARKET_PRESET_KEYS,
+  type ClientMarketKey,
+  GRUNDVORLAGE,
+  type ItemBlueprint,
 } from "../dictionaries/checklist-items";
 import type { Clock } from "../lib/clock";
 import { addDays, berlinInstant } from "../lib/dates";
@@ -9,13 +12,16 @@ import type { Rng } from "../lib/rng";
 import type {
   AnchorKey,
   ChecklistTemplate,
+  DutyRoleKey,
   EffortFeedback,
   Event,
   EventAnchor,
+  EventPreset,
   EventType,
   Task,
   TaskStatus,
   TemplateItem,
+  TemplateSource,
 } from "../types";
 
 /**
@@ -27,24 +33,32 @@ export const OVERDUE_CURRENT = 4;
 export const OVERDUE_LEFTOVERS = 1;
 /** Days before today an overdue sample task may be due (a team catches up within days). */
 const OVERDUE_WINDOW_DAYS = 10;
+/** The window grows by `OVERDUE_WINDOW_DAYS` up to this while it holds fewer than `OVERDUE_CURRENT` tasks. */
+const MAX_OVERDUE_WINDOW_DAYS = 30;
 /** Past-due permit tasks that still wait on an authority (their market is ahead), picked in `leaveSomeOverdue`. */
 const WAITING_PAST = 2;
 /** Markets that ended this many days ago or more count as past (`notOfPastEvent` in the app). */
 const PAST_MARKET_DAYS = 7;
 
-export function buildChecklistTemplates(
-  rng: Rng,
-  eventTypes: EventType[],
-  clock: Clock,
-): ChecklistTemplate[] {
-  return eventTypes.map((type) => {
-    const items: TemplateItem[] = CHECKLIST_ITEM_BLUEPRINTS.filter((blueprint) =>
-      blueprint.appliesTo.includes(type.key),
-    ).map((blueprint, index) => ({
+export const MASTER_TEMPLATE_NAME = "Grundvorlage";
+
+/* -------------------------------------------------------------------------------------- templates */
+
+/**
+ * Template items from blueprints: each parent, then its child items right below it (ADR 0021). A child without
+ * its own due date carries the parent's anchor, offset and time (`ownDue` false); without its own duty role it
+ * has none (`dutyRoleKey` null = the parent's).
+ */
+function templateItems(rng: Rng, blueprints: readonly ItemBlueprint[]): TemplateItem[] {
+  const items: TemplateItem[] = [];
+  for (const blueprint of blueprints) {
+    const scope = blueprint.scope ?? "event";
+    items.push({
       id: rng.uuid(),
       stableKey: blueprint.key,
-      sort: index + 1,
+      sort: items.length + 1,
       title: blueprint.title,
+      description: blueprint.description ?? null,
       phase: blueprint.phase,
       category: blueprint.category,
       anchorKey: blueprint.anchorKey,
@@ -53,26 +67,168 @@ export function buildChecklistTemplates(
       dutyRoleKey: blueprint.dutyRoleKey,
       priority: blueprint.priority,
       estimateMinutes: blueprint.estimateMinutes,
-      requiresPhoto: blueprint.requiresPhoto,
-      isKey: KEY_ITEM_KEYS.has(blueprint.key),
-      permitType: ITEM_PERMIT_TYPES[blueprint.key] ?? null,
-    }));
-    return {
-      id: rng.uuid(),
-      eventTypeId: type.id,
-      name: `Ablauf ${type.nameDe}`,
-      version: 1,
-      status: "published",
-      publishedOn: `${clock.season - 1}-12-15`,
-      items,
-    };
-  });
+      requiresPhoto: blueprint.requiresPhoto ?? false,
+      isKey: blueprint.isKey ?? false,
+      permitType: blueprint.permitType ?? null,
+      parentKey: null,
+      ownDue: false,
+      scope,
+    });
+    for (const child of blueprint.children ?? []) {
+      items.push({
+        id: rng.uuid(),
+        stableKey: `${blueprint.key}__${child.key}`,
+        sort: items.length + 1,
+        title: child.title,
+        description: child.description ?? null,
+        phase: blueprint.phase,
+        category: blueprint.category,
+        anchorKey: child.due?.anchorKey ?? blueprint.anchorKey,
+        offsetDays: child.due?.offsetDays ?? blueprint.offsetDays,
+        dueTime: child.due ? child.due.dueTime : blueprint.dueTime,
+        dutyRoleKey: child.dutyRoleKey ?? null,
+        priority: blueprint.priority,
+        estimateMinutes: child.estimateMinutes,
+        requiresPhoto: false,
+        isKey: false,
+        permitType: child.permitType ?? null,
+        parentKey: blueprint.key,
+        ownDue: child.due !== undefined,
+        scope,
+      });
+    }
+  }
+  return items;
 }
+
+function template(
+  rng: Rng,
+  clock: Clock,
+  fields: Pick<
+    ChecklistTemplate,
+    "eventTypeId" | "name" | "description" | "isMaster" | "ownerPresetId" | "source"
+  >,
+  blueprints: readonly ItemBlueprint[],
+): ChecklistTemplate {
+  return {
+    id: rng.uuid(),
+    ...fields,
+    version: 1,
+    status: "published",
+    publishedOn: `${clock.season - 1}-12-15`,
+    items: templateItems(rng, blueprints),
+  };
+}
+
+/** The Grundvorlage (`is_master`): the common core of the client's sheets, linked to no market. */
+export function buildMasterTemplate(rng: Rng, clock: Clock): ChecklistTemplate {
+  return template(
+    rng,
+    clock,
+    {
+      eventTypeId: null,
+      name: MASTER_TEMPLATE_NAME,
+      description:
+        "Die Aufgaben, mit denen jeder Markt startet (gemeinsamer Kern der Checklisten).",
+      isMaster: true,
+      ownerPresetId: null,
+      source: "master",
+    },
+    GRUNDVORLAGE,
+  );
+}
+
+/** The preset each client sheet attaches to (see `CLIENT_MARKET_PRESET_KEYS`). */
+export function clientMarketByPresetKey(
+  presetKeys: readonly string[],
+): Map<string, ClientMarketKey> {
+  const existing = new Set(presetKeys);
+  const result = new Map<string, ClientMarketKey>();
+  for (const [market, candidates] of Object.entries(CLIENT_MARKET_PRESET_KEYS) as [
+    ClientMarketKey,
+    readonly string[],
+  ][]) {
+    const key = candidates.find((candidate) => existing.has(candidate));
+    if (key === undefined) throw new Error(`No preset for the client sheet ${market}`);
+    result.set(key, market);
+  }
+  return result;
+}
+
+export interface MarketTemplates {
+  templates: ChecklistTemplate[];
+  templateIdByPresetId: Map<string, string>;
+}
+
+/**
+ * Every market's own task template (`owner_preset_id`, as `createMarket` makes them): the client's sheet for the
+ * four markets that sent one, a copy of the Grundvorlage plus assumed items (marked) for every other market.
+ */
+export function buildMarketTemplates(
+  rng: Rng,
+  presets: readonly EventPreset[],
+  eventTypes: readonly EventType[],
+  clock: Clock,
+): MarketTemplates {
+  const typeKeyById = new Map(eventTypes.map((type) => [type.id, type.key]));
+  const clientMarkets = clientMarketByPresetKey(presets.map((preset) => preset.key));
+  const templates: ChecklistTemplate[] = [];
+  const templateIdByPresetId = new Map<string, string>();
+  for (const preset of presets) {
+    const typeKey = typeKeyById.get(preset.eventTypeId);
+    if (typeKey === undefined) throw new Error(`Preset ${preset.key} has an unknown event type`);
+    const client = clientMarkets.get(preset.key);
+    const source: TemplateSource = client ? "client_checklist" : "master_copy";
+    const created = template(
+      rng,
+      clock,
+      {
+        eventTypeId: preset.eventTypeId,
+        name: `${preset.name} – Aufgaben`,
+        description: client
+          ? "Nach der Checkliste des Markts (November 2026)."
+          : "Kopie der Grundvorlage. Zusatzaufgaben sind Annahmen, bis die Checkliste des Markts vorliegt.",
+        isMaster: false,
+        ownerPresetId: preset.id,
+        source,
+      },
+      client ? CLIENT_CHECKLISTS[client] : assumedChecklist(typeKey),
+    );
+    templates.push(created);
+    templateIdByPresetId.set(preset.id, created.id);
+  }
+  return { templates, templateIdByPresetId };
+}
+
+/**
+ * Adds the `teardownDay` anchor (the last market day, as `defaultAnchors` in core does) to every event that has
+ * none. Part A's events generator may create it itself; then this adds nothing.
+ */
+export function withTeardownAnchors(
+  rng: Rng,
+  events: readonly Event[],
+  anchors: readonly EventAnchor[],
+): EventAnchor[] {
+  const has = new Set(anchors.filter((a) => a.key === "teardownDay").map((a) => a.eventId));
+  const added = events
+    .filter((event) => !has.has(event.id))
+    .map((event) => ({
+      id: rng.uuid(),
+      eventId: event.id,
+      key: "teardownDay" as const,
+      date: event.endsOn,
+    }));
+  return [...anchors, ...added];
+}
+
+/* ------------------------------------------------------------------------------------------ tasks */
 
 export interface TaskContext {
   events: Event[];
   eventAnchors: EventAnchor[];
   templates: ChecklistTemplate[];
+  /** The market's own template for every preset. */
+  templateIdByPresetId: Map<string, string>;
   dutyRoleIdByKey: Map<string, string>;
   clock: Clock;
 }
@@ -92,6 +248,8 @@ interface StatusDecision {
   rolloverCount: number;
   lastRolledAt: string | null;
 }
+
+const WAITING_REASON = "Antwort der Behörde ausstehend";
 
 /**
  * Status relative to today. Past tasks: done, a few skipped; permit tasks of current markets may still
@@ -116,125 +274,256 @@ function decideStatus(
   }
 
   if (item.category === "permits" && rng.chance(0.1)) {
-    return { ...none, status: "waiting_external", waitingReason: "Antwort der Behörde ausstehend" };
+    return { ...none, status: "waiting_external", waitingReason: WAITING_REASON };
   }
   if (dueDate <= addDays(today, 7) && rng.chance(0.25)) return { ...none, status: "in_progress" };
   return { ...none, status: "todo" };
 }
 
+/**
+ * The first non-cancelled event of each market series per season: it carries the season items (INTERIM, see
+ * SEASON_NOTE in dictionaries/checklist-items.ts).
+ */
+export function seasonCarrierIds(events: readonly Event[]): Set<string> {
+  const first = new Map<string, Event>();
+  for (const event of events) {
+    if (event.status === "cancelled") continue;
+    const key = `${event.presetId}|${event.season}`;
+    const current = first.get(key);
+    if (!current || event.startsOn < current.startsOn) first.set(key, event);
+  }
+  return new Set([...first.values()].map((event) => event.id));
+}
+
+interface Planned {
+  task: Task;
+  item: TemplateItem;
+  event: Event;
+  dueDate: string;
+}
+
 export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
-  const templateByTypeId = new Map(
-    ctx.templates.map((template) => [template.eventTypeId, template]),
-  );
+  const templateById = new Map(ctx.templates.map((t) => [t.id, t]));
   const anchorsByEvent = new Map<string, Map<AnchorKey, string>>();
   for (const anchor of ctx.eventAnchors) {
     const byKey = anchorsByEvent.get(anchor.eventId) ?? new Map<AnchorKey, string>();
     byKey.set(anchor.key, anchor.date);
     anchorsByEvent.set(anchor.eventId, byKey);
   }
+  const roleId = (key: DutyRoleKey): string => {
+    const id = ctx.dutyRoleIdByKey.get(key);
+    if (id === undefined) throw new Error(`Unknown duty role ${key}`);
+    return id;
+  };
+  const carriers = seasonCarrierIds(ctx.events);
+  const today = ctx.clock.today;
 
-  const tasks: Task[] = [];
-  /** Berlin due day per task id (`dueAt` is a UTC instant). */
-  const dueDates = new Map<string, string>();
+  const childItemsByParent = new Map<string, TemplateItem[]>();
+  for (const tpl of ctx.templates) {
+    for (const item of tpl.items) {
+      if (item.parentKey === null) continue;
+      const key = `${tpl.id}|${item.parentKey}`;
+      childItemsByParent.set(key, [...(childItemsByParent.get(key) ?? []), item]);
+    }
+  }
+
+  // 1. Top-level tasks of every event.
+  const parents: Planned[] = [];
   for (const event of ctx.events) {
-    const template = templateByTypeId.get(event.eventTypeId);
+    const templateId = ctx.templateIdByPresetId.get(event.presetId);
+    const tpl = templateId ? templateById.get(templateId) : undefined;
     const anchors = anchorsByEvent.get(event.id);
-    if (!template || !anchors) throw new Error(`Event ${event.id} has no template or anchors`);
+    if (!tpl || !anchors) throw new Error(`Event ${event.id} has no template or anchors`);
 
-    for (const item of template.items) {
+    for (const item of tpl.items) {
+      if (item.parentKey !== null) continue;
+      if (item.scope === "season" && !carriers.has(event.id)) continue;
       const anchorDate = anchors.get(item.anchorKey);
       if (anchorDate === undefined)
         throw new Error(`Missing anchor ${item.anchorKey} for event ${event.id}`);
+      if (item.dutyRoleKey === null) throw new Error(`Item ${item.stableKey} has no duty role`);
       const dueDate = addDays(anchorDate, item.offsetDays);
       const dueAt = berlinInstant(dueDate, item.dueTime ?? "09:00");
       const assigneeId = event.duties[item.dutyRoleKey];
-      const dutyRoleId = ctx.dutyRoleIdByKey.get(item.dutyRoleKey);
-      if (dutyRoleId === undefined) throw new Error(`Unknown duty role ${item.dutyRoleKey}`);
 
-      const decision = decideStatus(rng, ctx.clock.today, item, dueDate, event.status);
+      const decision = decideStatus(rng, today, item, dueDate, event.status);
       const isDone = decision.status === "done" || decision.status === "skipped";
       const completedAt = isDone
         ? new Date(Date.parse(dueAt) + rng.int(-3, 5) * 3_600_000).toISOString()
         : null;
 
-      const id = rng.uuid();
-      dueDates.set(id, dueDate);
-      tasks.push({
-        id,
-        eventId: event.id,
-        templateItemId: item.id,
-        templateStableKey: item.stableKey,
-        phase: item.phase,
-        category: item.category,
-        title: item.title,
-        anchorKey: item.anchorKey,
-        offsetDays: item.offsetDays,
-        dueAt,
-        dutyRoleId,
-        assigneeId,
-        priority: item.priority,
-        estimateMinutes: item.estimateMinutes,
-        requiresPhoto: item.requiresPhoto,
-        isKey: item.isKey,
-        status: decision.status,
-        waitingReason: decision.waitingReason,
-        completedAt,
-        completedById: decision.status === "done" ? assigneeId : null,
-        skippedReason: decision.skippedReason,
-        effortFeedback: decision.status === "done" && rng.chance(0.15) ? effortFeedback(rng) : null,
-        rolloverCount: decision.rolloverCount,
-        lastRolledAt: decision.lastRolledAt,
+      parents.push({
+        item,
+        event,
+        dueDate,
+        task: {
+          id: rng.uuid(),
+          eventId: event.id,
+          templateItemId: item.id,
+          templateStableKey: item.stableKey,
+          parentTaskId: null,
+          phase: item.phase,
+          category: item.category,
+          title: item.title,
+          description: item.description,
+          anchorKey: item.anchorKey,
+          offsetDays: item.offsetDays,
+          dueAt,
+          dutyRoleId: roleId(item.dutyRoleKey),
+          assigneeId,
+          priority: item.priority,
+          estimateMinutes: item.estimateMinutes,
+          requiresPhoto: item.requiresPhoto,
+          isKey: item.isKey,
+          status: decision.status,
+          waitingReason: decision.waitingReason,
+          completedAt,
+          completedById: decision.status === "done" ? assigneeId : null,
+          skippedReason: decision.skippedReason,
+          effortFeedback:
+            decision.status === "done" && rng.chance(0.15) ? effortFeedback(rng) : null,
+          rolloverCount: decision.rolloverCount,
+          lastRolledAt: decision.lastRolledAt,
+        },
       });
     }
   }
-  leaveSomeOverdue(rng, ctx.clock.today, tasks, ctx.events, dueDates);
+  leaveSomeOverdue(rng, today, parents);
+
+  // 2. Subtasks, following their parent's final status.
+  const tasks: Task[] = [];
+  for (const parent of parents) {
+    tasks.push(parent.task);
+    const tplId = ctx.templateIdByPresetId.get(parent.event.presetId);
+    const children = childItemsByParent.get(`${tplId}|${parent.item.stableKey}`) ?? [];
+    tasks.push(...subtasks(rng, today, parent, children, anchorsByEvent, roleId));
+  }
   return tasks;
 }
 
 /**
- * Reopens the few tasks the team has not caught up with yet: `OVERDUE_CURRENT` recently due tasks of markets
- * that are not over (they show as overdue), and `OVERDUE_LEFTOVERS` tasks of the last market that ended more
- * than a week ago (only the Übersicht's cleanup line shows them). Permit tasks stay as they are (they follow
- * their permit).
+ * The subtasks of one task. A child item takes the parent's due date and duty role unless it has its own
+ * (`inheritedItem` in core). Status follows the parent: done/skipped/cancelled parents have all subtasks the same;
+ * an open parent has some subtasks done (in progress: at least one; overdue: all but the last), the rest open; a
+ * parent waiting on an authority has its first subtask done and the others waiting too.
  */
-function leaveSomeOverdue(
+function subtasks(
   rng: Rng,
   today: string,
-  tasks: Task[],
-  events: readonly Event[],
-  dueDates: ReadonlyMap<string, string>,
-): void {
-  const eventById = new Map(events.map((event) => [event.id, event]));
-  const finished = (task: Task) => task.status === "done" || task.status === "skipped";
-  const dueOn = (task: Task) => dueDates.get(task.id) ?? task.dueAt.slice(0, 10);
-  const candidate = (task: Task) =>
-    finished(task) && task.category !== "permits" && dueOn(task) < today;
+  parent: Planned,
+  children: readonly TemplateItem[],
+  anchorsByEvent: ReadonlyMap<string, ReadonlyMap<AnchorKey, string>>,
+  roleId: (key: DutyRoleKey) => string,
+): Task[] {
+  if (children.length === 0) return [];
+  const p = parent.task;
+  const parentRoleKey = parent.item.dutyRoleKey as DutyRoleKey;
+  const status = p.status;
+  let doneCount = 0;
+  if (status === "done" || status === "skipped" || status === "cancelled")
+    doneCount = children.length;
+  else if (status === "waiting_external") doneCount = 1;
+  else if (p.rolloverCount > 0) doneCount = children.length - 1;
+  else if (status === "in_progress" && children.length > 1)
+    doneCount = rng.int(1, children.length - 1);
 
-  const windowStart = addDays(today, -OVERDUE_WINDOW_DAYS);
-  const current = tasks.filter((task) => {
-    const event = eventById.get(task.eventId);
-    return (
-      candidate(task) &&
-      dueOn(task) >= windowStart &&
-      event !== undefined &&
-      event.status !== "cancelled" &&
-      event.endsOn >= today
-    );
+  const todayStart = Date.parse(`${today}T00:00:00Z`);
+  return children.map((child, index) => {
+    const roleKey = child.dutyRoleKey ?? parentRoleKey;
+    let dueAt = p.dueAt;
+    if (child.ownDue) {
+      const anchorDate = anchorsByEvent.get(p.eventId)?.get(child.anchorKey);
+      if (anchorDate === undefined)
+        throw new Error(`Missing anchor ${child.anchorKey} for event ${p.eventId}`);
+      dueAt = berlinInstant(addDays(anchorDate, child.offsetDays), child.dueTime ?? "09:00");
+    }
+    const assigneeId = parent.event.duties[roleKey];
+
+    let childStatus: TaskStatus;
+    if (index < doneCount) {
+      childStatus = status === "skipped" || status === "cancelled" ? status : "done";
+    } else if (status === "waiting_external") {
+      childStatus = "waiting_external";
+    } else if (status === "in_progress" && children.length === 1) {
+      childStatus = "in_progress";
+    } else {
+      childStatus = "todo";
+    }
+
+    let completedAt: string | null = null;
+    if (childStatus === "done" || childStatus === "skipped") {
+      // before the parent's completion, or (open parent) before today
+      const ceiling = p.completedAt
+        ? Date.parse(p.completedAt)
+        : Math.min(Date.parse(dueAt), todayStart - 3_600_000);
+      completedAt = new Date(ceiling - rng.int(0, 48) * 3_600_000).toISOString();
+    }
+    return {
+      id: rng.uuid(),
+      eventId: p.eventId,
+      templateItemId: child.id,
+      templateStableKey: child.stableKey,
+      parentTaskId: p.id,
+      phase: child.phase,
+      category: child.category,
+      title: child.title,
+      description: child.description,
+      anchorKey: child.anchorKey,
+      offsetDays: child.offsetDays,
+      dueAt,
+      dutyRoleId: roleId(roleKey),
+      assigneeId,
+      priority: child.priority,
+      estimateMinutes: child.estimateMinutes,
+      requiresPhoto: child.requiresPhoto,
+      isKey: child.isKey,
+      status: childStatus,
+      waitingReason: childStatus === "waiting_external" ? p.waitingReason : null,
+      completedAt,
+      completedById: childStatus === "done" ? assigneeId : null,
+      skippedReason: childStatus === "skipped" ? p.skippedReason : null,
+      effortFeedback: null,
+      rolloverCount: 0,
+      lastRolledAt: null,
+    };
   });
+}
+
+/**
+ * Reopens the few top-level tasks the team has not caught up with yet: `OVERDUE_CURRENT` recently due tasks of
+ * markets that are not over (they show as overdue), and `OVERDUE_LEFTOVERS` tasks of the last market that ended
+ * more than a week ago (only the Übersicht's cleanup line shows them). Permit tasks stay as they are (they follow
+ * their permit), except `WAITING_PAST` recent ones that still wait on the authority.
+ */
+function leaveSomeOverdue(rng: Rng, today: string, planned: Planned[]): void {
+  const finished = (task: Task) => task.status === "done" || task.status === "skipped";
+  const candidate = ({ task, dueDate }: Planned) =>
+    finished(task) && task.category !== "permits" && dueDate < today;
+
+  const ofCurrentMarket = planned.filter(
+    (p) => candidate(p) && p.event.status !== "cancelled" && p.event.endsOn >= today,
+  );
+  // Recently due ones; the window widens in steps while there are too few (the sheets have few items per event).
+  let current: Planned[] = [];
+  for (
+    let windowDays = OVERDUE_WINDOW_DAYS;
+    current.length < OVERDUE_CURRENT && windowDays <= MAX_OVERDUE_WINDOW_DAYS;
+    windowDays += OVERDUE_WINDOW_DAYS
+  ) {
+    const windowStart = addDays(today, -windowDays);
+    current = ofCurrentMarket.filter((p) => p.dueDate >= windowStart);
+  }
 
   const pastCutoff = addDays(today, -PAST_MARKET_DAYS);
-  const lastPast = events
+  const lastPast = [...new Map(planned.map((p) => [p.event.id, p.event])).values()]
     .filter((event) => event.status !== "cancelled" && event.endsOn < pastCutoff)
     .sort((a, b) => (a.endsOn < b.endsOn ? 1 : a.endsOn > b.endsOn ? -1 : 0))[0];
   const leftovers = lastPast
-    ? tasks.filter((task) => task.eventId === lastPast.id && candidate(task))
+    ? planned.filter((p) => p.event.id === lastPast.id && candidate(p))
     : [];
 
-  const reopen = (task: Task) => {
-    const days = Math.max(
-      1,
-      Math.round((Date.parse(today) - Date.parse(dueOn(task))) / 86_400_000),
-    );
+  const reopen = ({ task, dueDate }: Planned) => {
+    const days = Math.max(1, Math.round((Date.parse(today) - Date.parse(dueDate)) / 86_400_000));
     task.status = rng.chance(0.3) ? "in_progress" : "todo";
     task.completedAt = null;
     task.completedById = null;
@@ -244,25 +533,22 @@ function leaveSomeOverdue(
     task.lastRolledAt = berlinInstant(today, "00:05");
   };
   // A couple of recent permit tasks still wait on the authority (the market is ahead, so that is normal).
-  const waiting = tasks.filter((task) => {
-    const event = eventById.get(task.eventId);
-    return (
+  const waiting = planned.filter(
+    ({ task, event, dueDate }) =>
       task.status === "done" &&
       task.category === "permits" &&
-      dueOn(task) < today &&
-      dueOn(task) >= addDays(today, -30) &&
-      event !== undefined &&
+      dueDate < today &&
+      dueDate >= addDays(today, -30) &&
       event.status !== "cancelled" &&
-      event.endsOn >= today
-    );
-  });
-  for (const task of rng.shuffle(waiting).slice(0, WAITING_PAST)) {
+      event.endsOn >= today,
+  );
+  for (const { task } of rng.shuffle(waiting).slice(0, WAITING_PAST)) {
     task.status = "waiting_external";
-    task.waitingReason = "Antwort der Behörde ausstehend";
+    task.waitingReason = WAITING_REASON;
     task.completedAt = null;
     task.completedById = null;
     task.effortFeedback = null;
   }
-  for (const task of rng.shuffle(current).slice(0, OVERDUE_CURRENT)) reopen(task);
-  for (const task of rng.shuffle(leftovers).slice(0, OVERDUE_LEFTOVERS)) reopen(task);
+  for (const p of rng.shuffle(current).slice(0, OVERDUE_CURRENT)) reopen(p);
+  for (const p of rng.shuffle(leftovers).slice(0, OVERDUE_LEFTOVERS)) reopen(p);
 }

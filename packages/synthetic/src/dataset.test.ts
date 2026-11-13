@@ -4,7 +4,7 @@ import { MAX_EVENTS_PER_DAY, minijobLimitCents, REFERENCE_DATE } from "./constan
 import { generateDataset } from "./dataset";
 import { PRESET_BLUEPRINTS } from "./dictionaries/presets";
 import { scheduleSeason } from "./generators/events";
-import { OVERDUE_CURRENT, OVERDUE_LEFTOVERS } from "./generators/tasks";
+import { clientMarketByPresetKey, OVERDUE_CURRENT, OVERDUE_LEFTOVERS } from "./generators/tasks";
 import { EXAMPLE_DOMAINS, FICTION_PHONE_PATTERN } from "./lib/fiction";
 import { parseRRule } from "./lib/rrule";
 import type { Dataset, EmploymentContract, Event, EventType, Payable, Task } from "./types";
@@ -133,11 +133,20 @@ describe("catalogue", () => {
     ]);
   });
 
-  it("uses German checklist templates with 25–40 items each", () => {
-    expect(data.checklistTemplates).toHaveLength(4);
+  it("has one Grundvorlage and an own published template for every market", () => {
+    const masters = data.checklistTemplates.filter((t) => t.isMaster);
+    expect(masters).toHaveLength(1);
+    expect(masters[0]?.name).toBe("Grundvorlage");
+    expect(masters[0]?.ownerPresetId).toBeNull();
+    expect(data.checklistTemplates).toHaveLength(data.eventPresets.length + 1);
+    for (const preset of data.eventPresets) {
+      const own = data.checklistTemplates.find((t) => t.id === preset.checklistTemplateId);
+      expect(own?.ownerPresetId).toBe(preset.id);
+      expect(own?.eventTypeId).toBe(preset.eventTypeId);
+    }
     for (const template of data.checklistTemplates) {
-      expect(template.items.length).toBeGreaterThanOrEqual(25);
-      expect(template.items.length).toBeLessThanOrEqual(40);
+      expect(template.items.length).toBeGreaterThanOrEqual(15);
+      expect(template.items.length).toBeLessThanOrEqual(60);
       expect(template.version).toBe(1);
       expect(template.status).toBe("published");
     }
@@ -237,11 +246,21 @@ describe("referential integrity", () => {
         data.eventAnchors.map((a) => a.eventId),
         eventIds,
       ),
-      checklistTemplates: unresolved(
-        data.checklistTemplates.map((t) => t.eventTypeId),
-        eventTypeIds,
-      ),
+      checklistTemplates: [
+        ...unresolved(
+          data.checklistTemplates.map((t) => t.eventTypeId),
+          eventTypeIds,
+        ),
+        ...unresolved(
+          data.checklistTemplates.map((t) => t.ownerPresetId),
+          presetIds,
+        ),
+      ],
       tasks: [
+        ...unresolved(
+          data.tasks.map((t) => t.parentTaskId),
+          idsOf(data.tasks),
+        ),
         ...unresolved(
           data.tasks.map((t) => t.eventId),
           eventIds,
@@ -624,8 +643,13 @@ describe("tasks", () => {
 
   it("leaves open only the few overdue tasks: OVERDUE_CURRENT on current markets, OVERDUE_LEFTOVERS on the last past one", () => {
     const today = `${REFERENCE_DATE}T00:00:00.000Z`;
+    // Lists count top-level tasks; an overdue subtask shows on its parent (ADR 0021).
     const overdue = data.tasks.filter(
-      (task) => task.dueAt < today && open(task) && task.status !== "waiting_external",
+      (task) =>
+        task.parentTaskId === null &&
+        task.dueAt < today &&
+        open(task) &&
+        task.status !== "waiting_external",
     );
     const current = overdue.filter(
       (task) => (eventById.get(task.eventId)?.endsOn ?? "") >= REFERENCE_DATE,
@@ -665,11 +689,13 @@ describe("tasks", () => {
     }
   });
 
-  it("puts future tasks in todo or in progress, never done", () => {
+  it("puts future top-level tasks in todo or in progress, never done (subtasks may be done early)", () => {
+    const today = `${REFERENCE_DATE}T00:00:00.000Z`;
     for (const task of data.tasks) {
-      if (task.dueAt >= `${REFERENCE_DATE}T00:00:00.000Z` && task.status !== "cancelled") {
+      if (task.parentTaskId === null && task.dueAt >= today && task.status !== "cancelled") {
         expect(["todo", "in_progress", "waiting_external"]).toContain(task.status);
       }
+      if (task.completedAt !== null) expect(task.completedAt < today).toBe(true);
     }
   });
 
@@ -680,20 +706,203 @@ describe("tasks", () => {
       ),
     );
     expect([...keyKeys].sort()).toEqual(
-      [
-        "buchungsliste",
-        "flyer_drucken",
-        "halteverbot_beantragen",
-        "marktgenehmigung",
-        "muell_bestellen",
-        "plakatierung",
-        "standrohr_reservieren",
-        "termin_website",
-        "toiletten_bestaetigen",
-      ].sort(),
+      ["bringto_einladen", "saison_genehmigung", "saison_termine_planen", "schichtplan"].sort(),
     );
     for (const task of data.tasks) expect(task.isKey).toBe(keyKeys.has(task.templateStableKey));
     expect(data.tasks.some((task) => task.isKey)).toBe(true);
+  });
+
+  it("has about 15–25 tasks per event on average, subtasks included", () => {
+    const perEvent = new Map<string, number>();
+    for (const task of data.tasks)
+      perEvent.set(task.eventId, (perEvent.get(task.eventId) ?? 0) + 1);
+    expect(perEvent.size).toBe(data.events.length);
+    const average = data.tasks.length / data.events.length;
+    expect(average).toBeGreaterThanOrEqual(15);
+    expect(average).toBeLessThanOrEqual(25);
+    expect(Math.min(...perEvent.values())).toBeGreaterThanOrEqual(10);
+    expect(Math.max(...perEvent.values())).toBeLessThanOrEqual(60);
+    expect(data.tasks.filter((task) => task.parentTaskId !== null).length).toBeGreaterThan(
+      data.events.length * 3,
+    );
+  });
+});
+
+/* ------------------------------------------------- templates and subtasks */
+
+describe("templates and subtasks (ADR 0021)", () => {
+  const open = (task: Task): boolean => !["done", "skipped", "cancelled"].includes(task.status);
+  const itemsOf = (presetKey: string) => {
+    const preset = data.eventPresets.find((p) => p.key === presetKey);
+    return data.checklistTemplates.find((t) => t.id === preset?.checklistTemplateId)?.items ?? [];
+  };
+
+  it("nests child items one level deep, right below a parent of the same template", () => {
+    for (const template of data.checklistTemplates) {
+      const byKey = new Map(template.items.map((i) => [i.stableKey, i]));
+      expect(byKey.size).toBe(template.items.length);
+      for (const item of template.items) {
+        if (item.parentKey === null) {
+          expect(item.dutyRoleKey).not.toBeNull();
+          expect(item.ownDue).toBe(false);
+          continue;
+        }
+        const parent = byKey.get(item.parentKey);
+        expect(parent, `${template.name}: ${item.stableKey}`).toBeDefined();
+        expect(parent?.parentKey).toBeNull();
+        expect(item.sort).toBeGreaterThan(parent?.sort ?? Number.POSITIVE_INFINITY);
+        expect(item.phase).toBe(parent?.phase);
+        expect(item.scope).toBe(parent?.scope);
+        if (!item.ownDue) {
+          expect(item.anchorKey).toBe(parent?.anchorKey);
+          expect(item.offsetDays).toBe(parent?.offsetDays);
+          expect(item.dueTime).toBe(parent?.dueTime);
+        }
+      }
+      expect(template.items.map((i) => i.sort)).toEqual(template.items.map((_, n) => n + 1));
+    }
+  });
+
+  it("builds the Grundvorlage from the core of the client's sheets", () => {
+    const master = data.checklistTemplates.find((t) => t.isMaster);
+    expect(master?.items.filter((i) => i.parentKey === null).map((i) => i.stableKey)).toEqual([
+      "saison_termine_planen",
+      "saison_genehmigung",
+      "schichtplan",
+      "einzeichnen",
+      "bringto_einladen",
+      "einweisen",
+      "tageswache_ordner",
+      "nachkassieren",
+      "flyer_verteilen",
+      "reinigung",
+      "nachbereitung",
+    ]);
+    expect(master?.items.find((i) => i.stableKey === "saison_genehmigung")?.permitType).toBe(
+      "market_permit",
+    );
+    expect(
+      master?.items.find((i) => i.stableKey === "saison_genehmigung__festsetzung")?.permitType,
+    ).toBe("market_fixing");
+  });
+
+  it("gives the four client markets their own sheets and marks assumptions on every other market", () => {
+    const clients = clientMarketByPresetKey(data.eventPresets.map((p) => p.key));
+    const presetKeyOf = (market: string) =>
+      [...clients].find(([, client]) => client === market)?.[0] ?? "";
+    const clientKeys = [...clients.keys()];
+    expect(clientKeys).toHaveLength(4);
+    const altstadt = itemsOf(presetKeyOf("altstadt"));
+    expect(altstadt.map((i) => i.stableKey)).toEqual(
+      expect.arrayContaining(["nachtwache", "leihstaende_abbauen", "reinigung"]),
+    );
+    expect(altstadt.find((i) => i.stableKey === "saison_genehmigung")?.offsetDays).toBe(-210);
+    expect(altstadt.find((i) => i.stableKey === "reinigung")?.anchorKey).toBe("teardownDay");
+    expect(itemsOf(presetKeyOf("nippes")).find((i) => i.stableKey === "einzeichnen")?.phase).toBe(
+      "live",
+    );
+    expect(itemsOf(presetKeyOf("riehler-guertel")).map((i) => i.stableKey)).toContain(
+      "pvbt_werbung_aufhaengen",
+    );
+    expect(itemsOf(presetKeyOf("hoffnungsthal")).map((i) => i.stableKey)).toEqual(
+      expect.arrayContaining(["drk_anfragen", "druckwerbung", "pvbt_aufstellen"]),
+    );
+    const masterKeys = new Set(
+      data.checklistTemplates.find((t) => t.isMaster)?.items.map((i) => i.stableKey),
+    );
+    for (const template of data.checklistTemplates) {
+      if (template.isMaster) continue;
+      const preset = data.eventPresets.find((p) => p.id === template.ownerPresetId);
+      const client = clientKeys.includes(preset?.key ?? "");
+      expect(template.source).toBe(client ? "client_checklist" : "master_copy");
+      const added = template.items.filter(
+        (i) => i.parentKey === null && !masterKeys.has(i.stableKey),
+      );
+      expect(added.length).toBeGreaterThan(0);
+      for (const item of added) {
+        if (client) expect(item.description ?? "").not.toMatch(/^Annahme/);
+        else expect(item.description).toBe("Annahme – vom Team noch nicht bestätigt");
+      }
+    }
+  });
+
+  it("puts market-day lines in the live phase, on a market day", () => {
+    for (const template of data.checklistTemplates) {
+      for (const item of template.items.filter((i) => i.phase === "live")) {
+        expect(item.offsetDays).toBe(0);
+        expect(["eventDay", "teardownDay"]).toContain(item.anchorKey);
+      }
+    }
+  });
+
+  it("makes subtasks only under top-level tasks of the same event, from the parent item's children", () => {
+    const byId = new Map(data.tasks.map((t) => [t.id, t]));
+    const itemById = new Map(
+      data.checklistTemplates.flatMap((t) => t.items.map((i) => [i.id, i] as const)),
+    );
+    for (const task of data.tasks) {
+      const item = itemById.get(task.templateItemId);
+      if (task.parentTaskId === null) {
+        expect(item?.parentKey).toBeNull();
+        continue;
+      }
+      const parent = byId.get(task.parentTaskId);
+      expect(parent?.parentTaskId).toBeNull();
+      expect(parent?.eventId).toBe(task.eventId);
+      expect(item?.parentKey).toBe(parent?.templateStableKey);
+      if (item && !item.ownDue) expect(task.dueAt).toBe(parent?.dueAt);
+      if (item?.dutyRoleKey === null) expect(task.dutyRoleId).toBe(parent?.dutyRoleId);
+    }
+    // every parent gets all its children
+    const childCount = new Map<string, number>();
+    for (const task of data.tasks)
+      if (task.parentTaskId)
+        childCount.set(task.parentTaskId, (childCount.get(task.parentTaskId) ?? 0) + 1);
+    for (const task of data.tasks) {
+      if (task.parentTaskId !== null) continue;
+      const item = itemById.get(task.templateItemId);
+      const template = data.checklistTemplates.find((t) => t.items.some((i) => i.id === item?.id));
+      const expected = template?.items.filter((i) => i.parentKey === item?.stableKey).length ?? 0;
+      expect(childCount.get(task.id) ?? 0).toBe(expected);
+    }
+  });
+
+  it("never has a done task with open subtasks, and open parents have some subtasks done", () => {
+    const children = new Map<string, Task[]>();
+    for (const task of data.tasks)
+      if (task.parentTaskId)
+        children.set(task.parentTaskId, [...(children.get(task.parentTaskId) ?? []), task]);
+    let openParentsWithDone = 0;
+    for (const task of data.tasks) {
+      const subs = children.get(task.id) ?? [];
+      if (subs.length === 0) continue;
+      if (task.status === "done") {
+        expect(subs.filter(open)).toEqual([]);
+        for (const sub of subs)
+          expect((sub.completedAt ?? "") <= (task.completedAt ?? "")).toBe(true);
+      }
+      if (task.status === "cancelled") for (const sub of subs) expect(sub.status).toBe("cancelled");
+      if (open(task) && subs.some((sub) => sub.status === "done")) openParentsWithDone += 1;
+    }
+    expect(openParentsWithDone).toBeGreaterThan(0);
+  });
+
+  it("creates the interim season tasks only on the first event of each series per season", () => {
+    const seasonTasks = data.tasks.filter((t) => t.templateStableKey.startsWith("saison_"));
+    for (const task of seasonTasks) {
+      expect(task.title.startsWith("Saison: ") || task.parentTaskId !== null).toBe(true);
+    }
+    const carrierIds = new Set(seasonTasks.map((t) => t.eventId));
+    const firstBySeries = new Map<string, Event>();
+    for (const event of data.events) {
+      if (event.status === "cancelled") continue;
+      const key = `${event.presetId}|${event.season}`;
+      const first = firstBySeries.get(key);
+      if (!first || event.startsOn < first.startsOn) firstBySeries.set(key, event);
+    }
+    expect(carrierIds).toEqual(new Set([...firstBySeries.values()].map((e) => e.id)));
+    // two season tasks (Termine planen, Genehmigung) per series and season
+    expect(seasonTasks.filter((t) => t.parentTaskId === null)).toHaveLength(firstBySeries.size * 2);
   });
 });
 
@@ -1000,7 +1209,9 @@ describe.each(REFERENCE_DATES)("as of %s", (today) => {
   it("has only a handful of overdue open tasks", () => {
     const overdue = d.tasks.filter(
       (t) =>
-        t.dueAt < `${today}T00:00:00.000Z` && !["done", "skipped", "cancelled"].includes(t.status),
+        t.parentTaskId === null &&
+        t.dueAt < `${today}T00:00:00.000Z` &&
+        !["done", "skipped", "cancelled"].includes(t.status),
     );
     expect(overdue.length).toBeLessThanOrEqual(8);
     const notWaiting = overdue.filter((t) => t.status !== "waiting_external");

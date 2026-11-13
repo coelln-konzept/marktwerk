@@ -55,8 +55,8 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 | `eventPresets` | 17 | The 16 Coelln Konzept series + Hoffnungsthal (9 flea, 2 antique, 3 city festival, 3 food & wine), each with colour, Marktregeln (`rules`) and Zeitplan (`schedule`) |
 | `events` | 134 | 67 per season (2026, 2027), January–November, 53 on Sundays, 1–3 per day. Two 2026 events cancelled |
 | `eventAnchors` | 536 | `eventDay`, `setupDay`, `teardownDay`, `bookingCutoff` (Monday before) per event |
-| `checklistTemplates` | 4 | One published version per event type, 39–40 German items each |
-| `tasks` | 5,774 | Instantiated per event, due times in Berlin time |
+| `checklistTemplates` | 15 | The Grundvorlage (18 items) and every market's own copy (19–50 items, child items included) |
+| `tasks` | 3,176 | 2,090 tasks and 1,086 subtasks (≈ 21 per event, 13–50), due times in Berlin time |
 | `permitRequirements` | 52 | City permits per venue, external ones where the ground is not public |
 | `permits` | 214 | 2026 granted; 2027 applied, preparing or not started |
 | `eventPermits` | 690 | Event ↔ permit links |
@@ -78,7 +78,26 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
   a Sunday date that would break this moves to another Sunday of its month. Single-day markets in winter open an hour
   later. Lifecycle status follows the reference date: ended more than 21 days ago → `closed`,
   ended before today → `completed`, current season upcoming → `confirmed`, next season → `planned`.
-- **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets and 1 on the last past market (`rolloverCount` 1–5); exactly 2 recent permit tasks wait on an authority (`waiting_external`). Future tasks are `todo` or `in_progress`.
+- **Task templates** (research 13, `dictionaries/checklist-items.ts`): the **Grundvorlage** (`isMaster`) is the
+  common core of the client's sheets. **Altstadt, Riehler Gürtel, Nippes and Hoffnungsthal** get their own sheet as
+  an owned copy of it (`ownerPresetId`, same stable keys where the item is the same) plus their additions; every
+  other market gets a copy of the Grundvorlage plus items assumed for its event type, each described
+  "Annahme – vom Team noch nicht bestätigt". Sub-lines are child items (`parentKey`, one level, ADR 0021) that take
+  the parent's due date (`ownDue` false) and, without their own `dutyRoleKey`, its duty role. Every market-day line
+  is its own `live` task on that day (`eventDay`, or `teardownDay` for the last day of a multi-day market). Until part
+  A's presets land, `CLIENT_MARKET_PRESET_KEYS` attaches the four sheets to `flea-heumarkt`, `flea-ehrenfeld`,
+  `flea-nippes` and `flea-bergisch`; duty roles the sheets need but that do not exist yet are mapped in
+  `CLIENT_DUTY`.
+- **Season tasks (INTERIM)**: "Termine planen" and "Genehmigung" happen once per market and season, relative to its
+  first date (research 13 §1.2). Until the Saison record exists (research 13 §6) they are template items with
+  `scope: "season"` that only the **first non-cancelled event of each series per season** gets as tasks. In the
+  database they are marked three ways so they can be moved later: stable key `saison_…`, title "Saison: …" and a
+  description saying so. The app itself does not know `scope` yet: "Markt planen" and template propagation would
+  create them on other events of the market too.
+- **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets and 1 on the last past market (`rolloverCount` 1–5); exactly 2 recent permit tasks wait on an authority (`waiting_external`). Future tasks are `todo` or `in_progress`. Counts are of top-level tasks, as in the app's lists.
+- **Subtasks** follow their parent: a done, skipped or cancelled parent has all subtasks the same; an open parent has
+  some done (in progress: at least one; overdue: all but the last); a parent waiting on an authority has its first
+  subtask done and the others waiting. A done subtask may be due later (done early), never completed after today.
 - **Permits**: next season's permits move `not_started` → `preparing` (75 days before apply-by) → `applied` (about 45 days before); the expected decision is the filing day plus a per-type turnaround, and a decision date in the past means granted. Current-season permits of past events are granted.
 - **Bookings**: placements are first-fit along the venue rows, so they never overlap. Car requests are placed first. A car
   is granted only if it is not longer than the booked stall and a car slot is free.
