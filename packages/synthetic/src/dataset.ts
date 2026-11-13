@@ -20,6 +20,7 @@ import {
   withMarketStewards,
 } from "./generators/people";
 import { buildPermitRequirements, buildPermits, linkedPermit } from "./generators/permits";
+import { buildSeasons } from "./generators/seasons";
 import { buildShifts } from "./generators/shifts";
 import { buildMarketTemplates, buildMasterTemplate, buildTasks } from "./generators/tasks";
 import { buildVendors } from "./generators/vendors";
@@ -112,6 +113,9 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
       marketTemplates.templateIdByPresetId.get(preset.id) ?? preset.checklistTemplateId,
   }));
 
+  // One Saison record per market and year (research 13 §6), before the season permits and tasks that belong to it.
+  const seasons = buildSeasons(rng, eventPresets, scheduledEvents, clock);
+
   // Permits before tasks: a task that applies for a permit follows it (done once the permit is applied for).
   const permitRequirements = buildPermitRequirements(rng, {
     venues,
@@ -127,6 +131,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     venueBlueprintByName,
     venues,
     permitsStaffId: duties.permits,
+    seasonIdOf: seasons.seasonIdOf,
     clock,
   });
   const permitById = new Map(permitBundle.permits.map((permit) => [permit.id, permit]));
@@ -139,14 +144,23 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     permitLinksByEvent.set(link.eventId, links);
   }
 
+  const seasonPermits = new Map<string, Permit>();
+  for (const permit of permitBundle.permits)
+    if (permit.seasonId !== null)
+      seasonPermits.set(`${permit.seasonId}|${permit.permitType}`, permit);
+
   const tasks = buildTasks(rng, {
     events: scheduledEvents,
     eventAnchors,
+    eventSeasons: seasons.eventSeasons,
+    eventSeasonAnchors: seasons.eventSeasonAnchors,
+    presets: eventPresets,
     templates: checklistTemplates,
     templateIdByPresetId: marketTemplates.templateIdByPresetId,
     dutyRoleIdByKey,
     permitFor: (eventId, permitType) =>
       linkedPermit(permitLinksByEvent.get(eventId) ?? [], permitType),
+    seasonPermitFor: (seasonId, permitType) => seasonPermits.get(`${seasonId}|${permitType}`),
     clock,
   });
 
@@ -226,6 +240,8 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     eventPresets,
     events,
     eventAnchors,
+    eventSeasons: seasons.eventSeasons,
+    eventSeasonAnchors: seasons.eventSeasonAnchors,
     checklistTemplates,
     tasks,
     permitRequirements,

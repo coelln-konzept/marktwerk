@@ -17,6 +17,8 @@ import type {
   Event,
   EventAnchor,
   EventPreset,
+  EventSeason,
+  EventSeasonAnchor,
   EventType,
   Permit,
   Task,
@@ -41,6 +43,8 @@ const MAX_OVERDUE_WINDOW_DAYS = 30;
 const WAITING_PAST = 2;
 /** Markets that ended this many days ago or more count as past (`notOfPastEvent` in the app). */
 const PAST_MARKET_DAYS = 7;
+/** An open season task due within this many days is being worked on (`in_progress`); later ones are `todo`. */
+const SEASON_ACTIVE_DAYS = 30;
 
 export const MASTER_TEMPLATE_NAME = "Grundvorlage";
 
@@ -207,6 +211,11 @@ export function buildMarketTemplates(
 export interface TaskContext {
   events: Event[];
   eventAnchors: EventAnchor[];
+  /** Saison records with their anchors: they get the `season` items (`Task.seasonId`). */
+  eventSeasons: EventSeason[];
+  eventSeasonAnchors: EventSeasonAnchor[];
+  /** For the season tasks' assignees: the market's default duty holders, as the app's season path uses them. */
+  presets: EventPreset[];
   templates: ChecklistTemplate[];
   /** The market's own template for every preset. */
   templateIdByPresetId: Map<string, string>;
@@ -216,6 +225,8 @@ export interface TaskContext {
    * undefined. A task whose permit is applied for or granted is done, as in the app.
    */
   permitFor: (eventId: string, permitType: string) => Permit | undefined;
+  /** The same for a season task: the season permit of that type that belongs to its Saison record. */
+  seasonPermitFor: (seasonId: string, permitType: string) => Permit | undefined;
   clock: Clock;
 }
 
@@ -267,24 +278,40 @@ function decideStatus(
 }
 
 /**
- * The first non-cancelled event of each market series per season: it carries the season items (INTERIM, see
- * SEASON_NOTE in dictionaries/checklist-items.ts).
+ * Status of a season task (Termine planen, Genehmigung beantragen) relative to today: the team plans and applies
+ * on time, so a past one is done; an upcoming one is in progress within `SEASON_ACTIVE_DAYS` of its due date,
+ * otherwise todo. `leaveSomeOverdue` may reopen one of a season that has not started yet (a couple at most).
  */
-export function seasonCarrierIds(events: readonly Event[]): Set<string> {
-  const first = new Map<string, Event>();
-  for (const event of events) {
-    if (event.status === "cancelled") continue;
-    const key = `${event.presetId}|${event.season}`;
-    const current = first.get(key);
-    if (!current || event.startsOn < current.startsOn) first.set(key, event);
-  }
-  return new Set([...first.values()].map((event) => event.id));
+function decideSeasonStatus(today: string, dueDate: string): StatusDecision {
+  const none = { waitingReason: null, skippedReason: null, rolloverCount: 0, lastRolledAt: null };
+  if (dueDate < today) return { ...none, status: "done" };
+  if (dueDate <= addDays(today, SEASON_ACTIVE_DAYS)) return { ...none, status: "in_progress" };
+  return { ...none, status: "todo" };
+}
+
+/** What a task belongs to: an event (`event` items) or a Saison record (`season` items). */
+interface Owner {
+  eventId: string | null;
+  seasonId: string | null;
+  presetId: string;
+  /** The event of an event task (null for season tasks). */
+  event: Event | null;
+  /** Who holds each duty role: the event's duties, or the market's default duties for a season. */
+  duties: Record<DutyRoleKey, string>;
+  anchors: ReadonlyMap<AnchorKey, string>;
+  /**
+   * Still ahead, so its overdue work shows on the current lists: an event that is not over (and not cancelled),
+   * a season that has not started yet.
+   */
+  ahead: boolean;
+  /** The permit a task of an item with this permit type is linked to (see `TaskContext.permitFor`). */
+  permitFor: (permitType: string) => Permit | undefined;
 }
 
 interface Planned {
   task: Task;
   item: TemplateItem;
-  event: Event;
+  owner: Owner;
   dueDate: string;
   /** Its item applies for a permit that is already applied for or granted: the task stays done. */
   filedPermit: boolean;
@@ -298,13 +325,25 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
     byKey.set(anchor.key, anchor.date);
     anchorsByEvent.set(anchor.eventId, byKey);
   }
+  const anchorsBySeason = new Map<string, Map<AnchorKey, string>>();
+  for (const anchor of ctx.eventSeasonAnchors) {
+    const byKey = anchorsBySeason.get(anchor.seasonId) ?? new Map<AnchorKey, string>();
+    byKey.set(anchor.key, anchor.date);
+    anchorsBySeason.set(anchor.seasonId, byKey);
+  }
+  const presetById = new Map(ctx.presets.map((preset) => [preset.id, preset]));
   const roleId = (key: DutyRoleKey): string => {
     const id = ctx.dutyRoleIdByKey.get(key);
     if (id === undefined) throw new Error(`Unknown duty role ${key}`);
     return id;
   };
-  const carriers = seasonCarrierIds(ctx.events);
   const today = ctx.clock.today;
+  const templateOf = (presetId: string): ChecklistTemplate => {
+    const templateId = ctx.templateIdByPresetId.get(presetId);
+    const tpl = templateId ? templateById.get(templateId) : undefined;
+    if (!tpl) throw new Error(`Preset ${presetId} has no template`);
+    return tpl;
+  };
 
   const childItemsByParent = new Map<string, TemplateItem[]>();
   const permitTypeByItemId = new Map<string, string>();
@@ -317,33 +356,68 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
     }
   }
 
-  // 1. Top-level tasks of every event.
-  const parents: Planned[] = [];
+  // 1. Top-level tasks: `event` items on every event, `season` items on every Saison record.
+  const owners: { owner: Owner; cancelled: boolean }[] = [];
   for (const event of ctx.events) {
-    const templateId = ctx.templateIdByPresetId.get(event.presetId);
-    const tpl = templateId ? templateById.get(templateId) : undefined;
     const anchors = anchorsByEvent.get(event.id);
-    if (!tpl || !anchors) throw new Error(`Event ${event.id} has no template or anchors`);
+    if (!anchors) throw new Error(`Event ${event.id} has no anchors`);
+    owners.push({
+      cancelled: event.status === "cancelled",
+      owner: {
+        eventId: event.id,
+        seasonId: null,
+        presetId: event.presetId,
+        event,
+        duties: event.duties,
+        anchors,
+        ahead: event.status !== "cancelled" && event.endsOn >= today,
+        permitFor: (permitType) => ctx.permitFor(event.id, permitType),
+      },
+    });
+  }
+  for (const season of ctx.eventSeasons) {
+    const preset = presetById.get(season.presetId);
+    if (!preset) throw new Error(`Saison ${season.id} has an unknown market`);
+    const anchors = anchorsBySeason.get(season.id) ?? new Map<AnchorKey, string>();
+    owners.push({
+      cancelled: false,
+      owner: {
+        eventId: null,
+        seasonId: season.id,
+        presetId: season.presetId,
+        event: null,
+        duties: preset.defaultDuties,
+        anchors,
+        ahead: (anchors.get("seasonStart") ?? "") >= today,
+        permitFor: (permitType) => ctx.seasonPermitFor(season.id, permitType),
+      },
+    });
+  }
 
-    for (const item of tpl.items) {
-      if (item.parentKey !== null) continue;
-      if (item.scope === "season" && !carriers.has(event.id)) continue;
-      const anchorDate = anchors.get(item.anchorKey);
+  const parents: Planned[] = [];
+  for (const { owner, cancelled } of owners) {
+    const scope = owner.event ? "event" : "season";
+    const ownerName = owner.eventId ?? `Saison ${owner.seasonId}`;
+    for (const item of templateOf(owner.presetId).items) {
+      if (item.parentKey !== null || item.scope !== scope) continue;
+      const anchorDate = owner.anchors.get(item.anchorKey);
       if (anchorDate === undefined)
-        throw new Error(`Missing anchor ${item.anchorKey} for event ${event.id}`);
+        throw new Error(`Missing anchor ${item.anchorKey} for ${ownerName}`);
       if (item.dutyRoleKey === null) throw new Error(`Item ${item.stableKey} has no duty role`);
       const dueDate = addDays(anchorDate, item.offsetDays);
       const dueAt = berlinInstant(dueDate, item.dueTime ?? "09:00");
-      const assigneeId = event.duties[item.dutyRoleKey];
+      const assigneeId = owner.duties[item.dutyRoleKey];
 
-      let decision = decideStatus(rng, today, item, dueDate, event.status);
+      let decision = owner.event
+        ? decideStatus(rng, today, item, dueDate, owner.event.status)
+        : decideSeasonStatus(today, dueDate);
       let completedAt =
         decision.status === "done" || decision.status === "skipped"
           ? new Date(Date.parse(dueAt) + rng.int(-3, 5) * 3_600_000).toISOString()
           : null;
       // A task that applies for a permit is done once the permit is applied for (the app's linkPermitTasks).
-      const permit = item.permitType ? ctx.permitFor(event.id, item.permitType) : undefined;
-      const filedPermit = event.status !== "cancelled" && permitIsFiled(permit);
+      const permit = item.permitType ? owner.permitFor(item.permitType) : undefined;
+      const filedPermit = !cancelled && permitIsFiled(permit);
       if (filedPermit && completedAt === null && permit?.appliedAt) {
         decision = { ...decision, status: "done", waitingReason: null };
         completedAt = berlinInstant(permit.appliedAt, "11:00");
@@ -351,12 +425,13 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
 
       parents.push({
         item,
-        event,
+        owner,
         dueDate,
         filedPermit,
         task: {
           id: rng.uuid(),
-          eventId: event.id,
+          eventId: owner.eventId,
+          seasonId: owner.seasonId,
           templateItemId: item.id,
           templateStableKey: item.stableKey,
           parentTaskId: null,
@@ -392,25 +467,31 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
   const tasks: Task[] = [];
   for (const parent of parents) {
     tasks.push(parent.task);
-    const tplId = ctx.templateIdByPresetId.get(parent.event.presetId);
+    const tplId = ctx.templateIdByPresetId.get(parent.owner.presetId);
     const children = childItemsByParent.get(`${tplId}|${parent.item.stableKey}`) ?? [];
-    tasks.push(...subtasks(rng, today, parent, children, anchorsByEvent, roleId));
-  }
-  // A subtask that applies for a permit of its own (Festsetzung, Plakatierung) is done once that permit is filed.
-  for (const task of tasks) {
-    if (task.parentTaskId === null || task.status === "cancelled" || task.status === "skipped")
-      continue;
-    const type = permitTypeByItemId.get(task.templateItemId);
-    const permit = type ? ctx.permitFor(task.eventId, type) : undefined;
-    if (task.status !== "done" && permitIsFiled(permit) && permit?.appliedAt) {
-      task.status = "done";
-      task.waitingReason = null;
-      task.completedAt = berlinInstant(permit.appliedAt, "11:00");
-      task.completedById = task.assigneeId;
+    for (const subtask of subtasks(rng, today, parent, children, roleId)) {
+      // A subtask that applies for a permit of its own (Festsetzung, Plakatierung) is done once that permit is filed.
+      const type = permitTypeByItemId.get(subtask.templateItemId);
+      const permit = type ? parent.owner.permitFor(type) : undefined;
+      if (
+        subtask.status !== "cancelled" &&
+        subtask.status !== "skipped" &&
+        subtask.status !== "done" &&
+        permitIsFiled(permit) &&
+        permit?.appliedAt
+      ) {
+        subtask.status = "done";
+        subtask.waitingReason = null;
+        subtask.completedAt = berlinInstant(permit.appliedAt, "11:00");
+        subtask.completedById = subtask.assigneeId;
+      }
+      tasks.push(subtask);
     }
   }
   return tasks;
 }
+
+type EventPlanned = Planned & { owner: Owner & { event: Event } };
 
 /**
  * The subtasks of one task. A child item takes the parent's due date and duty role unless it has its own
@@ -423,7 +504,6 @@ function subtasks(
   today: string,
   parent: Planned,
   children: readonly TemplateItem[],
-  anchorsByEvent: ReadonlyMap<string, ReadonlyMap<AnchorKey, string>>,
   roleId: (key: DutyRoleKey) => string,
 ): Task[] {
   if (children.length === 0) return [];
@@ -443,12 +523,12 @@ function subtasks(
     const roleKey = child.dutyRoleKey ?? parentRoleKey;
     let dueAt = p.dueAt;
     if (child.ownDue) {
-      const anchorDate = anchorsByEvent.get(p.eventId)?.get(child.anchorKey);
+      const anchorDate = parent.owner.anchors.get(child.anchorKey);
       if (anchorDate === undefined)
-        throw new Error(`Missing anchor ${child.anchorKey} for event ${p.eventId}`);
+        throw new Error(`Missing anchor ${child.anchorKey} for task ${p.id}`);
       dueAt = berlinInstant(addDays(anchorDate, child.offsetDays), child.dueTime ?? "09:00");
     }
-    const assigneeId = parent.event.duties[roleKey];
+    const assigneeId = parent.owner.duties[roleKey];
 
     let childStatus: TaskStatus;
     if (index < doneCount) {
@@ -472,6 +552,7 @@ function subtasks(
     return {
       id: rng.uuid(),
       eventId: p.eventId,
+      seasonId: p.seasonId,
       templateItemId: child.id,
       templateStableKey: child.stableKey,
       parentTaskId: p.id,
@@ -504,16 +585,16 @@ function subtasks(
  * Reopens the few top-level tasks the team has not caught up with yet: `OVERDUE_CURRENT` recently due tasks of
  * markets that are not over (they show as overdue), and `OVERDUE_LEFTOVERS` tasks of the last market that ended
  * more than a week ago (only the Übersicht's cleanup line shows them). Permit tasks stay as they are (they follow
- * their permit), except `WAITING_PAST` recent ones that still wait on the authority.
+ * their permit), except `WAITING_PAST` recent ones that still wait on the authority. A season counts as current
+ * while it has not started yet (its work is still ahead), so next season's Termine planen may be among them; the
+ * current season's work is done.
  */
-function leaveSomeOverdue(rng: Rng, today: string, planned: Planned[]): void {
+function leaveSomeOverdue(rng: Rng, today: string, all: readonly Planned[]): void {
   const finished = (task: Task) => task.status === "done" || task.status === "skipped";
   const candidate = ({ task, dueDate, filedPermit }: Planned) =>
     finished(task) && task.category !== "permits" && !filedPermit && dueDate < today;
 
-  const ofCurrentMarket = planned.filter(
-    (p) => candidate(p) && p.event.status !== "cancelled" && p.event.endsOn >= today,
-  );
+  const ofCurrentMarket = all.filter((p) => candidate(p) && p.owner.ahead);
   // Recently due ones; the window widens in steps while there are too few (the sheets have few items per event).
   let current: Planned[] = [];
   for (
@@ -526,6 +607,9 @@ function leaveSomeOverdue(rng: Rng, today: string, planned: Planned[]): void {
   }
 
   const pastCutoff = addDays(today, -PAST_MARKET_DAYS);
+  const planned = all
+    .filter((p): p is EventPlanned => p.owner.event !== null)
+    .map((p) => ({ ...p, event: p.owner.event }));
   const lastPast = [...new Map(planned.map((p) => [p.event.id, p.event])).values()]
     .filter((event) => event.status !== "cancelled" && event.endsOn < pastCutoff)
     .sort((a, b) => (a.endsOn < b.endsOn ? 1 : a.endsOn > b.endsOn ? -1 : 0))[0];
@@ -545,15 +629,14 @@ function leaveSomeOverdue(rng: Rng, today: string, planned: Planned[]): void {
   };
   // A couple of recent permit tasks still wait on the authority (the market is ahead, so that is normal). Not those
   // whose permit is already applied for: the app counts them as done.
-  const waiting = planned.filter(
-    ({ task, event, dueDate, filedPermit }) =>
+  const waiting = all.filter(
+    ({ task, owner, dueDate, filedPermit }) =>
       task.status === "done" &&
       !filedPermit &&
       task.category === "permits" &&
       dueDate < today &&
       dueDate >= addDays(today, -30) &&
-      event.status !== "cancelled" &&
-      event.endsOn >= today,
+      owner.ahead,
   );
   for (const { task } of rng.shuffle(waiting).slice(0, WAITING_PAST)) {
     task.status = "waiting_external";
