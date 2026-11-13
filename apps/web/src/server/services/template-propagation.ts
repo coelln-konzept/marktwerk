@@ -564,11 +564,13 @@ export async function applyTemplateVersion(
       });
     }
     await audit(tx, actor.id, entries);
-    // New and changed items that apply for a permit get linked to the event's permit (one linking path).
+    // New and changed items that apply for a permit get linked to the event's or the Saison's permit (one
+    // linking path; season permits since R11).
     await linkPermitTasks(
       tx,
-      plans.map((p) => p.ctx.id),
+      plans.filter((p) => p.ctx.scope === "event").map((p) => p.ctx.id),
       actor,
+      { seasonIds: plans.filter((p) => p.ctx.scope === "season").map((p) => p.ctx.id) },
     );
     return result;
   });
