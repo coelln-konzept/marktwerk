@@ -21,8 +21,11 @@ import {
   appointmentVorschauValue,
 } from "@/components/appointments/appointment-params";
 import { AppointmentVorschau } from "@/components/appointments/appointment-vorschau";
+import { EventVorschau } from "@/components/events/event-vorschau";
 import { DeadlineChip, LAYER_ICONS } from "@/components/kalender/deadline-chip";
 import { EventChip } from "@/components/kalender/event-chip";
+import { type EventPreview, eventVorschauId } from "@/components/kalender/event-params";
+import { EventPopoverProvider } from "@/components/kalender/event-popover";
 import {
   type DisplayItem,
   deadlineKind,
@@ -74,7 +77,11 @@ const LIST_DAYS = 42;
 export default async function KalenderPage({ searchParams }: PageProps<"/kalender">) {
   await requirePermission("event", "read");
   const actor = await getActor();
-  const sp = await searchParams;
+  // The event popover (`?vorschau=veranstaltung:<id>`) is the page's own state on the client: it is read
+  // here once and kept out of every link the page builds (another month must not try to reopen it).
+  const { vorschau: rawVorschau, ...rest } = await searchParams;
+  const vorschauEvent = eventVorschauId(param(rawVorschau));
+  const sp = vorschauEvent ? rest : { ...rest, vorschau: rawVorschau };
   const t = await getTranslations("kalenderPage");
   const tNav = await getTranslations("nav");
   const tCal = await getTranslations("calendar");
@@ -169,8 +176,21 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
       ? [...allHolidays].map(([d, h]) => [d, locale === "en" ? h.nameEn : h.nameDe] as const)
       : [],
   );
-  // Every link to a market opens its Überblick (UX pass 2026-10-22).
+  // Every link to a market opens its Überblick (UX pass 2026-10-22); a plain click on a chip or row opens
+  // the event popover first (UT2-08). Its data comes from the rows already loaded (no query per event).
   const eventHref = (id: string) => `/veranstaltungen/${id}`;
+  const previews: EventPreview[] = visible.map((r) => ({
+    id: r.id,
+    name: r.name,
+    typeKey: r.typeKey,
+    typeName: locale === "en" ? r.typeNameEn : r.typeNameDe,
+    status: r.status,
+    startsOn: r.startsOn,
+    endsOn: r.endsOn,
+    venueName: r.venueName,
+    times: r.times,
+    tasks: r.taskCounts,
+  }));
 
   // Navigation keeps the layer selection that is in the URL.
   const nav = (patch: Record<string, string | undefined>) => hrefWith(PATH, sp, patch);
@@ -238,6 +258,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
         date: d,
         node: (
           <EventChip
+            eventId={r.id}
             href={eventHref(r.id)}
             typeKey={r.typeKey}
             color={r.color}
@@ -356,42 +377,58 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
         keep={keep}
         changedCount={changedCount}
       >
-        <Panel className="overflow-hidden" aria-label={title}>
-          {view === "monat" ? (
-            <MonthGrid
-              month={month}
-              weekdays={tCal("weekdays").split(",")}
-              weekLabel={tCal("week")}
-              today={today}
-              holidays={holidays}
-              entries={entries}
-              flaggedSaturdays={flagged}
-              flagLabel={t("legend.weekend")}
-              moreLabel={(n) => tCal("more", { n })}
-              moreAria={(n, day) => t("moreAria", { n, day: formatDate(day, locale) })}
-              dayTitle={(day) => formatDateWithWeekday(day, locale)}
-              moreHref={moreHref}
-              moreListLabel={t("moreList")}
-              addHref={canCreateAppointment ? addHref : undefined}
-              addLabel={addLabel}
-            />
-          ) : (
-            <CalendarList
-              from={from}
-              to={to}
-              today={today}
-              rows={visible}
-              deadlines={display}
-              appointments={appointments}
-              appointmentHref={appointmentLink}
-              holidays={holidays}
-              hrefFor={eventHref}
-              resetHref={hrefWith(PATH, {}, { ...layerParams(DEFAULT_LAYERS), ansicht: "liste" })}
-              addHref={canCreateAppointment ? addHref : undefined}
-              addLabel={addLabel}
-            />
-          )}
-        </Panel>
+        <EventPopoverProvider
+          path={PATH}
+          events={previews}
+          vorschauId={vorschauEvent}
+          canWrite={can(actor.role, "event", "write")}
+          canTasks={can(actor.role, "task", "read")}
+          fallback={
+            vorschauEvent ? (
+              <EventVorschau
+                id={vorschauEvent}
+                closeHref={hrefWith(PATH, sp, { vorschau: undefined })}
+              />
+            ) : null
+          }
+        >
+          <Panel className="overflow-hidden" aria-label={title}>
+            {view === "monat" ? (
+              <MonthGrid
+                month={month}
+                weekdays={tCal("weekdays").split(",")}
+                weekLabel={tCal("week")}
+                today={today}
+                holidays={holidays}
+                entries={entries}
+                flaggedSaturdays={flagged}
+                flagLabel={t("legend.weekend")}
+                moreLabel={(n) => tCal("more", { n })}
+                moreAria={(n, day) => t("moreAria", { n, day: formatDate(day, locale) })}
+                dayTitle={(day) => formatDateWithWeekday(day, locale)}
+                moreHref={moreHref}
+                moreListLabel={t("moreList")}
+                addHref={canCreateAppointment ? addHref : undefined}
+                addLabel={addLabel}
+              />
+            ) : (
+              <CalendarList
+                from={from}
+                to={to}
+                today={today}
+                rows={visible}
+                deadlines={display}
+                appointments={appointments}
+                appointmentHref={appointmentLink}
+                holidays={holidays}
+                hrefFor={eventHref}
+                resetHref={hrefWith(PATH, {}, { ...layerParams(DEFAULT_LAYERS), ansicht: "liste" })}
+                addHref={canCreateAppointment ? addHref : undefined}
+                addLabel={addLabel}
+              />
+            )}
+          </Panel>
+        </EventPopoverProvider>
         {view === "monat" &&
           visible.length === 0 &&
           deadlines.length === 0 &&

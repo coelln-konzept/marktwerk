@@ -155,7 +155,7 @@ Rules live in `packages/core/src/events/overview.ts`; task rows open the task dr
 
 ### Linkable overlays (implementation detail, ADR 0019)
 Vorschau and drawers are addressed by search params on the current page. As built in M1: **`?vorschau=<id>`** (the
-list page knows which record kind it shows; a Besprechung on the Kalender and the Übersicht is **`?vorschau=besprechung:<id>`**; Team uses **`?person=<id>`**) and, for the generation sheet,
+list page knows which record kind it shows; a Besprechung on the Kalender and the Übersicht is **`?vorschau=besprechung:<id>`**, the Kalender's event popover **`?vorschau=veranstaltung:<id>`**; Team uses **`?person=<id>`**) and, for the generation sheet,
 **`?erzeugen=1[&vorlage=<presetId>|&neu=1]`** on `/veranstaltungen` (`neu=1` opens the new-market form). Drawers (from M2) follow the same idea, e.g.
 `?detail=task:<id>`. A copied link reopens the same page with the same overlay; closing a Vorschau replaces the URL
 (it does not pile up history entries). Pages read the param on the server and render the overlay with the page, so a
@@ -290,8 +290,18 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
   and always on touch screens. "+ Neu › Besprechung" pre-fills today. **Privacy:** the Vorschau shows the Ansprechpartner
   block only with `contact` read and links the Ort only with `venue` read (plain text otherwise). **Office only:** Besprechungen
   use the own `appointment` grant (owner, manager, `staff`), so field users get no layer, no "Besprechungen heute" group and no Vorschau. Text lengths are capped (Name 200, Adresse 300, Notizen 2000, Kontakt 200 / E-Mail 254 / Telefon 40).
-- **Entries:** month chips show the full market name (up to two lines) with the market colour bar; every event
-  chip and list row links to the event's Überblick (`/veranstaltungen/<id>`).
+- **Entries:** month chips show the full market name (up to two lines) with the market colour bar. A click on an
+  event chip or list row opens the **event popover** in place, anchored to the chip/row (UT2-08, decision D2-8): type, status,
+  date with weekday and KW, the times ("08–16 Uhr · Aufbau ab 06:00", the Zeitplan summary once it exists), Ort; a
+  **"Status ändern"** menu (Entwurf / geplant / bestätigt, only the allowed transitions, only with `event` write; same
+  service and undo toast as the event page; no Verschieben, no Absagen); **"Checkliste"** with the open and overdue
+  task counts (with `task` read) → `/veranstaltungen/<id>/board`; primary **"Öffnen"** → the Überblick. Linkable as
+  **`?vorschau=veranstaltung:<id>`** (written with `replaceState`, no history entry; other Kalender links never carry
+  it); a link whose event has no chip on screen (other month, hidden layer, inside "+ N weitere") shows the event's
+  Vorschau card instead. Esc closes, focus returns to the chip/row; in the Liste Enter or Space on a row opens it, the
+  row's "Öffnen" still goes straight to the event. Chips and row names stay real links to the event, so Ctrl/⌘-click,
+  middle-click and "In neuem Tab öffnen" open the event page. A chip inside "+ N weitere" opens it on top of that
+  popover. The data comes with the Kalender's own query (task counts in one grouped query, no query per event).
 - The layer selection is **saved per person** (`user_preference.saved_views`).
 - Weekend marker **⚑** when a weekend has 4 or more events (the weekend cap).
 - **Rollout:** M1 ships the Veranstaltungen and Feiertage NRW layers; the other layers appear as their modules land

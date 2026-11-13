@@ -76,6 +76,8 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
       venueId: venue.id,
       venueName: venue.name,
       city: venue.city,
+      /** Wall-clock times of an event day (setup, open, close, teardown). */
+      times: event.times,
       duties: sql<number>`(select count(*)::int from ${eventDuty} where ${eventDuty.eventId} = ${event.id})`,
     })
     .from(event)
@@ -89,6 +91,8 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
     ...r,
     health: healthOf(r.status, r.duties, required, dims.get(r.id)),
     reasons: reasonsOf(r.status, dims.get(r.id)),
+    /** Open and overdue tasks the actor can see (the Kalender popover's "Checkliste" counts). */
+    taskCounts: dims.get(r.id)?.taskCounts ?? NO_TASKS,
   }));
 }
 
@@ -98,7 +102,14 @@ type Dimensions = {
   money: HealthLevel | null;
   /** What the levels are made of, for "1 Genehmigung fehlt" / "5 überfällig" instead of "Achtung". */
   counts: HealthCounts;
+  /** Plain task numbers, also for finished events (the health counts drop them). */
+  taskCounts: TaskCounts;
 };
+
+/** Open tasks of an event and how many of them are overdue. */
+export type TaskCounts = { open: number; overdue: number };
+
+const NO_TASKS: TaskCounts = { open: 0, overdue: 0 };
 
 /** The numbers behind the permit and task health levels of one event. */
 export type HealthCounts = {
@@ -142,6 +153,10 @@ async function dimensionHealth(
           tasksOverdue: tasks.get(id)?.overdue ?? 0,
           tasksBlocked: tasks.get(id)?.blocked ?? 0,
         },
+        taskCounts: {
+          open: tasks.get(id)?.open ?? 0,
+          overdue: tasks.get(id)?.overdue ?? 0,
+        },
       },
     ]),
   );
@@ -156,7 +171,13 @@ function healthOf(
   status: EventStatusKey,
   duties: number,
   required: number,
-  dims: Dimensions = { permits: null, tasks: null, money: null, counts: NO_COUNTS },
+  dims: Dimensions = {
+    permits: null,
+    tasks: null,
+    money: null,
+    counts: NO_COUNTS,
+    taskCounts: NO_TASKS,
+  },
 ): HealthDimensions {
   const past = status === "completed" || status === "closed" || status === "cancelled";
   return {

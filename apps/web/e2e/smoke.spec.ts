@@ -315,7 +315,8 @@ test("Kalender: Ebenen collapsed by default, two presets, tasks off, full market
   );
   await page.getByRole("button", { name: "Ebenen" }).click();
 
-  // Event chips link to the Überblick and show the whole market name.
+  // Event chips stay links to the Überblick (new tab; a plain click opens the popover, see below) and show
+  // the whole market name.
   await page.goto("/kalender?ebenen=1&typ=flea,antique,city_festival,food_wine");
   const chip = page.locator("table a[href^='/veranstaltungen/']").first();
   await expect(chip).toBeVisible();
@@ -356,6 +357,54 @@ test('Kalender: "+ N weitere" opens the whole day in place; Escape closes it', a
   await page.keyboard.press("Escape");
   await expect(popup).toBeHidden();
   await expect(more).toBeFocused();
+});
+
+test("Kalender: an event opens its popover in place (Monat and Liste); linkable, Escape closes it", async ({
+  page,
+}) => {
+  const all = "ebenen=1&typ=flea,antique,city_festival,food_wine";
+  await page.goto(`/kalender?ansicht=monat&${all}`);
+  await page.waitForLoadState("networkidle"); // hydrated, so a click opens the popover
+  const chip = page.locator("table a[data-event-trigger]").first();
+  await expect(chip).toBeVisible();
+  const href = (await chip.getAttribute("href")) as string;
+  expect(href).toMatch(/^\/veranstaltungen\/[0-9a-f-]{36}$/);
+  const id = href.split("/").pop() as string;
+  const name = ((await chip.getAttribute("title")) as string).split(" · ")[0] as string;
+
+  // A plain click stays on the Kalender: type, status, date with KW, Zeiten, Ort, Checkliste, Öffnen.
+  await chip.click();
+  const popover = page.getByRole("dialog", { name });
+  await expect(popover).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/kalender\\?.*vorschau=veranstaltung(%3A|:)${id}`));
+  await expect(popover.getByText(/KW \d+/)).toBeVisible();
+  await expect(popover.getByText(/Aufbau ab \d\d:\d\d/)).toBeVisible();
+  await expect(popover.getByRole("link", { name: "Öffnen" })).toHaveAttribute("href", href);
+  await expect(popover.getByRole("link", { name: /^Checkliste/ })).toHaveAttribute(
+    "href",
+    `${href}/board`,
+  );
+  await page.keyboard.press("Escape");
+  await expect(popover).toBeHidden();
+  await expect(chip).toBeFocused();
+  await expect(page).not.toHaveURL(/vorschau=/);
+
+  // The link opens the same popover.
+  await page.goto(`/kalender?ansicht=monat&${all}&vorschau=veranstaltung:${id}`);
+  await expect(page.getByRole("dialog", { name })).toBeVisible();
+
+  // Liste: a click on the row opens it too; the row's "Öffnen" still goes straight to the event.
+  await page.goto(`/kalender?ansicht=liste&${all}`);
+  await page.waitForLoadState("networkidle");
+  const row = page.locator("tr[data-event-row]").first();
+  test.skip((await row.count()) === 0, "no event in the next six weeks");
+  await expect(
+    row.locator("a[href^='/veranstaltungen/']:not([data-event-trigger])"),
+  ).toHaveAttribute("href", /^\/veranstaltungen\/[0-9a-f-]{36}$/);
+  await row.locator("a[data-event-trigger]").click();
+  await expect(page.getByRole("dialog").getByRole("link", { name: "Öffnen" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
 });
 
 test('Permit: "Als ersetzt markieren" toggles back; the top bar\'s Rückgängig works after the toast is gone', async ({

@@ -107,6 +107,18 @@
     "groupAll": "All in the permits logbook",
     "groupAllTasks": "All tasks",
     "groupAria": "{text}: show each",
-    "spanRange": "{days} days · until {to}"
+    "spanRange": "{days} days · until {to}",
+    "eventPopover": {
+      "date": "Date",
+      "times": "Times",
+      "timesValue": "{open}–{close} · setup from {setup}",
+      "venue": "Venue",
+      "status": "Change status",
+      "checklist": "Checklist",
+      "openTasks": "{count, plural, =0 {nothing open} other {# open}}",
+      "overdueTasks": "{count} overdue",
+      "open": "Open",
+      "close": "Close"
+    }
   }
 }
