@@ -14,7 +14,7 @@ import { OdometerButton } from "@/components/company/odometer-dialog";
 import { ObligationStatusBadge } from "@/components/company/status";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { Facts } from "@/components/ui/vorschau";
 import { formatDate, formatNumber, todayIn } from "@/lib/format";
@@ -101,10 +101,7 @@ export default async function VehiclePage({ params }: PageProps<"/firma/fahrzeug
         }
       />
 
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{tv("facts")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={tv("facts")}>
         <PanelBody>
           <Facts
             items={[
@@ -169,12 +166,12 @@ export default async function VehiclePage({ params }: PageProps<"/firma/fahrzeug
         </PanelBody>
       </Panel>
 
-      <section aria-labelledby="vehicle-obligations" className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="vehicle-obligations" className="font-semibold text-[15px]">
-            {tv("obligations")}
-          </h2>
-          {canWrite && (
+      <Panel
+        title={tv("obligations")}
+        titleId="vehicle-obligations"
+        cardClassName="overflow-hidden"
+        actions={
+          canWrite ? (
             <Link
               href={`/firma/pflichten/neu?fahrzeug=${v.id}` as never}
               className={buttonVariants({ variant: "outline" })}
@@ -182,114 +179,108 @@ export default async function VehiclePage({ params }: PageProps<"/firma/fahrzeug
               <Plus aria-hidden />
               {tv("newObligation")}
             </Link>
-          )}
-        </div>
-        <Panel className="overflow-hidden">
-          {obligations.length === 0 ? (
-            <PanelBody className="flex flex-col items-start gap-3">
-              <p className="text-muted-foreground">{tv("noObligations")}</p>
-              {/* A vehicle without any Pflicht has no HU/insurance tracking yet: one click starts it. */}
-              {canWrite && (
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    href={`/firma/pflichten/neu?fahrzeug=${v.id}&vorlage=hu` as never}
-                    className={buttonVariants({ variant: "outline" })}
-                  >
-                    <Plus aria-hidden />
-                    {tv("addHu")}
-                  </Link>
-                  <Link
-                    href={`/firma/pflichten/neu?fahrzeug=${v.id}&vorlage=vehicleInsurance` as never}
-                    className={buttonVariants({ variant: "outline" })}
-                  >
-                    <Plus aria-hidden />
-                    {tv("addInsurance")}
-                  </Link>
-                </div>
-              )}
-            </PanelBody>
-          ) : (
-            <Table>
-              <caption className="sr-only">{tv("obligationsCaption")}</caption>
-              <THead>
-                <tr>
-                  <TH>{t("obligations.cols.status")}</TH>
-                  <TH>{t("obligations.cols.title")}</TH>
-                  <TH>{t("obligations.cols.interval")}</TH>
-                  <TH>{t("obligations.cols.due")}</TH>
-                  <TH>{t("obligations.cols.responsible")}</TH>
+          ) : undefined
+        }
+      >
+        {obligations.length === 0 ? (
+          <PanelBody className="flex flex-col items-start gap-3">
+            <p className="text-muted-foreground">{tv("noObligations")}</p>
+            {/* A vehicle without any Pflicht has no HU/insurance tracking yet: one click starts it. */}
+            {canWrite && (
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/firma/pflichten/neu?fahrzeug=${v.id}&vorlage=hu` as never}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  <Plus aria-hidden />
+                  {tv("addHu")}
+                </Link>
+                <Link
+                  href={`/firma/pflichten/neu?fahrzeug=${v.id}&vorlage=vehicleInsurance` as never}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  <Plus aria-hidden />
+                  {tv("addInsurance")}
+                </Link>
+              </div>
+            )}
+          </PanelBody>
+        ) : (
+          <Table>
+            <caption className="sr-only">{tv("obligationsCaption")}</caption>
+            <THead>
+              <tr>
+                <TH>{t("obligations.cols.status")}</TH>
+                <TH>{t("obligations.cols.title")}</TH>
+                <TH>{t("obligations.cols.interval")}</TH>
+                <TH>{t("obligations.cols.due")}</TH>
+                <TH>{t("obligations.cols.responsible")}</TH>
+                {canWrite && (
+                  <TH>
+                    <span className="sr-only">{t("obligations.cols.actions")}</span>
+                  </TH>
+                )}
+              </tr>
+            </THead>
+            <tbody>
+              {obligations.map((o) => (
+                <TR key={o.id}>
+                  <TD>
+                    <ObligationStatusBadge
+                      status={o.status}
+                      dueOn={o.nextDueOn}
+                      today={today}
+                      kmLeft={o.kmLeft}
+                      trigger={o.trigger}
+                    />
+                  </TD>
+                  <TD className="max-w-80">
+                    <Link
+                      href={`/firma/pflichten/${o.id}` as never}
+                      className="inline-flex items-center gap-2 font-semibold text-accent-soft-foreground hover:underline"
+                    >
+                      <KindIcon kind={o.kind} />
+                      <span className="truncate">{o.title}</span>
+                    </Link>
+                  </TD>
+                  <TD className="text-small text-foreground-2">
+                    <IntervalText months={o.intervalMonths} km={o.intervalKm} />
+                  </TD>
+                  <TD>
+                    <DueCell dueOn={o.nextDueOn} dueKm={o.nextDueKm} />
+                  </TD>
+                  <TD className="whitespace-nowrap">{o.responsibleName}</TD>
                   {canWrite && (
-                    <TH>
-                      <span className="sr-only">{t("obligations.cols.actions")}</span>
-                    </TH>
-                  )}
-                </tr>
-              </THead>
-              <tbody>
-                {obligations.map((o) => (
-                  <TR key={o.id}>
-                    <TD>
-                      <ObligationStatusBadge
-                        status={o.status}
-                        dueOn={o.nextDueOn}
+                    <TD className="text-right">
+                      <CompleteButton
+                        size="sm"
                         today={today}
-                        kmLeft={o.kmLeft}
-                        trigger={o.trigger}
+                        target={{
+                          id: o.id,
+                          title: o.title,
+                          kind: o.kind,
+                          intervalKm: o.intervalKm,
+                          onVehicle: true,
+                          createsPayable: o.createsPayable,
+                          currentKm: o.currentKm,
+                        }}
                       />
                     </TD>
-                    <TD className="max-w-80">
-                      <Link
-                        href={`/firma/pflichten/${o.id}` as never}
-                        className="inline-flex items-center gap-2 font-semibold text-accent-soft-foreground hover:underline"
-                      >
-                        <KindIcon kind={o.kind} />
-                        <span className="truncate">{o.title}</span>
-                      </Link>
-                    </TD>
-                    <TD className="text-small text-foreground-2">
-                      <IntervalText months={o.intervalMonths} km={o.intervalKm} />
-                    </TD>
-                    <TD>
-                      <DueCell dueOn={o.nextDueOn} dueKm={o.nextDueKm} />
-                    </TD>
-                    <TD className="whitespace-nowrap">{o.responsibleName}</TD>
-                    {canWrite && (
-                      <TD className="text-right">
-                        <CompleteButton
-                          size="sm"
-                          today={today}
-                          target={{
-                            id: o.id,
-                            title: o.title,
-                            kind: o.kind,
-                            intervalKm: o.intervalKm,
-                            onVehicle: true,
-                            createsPayable: o.createsPayable,
-                            currentKm: o.currentKm,
-                          }}
-                        />
-                      </TD>
-                    )}
-                  </TR>
-                ))}
-              </tbody>
-            </Table>
-          )}
-        </Panel>
-      </section>
+                  )}
+                </TR>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Panel>
 
-      <section aria-labelledby="vehicle-issues" className="flex flex-col gap-3">
-        <h2 id="vehicle-issues" className="font-semibold text-[15px]">
-          {tv("issues")}
-        </h2>
-        <Panel className="overflow-hidden">
-          {issues.length === 0 ? (
-            <PanelBody className="text-muted-foreground">{tv("noIssues")}</PanelBody>
-          ) : (
-            <IssuesTable rows={issues} canWrite={canWrite} showVehicle={false} />
-          )}
-        </Panel>
-      </section>
+      <Panel title={tv("issues")} titleId="vehicle-issues" cardClassName="overflow-hidden">
+        {issues.length === 0 ? (
+          <PanelBody className="text-muted-foreground">{tv("noIssues")}</PanelBody>
+        ) : (
+          <IssuesTable rows={issues} canWrite={canWrite} showVehicle={false} />
+        )}
+      </Panel>
     </Page>
   );
 }

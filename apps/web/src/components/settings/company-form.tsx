@@ -8,7 +8,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Panel, PanelBody, PanelFooter, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
 import type { CompanySettings } from "@/server/queries/settings";
 import type { CompanyField, SettingsFieldError } from "@/server/services/settings";
 import { SELECT_CLASS } from "./select-class";
@@ -164,19 +164,13 @@ export function CompanyForm({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-6">
-      <Panel aria-labelledby={`${formId}-identity`}>
-        <PanelHeader>
-          <PanelTitle id={`${formId}-identity`}>{t("sections.identity")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("sections.identity")} titleId={`${formId}-identity`}>
         <PanelBody className={grid}>
           {text("companyName", { className: "sm:col-span-2" })}
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby={`${formId}-address`}>
-        <PanelHeader>
-          <PanelTitle id={`${formId}-address`}>{t("sections.address")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("sections.address")} titleId={`${formId}-address`}>
         <PanelBody className={grid}>
           {text("addressLine1", { autoComplete: "address-line1", optional: true })}
           {text("addressLine2", { autoComplete: "address-line2", optional: true })}
@@ -190,10 +184,7 @@ export function CompanyForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby={`${formId}-contact`}>
-        <PanelHeader>
-          <PanelTitle id={`${formId}-contact`}>{t("sections.contact")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("sections.contact")} titleId={`${formId}-contact`}>
         <PanelBody className={grid}>
           {text("email", { type: "email", inputMode: "email", optional: true })}
           {text("phone", { type: "tel", inputMode: "tel", optional: true })}
@@ -223,10 +214,7 @@ export function CompanyForm({
         </div>
       </details>
 
-      <Panel aria-labelledby={`${formId}-operations`}>
-        <PanelHeader>
-          <PanelTitle id={`${formId}-operations`}>{t("sections.operations")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("sections.operations")} titleId={`${formId}-operations`}>
         <PanelBody className={grid}>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${formId}-timeZone`}>{t("fields.timeZone")}</Label>

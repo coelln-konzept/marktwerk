@@ -15,7 +15,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody, PanelHeading } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { RowActions, rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
@@ -94,10 +94,7 @@ export default async function LibraryPage({
       <SettingsHeader />
       <p className="m-0 text-muted-foreground text-small">{t("subtitle")}</p>
 
-      <Panel aria-labelledby="library-master-title">
-        <PanelHeader>
-          <PanelTitle id="library-master-title">{t("master.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("master.title")} titleId="library-master-title">
         <PanelBody className="flex flex-col gap-3">
           {master ? (
             <>
@@ -148,25 +145,24 @@ export default async function LibraryPage({
       {inUse.length > 0 && (
         <section aria-labelledby="library-inuse-title" className="flex flex-col gap-2">
           <div>
-            <h2 id="library-inuse-title" className="m-0 font-semibold text-[15px]">
+            <PanelHeading id="library-inuse-title" className="mb-0">
               {t("inUse.title")}
-            </h2>
-            <p className="m-0 max-w-3xl text-muted-foreground text-small">{t("inUse.hint")}</p>
+            </PanelHeading>
+            <p className="m-0 max-w-3xl px-1 text-muted-foreground text-small">{t("inUse.hint")}</p>
           </div>
           <TimelineTable templates={inUse} />
         </section>
       )}
 
-      <Panel aria-labelledby="library-markets-title" className="overflow-hidden">
-        <PanelHeader>
-          <PanelTitle id="library-markets-title">{t("markets.title")}</PanelTitle>
-          <span className="text-muted-foreground text-small">
-            {t("markets.count", {
-              count: markets.length,
-              active: markets.filter((m) => m.active).length,
-            })}
-          </span>
-        </PanelHeader>
+      <Panel
+        title={t("markets.title")}
+        titleId="library-markets-title"
+        cardClassName="overflow-hidden"
+        meta={t("markets.count", {
+          count: markets.length,
+          active: markets.filter((m) => m.active).length,
+        })}
+      >
         {markets.length === 0 ? (
           <EmptyState icon={Store} title={t("markets.empty")} hint={t("markets.emptyHint")} />
         ) : (

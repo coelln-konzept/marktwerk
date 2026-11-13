@@ -3,7 +3,7 @@ import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { buttonVariants } from "@/components/ui/button";
-import { Panel, PanelBody } from "@/components/ui/panel";
+import { Panel, PanelBody, PanelHeading } from "@/components/ui/panel";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatMoney, formatMonthDay } from "@/lib/format";
 import { getActor } from "@/server/actor";
@@ -32,25 +32,28 @@ export async function RequirementsSection({ venueId }: { venueId: string }) {
 
   return (
     <section aria-labelledby="requirements-title" className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 id="requirements-title" className="font-semibold text-[15px]">
-            {t("title")}
-          </h2>
-          <p className="max-w-[70ch] text-muted-foreground text-small">{t("description")}</p>
-        </div>
-        {canWrite && (
-          <div className="flex flex-wrap items-center gap-2">
-            {rows.length > 0 && <ApplyRequirementsButton venueId={venueId} />}
-            <Link
-              href={`/orte/${venueId}/genehmigungen/neu` as never}
-              className={buttonVariants({ variant: "default" })}
-            >
-              <Plus aria-hidden />
-              {t("add")}
-            </Link>
-          </div>
-        )}
+      <div>
+        <PanelHeading
+          id="requirements-title"
+          className="mb-0"
+          actions={
+            canWrite ? (
+              <>
+                {rows.length > 0 && <ApplyRequirementsButton venueId={venueId} />}
+                <Link
+                  href={`/orte/${venueId}/genehmigungen/neu` as never}
+                  className={buttonVariants({ variant: "default" })}
+                >
+                  <Plus aria-hidden />
+                  {t("add")}
+                </Link>
+              </>
+            ) : undefined
+          }
+        >
+          {t("title")}
+        </PanelHeading>
+        <p className="m-0 max-w-[70ch] px-1 text-muted-foreground text-small">{t("description")}</p>
       </div>
       {rows.length === 0 ? (
         <Panel>

@@ -15,7 +15,7 @@ import { TimelineRuler } from "@/components/templates/timeline-ruler";
 import type { ItemView } from "@/components/templates/types";
 import { VersionBar } from "@/components/templates/version-bar";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
@@ -246,13 +246,11 @@ export default async function TemplateEditorPage({
         </Panel>
       )}
 
-      <Panel className="overflow-hidden">
-        <PanelHeader>
-          <PanelTitle>{t("grid.title")}</PanelTitle>
-          <span className="text-muted-foreground text-small">
-            {editable ? t("grid.editHint") : t("grid.readOnlyHint")}
-          </span>
-        </PanelHeader>
+      <Panel
+        title={t("grid.title")}
+        meta={editable ? t("grid.editHint") : t("grid.readOnlyHint")}
+        cardClassName="overflow-hidden"
+      >
         {items.length === 0 && !editable ? (
           <p className="px-4 py-8 text-center text-muted-foreground">{t("grid.empty")}</p>
         ) : (
@@ -269,10 +267,7 @@ export default async function TemplateEditorPage({
 
       <div className="grid gap-4 lg:grid-cols-2">
         {template.isMaster || template.ownerPresetId ? (
-          <Panel>
-            <PanelHeader>
-              <PanelTitle>{t("links.title")}</PanelTitle>
-            </PanelHeader>
+          <Panel title={t("links.title")}>
             <PanelBody>
               <p className="m-0 text-small text-foreground-2">
                 {template.isMaster
@@ -295,10 +290,7 @@ export default async function TemplateEditorPage({
             }))}
           />
         )}
-        <Panel>
-          <PanelHeader>
-            <PanelTitle>{t("rules.title")}</PanelTitle>
-          </PanelHeader>
+        <Panel title={t("rules.title")}>
           <PanelBody>
             <ul className="flex list-disc flex-col gap-1.5 pl-5 text-small text-foreground-2">
               <li>{t("rules.published")}</li>

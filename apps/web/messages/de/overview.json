@@ -6,7 +6,7 @@
       "evening": "Guten Abend, {name}"
     },
     "due": {
-      "title": "Heute & überfällig",
+      "title": "Heute & nächste Tage",
       "emptyTitle": "Nichts fällig.",
       "emptyHint": "Überfälliges und Heutiges aus Genehmigungen, Aufgaben und Pflichten erscheint hier.",
       "openItem": "Öffnen: {title}",
@@ -20,11 +20,10 @@
       },
       "keyTask": "Kernaufgabe – eine Aufgabe, die jeder Markt braucht",
       "openCenter": "Benachrichtigungen öffnen",
-      "subtitle": "je Markt gebündelt",
       "groups": {
         "overdue": "Überfällig",
         "today": "Heute",
-        "soon": "Diese Woche",
+        "soon": "Nächste Tage",
         "upcoming": "Genehmigungen demnächst",
         "waiting": "Wartet auf Rückmeldung"
       },
@@ -33,8 +32,6 @@
       "moreAtMarketLink": "Alle {count} weiteren bei {name} ansehen",
       "moreMarkets": "{count, plural, one {+ # weiterer Markt} other {+ # weitere Märkte}}",
       "moreEntries": "{count, plural, one {+ # weiterer Eintrag} other {+ # weitere Einträge}}",
-      "weekSubtitle": "{count, plural, =0 {nichts in den nächsten 7 Tagen} one {# Punkt in den nächsten 7 Tagen, je Markt gebündelt} other {# Punkte in den nächsten 7 Tagen, je Markt gebündelt}}",
-      "weekEmpty": "In den nächsten 7 Tagen ist nichts fällig.",
       "upcomingEmpty": "Keine Genehmigungen in Sicht.",
       "appointments": {
         "title": "Besprechungen heute",
@@ -44,35 +41,17 @@
     },
     "weekend": {
       "title": "Dieses Wochenende",
-      "range": "{from}–{to} · {week}",
       "all": "Alle Veranstaltungen",
-      "verdict": {
-        "ok": "Im Plan",
-        "warn": "Achtung",
-        "critical": "Nicht startklar",
-        "none": "Noch offen"
+      "emptyNext": "An diesem Wochenende ist nichts geplant. Als Nächstes:",
+      "emptyNone": "An diesem Wochenende ist nichts geplant, und es sind keine weiteren Veranstaltungen angelegt.",
+      "nextLabel": "Nächste Veranstaltungen",
+      "checklist": {
+        "label": "Checkliste von {name}",
+        "done": "{done} von {total} erledigt",
+        "overdue": "{count} überfällig",
+        "none": "Noch keine Aufgaben"
       },
-      "reason": {
-        "tasksOverdue": "{count} überfällig",
-        "tasksToday": "{count} heute fällig",
-        "tasksBlocked": "{count} blockiert",
-        "tasksRollover": "oft verschoben",
-        "permitsMissing": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}",
-        "permitsEnding": "Genehmigung läuft vor der Veranstaltung ab",
-        "permitsOk": "Genehmigungen ok"
-      },
-      "blockers": "Was {name} aufhält",
-      "topTasks": "{count, plural, one {Wichtigste Aufgabe anzeigen} other {Top-#-Aufgaben anzeigen}}",
-      "allInSummary": "Alle {count} in der Zusammenfassung",
-      "permit": "Genehmigung",
-      "next": {
-        "title": "Nächstes Wochenende",
-        "empty": "Nichts geplant"
-      },
-      "empty": "An diesem Wochenende ist nichts geplant.",
-      "emptyNext": "Nächste Veranstaltung: {name}, {date}.",
-      "emptyNone": "Es sind keine weiteren Veranstaltungen angelegt.",
-      "openEvent": "Veranstaltung ansehen"
+      "permitsMissing": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}"
     },
     "keys": "Leertaste: Vorschau · Enter: öffnen · J/K: nächste/vorige Zeile",
     "cleanup": {

@@ -10,7 +10,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import type { ContactInput } from "@/server/services/contacts";
 
 const SELECT_CLASS =
@@ -120,10 +120,7 @@ export function ContactForm({
         submit();
       }}
     >
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{t("sectionBasics")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("sectionBasics")}>
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={id("kind")}>{t("kind")}</Label>
@@ -206,10 +203,7 @@ export function ContactForm({
         </PanelBody>
       </Panel>
 
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{t("sectionAddress")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("sectionAddress")}>
         <PanelBody className="grid gap-4 sm:grid-cols-[1fr_8rem_1fr]">
           <div className="flex flex-col gap-1.5 sm:col-span-3">
             <Label htmlFor={id("street")} optional>
@@ -252,12 +246,13 @@ export function ContactForm({
         </PanelBody>
       </Panel>
 
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>
+      <Panel
+        title={
+          <>
             {t("sectionNotes")} <OptionalMark />
-          </PanelTitle>
-        </PanelHeader>
+          </>
+        }
+      >
         <PanelBody>
           <Label htmlFor={id("notes")} className="sr-only">
             {t("notes")}
