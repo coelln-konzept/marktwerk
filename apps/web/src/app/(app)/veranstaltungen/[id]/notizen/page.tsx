@@ -2,7 +2,7 @@ import { can } from "@marktwerk/core";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { NotesForm } from "@/components/event-detail/notes-form";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { getActor } from "@/server/actor";
 import { getEvent } from "@/server/queries/events";
 import { requirePermission } from "@/server/session";
@@ -19,10 +19,7 @@ export default async function EventNotesPage({
   const t = await getTranslations("eventDetail.notes");
   const canWrite = can(actor.role, "event", "write");
   return (
-    <Panel aria-labelledby="notes-title">
-      <PanelHeader>
-        <PanelTitle id="notes-title">{t("title")}</PanelTitle>
-      </PanelHeader>
+    <Panel title={t("title")} titleId="notes-title">
       <PanelBody>
         {canWrite ? (
           <NotesForm eventId={event.id} notes={event.notes ?? ""} />

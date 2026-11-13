@@ -12,7 +12,13 @@ import { RequirementsSection } from "@/components/permits/requirements-section";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import {
+  Panel,
+  PanelBody,
+  PanelHeader,
+  PanelHeading,
+  panelActionLink,
+} from "@/components/ui/panel";
 import { addressLine, MailLink, PhoneLink } from "@/components/ui/phone";
 import { rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { Facts } from "@/components/ui/vorschau";
@@ -107,22 +113,20 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
       {/* The two boxes of the handwritten notes (HN-15): what happens here, and the markets held here. */}
       <KeyboardRows className="grid gap-6 lg:grid-cols-2">
         {showEvents && (
-          <Panel className="overflow-hidden">
-            <PanelHeader>
-              <PanelTitle>
-                {td("events")}
-                <span className="ml-2 font-normal text-muted-foreground text-small tabular">
-                  {events.upcoming.length}
-                </span>
-              </PanelTitle>
+          <Panel
+            title={td("events")}
+            meta={events.upcoming.length}
+            cardClassName="overflow-hidden"
+            actions={
               <Link
                 href={`/veranstaltungen?ort=${venue.id}&status=alle` as never}
-                className="inline-flex items-center gap-1 font-medium text-accent-soft-foreground text-small hover:underline"
+                className={panelActionLink}
               >
                 {td("allEvents")}
                 <ArrowRight aria-hidden className="size-3.5" />
               </Link>
-            </PanelHeader>
+            }
+          >
             <EventGroup
               title={td("upcoming")}
               empty={td("noUpcoming")}
@@ -143,15 +147,12 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
         )}
 
         {showPresets && (
-          <Panel className="overflow-hidden self-start">
-            <PanelHeader>
-              <PanelTitle>
-                {td("presets")}
-                <span className="ml-2 font-normal text-muted-foreground text-small tabular">
-                  {venuePresets.length}
-                </span>
-              </PanelTitle>
-            </PanelHeader>
+          <Panel
+            title={td("presets")}
+            meta={venuePresets.length}
+            className="self-start"
+            cardClassName="overflow-hidden"
+          >
             {venuePresets.length === 0 ? (
               <PanelBody className="text-muted-foreground">{td("noPresets")}</PanelBody>
             ) : (
@@ -190,10 +191,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
       </KeyboardRows>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Panel>
-          <PanelHeader>
-            <PanelTitle>{td("address")}</PanelTitle>
-          </PanelHeader>
+        <Panel title={td("address")}>
           <PanelBody className="flex flex-col gap-3">
             <Facts
               items={[
@@ -211,10 +209,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
           </PanelBody>
         </Panel>
 
-        <Panel>
-          <PanelHeader>
-            <PanelTitle>{td("owner")}</PanelTitle>
-          </PanelHeader>
+        <Panel title={td("owner")}>
           <PanelBody>
             {venue.landownerId ? (
               <Facts
@@ -257,12 +252,13 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
       </div>
 
       <section aria-labelledby="zones-title" className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="zones-title" className="font-semibold text-[15px]">
-            {td("zones")}
-          </h2>
-          {canWrite && <AddZoneButton venueId={venue.id} />}
-        </div>
+        <PanelHeading
+          id="zones-title"
+          className="mb-0"
+          actions={canWrite ? <AddZoneButton venueId={venue.id} /> : undefined}
+        >
+          {td("zones")}
+        </PanelHeading>
         {venue.zones.length === 0 ? (
           <Panel>
             <PanelBody className="text-muted-foreground">{td("noZones")}</PanelBody>

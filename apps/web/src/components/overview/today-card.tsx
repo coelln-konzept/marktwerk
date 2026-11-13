@@ -1,8 +1,8 @@
-import { CalendarCheck, CalendarClock, CalendarDays, ShieldCheck } from "lucide-react";
+import { CalendarCheck, CalendarClock, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { appointmentVorschauValue } from "@/components/appointments/appointment-params";
-import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, panelActionLink } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { rowFocus } from "@/components/ui/table";
 import { isModuleVisible } from "@/lib/modules";
@@ -12,9 +12,11 @@ import type { OverviewDue } from "@/server/queries/overview";
 import { DueGroups } from "./due-groups";
 
 /**
- * "Heute & überfällig" (what is due now?): every overdue and due-today item, bundled per market in ranking
- * order (`rankDue`: Kernaufgaben first, the soonest market first), with one-click Erledigt and
- * Zurückstellen. Long markets and long groups open the rest in place.
+ * "Heute & überfällig", the main panel of the Übersicht (decision 2026-11-13): what to do today and what the
+ * next days need. Today's Besprechungen first, then the groups Überfällig · Heute · Nächste Tage (due in the
+ * next 7 days, with the date) and, when there are any, the tasks waiting for somebody else. Each group is
+ * bundled per market in ranking order (`rankDue`: Kernaufgaben first, the soonest market first), with
+ * one-click Erledigt and Zurückstellen; long markets and long groups open the rest in place.
  */
 export async function TodayCard({
   due,
@@ -22,6 +24,7 @@ export async function TodayCard({
   today,
   canSnooze,
   vorschauId,
+  className,
 }: {
   due: OverviewDue;
   /** Today's Besprechungen (all-day first, then by time); the group is left out when there are none. */
@@ -30,38 +33,38 @@ export async function TodayCard({
   canSnooze: boolean;
   /** The open Vorschau (`besprechung:<id>` for a Besprechung), to mark its row. */
   vorschauId?: string;
+  className?: string;
 }) {
   const t = await getTranslations("overview.due");
+  // The next days and the waits; the permits further out have their own section at the bottom of the page.
+  const next = due.later.filter((i) => i.urgency !== "upcoming");
+  const items = [...due.items, ...next];
   return (
-    <Panel aria-labelledby="due-title" className="flex min-w-0 flex-col">
-      <PanelHeader>
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <PanelTitle id="due-title">{t("title")}</PanelTitle>
-          <span className="text-muted-foreground text-small">{t("subtitle")}</span>
-        </div>
-      </PanelHeader>
+    <Panel
+      title={t("title")}
+      titleId="due-title"
+      className={className}
+      cardClassName="overflow-hidden"
+      actions={
+        isModuleVisible("notifications") && due.total > 0 ? (
+          <Link href="/benachrichtigungen" className={panelActionLink}>
+            {t("openCenter")}
+          </Link>
+        ) : undefined
+      }
+    >
       {appointments.length > 0 && (
         <AppointmentsToday appointments={appointments} selected={vorschauId} />
       )}
-      {due.items.length === 0 ? (
+      {items.length === 0 ? (
         <EmptyState icon={CalendarCheck} title={t("emptyTitle")} hint={t("emptyHint")} />
       ) : (
         <DueGroups
-          items={due.items}
-          groups={["overdue", "today"]}
+          items={items}
+          groups={["overdue", "today", "soon", "waiting"]}
           today={today}
           canSnooze={canSnooze}
         />
-      )}
-      {isModuleVisible("notifications") && due.total > 0 && (
-        <div className="mt-auto border-border-subtle border-t px-2 py-1.5">
-          <Link
-            href="/benachrichtigungen"
-            className="inline-flex min-h-8 items-center rounded-lg px-2 font-medium text-muted-foreground text-small hover:bg-hover hover:text-foreground"
-          >
-            {t("openCenter")}
-          </Link>
-        </div>
       )}
     </Panel>
   );
@@ -133,71 +136,35 @@ async function AppointmentsToday({
 }
 
 /**
- * "Diese Woche" (what does the week need?): items due in the next 7 days, bundled per market, then
- * tasks waiting for somebody else. The permits further out ("Genehmigungen demnächst") have their own
- * panel under "Dieses Wochenende" ({@link UpcomingPermitsCard}, CF9-6).
- */
-export async function WeekCard({
-  due,
-  today,
-  canSnooze,
-}: {
-  due: OverviewDue;
-  today: string;
-  canSnooze: boolean;
-}) {
-  const t = await getTranslations("overview.due");
-  const week = due.later.filter((i) => i.urgency !== "upcoming");
-  const soon = week.filter((i) => i.urgency === "soon").length;
-  return (
-    <Panel aria-labelledby="week-title" className="min-w-0">
-      <PanelHeader>
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <PanelTitle id="week-title">{t("groups.soon")}</PanelTitle>
-          <span className="tabular text-muted-foreground text-small">
-            {t("weekSubtitle", { count: soon })}
-          </span>
-        </div>
-      </PanelHeader>
-      {week.length === 0 ? (
-        <EmptyState icon={CalendarDays} title={t("weekEmpty")} />
-      ) : (
-        <DueGroups
-          items={week}
-          groups={["soon", "waiting"]}
-          bandless={["soon"]}
-          today={today}
-          canSnooze={canSnooze}
-        />
-      )}
-    </Panel>
-  );
-}
-
-/**
- * "Genehmigungen demnächst" (CF9-6): permits further out than 7 days but inside the permit horizon, in
- * the Übersicht's right column directly under "Dieses Wochenende". The same rows as everywhere (snooze,
- * J/K), the blue info styling of the group moved to the panel header. Empty → one line.
+ * "Genehmigungen demnächst" (CF9-6): permits further out than 7 days but inside the permit horizon. Since
+ * 2026-11-13 the last section of the Übersicht, full width under the main panel and the weekend box. The
+ * same rows as everywhere (snooze, J/K); the shield marks the heading in the info colour. Empty → one line.
  */
 export async function UpcomingPermitsCard({
   due,
   today,
   canSnooze,
+  className,
 }: {
   due: OverviewDue;
   today: string;
   canSnooze: boolean;
+  className?: string;
 }) {
   const t = await getTranslations("overview.due");
   const upcoming = due.later.filter((i) => i.urgency === "upcoming");
   return (
-    <Panel aria-labelledby="upcoming-title" className="min-w-0">
-      <PanelHeader className="bg-status-info-bg text-status-info">
-        <div className="flex flex-wrap items-center gap-x-2">
-          <ShieldCheck aria-hidden className="size-4" />
-          <PanelTitle id="upcoming-title">{t("groups.upcoming")}</PanelTitle>
-        </div>
-      </PanelHeader>
+    <Panel
+      title={
+        <span className="inline-flex items-center gap-2">
+          <ShieldCheck aria-hidden className="size-[18px] text-status-info" />
+          {t("groups.upcoming")}
+        </span>
+      }
+      titleId="upcoming-title"
+      className={className}
+      cardClassName="overflow-hidden"
+    >
       {upcoming.length === 0 ? (
         <p className="m-0 px-4 py-3 text-muted-foreground text-small">{t("upcomingEmpty")}</p>
       ) : (

@@ -20,11 +20,10 @@
       },
       "keyTask": "Key task – a task every market needs",
       "openCenter": "Open Notifications",
-      "subtitle": "bundled per market",
       "groups": {
         "overdue": "Overdue",
         "today": "Today",
-        "soon": "This week",
+        "soon": "Next few days",
         "upcoming": "Permits coming up",
         "waiting": "Waiting for a reply"
       },
@@ -33,8 +32,6 @@
       "moreAtMarketLink": "See all {count} more at {name}",
       "moreMarkets": "{count, plural, one {+ # more market} other {+ # more markets}}",
       "moreEntries": "{count, plural, one {+ # more entry} other {+ # more entries}}",
-      "weekSubtitle": "{count, plural, =0 {nothing in the next 7 days} one {# item in the next 7 days, bundled per market} other {# items in the next 7 days, bundled per market}}",
-      "weekEmpty": "Nothing is due in the next 7 days.",
       "upcomingEmpty": "No permits coming up.",
       "appointments": {
         "title": "Meetings today",
@@ -44,35 +41,16 @@
     },
     "weekend": {
       "title": "This weekend",
-      "range": "{from}–{to} · {week}",
       "all": "All events",
-      "verdict": {
-        "ok": "On track",
-        "warn": "Attention",
-        "critical": "Not ready",
-        "none": "Not set yet"
-      },
-      "reason": {
-        "tasksOverdue": "{count} overdue",
-        "tasksToday": "{count} due today",
-        "tasksBlocked": "{count} blocked",
-        "tasksRollover": "often postponed",
-        "permitsMissing": "{count, plural, one {# permit missing} other {# permits missing}}",
-        "permitsEnding": "Permit expires before the event",
-        "permitsOk": "Permits ok"
-      },
-      "blockers": "What is holding up {name}",
-      "topTasks": "{count, plural, one {Show top task} other {Show top # tasks}}",
-      "allInSummary": "All {count} in the summary",
-      "permit": "Permit",
-      "next": {
-        "title": "Next weekend",
-        "empty": "Nothing planned"
-      },
-      "empty": "Nothing is planned for this weekend.",
-      "emptyNext": "Next event: {name}, {date}.",
-      "emptyNone": "No further events have been created.",
-      "openEvent": "View event"
+      "emptyNext": "Nothing is planned for this weekend. Coming up next:",
+      "emptyNone": "Nothing is planned for this weekend, and no further events have been created.",
+      "nextLabel": "Next events",
+      "checklist": {
+        "label": "Checklist of {name}",
+        "done": "{done} of {total} done",
+        "overdue": "{count} overdue",
+        "none": "No tasks yet"
+      }
     },
     "keys": "Space: preview · Enter: open · J/K: next/previous row",
     "cleanup": {

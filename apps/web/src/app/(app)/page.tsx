@@ -10,7 +10,7 @@ import { AppointmentVorschau } from "@/components/appointments/appointment-vorsc
 import { NewTaskButton } from "@/components/board/new-task-dialog";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
-import { TodayCard, UpcomingPermitsCard, WeekCard } from "@/components/overview/today-card";
+import { TodayCard, UpcomingPermitsCard } from "@/components/overview/today-card";
 import { WeekendCard } from "@/components/overview/weekend-card";
 import { Page, PageHeader } from "@/components/shell/page";
 import { TaskDrawer } from "@/components/task/task-drawer";
@@ -42,10 +42,10 @@ function berlinHour(timeZone = "Europe/Berlin"): number {
 }
 
 /**
- * The Übersicht: "is the weekend on track?" (verdict per market, first blockers) next to "what is due
- * now?" (everything overdue or due today, per market), and below it "Diese Woche" (the next 7 days, per
- * market) for what the week needs. A task opens its drawer here (`?aufgabe=<id>`, like on the board), a
- * market its Vorschau (`?vorschau=<id>`).
+ * The Übersicht (decision 2026-11-13): the main panel "Heute & überfällig" (Überfällig · Heute · Nächste
+ * Tage, per market) on the left, the weekend box (the weekend's events with their Checkliste progress) top
+ * right, the permits coming up at the bottom. A task opens its drawer here (`?aufgabe=<id>`, like on the
+ * board), a market its Vorschau (`?vorschau=<id>`).
  */
 export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   const actor = await getActor();
@@ -106,8 +106,9 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         }
         title={t(`greeting.${part}`, { name: actor.firstName })}
       />
-      {/* One KeyboardRows around all cards: J/K walk today's list, then the weekend, then the week. */}
-      <KeyboardRows className="grid items-start gap-4 lg:grid-cols-2">
+      {/* One KeyboardRows around all sections: J/K walk the main panel, then the weekend box, then the
+          permits. Phones stack them in that order; from 1024 px the weekend box sits top right. */}
+      <KeyboardRows className="grid items-start gap-x-6 gap-y-8 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_23rem]">
         <TodayCard
           due={overview.due}
           appointments={appointments}
@@ -115,20 +116,18 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           canSnooze={canWrite}
           vorschauId={vorschauParam}
         />
-        {/* Right column: the weekend, then the permits coming up (CF9-6). */}
-        <div className="flex min-w-0 flex-col gap-4">
-          <WeekendCard
-            weekend={overview.weekend}
-            next={overview.nextWeekend}
-            nextEvent={overview.nextEvent}
-            today={today}
-            vorschauId={vorschauId}
-          />
-          <UpcomingPermitsCard due={overview.due} today={today} canSnooze={canWrite} />
-        </div>
-        <div className="min-w-0 lg:col-span-2">
-          <WeekCard due={overview.due} today={today} canSnooze={canWrite} />
-        </div>
+        <WeekendCard
+          weekend={overview.weekend.markets}
+          nextEvents={overview.nextEvents}
+          today={today}
+          vorschauId={vorschauId}
+        />
+        <UpcomingPermitsCard
+          due={overview.due}
+          today={today}
+          canSnooze={canWrite}
+          className="lg:col-span-2"
+        />
       </KeyboardRows>
       <p className="-mt-3 px-1 text-muted-foreground text-tiny touch:hidden">{t("keys")}</p>
       <PastMarketsLine count={overview.pastMarketTasks} query={sp} canCleanup={canWrite} />

@@ -11,7 +11,7 @@ import { DueCell, IntervalText, TargetCell } from "@/components/company/obligati
 import { ObligationStatusBadge } from "@/components/company/status";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { Facts } from "@/components/ui/vorschau";
 import { formatDate, formatMoney, formatNumber, todayIn } from "@/lib/format";
@@ -104,10 +104,7 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
         }
       />
 
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{td("facts")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={td("facts")}>
         <PanelBody>
           <Facts
             items={[
@@ -165,10 +162,7 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
         </PanelBody>
       </Panel>
 
-      <Panel className="overflow-hidden">
-        <PanelHeader>
-          <PanelTitle>{td("history")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={td("history")} cardClassName="overflow-hidden">
         {completions.length === 0 ? (
           <PanelBody className="text-muted-foreground">{td("noHistory")}</PanelBody>
         ) : (

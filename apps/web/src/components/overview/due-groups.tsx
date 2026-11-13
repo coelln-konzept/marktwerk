@@ -343,9 +343,9 @@ async function MarketDate({ date, today }: { date: string; today: string }) {
 }
 
 /**
- * Due items by urgency group (Überfällig · Heute · Diese Woche · Genehmigungen demnächst · Wartet), each
+ * Due items by urgency group (Überfällig · Heute · Nächste Tage · Genehmigungen demnächst · Wartet), each
  * group bundled per market in ranking order. A market shows its first three items and a group its first
- * ten markets; "+ N weitere" opens the rest in place. `bandless` groups skip their band (the panel title
+ * ten markets; "+ N weitere" opens the rest in place. `bandless` groups skip their band (the section heading
  * already names them).
  */
 export async function DueGroups({

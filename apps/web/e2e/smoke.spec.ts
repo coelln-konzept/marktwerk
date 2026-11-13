@@ -11,53 +11,61 @@ test("Übersicht loads after login", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).first()).toBeVisible();
 });
 
-test('Übersicht: Heute & überfällig left, the weekend right with a collapsed Top-5 toggle, Diese Woche below; "+ N weitere" opens in place; no KPI or season strip', async ({
+test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the weekend box right with its link, permits last, no "Diese Woche"; "+ N weitere" opens in place; no KPI or season strip', async ({
   page,
 }) => {
   await page.goto("/");
-  const weekend = page.getByRole("heading", { level: 2, name: "Dieses Wochenende" });
   const due = page.getByRole("heading", { level: 2, name: "Heute & überfällig" });
-  await expect(weekend).toBeVisible();
-  await expect(due).toBeVisible();
-  const [weekendBox, dueBox] = await Promise.all([weekend.boundingBox(), due.boundingBox()]);
-  // Two cards side by side on desktop: Heute & überfällig is the left one (CF9-2), the headings sit on one
-  // line (the due header carries count badges, so its heading can be a few px higher than the weekend's).
+  const weekend = page.getByRole("heading", { level: 2, name: "Dieses Wochenende" });
+  const permits = page.getByRole("heading", { level: 2, name: "Genehmigungen demnächst" });
+  for (const heading of [due, weekend, permits]) await expect(heading).toBeVisible();
+  const [dueBox, weekendBox, permitsBox] = await Promise.all(
+    [due, weekend, permits].map((h) => h.boundingBox()),
+  );
+  // Desktop: the main panel left, the weekend box right, their headings on one line (decision 2026-11-13).
   expect(dueBox?.x ?? 0).toBeLessThan(weekendBox?.x ?? 0);
   expect(Math.abs((weekendBox?.y ?? 0) - (dueBox?.y ?? 0))).toBeLessThan(24);
 
-  // The weekend's blockers are collapsed behind "Top-N-Aufgaben anzeigen" and show at most 5 rows.
-  const toggle = page.getByRole("button", {
-    name: /^(Top-\d+-Aufgaben|Wichtigste Aufgabe) anzeigen$/,
-  });
-  if ((await toggle.count()) > 0) {
-    const first = toggle.first();
-    const list = page.locator(`[id="${await first.getAttribute("aria-controls")}"]`);
-    await expect(first).toHaveAttribute("aria-expanded", "false");
-    await expect(list).toBeHidden();
-    await first.click();
-    await expect(first).toHaveAttribute("aria-expanded", "true");
-    await expect(list).toBeVisible();
-    const rows = await list.locator("li[data-row]").count();
-    expect(rows).toBeGreaterThan(0);
-    expect(rows).toBeLessThanOrEqual(5);
-    await first.click();
-    await expect(list).toBeHidden();
+  // The headings sit above their cards (option C): each section is named by its h2, the card follows it.
+  const main = page.getByRole("region", { name: "Heute & überfällig" });
+  const box = page.getByRole("region", { name: "Dieses Wochenende" });
+
+  // The main panel holds the groups Überfällig, Heute and Nächste Tage (the former "Diese Woche"), in
+  // that order; each band names its count.
+  const bands = ["Überfällig", "Heute", "Nächste Tage"].map((name) =>
+    main.getByRole("heading", { level: 3, name: new RegExp(`^${name}\\s*\\d+$`) }),
+  );
+  let above = 0;
+  for (const band of bands) {
+    await expect(band).toBeVisible();
+    const y = (await band.boundingBox())?.y ?? 0;
+    expect(y).toBeGreaterThan(above);
+    above = y;
+  }
+  await expect(main.getByText("je Markt gebündelt")).toHaveCount(0);
+
+  // "Diese Woche" is no section of its own any more.
+  await expect(page.getByRole("heading", { name: "Diese Woche", exact: true })).toHaveCount(0);
+
+  // The weekend box is an information card: events with their Checkliste status, a link to all events, no
+  // date-range line and no task rows of its own.
+  await expect(box.getByRole("link", { name: "Alle Veranstaltungen" })).toHaveAttribute(
+    "href",
+    "/veranstaltungen",
+  );
+  await expect(box.getByText(/^Sa \d\d\.\d\d\.–So \d\d\.\d\d\. · KW/)).toHaveCount(0);
+  await expect(box.getByRole("button", { name: /als erledigt markieren$/ })).toHaveCount(0);
+  const events = box.locator("li[data-row]");
+  if ((await events.count()) > 0) {
+    await expect(events.first().getByRole("heading", { level: 3 })).toBeVisible();
+    await expect(events.first()).toContainText(/\d+ von \d+ erledigt|Noch keine Aufgaben/);
+  } else {
+    await expect(box).toContainText("An diesem Wochenende ist nichts geplant");
   }
 
-  // "Genehmigungen demnächst" is its own panel in the right column, directly under the weekend (CF9-6).
-  const permits = page.getByRole("heading", { level: 2, name: "Genehmigungen demnächst" });
-  await expect(permits).toBeVisible();
-  const permitsBox = await permits.boundingBox();
-  expect(permitsBox?.y ?? 0).toBeGreaterThan(weekendBox?.y ?? 0);
-  expect(Math.abs((permitsBox?.x ?? 0) - (weekendBox?.x ?? 0))).toBeLessThan(40);
-
-  // "Diese Woche" (the next 7 days, per market) runs across both columns below them.
-  const week = page.getByRole("heading", { level: 2, name: "Diese Woche" });
-  await expect(week).toBeVisible();
-  const weekBox = await week.boundingBox();
-  expect(weekBox?.y ?? 0).toBeGreaterThan(permitsBox?.y ?? 0);
-  expect(weekBox?.y ?? 0).toBeGreaterThan(Math.max(weekendBox?.y ?? 0, dueBox?.y ?? 0));
-  expect(weekBox?.x ?? 0).toBeLessThan((weekendBox?.x ?? 0) - 100);
+  // The permits coming up are the last section of the page, below both columns.
+  expect(permitsBox?.y ?? 0).toBeGreaterThan(Math.max(dueBox?.y ?? 0, weekendBox?.y ?? 0));
+  await expect(page.locator("main h2").last()).toHaveText("Genehmigungen demnächst");
 
   // "+ N weitere" opens the rest in place instead of navigating away.
   const more = page
@@ -78,11 +86,25 @@ test('Übersicht: Heute & überfällig left, the weekend right with a collapsed 
   await expect(page).toHaveURL(/[?&]vorschau=/);
   await page.goto("/");
 
-  // No KPI strip (the card headers carry the counts), no season strip, no filter chips, no estimate legend.
+  // No KPI strip (the group bands carry the counts), no season strip, no filter chips, no estimate legend.
   await expect(page.locator('dl[aria-label="Kennzahlen"]')).toHaveCount(0);
   await expect(page.getByText(/^Saison 2026/)).toHaveCount(0);
   await expect(page.getByRole("group", { name: "Filter" })).toHaveCount(0);
   await expect(page.getByText(/Aufwand =/)).toHaveCount(0);
+
+  // Phone (390 px): main panel, weekend box, permits stack in that order; nothing scrolls sideways.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const [dueY = 0, weekendY = 0, permitsY = 0] = await Promise.all(
+    [due, weekend, permits].map(async (h) => (await h.boundingBox())?.y ?? 0),
+  );
+  expect(dueY).toBeLessThan(weekendY);
+  expect(weekendY).toBeLessThan(permitsY);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
 });
 
 test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a market and undoes", async ({
@@ -91,6 +113,12 @@ test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a ma
   await page.goto("/");
   const line = page.getByText(/offene Aufgaben? aus vergangenen Märkten/);
   await expect(line).toBeVisible();
+  // Below everything else: the permits coming up are the last section, the line comes after them.
+  const permits = page.getByRole("region", { name: "Genehmigungen demnächst" });
+  const permitsBox = await permits.boundingBox();
+  expect((await line.boundingBox())?.y ?? 0).toBeGreaterThan(
+    (permitsBox?.y ?? 0) + (permitsBox?.height ?? 0),
+  );
   await page.getByRole("link", { name: "Aufräumen", exact: true }).click();
   await expect(page).toHaveURL(/aufraeumen=1/);
   // The drawer is a non-modal dialog labelled by its title.
@@ -1181,7 +1209,7 @@ test("Übersicht: Erledigt asks first, since the task leaves the list; Abbrechen
   await expect(confirm).toContainText("als erledigt markieren?");
   await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
   await expect(confirm).toBeHidden();
-  // A task can sit in more than one Übersicht card (e.g. Heute and Diese Woche): any of its ticks will do.
+  // Any tick with that label will do (the same title can show up under more than one market).
   await expect(page.getByRole("button", { name: label ?? "" }).first()).toBeVisible();
   await expect(toastUndo(page)).toHaveCount(0);
 });

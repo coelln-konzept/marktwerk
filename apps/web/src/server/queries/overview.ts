@@ -1,18 +1,13 @@
 import "server-only";
 import {
   berlinDay,
+  can,
   OPEN_STATUSES,
   pastEventCutoff,
   rankDue,
   resolveRelativeDue,
 } from "@marktwerk/core";
 import { upcomingWeekend } from "@marktwerk/core/dates/weekend";
-import {
-  followingWeekend,
-  holdsUpWeekend,
-  type WeekendVerdict,
-  weekendVerdict,
-} from "@marktwerk/core/events/weekend-verdict";
 import { event, task } from "@marktwerk/db/schema";
 import { and, asc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { type ModuleHide, maskHealth } from "@/lib/modules";
@@ -25,17 +20,17 @@ import { type EventRow, listEvents } from "./events";
 import * as finance from "./finance";
 import * as hours from "./hours";
 import * as permits from "./permits";
+import type { ChecklistProgress } from "./tasks";
 import * as tasks from "./tasks";
 
-/** One market of a weekend: its verdict and what holds it up. */
+/** One event of the weekend box: the event and how far its Checkliste is. */
 export type WeekendMarket = {
   row: EventRow;
-  verdict: WeekendVerdict;
   /**
-   * What holds the market up, most urgent first: overdue and due-today tasks, permits whose deadline has
-   * passed. Tasks dated in the future do not (`holdsUpWeekend`).
+   * Finished of all top-level tasks, and how many open ones are overdue (an overdue subtask makes its
+   * parent overdue). Null for roles that may not read tasks.
    */
-  blockers: DueItem[];
+  checklist: (ChecklistProgress & { overdue: number }) | null;
 };
 
 export type WeekendBlock = {
@@ -44,17 +39,21 @@ export type WeekendBlock = {
   markets: WeekendMarket[];
 };
 
+/** Most events the weekend box lists as "the next events" when the weekend itself has none. */
+export const NEXT_EVENTS_MAX = 4;
+
 /**
- * Every module's due items in ranking order (`rankDue`), split for the two lists of the Übersicht
- * (decision 2026-10-29, grouped per market like before the "Zwei Fragen" redesign).
+ * Every module's due items in ranking order (`rankDue`), split for the lists of the Übersicht (decision
+ * 2026-11-13: one main panel "Heute & überfällig" with the groups Überfällig · Heute · Nächste Tage; the
+ * permits further out sit at the bottom of the page).
  */
 export type OverviewDue = {
   /**
-   * "Heute & überfällig": all overdue and due-today items. Pflichten count as due today from their
+   * Überfällig and Heute: all overdue and due-today items. Pflichten count as due today from their
    * "Erinnerung ab" day on (`company.dueItems`), with their real due date.
    */
   items: DueItem[];
-  /** "Diese Woche": due in the next 7 days, then permits within the horizon and waits for others. */
+  /** "Nächste Tage": due in the next 7 days, then permits within the horizon and waits for others. */
   later: DueItem[];
   /** All overdue and due-today items. */
   total: number;
@@ -67,36 +66,28 @@ export type OverviewDue = {
 export type Overview = {
   /** "Dieses Wochenende": the coming Saturday and Sunday (the running weekend on Saturday and Sunday). */
   weekend: WeekendBlock;
-  /** The weekend after that, shown as one compact row. */
-  nextWeekend: WeekendBlock;
-  /** First event after this weekend (for the empty state when the weekend has none). */
-  nextEvent: EventRow | null;
+  /**
+   * Only while the weekend has no event: the next events after it, so the box still says what comes
+   * ({@link nextEventsAfter}). Empty otherwise.
+   */
+  nextEvents: WeekendMarket[];
   due: OverviewDue;
   /** Open tasks of markets that ended more than 7 days ago (in none of the lists above): the "Aufräumen" line. */
   pastMarketTasks: number;
 };
 
-/** The due items that belong to an event (a task's event, or any event a permit is required for). */
-function itemsOfEvent(items: DueItem[], eventId: string): DueItem[] {
-  return items.filter((i) => i.eventId === eventId || i.eventIds?.includes(eventId));
-}
-
-/** Verdict and blockers of one market. Overdue and due-today counts come from the items the card lists. */
-function marketOf(row: EventRow, dueItems: DueItem[]): WeekendMarket {
-  const own = itemsOfEvent(dueItems, row.id);
-  const blockers = own.filter(holdsUpWeekend);
-  return {
-    row,
-    blockers,
-    verdict: weekendVerdict({
-      permits: row.health.permits,
-      permitsMissing: row.reasons.permitsMissing,
-      tasks: row.health.tasks,
-      tasksOverdue: blockers.filter((i) => i.kind === "task" && i.urgency === "overdue").length,
-      tasksDueToday: blockers.filter((i) => i.kind === "task" && i.urgency === "today").length,
-      tasksBlocked: row.reasons.tasksBlocked,
-    }),
-  };
+/**
+ * The next events after `sunday` (rows sorted by first day): the first one and every other event that starts
+ * by the end of the weekend it falls on (a Wednesday event brings that weekend's markets along), at most
+ * {@link NEXT_EVENTS_MAX}.
+ */
+export function nextEventsAfter<T extends { startsOn: string }>(rows: T[], sunday: string): T[] {
+  const first = rows.find((e) => e.startsOn > sunday);
+  if (!first) return [];
+  const until = upcomingWeekend(first.startsOn).sunday;
+  return rows
+    .filter((e) => e.startsOn >= first.startsOn && e.startsOn <= until)
+    .slice(0, NEXT_EVENTS_MAX);
 }
 
 /** The five module feeds, each of which checks its own permissions and field scope. */
@@ -118,9 +109,10 @@ export async function listDueItems(
 }
 
 /**
- * Everything the Übersicht shows: is the weekend on track, what is due today, what comes this week. Each part
- * honours the actor's permissions and field scope. `hide` leaves out the modules hidden in the UI
- * (lib/modules.ts): no money/hours items and no team/money health dimension.
+ * Everything the Übersicht shows: what is due now and in the next days, the events of the weekend with their
+ * Checkliste progress, the permits coming up. Each part honours the actor's permissions and field scope.
+ * `hide` leaves out the modules hidden in the UI (lib/modules.ts): no money/hours items and no team/money
+ * health dimension.
  */
 export async function getOverview(
   actor: Actor,
@@ -128,7 +120,6 @@ export async function getOverview(
   hide: ModuleHide = {},
 ): Promise<Overview> {
   const weekend = upcomingWeekend(today);
-  const following = followingWeekend(weekend.saturday);
   const [all, dueItems, past] = await Promise.all([
     listEvents(actor, {}).then((rows) =>
       rows.map((r) => ({ ...r, health: maskHealth(r.health, hide) })),
@@ -137,18 +128,25 @@ export async function getOverview(
     tasks.pastEventCleanup(actor, today),
   ]);
   const active = all.filter((e) => e.status !== "cancelled");
-  const block = (days: { saturday: string; sunday: string }): WeekendBlock => ({
-    ...days,
-    markets: active
-      .filter((e) => e.startsOn <= days.sunday && e.endsOn >= days.saturday)
-      .map((row) => marketOf(row, dueItems)),
-  });
+  const onWeekend = active.filter(
+    (e) => e.startsOn <= weekend.sunday && e.endsOn >= weekend.saturday,
+  );
+  const next = onWeekend.length === 0 ? nextEventsAfter(active, weekend.sunday) : [];
+  const progress = can(actor.role, "task", "read")
+    ? await tasks.checklistProgressByEvent(
+        actor,
+        [...onWeekend, ...next].map((e) => e.id),
+      )
+    : new Map<string, ChecklistProgress>();
+  const market = (row: EventRow): WeekendMarket => {
+    const own = progress.get(row.id);
+    return { row, checklist: own ? { ...own, overdue: row.reasons.tasksOverdue } : null };
+  };
   const urgent = dueItems.filter((i) => i.urgency === "overdue" || i.urgency === "today");
 
   return {
-    weekend: block(weekend),
-    nextWeekend: block(following),
-    nextEvent: active.find((e) => e.startsOn > weekend.sunday) ?? null,
+    weekend: { ...weekend, markets: onWeekend.map(market) },
+    nextEvents: next.map(market),
     due: {
       items: urgent,
       later: dueItems.filter((i) => i.urgency !== "overdue" && i.urgency !== "today"),

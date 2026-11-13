@@ -24,7 +24,7 @@ import { ScheduleView } from "@/components/schedule/schedule-view";
 import { useDueText } from "@/components/ui/due-badge";
 import { Health } from "@/components/ui/health";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody, panelActionLink } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { rowFocus } from "@/components/ui/table";
 import {
@@ -184,11 +184,12 @@ export async function MissingPanel({
     />
   );
   return (
-    <Panel aria-labelledby="missing-title">
-      <PanelHeader>
-        <PanelTitle id="missing-title">{t("title")}</PanelTitle>
-        <span className="text-muted-foreground text-small">{t("hint")}</span>
-      </PanelHeader>
+    <Panel
+      title={t("title")}
+      titleId="missing-title"
+      meta={t("hint")}
+      cardClassName="overflow-hidden"
+    >
       {empty ? (
         <EmptyState icon={CircleCheck} title={t("emptyTitle")} hint={t("emptyHint")} />
       ) : (
@@ -265,13 +266,15 @@ export async function KeyTasksPanel({
   const t = await getTranslations("eventDetail.overview.key");
   const rows = overview.tasks?.key ?? [];
   return (
-    <Panel aria-labelledby="key-title">
-      <PanelHeader>
-        <PanelTitle id="key-title" className="flex items-center gap-2">
+    <Panel
+      title={
+        <span className="inline-flex items-center gap-2">
           <KeyTaskMark />
           {t("title")}
-        </PanelTitle>
-      </PanelHeader>
+        </span>
+      }
+      titleId="key-title"
+    >
       {rows.length === 0 ? (
         <PanelBody className="text-muted-foreground text-small">{t("empty")}</PanelBody>
       ) : (
@@ -339,10 +342,7 @@ export async function DatesPanel({ event, today }: { event: EventDetail; today: 
   );
 
   return (
-    <Panel id="termine" aria-labelledby="dates-title" className="scroll-mt-4">
-      <PanelHeader>
-        <PanelTitle id="dates-title">{t("title")}</PanelTitle>
-      </PanelHeader>
+    <Panel id="termine" title={t("title")} titleId="dates-title" className="scroll-mt-4">
       {upcoming.length + past.length === 0 ? (
         <PanelBody className="text-muted-foreground text-small">{t("empty")}</PanelBody>
       ) : (
@@ -391,20 +391,21 @@ export async function NotesExcerpt({ event }: { event: EventDetail }) {
   const excerpt =
     text.length > NOTE_EXCERPT_CHARS ? `${text.slice(0, NOTE_EXCERPT_CHARS).trimEnd()} …` : text;
   return (
-    <Panel aria-labelledby="note-title">
-      <PanelHeader>
-        <PanelTitle id="note-title" className="flex items-center gap-2">
-          <NotebookText aria-hidden className="size-4 text-muted-foreground" />
+    <Panel
+      title={
+        <span className="inline-flex items-center gap-2">
+          <NotebookText aria-hidden className="size-[18px] text-muted-foreground" />
           {t("title")}
-        </PanelTitle>
-        <Link
-          href={`/veranstaltungen/${event.id}/notizen` as never}
-          className="inline-flex items-center gap-1 text-accent-soft-foreground text-small hover:underline"
-        >
+        </span>
+      }
+      titleId="note-title"
+      actions={
+        <Link href={`/veranstaltungen/${event.id}/notizen` as never} className={panelActionLink}>
           {t("link")}
           <ArrowRight aria-hidden className="size-3.5" />
         </Link>
-      </PanelHeader>
+      }
+    >
       <PanelBody className="line-clamp-4 whitespace-pre-line break-words text-foreground-2">
         {excerpt}
       </PanelBody>
@@ -606,17 +607,16 @@ export async function TeamSummaryPanel({ event }: { event: EventDetail }) {
   const assigned = total - open.length;
   const level = event.health.team ?? "none";
   return (
-    <Panel aria-labelledby="team-title">
-      <PanelHeader>
-        <PanelTitle id="team-title">{t("title")}</PanelTitle>
-        <Link
-          href={`/veranstaltungen/${event.id}/team` as never}
-          className="inline-flex items-center gap-1 text-accent-soft-foreground text-small hover:underline"
-        >
+    <Panel
+      title={t("title")}
+      titleId="team-title"
+      actions={
+        <Link href={`/veranstaltungen/${event.id}/team` as never} className={panelActionLink}>
           {t("link")}
           <ArrowRight aria-hidden className="size-3.5" />
         </Link>
-      </PanelHeader>
+      }
+    >
       <PanelBody className="flex flex-col gap-2">
         <Health level={level} label={`${t("summary", { assigned, total })} · ${tHealth(level)}`} />
         <p className="text-foreground-2 text-small">
