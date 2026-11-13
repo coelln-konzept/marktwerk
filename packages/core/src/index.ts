@@ -20,6 +20,7 @@ export * from "./events/lifecycle";
 export * from "./events/market-colors";
 export * from "./events/market-rules";
 export * from "./events/market-short-code";
+export * from "./events/next-time-notes";
 export * from "./events/overview";
 export * from "./events/past";
 export * from "./events/preset";

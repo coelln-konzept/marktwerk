@@ -53,6 +53,8 @@ erDiagram
     EVENT_PRESET ||--o{ EVENT : generates
     LOCATION_AGREEMENT ||--o{ EVENT : "fixed dates"
     EVENT ||--o{ EVENT_ANCHOR : "named dates"
+    EVENT_PRESET ||--o{ NEXT_TIME_NOTE : "Fürs nächste Mal"
+    EVENT |o--o{ NEXT_TIME_NOTE : "written at"
     EVENT ||--o{ EVENT_DUTY : "who does what"
     STAFF_MEMBER ||--o{ EVENT_DUTY : ""
     DUTY_ROLE ||--o{ EVENT_DUTY : ""
@@ -177,6 +179,22 @@ erDiagram
   done tasks never move). Audit `season.anchors` (`{from, to}` per key, `cause`, `tasksShifted`); `event.move` /
   `event.update` add `seasonTasksShifted`. The Verschieben preview lists the season tasks that would move
   (`seasonShifting`, not shown in the UI yet).
+- **next_time_note** ("Fürs nächste Mal", Fahrplan R25, research 13 G9, migration `0024_next_time_note`): a short note
+  against a **market**, written during or after one of its dates and shown when the next date is prepared. `preset_id`
+  → `event_preset` (`on delete cascade`), `event_id?` → `event` (`on delete set null`: the date it was written at; null
+  = written on the market page), `task_id?` → `task` (`on delete set null`: written from the task drawer; a Saison
+  task gives the market and no date), `body` (check: 1–500 characters, trimmed, core `nextTimeNoteProblem`),
+  `created_by_id?` / `done_by_id?` → `user` (`on delete set null`), `done_at?` (null = open), timestamps; index
+  `(preset_id, done_at)`. `event.notes` stays the free text of one date; this is the market's list that carries over.
+  **Next date** (core `nextDateToPrepare`): the market's first not cancelled, not archived date that starts after
+  today (a date running today is not it); its Zusammenfassung shows the open notes written **before** it
+  (`isNoteForDate`: market page or an earlier date). Services in `apps/web/src/server/services/next-time-notes.ts`:
+  `addNextTimeNote` (target = date, task or market; audit `next_time_note.create`), `setNextTimeNoteDone` (done and
+  back, the undo; `next_time_note.done` / `.reopen`, nothing on a no-op), `deleteNextTimeNote` (author or
+  `nextTimeNote:delete`, the undo of "Notieren"; `next_time_note.delete` keeps the text). Permission resource
+  `nextTimeNote` (read/write for every role, delete for owner/manager); field users see and write notes only of
+  markets where a date is visible to them (`visibleNextTimeNotes`) and never on the market page. Queries:
+  `listNextTimeNotes`, `listOpenNextTimeNotes`, `getEventNextTimeNotes`.
 - **event_duty**: `(event_id, duty_role_id)` → `staff_member_id`. Reassigning reassigns open, not individually
   reassigned tasks of that duty role.
 - **appointment** (Termin, CF9-1): a dated appointment of the business that is not a task and not an event.

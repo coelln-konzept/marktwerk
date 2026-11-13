@@ -169,6 +169,13 @@
       "when": 1794605788761,
       "tag": "0023_market_short_code",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794608208922,
+      "tag": "0024_next_time_note",
+      "breakpoints": true
     }
   ]
 }

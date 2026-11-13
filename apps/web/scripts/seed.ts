@@ -4,7 +4,7 @@
  * members (+ logins for those with a permission role, and one field login for the logistics lead), duty roles, presets, events with anchors and
  * duties, Saison records with their anchors, vendors (read-only import), and the Phase 1 modules from ./seed/*: templates, checklists and
  * tasks (M2), permits (M3), contracts and shifts (M4), payables and instalments (M5), vehicles and
- * obligations (M6).
+ * obligations (M6), and a few "Fürs nächste Mal" notes (R25).
  *
  * Idempotent: synthetic rows keep their ids and are inserted with ON CONFLICT DO NOTHING, so the
  * script is safe to run repeatedly. Run through `scripts/seed-today.ts` (`pnpm db:seed` from the repo root).
@@ -18,6 +18,7 @@ import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
 import { seedCompany } from "./seed/company";
 import { seedMoney } from "./seed/money";
+import { seedNextTimeNotes } from "./seed/notes";
 import { seedPermits } from "./seed/permits";
 import { ANCHOR_KEYS, insertAll, type SeedContext, type Tx } from "./seed/shared";
 import { seedStaff } from "./seed/staff";
@@ -237,6 +238,7 @@ await db.transaction(async (tx) => {
   await seedCompany(tx, ctx); // M6: vehicles, obligations (before payables, which reference vehicles)
   await seedMoney(tx, ctx); // M5: payables, instalments, event money
   await seedStaff(tx, ctx); // M4: contracts, shifts, payroll periods
+  await seedNextTimeNotes(tx, ctx); // R25: "Fürs nächste Mal" notes at the last dates of a few markets
 });
 
 // One deadline sweep, so the notification center (company-wide notifications) has content right away.

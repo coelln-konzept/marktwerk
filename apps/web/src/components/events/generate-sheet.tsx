@@ -42,6 +42,7 @@ import {
 import { CandidateNotes, candidateWarningCount } from "@/components/events/candidate-notes";
 import { NewMarketForm } from "@/components/events/new-market-form";
 import { useScheduleContextState } from "@/components/events/schedule-hints";
+import { GenerateNextTimeNotes } from "@/components/next-time-notes/generate-next-time-notes";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
@@ -851,6 +852,7 @@ export function GenerateSheet({
                 <p className="text-foreground-2">
                   {t("previewIntro", { name: preset.name, venue: preset.venueName })}
                 </p>
+                <GenerateNextTimeNotes presetId={preset.id} />
                 {preview.state === "ready" && preview.data.noTemplate && (
                   <p role="status" className="text-muted-foreground text-small">
                     {t("preview.noTemplate")}

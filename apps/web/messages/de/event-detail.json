@@ -430,5 +430,68 @@
       "count": "{count, plural, one {# Dokument} other {# Dokumente}}",
       "kind": "Art"
     }
+  },
+  "nextTimeNotes": {
+    "title": "Fürs nächste Mal",
+    "intro": "Was beim nächsten Termin von „{market}“ anders laufen soll. Offene Notizen stehen beim nächsten Termin oben und in „Markt planen“.",
+    "label": "Neue Notiz fürs nächste Mal",
+    "placeholder": "z. B. Strom am Stand 12 fehlt",
+    "add": "Notieren",
+    "saving": "wird gespeichert …",
+    "chars": "{count} / {max}",
+    "empty": "Keine offenen Notizen.",
+    "openCount": "{count} offen",
+    "noMarket": "Dieser Termin gehört zu keinem Markt. Notizen fürs nächste Mal gibt es nur bei Märkten.",
+    "nextDate": "Der nächste Termin ist {date}. Dort stehen die offenen Notizen oben.",
+    "nextDateLink": "Zum nächsten Termin",
+    "isNextDate": "Dieser Termin ist der nächste: die offenen Notizen stehen auch in der Zusammenfassung.",
+    "doneToggle": "Erledigt ({count})",
+    "doneMore": "Die letzten {shown} von {count}.",
+    "markDone": "Erledigt",
+    "doneAria": "„{text}“ als erledigt markieren",
+    "reopen": "Wieder öffnen",
+    "reopenAria": "„{text}“ wieder öffnen",
+    "meta": {
+      "unknownAuthor": "Unbekannt",
+      "written": "notiert am {date}",
+      "atDate": "Termin {date}",
+      "marketPage": "auf der Marktseite",
+      "task": "Aufgabe „{title}“",
+      "done": "erledigt am {date} von {name}",
+      "doneNoName": "erledigt am {date}"
+    },
+    "toast": {
+      "added": "Notiert fürs nächste Mal",
+      "done": "Erledigt: „{text}“",
+      "reopened": "Wieder offen: „{text}“",
+      "removed": "Notiz entfernt",
+      "undo": "Rückgängig"
+    },
+    "errors": {
+      "empty": "Bitte einen Text eingeben.",
+      "too_long": "Der Text ist zu lang (höchstens {max} Zeichen).",
+      "not_found": "Diese Notiz oder dieser Termin ist nicht mehr da.",
+      "no_market": "Dieser Termin gehört zu keinem Markt. Notizen fürs nächste Mal gibt es nur bei Märkten.",
+      "failed": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+    },
+    "overview": {
+      "intro": "Notiert bei früheren Terminen von „{market}“. Abhaken, was erledigt ist.",
+      "link": "Alle Notizen"
+    },
+    "drawer": {
+      "open": "Fürs nächste Mal notieren",
+      "hint": "Kommt zum Markt „{market}“ und steht beim nächsten Termin oben.",
+      "cancel": "Abbrechen"
+    },
+    "market": {
+      "intro": "Notizen von den Terminen dieses Marktes. Offene stehen beim nächsten Termin oben und in „Markt planen“."
+    },
+    "generate": {
+      "title": "Fürs nächste Mal",
+      "intro": "Offene Notizen zu diesem Markt. Abhaken, was erledigt ist; der Rest steht beim nächsten Termin wieder oben.",
+      "loading": "Notizen werden geladen …",
+      "failed": "Die Notizen fürs nächste Mal konnten nicht geladen werden.",
+      "retry": "Noch einmal"
+    }
   }
 }
