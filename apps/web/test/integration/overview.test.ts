@@ -1,7 +1,8 @@
-import { eventPermit, obligation, permit, shift } from "@marktwerk/db/schema";
+import { eventPermit, obligation, permit, shift, vehicle } from "@marktwerk/db/schema";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
+import type { DueItem } from "@/server/queries/due";
 import { getOverview, listDueItems } from "@/server/queries/overview";
 import { createPayable } from "@/server/services/payables";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -116,12 +117,13 @@ beforeEach(async () => {
     status: "confirmed",
   });
 
-  // An obligation due in three days.
+  // An obligation due in three days whose reminder has not started (no lead): "Diese Woche".
   await db.insert(obligation).values({
     kind: "other",
     title: "Brandschutzprüfung",
     scope: "company",
     nextDueOn: "2026-10-24",
+    leadDays: 0,
     responsibleStaffMemberId: anna.id,
   });
 });
@@ -206,6 +208,128 @@ describe("Heute fällig", () => {
     expect(items.map((i) => `${i.kind}:${i.title}`)).toEqual([
       "task:Überfällige Aufgabe",
       "task:Heutige Aufgabe",
+    ]);
+  });
+});
+
+describe("Pflichten reminders (research 10)", () => {
+  let sprinter: string;
+  const ids: Record<string, string> = {};
+
+  beforeEach(async () => {
+    const [van] = await db
+      .insert(vehicle)
+      .values({ name: "Sprinter", plate: "K-MW 123", odometerKm: 99_400 })
+      .returning();
+    sprinter = van?.id as string;
+    const rows = await db
+      .insert(obligation)
+      .values([
+        // "Erinnerung ab" 30 days before 20 Nov: the reminder runs since 21 Oct (today).
+        {
+          kind: "hu",
+          title: "HU",
+          scope: "vehicle",
+          vehicleId: sprinter,
+          nextDueOn: "2026-11-20",
+          leadDays: 30,
+          responsibleStaffMemberId: cat.staff.anna.id,
+        },
+        // Due in 3 weeks, but reminded only 14 days before: not yet.
+        {
+          kind: "insurance",
+          title: "Betriebshaftpflicht",
+          scope: "company",
+          nextDueOn: "2026-11-11",
+          leadDays: 14,
+          responsibleStaffMemberId: cat.staff.anna.id,
+        },
+        {
+          kind: "report",
+          title: "KSK-Meldung",
+          scope: "company",
+          nextDueOn: "2026-10-01",
+          responsibleStaffMemberId: cat.staff.ben.id,
+        },
+        // 600 km before the km target (inside DEFAULT_KM_LEAD), no date.
+        {
+          kind: "service",
+          title: "Inspektion",
+          scope: "vehicle",
+          vehicleId: sprinter,
+          nextDueKm: 100_000,
+          responsibleStaffMemberId: cat.staff.anna.id,
+        },
+        // In its window, but archived.
+        {
+          kind: "other",
+          title: "Archiviert",
+          scope: "company",
+          nextDueOn: "2026-10-25",
+          responsibleStaffMemberId: cat.staff.anna.id,
+          archivedAt: new Date("2026-10-01T10:00:00+02:00"),
+        },
+      ])
+      .returning({ id: obligation.id, title: obligation.title });
+    for (const r of rows) ids[r.title] = r.id;
+  });
+
+  const obligations = (items: DueItem[]) => items.filter((i) => i.kind === "obligation");
+
+  it('from "Erinnerung ab" on a Pflicht is in "Heute & überfällig" with its due date and a link to it', async () => {
+    const { due } = await getOverview(owner, TODAY);
+    const hu = due.items.find((i) => i.id === ids.HU);
+    expect(hu).toMatchObject({
+      kind: "obligation",
+      title: "HU · K-MW 123",
+      dueOn: "2026-11-20",
+      urgency: "today",
+      href: `/firma/pflichten/${ids.HU}`,
+      meta: "Sprinter",
+      assigneeName: "Anna Test",
+    });
+    expect(due.later.some((i) => i.id === ids.HU)).toBe(false);
+  });
+
+  it("overdue Pflichten are under Überfällig, km targets count from today, the rest stays out", async () => {
+    const { due } = await getOverview(owner, TODAY);
+    expect(obligations(due.items).map((i) => `${i.urgency}:${i.title}:${i.dueOn}`)).toEqual([
+      "overdue:KSK-Meldung:2026-10-01",
+      "today:Inspektion · K-MW 123:2026-10-21",
+      "today:HU · K-MW 123:2026-11-20",
+    ]);
+    // Before its window (and the lead-less one due this week stays in "Diese Woche").
+    expect(obligations(due.later).map((i) => i.title)).toEqual(["Brandschutzprüfung"]);
+    const all = [...due.items, ...due.later].map((i) => i.title);
+    expect(all).not.toContain("Betriebshaftpflicht");
+    expect(all).not.toContain("Archiviert");
+  });
+
+  it("they rank after the other items of their group", async () => {
+    const { due } = await getOverview(owner, TODAY);
+    const kinds = due.items.filter((i) => i.urgency === "today").map((i) => i.kind);
+    expect(kinds.slice(-2)).toEqual(["obligation", "obligation"]);
+    expect(due.items.filter((i) => i.urgency === "overdue").at(-1)?.title).toBe("KSK-Meldung");
+  });
+
+  it('the reminder starts on the day of "Erinnerung ab", not the day before', async () => {
+    vi.setSystemTime(new Date("2026-10-27T10:00:00+01:00"));
+    const before = await getOverview(owner, "2026-10-27");
+    expect(before.due.items.map((i) => i.title)).not.toContain("Betriebshaftpflicht");
+    vi.setSystemTime(new Date("2026-10-28T10:00:00+01:00"));
+    const from = await getOverview(owner, "2026-10-28");
+    expect(from.due.items.find((i) => i.title === "Betriebshaftpflicht")).toMatchObject({
+      urgency: "today",
+      dueOn: "2026-11-11",
+    });
+  });
+
+  it("only roles with company:read see them; an archived vehicle's Pflichten stay out", async () => {
+    expect(obligations((await getOverview(staffActor, TODAY)).due.items)).toHaveLength(3);
+    expect(obligations((await getOverview(fieldActor, TODAY)).due.items)).toEqual([]);
+    await db.update(vehicle).set({ archivedAt: new Date() });
+    expect(obligations((await getOverview(owner, TODAY)).due.items).map((i) => i.title)).toEqual([
+      "KSK-Meldung",
     ]);
   });
 });

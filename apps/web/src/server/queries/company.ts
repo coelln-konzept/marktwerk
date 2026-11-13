@@ -434,27 +434,31 @@ const TONE = { overdue: "critical", due: "warn", soon: "warn", ok: "neutral" } a
 const obligationHref = (id: string) => `/firma/pflichten/${id}`;
 
 /**
- * Obligations for the Übersicht: overdue, due today or due within 7 days (by date), plus km targets that are
- * reached or overrun (shown as due today / overdue). Empty for roles without `company:read`.
+ * Obligations for the Übersicht (research 10: Pflichten reminders on the Übersicht). Everything whose reminder
+ * runs is listed under "Heute & überfällig", like the `obligation-reminders` job notifies (`obligationStatus`):
+ * overdue (date or km) as `overdue`; due today or inside the "Erinnerung ab" window (`lead_days` before the date,
+ * or within `DEFAULT_KM_LEAD` km of the km target) as `today`, with the real due date for the badge. Without a
+ * running reminder (a lead shorter than a week) a date within the next 7 days still shows in "Diese Woche".
+ * Empty for roles without `company:read`.
  */
 export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> {
   if (!can(actor.role, "company", "read")) return [];
   const rows = await listObligations(today);
   const items: DueItem[] = [];
   for (const o of rows) {
-    const byDate = o.daysLeft !== null && o.daysLeft <= SOON_DAYS;
-    const byKm = o.kmLeft !== null && o.kmLeft <= 0;
-    if (!byDate && !byKm) continue;
-    const overdue = (o.daysLeft !== null && o.daysLeft < 0) || (o.kmLeft !== null && o.kmLeft < 0);
-    const dueToday = o.daysLeft === 0 || o.kmLeft === 0;
-    // A reached km target has no date of its own: it counts from today.
-    const dueOn = byDate && o.nextDueOn ? o.nextDueOn : today;
+    let urgency: DueItem["urgency"];
+    if (o.status === "overdue") urgency = "overdue";
+    else if (o.status === "due" || o.status === "soon") urgency = "today";
+    else if (o.daysLeft !== null && o.daysLeft >= 0 && o.daysLeft <= SOON_DAYS) urgency = "soon";
+    else continue;
+    // A km target has no date of its own: it counts from today.
+    const dueOn = o.trigger === "km" || !o.nextDueOn ? today : o.nextDueOn;
     items.push({
       kind: "obligation",
       id: o.id,
       title: o.vehiclePlate ? `${o.title} · ${o.vehiclePlate}` : o.title,
       dueOn,
-      urgency: overdue ? "overdue" : dueToday ? "today" : "soon",
+      urgency,
       href: obligationHref(o.id),
       meta: o.vehicleName ?? o.venueName ?? undefined,
       assigneeName: o.responsibleName,

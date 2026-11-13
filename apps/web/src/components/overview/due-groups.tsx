@@ -125,6 +125,8 @@ function DueRow({
   const Icon = KIND_ICONS[item.kind];
   const editable = item.kind === "task" && canSnooze;
   const meta = nested ? null : item.meta;
+  // A Pflicht has no market around it, so the row names its kind in words (research 10).
+  const kindLabel = item.kind === "obligation" ? t("kind.obligation") : null;
   const assignee =
     item.assigneeName && isModuleVisible("team")
       ? t("assignee", { name: item.assigneeName })
@@ -168,13 +170,19 @@ function DueRow({
             {item.title}
           </Link>
         </div>
-        {(meta || assignee) && (
+        {(kindLabel || meta || assignee) && (
           <span
             className={cn(
               "block break-words text-muted-foreground text-small",
               reserveStar && "pl-[22px]",
             )}
           >
+            {kindLabel && (
+              <>
+                <span className="font-medium text-foreground-2">{kindLabel}</span>
+                {(meta || assignee) && " · "}
+              </>
+            )}
             {meta && item.metaHref ? (
               <Link href={item.metaHref as never} className="hover:underline">
                 {meta}
@@ -196,8 +204,13 @@ function DueRow({
           dueOn={item.dueOn}
           today={today}
           waiting={item.urgency === "waiting"}
-          // What the week needs reads by day: "Sa 31.10. · In 2 Tagen".
-          withDate={item.urgency === "soon" || item.urgency === "upcoming"}
+          // What the week needs reads by day: "Sa 31.10. · In 2 Tagen". A Pflicht always names its due date
+          // (its reminder runs from "Erinnerung ab", weeks before the date).
+          withDate={
+            item.urgency === "soon" ||
+            item.urgency === "upcoming" ||
+            (item.kind === "obligation" && item.dueOn !== today)
+          }
         />
         {editable && (
           <SnoozeMenu task={{ id: item.id, title: item.title, status: "todo" }} today={today} />
@@ -402,7 +415,12 @@ export async function DueGroups({
               {shown.map(render)}
               {hidden.length > 0 && (
                 <li className="list-none border-border-subtle border-t px-3 py-1">
-                  <MoreDisclosure label={t("moreMarkets", { count: hidden.length })}>
+                  <MoreDisclosure
+                    // Rows without a market (Pflichten, permits no market needs) are not "Märkte".
+                    label={t(hidden.every((c) => c.event) ? "moreMarkets" : "moreEntries", {
+                      count: hidden.length,
+                    })}
+                  >
                     <ul className="m-0 -mx-3 flex list-none flex-col border-border-subtle border-t p-0">
                       {hidden.map(render)}
                     </ul>
