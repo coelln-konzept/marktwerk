@@ -14,7 +14,7 @@ import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { LetterFilter } from "@/components/ui/letter-filter";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { RowActions, rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { CONTACT_KINDS, isContactKind, listContacts } from "@/server/queries/contacts";
@@ -193,8 +193,8 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                           data-row
                           data-href={peek}
                           data-peek={peek}
-                          aria-selected={vorschauId === r.id}
-                          className="cursor-pointer outline-hidden focus-visible:bg-selected"
+                          aria-current={vorschauId === r.id}
+                          className={`cursor-pointer ${rowFocus}`}
                         >
                           <TD className="min-w-44 max-w-64">
                             <Link

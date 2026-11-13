@@ -6,6 +6,7 @@ import { DueBadge } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { rowFocus } from "@/components/ui/table";
 import { formatDateRangeYear, formatDateShort, formatWeek } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
@@ -19,8 +20,7 @@ import { VerdictLine } from "./verdict-line";
 /** Blockers behind the "Top-5-Aufgaben anzeigen" toggle of each market (CF9-2). */
 export const TOP_BLOCKERS = 5;
 
-const ROW =
-  "flex cursor-pointer items-start gap-2 py-1.5 pr-4 pl-7 hover:bg-hover focus-visible:bg-selected";
+const ROW = cn("flex cursor-pointer items-start gap-2 py-1.5 pr-4 pl-7 hover:bg-hover", rowFocus);
 
 function Blocker({
   item,
@@ -103,7 +103,8 @@ async function MarketBlock({
         // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter/Space (KeyboardRows)
         tabIndex={0}
         className={cn(
-          "flex cursor-pointer flex-col gap-1 px-4 pt-3 pb-1.5 hover:bg-hover focus-visible:bg-selected",
+          "flex cursor-pointer flex-col gap-1 px-4 pt-3 pb-1.5 hover:bg-hover",
+          rowFocus,
           selected && "bg-selected",
         )}
       >

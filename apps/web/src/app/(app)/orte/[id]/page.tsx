@@ -14,7 +14,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { addressLine, MailLink, PhoneLink } from "@/components/ui/phone";
-import { Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { Facts } from "@/components/ui/vorschau";
 import { ArchiveVenueButton } from "@/components/venues/archive-button";
 import { RowControls } from "@/components/venues/row-controls";
@@ -165,7 +165,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
                       data-href={href}
                       // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter (KeyboardRows)
                       tabIndex={0}
-                      className="flex cursor-pointer flex-wrap items-center justify-between gap-2 border-border-subtle border-b px-4 py-2.5 last:border-b-0 hover:bg-hover focus-visible:bg-selected focus-visible:outline-hidden"
+                      className={`flex cursor-pointer flex-wrap items-center justify-between gap-2 border-border-subtle border-b px-4 py-2.5 last:border-b-0 hover:bg-hover ${rowFocus}`}
                     >
                       <div className="min-w-0">
                         <Link
@@ -443,7 +443,7 @@ async function EventGroup({
                 data-row
                 data-href={`/veranstaltungen/${e.id}`}
                 tabIndex={0}
-                className="cursor-pointer focus-visible:bg-selected focus-visible:outline-hidden"
+                className={`cursor-pointer ${rowFocus}`}
               >
                 <TD className="tabular whitespace-nowrap font-semibold">
                   {formatDateRange(e.startsOn, e.endsOn, locale)}

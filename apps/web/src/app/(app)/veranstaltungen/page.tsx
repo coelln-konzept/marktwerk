@@ -20,7 +20,7 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel } from "@/components/ui/panel";
 import { LinkRow } from "@/components/ui/row-link";
 import { EmptyState } from "@/components/ui/states";
-import { RowActions, Table, TD, TGroup, TH, THead } from "@/components/ui/table";
+import { RowActions, rowFocus, Table, TD, TGroup, TH, THead } from "@/components/ui/table";
 import { formatDateRangeYear, formatMonth, todayIn } from "@/lib/format";
 import { isModuleHidden, isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUSES } from "@/lib/status";
@@ -402,9 +402,9 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                         data-row
                         data-href={href}
                         data-peek={peek}
-                        aria-selected={vorschauId === r.id}
+                        aria-current={vorschauId === r.id}
                         className={cn(
-                          "outline-hidden focus-visible:bg-selected",
+                          rowFocus,
                           "max-sm:grid max-sm:grid-cols-[auto_auto_1fr_auto] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-0.5 max-sm:px-3 max-sm:py-2.5",
                           r.status === "cancelled" && "text-muted-foreground",
                         )}

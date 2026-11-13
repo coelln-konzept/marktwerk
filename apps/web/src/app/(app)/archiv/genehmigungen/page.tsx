@@ -10,7 +10,7 @@ import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { PAGE_SIZE, Pager, pageOf } from "@/components/ui/pager";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate, todayIn } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
@@ -95,8 +95,8 @@ export default async function ArchivePermitsPage({
                       data-row
                       data-href={peek}
                       tabIndex={0}
-                      aria-selected={drawerId === r.id}
-                      className="cursor-pointer focus-visible:bg-selected focus-visible:outline-hidden"
+                      aria-current={drawerId === r.id}
+                      className={`cursor-pointer ${rowFocus}`}
                     >
                       <TD className="max-w-72">
                         <Link
