@@ -5,6 +5,8 @@ import {
   isMonthDay,
   monthDayIn,
   permitCovers,
+  permitInstanceTitle,
+  permitServesMarket,
   seasonFor,
 } from "./coverage";
 
@@ -74,6 +76,64 @@ describe("permitCovers", () => {
   it("ignores superseded permits but keeps rejected ones visible", () => {
     expect(permitCovers("per_season", { ...base, status: "superseded" }, event)).toBe(false);
     expect(permitCovers("per_season", { ...base, status: "rejected" }, event)).toBe(true);
+  });
+});
+
+describe("permitServesMarket (Fahrplan R27: several markets at one place)", () => {
+  const record = { presetId: "rodenkirchen-antik", season: 2027 };
+  const own = { ...event, presetId: "rodenkirchen-antik" };
+  const other = { ...event, presetId: "rodenkirchen-troedel" };
+
+  it("a permit with a Saison record covers its own market only", () => {
+    expect(permitServesMarket("per_season", record, own)).toBe(true);
+    expect(permitServesMarket("per_season", record, other)).toBe(false);
+    // An event without a market is nobody's season.
+    expect(permitServesMarket("per_season", record, { ...event, presetId: null })).toBe(false);
+    expect(permitServesMarket("per_season", record, event)).toBe(false);
+    expect(permitCovers("per_season", { ...base, seasonRecord: record }, own)).toBe(true);
+    expect(permitCovers("per_season", { ...base, seasonRecord: record }, other)).toBe(false);
+  });
+
+  it("season and year permits cover their record's year; multi-year and standing ones later years too", () => {
+    const next = { ...own, season: 2028 };
+    expect(permitServesMarket("per_season", record, next)).toBe(false);
+    expect(permitServesMarket("per_year", record, next)).toBe(false);
+    expect(permitServesMarket("multi_year", record, next)).toBe(true);
+    expect(permitServesMarket("standing", record, next)).toBe(true);
+    expect(permitServesMarket("multi_year", record, { ...next, presetId: "p6" })).toBe(false);
+    const multi = { ...base, season: null, validUntil: "2028-12-31", seasonRecord: record };
+    expect(
+      permitCovers("multi_year", multi, { ...next, startsOn: "2028-05-07", endsOn: "2028-05-07" }),
+    ).toBe(true);
+    expect(
+      permitCovers("multi_year", multi, { ...own, startsOn: "2029-05-06", endsOn: "2029-05-06" }),
+    ).toBe(false);
+  });
+
+  it("a permit without a record keeps the place + season rule for every market", () => {
+    expect(permitServesMarket("per_season", null, other)).toBe(true);
+    expect(permitServesMarket("per_season", undefined, event)).toBe(true);
+    expect(permitCovers("per_season", { ...base, seasonRecord: null }, other)).toBe(true);
+  });
+});
+
+describe("permitInstanceTitle", () => {
+  it("dates single-event permits and names the market where a place has several", () => {
+    expect(permitInstanceTitle("Halteverbot", "per_event", "2027-05-01")).toBe(
+      "Halteverbot – 2027-05-01",
+    );
+    expect(permitInstanceTitle("Marktgenehmigung", "per_season", "2027-05-01")).toBe(
+      "Marktgenehmigung",
+    );
+    expect(permitInstanceTitle("Marktgenehmigung", "per_season", "2027-05-01", null)).toBe(
+      "Marktgenehmigung",
+    );
+    expect(permitInstanceTitle("Marktgenehmigung", "per_season", "2027-05-01", "P6")).toBe(
+      "Marktgenehmigung – P6",
+    );
+    expect(permitInstanceTitle("Halteverbot", "per_event", "2027-05-01", "P6")).toBe(
+      "Halteverbot – P6 – 2027-05-01",
+    );
   });
 });
 

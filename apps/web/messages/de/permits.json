@@ -218,6 +218,7 @@
     "tasksEmpty": "Keine Aufgaben zu dieser Genehmigung.",
     "taskDue": "fällig am {date}",
     "taskNoDue": "ohne Frist",
+    "taskSeason": "{market} · Saison {year}",
     "taskStatus": {
       "todo": "Offen",
       "in_progress": "In Arbeit",

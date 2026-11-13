@@ -26,6 +26,8 @@ import {
   contact,
   event,
   eventPermit,
+  eventPreset,
+  eventSeason,
   eventType,
   type PermitDeliverables,
   payable,
@@ -428,11 +430,16 @@ export async function getPermit(actor: Actor, id: string, today: string) {
         eventId: task.eventId,
         eventName: event.name,
         eventStartsOn: event.startsOn,
+        // A season task (Fahrplan R11): "<Markt> · Saison 2027".
+        seasonYear: eventSeason.season,
+        seasonMarketName: eventPreset.name,
         assigneeName: staffMember.displayName,
       })
       .from(task)
       .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
       .leftJoin(event, eq(event.id, task.eventId))
+      .leftJoin(eventSeason, eq(eventSeason.id, task.seasonId))
+      .leftJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
       // Deleted tasks (cancelled, e.g. a season permit's duplicate apply tasks) are left out like everywhere.
       .where(and(eq(task.permitId, id), ne(task.status, "cancelled")))
       .orderBy(asc(task.dueAt), asc(task.title)),
@@ -447,6 +454,13 @@ export async function getPermit(actor: Actor, id: string, today: string) {
           .where(eq(permit.id, row.permit.supersedesId))
       : Promise.resolve([]),
   ]);
+  // A permit of a Saison record serves its own market (Fahrplan R27): only that market's dates are offered.
+  const [record] = row.permit.seasonId
+    ? await db
+        .select({ presetId: eventSeason.presetId })
+        .from(eventSeason)
+        .where(eq(eventSeason.id, row.permit.seasonId))
+    : [];
   const venueEvents =
     row.permit.venueId && can(actor.role, "event", "read")
       ? await db
@@ -455,6 +469,7 @@ export async function getPermit(actor: Actor, id: string, today: string) {
           .where(
             and(
               eq(event.venueId, row.permit.venueId),
+              record ? eq(event.presetId, record.presetId) : undefined,
               isNull(event.archivedAt),
               ne(event.status, "cancelled"),
               gte(event.endsOn, today),
