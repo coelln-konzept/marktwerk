@@ -128,7 +128,7 @@ export function GenerateSheet({
   const t = useTranslations("generate");
   const locale = useLocale();
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const today = todayIn();
   const nextYear = Number(today.slice(0, 4)) + 1;
 
@@ -423,7 +423,15 @@ export function GenerateSheet({
         message: t("created", { count: ids.length }),
         actionLabel: t("undo"),
         onAction: async () => {
-          await undoCreateEvents(ids);
+          const undone = await undoCreateEvents(ids);
+          if (!undone.ok) {
+            showError(
+              t.has(`errors.${undone.error}` as never)
+                ? t(`errors.${undone.error}` as never)
+                : t("single.errors.generic"),
+            );
+            return;
+          }
           // The page we moved to belonged to one of the undone events.
           router.push("/veranstaltungen" as never);
         },

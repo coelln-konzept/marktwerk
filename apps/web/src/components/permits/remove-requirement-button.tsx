@@ -14,6 +14,8 @@ export function RemoveRequirementButton({ id, title }: { id: string; title: stri
   const t = useTranslations("requirements");
   const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
+  const errorText = (code: string) =>
+    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
   function remove() {
     startTransition(async () => {
@@ -23,8 +25,9 @@ export function RemoveRequirementButton({ id, title }: { id: string; title: stri
         message: t("removed", { title }),
         actionLabel: t("undo"),
         onAction: async () => {
-          await restoreRequirementAction(id);
-          showToast({ message: t("restored") });
+          const undone = await restoreRequirementAction(id);
+          if (undone.ok) showToast({ message: t("restored") });
+          else showError(errorText(undone.error));
         },
       });
     });

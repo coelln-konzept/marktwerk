@@ -480,6 +480,12 @@ describe("permit status flow", () => {
     await restorePermit(owner, p.id);
     expect((await setPermitStatus(owner, p.id, "applied")).changed).toBe(true);
   });
+
+  it("refuses to archive an archived permit (undo of a new permit someone already removed)", async () => {
+    const p = await newPermit();
+    await archivePermit(owner, p.id);
+    await expect(archivePermit(owner, p.id)).rejects.toMatchObject({ code: "not_found" });
+  });
 });
 
 describe("editing a permit", () => {

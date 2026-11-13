@@ -12,6 +12,8 @@ export function RemoveAgreementButton({ id }: { id: string }) {
   const t = useTranslations("agreements");
   const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
+  const errorText = (code: string) =>
+    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
   return (
     <Button
       size="sm"
@@ -26,8 +28,9 @@ export function RemoveAgreementButton({ id }: { id: string }) {
             message: t("removed"),
             actionLabel: t("undo"),
             onAction: async () => {
-              await undoRemoveAgreement(id);
-              showToast({ message: t("restored") });
+              const undone = await undoRemoveAgreement(id);
+              if (undone.ok) showToast({ message: t("restored") });
+              else showError(errorText(undone.error));
             },
           });
         })

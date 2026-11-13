@@ -66,7 +66,7 @@ export function PermitEditForm({
   staff: { id: string; name: string }[];
 }) {
   const t = useTranslations("permitDrawer");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const uid = useId();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -119,8 +119,9 @@ export function PermitEditForm({
         message: t("saved"),
         actionLabel: t("undo"),
         onAction: async () => {
-          await savePermitAction(permitId, previous, true);
-          showToast({ message: t("savedUndone") });
+          const undone = await savePermitAction(permitId, previous, true);
+          if (undone.ok) showToast({ message: t("savedUndone") });
+          else showError(errorText(undone.error));
         },
       });
     });
