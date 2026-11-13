@@ -1,5 +1,6 @@
 import type { PermitDisplayState } from "@marktwerk/core";
 import {
+  CalendarClock,
   Check,
   CircleAlert,
   CircleDashed,
@@ -15,11 +16,12 @@ import {
 import type { Tone } from "@/components/ui/status-badge";
 
 /**
- * Permit states → badge (UX concept §7: Fehlt red ! · In Vorbereitung blue ◐ · Beantragt violet ⏳ ·
+ * Permit states → badge (UX concept §7: Fehlt red ! · Noch nicht fällig grey (logbook) · In Vorbereitung blue ◐ · Beantragt violet ⏳ ·
  * Genehmigt green ✓ · Abgelehnt red ✕ · Läuft ab amber ⚠ · Abgelaufen red ⌛ · Nicht nötig grey –).
  */
 export const PERMIT_STATE = {
   missing: { tone: "critical", icon: CircleAlert },
+  not_due: { tone: "neutral", icon: CalendarClock },
   preparing: { tone: "info", icon: CircleDashed },
   applied: { tone: "waiting", icon: Hourglass },
   granted: { tone: "ok", icon: Check },
@@ -34,6 +36,7 @@ export const PERMIT_STATE = {
 /** The states in the order of the summary strip. */
 export const PERMIT_STATE_ORDER: PermitDisplayState[] = [
   "missing",
+  "not_due",
   "preparing",
   "applied",
   "granted",

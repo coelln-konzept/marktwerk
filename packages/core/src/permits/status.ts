@@ -109,6 +109,11 @@ export const PERMIT_EXPIRY_WARNING_DAYS = 60;
 
 export type PermitDisplayState =
   | "missing"
+  /**
+   * Logbook only: not started, but its apply-by date lies beyond the permit horizon ("Noch nicht fällig",
+   * product owner 2026-11-10). Set by `logbookDisplayState`; "Fehlt" is kept for permits that are due.
+   */
+  | "not_due"
   | "preparing"
   | "applied"
   | "granted"
@@ -184,12 +189,13 @@ export const DISPLAY_STATE_SEVERITY: Record<PermitDisplayState, number> = {
   expired: 1,
   missing: 2,
   preparing: 3,
-  applied: 4,
-  expiring: 5,
-  granted: 6,
-  not_required: 7,
-  past: 8,
-  superseded: 9,
+  not_due: 4,
+  applied: 5,
+  expiring: 6,
+  granted: 7,
+  not_required: 8,
+  past: 9,
+  superseded: 10,
 };
 
 /** Within this many days of the event a permit that is not granted yet is critical. */

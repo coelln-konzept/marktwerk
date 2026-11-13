@@ -1,6 +1,7 @@
 {
   "permitStatus": {
     "missing": "Fehlt",
+    "not_due": "Noch nicht fällig",
     "preparing": "In Vorbereitung",
     "applied": "Beantragt",
     "granted": "Genehmigt",

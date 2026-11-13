@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { permitActionTier, permitNeedsActionNow } from "./action";
+import { logbookDisplayState, permitActionTier, permitNeedsActionNow } from "./action";
 
 const TODAY = "2026-10-29";
 const HORIZON = 30;
@@ -92,6 +92,35 @@ describe("permitNeedsActionNow", () => {
       false,
     );
     expect(permitNeedsActionNow({ state: "applied", applyBy: "2026-10-01" }, TODAY, HORIZON)).toBe(
+      false,
+    );
+  });
+});
+
+describe("logbookDisplayState", () => {
+  const show = (state: "missing" | "preparing", applyBy: string | null) =>
+    logbookDisplayState(state, permitActionTier({ state, applyBy }, TODAY, HORIZON));
+
+  it("shows a not-started permit beyond the horizon as 'Noch nicht fällig'", () => {
+    expect(show("missing", "2027-03-01")).toBe("not_due");
+  });
+
+  it("keeps 'Fehlt' when the apply-by date is within the horizon, passed or unknown", () => {
+    expect(show("missing", "2026-11-15")).toBe("missing");
+    expect(show("missing", "2026-10-01")).toBe("missing");
+    expect(show("missing", null)).toBe("missing");
+  });
+
+  it("leaves other states alone, even when they are not due", () => {
+    expect(show("preparing", "2027-03-01")).toBe("preparing");
+    expect(logbookDisplayState("applied", null)).toBe("applied");
+  });
+
+  it("a not-due permit stays out of 'Jetzt zu tun'", () => {
+    expect(permitActionTier({ state: "not_due", applyBy: "2027-03-01" }, TODAY, HORIZON)).toBe(
+      "not_due",
+    );
+    expect(permitNeedsActionNow({ state: "not_due", applyBy: "2027-03-01" }, TODAY, HORIZON)).toBe(
       false,
     );
   });
