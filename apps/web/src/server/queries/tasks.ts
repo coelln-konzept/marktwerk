@@ -108,6 +108,8 @@ export type BoardTask = {
   subtasksTotal: number;
   subtasksDone: number;
   subtasksOverdue: number;
+  /** Subtasks still open: "Erledigt" on the card opens the drawer instead (done gate, R29). */
+  openSubtasks: number;
   /** Day the task was finished (done tasks), `YYYY-MM-DD`. */
   completedOn: string | null;
   requiresNote: boolean;
@@ -183,6 +185,7 @@ function boardFields(today: string) {
     subtasksTotal: sub.subtasksTotal,
     subtasksDone: sub.subtasksDone,
     subtasksOverdue: sub.subtasksOverdue,
+    subtasksOpen: sub.subtasksOpen,
   };
 }
 
@@ -224,6 +227,7 @@ function toBoardTask(r: BoardRow, today: string): BoardTask {
     subtasksTotal: r.subtasksTotal,
     subtasksDone: r.subtasksDone,
     subtasksOverdue: r.subtasksOverdue,
+    openSubtasks: r.subtasksOpen,
     completedOn: r.completedAt ? berlinDay(r.completedAt) : null,
     requiresNote: r.requiresNote,
     requiresPhoto: r.requiresPhoto,
@@ -1177,6 +1181,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       subtasksTotal: sub.subtasksTotal,
       subtasksDone: sub.subtasksDone,
       subtasksOverdue: sub.subtasksOverdue,
+      subtasksOpen: sub.subtasksOpen,
       firstOverdueSubtask,
     })
     .from(task)
@@ -1226,6 +1231,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
             subtasks: {
               done: r.subtasksDone,
               total: r.subtasksTotal,
+              open: r.subtasksOpen,
               overdue: r.subtasksOverdue,
             },
           }

@@ -137,6 +137,8 @@ function DueRow({
       data-row
       data-href={href}
       data-peek={itemPeek(item)}
+      // Quick done opens the drawer instead of asking when subtasks are still open (R29); e2e reads it.
+      data-open-subtasks={(item.subtasks?.open ?? 0) > 0 ? item.subtasks?.open : undefined}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter/Space (KeyboardRows)
       tabIndex={0}
       className={cn(
@@ -146,7 +148,14 @@ function DueRow({
       )}
     >
       {editable ? (
-        <TaskDoneButton task={{ id: item.id, title: item.title, status: "todo" }} />
+        <TaskDoneButton
+          task={{
+            id: item.id,
+            title: item.title,
+            status: "todo",
+            openSubtasks: item.subtasks?.open ?? 0,
+          }}
+        />
       ) : (
         <span
           title={t(`kind.${item.kind}`)}

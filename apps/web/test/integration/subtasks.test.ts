@@ -17,6 +17,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import { getEventOverview } from "@/server/queries/event-overview";
+import { listCompanyNotifications } from "@/server/queries/notifications";
 import {
   calendarItems,
   dueItems,
@@ -435,6 +436,13 @@ describe("lists count a subtask once, through its parent", () => {
     );
     expect(overview.tasks?.progress).toMatchObject({ total: 1 });
     expect(overview.tasks?.missing.map((m) => [m.id, m.reason])).toEqual([[parent.id, "overdue"]]);
+    // A single-table query: the subtask counts still refer to the parent row (R29, they read 0 before).
+    expect(overview.tasks?.missing[0]).toMatchObject({
+      subtasksTotal: 3,
+      subtasksDone: 0,
+      subtasksOverdue: 2,
+      openSubtasks: 3,
+    });
   });
 
   it("Übersicht and Kalender: the parent for everyone's lists, own subtasks on the own list", async () => {
@@ -443,7 +451,7 @@ describe("lists count a subtask once, through its parent", () => {
     const items = await dueItems(owner, TODAY);
     expect(items.map((i) => [i.id, i.urgency])).toEqual([[parent.id, "overdue"]]);
     expect(items[0]?.dueOn).toBe("2026-11-10");
-    expect(items[0]?.subtasks).toEqual({ done: 0, total: 3, overdue: 2 });
+    expect(items[0]?.subtasks).toEqual({ done: 0, total: 3, open: 3, overdue: 2 });
     const calendar = await calendarItems(owner, "2026-10-01", "2026-11-30", TODAY);
     expect(calendar.map((c) => [c.id, c.tone])).toEqual([[parent.id, "critical"]]);
 
@@ -468,6 +476,83 @@ describe("lists count a subtask once, through its parent", () => {
     // Anna: the parent (her own subtask goes through it); Ben: his subtask of Anna's task.
     expect(open).toEqual({ "Anna Test": 1, "Ben Test": 1 });
     expect(rail.unassigned.tasks).toBe(0);
+  });
+});
+
+describe("quick Erledigt knows the open subtasks (R29)", () => {
+  /**
+   * An overdue parent with four subtasks (todo, in progress, done, deleted: two open) and an overdue plain task.
+   * Lists outside the drawer carry the open count, so their "Erledigt" opens the drawer instead of asking.
+   */
+  async function tree() {
+    const parent = await insertTask({ title: "Aufbau", eventId, dueAt: dueOn("2026-10-19") });
+    const todo = await insertTask({ title: "Zelte", eventId, parentTaskId: parent.id });
+    const working = await insertTask({
+      title: "Strom",
+      eventId,
+      parentTaskId: parent.id,
+      status: "in_progress",
+    });
+    await insertTask({
+      title: "Plan",
+      eventId,
+      parentTaskId: parent.id,
+      status: "done",
+      completedAt: new Date("2026-10-20T10:00:00Z"),
+    });
+    await insertTask({ title: "gelöscht", eventId, parentTaskId: parent.id, status: "cancelled" });
+    const plain = await insertTask({ title: "Schilder", eventId, dueAt: dueOn("2026-10-20") });
+    return { parent, todo, working, plain };
+  }
+
+  /** The open count per task id in each list: board, Übersicht, event Überblick, notification center. */
+  async function counts() {
+    const board = await listBoardTasks(owner, { eventId }, TODAY);
+    const due = await dueItems(owner, TODAY);
+    const overview = await getEventOverview(
+      owner,
+      { id: eventId, startsOn: "2026-11-14", endsOn: "2026-11-14" },
+      TODAY,
+    );
+    const center = await listCompanyNotifications(
+      owner,
+      { status: "open", sort: "urgency" },
+      clock.now,
+    );
+    return {
+      board: Object.fromEntries(board.tasks.map((t) => [t.title, t.openSubtasks])),
+      due: Object.fromEntries(due.map((i) => [i.title, i.subtasks?.open ?? 0])),
+      missing: Object.fromEntries(
+        (overview.tasks?.missing ?? []).map((m) => [m.title, m.openSubtasks]),
+      ),
+      center: Object.fromEntries(center.rows.map((r) => [r.title, r.openSubtasks])),
+    };
+  }
+
+  it("board, Übersicht, Überblick and notification center count the open subtasks like the done gate", async () => {
+    const { parent, todo, working } = await tree();
+    await deadlineSweep(db, clock.now);
+    const expected = { Aufbau: 2, Schilder: 0 };
+    expect(await counts()).toEqual({
+      board: expected,
+      due: expected,
+      missing: expected,
+      center: expected,
+    });
+
+    // The done gate refuses the parent with the same number.
+    const refused = await setTaskStatus(owner, parent.id, "done", {}, clock).catch((e) => e);
+    expect((refused as TaskInputError).count).toBe(2);
+
+    // Once they are finished the parent counts none and "Erledigt" works as usual.
+    await setTaskStatus(owner, todo.id, "done", {}, clock);
+    await setTaskStatus(owner, working.id, "skipped", { reason: "nicht nötig" }, clock);
+    const after = await counts();
+    expect(after.board.Aufbau).toBe(0);
+    expect(after.due.Aufbau).toBe(0);
+    expect(after.missing.Aufbau).toBe(0);
+    expect(after.center.Aufbau).toBe(0);
+    await setTaskStatus(owner, parent.id, "done", {}, clock);
   });
 });
 

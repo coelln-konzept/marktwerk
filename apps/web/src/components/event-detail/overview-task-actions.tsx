@@ -18,7 +18,8 @@ export function TaskQuickActions({
   pending,
   onDone,
 }: {
-  task: { id: string; title: string; status: TaskStatusKey };
+  /** `openSubtasks`: a task with open subtasks opens its drawer on "Erledigt" (R29). */
+  task: { id: string; title: string; status: TaskStatusKey; openSubtasks?: number };
   today: string;
   /** A change is on its way (or the row is already ticked): the button waits. */
   pending?: boolean;

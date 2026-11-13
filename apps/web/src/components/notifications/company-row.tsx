@@ -45,6 +45,7 @@ export function CompanyRow({
       data-href={openHref}
       data-peek={isTask ? openHref : undefined}
       data-task={isTask ? row.subjectId : undefined}
+      data-open-subtasks={row.openSubtasks > 0 ? row.openSubtasks : undefined}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter (KeyboardRows)
       tabIndex={0}
       // Enter opens a task's drawer without jumping to the top of the page (KeyboardRows would scroll).

@@ -363,6 +363,12 @@ first asks in a small dialog ("Aufgabe erledigt?" · "„<Titel>“ als erledigt
 the undo toast follows as usual. The event Checkliste and the task drawer ask nothing (the task stays visible), and
 neither does a drag or keyboard move into the Erledigt column (a deliberate gesture). Code: `useTaskActions({ confirmDone })`,
 one dialog in the shell (`useShell().confirm`).
+**A task with open subtasks** (ADR 0021 done gate, Fahrplan R29, 2026-11-13): every "Erledigt" outside the task drawer
+(Übersicht, Benachrichtigungen, Was fehlt, Kernaufgaben, Checkliste, Board card, tick, menu and `E`) asks nothing it would
+then refuse: it opens the task's drawer in place, where the subtasks are, with a plain hint in the refusal's words
+("„<Titel>“ kann noch nicht erledigt werden: 2 offene Unteraufgaben."). The lists know the count from their query
+(`openSubtasks`). The drawer's own Erledigt and a drag into the Erledigt column still get the red refusal. There is no
+"Alle erledigen" (finishing the subtasks with the parent): the tasks service has no such path.
 **One tick for every task row** (handwritten notes 2026-11, HN-02/HN-03): Übersicht, Was fehlt and the Checkliste use
 the same control, always the row's leading element: empty ring (open, previews the tick on hover), filled green tick
 (done), filled grey dash (skipped). A click on a finished tick reopens; rows that leave their list on done only ever

@@ -5,6 +5,7 @@ import {
   derivedColumn,
   isAfterEvent,
   isFinishedStatus,
+  openSubtaskCount,
   sortColumnByDue,
   subtaskProgress,
   type TaskStatusKey,
@@ -170,15 +171,25 @@ export function BoardView(props: Props) {
     }
     const ids = new Map(everything.map((task) => [task.id, task]));
     // Across events the server's progress is all there is. On the event board the subtasks are here, so the
-    // parent's "3/5" and overdue flag follow a tick, a nesting or a lift-out at once.
+    // parent's "3/5", overdue flag and open count (its tick opens the drawer while any is open, R29) follow a
+    // tick, a nesting or a lift-out at once.
     if (!eventBoard) return { tasks: top, childrenOf: children, byId: ids };
     const withProgress = top.map((task) => {
-      const p = subtaskProgress(children.get(task.id) ?? [], today);
+      const subs = children.get(task.id) ?? [];
+      const p = subtaskProgress(subs, today);
+      const open = openSubtaskCount(subs);
       return p.total === task.subtasksTotal &&
         p.done === task.subtasksDone &&
-        p.overdue === task.subtasksOverdue
+        p.overdue === task.subtasksOverdue &&
+        open === task.openSubtasks
         ? task
-        : { ...task, subtasksTotal: p.total, subtasksDone: p.done, subtasksOverdue: p.overdue };
+        : {
+            ...task,
+            subtasksTotal: p.total,
+            subtasksDone: p.done,
+            subtasksOverdue: p.overdue,
+            openSubtasks: open,
+          };
     });
     return { tasks: withProgress, childrenOf: children, byId: ids };
   }, [everything, eventBoard, today]);
