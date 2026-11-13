@@ -351,6 +351,7 @@ export async function CalendarList({
                         {label}
                       </DeadlineGroup>
                     ) : null;
+                    const badge = tone === "warn" || tone === "critical";
                     return (
                       <TR
                         key={`${day}-${item.id}`}
@@ -363,7 +364,9 @@ export async function CalendarList({
                         )}
                       >
                         {events.length + dayAppointments.length + i === 0 && dateCell}
-                        <TD>
+                        {/* A calm deadline has no badge: its text takes the empty status column (on a phone the
+                            title was hyphenated over half a dozen lines), on wide screens the empty Ort column. */}
+                        <TD colSpan={badge ? undefined : 2}>
                           {summary ?? (
                             <Link
                               href={item.href as never}
@@ -378,18 +381,22 @@ export async function CalendarList({
                             {item.kindLabel && !item.group ? ` · ${item.kindLabel}` : ""}
                           </span>
                         </TD>
-                        <TD className="hidden @3xl:table-cell" />
-                        <TD>
-                          {/* Only urgent deadlines get a state; a calm one is no "Geplant" (UT-11 #3). */}
-                          {(tone === "warn" || tone === "critical") && (
-                            <StatusBadge
-                              tone={tone}
-                              icon={tone === "critical" ? OctagonAlert : Clock}
-                            >
-                              {t(`tone.${tone}`)}
-                            </StatusBadge>
-                          )}
-                        </TD>
+                        {badge ? (
+                          <>
+                            <TD className="hidden @3xl:table-cell" />
+                            <TD>
+                              {/* Only urgent deadlines get a state; a calm one is no "Geplant" (UT-11 #3). */}
+                              <StatusBadge
+                                tone={tone}
+                                icon={tone === "critical" ? OctagonAlert : Clock}
+                              >
+                                {t(`tone.${tone}`)}
+                              </StatusBadge>
+                            </TD>
+                          </>
+                        ) : (
+                          <TD className="hidden @3xl:table-cell" />
+                        )}
                         <TD className="hidden w-20 whitespace-nowrap text-right @2xl:table-cell">
                           {!summary && (
                             <Link

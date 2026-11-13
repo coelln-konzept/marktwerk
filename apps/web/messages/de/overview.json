@@ -32,6 +32,7 @@
       "moreAtMarket": "+ {count} weitere bei {name}",
       "moreAtMarketLink": "Alle {count} weiteren bei {name} ansehen",
       "moreMarkets": "{count, plural, one {+ # weiterer Markt} other {+ # weitere Märkte}}",
+      "moreEntries": "{count, plural, one {+ # weiterer Eintrag} other {+ # weitere Einträge}}",
       "weekSubtitle": "{count, plural, =0 {nichts in den nächsten 7 Tagen} one {# Punkt in den nächsten 7 Tagen, je Markt gebündelt} other {# Punkte in den nächsten 7 Tagen, je Markt gebündelt}}",
       "weekEmpty": "In den nächsten 7 Tagen ist nichts fällig.",
       "upcomingEmpty": "Keine Genehmigungen in Sicht.",

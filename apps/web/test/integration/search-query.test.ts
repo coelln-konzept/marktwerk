@@ -6,7 +6,24 @@ import {
   phoneDigits,
   scoreMatch,
   tokenize,
+  transpositions,
+  typoTolerant,
 } from "@/lib/search-query";
+
+describe("transpositions", () => {
+  it("swaps each pair of neighbouring letters once", () => {
+    expect(transpositions("bnon")).toEqual(["nbon", "bonn", "bnno"]);
+    // Equal neighbours give nothing new ("nn"), and duplicates are dropped.
+    expect(transpositions("bonn")).toEqual(["obnn", "bnon"]);
+    expect(transpositions("aaa")).toEqual([]);
+  });
+  it("only words of four letters or more without digits may be typos", () => {
+    expect(typoTolerant("bnon")).toBe(true);
+    expect(typoTolerant("bnn")).toBe(false);
+    expect(typoTolerant("2027")).toBe(false);
+    expect(typoTolerant("k-mw77")).toBe(false);
+  });
+});
 
 /** Pure rules of the command palette search (words, umlauts, ranking, phone numbers). */
 

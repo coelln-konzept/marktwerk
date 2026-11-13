@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   canTransitionPermit,
+  DISPLAY_STATE_SEVERITY,
   eventPermitHealth,
+  isAnswerOverdue,
   isOpenPermit,
   isUnfiled,
   PERMIT_STATUSES,
@@ -264,5 +266,63 @@ describe("eventPermitHealth", () => {
     expect(eventPermitHealth([expiring], "2027-04-10", today)).toBe("ok");
     expect(eventPermitHealth([expiring], "2027-04-14", today, "2027-04-16")).toBe("warn");
     expect(eventPermitHealth([expiring], "2027-05-02", today)).toBe("critical");
+  });
+});
+
+describe("isAnswerOverdue", () => {
+  const applied = (expectedDecisionOn: string | null) => ({
+    status: "applied" as const,
+    expectedDecisionOn,
+  });
+
+  it("is overdue from the day after the expected decision, not on the day itself", () => {
+    expect(isAnswerOverdue(applied("2026-11-12"), "2026-11-13")).toBe(true);
+    expect(isAnswerOverdue(applied("2026-11-13"), "2026-11-13")).toBe(false);
+    expect(isAnswerOverdue(applied("2026-11-14"), "2026-11-13")).toBe(false);
+  });
+
+  it("works across month, year and leap-day boundaries and around the DST switches", () => {
+    expect(isAnswerOverdue(applied("2026-12-31"), "2027-01-01")).toBe(true);
+    expect(isAnswerOverdue(applied("2027-01-01"), "2026-12-31")).toBe(false);
+    expect(isAnswerOverdue(applied("2028-02-29"), "2028-03-01")).toBe(true);
+    expect(isAnswerOverdue(applied("2026-10-31"), "2026-11-01")).toBe(true);
+    // Berlin calendar days: the 23 h / 25 h days count as one day each.
+    expect(isAnswerOverdue(applied("2027-03-28"), "2027-03-28")).toBe(false);
+    expect(isAnswerOverdue(applied("2027-03-28"), "2027-03-29")).toBe(true);
+    expect(isAnswerOverdue(applied("2026-10-25"), "2026-10-26")).toBe(true);
+  });
+
+  it("never without an expected decision date", () => {
+    expect(isAnswerOverdue(applied(null), "2026-11-13")).toBe(false);
+    expect(isAnswerOverdue({ status: "applied" }, "2026-11-13")).toBe(false);
+  });
+
+  it("only while filed: every other status has its own state", () => {
+    for (const status of PERMIT_STATUSES.filter((s) => s !== "applied"))
+      expect(isAnswerOverdue({ status, expectedDecisionOn: "2026-01-01" }, "2026-11-13")).toBe(
+        false,
+      );
+  });
+});
+
+describe("DISPLAY_STATE_SEVERITY", () => {
+  it("puts 'Antwort überfällig' after 'Fehlt' and before everything waiting or held", () => {
+    const worstFirst = Object.entries(DISPLAY_STATE_SEVERITY)
+      .sort(([, a], [, b]) => a - b)
+      .map(([state]) => state);
+    expect(worstFirst).toEqual([
+      "rejected",
+      "expired",
+      "missing",
+      "answer_overdue",
+      "preparing",
+      "not_due",
+      "applied",
+      "expiring",
+      "granted",
+      "not_required",
+      "past",
+      "superseded",
+    ]);
   });
 });

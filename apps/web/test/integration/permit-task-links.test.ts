@@ -1,22 +1,25 @@
 import {
   auditLog,
   dutyRole,
+  event,
   eventPermit,
   eventPreset,
   permit,
   permitRequirement,
   task,
 } from "@marktwerk/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import { createEventsFromPreset } from "@/server/services/events";
+import { applyRequirementsToUpcomingEvents } from "@/server/services/permit-requirements";
 import {
   linkEventsToPermit,
   linkPermitTasks,
   restorePermitStatus,
   setPermitStatus,
 } from "@/server/services/permits";
+import { PERMIT_SHARED_REASON, restoreTask, setTaskStatus } from "@/server/services/tasks";
 import { applyTemplateVersion } from "@/server/services/template-propagation";
 import { createDraft, publishDraft, updateTemplateItem } from "@/server/services/templates";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -144,6 +147,149 @@ describe("creating events", () => {
   });
 });
 
+describe("one apply task per permit covering several events (Fahrplan 18)", () => {
+  const SEVEN = [
+    "2027-04-04",
+    "2027-05-02",
+    "2027-06-06",
+    "2027-07-04",
+    "2027-08-01",
+    "2027-09-05",
+    "2027-10-03",
+  ];
+  /** Apply tasks of a permit that are not deleted. */
+  const applyTasks = (permitId: string) =>
+    db
+      .select()
+      .from(task)
+      .where(and(eq(task.permitId, permitId), ne(task.status, "cancelled")));
+
+  it("a season permit covering 7 markets creates 1 apply task, on the first market", async () => {
+    await requirement();
+    await generate(...SEVEN.slice().reverse());
+    const permits = await db.select().from(permit);
+    expect(permits).toHaveLength(1);
+    const p = permits[0] as typeof permit.$inferSelect;
+    expect(await db.select().from(eventPermit)).toHaveLength(7);
+
+    const tasks = await applyTasks(p.id);
+    expect(tasks).toHaveLength(1);
+    const [first] = await db.select().from(event).where(eq(event.startsOn, "2027-04-04"));
+    const firstEvent = first?.id as string;
+    expect(tasks[0]).toMatchObject({ title: MARKT, eventId: firstEvent, status: "todo" });
+
+    // The other six markets' template tasks are deleted (cancelled), audited and linked for the record.
+    const removed = await db
+      .select()
+      .from(task)
+      .where(and(eq(task.title, MARKT), eq(task.status, "cancelled")));
+    expect(removed).toHaveLength(6);
+    expect(removed.every((t) => t.permitId === p.id && t.eventId !== firstEvent)).toBe(true);
+    const [entry] = await db
+      .select()
+      .from(auditLog)
+      .where(
+        and(eq(auditLog.entityId, removed[0]?.id as string), eq(auditLog.action, "task.delete")),
+      );
+    expect(entry?.diff).toMatchObject({ auto: true, reason: PERMIT_SHARED_REASON, permitId: p.id });
+    // No own "beantragen" task on top, and the check items stay on every market.
+    expect(await db.select().from(task).where(eq(task.source, "permit"))).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(task)
+        .where(and(eq(task.title, PRUEFEN), eq(task.status, "todo"))),
+    ).toHaveLength(7);
+
+    // Applying for it closes the one task.
+    const applied = await setPermitStatus(owner, p.id, "applied");
+    expect(applied.closedTaskIds).toEqual([tasks[0]?.id]);
+  });
+
+  it("per_event permits keep one apply task per event", async () => {
+    await requirement({ cadence: "per_event" });
+    await generate(...SEVEN.slice(0, 3));
+    const permits = await db.select().from(permit);
+    expect(permits).toHaveLength(3);
+    for (const p of permits) expect(await applyTasks(p.id)).toHaveLength(1);
+    expect(await db.select().from(task).where(eq(task.status, "cancelled"))).toHaveLength(0);
+  });
+
+  it("a season permit without a template task gets its own one task, not one per market", async () => {
+    await requirement({ permitType: "water", title: "Wasserentnahme" });
+    await generate(...SEVEN);
+    const [p] = await db.select().from(permit);
+    const tasks = await applyTasks(p?.id as string);
+    expect(tasks.map((t) => [t.title, t.source, t.eventId])).toEqual([
+      ["Wasserentnahme beantragen", "permit", null],
+    ]);
+  });
+
+  it("markets added later join the season permit without a second apply task", async () => {
+    await requirement({ cadence: "per_year" });
+    const [june] = await generate("2027-06-06");
+    const [p] = await db.select().from(permit);
+    const [kept] = await applyTasks(p?.id as string);
+    expect(kept?.eventId).toBe(june);
+    // An earlier and a later market: both link to the permit, the existing task stays the one.
+    await generate("2027-04-04", "2027-09-05");
+    expect((await applyTasks(p?.id as string)).map((t) => t.id)).toEqual([kept?.id]);
+    expect(await db.select().from(permit)).toHaveLength(1);
+  });
+
+  it("a restored duplicate stays (the person's choice); linking again leaves it alone", async () => {
+    await requirement();
+    const ids = await generate("2027-04-04", "2027-05-02");
+    const [p] = await db.select().from(permit);
+    const second = await taskTitled(ids[1] as string, MARKT);
+    expect(second.status).toBe("cancelled");
+    await restoreTask(owner, second.id);
+    expect((await taskTitled(ids[1] as string, MARKT)).status).toBe("todo");
+    const again = await db.transaction((tx) => linkPermitTasks(tx, ids, owner));
+    expect(again.cancelledTaskIds).toEqual([]);
+    expect(await applyTasks(p?.id as string)).toHaveLength(2);
+  });
+
+  it("a requirement added later keeps the tasks somebody worked on and removes untouched ones", async () => {
+    const ids = await generate("2027-04-04", "2027-05-02", "2027-06-06", "2027-07-04");
+    const [april, may, june, july] = ids as [string, string, string, string];
+    await setTaskStatus(owner, (await taskTitled(may, MARKT)).id, "in_progress");
+    await setTaskStatus(owner, (await taskTitled(june, MARKT)).id, "done");
+    await requirement();
+    await applyRequirementsToUpcomingEvents(owner, cat.venue.id);
+    const [p] = await db.select().from(permit);
+    const byEvent = new Map(
+      (await db.select().from(task).where(eq(task.title, MARKT))).map((t) => [t.eventId, t]),
+    );
+    expect(byEvent.get(may)).toMatchObject({ status: "in_progress", permitId: p?.id });
+    expect(byEvent.get(june)).toMatchObject({ status: "done", permitId: p?.id });
+    expect(byEvent.get(april)?.status).toBe("cancelled");
+    expect(byEvent.get(july)?.status).toBe("cancelled");
+  });
+
+  it("two items of one template that both apply for the permit stay on the carrier event", async () => {
+    const draft = await createDraft(owner, templateId);
+    const [id] = await generate("2027-05-02");
+    const check = await taskTitled(id as string, PRUEFEN);
+    await updateTemplateItem(owner, draft.versionId, check.templateStableKey as string, {
+      ...baseItem({ title: PRUEFEN, category: "permits", offsetDays: -100 }),
+      permitType: "market_permit",
+    });
+    await publishDraft(owner, draft.versionId, "Version 2");
+    await requirement();
+    const ids = await generate("2027-06-06", "2027-07-04");
+    const [p] = await db.select().from(permit);
+    // The first market of the batch carries both items, the second one has none left.
+    const open = await applyTasks(p?.id as string);
+    expect(open.map((t) => [t.eventId, t.title]).sort()).toEqual(
+      [
+        [ids[0], MARKT],
+        [ids[0], PRUEFEN],
+      ].sort(),
+    );
+  });
+});
+
 describe("permit status", () => {
   it("applied completes the linked template task, granted keeps it done, undo reopens it", async () => {
     await requirement();
@@ -234,7 +380,7 @@ describe("linking permits to existing events", () => {
     expect(first.linked).toBe(1);
     expect((await taskTitled(id as string, MARKT)).permitId).toBe(held?.id);
     const again = await db.transaction((tx) => linkPermitTasks(tx, [id as string], owner));
-    expect(again).toEqual({ linked: 0, completedTaskIds: [] });
+    expect(again).toEqual({ linked: 0, completedTaskIds: [], cancelledTaskIds: [] });
   });
 });
 

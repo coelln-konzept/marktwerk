@@ -9,7 +9,34 @@
 | Health | `GET /api/health` | `{ ok, db }` |
 
 Vercel environment variables: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
-(the production `*.vercel.app` URL), `APP_URL` (same), `CRON_SECRET`, `APP_TIMEZONE=Europe/Berlin`.
+(the production `*.vercel.app` URL), `APP_URL` (same), `CRON_SECRET`, `APP_TIMEZONE=Europe/Berlin`, and the mail
+fence variables below (`APP_ENV`, `MAIL_CATCH_ALL`, optional `MAIL_ALLOWLIST`).
+
+### Outbound mail fence (ADR 0023)
+Every mail the SMTP transport sends (`createMailTransport` in `packages/jobs`, the one path for the queued mails and
+for anything sent directly) passes the fence (`fenceMail` in `packages/core/src/mail/fence.ts`):
+
+| Variable | Values | Effect |
+|---|---|---|
+| `APP_ENV` | `local` · `preview` · `production`, default **`local`** | Anything but `production` is fenced. Another value stops the web app and the worker at startup |
+| `MAIL_CATCH_ALL` | one plain address | Outside production every recipient not on the allowlist is replaced by it. **Required** outside production when `SMTP_HOST` is set: without it no mail is sent (the queued message records the error and retries) |
+| `MAIL_ALLOWLIST` | comma-separated addresses and `@domain` entries, case-insensitive | Outside production these still get their own mail. `@domain` matches that domain only, not subdomains |
+
+A fenced mail keeps its intended recipient in the `X-Marktwerk-Original-To` header, and its subject starts with
+`[local]` or `[preview]` (also for allowlisted recipients). The `outbound_message` row keeps the intended recipient.
+In production nothing is changed. Without `SMTP_HOST` mail is only logged, so the fence does not apply.
+
+Because the default is `local`, a deployment without `APP_ENV` is fenced, never the other way round. Where to set it:
+
+| Where | `APP_ENV` | `MAIL_CATCH_ALL` / `MAIL_ALLOWLIST` |
+|---|---|---|
+| Vercel **Production** (today the deployed dev app with synthetic data) | `preview` while it holds synthetic data; `production` only for the real system | Catch-all mailbox; allowlist the team's own addresses if they should get the mails |
+| Vercel **Preview** (shared, all branches) | `preview` | Same catch-all; branch-scoped values override them like the database variables |
+| Local `.env` | `local` (or unset) | Any address, e.g. `catch-all@marktwerk.test`: Mailpit catches everything anyway |
+| Production host (Scalingo, later) | `production` | Not needed |
+
+`settings.email_enabled` stays the company's master switch on top of this: the fence decides *where* mail goes, the
+switch *whether* the jobs queue and send any.
 
 Sign-in origins: Better Auth accepts `BETTER_AUTH_URL`, `APP_URL` and the deployment's own Vercel URLs
 (`VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_PROJECT_PRODUCTION_URL`, set by Vercel automatically), so preview and
@@ -51,7 +78,7 @@ The database host is **Neon** (decided 2026-11-10); `main` stays on Supabase. Th
 | Per environment | `seed/<env>`: migrated with the **branch's own** migrations and seeded, then left alone (no connections, so no compute). `<env>`: child of it, the one the deployment uses |
 | App URLs | `DATABASE_URL` = `marktwerk_app` on the child's **pooled** host (`ep-…-pooler…`, PgBouncer transaction mode); `DATABASE_MIGRATION_URL` = same role on the **direct** host. Use `sslmode=verify-full` (node-postgres warns about `require`) |
 | Vercel | Preview variables **scoped to the git branch**: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `CRON_SECRET` (own random values, marked sensitive). They override the shared Preview values for that branch only; Production and other previews are untouched. `BETTER_AUTH_URL`/`APP_URL` stay shared: the branch URL is accepted through `VERCEL_BRANCH_URL` |
-| Mail | Off: the seed writes `settings.email_enabled = false`. Leave it off until the outbound mail fence (ADR 0023) exists |
+| Mail | Off: the seed writes `settings.email_enabled = false`. Before switching it on, make sure the branch's deployment has `APP_ENV=preview` and `MAIL_CATCH_ALL` (shared Preview values or branch-scoped ones, see *Outbound mail fence* above), then set `SMTP_*` |
 | Jobs | No cron for branch environments; run a job by hand with `POST /api/cron/<job>` and the branch's `CRON_SECRET` if needed |
 | Free-tier budget | 10 branches per project: root + 2 per environment, so at most 4 environments at once |
 
@@ -141,8 +168,9 @@ postdeploy: pnpm db:migrate
 
 ## Environment variables
 `DATABASE_URL` (from the addon: `SCALINGO_POSTGRESQL_URL`), `APP_URL`, `APP_TIMEZONE=Europe/Berlin`,
-`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `SMTP_*` (EU transactional mail provider), `STORAGE_DRIVER=s3` + `S3_*`
-(EU bucket), later `M365_*`.
+`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `SMTP_*` (EU transactional mail provider), `APP_ENV=production` (only the
+real production app; staging gets `preview` + `MAIL_CATCH_ALL`), `STORAGE_DRIVER=s3` + `S3_*` (EU bucket), later
+`M365_*`.
 
 ## Backups
 1. Scalingo PITR (7 days shared / longer on dedicated plans) + daily backups.

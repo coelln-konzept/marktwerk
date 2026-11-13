@@ -80,8 +80,8 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
   the new-task dialog on the Übersicht (`/?neu=1`, event to pick; the task then opens on its event's page), and the
   permit drawer's task links go to the event. The route itself still answers by URL). Team and Finanzen join them when their modules return. The red
   badge on Genehmigungen is the number "Jetzt zu tun" (decision 2026-10-29): permits whose apply-by date has passed
-  without an application, or falls within `permit_horizon_days`, plus rejected and expired ones; later ones are "noch
-  nicht fällig" and don't count. It is the same number as the focus chip of that name on the Genehmigungen page (one
+  without an application, or falls within `permit_horizon_days`, plus rejected and expired ones, plus "Antwort
+  überfällig" (applied, decision date passed; 2026-11-13); later ones are "noch nicht fällig" and don't count. It is the same number as the focus chip of that name on the Genehmigungen page (one
   rule, core `permitActionTier`). Below, the
   collapsible group **Stammdaten** (Orte · Kontakte · Aussteller · Wissen · Archiv · Pflichten), collapsed by default; the
   state is remembered per browser (cookie `mw_nav_stammdaten`) and the group opens by itself when the current page is
@@ -221,7 +221,11 @@ the weekend side by side, the week below. No KPI strip, no season strip.
 1. **Date + KW line** and greeting.
 2. **Heute & überfällig** (left from 1024 px, first on phones; CF9-2): **every** overdue and due-today item in the
    bands Überfällig · Heute, **bundled per market** in ranking order (`rankDue`: Kernaufgaben first, then the soonest
-   market), one-click Erledigt and Zurückstellen with undo, due words from `DueBadge`. **Above the bands a group
+   market), one-click Erledigt and Zurückstellen with undo, due words from `DueBadge`. **Pflichten** (research 10)
+   show here as soon as their reminder runs, like the reminder job: overdue in Überfällig; due today, inside the
+   "Erinnerung ab" window or near the km target in Heute, with the due date next to the words ("Di 10.11. · In 3
+   Wochen") and "Pflicht" in the second line; the row opens the Pflicht. Only roles with `company:read`; a Pflicht
+   whose lead is shorter than a week still shows in "Diese Woche" before its reminder starts. **Above the bands a group
    "Besprechungen heute"** (CF9-1) lists today's Besprechungen, all-day ones first, then by time ("09:30  Ortstermin · Heumarkt");
    a row opens the Besprechung's Vorschau (`/?vorschau=besprechung:<id>`), J/K and Enter work as on every row; with no Besprechung
    today the group is not shown.
@@ -237,7 +241,7 @@ the weekend side by side, the week below. No KPI strip, no season strip.
    ("Sa 31.10. · In 2 Tagen"); then the band "Wartet auf Rückmeldung" (the permits band moved out, see 3).
 5. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
 In every list (except the weekend card, see 3) a market shows its first 3 items and a group its first 10 markets; **"+ N weitere bei …" / "+ N weitere
-Märkte" open the rest in place** (native disclosure, no navigation), drawn as a small bordered button with a chevron
+Märkte" (or "+ N weitere Einträge" when rows without a market are among them) open the rest in place** (native disclosure, no navigation), drawn as a small bordered button with a chevron
 so it reads as clickable. Past 10 hidden rows of one market it **links to the market's Zusammenfassung** instead
 ("Alle N weiteren ansehen →"), so a card never unfolds a hundred rows (HN-05). Every market heading (weekend, next
 weekend, the per-market bundles) carries a **visible eye** that opens its Vorschau in place (`/?vorschau=<id>`, HN-06);
@@ -355,7 +359,7 @@ announcements in German via `aria-live`.
 |---|---|---|
 | Tasks | Offen · In Arbeit · Wartet (Amt/Extern) · Blockiert · Erledigt · Übersprungen | grey ○ · blue ◐ · violet ⏸ · amber ⛔ · green ✓ · grey ⤼ |
 | Due-ness (all, `DueBadge`) | Heute · Morgen · In 3 Tagen (later: the date) · 3 Tage überfällig / Gestern fällig (weeks after 14 days, months after 59) · Wartet seit 5 Tagen | amber clock · neutral · neutral calendar · red circle-! · neutral hourglass (decision 2026-10-29; "3 T" only in matrix cells) |
-| Permits | Fehlt · In Vorbereitung · Beantragt · Genehmigt · Abgelehnt · Läuft ab · Abgelaufen · Nicht nötig | red ! · blue ◐ · violet ⏳ · green ✓ · red ✕ · amber ⚠ · red ⌛ · grey – |
+| Permits | Fehlt · In Vorbereitung · Beantragt · Genehmigt · Abgelehnt · Läuft ab · Abgelaufen · Nicht nötig (logbook also: Noch nicht fällig · Antwort überfällig) | red ! · blue ◐ · violet ⏳ · green ✓ · red ✕ · amber ⚠ · red ⌛ · grey – (grey calendar-clock · amber clock-alert) |
 | Money | Geplant · Fällig · Teilweise bezahlt · Bezahlt · Überfällig | grey · amber · amber ◐ · green ✓ · red ! |
 | Hours | OK · Grenze nah · Über Grenze (zulässig?) · Unzulässig | green · amber · amber ⚠ · red ⛔ |
 | Health | Im Plan · Achtung · Kritisch | green ● · amber ▲ · red ■ (shape differs, too) |

@@ -72,6 +72,8 @@ tokens (see the archived `docs/archive/component-inventory.md` and `globals.css`
 Overlays and menus use Base UI (`@base-ui/react`) directly.
 
 ## Services in dev
-- **Mailpit** catches all outgoing mail: http://localhost:8025
+- **Mailpit** catches all outgoing mail: http://localhost:8025. Locally the outbound mail fence is on (`APP_ENV=local`):
+  set `MAIL_CATCH_ALL` in `.env` (see `.env.example`), or nothing is sent; mail to addresses off `MAIL_ALLOWLIST`
+  arrives there addressed to the catch-all, with `[local]` in the subject
 - **Postgres**: `postgres://marktwerk:marktwerk@localhost:5432/marktwerk`
 - **pg-boss** tables live in schema `pgboss`

@@ -6,6 +6,7 @@ import {
   daysBetween,
   eventPermitHealth,
   type HealthLevel,
+  isAnswerOverdue,
   isPermitHistory,
   isUnfiled,
   logbookDisplayState,
@@ -153,13 +154,17 @@ export const LOGBOOK_FOCUS = ["fehlt"] as const;
 export type LogbookFocus = (typeof LOGBOOK_FOCUS)[number];
 
 /**
- * "Jetzt zu tun": a permit in a missing state that at least one upcoming (not cancelled) event requires
- * and whose application is overdue or due within the company's permit horizon (`permitActionTier`,
- * product owner 2026-10-29). Later ones are "noch nicht fällig". One definition for the sidebar badge
- * and the Genehmigungen focus chip.
+ * "Jetzt zu tun": a permit that at least one upcoming (not cancelled) event requires and that is either
+ * still to be applied for, overdue or due within the company's permit horizon (`permitActionTier`,
+ * product owner 2026-10-29), or applied with its decision overdue ("Antwort überfällig": time to chase
+ * the authority, product owner 2026-11-13). Later applications are "noch nicht fällig". One definition
+ * for the sidebar badge and the Genehmigungen focus chip.
  */
-const needsAction = (row: Pick<LogbookRow, "tier" | "upcomingEvents">) =>
-  row.upcomingEvents > 0 && (row.tier === "overdue" || row.tier === "apply_now");
+const needsAction = (
+  row: Pick<LogbookRow, "tier" | "upcomingEvents"> & { answerOverdue: boolean },
+) =>
+  row.upcomingEvents > 0 &&
+  (row.tier === "overdue" || row.tier === "apply_now" || row.answerOverdue);
 /** Still to be applied for, but later than the horizon: shown, not counted. */
 const notDue = (row: Pick<LogbookRow, "tier" | "upcomingEvents">) =>
   row.upcomingEvents > 0 && row.tier === "not_due";
@@ -282,8 +287,12 @@ export async function listLogbook(
     const tier = permitActionTier({ state: derived, applyBy: r.applyBy }, today, horizon);
     return {
       ...r,
-      // "Noch nicht fällig" instead of "Fehlt" when the apply-by date lies beyond the horizon.
-      state: logbookDisplayState(derived, tier),
+      // "Noch nicht fällig" instead of "Fehlt" when the apply-by date lies beyond the horizon,
+      // "Antwort überfällig" instead of "Beantragt" once the expected decision date has passed.
+      state: logbookDisplayState(derived, tier, {
+        expectedDecisionOn: r.expectedDecisionOn,
+        today,
+      }),
       tier,
       feeCents: r.feeCents > 0 ? r.feeCents : null,
       stickers: r.deliverablesReceived.stickers ?? null,
@@ -311,7 +320,9 @@ export async function listLogbook(
   for (const r of scoped) counts[r.state] += 1;
 
   // Needing action depends on upcoming markets, not on the season, so this focus looks across seasons.
-  const urgent = all.filter(needsAction);
+  const urgent = all.filter((r) =>
+    needsAction({ ...r, answerOverdue: r.state === "answer_overdue" }),
+  );
   let rows = filters.focus === "fehlt" ? urgent : scoped;
   if (filters.state) rows = rows.filter((r) => r.state === filters.state);
   const drawerHidden =
@@ -333,7 +344,7 @@ export async function listLogbook(
 
 /**
  * The sidebar badge: permits to act on now, i.e. an application that is overdue or due within the permit
- * horizon (`permitActionTier`). Equals the "Jetzt zu tun" chip on the Genehmigungen page
+ * horizon (`permitActionTier`), or a decision that is overdue ("Antwort überfällig"). Equals the "Jetzt zu tun" chip on the Genehmigungen page
  * (`Logbook.needsAction`), same definition.
  */
 export async function missingPermitCount(
@@ -348,6 +359,7 @@ export async function missingPermitCount(
       status: permit.status,
       validUntil: permit.validUntil,
       applyBy: permit.applyBy,
+      expectedDecisionOn: permit.expectedDecisionOn,
       upcoming: upcomingCount(today),
     })
     .from(permit)
@@ -359,6 +371,7 @@ export async function missingPermitCount(
     return needsAction({
       tier: permitActionTier({ state, applyBy: r.applyBy }, today, horizon),
       upcomingEvents: r.upcoming,
+      answerOverdue: isAnswerOverdue(r, today),
     });
   }).length;
 }
@@ -419,7 +432,8 @@ export async function getPermit(actor: Actor, id: string, today: string) {
       .from(task)
       .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
       .leftJoin(event, eq(event.id, task.eventId))
-      .where(eq(task.permitId, id))
+      // Deleted tasks (cancelled, e.g. a season permit's duplicate apply tasks) are left out like everywhere.
+      .where(and(eq(task.permitId, id), ne(task.status, "cancelled")))
       .orderBy(asc(task.dueAt), asc(task.title)),
     db
       .select({ id: payable.id, title: payable.title, totalGrossCents: payable.totalGrossCents })
@@ -467,11 +481,13 @@ export async function getPermit(actor: Actor, id: string, today: string) {
     },
     today,
   );
-  // Same reading as the logbook row: not started and beyond the horizon is "Noch nicht fällig".
+  // Same reading as the logbook row: not started and beyond the horizon is "Noch nicht fällig", filed
+  // and past the expected decision is "Antwort überfällig".
   const horizon = await getPermitHorizonDays();
   const state = logbookDisplayState(
     derived,
     permitActionTier({ state: derived, applyBy: row.permit.applyBy }, today, horizon),
+    { expectedDecisionOn: row.permit.expectedDecisionOn, today },
   );
 
   return {

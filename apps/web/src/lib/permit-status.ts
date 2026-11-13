@@ -4,6 +4,7 @@ import {
   Check,
   CircleAlert,
   CircleDashed,
+  ClockAlert,
   History,
   Hourglass,
   type LucideIcon,
@@ -17,13 +18,15 @@ import type { Tone } from "@/components/ui/status-badge";
 
 /**
  * Permit states → badge (UX concept §7: Fehlt red ! · Noch nicht fällig grey (logbook) · In Vorbereitung blue ◐ · Beantragt violet ⏳ ·
- * Genehmigt green ✓ · Abgelehnt red ✕ · Läuft ab amber ⚠ · Abgelaufen red ⌛ · Nicht nötig grey –).
+ * Antwort überfällig amber clock-alert (logbook, research 10) · Genehmigt green ✓ · Abgelehnt red ✕ · Läuft ab amber ⚠ ·
+ * Abgelaufen red ⌛ · Nicht nötig grey –).
  */
 export const PERMIT_STATE = {
   missing: { tone: "critical", icon: CircleAlert },
   not_due: { tone: "neutral", icon: CalendarClock },
   preparing: { tone: "info", icon: CircleDashed },
   applied: { tone: "waiting", icon: Hourglass },
+  answer_overdue: { tone: "warn", icon: ClockAlert },
   granted: { tone: "ok", icon: Check },
   expiring: { tone: "warn", icon: TriangleAlert },
   expired: { tone: "critical", icon: TimerOff },
@@ -39,6 +42,7 @@ export const PERMIT_STATE_ORDER: PermitDisplayState[] = [
   "not_due",
   "preparing",
   "applied",
+  "answer_overdue",
   "granted",
   "expiring",
   "expired",
