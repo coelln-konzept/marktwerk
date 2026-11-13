@@ -245,3 +245,32 @@ every series will get dates. Fahrplan R4:
 Core rule `seasonStart` + tests → schema + migration (`event_season`, anchors, `scope`, `season_id` columns) →
 `ensureEventSeason` + nightly job → season instantiation → anchor recompute on event changes → permit link (one apply
 task) → market-page panel → season tasks in Übersicht/Kalender/digest → propagation → synthetic data and seed.
+
+Progress (branch `feat/saison-backend`, 2026-11-13):
+
+| Fahrplan | Step | State |
+|---|---|---|
+| R6 | Core rules `seasonStart`, `seasonEnd`, `expectedStartFromLastSeason`, status rules (`packages/core/src/events/season.ts`) | done |
+| R7 | Schema + migration `0022_saison` (`event_season`, `event_season_anchor`, `template_item.scope`, `season_id` on checklist/task/permit) | done |
+| R8 | `ensureEventSeason` + nightly job `event-seasons` (00:20 Berlin) + "Markt planen" hook | done |
+| R9 | Season instantiation through the one instantiation path (season context); events skip season items | done |
+| R10 | Anchors recomputed on create/move/cancel/reopen/delete/undo; season tasks follow through `planTaskShift`/`shiftTasks` | done |
+| R11–R14, R18 | Permit link, market-page panel, lists/Kalender/digest labels, propagation, synthetic data | open |
+
+Choices made while building R6–R10 that this section left open (to confirm with the product owner):
+1. **Week of next year** = the same ISO week and weekday; a date whose week position falls outside the season (KW 53,
+   early-January days of the previous ISO year) moves by one week so `expected_start` stays inside the season.
+2. **History** for `expected_start` = the market's first non-cancelled, not archived event of the previous year;
+   a previous record's (edited) `expected_start` is not carried forward.
+3. **`season_end`** has no anchor row while the season has no date; close-out tasks on it have no due date (or keep
+   theirs).
+4. **Initial status**: `planning` without dates, `dates_set` with dates, `closed` when the season's last date has
+   already passed. A record created `closed` gets **no season tasks** (the current year's record made in November
+   would otherwise start with a year of overdue work). Later changes are manual only.
+5. **Archived events** do not count for the season (like cancelled ones); undoing a generation run recomputes too.
+6. Season tasks are assigned through the market's **default duties** (`event_preset.default_duties`).
+7. **No automatic propagation**: an existing record is never re-instantiated; a new template version reaches it only
+   through propagation (R14). A market without season items gets no (empty) season checklist.
+8. Moving an event into another year **creates that year's record** (`ensureEventSeason`, source `event_move`).
+9. A season date change does **not** send the `dates_shifted` notification yet (it links to an event); the audit
+   entry `season.anchors` records it. Revisit with the labels in R13.
