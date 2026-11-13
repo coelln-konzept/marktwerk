@@ -30,6 +30,8 @@ export function isJobName(value: string): value is JobName {
   return Object.hasOwn(JOBS, value);
 }
 
+/** Re-exported so the worker can validate the mail fence variables at startup without depending on core. */
+export { type AppEnv, parseMailFence } from "@marktwerk/core";
 export { sendSmtp } from "./mail/smtp";
 export { createLogTransport, createMailTransport, type MailTransport } from "./mail/transport";
 export {

@@ -10,10 +10,17 @@ import {
   staffMember,
   task,
 } from "@marktwerk/db/schema";
-import { dailyDigest, deadlineSweep, type MailTransport, sendQueuedEmails } from "@marktwerk/jobs";
+import {
+  createMailTransport,
+  dailyDigest,
+  deadlineSweep,
+  type MailTransport,
+  sendQueuedEmails,
+} from "@marktwerk/jobs";
 import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { fakeSmtpServer, parseReceived } from "../helpers/fake-smtp";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 
 /** Wed 21.10.2026, 12:00 Berlin (CEST). */
@@ -614,6 +621,35 @@ describe("sending queued emails", () => {
       failed: 0,
       retrying: 0,
     });
+  });
+
+  it("outside production a queued mail to an address off the allowlist lands in the catch-all", async () => {
+    const m = await queue({ recipientAddress: "anna@example.test", subject: "Überfällig" });
+    const smtp = await fakeSmtpServer();
+    try {
+      const transport = createMailTransport({
+        APP_ENV: "preview",
+        MAIL_ALLOWLIST: "arda@firma.test",
+        MAIL_CATCH_ALL: "catch-all@marktwerk.test",
+        SMTP_HOST: "127.0.0.1",
+        SMTP_PORT: String(smtp.port),
+      });
+      expect(await sendQueuedEmails(db, transport, NOW)).toEqual({
+        sent: 1,
+        failed: 0,
+        retrying: 0,
+      });
+      expect(smtp.received).toContain("RCPT TO:<catch-all@marktwerk.test>");
+      const mail = parseReceived(smtp.data());
+      expect(mail.header("To")).toBe("catch-all@marktwerk.test");
+      expect(mail.header("X-Marktwerk-Original-To")).toBe("anna@example.test");
+      expect(mail.text).toBe("Text");
+      // The queue keeps the intended recipient; only the delivery was fenced.
+      const [row] = await db.select().from(outboundMessage).where(eq(outboundMessage.id, m.id));
+      expect(row).toMatchObject({ status: "sent", recipientAddress: "anna@example.test" });
+    } finally {
+      await smtp.close();
+    }
   });
 
   it("fails a message without an address right away", async () => {

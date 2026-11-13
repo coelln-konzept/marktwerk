@@ -36,3 +36,7 @@ seed can generate data "as of" any day (`SYNTHETIC_REFERENCE_DATE`). Outbound ma
   and on running jobs by hand (`POST /api/cron/<job>`).
 - If the pilot shows that reminder chains need end-to-end tests over weeks, the simulated clock comes back as its own ADR.
 - The Fahrplan phase "Test environment" shrinks to keeping the branch environments and building the mail fence.
+- The fence is built (Fahrplan step 40): `fenceMail` in `packages/core/src/mail/fence.ts`, applied in the SMTP
+  transport of `packages/jobs`. `APP_ENV` defaults to `local`, so a deployment that forgot the variable is fenced;
+  outside production a missing `MAIL_CATCH_ALL` blocks sending. Every deployment that sends mail needs `APP_ENV`
+  set deliberately (variables and where they go: `docs/development/deployment.md`).

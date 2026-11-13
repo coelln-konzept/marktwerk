@@ -1,52 +1,6 @@
-import net from "node:net";
 import { createLogTransport, createMailTransport, sendSmtp } from "@marktwerk/jobs";
 import { afterEach, describe, expect, it } from "vitest";
-
-/** A tiny SMTP server that records what a client says, with a hook to refuse a command. */
-async function fakeServer(options: { refuse?: string } = {}) {
-  const received: string[] = [];
-  let data = "";
-  const server = net.createServer((socket) => {
-    let inData = false;
-    let buffer = "";
-    socket.on("error", () => {});
-    socket.write("220 fake ESMTP\r\n");
-    socket.on("data", (chunk) => {
-      buffer += chunk.toString("utf8");
-      for (;;) {
-        if (inData) {
-          const end = buffer.indexOf("\r\n.\r\n");
-          if (end === -1) return;
-          data = buffer.slice(0, end);
-          buffer = buffer.slice(end + 5);
-          inData = false;
-          socket.write("250 queued as 42\r\n");
-          continue;
-        }
-        const eol = buffer.indexOf("\r\n");
-        if (eol === -1) return;
-        const line = buffer.slice(0, eol);
-        buffer = buffer.slice(eol + 2);
-        received.push(line);
-        const verb = line.split(" ")[0]?.toUpperCase() ?? "";
-        if (options.refuse && line.toUpperCase().startsWith(options.refuse)) {
-          socket.write("550 refused\r\n");
-        } else if (verb === "EHLO") socket.write("250-fake\r\n250-SIZE 1000\r\n250 AUTH PLAIN\r\n");
-        else if (verb === "AUTH") socket.write("235 ok\r\n");
-        else if (verb === "DATA") {
-          inData = true;
-          socket.write("354 go\r\n");
-        } else if (verb === "QUIT") {
-          socket.write("221 bye\r\n");
-          socket.end();
-        } else socket.write("250 ok\r\n");
-      }
-    });
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const { port } = server.address() as net.AddressInfo;
-  return { port, received, data: () => data, close: () => new Promise((r) => server.close(r)) };
-}
+import { fakeSmtpServer as fakeServer, parseReceived } from "../helpers/fake-smtp";
 
 let running: Awaited<ReturnType<typeof fakeServer>> | null = null;
 afterEach(async () => {
@@ -133,9 +87,10 @@ describe("createMailTransport", () => {
     expect(createMailTransport({}).name).toBe("log");
   });
 
-  it("uses SMTP_* from the environment", async () => {
+  it("uses SMTP_* from the environment; production sends unchanged", async () => {
     running = await fakeServer();
     const transport = createMailTransport({
+      APP_ENV: "production",
       SMTP_HOST: "127.0.0.1",
       SMTP_PORT: String(running.port),
       SMTP_FROM: "marktwerk <noreply@marktwerk.local>",
@@ -148,5 +103,71 @@ describe("createMailTransport", () => {
     });
     expect(externalId).toMatch(/@marktwerk\.local$/);
     expect(running.received).toContain("RCPT TO:<anna@test.local>");
+    const mail = parseReceived(running.data());
+    expect(mail.header("To")).toBe("anna@test.local");
+    expect(mail.header("Subject")).toBe("Hi");
+    expect(mail.header("X-Marktwerk-Original-To")).toBeNull();
+  });
+});
+
+describe("outbound mail fence (ADR 0023)", () => {
+  const smtpEnv = (port: number, fence: Record<string, string>) => ({
+    SMTP_HOST: "127.0.0.1",
+    SMTP_PORT: String(port),
+    SMTP_FROM: "marktwerk <noreply@marktwerk.test>",
+    ...fence,
+  });
+
+  it("preview: an address off the allowlist lands in the catch-all, the original in a header", async () => {
+    running = await fakeServer();
+    const transport = createMailTransport(
+      smtpEnv(running.port, {
+        APP_ENV: "preview",
+        MAIL_ALLOWLIST: "arda@firma.test,@team.test",
+        MAIL_CATCH_ALL: "catch-all@marktwerk.test",
+      }),
+    );
+    await transport.send({ to: "anna@example.test", subject: "Fällig", text: "Text" });
+    expect(running.received).toContain("RCPT TO:<catch-all@marktwerk.test>");
+    expect(running.received.join("\n")).not.toContain("anna@example.test");
+    const mail = parseReceived(running.data());
+    expect(mail.header("To")).toBe("catch-all@marktwerk.test");
+    expect(mail.header("X-Marktwerk-Original-To")).toBe("anna@example.test");
+    const subject = /=\?UTF-8\?B\?(.+)\?=/.exec(mail.header("Subject") ?? "")?.[1] ?? "";
+    expect(Buffer.from(subject, "base64").toString("utf8")).toBe("[preview] Fällig");
+    expect(mail.text).toBe("Text");
+  });
+
+  it("local: an allowlisted address (or domain) gets the mail itself, with the [local] prefix", async () => {
+    running = await fakeServer();
+    const transport = createMailTransport(
+      smtpEnv(running.port, {
+        MAIL_ALLOWLIST: "@team.test",
+        MAIL_CATCH_ALL: "catch-all@marktwerk.test",
+      }),
+    );
+    await transport.send({ to: "ben@team.test", subject: "Hallo", text: "Text" });
+    expect(running.received).toContain("RCPT TO:<ben@team.test>");
+    const mail = parseReceived(running.data());
+    expect(mail.header("Subject")).toBe("[local] Hallo");
+    expect(mail.header("X-Marktwerk-Original-To")).toBeNull();
+  });
+
+  it("refuses to send outside production without MAIL_CATCH_ALL, before connecting", async () => {
+    running = await fakeServer();
+    const transport = createMailTransport(
+      smtpEnv(running.port, { APP_ENV: "preview", MAIL_ALLOWLIST: "@team.test" }),
+    );
+    await expect(
+      transport.send({ to: "ben@team.test", subject: "Hallo", text: "Text" }),
+    ).rejects.toThrow(/MAIL_CATCH_ALL must be set/);
+    expect(running.received).toEqual([]);
+  });
+
+  it("refuses an invalid APP_ENV or allowlist when the transport is created", () => {
+    expect(() => createMailTransport(smtpEnv(25, { APP_ENV: "prod" }))).toThrow(/APP_ENV/);
+    expect(() => createMailTransport(smtpEnv(25, { MAIL_ALLOWLIST: "team.test" }))).toThrow(
+      /MAIL_ALLOWLIST/,
+    );
   });
 });
