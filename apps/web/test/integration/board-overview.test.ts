@@ -5,7 +5,7 @@ import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import { getKeyTaskMatrix, getReadinessList } from "@/server/queries/board-overview";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
-import { dueOn, insertEvent, insertTask, TODAY } from "../helpers/tasks";
+import { dueOn, insertEvent, insertSeason, insertTask, TODAY } from "../helpers/tasks";
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
 let owner: Actor;
@@ -207,5 +207,35 @@ describe("getKeyTaskMatrix", () => {
       events: [],
       columns: [],
     });
+  });
+});
+
+describe("season Kernaufgaben (research 13 §6.4 #4, R13)", () => {
+  it("stay out of the Bereitschaft and the Matrix: they belong to the due lists only", async () => {
+    const a = await insertEvent(cat, "A", "2026-11-14");
+    await insertTask({
+      title: "Plakate",
+      eventId: a.id,
+      isKey: true,
+      templateStableKey: "poster",
+      dueAt: dueOn("2026-10-24"),
+    });
+    const season = await insertSeason(cat, 2026);
+    await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      isKey: true,
+      templateStableKey: "termine_planen",
+      dueAt: dueOn("2026-10-15"),
+    });
+
+    const m = await getKeyTaskMatrix(owner, { horizonDays: null }, TODAY);
+    expect(m.events.map((e) => e.name)).toEqual(["A"]);
+    expect(m.columns.map((c) => c.key)).toEqual(["k:poster"]);
+
+    const { rows, categoryCounts } = await getReadinessList(owner, { horizonDays: null }, TODAY);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ total: 1, overdue: 0, openKey: 1 });
+    expect(Object.values(categoryCounts).reduce((sum, n) => sum + n, 0)).toBe(1);
   });
 });

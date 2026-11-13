@@ -21,6 +21,7 @@ import {
   dueOn,
   getTask,
   insertEvent,
+  insertSeason,
   insertStaff,
   insertTask,
   TODAY,
@@ -221,6 +222,29 @@ describe("assignTask", () => {
     expect(note?.dedupeKey).toBe(`task:${t.id}:assigned:${result.auditId}`);
     const [entry] = await audits("task.assign");
     expect(entry?.diff).toMatchObject({ fromName: "Anna Test", toName: "Ben Test" });
+  });
+
+  it("names the market and season of a season task in the notification (R13)", async () => {
+    const season = await insertSeason(cat);
+    const t = await insertTask({ title: "Termine planen", seasonId: season.id });
+    await assignTask(owner, t.id, cat.staff.ben.id);
+    const [note] = await notifications("assigned");
+    expect(note).toMatchObject({
+      recipientStaffMemberId: cat.staff.ben.id,
+      body: "Test owner hat dir die Aufgabe zugewiesen (Testflohmarkt · Saison 2027).",
+      link: `/board?aufgabe=${t.id}`,
+    });
+  });
+
+  it("a subtask added under a season task belongs to the same Saison (R13)", async () => {
+    const season = await insertSeason(cat);
+    const parent = await insertTask({ title: "Termine planen", seasonId: season.id });
+    const { id } = await createTask(owner, { title: "Rhythmus festlegen", parentId: parent.id });
+    expect(await getTask(id)).toMatchObject({
+      seasonId: season.id,
+      eventId: null,
+      parentTaskId: parent.id,
+    });
   });
 
   it("unassigns (and still marks the assignment as done by hand) without notifying", async () => {

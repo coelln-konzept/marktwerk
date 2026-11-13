@@ -26,6 +26,8 @@ import {
 } from "@/lib/search-query";
 import { type Actor, visibleEvents } from "./actor";
 import { db } from "./db";
+import type { TaskSeason } from "./queries/due";
+import { seasonContext, toTaskSeason } from "./queries/season-context";
 import { visibleTasks } from "./task-scope";
 
 export type SearchHit = {
@@ -42,6 +44,8 @@ export type SearchHit = {
     | "action";
   title: string;
   subtitle?: string;
+  /** A season task's market and season: the palette adds "<Markt> · Saison <Jahr>" to the subtitle. */
+  season?: TaskSeason;
   href: string;
   /**
    * How well the hit matches, 0 (best) to 3 (see `scoreMatch`), 4 = only found as a typo; groups are ranked
@@ -245,8 +249,12 @@ export async function searchAs(
     if (can(actor.role, "task", "read")) {
       // Same row scope as the board: field users only find tasks of their events (and their own).
       // With several words the event's name counts ("halteverbot bonn"); one word only looks at the title,
-      // or "bonn" would list every task of every Bonn market.
-      const m = match(task.title, tokens.length > 1 ? [event.name] : []);
+      // or "bonn" would list every task of every Bonn market. A season task counts its market and year instead.
+      const sc = seasonContext();
+      const m = match(
+        task.title,
+        tokens.length > 1 ? [event.name, sc.seasonName, sql`${sc.seasonYear}::text`] : [],
+      );
       // Subtasks are found too (ADR 0021); their parent's title tells where they sit.
       const parentTask = alias(task, "parent_task");
       const result = await db
@@ -258,6 +266,10 @@ export async function searchAs(
           parentTitle: parentTask.title,
           eventName: event.name,
           eventStartsOn: event.startsOn,
+          seasonId: sc.seasonId,
+          seasonYear: sc.seasonYear,
+          seasonPresetId: sc.seasonPresetId,
+          seasonName: sc.seasonName,
           score: m.score,
           total: m.total,
           strong: m.strong,
@@ -265,6 +277,7 @@ export async function searchAs(
         })
         .from(task)
         .leftJoin(event, sql`${event.id} = ${task.eventId}`)
+        .leftJoin(sc, eq(sc.seasonId, task.seasonId))
         .leftJoin(parentTask, eq(parentTask.id, task.parentTaskId))
         .where(and(visibleTasks(actor), m.where))
         // Best match first; then open tasks, then the most recently finished ones.
@@ -278,9 +291,11 @@ export async function searchAs(
       const { rows, total, weak, typos } = settle(result);
       record("task", total, weak, typos);
       for (const r of rows) {
+        const season = toTaskSeason(actor, r);
         hits.push({
           kind: "task",
           title: r.title,
+          ...(season ? { season } : {}),
           // The same task title exists once per event: name and date tell them apart.
           subtitle:
             [

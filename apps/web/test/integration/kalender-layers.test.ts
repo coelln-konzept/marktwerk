@@ -13,10 +13,11 @@ import {
 } from "@/components/kalender/layers";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
+import type { CalendarItem } from "@/server/queries/due";
 import { listCalendarDeadlines } from "@/server/queries/kalender";
 import { createPayable } from "@/server/services/payables";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
-import { asStaff, dueOn, insertEvent, insertTask, TODAY } from "../helpers/tasks";
+import { asStaff, dueOn, insertEvent, insertSeason, insertTask, TODAY } from "../helpers/tasks";
 
 /**
  * Kalender module layers: Aufgaben, Genehmigungen, Raten, Pflichten and Schichten next to the events,
@@ -121,6 +122,33 @@ describe("listCalendarDeadlines", () => {
     // 2 tasks, 1 permit, 1 rate, 1 shift group, 1 obligation
     expect(items).toHaveLength(6);
     for (const item of items) expect(item.href).toMatch(/^\//);
+  });
+
+  it("shows season tasks on the Aufgaben layer with their market and season (R13)", async () => {
+    const season = await insertSeason(cat);
+    await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      assigneeId: cat.staff.anna.id,
+      dueAt: dueOn("2026-10-20"),
+    });
+    await insertTask({ title: "Plakate", seasonId: season.id, dueAt: dueOn("2026-10-22") });
+    const label = { year: 2027, name: "Testflohmarkt", presetId: cat.presets.flea.id };
+    const seasonal = (items: CalendarItem[]) =>
+      items.filter((i) => i.season).map((i) => [i.title, i.layer, i.tone, i.season]);
+    expect(seasonal(await listCalendarDeadlines(owner, RANGE, selection(), TODAY))).toEqual([
+      [
+        "Termine planen",
+        "tasks",
+        "critical",
+        expect.objectContaining({ ...label, href: `/vorlagen/${label.presetId}` }),
+      ],
+      ["Plakate", "tasks", "neutral", expect.objectContaining(label)],
+    ]);
+    // Field users only their own; the market page is not theirs to open.
+    expect(seasonal(await listCalendarDeadlines(fieldActor, RANGE, selection(), TODAY))).toEqual([
+      ["Termine planen", "tasks", "critical", expect.objectContaining({ ...label, href: null })],
+    ]);
   });
 
   it("only fetches the layers that are switched on", async () => {

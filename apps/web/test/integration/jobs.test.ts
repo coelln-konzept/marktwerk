@@ -17,11 +17,12 @@ import {
   type MailTransport,
   sendQueuedEmails,
 } from "@marktwerk/jobs";
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import { fakeSmtpServer, parseReceived } from "../helpers/fake-smtp";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
+import { insertSeason } from "../helpers/tasks";
 
 /** Wed 21.10.2026, 12:00 Berlin (CEST). */
 const NOW = new Date("2026-10-21T10:00:00Z");
@@ -335,6 +336,37 @@ describe("deadline sweep: tasks", () => {
     });
     expect((await deadlineSweep(db, NOW)).created).toBe(0);
   });
+
+  it("names the market and season of a season task in reminders, escalations and the center (R13)", async () => {
+    const season = await insertSeason(cat);
+    const t = await addTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      assigneeId: annaId,
+      priority: "high",
+      dueAt: daysFromNow(-2),
+    });
+    await deadlineSweep(db, NOW);
+    const [reminder] = await notificationsOf(annaId);
+    expect(reminder).toMatchObject({
+      reason: "overdue",
+      subjectId: t.id,
+      title: "Überfällig: Termine planen · Testflohmarkt · Saison 2027",
+      link: `/board?detail=task:${t.id}`,
+    });
+    const [escalation] = await notificationsOf(benId);
+    expect(escalation?.title).toBe(
+      "Eskaliert: Termine planen · Testflohmarkt · Saison 2027 ist seit 2 Tagen überfällig",
+    );
+    // The company-wide notification center (owner and manager).
+    const center = await db
+      .select()
+      .from(notification)
+      .where(and(isNull(notification.recipientStaffMemberId), eq(notification.subjectId, t.id)));
+    expect(center.map((n) => [n.title, n.body])).toEqual([
+      ["Termine planen", "Testflohmarkt · Saison 2027 · 19.10.2026"],
+    ]);
+  });
 });
 
 describe("deadline sweep: permits", () => {
@@ -534,6 +566,22 @@ describe("daily digest", () => {
     expect(await db.select().from(outboundMessage)).toHaveLength(2);
     // The next morning is a new digest.
     expect((await dailyDigest(db, daysFromNow(1))).queued).toBe(2);
+  });
+
+  it("names the market and season of a season task (R13)", async () => {
+    const season = await insertSeason(cat);
+    await addTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      assigneeId: annaId,
+      dueAt: daysFromNow(-1),
+    });
+    expect((await dailyDigest(db, NOW)).queued).toBe(1);
+    const [mail] = await db.select().from(outboundMessage);
+    expect(mail?.renderedText).toContain(
+      "Aufgabe: Termine planen · Testflohmarkt · Saison 2027 (fällig 20.10.2026)",
+    );
+    expect(mail?.renderedText).toContain(`/board?detail=task:`);
   });
 
   it("sends nothing when there is nothing, and honours the opt-out", async () => {

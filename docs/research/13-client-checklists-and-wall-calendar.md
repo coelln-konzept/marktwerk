@@ -255,8 +255,9 @@ Progress (branch `feat/saison-backend`, 2026-11-13):
 | R8 | `ensureEventSeason` + nightly job `event-seasons` (00:20 Berlin) + "Markt planen" hook | done |
 | R9 | Season instantiation through the one instantiation path (season context); events skip season items | done |
 | R10 | Anchors recomputed on create/move/cancel/reopen/delete/undo; season tasks follow through `planTaskShift`/`shiftTasks` | done |
+| R11, R14 | Permit link, propagation | open |
 | R12 | Market-page Saison panel (`/vorlagen/<id>`): start / "Erwartet ab" (editable without dates), status switch with undo, season tasks, "Saison anlegen" (ux-concept §5 "Market page and its Saison panel") | done (branch `feat/r12-season-panel`) |
-| R11, R13, R14 | Permit link, lists/Kalender/digest labels, propagation | open |
+| R13 | Season tasks in the lists (branch `feat/r13-season-in-lists`): Übersicht (one market bar per Saison), Kalender Aufgaben layer, board cards, task drawer (header links to `/vorlagen/<presetId>`), search, assignment, carry-over, reminders, escalations, notification center and digest name "<Markt> · Saison <Jahr>"; season Kernaufgaben stay out of Bereitschaft/Matrix | done |
 | R18 | Synthetic data and seed: a Saison record per market and year with anchors (core rules), season items with `scope = 'season'` on `season_start`, season tasks on the record (no "Saison:" prefix, keys `saison_…` kept), season permits with `season_id`; the interim first-event carrier is gone (branch `feat/r18-season-data`) | done |
 
 Choices made while building R6–R10 that this section left open (to confirm with the product owner):
@@ -275,4 +276,12 @@ Choices made while building R6–R10 that this section left open (to confirm wit
    through propagation (R14). A market without season items gets no (empty) season checklist.
 8. Moving an event into another year **creates that year's record** (`ensureEventSeason`, source `event_move`).
 9. A season date change does **not** send the `dates_shifted` notification yet (it links to an event); the audit
-   entry `season.anchors` records it. Revisit with the labels in R13.
+   entry `season.anchors` records it. Still open after R13 (the labels exist now; the notification itself is not
+   built).
+
+Choices made while building R13:
+1. The link to the market page (`/vorlagen/<presetId>`, which needs `template:write`) is shown to owners and managers
+   only; staff and field users see the label "<Markt> · Saison <Jahr>" without a link.
+2. Escalation titles name the task's event or Saison too ("Eskaliert: Termine planen · Flohmarkt Bilk · Saison 2027
+   ist seit 2 Tagen überfällig"), event tasks included, so the many "Termine planen" can be told apart.
+3. In "Überfällig" a Saison bar ranks like an item without a market (it has no first day yet).

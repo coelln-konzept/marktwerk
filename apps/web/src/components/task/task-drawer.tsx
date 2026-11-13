@@ -445,6 +445,17 @@ export function TaskDrawer({
               >
                 {task.eventName}
               </Link>
+            ) : task.season ? (
+              // A season task names its market and season and links to the market page (research 13 §6.3).
+              task.season.href ? (
+                <Link href={task.season.href as never} className="truncate hover:underline">
+                  {t("seasonContext", { name: task.season.name, year: String(task.season.year) })}
+                </Link>
+              ) : (
+                <span className="truncate">
+                  {t("seasonContext", { name: task.season.name, year: String(task.season.year) })}
+                </span>
+              )
             ) : (
               <span>{t("noEvent")}</span>
             )}
