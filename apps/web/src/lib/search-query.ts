@@ -2,7 +2,7 @@ import { formatDate } from "./format";
 
 /*
  * Pure helpers of the command palette search (Strg+K): split a query into words, fold umlauts, rank a
- * match, clean up hit titles. The SQL side (`server/search-core.ts`) builds the same rules into its queries;
+ * match, typo variants, clean up hit titles. The SQL side (`server/search-core.ts`) builds the same rules into its queries;
  * the palette uses `scoreMatch` for the fixed actions.
  */
 
@@ -24,6 +24,34 @@ export function tokenize(query: string): string[] {
     .split(/\s+/)
     .filter((word) => word.length > 0);
   return [...new Set(words)].slice(0, MAX_TOKENS);
+}
+
+/**
+ * Whether a query word may be a typo: four characters or more (with three, a typo finds too much) and no
+ * digits ("2027" must not find 2026, nor "K-MW 78" the plate "K-MW 77").
+ */
+export function typoTolerant(token: string): boolean {
+  return token.length >= 4 && !/\d/.test(token);
+}
+
+/**
+ * How similar (pg_trgm `word_similarity`, 0 to 1) a word must be to some part of a record to count as a typo
+ * of it: "flomarkt" ~ "Flohmarkt" 0.58, "kolm" ~ "Köln" 0.6, "bonn" ~ "Born" 0.4 (not a match).
+ */
+export const FUZZY_THRESHOLD = 0.5;
+
+/**
+ * The word with two neighbouring letters swapped ("bnon" -> "nbon", "bonn", "bnno"). Trigrams hardly see
+ * such typos in short words ("bnon" ~ "Bonn" is only 0.2), so the search also tries these at word starts.
+ */
+export function transpositions(token: string): string[] {
+  const variants = new Set<string>();
+  for (let i = 0; i < token.length - 1; i++) {
+    const a = token.charAt(i);
+    const b = token.charAt(i + 1);
+    if (a !== b) variants.add(`${token.slice(0, i)}${b}${a}${token.slice(i + 2)}`);
+  }
+  return [...variants];
 }
 
 /** Escapes `% _ \` for a SQL `like` pattern. */
