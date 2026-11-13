@@ -24,15 +24,18 @@ export type ShiftedTask = {
   to: Date;
 };
 
+/** Whose tasks follow the anchors: an event's, or a Saison record's (research 13 §6.2). */
+export type ShiftOwner = { eventId: string } | { seasonId: string };
+
 /**
- * Anchor changes → tasks follow (data model principle 2): which open tasks of an event get a new due
- * date when the named dates become `anchors`. Open = not done/skipped/cancelled; tasks whose date was
- * edited by hand (`due_overridden`) and tasks without an anchor rule stay. A task keeps its time of day.
- * Nothing is written.
+ * Anchor changes → tasks follow (data model principle 2): which open tasks of an event or a season get a new
+ * due date when the named dates become `anchors`. Open = not done/skipped/cancelled; tasks whose date was
+ * edited by hand (`due_overridden`) and tasks without an anchor rule stay, and so does a task whose anchor is
+ * missing from `anchors`. A task keeps its time of day. Nothing is written.
  */
 export async function planTaskShift(
   x: Executor,
-  eventId: string,
+  owner: ShiftOwner,
   anchors: ReadonlyMap<string, string>,
 ): Promise<ShiftedTask[]> {
   const rows = await x
@@ -49,7 +52,7 @@ export async function planTaskShift(
     .from(task)
     .where(
       and(
-        eq(task.eventId, eventId),
+        "eventId" in owner ? eq(task.eventId, owner.eventId) : eq(task.seasonId, owner.seasonId),
         eq(task.dueOverridden, false),
         isNotNull(task.anchorKey),
         isNotNull(task.offsetDays),
@@ -129,10 +132,10 @@ export async function notifyDatesShifted(
 /** Plans the shift and writes it (inside the caller's transaction). Returns the tasks that moved. */
 export async function shiftTasks(
   tx: Executor,
-  eventId: string,
+  owner: ShiftOwner,
   anchors: ReadonlyMap<string, string>,
 ): Promise<ShiftedTask[]> {
-  const shifted = await planTaskShift(tx, eventId, anchors);
+  const shifted = await planTaskShift(tx, owner, anchors);
   for (const s of shifted) await tx.update(task).set({ dueAt: s.to }).where(eq(task.id, s.id));
   return shifted;
 }

@@ -26,6 +26,7 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { scheduledEventsBetween } from "./events";
+import { ensureSeasonsTx, planSeasonShiftForMove, syncSeasonsTx } from "./seasons";
 import { notifyDatesShifted, planTaskShift, type ShiftedTask, shiftTasks } from "./task-schedule";
 
 export type EventDetailsError =
@@ -213,6 +214,17 @@ export type EventSchedulePreview = {
   shifting: { id: string; title: string; from: string | null; to: string; overdue: boolean }[];
   /** How many of them would be overdue after the change (new due day before today). */
   tasksOverdueAfter: number;
+  /**
+   * Season tasks (research 13 §6.2) whose due date moves because the season's first or last date changes, same
+   * shape as `shifting`; not part of `tasksShifting`.
+   */
+  seasonShifting: {
+    id: string;
+    title: string;
+    from: string | null;
+    to: string;
+    overdue: boolean;
+  }[];
 };
 
 type EventRow = typeof event.$inferSelect;
@@ -282,20 +294,25 @@ export async function previewEventSchedule(
 
   const shifted = unchanged
     ? []
-    : await planTaskShift(db, id, new Map([...old, ...Object.entries(anchors)]));
+    : await planTaskShift(db, { eventId: id }, new Map([...old, ...Object.entries(anchors)]));
+  const seasonShifted = unchanged
+    ? []
+    : await planSeasonShiftForMove(db, current, { startsOn: next.startsOn, endsOn: next.endsOn });
   const today = todayIn();
-  const shifting = shifted
-    .map((s) => {
-      const to = berlinDay(s.to);
-      return {
-        id: s.id,
-        title: s.title,
-        from: s.from ? berlinDay(s.from) : null,
-        to,
-        overdue: to < today,
-      };
-    })
-    .sort((a, b) => a.to.localeCompare(b.to) || a.title.localeCompare(b.title, "de"));
+  const toRows = (list: ShiftedTask[]) =>
+    list
+      .map((s) => {
+        const to = berlinDay(s.to);
+        return {
+          id: s.id,
+          title: s.title,
+          from: s.from ? berlinDay(s.from) : null,
+          to,
+          overdue: to < today,
+        };
+      })
+      .sort((a, b) => a.to.localeCompare(b.to) || a.title.localeCompare(b.title, "de"));
+  const shifting = toRows(shifted);
 
   return {
     status: current.status,
@@ -308,6 +325,7 @@ export async function previewEventSchedule(
     tasksShifting: shifting.length,
     shifting,
     tasksOverdueAfter: shifting.filter((s) => s.overdue).length,
+    seasonShifting: toRows(seasonShifted),
   };
 }
 
@@ -321,15 +339,20 @@ export async function previewEventMove(actor: Actor, id: string, startsOn: strin
  * The one place that changes the days of an event (CLAUDE.md: anchor shifts): first/last day, season and
  * the four named dates (booking cut-off = Monday before). Other anchors (custom ones, later the permit
  * decision) stay. Open tasks that follow their anchor (not done, due date not set by hand) get their
- * new due date here too (M2). Returns the anchor diff for the audit entry and the tasks that moved.
+ * new due date here too (M2), and so do the season tasks when the season's first or last date changes (R10;
+ * moving into another year makes sure that year's Saison record exists). Returns the anchor diff for the audit
+ * entry and the tasks that moved.
  */
 async function applySchedule(
   tx: Tx,
+  actor: Actor,
   current: EventRow,
   next: { startsOn: string; endsOn: string; durationDays: number },
+  cause: "event_move" | "event_update",
 ): Promise<{
   anchors: Record<string, { from: string | null; to: string }>;
   shifted: ShiftedTask[];
+  seasonShifted: number;
 }> {
   await tx
     .update(event)
@@ -356,8 +379,33 @@ async function applySchedule(
         set: { date: anchors[key] },
       });
   }
-  const shifted = await shiftTasks(tx, current.id, new Map([...old, ...Object.entries(anchors)]));
-  return { anchors: diff, shifted };
+  const shifted = await shiftTasks(
+    tx,
+    { eventId: current.id },
+    new Map([...old, ...Object.entries(anchors)]),
+  );
+  let seasonShifted = 0;
+  if (current.presetId) {
+    const nextSeason = Number(next.startsOn.slice(0, 4));
+    if (nextSeason !== current.season)
+      await ensureSeasonsTx(
+        tx,
+        actor,
+        [{ presetId: current.presetId, season: nextSeason }],
+        "event_move",
+      );
+    const synced = await syncSeasonsTx(
+      tx,
+      actor,
+      [
+        { presetId: current.presetId, season: current.season },
+        { presetId: current.presetId, season: nextSeason },
+      ],
+      cause,
+    );
+    seasonShifted = synced.reduce((n, s) => n + s.shifted.length, 0);
+  }
+  return { anchors: diff, shifted, seasonShifted };
 }
 
 /**
@@ -382,7 +430,13 @@ export async function moveEvent(
       return { changed: false, from: current.startsOn, to: startsOn, tasksShifted: 0 };
 
     const next = target(current, { startsOn });
-    const { anchors, shifted } = await applySchedule(tx, current, next);
+    const { anchors, shifted, seasonShifted } = await applySchedule(
+      tx,
+      actor,
+      current,
+      next,
+      "event_move",
+    );
     await notifyDatesShifted(tx, actor, current, next, shifted);
     await audit(tx, actor.id, [
       {
@@ -394,6 +448,7 @@ export async function moveEvent(
           to: { startsOn: next.startsOn, endsOn: next.endsOn },
           anchors,
           ...(shifted.length > 0 ? { tasksShifted: shifted.length } : {}),
+          ...(seasonShifted > 0 ? { seasonTasksShifted: seasonShifted } : {}),
           ...(options.undo ? { undo: true } : {}),
         },
       },
@@ -498,7 +553,9 @@ export async function updateEventBasics(
       .update(event)
       .set({ name, venueId: schedule.venueId, eventTypeId: next.eventTypeId })
       .where(eq(event.id, id));
-    const applied = changes.durationDays ? await applySchedule(tx, current, schedule) : undefined;
+    const applied = changes.durationDays
+      ? await applySchedule(tx, actor, current, schedule, "event_update")
+      : undefined;
     const anchors = applied?.anchors;
     const shifted = applied?.shifted ?? [];
     if (applied) await notifyDatesShifted(tx, actor, current, schedule, shifted);
@@ -511,6 +568,9 @@ export async function updateEventBasics(
           changes,
           ...(anchors ? { anchors } : {}),
           ...(shifted.length > 0 ? { tasksShifted: shifted.length } : {}),
+          ...(applied && applied.seasonShifted > 0
+            ? { seasonTasksShifted: applied.seasonShifted }
+            : {}),
           ...(expected ? { undo: true } : {}),
         },
       },
