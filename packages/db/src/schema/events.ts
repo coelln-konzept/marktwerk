@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { archivedAt, id, timestamps } from "./_columns";
 import { app } from "./_schema";
-import { eventType, locationAgreement, venue } from "./catalogue";
+import { type EventTypeRules, eventType, locationAgreement, venue } from "./catalogue";
 import { dutyRole, staffMember } from "./people";
 
 /** Local wall-clock times ("HH:mm", Europe/Berlin) of an event day. */
@@ -51,6 +51,12 @@ export const eventPreset = app.table(
      * fall back to the event type's colour.
      */
     color: text(),
+    /**
+     * "Marktregeln" (decision D2-3): the market's own rules, same shape as `event_type.rules`. Copied
+     * from the event type when the market is created, then edited on the event page; they apply to
+     * every event of this market. Events without a market show their type's rules.
+     */
+    rules: jsonb().$type<EventTypeRules>().notNull(),
     ...timestamps,
     archivedAt: archivedAt(),
   },

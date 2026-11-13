@@ -88,6 +88,7 @@ export async function seedCatalogue() {
         durationDays: 1,
         // "ghost" has no duty_role row and must be skipped, not fail.
         defaultDuties: { market_lead: anna.id, setup: ben.id, ghost: ben.id },
+        rules: type.rules,
       },
       {
         key: "test-festival",
@@ -98,6 +99,7 @@ export async function seedCatalogue() {
         bookingFeeCents: 0,
         defaultTimes: times,
         durationDays: 3,
+        rules: type.rules,
       },
     ])
     .returning();

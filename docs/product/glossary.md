@@ -29,7 +29,7 @@ comes to the event (client's explicit rule, research 05).
 |---|---|---|---|
 | Veranstaltung | Event | `event` | **Core record**: one occurrence (date or date range) of a market or other format. Menus may say "Märkte" where natural. |
 | Veranstaltungsart | Event type | `event_type` | Current scope: **Flohmarkt** (`flea`), **Antikmarkt** (`antique`), **Stadtfest** (`city_festival`), **Food & Wine** (`food_wine`). Future: Designmarkt, Workshop, Turnier. Carries rules (new-goods share, online booking allowed). |
-| Veranstaltungsvorlage (im alten System: "Preset") | Event preset | `event_preset` | Blueprint for a recurring event at a location: type, texts, prices, templates, permit needs, equipment needs, default team. Optional recurrence. |
+| Veranstaltungsvorlage (im alten System: "Preset") | Event preset | `event_preset` | Blueprint for a recurring event at a location: type, texts, prices, Marktregeln (own copy of the type's rules), templates, permit needs, equipment needs, default team. Optional recurrence. |
 | Termin | Date / occurrence | `event.starts_on` | The old website calls each event date a "Termin". |
 | Besprechung | Meeting | `appointment` | An office appointment with a contact (not a task, not an event date). Office only (own `appointment` grant: owner, manager, staff). |
 | Ort / Veranstaltungsort / Gelände | Location / venue | `venue` | Physical place (square, promenade, car park, hall). |
