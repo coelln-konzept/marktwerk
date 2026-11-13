@@ -1,14 +1,12 @@
-import { auditLog, notification, task, taskCheckItem, taskComment } from "@marktwerk/db/schema";
+import { auditLog, notification, task, taskComment } from "@marktwerk/db/schema";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import {
-  addCheckItem,
   assignTask,
   createTask,
   moveTask,
-  setCheckItemDone,
   setEffortFeedback,
   setTaskStatus,
   snoozeTask,
@@ -343,23 +341,20 @@ describe("setTaskStatus", () => {
     expect(await notifications("mentioned")).toHaveLength(0);
   });
 
-  it("reports which evidence is missing, and requires every check item", async () => {
+  it("reports which evidence is missing, and requires every subtask to be finished", async () => {
     const t = await insertTask({ title: "A", eventId, requiresNote: true });
-    const item = await addCheckItem(owner, t.id, "Schilder zählen");
-    await addCheckItem(owner, t.id, "Protokoll");
+    const item = await createTask(owner, { title: "Schilder zählen", parentId: t.id });
+    const other = await createTask(owner, { title: "Protokoll", parentId: t.id });
     try {
       await setTaskStatus(owner, t.id, "done", {}, clock);
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(TaskInputError);
-      expect((error as TaskInputError).detail).toEqual(["check_items"]);
+      expect((error as TaskInputError).detail).toEqual(["subtasks"]);
     }
-    await setCheckItemDone(owner, t.id, item.id, true, clock);
-    const open = await db
-      .select()
-      .from(taskCheckItem)
-      .where(and(eq(taskCheckItem.taskId, t.id), eq(taskCheckItem.done, false)));
-    for (const o of open) await setCheckItemDone(owner, t.id, o.id, true, clock);
+    await setTaskStatus(owner, item.id, "done", {}, clock);
+    // a skipped subtask counts as finished
+    await setTaskStatus(owner, other.id, "skipped", { reason: "entfällt" }, clock);
     // the template asks for a note, but a note never blocks completion
     await setTaskStatus(owner, t.id, "done", {}, clock);
     expect((await getTask(t.id)).status).toBe("done");
@@ -503,22 +498,6 @@ describe("effort feedback", () => {
     expect((await setEffortFeedback(owner, t.id, "longer")).changed).toBe(true);
     expect((await getTask(t.id)).effortFeedback).toBe("longer");
     expect(await code(setEffortFeedback(owner, t.id, "huge" as never))).toBe("invalid_input");
-  });
-});
-
-describe("check items", () => {
-  it("adds and ticks items with who and when", async () => {
-    const t = await insertTask({ title: "A", eventId });
-    const { id } = await addCheckItem(owner, t.id, "Schilder zählen");
-    await setCheckItemDone(office, t.id, id, true, clock);
-    const [row] = await db.select().from(taskCheckItem).where(eq(taskCheckItem.id, id));
-    expect(row).toMatchObject({ done: true, doneByStaffMemberId: cat.staff.anna.id });
-    expect(row?.doneAt?.toISOString()).toBe("2026-10-21T10:00:00.000Z");
-    expect((await setCheckItemDone(office, t.id, id, true, clock)).changed).toBe(false);
-    await setCheckItemDone(office, t.id, id, false, clock);
-    const [again] = await db.select().from(taskCheckItem).where(eq(taskCheckItem.id, id));
-    expect(again).toMatchObject({ done: false, doneAt: null });
-    expect(await audits("task.check")).toHaveLength(3);
   });
 });
 

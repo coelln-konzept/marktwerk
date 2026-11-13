@@ -25,9 +25,7 @@ import {
   shiftRevision,
   staffMember,
   task,
-  taskCheckItem,
   taskComment,
-  taskDependency,
   templateItem,
   templateVersion,
   vehicle,
@@ -115,7 +113,7 @@ describe("templates and tasks (M2)", () => {
     return { template, version, item };
   }
 
-  it("instantiates template → version → item → checklist → task with check item, comment and dependency", async () => {
+  it("instantiates template → version → item → checklist → task with a subtask and a comment", async () => {
     const { template, version, item } = await templateGraph();
     const ev = await insertEvent();
     const [list] = await db
@@ -151,21 +149,27 @@ describe("templates and tasks (M2)", () => {
     expect(a.boardSort).toBe(0);
     expect(a.rolloverCount).toBe(0);
 
-    await db.insert(taskCheckItem).values({ taskId: a.id, title: "Formular ausfüllen" });
+    const [sub] = await db
+      .insert(task)
+      .values({
+        eventId: ev.id,
+        checklistId: list.id,
+        title: "Formular ausfüllen",
+        parentTaskId: a.id,
+      })
+      .returning();
+    expect(sub?.parentTaskId).toBe(a.id);
     await db.insert(taskComment).values({
       taskId: a.id,
       authorStaffMemberId: cat.staff.ben.id,
       body: "Bitte bis Freitag",
       mentionedStaffMemberIds: [cat.staff.anna.id],
     });
-    await db.insert(taskDependency).values({ taskId: b.id, dependsOnTaskId: a.id });
 
-    // Deleting the checklist removes its tasks and, through them, check items, comments and dependencies.
+    // Deleting the checklist removes its tasks (subtasks included) and, through them, comments.
     await db.delete(checklist).where(eq(checklist.id, list.id));
     expect(await db.select().from(task)).toHaveLength(0);
-    expect(await db.select().from(taskCheckItem)).toHaveLength(0);
     expect(await db.select().from(taskComment)).toHaveLength(0);
-    expect(await db.select().from(taskDependency)).toHaveLength(0);
   });
 
   it("keeps one task per template item in a checklist, but allows manual tasks freely", async () => {
@@ -189,7 +193,7 @@ describe("templates and tasks (M2)", () => {
     await db.insert(task).values([manual, manual]);
   });
 
-  it("refuses a done task without completion time, a self-dependency and a second draft version", async () => {
+  it("refuses a done task without completion time, a second subtask level and a second draft version", async () => {
     const { template, version } = await templateGraph();
     const ev = await insertEvent();
     expect(
@@ -197,9 +201,25 @@ describe("templates and tasks (M2)", () => {
     ).toBe("task_done_completed");
     const [t] = await db.insert(task).values({ eventId: ev.id, title: "x" }).returning();
     if (!t) throw new Error("task insert failed");
+    // One level of subtasks (ADR 0021, trigger task_one_level_subtasks).
     expect(
-      await violation(db.insert(taskDependency).values({ taskId: t.id, dependsOnTaskId: t.id })),
-    ).toBe("task_dependency_not_self");
+      await violation(db.update(task).set({ parentTaskId: t.id }).where(eq(task.id, t.id))),
+    ).toBe("task_not_own_parent");
+    const [child] = await db
+      .insert(task)
+      .values({ eventId: ev.id, title: "child", parentTaskId: t.id })
+      .returning();
+    if (!child) throw new Error("task insert failed");
+    expect(
+      await violation(
+        db.insert(task).values({ eventId: ev.id, title: "grandchild", parentTaskId: child.id }),
+      ),
+    ).toBe("task_one_level_subtasks");
+    const [other] = await db.insert(task).values({ eventId: ev.id, title: "other" }).returning();
+    if (!other) throw new Error("task insert failed");
+    expect(
+      await violation(db.update(task).set({ parentTaskId: other.id }).where(eq(task.id, t.id))),
+    ).toBe("task_one_level_subtasks");
     expect(
       await violation(db.insert(task).values({ eventId: ev.id, title: "x", estimateMinutes: -5 })),
     ).toBe("task_estimate");

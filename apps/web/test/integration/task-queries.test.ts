@@ -17,10 +17,9 @@ import {
   seasonWorkload,
 } from "@/server/queries/tasks";
 import {
-  addCheckItem,
   assignTask,
+  createTask,
   moveTask,
-  setCheckItemDone,
   setTaskStatus,
   snoozeTask,
   unsnoozeTask,
@@ -117,7 +116,7 @@ describe("listBoardTasks", () => {
     expect((await listBoardTasks(owner, { eventId: "nope" }, TODAY)).tasks).toEqual([]);
   });
 
-  it("carries assignee, carry-over, check item counts and evidence flags", async () => {
+  it("carries assignee, carry-over, subtask progress and evidence flags", async () => {
     const t = await insertTask({
       title: "A",
       eventId,
@@ -126,15 +125,18 @@ describe("listBoardTasks", () => {
       requiresNote: true,
       estimateMinutes: 90,
     });
-    const item = await addCheckItem(owner, t.id, "eins");
-    await addCheckItem(owner, t.id, "zwei");
-    await setCheckItemDone(owner, t.id, item.id, true);
-    const [card] = (await listBoardTasks(owner, { eventId }, TODAY)).tasks;
-    expect(card).toMatchObject({
+    const item = await createTask(owner, { title: "eins", parentId: t.id });
+    await createTask(owner, { title: "zwei", parentId: t.id });
+    await setTaskStatus(owner, item.id, "done");
+    const cards = (await listBoardTasks(owner, { eventId }, TODAY)).tasks;
+    // Subtasks sit under their parent, not on the board.
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({
       assigneeName: "Ben Test",
       rolloverCount: 2,
-      checkTotal: 2,
-      checkDone: 1,
+      subtasksTotal: 2,
+      subtasksDone: 1,
+      subtasksOverdue: 0,
       requiresNote: true,
       estimateMinutes: 90,
     });
@@ -606,7 +608,7 @@ describe("tasks that wait for somebody else (Wartet)", () => {
 });
 
 describe("getTaskDetail", () => {
-  it("collects check items, the completion note and the audit activity", async () => {
+  it("collects subtasks, the completion note and the audit activity", async () => {
     const office = asStaff(await createActor("staff"), cat.staff.anna);
     const t = await insertTask({
       title: "Schilder",
@@ -614,9 +616,9 @@ describe("getTaskDetail", () => {
       dueAt: dueOn("2026-10-22"),
       dutyRoleId: cat.roles.setup.id,
     });
-    const item = await addCheckItem(office, t.id, "zählen");
+    const item = await createTask(office, { title: "zählen", parentId: t.id });
     await assignTask(owner, t.id, cat.staff.ben.id);
-    await setCheckItemDone(office, t.id, item.id, true, clock);
+    await setTaskStatus(office, item.id, "done", {}, clock);
     await setTaskStatus(office, t.id, "done", { note: "Alles gezählt" }, clock);
 
     const detail = await getTaskDetail(owner, t.id);
@@ -630,16 +632,17 @@ describe("getTaskDetail", () => {
       dutyRoleName: { de: "Aufbau", en: "Setup" },
       link: `/veranstaltungen/${eventId}/board?aufgabe=${t.id}`,
     });
-    expect(detail?.checkItems).toEqual([expect.objectContaining({ title: "zählen", done: true })]);
+    expect(detail?.subtasks).toEqual([
+      expect.objectContaining({ id: item.id, title: "zählen", status: "done", overdue: false }),
+    ]);
+    expect(detail?.parent).toBeNull();
+    const sub = await getTaskDetail(owner, item.id);
+    expect(sub?.parent).toEqual({ id: t.id, title: "Schilder", status: "done" });
+    expect(sub?.subtasks).toEqual([]);
     expect(detail?.completionNote).toBe("Alles gezählt");
     expect(detail?.snoozedUntil).toBeNull();
     // newest first
-    expect(detail?.activity.map((a) => a.action)).toEqual([
-      "task.status",
-      "task.check",
-      "task.assign",
-      "task.check",
-    ]);
+    expect(detail?.activity.map((a) => a.action)).toEqual(["task.status", "task.assign"]);
     expect(detail?.activity[0]?.actorName).toBe("Test staff");
     expect(await getTaskDetail(owner, "nope")).toBeNull();
     expect(await getTaskDetail(owner, "00000000-0000-4000-8000-000000000000")).toBeNull();

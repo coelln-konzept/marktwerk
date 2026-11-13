@@ -1,11 +1,4 @@
-import {
-  auditLog,
-  checklist,
-  settings,
-  task,
-  taskCheckItem,
-  taskDependency,
-} from "@marktwerk/db/schema";
+import { auditLog, checklist, settings, task } from "@marktwerk/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
@@ -178,23 +171,66 @@ describe("instantiation on event creation", () => {
     });
   });
 
-  it("creates check items and dependencies", async () => {
+  it("creates subtasks from child items, with the parent's role and schedule unless set (ADR 0021)", async () => {
+    await seedPublishedTemplate(
+      owner,
+      [
+        baseItem({
+          title: "Genehmigung Ordnungsamt",
+          offsetDays: -30,
+          dueTime: "10:00",
+          dutyRoleId: cat.roles.lead.id,
+        }),
+        // inherits role and schedule (its own offset is ignored without ownDue)
+        baseItem({
+          title: "Formular ausfüllen",
+          parentKey: "genehmigung_ordnungsamt",
+          offsetDays: 9,
+        }),
+        baseItem({
+          title: "Gebühr prüfen",
+          parentKey: "genehmigung_ordnungsamt",
+          ownDue: true,
+          offsetDays: -20,
+          dutyRoleId: cat.roles.setup.id,
+        }),
+        baseItem({ title: "Nur Stadtfest", condition: { eventTypeKeys: ["street_fair"] } }),
+        baseItem({ title: "Kind vom Stadtfest", parentKey: "nur_stadtfest" }),
+      ],
+      { name: "Ordnungsamt", presetIds: [cat.presets.flea.id] },
+    );
     const eventId = await oneEvent();
     const tasks = await byKey(eventId);
-    const permit = tasks.get("marktgenehmigung_beantragen");
-    const posters = tasks.get("plakate_aufhaengen");
-    const steps = await db
-      .select()
-      .from(taskCheckItem)
-      .where(eq(taskCheckItem.taskId, permit?.id ?? ""))
-      .orderBy(asc(taskCheckItem.sort));
-    expect(steps.map((s) => [s.title, s.done])).toEqual([
-      ["Formular ausfüllen", false],
-      ["Gebühr prüfen", false],
-    ]);
-    const deps = await db.select().from(taskDependency);
-    expect(deps).toHaveLength(1);
-    expect(deps[0]).toMatchObject({ taskId: posters?.id, dependsOnTaskId: permit?.id });
+    const parent = tasks.get("genehmigung_ordnungsamt");
+    expect(parent?.parentTaskId).toBeNull();
+    expect(tasks.get("formular_ausfuellen")).toMatchObject({
+      parentTaskId: parent?.id,
+      dutyRoleId: cat.roles.lead.id,
+      assigneeId: parent?.assigneeId,
+      offsetDays: -30,
+      dueAt: parent?.dueAt,
+      source: "template",
+    });
+    const fee = tasks.get("gebuehr_pruefen");
+    expect(fee).toMatchObject({
+      parentTaskId: parent?.id,
+      dutyRoleId: cat.roles.setup.id,
+      offsetDays: -20,
+    });
+    expect(fee?.assigneeId).toBe(cat.staff.ben.id);
+    // A child applies only together with its parent.
+    expect(tasks.has("nur_stadtfest")).toBe(false);
+    expect(tasks.has("kind_vom_stadtfest")).toBe(false);
+
+    const again = await db.transaction((tx) => instantiateTemplatesForEvents(tx, owner, [eventId]));
+    expect(again.tasks).toBe(0);
+    // A deleted subtask comes back under its parent.
+    await db.delete(task).where(eq(task.id, fee?.id ?? ""));
+    const refill = await db.transaction((tx) =>
+      instantiateTemplatesForEvents(tx, owner, [eventId]),
+    );
+    expect(refill.tasks).toBe(1);
+    expect((await byKey(eventId)).get("gebuehr_pruefen")?.parentTaskId).toBe(parent?.id);
   });
 
   it("is idempotent: running it again changes nothing", async () => {
@@ -204,8 +240,6 @@ describe("instantiation on event creation", () => {
     expect(again).toEqual({ checklists: 0, tasks: 0 });
     expect(await tasksOf(eventId)).toHaveLength(before.length);
     expect(await db.select().from(checklist)).toHaveLength(1);
-    expect(await db.select().from(taskCheckItem)).toHaveLength(2);
-    expect(await db.select().from(taskDependency)).toHaveLength(1);
   });
 
   it("fills gaps without duplicating: a deleted task comes back, existing ones stay", async () => {
