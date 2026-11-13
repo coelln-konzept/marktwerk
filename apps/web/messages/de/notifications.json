@@ -74,7 +74,7 @@
     "empty": "Alles erledigt.",
     "emptyHint": "Hinweise zu Fristen, Zuweisungen und Eskalationen erscheinen hier.",
     "emptyFiltered": "Keine Hinweise in dieser Auswahl.",
-    "noStaffTitle": "Dein Benutzer ist keiner Person im Team zugeordnet.",
+    "noStaffTitle": "Du bist als Benutzer keiner Person im Team zugeordnet.",
     "noStaffHint": "Benachrichtigungen gehen an Personen aus dem Team. Verknüpfe deinen Benutzer mit einer Person, dann erscheinen sie hier.",
     "more": "Es gibt ältere Hinweise. Erledigte Hinweise verschwinden aus „Offen“.",
     "errors": {
