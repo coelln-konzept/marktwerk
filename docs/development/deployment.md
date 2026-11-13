@@ -5,12 +5,45 @@
 |---|---|---|
 | Web app | Vercel project `marktwerk` (root `apps/web`, region fra1) | Auto-deploy from `main` on GitHub; previews per branch |
 | Database | Supabase `marktwerk-dev` (eu-central-1, Postgres 17) | Role `marktwerk_app`; schema `app`; pooler 6543 (app) / 5432 (migrations) |
-| Jobs | GitHub Actions `.github/workflows/cron.yml` → `POST /api/cron/<job>` | Needs repo variable `APP_URL` and secret `CRON_SECRET` |
+| Jobs | GitHub Actions `.github/workflows/cron.yml` → `POST /api/cron/<job>` | Needs repo variable `APP_URL` and secret `CRON_SECRET`; see *Scheduled jobs* below |
 | Health | `GET /api/health` | `{ ok, db }` |
 
 Vercel environment variables: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
 (the production `*.vercel.app` URL), `APP_URL` (same), `CRON_SECRET`, `APP_TIMEZONE=Europe/Berlin`, and the mail
 fence variables below (`APP_ENV`, `MAIL_CATCH_ALL`, optional `MAIL_ALLOWLIST`).
+
+### Scheduled jobs (GitHub Actions)
+Vercel has no long-running worker, so `.github/workflows/cron.yml` calls `POST /api/cron/<job>` with
+`Authorization: Bearer <CRON_SECRET>` for every job in `JOBS` (`packages/jobs/src/index.ts`). It needs the
+repository variable **`APP_URL`** (the production `*.vercel.app` URL) and the repository secret **`CRON_SECRET`**
+(the same value as the Vercel variable). Without `APP_URL` the workflow does nothing.
+
+GitHub's scheduler is best effort and drops most ticks under load: with a 15-minute schedule about 5 runs a day
+arrived in Oct/Nov 2026, and the separate 05:00 UTC digest tick never did. So the daily jobs have no tick of their
+own. A *plan* step looks at the Berlin wall clock and lists the jobs that are due, and a matrix runs one Actions job
+per entry, so every job shows up (and fails) on its own in the run. All jobs are idempotent (dedupe keys per day,
+person or stage), so a repeated run changes nothing and the next tick catches up a missed one.
+
+| Tick (UTC cron) | Job | When it runs | Worker schedule (Berlin) |
+|---|---|---|---|
+| `3,8,…,58 * * * *` (every 5 min) | `send-emails` | every tick | every 5 min |
+| `7,22,37,52 * * * *` (every 15 min) | `deadline-sweep` | every tick | every 15 min |
+| same | `obligation-reminders`, `installment-reminders` | every tick | hourly |
+| same | `task-rollover` | from 00:05 Berlin until midnight (rolls over once per day) | 00:05 |
+| same | `daily-digest` | 07:00–11:59 Berlin (one mail per person and day; none after noon) | 07:00 |
+| same | `payroll-reminders` | from 07:05 Berlin until midnight (once per person, month and stage) | 07:05 |
+
+The minutes avoid :00/:15/:30/:45, when GitHub's load peaks. Cron times are UTC, but the windows are evaluated in
+`Europe/Berlin` on the runner, so daylight saving time needs no second set of ticks. *Run workflow* runs any single
+job by hand (any time of day, no window). A new job in `JOBS` must be added to the plan step and the dispatch
+options; `apps/web/test/integration/cron-route.test.ts` fails otherwise.
+
+The endpoint checks the secret first (401), then the job name (404). A job that throws is logged as one JSON line in
+the Vercel function log, `{"level":"error","msg":"cron job failed","job":"…","error":"Name: message","durationMs":…}`
+(URL credentials and the cron secret are blanked out), and answered with
+`500 {"job":"…","error":"Job failed, see the server log"}`. The response never carries error details because
+`curl` prints it into the Actions log, which is public for this repository. The Actions job then fails, and GitHub
+emails whoever last changed the workflow's schedule.
 
 ### Outbound mail fence (ADR 0023)
 Every mail the SMTP transport sends (`createMailTransport` in `packages/jobs`, the one path for the queued mails and
