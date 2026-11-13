@@ -15,6 +15,11 @@ UX testing need realistic volumes (a full season, ~1,500 vendors, booking histor
   (curated German domain dictionaries + Faker `de`), not as hand-written rows.
 - **Privacy by construction:** fictional company; emails only at `example.com/.org/.net`; phone numbers only from
   ranges reserved for film/fiction; no real persons.
+- *Amended 2026-11-13 (research 13):* the dataset uses Coelln Konzept's **real market and place names** and real
+  authority types (Stadt Köln, Kerpen, Rösrath); people, contact details and private organisations stay fictional
+  under the privacy rules above. 17 markets (the 16 Coelln Konzept series + Hoffnungsthal) on 10 places, about 67
+  events per season (January–November, mostly Sundays, at most 3 per day) from date rules that reproduce the 2027 wall
+  calendar; markets carry their own rules and Zeitplan.
 - The M1 seed script loads it into the database (`pnpm db:seed`); staging uses it until the pilot.
 - When real data arrives, it is imported through the same services (never mixed with synthetic data in one database).
 
