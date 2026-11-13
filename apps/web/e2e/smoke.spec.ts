@@ -249,7 +249,9 @@ test("Task drawer: Erledigt and Wartet are buttons, the status badge opens every
   // The status badge itself opens every status; the current one is marked and can't be picked again.
   // The seeded task may be Offen or already In Arbeit: switch to the other one and back.
   const statusBadge = drawer.getByRole("button", { name: /^Status ändern \(jetzt: / });
-  const current = /jetzt: ([^)]+)\)/.exec((await statusBadge.getAttribute("aria-label")) ?? "")?.[1];
+  const current = /jetzt: ([^)]+)\)/.exec(
+    (await statusBadge.getAttribute("aria-label")) ?? "",
+  )?.[1];
   expect(["Offen", "In Arbeit"]).toContain(current);
   const other = current === "Offen" ? "In Arbeit" : "Offen";
   await statusBadge.click();
@@ -263,8 +265,13 @@ test("Task drawer: Erledigt and Wartet are buttons, the status badge opens every
   const badge = drawer.getByRole("button", { name: `Status ändern (jetzt: ${other})` });
   await expect(badge).toBeVisible();
   await badge.click();
-  await page.getByRole("menu").getByRole("menuitem", { name: current as string, exact: true }).click();
-  await expect(drawer.getByRole("button", { name: `Status ändern (jetzt: ${current})` })).toBeVisible();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: current as string, exact: true })
+    .click();
+  await expect(
+    drawer.getByRole("button", { name: `Status ändern (jetzt: ${current})` }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   // The carried-over count and the origin are not shown; the footer hint is gone.
   await expect(drawer.getByText("übertragen")).toHaveCount(0);
