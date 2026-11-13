@@ -19,7 +19,14 @@ import { audit, type ServiceActor, type Tx } from "./audit";
 import { instantiateTemplatesForSeasons, loadDueDefaults } from "./task-instantiation";
 
 /** Why a season record was made (written to the audit entry). */
-export type SeasonSource = "job" | "markt_planen" | "agreement" | "event_move" | "manual";
+export type SeasonSource =
+  | "job"
+  | "markt_planen"
+  | "agreement"
+  | "event_move"
+  | "manual"
+  /** The logbook fill made a season permit for a market whose record was missing (Fahrplan R11). */
+  | "logbook_fill";
 
 /** The season's events as the rules see them: not archived (cancelled ones are dropped by the rules). */
 export async function seasonEventDates(

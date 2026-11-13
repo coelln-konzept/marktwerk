@@ -173,14 +173,9 @@ export async function instantiateEvents(
     actor,
     created.map((c) => c.id),
   );
-  // M3: logbook fill for the new events (covering permits, missing ones + their tasks).
-  await fillLogbookForEvents(
-    tx,
-    created.map((c) => c.id),
-    actor,
-  );
   // Saison (research 13 §6.2): the market has its record for every season it now has dates in, and the anchors
-  // of records that existed already follow the new dates (their open season tasks move along).
+  // of records that existed already follow the new dates (their open season tasks move along). Before the logbook
+  // fill, so a season permit belongs to its record and its season task applies for it (Fahrplan R11).
   if (template.presetId) {
     const presetId = template.presetId;
     const seasons = [...new Set(created.map((c) => Number(c.startsOn.slice(0, 4))))].sort();
@@ -188,6 +183,12 @@ export async function instantiateEvents(
     await ensureSeasonsTx(tx, actor, keys, source === "agreement" ? "agreement" : "markt_planen");
     await syncSeasonsTx(tx, actor, keys, "event_create");
   }
+  // M3: logbook fill for the new events (covering permits, missing ones + their tasks).
+  await fillLogbookForEvents(
+    tx,
+    created.map((c) => c.id),
+    actor,
+  );
   await audit(
     tx,
     actor.id,

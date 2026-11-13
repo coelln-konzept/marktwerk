@@ -293,6 +293,11 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
                       {task.eventName} · {formatDateShort(task.eventStartsOn, locale)}
                     </span>
                   )}
+                  {task.seasonMarketName && task.seasonYear !== null && (
+                    <span className="text-muted-foreground text-tiny">
+                      {t("taskSeason", { market: task.seasonMarketName, year: task.seasonYear })}
+                    </span>
+                  )}
                 </span>
                 <span className="tabular text-muted-foreground text-tiny">
                   {t(`taskStatus.${task.status}` as never)} ·{" "}
