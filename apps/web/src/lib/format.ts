@@ -41,6 +41,17 @@ export function formatDateWithWeekday(date: string, locale: string): string {
   return `${weekday} ${formatDate(date, locale)}`;
 }
 
+/** Sa 6. März (spoken names of the Jahresübersicht's dots; en: "Sat 6 March") */
+export function formatWeekdayDayMonth(date: string, locale: string): string {
+  const weekday = parts(date, locale, { weekday: "short" }).replace(/\.$/, "");
+  return `${weekday} ${parts(date, locale, { day: "numeric", month: "long" })}`;
+}
+
+/** März (the month alone) */
+export function formatMonthName(date: string, locale: string): string {
+  return parts(date, locale, { month: "long" });
+}
+
 /** Mai 2026 */
 export function formatMonth(date: string, locale: string): string {
   return parts(date, locale, { month: "long", year: "numeric" });

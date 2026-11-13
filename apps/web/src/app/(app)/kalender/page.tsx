@@ -8,8 +8,14 @@ import {
   isoDate,
   MAX_EVENTS_PER_WEEKEND,
   mondayOf,
+  monthWeeks,
+  parseHiddenMarkets,
+  SINGLE_EVENTS_KEY,
+  toggleHiddenMarket,
   weekday,
   weekendsTouched,
+  yearDots,
+  yearLegendKey,
 } from "@marktwerk/core";
 import { TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
@@ -47,14 +53,24 @@ import {
 import { CalendarList } from "@/components/kalender/list-view";
 import { MonthGrid } from "@/components/kalender/month-grid";
 import { MonthJump } from "@/components/kalender/month-jump";
+import { PrintButton } from "@/components/kalender/print-button";
 import { KalenderShortcuts } from "@/components/kalender/shortcuts";
 import { ViewDefault } from "@/components/kalender/view-default";
+import { type YearDotView, YearGrid, type YearMonthView } from "@/components/kalender/year-grid";
+import { YearLegend } from "@/components/kalender/year-legend";
 import { Page, PageHeader } from "@/components/shell/page";
 import { EVENT_TYPE_KEYS, EventTypeSquare } from "@/components/ui/event-type-tag";
 import { Kbd } from "@/components/ui/kbd";
 import { Panel } from "@/components/ui/panel";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
-import { formatDate, formatDateWithWeekday, formatMonth, todayIn } from "@/lib/format";
+import {
+  formatDate,
+  formatDateWithWeekday,
+  formatMonth,
+  formatMonthName,
+  formatWeekdayDayMonth,
+  todayIn,
+} from "@/lib/format";
 import { type CalendarHoliday, quietHoursValues } from "@/lib/holidays";
 import { HIDDEN_MODULES, isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUS } from "@/lib/status";
@@ -68,6 +84,7 @@ import {
   listCalendarEvents,
   listVenueOptions,
 } from "@/server/queries/kalender";
+import { getCalendarYear } from "@/server/queries/kalender-year";
 import { getMarketShortCodes } from "@/server/queries/market-short-codes";
 import { requirePermission } from "@/server/session";
 import { getUiState } from "@/server/ui-state";
@@ -78,6 +95,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const PATH = "/kalender";
 const LIST_DAYS = 42;
+/** Years the Jahr view accepts in `?jahr=` (anything else shows this year). */
+const YEAR_MIN = 2000;
+const YEAR_MAX = 2100;
+/** A4 landscape on one page, light colours, the dots and tints printed (Jahresübersicht, Fahrplan R22). */
+const YEAR_PRINT_CSS =
+  "@media print{@page{size:A4 landscape;margin:8mm}html{color-scheme:light!important}body{background:#fff!important}}";
 
 export default async function KalenderPage({ searchParams }: PageProps<"/kalender">) {
   await requirePermission("event", "read");
@@ -109,7 +132,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   // screens in Monat (decision 2026-10-28); the width comes from a cookie that `ViewDefault` keeps in
   // step, so only the view that is shown gets fetched.
   const ansicht = param(sp.ansicht);
-  const explicitView = ansicht === "liste" || ansicht === "monat" ? ansicht : undefined;
+  const explicitView =
+    ansicht === "liste" || ansicht === "monat" || ansicht === "jahr" ? ansicht : undefined;
   const phoneCookie = (await cookies()).get(KAL_PHONE_COOKIE)?.value;
   const assumedPhone = phoneCookie === "1";
   const view = explicitView ?? (assumedPhone ? "liste" : "monat");
@@ -123,24 +147,47 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const abParam = param(sp.ab);
   const abValid = abParam !== undefined && isIsoDate(abParam);
   const listFrom = abValid ? abParam : today;
+  // Jahr (Jahresübersicht, Fahrplan R22): `jahr` is the year, `ohne` the markets switched off in its legend.
+  const thisYear = Number(today.slice(0, 4));
+  const jahrParam = param(sp.jahr);
+  const jahrValid =
+    jahrParam !== undefined &&
+    /^\d{4}$/.test(jahrParam) &&
+    Number(jahrParam) >= YEAR_MIN &&
+    Number(jahrParam) <= YEAR_MAX;
+  const year = jahrValid ? Number(jahrParam) : thisYear;
+  const hiddenMarkets = view === "jahr" ? parseHiddenMarkets(sp.ohne) : [];
 
-  const from = view === "monat" ? mondayOf(monthFirst) : listFrom;
-  const to = view === "monat" ? addDays(mondayOf(monthLast), 6) : addDays(listFrom, LIST_DAYS - 1);
+  const from =
+    view === "monat" ? mondayOf(monthFirst) : view === "jahr" ? isoDate(year, 1, 1) : listFrom;
+  const to =
+    view === "monat"
+      ? addDays(mondayOf(monthLast), 6)
+      : view === "jahr"
+        ? isoDate(year, 12, 31)
+        : addDays(listFrom, LIST_DAYS - 1);
 
   const available = availableLayers(actor.role, actor.staffMemberId !== null, HIDDEN_MODULES);
   // Besprechungen: "Nur Achtung und Kritisch" hides them (they have no urgency), "Nur meine Zuständigkeit" does not
   // touch them; the Ort narrowing keeps those at that venue.
+  // The Jahr view shows markets and holidays only: no deadlines, no Besprechungen.
+  const isYear = view === "jahr";
   const showAppointments =
+    !isYear &&
     layers.deadlines.includes("appointments") &&
     available.includes("appointments") &&
     !layers.critical;
-  const [rows, deadlines, venues, allAppointments, shortCodes] = await Promise.all([
-    listCalendarEvents(actor, { from, to }, layers),
-    listCalendarDeadlines(actor, { from, to }, layers, today, HIDDEN_MODULES),
+  const [eventRows, deadlines, venues, allAppointments, shortCodes, yearData] = await Promise.all([
+    isYear ? Promise.resolve([]) : listCalendarEvents(actor, { from, to }, layers),
+    isYear
+      ? Promise.resolve([])
+      : listCalendarDeadlines(actor, { from, to }, layers, today, HIDDEN_MODULES),
     listVenueOptions(actor),
     showAppointments ? listAppointmentsBetween(from, to) : Promise.resolve([]),
     getMarketShortCodes(),
+    isYear ? getCalendarYear(actor, year, layers) : Promise.resolve(null),
   ]);
+  const rows = yearData?.rows ?? eventRows;
   const appointments = layers.venue
     ? allAppointments.filter((a) => a.venueId === layers.venue)
     : allAppointments;
@@ -225,38 +272,78 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const prevMonth = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
   const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
   const prevHref =
-    view === "monat" ? nav({ monat: prevMonth }) : nav({ ab: addDays(listFrom, -LIST_DAYS) });
+    view === "monat"
+      ? nav({ monat: prevMonth })
+      : view === "jahr"
+        ? nav({ jahr: String(year - 1) })
+        : nav({ ab: addDays(listFrom, -LIST_DAYS) });
   const nextHref =
-    view === "monat" ? nav({ monat: nextMonth }) : nav({ ab: addDays(listFrom, LIST_DAYS) });
-  const todayHref = nav({ monat: undefined, ab: undefined });
+    view === "monat"
+      ? nav({ monat: nextMonth })
+      : view === "jahr"
+        ? nav({ jahr: String(year + 1) })
+        : nav({ ab: addDays(listFrom, LIST_DAYS) });
+  const todayHref = nav({ monat: undefined, ab: undefined, jahr: undefined });
   // Switching the view keeps the browsed position: Liste → Monat shows the month the list starts in,
-  // Monat → Liste starts the list on the 1st of the browsed month (today when that is this month).
+  // Monat → Liste starts the list on the 1st of the browsed month (today when that is this month);
+  // Jahr → Monat/Liste opens January of the browsed year (this month/today in the current year), and
+  // Monat/Liste → Jahr the year being browsed. The Jahr legend's filter (`ohne`) stays in the Jahr view.
+  const leaveYear = { jahr: undefined, ohne: undefined };
+  const yearStart = year === thisYear ? undefined : isoDate(year, 1, 1);
   const monthHref = nav({
     ansicht: "monat",
     ab: undefined,
-    monat: view === "liste" ? (abValid ? listFrom.slice(0, 7) : undefined) : monthParam,
+    ...leaveYear,
+    monat:
+      view === "liste"
+        ? abValid
+          ? listFrom.slice(0, 7)
+          : undefined
+        : view === "jahr"
+          ? yearStart?.slice(0, 7)
+          : monthParam,
   });
   const listHref = nav({
     ansicht: "liste",
     monat: undefined,
-    ab: view === "monat" ? (month === today.slice(0, 7) ? undefined : monthFirst) : abParam,
+    ...leaveYear,
+    ab:
+      view === "monat"
+        ? month === today.slice(0, 7)
+          ? undefined
+          : monthFirst
+        : view === "jahr"
+          ? yearStart
+          : abParam,
+  });
+  const browsedYear = view === "monat" ? y : view === "liste" ? Number(listFrom.slice(0, 4)) : year;
+  const yearHref = nav({
+    ansicht: "jahr",
+    monat: undefined,
+    ab: undefined,
+    jahr: browsedYear === thisYear ? undefined : String(browsedYear),
   });
   // "+ N weitere" opens the list from that day.
   const moreHref = (day: string) => nav({ ansicht: "liste", monat: undefined, ab: day });
   const title =
     view === "monat"
       ? formatMonth(monthFirst, locale)
-      : t("listTitle", { from: formatDate(from, locale), to: formatDate(to, locale) });
+      : view === "jahr"
+        ? String(year)
+        : t("listTitle", { from: formatDate(from, locale), to: formatDate(to, locale) });
 
   const keep: Record<string, string> = {};
   if (explicitView) keep.ansicht = explicitView;
   if (view === "monat" && monthParam) keep.monat = month;
   if (view === "liste" && abValid) keep.ab = abParam;
+  if (view === "jahr" && jahrValid) keep.jahr = String(year);
+  if (hiddenMarkets.length > 0) keep.ohne = hiddenMarkets.join(",");
 
   const holidayCount = allHolidays.size;
   const visibleCount =
     visible.length + appointments.length + deadlines.length + (layers.holidays ? holidayCount : 0);
-  const changedCount = layersChangedCount(layers, available);
+  // The Jahr view offers the event layers only, so only those count as changed there.
+  const changedCount = layersChangedCount(layers, isYear ? [] : available);
 
   // Weekend cap: Saturdays of weekends with 4+ events (cancelled ones don't count).
   const perWeekend = new Map<string, number>();
@@ -371,27 +458,168 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
         <Link href={nextHref as never} scroll={false} aria-label={t("next")} className={pill}>
           ›
         </Link>
-        <MonthJump
-          title={title}
-          view={view}
-          month={view === "monat" ? month : listFrom.slice(0, 7)}
-          today={today}
-          sp={sp}
-        />
+        {view === "jahr" ? (
+          <h2 className="tabular m-0 ml-1 px-2 font-semibold text-[15px]">{title}</h2>
+        ) : (
+          <MonthJump
+            title={title}
+            view={view}
+            month={view === "monat" ? month : listFrom.slice(0, 7)}
+            today={today}
+            sp={sp}
+          />
+        )}
       </nav>
       <SegmentedLinks
         label={t("view")}
         items={[
           { key: "monat", label: t("views.monat"), href: monthHref, active: view === "monat" },
           { key: "liste", label: t("views.liste"), href: listHref, active: view === "liste" },
+          { key: "jahr", label: t("views.jahr"), href: yearHref, active: view === "jahr" },
         ]}
       />
+      {view === "jahr" && <PrintButton label={t("year.print")} />}
     </>
   );
 
+  // Jahresübersicht: twelve month grids with a dot per market date; the legend lists the markets and
+  // switches them off (`ohne`). Dot names say market, Kürzel and day ("Altstadt (ALT), Sa 6. März").
+  let yearView: React.ReactNode = null;
+  if (yearData) {
+    const shownEvents = visible.filter((r) => !hiddenMarkets.includes(yearLegendKey(r)));
+    const dots = new Map<string, YearDotView[]>();
+    for (const [day, list] of yearDots(shownEvents, year)) {
+      const holiday = holidays.get(day);
+      const date = formatWeekdayDayMonth(day, locale);
+      dots.set(
+        day,
+        list.map(({ event: r, index, total }) => {
+          const code = r.presetId ? shortCodes.get(r.presetId) : undefined;
+          const cancelled = r.status === "cancelled";
+          const label = [
+            code
+              ? t("year.dot", { name: r.name, code, date })
+              : t("year.dotNoCode", { name: r.name, date }),
+            total > 1 ? t("spanDay", { index, total }) : null,
+            cancelled ? tStatus("cancelled") : null,
+            holiday?.name ?? null,
+          ]
+            .filter(Boolean)
+            .join(", ");
+          return {
+            key: `${r.id}-${day}`,
+            eventId: r.id,
+            href: eventHref(r.id),
+            code,
+            color: r.color,
+            typeKey: r.typeKey,
+            cancelled,
+            label,
+          };
+        }),
+      );
+    }
+    const months: YearMonthView[] = Array.from({ length: 12 }, (_, i) => {
+      const first = isoDate(year, i + 1, 1);
+      return {
+        key: first.slice(0, 7),
+        title: formatMonthName(first, locale),
+        href: nav({ ansicht: "monat", monat: first.slice(0, 7), ab: undefined, ...leaveYear }),
+        hrefLabel: t("year.openMonth", { month: formatMonth(first, locale) }),
+        weeks: monthWeeks(year, i + 1),
+      };
+    });
+    const legendItems = yearData.legend.map((entry) => {
+      const name = entry.key === SINGLE_EVENTS_KEY ? t("year.singleEvents") : entry.name;
+      const countLabel = t("year.count", { count: entry.count });
+      return {
+        key: entry.key,
+        name,
+        code: entry.code,
+        color: entry.color,
+        typeKey: entry.typeKey,
+        countLabel,
+        label: entry.code
+          ? t("year.legendItem", { name, code: entry.code, count: countLabel })
+          : t("year.legendItemNoCode", { name, count: countLabel }),
+        hidden: hiddenMarkets.includes(entry.key),
+        href: nav({ ohne: toggleHiddenMarket(hiddenMarkets, entry.key) }),
+      };
+    });
+    const yearTitle = t("year.title", { year });
+    yearView = (
+      <div className="flex flex-col gap-4 [print-color-adjust:exact] print:gap-[2mm]">
+        <style>{YEAR_PRINT_CSS}</style>
+        <div className="hidden items-baseline gap-x-4 print:flex">
+          <h2 className="m-0 font-semibold text-[11pt]">{yearTitle}</h2>
+          {hiddenMarkets.length > 0 && (
+            <span className="text-[7pt] text-muted-foreground">
+              {t("year.hiddenCount", { count: hiddenMarkets.length })}
+            </span>
+          )}
+          <span className="ml-auto text-[7pt] text-muted-foreground">
+            {t("year.asOf", { date: formatDate(today, locale) })}
+          </span>
+        </div>
+        <section aria-label={yearTitle}>
+          <YearGrid
+            months={months}
+            weekdays={tCal("weekdays").split(",")}
+            weekLabel={tCal("week")}
+            today={today}
+            holidays={holidays}
+            dots={dots}
+          />
+        </section>
+        {visible.length === 0 && (
+          <p className="m-0 flex flex-wrap items-center gap-x-3 text-muted-foreground text-small print:hidden">
+            {t("year.empty")}
+            <Link
+              href={
+                hrefWith(
+                  PATH,
+                  {},
+                  { ...layerParams(DEFAULT_LAYERS), ansicht: "jahr", jahr: keep.jahr },
+                ) as never
+              }
+              className="font-medium text-accent-soft-foreground hover:underline"
+            >
+              {t("emptyReset")}
+            </Link>
+          </p>
+        )}
+        <YearLegend
+          title={t("year.legendTitle")}
+          hint={t("year.legendHint")}
+          items={legendItems}
+          showAllHref={hiddenMarkets.length > 0 ? nav({ ohne: undefined }) : undefined}
+          showAllLabel={t("year.showAll")}
+        />
+        <p className="m-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-tiny print:text-[6pt]">
+          {layers.holidays && (
+            <span className="inline-flex items-center gap-1">
+              <span aria-hidden className="size-2.5 rounded-[2px] bg-status-critical-dot" />
+              {t("legend.holiday")}
+            </span>
+          )}
+          {anyQuiet && (
+            <span className="inline-flex items-center gap-1 text-status-warn">
+              <TriangleAlert aria-hidden className="size-3" />
+              {tNotes("legendQuiet")}
+            </span>
+          )}
+          <span>{t("legend.cancelled")}</span>
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <Page crumbs={[{ label: tNav("calendar") }]} wide>
-      <PageHeader title={tNav("calendar")} subtitle={t("subtitle")} />
+    <Page crumbs={[{ label: tNav("calendar") }]} wide className="print:gap-0 print:p-0!">
+      {/* Printing (the Jahresübersicht replaces the paper wall calendar) leaves the page chrome out. */}
+      <div className="print:hidden">
+        <PageHeader title={tNav("calendar")} subtitle={t("subtitle")} />
+      </div>
 
       <LayerPanel
         toolbar={toolbar}
@@ -407,6 +635,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
         canMine={canMine}
         keep={keep}
         changedCount={changedCount}
+        eventsOnly={isYear}
       >
         <EventPopoverProvider
           path={PATH}
@@ -423,42 +652,48 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
             ) : null
           }
         >
-          <Panel className="overflow-hidden" aria-label={title}>
-            {view === "monat" ? (
-              <MonthGrid
-                month={month}
-                weekdays={tCal("weekdays").split(",")}
-                weekLabel={tCal("week")}
-                today={today}
-                holidays={holidays}
-                entries={entries}
-                flaggedSaturdays={flagged}
-                flagLabel={t("legend.weekend")}
-                moreLabel={(n) => tCal("more", { n })}
-                moreAria={(n, day) => t("moreAria", { n, day: formatDate(day, locale) })}
-                dayTitle={(day) => formatDateWithWeekday(day, locale)}
-                moreHref={moreHref}
-                moreListLabel={t("moreList")}
-                addHref={canCreateAppointment ? addHref : undefined}
-                addLabel={addLabel}
-              />
-            ) : (
-              <CalendarList
-                from={from}
-                to={to}
-                today={today}
-                rows={visible}
-                deadlines={display}
-                appointments={appointments}
-                appointmentHref={appointmentLink}
-                holidays={holidays}
-                hrefFor={eventHref}
-                resetHref={hrefWith(PATH, {}, { ...layerParams(DEFAULT_LAYERS), ansicht: "liste" })}
-                addHref={canCreateAppointment ? addHref : undefined}
-                addLabel={addLabel}
-              />
-            )}
-          </Panel>
+          {yearView ?? (
+            <Panel className="overflow-hidden" aria-label={title}>
+              {view === "monat" ? (
+                <MonthGrid
+                  month={month}
+                  weekdays={tCal("weekdays").split(",")}
+                  weekLabel={tCal("week")}
+                  today={today}
+                  holidays={holidays}
+                  entries={entries}
+                  flaggedSaturdays={flagged}
+                  flagLabel={t("legend.weekend")}
+                  moreLabel={(n) => tCal("more", { n })}
+                  moreAria={(n, day) => t("moreAria", { n, day: formatDate(day, locale) })}
+                  dayTitle={(day) => formatDateWithWeekday(day, locale)}
+                  moreHref={moreHref}
+                  moreListLabel={t("moreList")}
+                  addHref={canCreateAppointment ? addHref : undefined}
+                  addLabel={addLabel}
+                />
+              ) : (
+                <CalendarList
+                  from={from}
+                  to={to}
+                  today={today}
+                  rows={visible}
+                  deadlines={display}
+                  appointments={appointments}
+                  appointmentHref={appointmentLink}
+                  holidays={holidays}
+                  hrefFor={eventHref}
+                  resetHref={hrefWith(
+                    PATH,
+                    {},
+                    { ...layerParams(DEFAULT_LAYERS), ansicht: "liste" },
+                  )}
+                  addHref={canCreateAppointment ? addHref : undefined}
+                  addLabel={addLabel}
+                />
+              )}
+            </Panel>
+          )}
         </EventPopoverProvider>
         {view === "monat" &&
           visible.length === 0 &&
@@ -476,49 +711,51 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
               </Link>
             </p>
           )}
-        <p className="m-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-tiny">
-          {EVENT_TYPE_KEYS.filter((k) => layers.types.includes(k)).map((k) => (
-            <span key={k} className="inline-flex items-center gap-1">
-              <EventTypeSquare typeKey={k} className="size-2" />
-              {t(`layers.types.${k}`)}
-            </span>
-          ))}
-          {layers.deadlines
-            .filter((l) => available.includes(l))
-            .filter((l) => l !== "appointments" || showAppointments)
-            .map((l) => {
-              const Icon = LAYER_ICONS[l];
-              return (
-                <span key={l} className="inline-flex items-center gap-1">
-                  <Icon aria-hidden className="size-3" />
-                  {t(`layers.deadline.${l}`)}
-                </span>
-              );
-            })}
-          <span className="inline-flex items-center gap-1">
-            <PlannedIcon aria-hidden className="size-3" />
-            {tStatus("planned")}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <ConfirmedIcon aria-hidden className="size-3" />
-            {tStatus("confirmed")}
-          </span>
-          <span className="text-status-warn">{t("legend.weekend")}</span>
-          {layers.holidays && (
+        {!isYear && (
+          <p className="m-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-tiny">
+            {EVENT_TYPE_KEYS.filter((k) => layers.types.includes(k)).map((k) => (
+              <span key={k} className="inline-flex items-center gap-1">
+                <EventTypeSquare typeKey={k} className="size-2" />
+                {t(`layers.types.${k}`)}
+              </span>
+            ))}
+            {layers.deadlines
+              .filter((l) => available.includes(l))
+              .filter((l) => l !== "appointments" || showAppointments)
+              .map((l) => {
+                const Icon = LAYER_ICONS[l];
+                return (
+                  <span key={l} className="inline-flex items-center gap-1">
+                    <Icon aria-hidden className="size-3" />
+                    {t(`layers.deadline.${l}`)}
+                  </span>
+                );
+              })}
             <span className="inline-flex items-center gap-1">
-              <span aria-hidden className="size-2.5 rounded-[2px] bg-status-critical-dot" />
-              {t("legend.holiday")}
+              <PlannedIcon aria-hidden className="size-3" />
+              {tStatus("planned")}
             </span>
-          )}
-          {anyQuiet && (
-            <span className="inline-flex items-center gap-1 text-status-warn">
-              <TriangleAlert aria-hidden className="size-3" />
-              {tNotes("legendQuiet")}
+            <span className="inline-flex items-center gap-1">
+              <ConfirmedIcon aria-hidden className="size-3" />
+              {tStatus("confirmed")}
             </span>
-          )}
-          <span>{t("legend.cancelled")}</span>
-        </p>
-        <p className="m-0 text-right text-muted-foreground text-tiny touch:hidden">
+            <span className="text-status-warn">{t("legend.weekend")}</span>
+            {layers.holidays && (
+              <span className="inline-flex items-center gap-1">
+                <span aria-hidden className="size-2.5 rounded-[2px] bg-status-critical-dot" />
+                {t("legend.holiday")}
+              </span>
+            )}
+            {anyQuiet && (
+              <span className="inline-flex items-center gap-1 text-status-warn">
+                <TriangleAlert aria-hidden className="size-3" />
+                {tNotes("legendQuiet")}
+              </span>
+            )}
+            <span>{t("legend.cancelled")}</span>
+          </p>
+        )}
+        <p className="m-0 text-right text-muted-foreground text-tiny touch:hidden print:hidden">
           {t.rich("keys", { k: (chunks) => <Kbd>{chunks}</Kbd> })}
         </p>
       </LayerPanel>

@@ -9,7 +9,8 @@
     "view": "View",
     "views": {
       "monat": "Month",
-      "liste": "List · 6 weeks"
+      "liste": "List · 6 weeks",
+      "jahr": "Year"
     },
     "layers": {
       "title": "Layers",
@@ -118,6 +119,23 @@
       "overdueTasks": "{count} overdue",
       "open": "Open",
       "close": "Close"
+    },
+    "year": {
+      "title": "Year overview {year}",
+      "asOf": "As of {date}",
+      "print": "Print",
+      "openMonth": "{month} in the month view",
+      "dot": "{name} ({code}), {date}",
+      "dotNoCode": "{name}, {date}",
+      "legendTitle": "Markets",
+      "legendHint": "Click to hide or show a market",
+      "showAll": "Show all",
+      "singleEvents": "Single events",
+      "legendItem": "{name} ({code}), {count}",
+      "legendItemNoCode": "{name}, {count}",
+      "count": "{count, plural, =0 {no dates} one {# date} other {# dates}}",
+      "hiddenCount": "{count, plural, one {# market hidden} other {# markets hidden}}",
+      "empty": "There are no dates for this selection in this year."
     }
   }
 }
