@@ -91,7 +91,7 @@ shared `packages/services` package (planned in M2, once the first one exists).
 | **Email out** | Nodemailer via SMTP (Mailpit in dev) for system mail; vendor-facing mail (confirmations) via Graph from the shared mailbox (P2); React Email templates; per-recipient locale. |
 | **Staff messaging** | `outbound_message` queue with debounce + quiet hours; WhatsApp via wa.me links (step 1) then Cloud API (step 2), ADR 0011; signed magic links for staff pages. |
 | **Legal parameters** | Minimum wage, Minijob limit, inspection intervals etc. in a dated `legal_parameter` table, never in code. |
-| **Search** | Postgres full-text search (`tsvector`, German + simple configs) and `pg_trgm`; no external engine. |
+| **Search** | Postgres full-text search (`tsvector`, German + simple configs) and `pg_trgm`; no external engine. Strg+K (`server/search-core.ts`): umlaut-folded word matches first; only when nothing starts a word anywhere, a second pass allows typos (`pg_trgm` `word_similarity` ≥ 0.5, or two swapped letters at a word start: "Flomarkt", "bnon"), ranked below every literal match. `pg_trgm` lives in schema `app` (migration 0021). |
 | **Real-time** | Not in MVP. Revalidate on mutation; later SSE or Postgres LISTEN/NOTIFY for the inbox collision indicator (P2). |
 | **Offline (P3)** | Serwist service worker for the shell + IndexedDB (Dexie) snapshot of the day sheet + an outbox of append-only commands with idempotency keys. No general offline editing. |
 | **Observability** | Structured logs (pino) in both apps; Sentry (EU region) or GlitchTip self-hosted; uptime check. |

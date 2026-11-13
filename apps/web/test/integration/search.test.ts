@@ -1,4 +1,4 @@
-import { permit } from "@marktwerk/db/schema";
+import { contact, permit } from "@marktwerk/db/schema";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
@@ -201,5 +201,62 @@ describe("searchAs", () => {
   it("an archived permit is not found", async () => {
     await archivePermit(owner, permitId);
     expect(kinds(await search(owner, "wassergenehmigung"))).not.toContain("permit");
+  });
+});
+
+describe("searchAs with typos (pg_trgm)", () => {
+  beforeEach(async () => {
+    await insertEvent(cat, "Flohmarkt Bonn Rheinaue", "2026-11-28");
+    await db.insert(contact).values({ kind: "other", name: "Stadtverwaltung Bonn", city: "Bonn" });
+  });
+
+  it("finds 'Flohmarkt' for 'Flomarkt' and 'Bonn' for 'bnon', below every literal match", async () => {
+    const flo = await searchAs(owner, "de", "Flomarkt");
+    expect(flo.hits.filter((h) => h.kind === "event").map((h) => h.title)).toEqual([
+      "Flohmarkt Bonn Rheinaue",
+    ]);
+    expect(flo.hits.every((h) => h.score === 4)).toBe(true);
+    // The list page doesn't allow for typos: no "show all" link that would come up empty.
+    expect(flo.groups.event).toEqual({ total: 1, href: undefined });
+
+    const bnon = await search(owner, "bnon");
+    expect(bnon.filter((h) => h.kind === "event").map((h) => h.title)).toEqual([
+      "Flohmarkt Bonn Rheinaue",
+    ]);
+    expect(bnon.filter((h) => h.kind === "contact").map((h) => h.title)).toEqual([
+      "Stadtverwaltung Bonn",
+    ]);
+  });
+
+  it("allows a typo in one word and takes the others as typed", async () => {
+    const hits = await search(owner, "flomarkt bonn");
+    expect(hits.filter((h) => h.kind === "event").map((h) => h.title)).toEqual([
+      "Flohmarkt Bonn Rheinaue",
+    ]);
+    // "Markt" alone is not close enough to "Flomarkt" ("Brüsseler Platz Markt", "Fremder Markt").
+    expect(hits.some((h) => h.title.endsWith(" Markt"))).toBe(false);
+  });
+
+  it("exact matches win: no typo matches while anything matches as typed", async () => {
+    await insertEvent(cat, "Flomarkt Beuel", "2026-12-05");
+    // The literal "Flomarkt Beuel" is all there is; "Flohmarkt Bonn Rheinaue" would only be a typo.
+    expect(
+      (await search(owner, "flomarkt")).filter((h) => h.kind === "event").map((h) => h.title),
+    ).toEqual(["Flomarkt Beuel"]);
+    const bonn = await searchAs(owner, "de", "bonn");
+    expect(bonn.hits.every((h) => (h.score ?? 3) < 4)).toBe(true);
+    expect(bonn.groups.event).toEqual({ total: 1, href: "/veranstaltungen?q=bonn" });
+    // The title that starts with the query still comes first.
+    expect((await search(owner, "flohmarkt bonn"))[0]).toMatchObject({
+      title: "Flohmarkt Bonn Rheinaue",
+      score: 0,
+    });
+  });
+
+  it("does not guess for short words or unrelated ones", async () => {
+    expect(await search(owner, "bnn")).toEqual([]);
+    expect(await search(owner, "zwqx")).toEqual([]);
+    // "Bonn" and "Born" share too little.
+    expect((await search(owner, "born")).some((h) => h.title.includes("Bonn"))).toBe(false);
   });
 });
