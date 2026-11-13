@@ -142,7 +142,10 @@
         "title": "Regeln der Veranstaltungsart",
         "summary": "Neuware max. {share} % · {banned} · Online-Buchung: {online}",
         "bannedCount": "{count} verbotene Waren",
-        "noBanned": "keine verbotenen Waren"
+        "noBanned": "keine verbotenen Waren",
+        "marketTitle": "Marktregeln",
+        "marketSource": "Regeln des Marktes „{market}“, gelten für alle seine Termine.",
+        "typeSource": "Diese Veranstaltung gehört zu keinem Markt; es gelten die Regeln der Veranstaltungsart."
       }
     },
     "team": {
@@ -275,6 +278,29 @@
         "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
         "conflict": "Die Eckdaten wurden zwischenzeitlich geändert. Nichts zurückgesetzt.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      }
+    },
+    "rules": {
+      "edit": "Bearbeiten",
+      "title": "Marktregeln bearbeiten",
+      "description": "Neuwarenanteil, verbotene Waren und Online-Buchung des Marktes „{market}“.",
+      "share": "Neuwarenanteil höchstens",
+      "banned": "Verbotene Waren",
+      "bannedHint": "Eine Ware pro Zeile.",
+      "online": "Online-Buchung erlaubt",
+      "scopeHint": "Gilt für alle Termine dieses Marktes",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "saved": "Marktregeln gespeichert",
+      "unchanged": "Keine Änderungen zu speichern.",
+      "undo": "Rückgängig",
+      "reverted": "Änderung an den Marktregeln rückgängig gemacht",
+      "errors": {
+        "invalid_share": "Bitte einen Anteil zwischen 0 und 100 % angeben, z. B. 20.",
+        "invalid_banned_goods": "Höchstens 50 verbotene Waren mit je höchstens 100 Zeichen.",
+        "not_found": "Den Markt gibt es nicht mehr.",
+        "conflict": "Die Marktregeln wurden zwischenzeitlich geändert. Nichts zurückgesetzt.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
       }
     },

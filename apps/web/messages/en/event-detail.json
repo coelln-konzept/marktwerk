@@ -142,7 +142,10 @@
         "title": "Rules of the type",
         "summary": "New goods max. {share} % · {banned} · Online booking: {online}",
         "bannedCount": "{count} banned goods",
-        "noBanned": "no banned goods"
+        "noBanned": "no banned goods",
+        "marketTitle": "Market rules",
+        "marketSource": "Rules of the market “{market}”, applying to all of its dates.",
+        "typeSource": "This event doesn't belong to a market; the rules of its event type apply."
       }
     },
     "team": {
@@ -275,6 +278,29 @@
         "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most €10,000).",
         "not_found": "This event no longer exists.",
         "conflict": "The key facts were changed in the meantime. Nothing was reverted.",
+        "generic": "That didn't work. Please try again."
+      }
+    },
+    "rules": {
+      "edit": "Edit",
+      "title": "Edit market rules",
+      "description": "New goods share, banned goods and online booking of the market “{market}”.",
+      "share": "New goods share at most",
+      "banned": "Banned goods",
+      "bannedHint": "One item per line.",
+      "online": "Online booking allowed",
+      "scopeHint": "Applies to every date of this market",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Market rules saved",
+      "unchanged": "Nothing to save.",
+      "undo": "Undo",
+      "reverted": "Market rules reverted",
+      "errors": {
+        "invalid_share": "Please enter a share from 0 to 100 %, e.g. 20.",
+        "invalid_banned_goods": "At most 50 banned goods, each at most 100 characters.",
+        "not_found": "This market no longer exists.",
+        "conflict": "The market rules were changed in the meantime. Nothing was reverted.",
         "generic": "That didn't work. Please try again."
       }
     },
