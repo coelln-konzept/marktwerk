@@ -34,7 +34,7 @@ export function RulesDialog({
 }) {
   const t = useTranslations("eventDetail.rules");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [share, setShare] = useState("");
@@ -83,7 +83,8 @@ export function RulesDialog({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoMarketRules(presetId, previous, saved);
-          showToast({ message: undone.ok ? t("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });

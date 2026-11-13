@@ -10,13 +10,13 @@ import { Button } from "@/components/ui/button";
 /** Runs the logbook fill for the venue's upcoming events (idempotent) and reports what it created. */
 export function ApplyRequirementsButton({ venueId }: { venueId: string }) {
   const t = useTranslations("requirements");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function apply() {
     startTransition(async () => {
       const result = await applyRequirementsAction(venueId);
-      if (!result.ok) return showToast({ message: t("errors.generic") });
+      if (!result.ok) return showError(t("errors.generic"));
       showToast({ message: t("applied", result.data) });
     });
   }

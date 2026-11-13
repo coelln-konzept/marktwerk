@@ -37,7 +37,7 @@ const taskRef = (row: CompanyActionRow) => ({
 export function useCompanyActions() {
   const t = useTranslations("notificationCenter");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
   // The item leaves the center once its task is done: ask first (decision D1).
   const taskActions = useTaskActions({ staff: [], confirmDone: true });
@@ -55,10 +55,11 @@ export function useCompanyActions() {
         actionLabel: t("actions.undo"),
         onAction: async () => {
           const result = await restoreCompanyAction(id, previous);
-          showToast({ message: result.ok ? t("toast.restored") : errorText(result.error) });
+          if (result.ok) showToast({ message: t("toast.restored") });
+          else showError(errorText(result.error));
         },
       }),
-    [showToast, t, errorText],
+    [showToast, showError, t, errorText],
   );
 
   const done = useCallback(
@@ -69,12 +70,12 @@ export function useCompanyActions() {
       }
       startTransition(async () => {
         const result = await setCompanyStateAction(row.id, "done");
-        if (!result.ok) return showToast({ message: errorText(result.error) });
+        if (!result.ok) return showError(errorText(result.error));
         if (result.data.changed)
           undoable(row.id, t("toast.done", { title: row.title }), result.data.previous);
       });
     },
-    [taskActions, showToast, errorText, undoable, t],
+    [taskActions, showError, errorText, undoable, t],
   );
 
   /**
@@ -95,12 +96,12 @@ export function useCompanyActions() {
       }
       startTransition(async () => {
         const result = await setCompanyStateAction(row.id, "unread");
-        if (!result.ok) return showToast({ message: errorText(result.error) });
+        if (!result.ok) return showError(errorText(result.error));
         if (result.data.changed)
           undoable(row.id, t("toast.reopened", { title: row.title }), result.data.previous);
       });
     },
-    [taskActions, showToast, errorText, undoable, t],
+    [taskActions, showError, errorText, undoable, t],
   );
 
   /** `until` is `YYYY-MM-DD`, after today. */
@@ -112,7 +113,7 @@ export function useCompanyActions() {
       }
       startTransition(async () => {
         const result = await snoozeCompanyAction(row.id, until);
-        if (!result.ok) return showToast({ message: errorText(result.error) });
+        if (!result.ok) return showError(errorText(result.error));
         undoable(
           row.id,
           t("toast.snoozed", { title: row.title, date: formatDateWeekdayDay(until, locale) }),
@@ -120,7 +121,7 @@ export function useCompanyActions() {
         );
       });
     },
-    [taskActions, showToast, errorText, undoable, t, locale],
+    [taskActions, showError, errorText, undoable, t, locale],
   );
 
   /** Opening an item marks it read (quietly, no toast). */

@@ -36,7 +36,7 @@ export function ManualEventForm({
   const t = useTranslations("generate.single");
   const locale = useLocale();
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorId = useId();
   const [value, setValue] = useState<EventFieldsValue>(() => initialFields(types, locale, initial));
   const [problem, setProblem] = useState<FieldProblem | null>(null);
@@ -63,9 +63,8 @@ export function ManualEventForm({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoCreateEvents([id]);
-          showToast({
-            message: undone.ok && undone.data > 0 ? t("undone") : t("undoTooLate"),
-          });
+          if (undone.ok && undone.data > 0) showToast({ message: t("undone") });
+          else showError(t("undoTooLate"));
           if (undone.ok && undone.data > 0) router.push("/veranstaltungen" as never);
         },
       });

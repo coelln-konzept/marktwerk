@@ -9,23 +9,21 @@ import { useShell } from "@/components/shell/shell-context";
 /** "Entfernen" on an expense row: soft delete with an undo toast. */
 export function ArchiveExpenseButton({ id, description }: { id: string; description: string }) {
   const t = useTranslations("finance.expense");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function archive() {
     startTransition(async () => {
       const result = await archiveExpenseAction(id);
-      if (!result.ok) return showToast({ message: t("failed") });
+      if (!result.ok) return showError(t("failed"));
       showToast({
         message: t("removed", { description: result.data.description }),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await unarchiveExpenseAction(id);
-          showToast({
-            message: undone.ok
-              ? t("restored", { description: undone.data.description })
-              : t("failed"),
-          });
+          if (undone.ok)
+            showToast({ message: t("restored", { description: undone.data.description }) });
+          else showError(t("failed"));
         },
       });
     });

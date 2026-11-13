@@ -37,7 +37,7 @@ export function IssueActions({
   const t = useTranslations("company");
   const ti = useTranslations("company.issues");
   const tr = useTranslations("company.resolveDialog");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
   const [resolving, setResolving] = useState(false);
@@ -51,7 +51,7 @@ export function IssueActions({
       });
       if (!result.ok) {
         if (resolving) setError(errorText(result.error));
-        else showToast({ message: errorText(result.error) });
+        else showError(errorText(result.error));
         return;
       }
       setResolving(false);
@@ -62,7 +62,8 @@ export function IssueActions({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await setIssueStatusAction(issueId, from, { expected: to });
-          showToast({ message: undone.ok ? ti("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: ti("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });

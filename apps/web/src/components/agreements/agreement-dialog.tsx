@@ -43,7 +43,7 @@ export function AgreementDialog({
 }) {
   const t = useTranslations("agreements");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorId = useId();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -128,7 +128,8 @@ export function AgreementDialog({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await saveAgreement(agreement.id, previous, true);
-          showToast({ message: undone.ok ? t("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });

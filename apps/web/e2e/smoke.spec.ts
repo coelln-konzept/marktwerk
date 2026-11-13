@@ -451,6 +451,59 @@ test('Permit: "Als ersetzt markieren" toggles back; the top bar\'s Rückgängig 
   await expect(drawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
 });
 
+test("Permit: a failed status change shows a red error toast (role=alert) that stays until closed", async ({
+  page,
+  context,
+}) => {
+  // A granted permit, open in two tabs. The second marks it as replaced, so the first one's step back
+  // to "Beantragt" is no longer allowed and the server answers with an error.
+  await page.goto("/genehmigungen?ansicht=liste&zeitraum=alle");
+  const row = page.locator("[data-href*='genehmigung=']").filter({ hasText: "Genehmigt" }).first();
+  const href = (await row.getAttribute("data-href")) as string;
+  await page.goto(href);
+  const drawer = page.locator("aside[aria-labelledby]").last();
+  await page.waitForLoadState("networkidle");
+
+  const other = await context.newPage();
+  await other.goto(href);
+  const otherDrawer = other.locator("aside[aria-labelledby]").last();
+  await other.waitForLoadState("networkidle");
+  await otherDrawer.getByRole("button", { name: "Als ersetzt markieren" }).click();
+  await expect(otherDrawer.getByRole("button", { name: "Als ersetzt markiert" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  try {
+    await drawer.getByRole("button", { name: "Weitere Schritte" }).click();
+    await page.getByRole("menuitem", { name: "Zurück auf „Beantragt“" }).click();
+
+    const region = page.getByRole("region", { name: "Hinweise" });
+    const toast = region
+      .getByRole("alert")
+      .locator("div")
+      .filter({ hasText: "Dieser Statuswechsel ist nicht möglich." });
+    await expect(toast).toBeVisible();
+    // The error tone: red, never in the polite (success) live region.
+    await expect(toast).toHaveClass(/text-status-critical/);
+    await expect(
+      region.getByRole("status").getByText("Dieser Statuswechsel ist nicht möglich."),
+    ).toHaveCount(0);
+    // It outlives the 8 s of a success toast (pointer away, so nothing pauses a clock) …
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(9_000);
+    await expect(toast).toBeVisible();
+    // … and goes when closed.
+    await toast.getByRole("button", { name: "Hinweis schließen" }).click();
+    await expect(toast).toHaveCount(0);
+  } finally {
+    // Valid again, as the seed had it.
+    await otherDrawer.getByRole("button", { name: "Als ersetzt markiert" }).click();
+    await expect(otherDrawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
+    await other.close();
+  }
+});
+
 test("Veranstaltungen: sortable columns, the Ort chip filters, the row menu edits the type too", async ({
   page,
 }) => {

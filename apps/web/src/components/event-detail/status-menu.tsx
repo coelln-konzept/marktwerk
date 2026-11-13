@@ -28,7 +28,7 @@ export function useStatusChange({
 }) {
   const t = useTranslations("eventDetail");
   const tStatus = useTranslations("status.event");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -52,7 +52,7 @@ export function useStatusChange({
           return;
         }
         setCancelOpen(false);
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       setCancelOpen(false);
@@ -63,11 +63,9 @@ export function useStatusChange({
         actionLabel: t("status.undo"),
         onAction: async () => {
           const undone = await undoStatus(eventId, to, from, previousReason);
-          showToast(
-            undone.ok
-              ? { message: t("status.reverted", { to: tStatus(from as EventStatus) }) }
-              : { message: errorText(undone.error) },
-          );
+          if (undone.ok)
+            showToast({ message: t("status.reverted", { to: tStatus(from as EventStatus) }) });
+          else showError(errorText(undone.error));
         },
       });
     });

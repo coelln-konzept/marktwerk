@@ -39,7 +39,7 @@ export function MoveDialog({
   const tKeys = useTranslations("eventDetail.overview.dates.keys");
   const tWarn = useTranslations("generate.warn");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [date, setDate] = useState(startsOn);
   const [preview, setPreview] = useState<EventSchedulePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,11 +98,9 @@ export function MoveDialog({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoMove(eventId, to, startsOn);
-          showToast({
-            message: undone.ok
-              ? t("reverted", { date: formatDateShort(startsOn, locale) })
-              : errorText(undone.error),
-          });
+          if (undone.ok)
+            showToast({ message: t("reverted", { date: formatDateShort(startsOn, locale) }) });
+          else showError(errorText(undone.error));
         },
       });
     });

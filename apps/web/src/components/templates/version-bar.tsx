@@ -48,7 +48,7 @@ export function VersionBar({
   const t = useTranslations("taskTemplates");
   const locale = useLocale();
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const { confirm, dialog } = useConfirm();
   const [publishing, setPublishing] = useState(false);
   const [note, setNote] = useState("");
@@ -65,7 +65,7 @@ export function VersionBar({
     startTransition(async () => {
       const result = await createDraftAction(templateId);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       router.push(`${base}?v=${result.data.version}` as never);
@@ -84,7 +84,7 @@ export function VersionBar({
     startTransition(async () => {
       const result = await discardDraftAction(selected.id);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       router.push(base as never);

@@ -36,7 +36,7 @@ export function PermitEvents({
 }) {
   const t = useTranslations("permitDrawer");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
   const [choice, setChoice] = useState("");
   const errorText = (code: string) =>
@@ -45,14 +45,14 @@ export function PermitEvents({
   function toggle(row: Row) {
     startTransition(async () => {
       const result = await setEventRequiredAction(permitId, row.id, !row.required);
-      if (!result.ok) showToast({ message: errorText(result.error) });
+      if (!result.ok) showError(errorText(result.error));
     });
   }
 
   function remove(row: Row) {
     startTransition(async () => {
       const result = await unlinkEventAction(permitId, row.id);
-      if (!result.ok) return showToast({ message: errorText(result.error) });
+      if (!result.ok) return showError(errorText(result.error));
       showToast({
         message: t("eventRemoved"),
         actionLabel: t("undo"),
@@ -67,7 +67,7 @@ export function PermitEvents({
     if (!choice) return;
     startTransition(async () => {
       const result = await linkEventsAction(permitId, [choice]);
-      if (!result.ok) return showToast({ message: errorText(result.error) });
+      if (!result.ok) return showError(errorText(result.error));
       setChoice("");
       showToast({ message: t("eventsAdded", { count: result.data.added }) });
     });
