@@ -7,6 +7,7 @@ import {
   isIsoDate,
   isoDate,
   mondayOf,
+  weekday,
   weekendsTouched,
 } from "@marktwerk/core";
 import type { Metadata } from "next";
@@ -25,6 +26,7 @@ import { EventChip } from "@/components/kalender/event-chip";
 import {
   type DisplayItem,
   deadlineKind,
+  deadlineShortText,
   deadlineText,
   groupDeadlines,
 } from "@/components/kalender/group-deadlines";
@@ -140,7 +142,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const display: DisplayItem[] = groupDeadlines(deadlines).map((item) => {
     const kind = item.group ? item.group.kind : deadlineKind(item);
     const kindLabel = kind ? t(`permitKind.${kind}`) : undefined;
-    if (!item.group) return { ...item, text: deadlineText(item), kindLabel };
+    if (!item.group)
+      return { ...item, text: deadlineText(item), shortText: deadlineShortText(item), kindLabel };
     const { count } = item.group;
     const text =
       item.layer === "tasks"
@@ -148,7 +151,16 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
         : kindLabel
           ? t("group.permits", { count, kind: kindLabel })
           : t("group.permitsAny", { count });
-    return { ...item, text, kindLabel };
+    const members = item.group.members.map((m) => ({
+      key: m.id,
+      href: m.href,
+      text: deadlineText(m),
+    }));
+    return { ...item, text, kindLabel, members };
+  });
+  const groupLabels = (item: DisplayItem) => ({
+    aria: t("groupAria", { text: item.text }),
+    allLabel: item.layer === "tasks" ? t("groupAllTasks") : t("groupAll"),
   });
 
   const allHolidays = holidaysBetween(from, to);
@@ -207,12 +219,20 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   }
   const flagged = new Set([...perWeekend].filter(([, n]) => n >= 4).map(([s]) => s));
 
-  const entries = visible.flatMap((r) => {
+  // Multi-day events first (by start), so each keeps the same slot on all its days and reads as one bar
+  // (UT-11 #1); the name shows on its first day and again on Mondays, the other days continue the bar.
+  const multiDay = (r: (typeof visible)[number]) => (r.endsOn > r.startsOn ? 0 : 1);
+  const ordered = [...visible].sort(
+    (a, b) =>
+      multiDay(a) - multiDay(b) || a.startsOn.localeCompare(b.startsOn) || a.id.localeCompare(b.id),
+  );
+  const entries = ordered.flatMap((r) => {
     const out: { key: string; date: string; node: React.ReactNode }[] = [];
     const total = daysBetween(r.startsOn, r.endsOn) + 1;
     for (let d = r.startsOn; d <= r.endsOn; d = addDays(d, 1)) {
       if (d < from || d > to) continue;
       const index = daysBetween(r.startsOn, d) + 1;
+      const continuation = index > 1 && weekday(d) !== 1;
       out.push({
         key: `${r.id}-${d}`,
         date: d,
@@ -226,6 +246,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
             statusLabel={tStatus(r.status)}
             span={total > 1 ? { index, total } : undefined}
             spanLabel={total > 1 ? t("spanDay", { index, total }) : undefined}
+            continuation={continuation}
           />
         ),
       });
@@ -270,6 +291,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
       node: (
         <DeadlineChip
           item={item}
+          group={item.members ? groupLabels(item) : undefined}
           layerLabel={t(`layers.deadline.${item.layer}`)}
           toneLabel={
             item.tone === "warn" || item.tone === "critical" ? t(`tone.${item.tone}`) : undefined

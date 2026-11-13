@@ -115,3 +115,23 @@ comes to the event (client's explicit rule, research 05).
 | Anmietung / Rückgabe bis | Rental / return by | `rental.due_return_on` | e.g. standpipes from the utility; deposit, late fee, meter readings. |
 | Wissensdatenbank | Knowledge base | `kb_article` | |
 | Postfach | Mailbox | `mailbox` | Connected Microsoft 365 mailbox. |
+
+## The client's own words (research 13)
+Terms from Coelln Konzept's checklists (2026-11). Most become task titles; only Saison is a record.
+| German (UI-DE) | English (UI-EN) | Code | Meaning |
+|---|---|---|---|
+| Saison | Season | `event_season` (planned) | One market's year: its season tasks (Termine planen, Genehmigung) relative to the first date, which exist before the dates do. |
+| Termine planen | Plan the dates | season task | Picking next season's dates by hand, about 8 months before the first one. |
+| Einzeichnen | Mark out | task | Chalking the stall plots on the ground, the day before or on the morning. |
+| Abflattern | Tape off | task | Closing the area with barrier tape (Flatterband) the day before. |
+| PVBT (Parkverbot) | No-parking signs | permit type `no_parking` | Set up at least 96 hours before; the client reminds 6 days before. |
+| Bringto | Packing list | (later: equipment list) | What goes into the van for a market; loaded the day before ("Bringto einladen"). |
+| Leihstände | Rental stalls | task | Stalls lent to vendors; built up the day before, taken down after. |
+| Einweisen | Direct vendors | live task | Guiding vendors to their plots on the morning. |
+| Nachkassieren | Collect on site | live task | Collecting fees on the day from vendors who did not pay ahead. |
+| Tageswache "Ordner" / Nachtwache | Day stewards / night watch | live task | Stewards during opening; a watch overnight between two market days. |
+| Vorbuchungen | Advance bookings | task | Bookings taken on site for the next date. |
+| Hohlkammerplatten | Corrugated sign boards | task | Plastic boards for posters, hung with the city's stickers. |
+| Festplätze | Fixed plots | task | Plots kept for regular vendors; checked for next year. |
+| Ortsring | Local association | `contact` | Co-organiser in Hoffnungsthal. |
+| Schausteller | Fairground operators | task | Their list goes to the city before the market. |

@@ -1,5 +1,5 @@
-import { addDays, dayDistance, isoWeek, mondayOf } from "@marktwerk/core";
-import { CalendarClock, CalendarX, Clock, Minus, OctagonAlert, Plus } from "lucide-react";
+import { addDays, dayDistance, daysBetween, isoWeek, mondayOf } from "@marktwerk/core";
+import { CalendarClock, CalendarX, Clock, OctagonAlert, Plus } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment } from "react";
@@ -10,11 +10,12 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
-import { formatDateShortYear } from "@/lib/format";
+import { formatDateShortYear, formatDateWithWeekday } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { AppointmentView } from "@/server/queries/appointments";
 import type { EventRow } from "@/server/queries/events";
 import { LAYER_ICONS } from "./deadline-chip";
+import { DeadlineGroup } from "./deadline-group";
 import type { DisplayItem } from "./group-deadlines";
 
 /** "Liste · 6 Wochen": the same entries as the month view, grouped by KW with one block per day. */
@@ -55,15 +56,12 @@ export async function CalendarList({
   const locale = await getLocale();
   const tAppt = await getTranslations("appointments");
 
+  // One row per event, on its first day in the range; a multi-day event says how long it runs (UT-11 #1).
   const byDay = new Map<string, EventRow[]>();
   for (const r of rows) {
-    for (
-      let d = r.startsOn < from ? from : r.startsOn;
-      d <= r.endsOn && d <= to;
-      d = addDays(d, 1)
-    ) {
-      byDay.set(d, [...(byDay.get(d) ?? []), r]);
-    }
+    const d = r.startsOn < from ? from : r.startsOn;
+    if (d > to || r.endsOn < from) continue;
+    byDay.set(d, [...(byDay.get(d) ?? []), r]);
   }
   const itemsByDay = new Map<string, DisplayItem[]>();
   for (const item of deadlines)
@@ -120,242 +118,295 @@ export async function CalendarList({
 
   return (
     <KeyboardRows>
-      <Table>
-        <caption className="sr-only">
-          {t("listCaption", {
-            from: formatDateShortYear(from, locale, today),
-            to: formatDateShortYear(to, locale, today),
-          })}
-        </caption>
-        <THead>
-          <tr>
-            <TH className="w-28 sm:w-44">{t("cols.date")}</TH>
-            <TH>{t("cols.entry")}</TH>
-            <TH className="hidden sm:table-cell">{t("cols.venue")}</TH>
-            <TH>{t("cols.status")}</TH>
-            <TH className="hidden sm:table-cell">
-              <span className="sr-only">{t("open")}</span>
-            </TH>
-          </tr>
-        </THead>
-        <tbody>
-          {[...weeks].map(([monday, weekDays]) => (
-            <Fragment key={monday}>
-              <TGroup colSpan={5}>
-                {t("week", {
-                  week: isoWeek(monday).week,
-                  from: formatDateShortYear(monday, locale, today),
-                  to: formatDateShortYear(addDays(monday, 6), locale, today),
-                })}
-              </TGroup>
-              {weekDays.map((day) => {
-                const events = byDay.get(day) ?? [];
-                const dayAppointments = appointmentsByDay.get(day) ?? [];
-                const items = itemsByDay.get(day) ?? [];
-                const holiday = holidays.get(day);
-                const dateCell = (
-                  <TD
-                    key="date"
-                    rowSpan={Math.max(events.length + dayAppointments.length + items.length, 1)}
-                    className={cn(
-                      "group/day w-28 align-top sm:w-44 sm:whitespace-nowrap",
-                      day === today && "bg-selected",
-                      holiday && "text-status-critical",
-                    )}
-                  >
-                    <span className="tabular font-semibold">
-                      {formatDateShortYear(day, locale, today)}
-                    </span>
-                    {day === today ? (
-                      <span className="mt-0.5 flex items-center gap-1 font-semibold text-accent-soft-foreground text-tiny">
-                        <span aria-hidden className="size-1.5 rounded-full bg-primary" />
-                        {t("todayMarker")}
-                      </span>
-                    ) : (
-                      <span className="block text-muted-foreground text-tiny">{relative(day)}</span>
-                    )}
-                    {holiday && <span className="block font-semibold text-tiny">{holiday}</span>}
-                    {addHref && addLabel && (
-                      <Link
-                        href={addHref(day) as never}
-                        scroll={false}
-                        aria-label={addLabel(day)}
-                        title={addLabel(day)}
-                        className="mt-1 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-focus-within/day:opacity-100 group-hover/day:opacity-100 touch:opacity-100"
-                      >
-                        <Plus aria-hidden className="size-3.5" />
-                      </Link>
-                    )}
-                  </TD>
-                );
-                if (events.length === 0 && dayAppointments.length === 0 && items.length === 0) {
-                  return (
-                    <TR key={day}>
-                      {dateCell}
-                      <TD colSpan={4} className="text-muted-foreground">
-                        {holiday ? t("legend.holiday") : t("nothingToday")}
-                      </TD>
-                    </TR>
-                  );
-                }
-                const eventRows = events.map((r, i) => {
-                  const href = hrefFor(r.id);
-                  return (
-                    <TR
-                      key={`${day}-${r.id}`}
-                      tabIndex={0}
-                      data-row
-                      data-href={href}
+      {/* Columns follow the list's own width (the Ebenen panel beside it takes 260 px), not the window's:
+          Ort folds under the entry below 48 rem, the Öffnen button goes below 42 rem (UT-11 #5). */}
+      <div className="@container">
+        <Table>
+          <caption className="sr-only">
+            {t("listCaption", {
+              from: formatDateShortYear(from, locale, today),
+              to: formatDateShortYear(to, locale, today),
+            })}
+          </caption>
+          <THead>
+            <tr>
+              <TH className="w-28 @3xl:w-44">{t("cols.date")}</TH>
+              <TH>{t("cols.entry")}</TH>
+              <TH className="hidden @3xl:table-cell">{t("cols.venue")}</TH>
+              <TH>{t("cols.status")}</TH>
+              <TH className="hidden @2xl:table-cell">
+                <span className="sr-only">{t("open")}</span>
+              </TH>
+            </tr>
+          </THead>
+          <tbody>
+            {[...weeks].map(([monday, weekDays]) => (
+              <Fragment key={monday}>
+                <TGroup colSpan={5}>
+                  {t("week", {
+                    week: isoWeek(monday).week,
+                    from: formatDateShortYear(monday, locale, today),
+                    to: formatDateShortYear(addDays(monday, 6), locale, today),
+                  })}
+                </TGroup>
+                {weekDays.map((day) => {
+                  const events = byDay.get(day) ?? [];
+                  const dayAppointments = appointmentsByDay.get(day) ?? [];
+                  const items = itemsByDay.get(day) ?? [];
+                  const holiday = holidays.get(day);
+                  const dateCell = (
+                    <TD
+                      key="date"
+                      rowSpan={Math.max(events.length + dayAppointments.length + items.length, 1)}
                       className={cn(
-                        "cursor-pointer outline-hidden focus-visible:bg-selected",
-                        r.status === "cancelled" && "text-muted-foreground",
+                        "group/day w-20 align-top @md:w-28 @3xl:w-44 @3xl:whitespace-nowrap",
+                        day === today && "bg-selected",
+                        holiday && "text-status-critical",
                       )}
                     >
-                      {i === 0 && dateCell}
-                      <TD>
-                        <MarketMarker
-                          color={r.color}
-                          typeKey={r.typeKey}
-                          className="mr-2 align-middle"
-                        />
-                        <Link
-                          href={href as never}
-                          tabIndex={-1}
-                          className={cn(
-                            "mr-2 font-semibold hover:underline",
-                            r.status === "cancelled" && "line-through",
-                          )}
-                        >
-                          {r.name}
-                        </Link>
-                        <EventTypeTag typeKey={r.typeKey} className="max-sm:hidden">
-                          {locale === "en" ? r.typeNameEn : r.typeNameDe}
-                        </EventTypeTag>
-                      </TD>
-                      <TD className="hidden max-w-56 truncate sm:table-cell" title={r.venueName}>
-                        {r.venueName}
-                      </TD>
-                      <TD>
-                        <EventStatusBadge status={r.status} />
-                      </TD>
-                      <TD className="hidden w-20 text-right sm:table-cell">
-                        <Link
-                          href={href as never}
-                          tabIndex={-1}
-                          className="inline-flex min-h-8 items-center rounded-lg border border-input px-3 font-medium hover:bg-hover"
-                        >
-                          {t("open")}
-                        </Link>
-                      </TD>
-                    </TR>
-                  );
-                });
-                const appointmentRows = dayAppointments.map((a, i) => {
-                  const href = appointmentHref?.(a.id) ?? "#";
-                  const where = a.venueName ?? a.locationText;
-                  return (
-                    <TR
-                      key={`${day}-appointment-${a.id}`}
-                      tabIndex={0}
-                      data-row
-                      data-href={href}
-                      data-peek={href}
-                      className="cursor-pointer outline-hidden focus-visible:bg-selected"
-                    >
-                      {events.length + i === 0 && dateCell}
-                      <TD>
-                        <Link
-                          href={href as never}
-                          scroll={false}
-                          tabIndex={-1}
-                          className="mr-2 inline-flex items-center gap-1.5 font-semibold hover:underline"
-                        >
-                          <CalendarClock
-                            aria-hidden
-                            className="size-4 shrink-0 text-foreground-2"
-                          />
-                          <span className="tabular">{a.startsAt ?? tAppt("chip.allDay")}</span>
-                          {a.title}
-                        </Link>
-                        <span className="text-muted-foreground text-tiny">
-                          {tAppt("chip.kind")}
+                      <span className="tabular font-semibold">
+                        {formatDateShortYear(day, locale, today)}
+                      </span>
+                      {day === today ? (
+                        <span className="mt-0.5 flex items-center gap-1 font-semibold text-accent-soft-foreground text-tiny">
+                          <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+                          {t("todayMarker")}
                         </span>
-                      </TD>
-                      <TD
-                        className="hidden max-w-56 truncate sm:table-cell"
-                        title={where ?? undefined}
+                      ) : (
+                        <span className="block text-muted-foreground text-tiny">
+                          {relative(day)}
+                        </span>
+                      )}
+                      {holiday && <span className="block font-semibold text-tiny">{holiday}</span>}
+                      {addHref && addLabel && (
+                        <Link
+                          href={addHref(day) as never}
+                          scroll={false}
+                          aria-label={addLabel(day)}
+                          title={addLabel(day)}
+                          className="mt-1 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-focus-within/day:opacity-100 group-hover/day:opacity-100 touch:opacity-100"
+                        >
+                          <Plus aria-hidden className="size-3.5" />
+                        </Link>
+                      )}
+                    </TD>
+                  );
+                  if (events.length === 0 && dayAppointments.length === 0 && items.length === 0) {
+                    return (
+                      <TR key={day}>
+                        {dateCell}
+                        <TD colSpan={4} className="text-muted-foreground">
+                          {holiday ? t("legend.holiday") : t("nothingToday")}
+                        </TD>
+                      </TR>
+                    );
+                  }
+                  const eventRows = events.map((r, i) => {
+                    const href = hrefFor(r.id);
+                    return (
+                      <TR
+                        key={`${day}-${r.id}`}
+                        tabIndex={0}
+                        data-row
+                        data-href={href}
+                        className={cn(
+                          "cursor-pointer outline-hidden focus-visible:bg-selected",
+                          r.status === "cancelled" && "text-muted-foreground",
+                        )}
                       >
-                        {where}
-                      </TD>
-                      <TD />
-                      <TD className="hidden w-20 text-right sm:table-cell">
-                        <Link
-                          href={href as never}
-                          scroll={false}
-                          tabIndex={-1}
-                          className="inline-flex min-h-8 items-center rounded-lg border border-input px-3 font-medium hover:bg-hover"
+                        {i === 0 && dateCell}
+                        <TD>
+                          <MarketMarker
+                            color={r.color}
+                            typeKey={r.typeKey}
+                            className="mr-2 align-middle"
+                          />
+                          <Link
+                            href={href as never}
+                            tabIndex={-1}
+                            className={cn(
+                              "mr-2 font-semibold hover:underline",
+                              r.status === "cancelled" && "line-through",
+                            )}
+                          >
+                            {r.name}
+                          </Link>
+                          <EventTypeTag typeKey={r.typeKey} className="max-sm:hidden">
+                            {locale === "en" ? r.typeNameEn : r.typeNameDe}
+                          </EventTypeTag>
+                          {r.venueName && (
+                            <span className="block text-muted-foreground text-tiny @3xl:hidden">
+                              {r.venueName}
+                            </span>
+                          )}
+                          {r.endsOn > r.startsOn && (
+                            <span className="tabular block text-muted-foreground text-tiny">
+                              {t("spanRange", {
+                                days: daysBetween(r.startsOn, r.endsOn) + 1,
+                                to: formatDateWithWeekday(r.endsOn, locale),
+                              })}
+                            </span>
+                          )}
+                        </TD>
+                        <TD
+                          className="hidden max-w-56 truncate @3xl:table-cell"
+                          title={r.venueName}
                         >
-                          {t("open")}
-                        </Link>
-                      </TD>
-                    </TR>
-                  );
-                });
-                const itemRows = items.map((item, i) => {
-                  const Icon = LAYER_ICONS[item.layer];
-                  const tone = item.tone ?? "neutral";
-                  return (
-                    <TR
-                      key={`${day}-${item.id}`}
-                      tabIndex={0}
-                      data-row
-                      data-href={item.href}
-                      className="cursor-pointer outline-hidden focus-visible:bg-selected"
-                    >
-                      {events.length + dayAppointments.length + i === 0 && dateCell}
-                      <TD>
-                        <Link
-                          href={item.href as never}
-                          tabIndex={-1}
-                          className="mr-2 inline-flex items-center gap-1.5 font-semibold hover:underline"
+                          {r.venueName}
+                        </TD>
+                        <TD>
+                          <EventStatusBadge status={r.status} />
+                        </TD>
+                        <TD className="hidden w-20 whitespace-nowrap text-right @2xl:table-cell">
+                          <Link
+                            href={href as never}
+                            tabIndex={-1}
+                            className="inline-flex min-h-8 items-center rounded-lg border border-input px-3 font-medium hover:bg-hover"
+                          >
+                            {t("open")}
+                          </Link>
+                        </TD>
+                      </TR>
+                    );
+                  });
+                  const appointmentRows = dayAppointments.map((a, i) => {
+                    const href = appointmentHref?.(a.id) ?? "#";
+                    const where = a.venueName ?? a.locationText;
+                    return (
+                      <TR
+                        key={`${day}-appointment-${a.id}`}
+                        tabIndex={0}
+                        data-row
+                        data-href={href}
+                        data-peek={href}
+                        className="cursor-pointer outline-hidden focus-visible:bg-selected"
+                      >
+                        {events.length + i === 0 && dateCell}
+                        <TD>
+                          <Link
+                            href={href as never}
+                            scroll={false}
+                            tabIndex={-1}
+                            className="mr-2 inline-flex items-center gap-1.5 font-semibold hover:underline"
+                          >
+                            <CalendarClock
+                              aria-hidden
+                              className="size-4 shrink-0 text-foreground-2"
+                            />
+                            <span className="tabular">{a.startsAt ?? tAppt("chip.allDay")}</span>
+                            {a.title}
+                          </Link>
+                          <span className="text-muted-foreground text-tiny">
+                            {tAppt("chip.kind")}
+                          </span>
+                          {where && (
+                            <span className="block text-muted-foreground text-tiny @3xl:hidden">
+                              {where}
+                            </span>
+                          )}
+                        </TD>
+                        <TD
+                          className="hidden max-w-56 truncate @3xl:table-cell"
+                          title={where ?? undefined}
                         >
-                          <Icon aria-hidden className="size-4 shrink-0 text-foreground-2" />
-                          {item.text}
-                        </Link>
-                        <span className="text-muted-foreground text-tiny">
-                          {t(`layers.deadline.${item.layer}`)}
-                          {item.kindLabel && !item.group ? ` · ${item.kindLabel}` : ""}
-                        </span>
-                      </TD>
-                      <TD className="hidden sm:table-cell" />
-                      <TD>
-                        <StatusBadge
-                          tone={tone}
-                          icon={
-                            tone === "critical" ? OctagonAlert : tone === "warn" ? Clock : Minus
-                          }
-                        >
-                          {t(`tone.${tone}`)}
-                        </StatusBadge>
-                      </TD>
-                      <TD className="hidden w-20 text-right sm:table-cell">
-                        <Link
-                          href={item.href as never}
-                          tabIndex={-1}
-                          className="inline-flex min-h-8 items-center rounded-lg border border-input px-3 font-medium hover:bg-hover"
-                        >
-                          {t("open")}
-                        </Link>
-                      </TD>
-                    </TR>
-                  );
-                });
-                return [...eventRows, ...appointmentRows, ...itemRows];
-              })}
-            </Fragment>
-          ))}
-        </tbody>
-      </Table>
+                          {where}
+                        </TD>
+                        <TD />
+                        <TD className="hidden w-20 whitespace-nowrap text-right @2xl:table-cell">
+                          <Link
+                            href={href as never}
+                            scroll={false}
+                            tabIndex={-1}
+                            className="inline-flex min-h-8 items-center rounded-lg border border-input px-3 font-medium hover:bg-hover"
+                          >
+                            {t("open")}
+                          </Link>
+                        </TD>
+                      </TR>
+                    );
+                  });
+                  const itemRows = items.map((item, i) => {
+                    const Icon = LAYER_ICONS[item.layer];
+                    const tone = item.tone ?? "neutral";
+                    const label = (
+                      <>
+                        <Icon aria-hidden className="size-4 shrink-0 text-foreground-2" />
+                        {item.text}
+                      </>
+                    );
+                    // A summary opens its members in place instead of the whole module (UT-11 #2).
+                    const summary = item.members ? (
+                      <DeadlineGroup
+                        aria={t("groupAria", { text: item.text })}
+                        title={item.text}
+                        items={item.members}
+                        allHref={item.href}
+                        allLabel={item.layer === "tasks" ? t("groupAllTasks") : t("groupAll")}
+                        className="mr-2 inline-flex items-center gap-1.5 rounded-md font-semibold hover:underline"
+                      >
+                        {label}
+                      </DeadlineGroup>
+                    ) : null;
+                    return (
+                      <TR
+                        key={`${day}-${item.id}`}
+                        tabIndex={summary ? undefined : 0}
+                        data-row={summary ? undefined : true}
+                        data-href={summary ? undefined : item.href}
+                        className={cn(
+                          "outline-hidden focus-visible:bg-selected",
+                          !summary && "cursor-pointer",
+                        )}
+                      >
+                        {events.length + dayAppointments.length + i === 0 && dateCell}
+                        <TD>
+                          {summary ?? (
+                            <Link
+                              href={item.href as never}
+                              tabIndex={-1}
+                              className="mr-2 inline-flex items-center gap-1.5 font-semibold hover:underline"
+                            >
+                              {label}
+                            </Link>
+                          )}
+                          <span className="text-muted-foreground text-tiny">
+                            {t(`layers.deadline.${item.layer}`)}
+                            {item.kindLabel && !item.group ? ` · ${item.kindLabel}` : ""}
+                          </span>
+                        </TD>
+                        <TD className="hidden @3xl:table-cell" />
+                        <TD>
+                          {/* Only urgent deadlines get a state; a calm one is no "Geplant" (UT-11 #3). */}
+                          {(tone === "warn" || tone === "critical") && (
+                            <StatusBadge
+                              tone={tone}
+                              icon={tone === "critical" ? OctagonAlert : Clock}
+                            >
+                              {t(`tone.${tone}`)}
+                            </StatusBadge>
+                          )}
+                        </TD>
+                        <TD className="hidden w-20 whitespace-nowrap text-right @2xl:table-cell">
+                          {!summary && (
+                            <Link
+                              href={item.href as never}
+                              tabIndex={-1}
+                              className="inline-flex min-h-8 items-center rounded-lg border border-input px-3 font-medium hover:bg-hover"
+                            >
+                              {t("open")}
+                            </Link>
+                          )}
+                        </TD>
+                      </TR>
+                    );
+                  });
+                  return [...eventRows, ...appointmentRows, ...itemRows];
+                })}
+              </Fragment>
+            ))}
+          </tbody>
+        </Table>
+      </div>
     </KeyboardRows>
   );
 }
