@@ -49,6 +49,17 @@ describe("can", () => {
     expect(can("field", "notification", "read")).toBe(false);
   });
 
+  it("lets everyone who works at a date write Fürs-nächste-Mal notes, deleting others' is for the office leads", () => {
+    for (const role of ["owner", "manager", "staff", "field"] as const) {
+      expect(can(role, "nextTimeNote", "read")).toBe(true);
+      expect(can(role, "nextTimeNote", "write")).toBe(true);
+    }
+    expect(can("owner", "nextTimeNote", "delete")).toBe(true);
+    expect(can("manager", "nextTimeNote", "delete")).toBe(true);
+    expect(can("staff", "nextTimeNote", "delete")).toBe(false);
+    expect(can("field", "nextTimeNote", "delete")).toBe(false);
+  });
+
   it("denies anonymous users", () => {
     expect(can(null, "task", "read")).toBe(false);
   });

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
+import { MarketNextTimeNotesPanel } from "@/components/next-time-notes/next-time-note-panels";
 import { PresetForm } from "@/components/presets/preset-form";
 import { SeasonPanels } from "@/components/presets/season-panel";
 import { Page, PageHeader } from "@/components/shell/page";
@@ -14,6 +15,7 @@ import { param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { listMarketColorUsage } from "@/server/queries/market-colors";
 import { listShortCodeMarkets } from "@/server/queries/market-short-codes";
+import { listNextTimeNotes } from "@/server/queries/next-time-notes";
 import {
   getPresetForEdit,
   getPresetFormOptions,
@@ -42,7 +44,10 @@ export default async function EditPresetPage({
   if (!preset) notFound();
   const actor = await getActor();
   const today = todayIn();
-  const seasons = await getMarketSeasons(actor, preset.id, today);
+  const [seasons, nextTimeNotes] = await Promise.all([
+    getMarketSeasons(actor, preset.id, today),
+    listNextTimeNotes(actor, preset.id),
+  ]);
   const canWriteTasks = can(actor.role, "task", "write");
   const taskId = param((await searchParams).aufgabe);
   const closeHref = `/vorlagen/${preset.id}`;
@@ -134,6 +139,11 @@ export default async function EditPresetPage({
         today={today}
         canWrite={can(actor.role, "event", "write")}
         canWriteTasks={canWriteTasks}
+      />
+      <MarketNextTimeNotesPanel
+        presetId={preset.id}
+        notes={nextTimeNotes}
+        canWrite={can(actor.role, "nextTimeNote", "write")}
       />
       <PresetForm
         options={options}

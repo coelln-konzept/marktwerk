@@ -8,6 +8,7 @@ export * from "./documents";
 export * from "./events";
 export * from "./legal";
 export * from "./money";
+export * from "./notes";
 export * from "./notifications";
 export * from "./people";
 export * from "./permit-type";

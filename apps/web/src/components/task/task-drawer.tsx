@@ -24,6 +24,7 @@ import { useTaskActions } from "@/components/board/use-task-actions";
 import { ArchiveDocumentButton } from "@/components/documents/archive-document-button";
 import { DocumentUpload } from "@/components/documents/upload";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
+import { TaskNextTimeNote } from "@/components/next-time-notes/task-next-time-note";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
@@ -897,6 +898,11 @@ export function TaskDrawer({
             />
             <p className="text-muted-foreground text-tiny">{t("completionNote.hint")}</p>
           </Section>
+        )}
+
+        {/* Everyone with task:write may also write notes (permissions.ts); the service checks again. */}
+        {canWrite && task.market && (
+          <TaskNextTimeNote key={task.id} taskId={task.id} marketName={task.market.name} />
         )}
 
         <details className="group">

@@ -850,6 +850,8 @@ export type TaskDetail = {
   eventName: string | null;
   /** Season tasks: the drawer's header names "<Markt> · Saison <Jahr>" and links to the market page instead. */
   season: TaskSeason | null;
+  /** The market of its date or Saison ("Fürs nächste Mal notieren", Fahrplan R25); null for an Einzeltermin. */
+  market: { presetId: string; name: string } | null;
   isKey: boolean;
   dueOn: string | null;
   dueOverridden: boolean;
@@ -930,6 +932,8 @@ export async function getTaskDetail(
     .select({
       t: task,
       eventName: event.name,
+      eventPresetId: eventPreset.id,
+      eventPresetName: eventPreset.name,
       seasonId: sc.seasonId,
       seasonYear: sc.seasonYear,
       seasonPresetId: sc.seasonPresetId,
@@ -943,6 +947,7 @@ export async function getTaskDetail(
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
+    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
     .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .leftJoin(assignee, eq(assignee.id, task.assigneeId))
     .leftJoin(user, eq(user.id, task.notifyUserId))
@@ -1005,6 +1010,12 @@ export async function getTaskDetail(
     eventId: t.eventId,
     eventName: row.eventName,
     season: toTaskSeason(actor, row),
+    market:
+      row.eventPresetId && row.eventPresetName
+        ? { presetId: row.eventPresetId, name: row.eventPresetName }
+        : row.seasonPresetId && row.seasonName
+          ? { presetId: row.seasonPresetId, name: row.seasonName }
+          : null,
     isKey: t.isKey,
     dueOn: t.dueAt ? berlinDay(t.dueAt) : null,
     dueOverridden: t.dueOverridden,
