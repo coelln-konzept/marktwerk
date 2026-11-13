@@ -166,5 +166,11 @@
       "failed": "Aufgaben und Genehmigungen konnten nicht berechnet werden. Du kannst trotzdem anlegen.",
       "noTemplate": "Dieser Markt hat keine veröffentlichte Aufgabenvorlage: die Termine starten ohne Aufgaben."
     }
+  },
+  "holidayNotes": {
+    "quiet": "Stiller Feiertag – Märkte meist nicht erlaubt ({kind, select, allDay {ganztägig} from {ab {from} Uhr} other {{from}–{until} Uhr}})",
+    "warnQuiet": "{name}: stiller Feiertag – Märkte meist nicht erlaubt ({kind, select, allDay {ganztägig} from {ab {from} Uhr} other {{from}–{until} Uhr}})",
+    "legendQuiet": "Stiller Feiertag",
+    "legendWeekend": "Oster- und Pfingstwochenende"
   }
 }
