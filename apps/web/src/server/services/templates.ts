@@ -148,6 +148,16 @@ function checkItemParents(items: { stableKey: string; parentKey: string | null }
   if (issue) throw new TemplateInputError("invalid_parent", "parentKey", key ?? issue.key);
 }
 
+/** A child item is shown and instantiated in its parent's phase (ADR 0021): the parent's phase wins. */
+function withParentPhase(
+  fields: TemplateItemFields,
+  items: { stableKey: string; phase: TemplateItemFields["phase"] }[],
+): TemplateItemFields {
+  if (fields.parentKey === null) return fields;
+  const parent = items.find((i) => i.stableKey === fields.parentKey);
+  return parent && parent.phase !== fields.phase ? { ...fields, phase: parent.phase } : fields;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Templates
 
@@ -658,14 +668,15 @@ export async function addTemplateItem(
       ],
       key,
     );
+    const values = withParentPhase(fields, items);
     const [row] = await tx
       .insert(templateItem)
       .values({
         versionId: version.id,
         stableKey: key,
         sort: items.length,
-        ...fields,
-        dueTime: fields.dueTime,
+        ...values,
+        dueTime: values.dueTime,
       })
       .returning({ id: templateItem.id });
     if (!row) throw new Error("insert failed");
@@ -708,20 +719,39 @@ export async function updateTemplateItem(
       })),
       key,
     );
+    const next = withParentPhase(fields, items);
     const before = itemFields(row);
     const changes: Record<string, { from: unknown; to: unknown }> = {};
-    for (const field of Object.keys(fields) as (keyof TemplateItemFields)[]) {
-      if (JSON.stringify(before[field]) !== JSON.stringify(fields[field]))
-        changes[field] = { from: before[field], to: fields[field] };
+    for (const field of Object.keys(next) as (keyof TemplateItemFields)[]) {
+      if (JSON.stringify(before[field]) !== JSON.stringify(next[field]))
+        changes[field] = { from: before[field], to: next[field] };
     }
     if (Object.keys(changes).length === 0) return { changed: false };
-    await tx.update(templateItem).set(fields).where(eq(templateItem.id, row.id));
+    await tx.update(templateItem).set(next).where(eq(templateItem.id, row.id));
+    // Child items stay in their parent's phase.
+    const children = items.filter((i) => i.parentKey === key && i.phase !== next.phase);
+    if (children.length > 0)
+      await tx
+        .update(templateItem)
+        .set({ phase: next.phase })
+        .where(
+          inArray(
+            templateItem.id,
+            children.map((c) => c.id),
+          ),
+        );
     await audit(tx, actor.id, [
       {
         action: "template.item_update",
         entityType: "template_version",
         entityId: version.id,
-        diff: { version: version.version, key, title: fields.title, changes },
+        diff: {
+          version: version.version,
+          key,
+          title: next.title,
+          changes,
+          ...(children.length > 0 ? { childrenPhase: children.map((c) => c.stableKey) } : {}),
+        },
       },
     ]);
     return { changed: true };
@@ -766,7 +796,7 @@ export async function deleteTemplateItem(
   });
 }
 
-/** Moves a row one position up or down ("Nach oben/unten"). */
+/** Moves a row one position up or down among its siblings ("Nach oben/unten"). */
 export async function moveTemplateItem(
   actor: Actor,
   versionId: string,
@@ -780,14 +810,18 @@ export async function moveTemplateItem(
     const items = await itemsOf(tx, version.id);
     const index = items.findIndex((i) => i.stableKey === key);
     if (index < 0) throw new TemplateInputError("item_not_found", undefined, key);
-    // The editor shows rows grouped by phase, so "one up" means past the next row of the same phase.
+    // The editor shows rows grouped by phase with child items under their parent, so "one up" means past
+    // the next sibling: a top-level row of the same phase, or a child item of the same parent.
+    const moving = items[index] as ItemRow;
+    const isSibling = (i: ItemRow) =>
+      i.parentKey === moving.parentKey && (moving.parentKey !== null || i.phase === moving.phase);
     const step = direction === "up" ? -1 : 1;
     let target = index + step;
-    while (items[target] && items[target]?.phase !== items[index]?.phase) target += step;
+    while (items[target] && !isSibling(items[target] as ItemRow)) target += step;
     if (!items[target]) return { moved: false };
     const order = items.map((i) => i.id);
-    const [moving] = order.splice(index, 1);
-    order.splice(target, 0, moving as string);
+    order.splice(index, 1);
+    order.splice(target, 0, moving.id);
     await resequence(tx, version.id, order);
     await audit(tx, actor.id, [
       {

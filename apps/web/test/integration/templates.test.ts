@@ -331,6 +331,155 @@ describe("draft items", () => {
     expect(entry?.diff).toMatchObject({ key: "zwei", children: ["eins_a"] });
   });
 
+  it("keeps child items in their parent's phase, also when the parent moves to another phase", async () => {
+    const a = await addTemplateItem(owner, draftId, baseItem({ title: "Aufbau", phase: "live" }));
+    // "+ Unteraufgabe" sends the parent's fields; a stray phase is corrected to the parent's.
+    const child = await addTemplateItem(
+      owner,
+      draftId,
+      baseItem({ title: "Pavillons", phase: "pre", parentKey: a.key }),
+      a.key,
+    );
+    const phaseOf = async (key: string) =>
+      (await itemsOf(draftId)).find((i) => i.stableKey === key)?.phase;
+    expect(await phaseOf(child.key)).toBe("live");
+
+    await updateTemplateItem(
+      owner,
+      draftId,
+      a.key,
+      baseItem({ title: "Aufbau", phase: "pre", offsetDays: -1 }),
+    );
+    expect(await phaseOf(child.key)).toBe("pre");
+    const [entry] = await audits("template.item_update");
+    expect(entry?.diff).toMatchObject({
+      key: "aufbau",
+      changes: { phase: { from: "live", to: "pre" } },
+      childrenPhase: ["pavillons"],
+    });
+
+    // Editing the child with another phase keeps it with the parent.
+    await updateTemplateItem(
+      owner,
+      draftId,
+      child.key,
+      baseItem({ title: "Pavillons", phase: "post", parentKey: a.key, ownDue: true }),
+    );
+    expect(await phaseOf(child.key)).toBe("pre");
+  });
+
+  it("makes a top-level row a child and back, with its own role and due date (ADR 0021)", async () => {
+    const a = await addTemplateItem(owner, draftId, baseItem({ title: "Genehmigung" }));
+    const b = await addTemplateItem(
+      owner,
+      draftId,
+      baseItem({ title: "Formular", offsetDays: -20, phase: "post" }),
+    );
+    // "Unteraufgabe von …": inherits by default, "wie Hauptaufgabe" for the role.
+    await updateTemplateItem(
+      owner,
+      draftId,
+      b.key,
+      baseItem({ title: "Formular", offsetDays: -20, phase: "post", parentKey: a.key }),
+    );
+    expect((await itemsOf(draftId)).find((i) => i.stableKey === b.key)).toMatchObject({
+      parentKey: "genehmigung",
+      ownDue: false,
+      dutyRoleId: null,
+      phase: "pre",
+    });
+    // "Eigene Fälligkeit" and an own role.
+    await updateTemplateItem(
+      owner,
+      draftId,
+      b.key,
+      baseItem({
+        title: "Formular",
+        offsetDays: -20,
+        parentKey: a.key,
+        ownDue: true,
+        dutyRoleId: cat.roles.lead.id,
+      }),
+    );
+    const [entry] = (await audits("template.item_update")).slice(-1);
+    expect(entry?.diff).toMatchObject({
+      key: "formular",
+      changes: {
+        ownDue: { from: false, to: true },
+        dutyRoleId: { from: null, to: cat.roles.lead.id },
+      },
+    });
+    // A row with children can't become a child.
+    const c = await addTemplateItem(owner, draftId, baseItem({ title: "Gebühr" }));
+    expect(
+      await codeOf(
+        updateTemplateItem(
+          owner,
+          draftId,
+          a.key,
+          baseItem({ title: "Genehmigung", parentKey: c.key }),
+        ),
+      ),
+    ).toBe("invalid_parent");
+    // "Eigenständig".
+    await updateTemplateItem(
+      owner,
+      draftId,
+      b.key,
+      baseItem({ title: "Formular", offsetDays: -20, parentKey: null, ownDue: false }),
+    );
+    expect((await itemsOf(draftId)).find((i) => i.stableKey === b.key)).toMatchObject({
+      parentKey: null,
+      offsetDays: -20,
+    });
+  });
+
+  it("moves child items among their siblings and top-level rows past whole groups", async () => {
+    const a = await addTemplateItem(owner, draftId, baseItem({ title: "Eins" }));
+    const b = await addTemplateItem(owner, draftId, baseItem({ title: "Zwei" }));
+    // Children of "Eins" stored after "Zwei" (as the drawer's "+ Unteraufgabe" may do after reordering).
+    await addTemplateItem(owner, draftId, baseItem({ title: "Eins A", parentKey: a.key }));
+    await addTemplateItem(owner, draftId, baseItem({ title: "Eins B", parentKey: a.key }));
+    await addTemplateItem(owner, draftId, baseItem({ title: "Zwei A", parentKey: b.key }));
+    const order = async () => (await itemsOf(draftId)).map((i) => i.stableKey);
+
+    // "Eins B" up: past its sibling "Eins A", not past "Zwei" (another parent's row).
+    expect(await moveTemplateItem(owner, draftId, "eins_b", "up")).toEqual({ moved: true });
+    expect(await order()).toEqual(["eins", "zwei", "eins_b", "eins_a", "zwei_a"]);
+    expect(await moveTemplateItem(owner, draftId, "eins_b", "up")).toEqual({ moved: false });
+    expect(await moveTemplateItem(owner, draftId, "eins_a", "down")).toEqual({ moved: false });
+    // The only child of "Zwei" has no sibling to pass.
+    expect(await moveTemplateItem(owner, draftId, "zwei_a", "up")).toEqual({ moved: false });
+    // Top-level: "Zwei" up passes "Eins" (children don't count as steps).
+    expect(await moveTemplateItem(owner, draftId, "zwei", "down")).toEqual({ moved: false });
+    expect(await moveTemplateItem(owner, draftId, "zwei", "up")).toEqual({ moved: true });
+    expect((await order()).filter((k) => !k.includes("_"))).toEqual(["zwei", "eins"]);
+  });
+
+  it("removes a child item and puts it back with the same key (the drawer's undo)", async () => {
+    const a = await addTemplateItem(owner, draftId, baseItem({ title: "Aufbau" }));
+    await addTemplateItem(owner, draftId, baseItem({ title: "Tische", parentKey: a.key }));
+    await addTemplateItem(owner, draftId, baseItem({ title: "Strom", parentKey: a.key }));
+    await addTemplateItem(owner, draftId, baseItem({ title: "Abbau" }));
+    expect(await deleteTemplateItem(owner, draftId, "tische")).toEqual({ title: "Tische" });
+    expect((await itemsOf(draftId)).map((i) => i.stableKey)).toEqual(["aufbau", "strom", "abbau"]);
+    // Undo: the same fields before the next row.
+    const back = await addTemplateItem(
+      owner,
+      draftId,
+      baseItem({ title: "Tische", parentKey: a.key }),
+      "aufbau",
+      "strom",
+    );
+    expect(back.key).toBe("tische");
+    expect((await itemsOf(draftId)).map((i) => [i.stableKey, i.parentKey])).toEqual([
+      ["aufbau", null],
+      ["tische", "aufbau"],
+      ["strom", "aufbau"],
+      ["abbau", null],
+    ]);
+  });
+
   it("refuses to publish an empty draft", async () => {
     expect(await codeOf(publishDraft(owner, draftId))).toBe("empty");
   });
