@@ -1,6 +1,7 @@
 import { addDays, daysInMonth, isoDate, isoWeek, mondayOf, weekday } from "@marktwerk/core";
-import { Plus } from "lucide-react";
+import { Plus, TriangleAlert } from "lucide-react";
 import Link from "next/link";
+import type { CalendarHoliday } from "@/lib/holidays";
 import { cn } from "@/lib/utils";
 import { DayMore } from "./day-more";
 
@@ -12,7 +13,7 @@ export type CalendarEntry = {
 
 /**
  * Month grid with a KW column, weeks starting Monday (UX concept §8). Days outside the month are
- * dimmed, holidays tinted, today outlined, weekends with 4+ events flagged. Saturday and Sunday get
+ * dimmed, holidays tinted (their names in the cell; stille Feiertage with an amber warning), today outlined, weekends with 4+ events flagged. Saturday and Sunday get
  * wider columns (that is where the markets are). From `md` the grid shrinks to the available width
  * (768 px tablets show Sunday); below it the grid scrolls sideways inside its panel.
  */
@@ -39,7 +40,7 @@ export function MonthGrid({
   weekdays: string[];
   weekLabel: string;
   today: string;
-  holidays: Map<string, string>;
+  holidays: Map<string, CalendarHoliday>;
   entries: CalendarEntry[];
   flaggedSaturdays?: Set<string>;
   flagLabel?: string;
@@ -103,26 +104,47 @@ export function MonthGrid({
               {week.map((day) => {
                 const inMonth = day >= first && day <= last;
                 const holiday = holidays.get(day);
+                const dayOff = holiday?.dayOff ?? false;
                 const items = byDay.get(day) ?? [];
                 const flagged = weekday(day) === 6 && flaggedSaturdays.has(day);
+                const holidayTitle = holiday
+                  ? [holiday.name, holiday.quiet].filter(Boolean).join(" · ")
+                  : undefined;
                 return (
                   <td
                     key={day}
                     className={cn(
                       "group/day h-28 border-b border-l px-1.5 py-1 align-top",
                       !inMonth && "bg-surface-2 text-faint-foreground",
-                      holiday && inMonth && "bg-status-critical-bg/60",
+                      dayOff && inMonth && "bg-status-critical-bg/60",
                       day === today && "outline-2 outline-primary -outline-offset-2",
                     )}
                   >
                     <div className="mb-1 flex items-center gap-1 text-small">
                       <span
-                        className={cn("tabular font-semibold", holiday && "text-status-critical")}
+                        className={cn("tabular font-semibold", dayOff && "text-status-critical")}
                       >
                         {Number(day.slice(8, 10))}
                       </span>
                       {holiday && (
-                        <span className="truncate text-status-critical text-tiny">{holiday}</span>
+                        // Stiller Feiertag: amber warning icon, the hours in the tooltip (FeiertG NW §6).
+                        <span
+                          title={holidayTitle}
+                          className={cn(
+                            "flex min-w-0 items-center gap-0.5 text-tiny",
+                            dayOff ? "text-status-critical" : "text-status-warn",
+                          )}
+                        >
+                          {holiday.quiet && (
+                            <TriangleAlert
+                              aria-hidden
+                              className="size-3 shrink-0 text-status-warn"
+                              strokeWidth={2.5}
+                            />
+                          )}
+                          <span className="truncate">{holiday.name}</span>
+                          {holiday.quiet && <span className="sr-only">: {holiday.quiet}</span>}
+                        </span>
                       )}
                       <span className="ml-auto flex items-center gap-1">
                         {flagged && (

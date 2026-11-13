@@ -1,9 +1,10 @@
 "use client";
 
-import { TriangleAlert, XCircle } from "lucide-react";
+import { XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { previewBasics, saveBasics, undoBasics } from "@/app/(app)/veranstaltungen/[id]/actions";
+import { HolidayNote } from "@/components/events/candidate-notes";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
@@ -257,10 +258,7 @@ export function BasicsDialog({
               </p>
               <ul className="flex flex-col gap-1">
                 {check?.holidays.map((h) => (
-                  <li key={h.key} className="flex items-center gap-1.5 text-status-warn">
-                    <TriangleAlert aria-hidden className="size-3.5" />
-                    {tWarn("holiday", { name: locale === "en" ? h.nameEn : h.nameDe })}
-                  </li>
+                  <HolidayNote key={h.key} holiday={h} className="gap-1.5" />
                 ))}
                 {check?.venueConflicts.map((v) => (
                   <li key={v.id} className="flex items-center gap-1.5 text-status-critical">

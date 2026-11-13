@@ -166,5 +166,11 @@
       "failed": "Tasks and permits could not be worked out. You can still create the events.",
       "noTemplate": "This market has no published task template: the events start without tasks."
     }
+  },
+  "holidayNotes": {
+    "quiet": "Quiet holiday – markets usually not allowed ({kind, select, allDay {all day} from {from {from}:00} other {{from}:00–{until}:00}})",
+    "warnQuiet": "{name}: quiet holiday – markets usually not allowed ({kind, select, allDay {all day} from {from {from}:00} other {{from}:00–{until}:00}})",
+    "legendQuiet": "Quiet holiday",
+    "legendWeekend": "Easter and Whitsun weekend"
   }
 }

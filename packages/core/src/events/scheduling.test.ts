@@ -33,6 +33,30 @@ describe("checkCandidates", () => {
     expect(check?.holidays.map((h) => h.key)).toEqual(["whit_sunday"]);
   });
 
+  it("flags stille Feiertage that are no holiday (Volkstrauertag) with their hours", () => {
+    const [check] = checkCandidates(
+      [{ venueId: "v1", startsOn: "2026-11-14", endsOn: "2026-11-15" }],
+      [],
+    );
+    expect(check?.holidays).toEqual([
+      expect.objectContaining({
+        key: "national_mourning_day",
+        date: "2026-11-15",
+        quiet: { fromHour: 5, untilHour: 13 },
+      }),
+    ]);
+    expect(check?.holidayWeekends).toEqual([]);
+  });
+
+  it("names the holiday weekend once for a two-day event on Karsamstag and Ostersonntag", () => {
+    const [check] = checkCandidates(
+      [{ venueId: "v1", startsOn: "2026-04-04", endsOn: "2026-04-05" }],
+      [],
+    );
+    expect(check?.holidayWeekends.map((w) => w.key)).toEqual(["easter"]);
+    expect(check?.holidays.map((h) => h.key)).toEqual(["easter_sunday"]);
+  });
+
   it("flags a venue that already has an event that day", () => {
     const [check] = checkCandidates(
       [{ venueId: "v1", startsOn: "2026-06-07", endsOn: "2026-06-07" }],
@@ -58,7 +82,12 @@ describe("checkCandidates", () => {
       [{ venueId: "v9", startsOn: "2026-05-16", endsOn: "2026-05-17" }],
       existing,
     );
-    expect(check).toMatchObject({ holidays: [], venueConflicts: [], overlapsCandidate: null });
+    expect(check).toMatchObject({
+      holidays: [],
+      holidayWeekends: [],
+      venueConflicts: [],
+      overlapsCandidate: null,
+    });
     expect(Object.keys(check ?? {})).not.toContain("weekendLoad");
   });
 });
