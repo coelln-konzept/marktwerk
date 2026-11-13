@@ -80,7 +80,7 @@ function specsFor(blueprint: VenueBlueprint): RequirementSpec[] {
       authority: "supplier",
     },
   ];
-  if (blueprint.kind !== "outdoor_public") {
+  if (blueprint.kind === "private") {
     specs.push({
       category: "external",
       permitType: "landowner_ok",
@@ -90,10 +90,6 @@ function specsFor(blueprint: VenueBlueprint): RequirementSpec[] {
       deliverables: {},
       authority: "landowner",
     });
-  }
-  if (blueprint.kind === "indoor") {
-    // Indoor halls have no street no-parking zones.
-    return specs.filter((spec) => spec.permitType !== "no_parking");
   }
   return specs;
 }

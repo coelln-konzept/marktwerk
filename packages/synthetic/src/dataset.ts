@@ -8,6 +8,7 @@ import {
   buildLegalParameters,
   buildSettings,
   buildVenues,
+  venueName,
 } from "./generators/catalogue";
 import { buildEventPresets, buildEvents } from "./generators/events";
 import { buildObligations, buildPayablesAndInstallments, buildVehicles } from "./generators/money";
@@ -57,7 +58,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
 
   const venues = buildVenues(rng, contactBundle.idByKey);
   const venueBlueprintByName = new Map(
-    VENUE_BLUEPRINTS.map((blueprint) => [blueprint.name, blueprint]),
+    VENUE_BLUEPRINTS.map((blueprint) => [venueName(blueprint), blueprint]),
   );
 
   const people = buildStaffAndDuties(rng, buildDutyRoles(rng));
@@ -87,6 +88,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
   const { events: scheduledEvents, eventAnchors } = buildEvents(
     rng,
     eventPresets,
+    PRESET_BLUEPRINTS,
     {
       eventTypes,
       venues,

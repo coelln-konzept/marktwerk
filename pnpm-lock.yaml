@@ -202,6 +202,9 @@ importers:
       '@faker-js/faker':
         specifier: 10.6.0
         version: 10.6.0
+      '@marktwerk/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/node':
         specifier: 24.19.2

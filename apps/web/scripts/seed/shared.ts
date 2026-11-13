@@ -39,6 +39,7 @@ export async function insertAll<T extends object>(
 export const ANCHOR_KEYS = {
   eventDay: "event_day",
   setupDay: "setup_day",
+  teardownDay: "teardown_day",
   bookingCutoff: "booking_cutoff",
 } as const;
 

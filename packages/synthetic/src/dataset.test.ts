@@ -1,8 +1,12 @@
+import { isMarketColor, validateSchedule } from "@marktwerk/core";
 import { beforeAll, describe, expect, it } from "vitest";
-import { MAX_EVENTS_PER_WEEKEND, minijobLimitCents, REFERENCE_DATE } from "./constants";
+import { MAX_EVENTS_PER_DAY, minijobLimitCents, REFERENCE_DATE } from "./constants";
 import { generateDataset } from "./dataset";
+import { PRESET_BLUEPRINTS } from "./dictionaries/presets";
+import { scheduleSeason } from "./generators/events";
 import { OVERDUE_CURRENT, OVERDUE_LEFTOVERS } from "./generators/tasks";
 import { EXAMPLE_DOMAINS, FICTION_PHONE_PATTERN } from "./lib/fiction";
+import { parseRRule } from "./lib/rrule";
 import type { Dataset, EmploymentContract, Event, EventType, Payable, Task } from "./types";
 
 const TIMEOUT = 120_000;
@@ -36,22 +40,15 @@ function isoDay(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/** Saturday keys of every weekend an event touches (Sat or Sun). */
-function weekendKeys(startsOn: string, endsOn: string): string[] {
-  const keys = new Set<string>();
-  for (
-    let t = Date.parse(`${startsOn}T00:00:00Z`);
-    t <= Date.parse(`${endsOn}T00:00:00Z`);
-    t += DAY_MS
-  ) {
-    const day = new Date(t).getUTCDay();
-    if (day === 6) keys.add(isoDay(t));
-    if (day === 0) keys.add(isoDay(t - DAY_MS));
-  }
-  return [...keys];
+/** Markets per calendar day (every day of a multi-day event counts). */
+function loadPerDay(events: readonly Pick<Event, "startsOn" | "endsOn">[]): Map<string, number> {
+  const load = new Map<string, number>();
+  for (const event of events)
+    for (const day of eventDays(event)) load.set(day, (load.get(day) ?? 0) + 1);
+  return load;
 }
 
-function eventDays(event: Event): string[] {
+function eventDays(event: Pick<Event, "startsOn" | "endsOn">): string[] {
   const days: string[] = [];
   for (
     let t = Date.parse(`${event.startsOn}T00:00:00Z`);
@@ -103,11 +100,22 @@ describe("catalogue", () => {
     expect(keys).toEqual(["antique", "city_festival", "flea", "food_wine"]);
   });
 
-  it("has 12 venues in the Rhineland with zones and rows", () => {
-    expect(data.venues).toHaveLength(12);
+  it("has the 10 places of the markets (Köln, Kerpen, Rösrath) with zones and rows", () => {
+    expect(data.venues).toHaveLength(10);
+    expect(new Set(data.venues.map((venue) => venue.city))).toEqual(
+      new Set(["Köln", "Kerpen", "Rösrath"]),
+    );
+    expect(new Set(data.venues.map((venue) => venue.kind))).toEqual(
+      new Set(["municipal", "private"]),
+    );
+    // Places named only by their address get the name the app derives from it.
+    expect(data.venues.map((venue) => venue.name)).toContain("Köln – Riehler Gürtel");
+    const stadion = data.venues.find((venue) => venue.name === "RheinEnergie Stadion");
+    expect(stadion?.zones.map((zone) => zone.name)).toEqual(["Vorplatz", "P6"]);
     for (const venue of data.venues) {
       expect(venue.zones.length).toBeGreaterThanOrEqual(2);
-      expect(venue.zones.length).toBeLessThanOrEqual(5);
+      expect(venue.zones.length).toBeLessThanOrEqual(4);
+      if (venue.kind === "private") expect(venue.landownerContactId).not.toBeNull();
       expect(venue.capacityCm).toBe(
         venue.zones.reduce((sum, zone) => sum + zone.rows.reduce((s, r) => s + r.lengthCm, 0), 0),
       );
@@ -396,15 +404,8 @@ describe("referential integrity", () => {
 /* -------------------------------------------------------------- scheduling */
 
 describe("events and scheduling", () => {
-  it("has at most four events touching any weekend", () => {
-    const counts = new Map<string, number>();
-    for (const event of data.events) {
-      for (const saturday of weekendKeys(event.startsOn, event.endsOn)) {
-        counts.set(saturday, (counts.get(saturday) ?? 0) + 1);
-      }
-    }
-    const worst = Math.max(...counts.values());
-    expect(worst).toBeLessThanOrEqual(MAX_EVENTS_PER_WEEKEND);
+  it("has at most three markets on any day", () => {
+    expect(Math.max(...loadPerDay(data.events).values())).toBeLessThanOrEqual(MAX_EVENTS_PER_DAY);
   });
 
   it("never double-books a venue on the same day", () => {
@@ -439,19 +440,176 @@ describe("events and scheduling", () => {
     for (const event of cancelled) expect(event.cancelledReason).not.toBeNull();
   });
 
-  it("gives every event three anchors with the booking cut-off on the Monday before", () => {
-    expect(data.eventAnchors).toHaveLength(data.events.length * 3);
+  it("gives every event four anchors with the booking cut-off on the Monday before", () => {
+    expect(data.eventAnchors).toHaveLength(data.events.length * 4);
     for (const event of data.events) {
       const anchors = data.eventAnchors.filter((a) => a.eventId === event.id);
       const eventDay = anchors.find((a) => a.key === "eventDay");
+      const setupDay = anchors.find((a) => a.key === "setupDay");
+      const teardownDay = anchors.find((a) => a.key === "teardownDay");
       const cutoff = anchors.find((a) => a.key === "bookingCutoff");
       expect(eventDay?.date).toBe(event.startsOn);
+      expect(teardownDay?.date).toBe(event.endsOn);
+      expect(setupDay?.date).toBe(
+        event.startsOn === event.endsOn ? event.startsOn : daysAfter(event.startsOn, -1),
+      );
       expect(cutoff).toBeDefined();
       if (cutoff) {
         expect(new Date(`${cutoff.date}T00:00:00Z`).getUTCDay()).toBe(1);
         expect(cutoff.date < event.startsOn).toBe(true);
       }
     }
+  });
+});
+
+/* ------------------------------------------------- markets and wall calendar */
+
+/** The 2027 dates read from the office's wall calendar (research 13 §2.2): [first day, last day]. */
+const WALL_CALENDAR_2027: Record<string, [string, string][]> = {
+  nippes: [
+    "01-17",
+    "02-21",
+    "03-21",
+    "04-25",
+    "05-23",
+    "06-20",
+    "07-18",
+    "08-22",
+    "09-19",
+    "10-17",
+    "11-28",
+  ].map((d) => [d, d]),
+  "riehler-guertel": ["04-11", "05-09", "06-13", "07-11", "08-08", "09-05", "10-03", "11-07"].map(
+    (d) => [d, d],
+  ),
+  suedbruecke: ["03-07", "04-11", "05-09", "06-06", "07-04", "08-08", "09-12", "10-10"].map((d) => [
+    d,
+    d,
+  ]),
+  altstadt: [
+    ["03-27", "03-29"],
+    ["05-15", "05-17"],
+    ["06-26", "06-27"],
+    ["07-24", "07-25"],
+    ["08-28", "08-29"],
+    ["09-25", "09-26"],
+    ["10-30", "10-31"],
+  ],
+  stadion: ["03-14", "04-18", "05-30"].map((d) => [d, d]),
+  "stadion-p6": ["04-04", "05-06", "06-13", "07-18"].map((d) => [d, d]),
+  suedstadt: ["04-18", "05-27", "06-20"].map((d) => [d, d]),
+  rudolfplatz: [
+    ["03-05", "03-07"],
+    ["09-17", "09-19"],
+  ],
+  "kerpen-weintage": [["07-22", "07-25"]],
+  "rodenkirchen-hauptstrasse": [["05-15", "05-16"]],
+  hoffnungsthal: [["09-12", "09-12"]],
+};
+
+describe("markets and the wall calendar", () => {
+  it("has the 16 Coelln Konzept series plus Hoffnungsthal, with the keys other parts rely on", () => {
+    expect(data.eventPresets).toHaveLength(17);
+    const keys = data.eventPresets.map((p) => p.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const key of ["altstadt", "riehler-guertel", "nippes", "hoffnungsthal"])
+      expect(keys).toContain(key);
+    // Shared places: Stadion (Vorplatz + P6), Altstadt (+ Lifestyle), Rodenkirchen (3), Kerpen (4).
+    const perVenue = new Map<string, number>();
+    for (const preset of data.eventPresets)
+      perVenue.set(preset.venueId, (perVenue.get(preset.venueId) ?? 0) + 1);
+    expect([...perVenue.values()].sort()).toEqual([1, 1, 1, 1, 1, 1, 2, 2, 3, 4]);
+  });
+
+  it("gives every market a colour, its type's rules (changed where it differs) and a valid Zeitplan", () => {
+    const typeById = new Map(data.eventTypes.map((t) => [t.id, t]));
+    for (const preset of data.eventPresets) {
+      expect(isMarketColor(preset.color)).toBe(true);
+      if (preset.rrule !== null) expect(() => parseRRule(preset.rrule ?? "")).not.toThrow();
+      const type = typeById.get(preset.eventTypeId);
+      expect(Object.keys(preset.rules).sort()).toEqual(Object.keys(type?.rules ?? {}).sort());
+      expect(validateSchedule(preset.schedule, preset.durationDays)).toEqual([]);
+      expect(preset.schedule.some((r) => r.audience === "vendors" && r.kind === "setup")).toBe(
+        true,
+      );
+      expect(preset.schedule.some((r) => r.audience === "vendors" && r.kind === "teardown")).toBe(
+        true,
+      );
+    }
+    const lifestyle = data.eventPresets.find((p) => p.key === "altstadt-lifestyle");
+    expect(lifestyle?.rules.newGoodsMaxShare).toBe(0.6);
+    // Multi-day Altstadt: some vendors leave early on the last morning, the team builds up the day before.
+    const altstadt = data.eventPresets.find((p) => p.key === "altstadt");
+    expect(
+      altstadt?.schedule.filter((r) => r.audience === "vendors" && r.kind === "teardown"),
+    ).toHaveLength(2);
+    expect(altstadt?.schedule.some((r) => r.day === "before")).toBe(true);
+  });
+
+  it("copies the market's Zeitplan into its events (an hour later in winter on single days)", () => {
+    const presetById = new Map(data.eventPresets.map((p) => [p.id, p]));
+    for (const event of data.events) {
+      const preset = presetById.get(event.presetId);
+      const days = eventDays(event).length;
+      expect(validateSchedule(event.schedule, days)).toEqual([]);
+      const winter = days === 1 && ["01", "02", "11", "12"].includes(event.startsOn.slice(5, 7));
+      if (!winter) expect(event.schedule).toEqual(preset?.schedule);
+      else expect(event.schedule).not.toEqual(preset?.schedule);
+    }
+  });
+
+  it("reproduces every 2027 date of the wall calendar", () => {
+    const placed = scheduleSeason(PRESET_BLUEPRINTS, 2027);
+    for (const [key, dates] of Object.entries(WALL_CALENDAR_2027)) {
+      const actual = placed
+        .filter((date) => date.presetKey === key)
+        .map((date) => [date.startsOn.slice(5), date.endsOn.slice(5)]);
+      expect(actual, key).toEqual(dates);
+    }
+    // The dataset's next season is that 2027.
+    const nippes = data.eventPresets.find((p) => p.key === "nippes");
+    expect(
+      data.events
+        .filter((e) => e.presetId === nippes?.id && e.season === 2027)
+        .map((e) => e.startsOn.slice(5)),
+    ).toEqual(WALL_CALENDAR_2027.nippes?.map(([start]) => start));
+  });
+
+  it.each([2026, 2027, 2028, 2029, 2030])("plans a realistic season %i", (year) => {
+    const placed = scheduleSeason(PRESET_BLUEPRINTS, year);
+    // Every rule's date finds a place, 60–70 events, January to November.
+    const wanted = PRESET_BLUEPRINTS.reduce((sum, p) => sum + p.dates.length, 0);
+    expect(placed).toHaveLength(wanted);
+    expect(placed.length).toBeGreaterThanOrEqual(60);
+    expect(placed.length).toBeLessThanOrEqual(70);
+    for (const date of placed) {
+      expect(date.endsOn.slice(0, 4)).toBe(String(year));
+      expect(date.endsOn.slice(5, 7) <= "11").toBe(true);
+    }
+    // 1–3 markets per day, most dates start on a Sunday, Thursdays only on holidays or Do–So.
+    expect(Math.max(...loadPerDay(placed).values())).toBeLessThanOrEqual(MAX_EVENTS_PER_DAY);
+    const weekdays = placed.map((date) => new Date(`${date.startsOn}T00:00:00Z`).getUTCDay());
+    expect(weekdays.filter((day) => day === 0).length / placed.length).toBeGreaterThan(0.75);
+    expect(weekdays.every((day) => [0, 4, 5, 6].includes(day))).toBe(true);
+    // The same market and the same place never twice on one day.
+    const venueOf = new Map(PRESET_BLUEPRINTS.map((p) => [p.key, p.venueKey]));
+    const seen = new Set<string>();
+    for (const date of placed)
+      for (const day of eventDays(date)) {
+        const key = `${venueOf.get(date.presetKey)}|${day}`;
+        expect(seen.has(key), key).toBe(false);
+        seen.add(key);
+      }
+  });
+
+  it("keeps markets off Whit Sunday, Volkstrauertag and Totensonntag unless the holiday is the point", () => {
+    // 2026: Whit Sunday 24 May, Volkstrauertag 15 Nov, Totensonntag 22 Nov; 2027: 16 May, 14 Nov, 21 Nov.
+    const blocked = ["2026-05-24", "2026-11-15", "2026-11-22", "2027-11-14", "2027-11-21"];
+    const holidayMarkets = new Set(["altstadt", "rodenkirchen-hauptstrasse"]);
+    for (const year of [2026, 2027])
+      for (const date of scheduleSeason(PRESET_BLUEPRINTS, year))
+        if (!holidayMarkets.has(date.presetKey))
+          for (const day of eventDays(date)) expect(blocked, date.presetKey).not.toContain(day);
   });
 });
 
@@ -543,7 +701,7 @@ describe("tasks", () => {
 
 describe("permits", () => {
   it("gives Köln Altstadt a submission window with an expected January decision", () => {
-    const altstadt = data.venues.find((venue) => venue.name === "Köln Altstadt – Heumarkt");
+    const altstadt = data.venues.find((venue) => venue.name.startsWith("Köln Altstadt"));
     const requirement = data.permitRequirements.find(
       (r) => r.venueId === altstadt?.id && r.permitType === "market_permit",
     );
@@ -568,7 +726,7 @@ describe("permits", () => {
 
   it("links external permits only where the ground is not public", () => {
     const publicVenues = new Set(
-      data.venues.filter((v) => v.kind === "outdoor_public").map((v) => v.id),
+      data.venues.filter((v) => v.kind === "municipal").map((v) => v.id),
     );
     const landowner = data.permitRequirements.filter((r) => r.permitType === "landowner_ok");
     expect(landowner.length).toBeGreaterThan(0);
@@ -831,13 +989,9 @@ describe.each(REFERENCE_DATES)("as of %s", (today) => {
   });
 
   it(
-    "keeps the weekend cap and is deterministic",
+    "keeps the day cap and is deterministic",
     () => {
-      const counts = new Map<string, number>();
-      for (const event of d.events)
-        for (const saturday of weekendKeys(event.startsOn, event.endsOn))
-          counts.set(saturday, (counts.get(saturday) ?? 0) + 1);
-      expect(Math.max(...counts.values())).toBeLessThanOrEqual(MAX_EVENTS_PER_WEEKEND);
+      expect(Math.max(...loadPerDay(d.events).values())).toBeLessThanOrEqual(MAX_EVENTS_PER_DAY);
       expect(JSON.stringify(generateDataset({ referenceDate: today }))).toBe(JSON.stringify(d));
     },
     TIMEOUT,
