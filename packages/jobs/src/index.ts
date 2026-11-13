@@ -10,6 +10,7 @@ import { taskRollover } from "./task-rollover";
 /**
  * Every scheduled job, keyed by name. The worker schedules these with pg-boss;
  * on serverless hosting an external scheduler calls /api/cron/<name> (ADR 0017).
+ * A new job also goes into .github/workflows/cron.yml (plan step and dispatch options; a test checks it).
  * Handlers must be idempotent: they can run twice or late.
  */
 export const JOBS = {

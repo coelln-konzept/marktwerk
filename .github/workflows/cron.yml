@@ -1,14 +1,25 @@
 name: Scheduled jobs
 
 # Serverless hosting has no long-running worker, so GitHub Actions triggers the
-# job endpoints instead (ADR 0017). GitHub's scheduler is best effort (delays of
-# several minutes are normal), which the idempotent jobs tolerate.
-# Configure: repository variable APP_URL and secret CRON_SECRET. Without them, this workflow does nothing.
+# job endpoints instead (ADR 0017): POST /api/cron/<job> for every job in
+# packages/jobs JOBS (docs/development/deployment.md, "Scheduled jobs").
+#
+# GitHub's scheduler is best effort and drops most ticks under load (in Oct/Nov
+# 2026 about 5 of ~97 daily ticks arrived; the 05:00 digest tick never arrived).
+# So the daily jobs have no tick of their own: every sweep tick runs each daily
+# job whose start time (Europe/Berlin) has passed. The jobs are idempotent per
+# Berlin day (dedupe keys), so repeated runs change nothing and a missed tick is
+# caught up by the next one. Cron times below are UTC; the plan step works in
+# Berlin time, so DST needs no second set of ticks.
+# Minutes avoid :00/:15/:30/:45, when GitHub's load (and dropping) peaks.
+#
+# Configure: repository variable APP_URL and secret CRON_SECRET (same value as
+# the app's). Without APP_URL this workflow does nothing.
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # deadline sweep
-    - cron: "0 5 * * *" # daily digest (07:00 Berlin summer time / 06:00 winter time)
+    - cron: "3,8,13,18,23,28,33,38,43,48,53,58 * * * *" # mail tick: send-emails
+    - cron: "7,22,37,52 * * * *" # sweep tick: deadline-sweep, reminders, due daily jobs
   workflow_dispatch:
     inputs:
       job:
@@ -16,19 +27,65 @@ on:
         required: true
         default: deadline-sweep
         type: choice
-        options: [deadline-sweep, daily-digest]
+        options:
+          - deadline-sweep
+          - send-emails
+          - task-rollover
+          - daily-digest
+          - obligation-reminders
+          - installment-reminders
+          - payroll-reminders
 
 jobs:
-  trigger:
+  plan:
     runs-on: ubuntu-latest
     if: ${{ vars.APP_URL != '' }}
+    outputs:
+      jobs: ${{ steps.plan.outputs.jobs }}
     steps:
-      - name: Call job endpoint
+      - name: Pick the jobs that are due
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_JOB: ${{ inputs.job }}
+        run: |
+          now=$(TZ=Europe/Berlin date +%H%M)
+          now=$((10#$now)) # Berlin wall clock as HHMM, e.g. 705 for 07:05
+          due=()
+          if [ "$EVENT" = workflow_dispatch ]; then
+            due=("$INPUT_JOB")
+          elif [ "$SCHEDULE" = "7,22,37,52 * * * *" ]; then
+            # Every sweep tick (cheap, idempotent through dedupe keys; the worker runs them every 15 min / hourly).
+            due=(deadline-sweep obligation-reminders installment-reminders)
+            # Daily jobs: from their start time until the end of the Berlin day; once per day through dedupe keys.
+            [ "$now" -ge 5 ] && due+=(task-rollover)                             # from 00:05
+            [ "$now" -ge 700 ] && [ "$now" -lt 1200 ] && due+=(daily-digest)     # 07:00-11:59, a digest after noon is pointless
+            [ "$now" -ge 705 ] && due+=(payroll-reminders)                       # from 07:05
+          else
+            due=(send-emails)
+          fi
+          json=$(printf '"%s",' "${due[@]}")
+          echo "jobs=[${json%,}]" >> "$GITHUB_OUTPUT"
+          echo "Berlin ${now}: ${due[*]}"
+
+  # One matrix entry per job, so each job shows up (and fails) on its own.
+  run:
+    needs: plan
+    name: ${{ matrix.job }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        job: ${{ fromJSON(needs.plan.outputs.jobs) }}
+    steps:
+      - name: POST /api/cron/${{ matrix.job }}
         env:
           APP_URL: ${{ vars.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          JOB: ${{ inputs.job || (github.event.schedule == '0 5 * * *' && 'daily-digest' || 'deadline-sweep') }}
+          JOB: ${{ matrix.job }}
         run: |
-          curl --fail-with-body -sS -X POST \
+          curl --fail-with-body -sS --max-time 300 -X POST \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "${APP_URL}/api/cron/${JOB}"
