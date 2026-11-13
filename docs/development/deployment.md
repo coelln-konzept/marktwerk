@@ -69,6 +69,16 @@ the Vercel function log, `{"level":"error","msg":"cron job failed","job":"…","
 `curl` prints it into the Actions log, which is public for this repository. The Actions job then fails, and GitHub
 emails whoever last changed the workflow's schedule.
 
+### SMTP transport security
+With `SMTP_USER` set, credentials and mail only travel encrypted: implicit TLS on port 465 (or `SMTP_SECURE=true`),
+otherwise the server must offer STARTTLS. A server without STARTTLS fails the send before `AUTH` (the queued message
+records the error and retries). Certificates are verified against the system CAs. Without `SMTP_USER` (Mailpit in
+dev) the connection may stay plain.
+
+The `send-emails` job claims each message before sending it (`FOR UPDATE SKIP LOCKED`, then `send_after` moves 15
+minutes ahead as the claim marker), so overlapping runs (worker and cron, or two cron ticks) never send a message
+twice. A run that dies mid-send leaves its message queued; it is sent again once the 15 minutes have passed.
+
 ### Outbound mail fence (ADR 0023)
 Every mail the SMTP transport sends (`createMailTransport` in `packages/jobs`, the one path for the queued mails and
 for anything sent directly) passes the fence (`fenceMail` in `packages/core/src/mail/fence.ts`):
