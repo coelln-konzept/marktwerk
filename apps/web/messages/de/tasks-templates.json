@@ -120,7 +120,8 @@
       "businessDays": "Werktage",
       "defaultTime": "Standard",
       "rowMenu": "Aktionen für {title}",
-      "add": "Aufgabe in „{phase}“ hinzufügen"
+      "add": "Aufgabe in „{phase}“ hinzufügen",
+      "inherited": "wie Hauptaufgabe"
     },
     "menu": {
       "edit": "Bearbeiten",
@@ -136,7 +137,8 @@
       "description": "Die Zeile verschwindet aus dem Entwurf. Aufgaben in bestehenden Veranstaltungen bleiben unverändert.",
       "confirm": "Löschen",
       "cancel": "Abbrechen",
-      "done": "„{title}“ gelöscht"
+      "done": "„{title}“ gelöscht",
+      "descriptionChildren": "{count, plural, one {Die Zeile und ihre Unteraufgabe verschwinden aus dem Entwurf.} other {Die Zeile und ihre # Unteraufgaben verschwinden aus dem Entwurf.}} Aufgaben in bestehenden Veranstaltungen bleiben unverändert."
     },
     "drawer": {
       "newTitle": "Neue Aufgabe",
@@ -182,7 +184,35 @@
       "saved": "„{title}“ gespeichert",
       "added": "„{title}“ hinzugefügt",
       "unchanged": "Keine Änderungen zu speichern.",
-      "offsetNow": "Das heißt: {text}"
+      "offsetNow": "Das heißt: {text}",
+      "childOf": "Unteraufgabe von „{title}“",
+      "openParent": "„{title}“ öffnen",
+      "parent": "Unteraufgabe von",
+      "standalone": "Eigenständig (keine Unteraufgabe)",
+      "parentHint": "Unteraufgaben entstehen bei jeder Veranstaltung unter ihrer Hauptaufgabe und stehen in deren Phase.",
+      "hasChildrenHint": "Diese Aufgabe hat Unteraufgaben und kann deshalb selbst keine Unteraufgabe werden (nur eine Ebene).",
+      "ownDue": "Eigene Fälligkeit",
+      "ownDueHint": "Ohne Haken ist die Unteraufgabe fällig wie ihre Hauptaufgabe und zieht mit, wenn sich deren Fälligkeit ändert.",
+      "inheritedDue": "Fällig wie die Hauptaufgabe: {text}",
+      "roleAsParent": "Wie Hauptaufgabe",
+      "children": {
+        "legend": "Unteraufgaben",
+        "hint": "Unteraufgaben sind fällig wie die Hauptaufgabe und gehen an dieselbe Rolle, solange du nichts anderes festlegst.",
+        "empty": "Noch keine Unteraufgaben.",
+        "newLabel": "Neue Unteraufgabe",
+        "newPlaceholder": "Titel der Unteraufgabe",
+        "add": "Unteraufgabe",
+        "added": "„{title}“ als Unteraufgabe hinzugefügt",
+        "edit": "„{title}“ bearbeiten",
+        "up": "„{title}“ nach oben",
+        "down": "„{title}“ nach unten",
+        "remove": "„{title}“ entfernen",
+        "removed": "„{title}“ entfernt",
+        "undo": "Rückgängig",
+        "ownDue": "fällig {text}",
+        "saveFirst": "Bitte erst speichern oder abbrechen: Die Änderungen an dieser Aufgabe gingen sonst verloren.",
+        "newItemHint": "Unteraufgaben kannst du anlegen, sobald die Aufgabe hinzugefügt ist."
+      }
     },
     "links": {
       "title": "Gilt für Vorlagen",
@@ -226,7 +256,9 @@
         "addLabel": "Neue Aufgabe",
         "updateLabel": "Aufgabe wird angepasst",
         "removeLabel": "Aufgabe entfällt",
-        "overdue": "{count, plural, one {# wäre sofort überfällig} other {# wären sofort überfällig}}"
+        "overdue": "{count, plural, one {# wäre sofort überfällig} other {# wären sofort überfällig}}",
+        "cancel": "{count, plural, one {# Unteraufgabe wird abgebrochen} other {# Unteraufgaben werden abgebrochen}}",
+        "cancelLabel": "Unteraufgabe wird abgebrochen"
       },
       "changes": {
         "restored": "wieder in der Vorlage",
@@ -249,7 +281,7 @@
         "customized": "von Hand angepasst",
         "closed": "erledigt oder abgeschlossen"
       },
-      "rules": "Von Hand gesetzte Fälligkeiten und Zuweisungen bleiben bei geänderten Aufgaben erhalten. Nichts wird gelöscht.",
+      "rules": "Von Hand gesetzte Fälligkeiten und Zuweisungen bleiben bei geänderten Aufgaben erhalten. Unteraufgaben, deren Zeile entfernt wurde, werden abgebrochen. Nichts wird gelöscht.",
       "cancel": "Abbrechen",
       "back": "Zurück",
       "next": "Weiter zur Vorschau",
@@ -274,7 +306,8 @@
       "overdueTotal": "{count, plural, one {# neue Aufgabe wäre} other {# neue Aufgaben wären}} sofort überfällig: Das Datum liegt schon in der Vergangenheit. Die Aufgabe entsteht trotzdem.",
       "previewIntroNone": "{events, plural, one {# Veranstaltung} other {# Veranstaltungen}}: keine Änderungen an den Aufgaben.",
       "doneNothing": "Angewendet auf {names}: keine Änderungen an den Aufgaben",
-      "doneNames": "{first} und {more} weitere"
+      "doneNames": "{first} und {more} weitere",
+      "cancelled": "Unteraufgabe ist nicht mehr in der Vorlage und wird abgebrochen, nicht gelöscht"
     },
     "phases": {
       "pre": "Vorbereitung",

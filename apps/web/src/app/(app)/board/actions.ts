@@ -27,7 +27,7 @@ import { requirePermission } from "@/server/session";
 
 export type ActionResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string; detail?: string[] };
+  | { ok: false; error: string; detail?: string[]; count?: number };
 
 /** Runs a service call, turns its input errors into results and refreshes the page data afterwards. */
 async function run<T>(call: () => Promise<T>): Promise<ActionResult<T>> {
@@ -39,7 +39,12 @@ async function run<T>(call: () => Promise<T>): Promise<ActionResult<T>> {
     if (error instanceof TaskInputError) {
       // The page may be showing an outdated card; make it current again.
       if (["conflict", "not_found", "invalid_state"].includes(error.code)) refresh();
-      return { ok: false, error: error.code, detail: error.detail };
+      return {
+        ok: false,
+        error: error.code,
+        detail: error.detail,
+        ...(error.count !== undefined ? { count: error.count } : {}),
+      };
     }
     throw error;
   }

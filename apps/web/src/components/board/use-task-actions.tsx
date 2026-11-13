@@ -9,6 +9,7 @@ import {
   deleteCard,
   moveCard,
   restoreCard,
+  setParent as setParentAction,
   setStatus as setStatusAction,
   snoozeCard,
   undoChange,
@@ -18,6 +19,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { callAction, NETWORK_ERROR } from "@/lib/call-action";
 import { formatDateWeekdayDay } from "@/lib/format";
 import type { BoardTask } from "@/server/queries/tasks";
+import { useNestProblemText } from "./nesting";
 
 /** What the actions need to know about a task (the drawer has no full card). */
 type TaskRef = Pick<BoardTask, "id" | "title" | "status">;
@@ -29,7 +31,9 @@ export type OptimisticPatch =
   | { kind: "status"; id: string; status: TaskStatusKey }
   | { kind: "snooze"; id: string; until: string | null }
   /** Deleted: gone from the board at once. */
-  | { kind: "remove"; id: string };
+  | { kind: "remove"; id: string }
+  /** Nested under `parentId` or lifted out (null), ADR 0021. */
+  | { kind: "parent"; id: string; parentId: string | null };
 
 type Person = { id: string; displayName: string };
 
@@ -83,6 +87,7 @@ export function useTaskActions({
   const router = useRouter();
   const drawer = useDrawerHrefs();
   const [pending, startTransition] = useTransition();
+  const nestProblemText = useNestProblemText();
 
   const errorText = useCallback(
     (code: string) => {
@@ -92,9 +97,22 @@ export function useTaskActions({
     [t, tShell],
   );
 
+  /** "2 offene Unteraufgaben, Foto fehlt": what still blocks "Erledigt". */
   const evidenceText = useCallback(
-    (detail: string[] | undefined) =>
-      (detail ?? []).map((d) => tTasks(`evidence.${d}` as never)).join(", "),
+    (detail: string[] | undefined, openSubtasks: number | undefined) =>
+      (detail ?? [])
+        .map((d) =>
+          d === "subtasks"
+            ? openSubtasks
+              ? tTasks("evidence.openSubtasks", { count: openSubtasks })
+              : tTasks("evidence.subtasks")
+            : d === "photo"
+              ? tTasks("evidence.photoMissing")
+              : d === "attachment"
+                ? tTasks("evidence.attachmentMissing")
+                : tTasks(`evidence.${d}` as never),
+        )
+        .join(", "),
     [tTasks],
   );
 
@@ -131,7 +149,7 @@ export function useTaskActions({
         showToast({
           message: t("errors.evidence_missing", {
             title: task.title,
-            what: evidenceText(result.detail),
+            what: evidenceText(result.detail, result.count),
           }),
           tone: "error",
           actionLabel: t("toast.open"),
@@ -146,6 +164,35 @@ export function useTaskActions({
     [showToast, t, evidenceText, errorText, router, drawer],
   );
 
+  /**
+   * "Hauptaufgabe auch erledigen?" (D2-11): after the last open subtask was finished, a second toast offers
+   * to complete the parent too. Its action is a plain status change with the usual undo toast; it only goes
+   * forward, so Strg+Z must not trigger it.
+   */
+  const offerParent = useCallback(
+    (parent: { id: string; title: string }) => {
+      const ref: TaskRef = { id: parent.id, title: parent.title, status: "todo" };
+      showToast({
+        message: t("toast.parentReady", { title: parent.title }),
+        actionLabel: t("toast.completeParent"),
+        undoable: false,
+        onAction: () =>
+          new Promise<void>((resolve) =>
+            startTransition(async () => {
+              apply?.({ kind: "status", id: parent.id, status: "done" });
+              const result = await callAction(() => setStatusAction(parent.id, "done"));
+              if (result.ok) {
+                if (result.data.changed)
+                  showUndo(t("toast.done", { title: parent.title }), result.data.auditId);
+              } else fail(result, ref);
+              resolve();
+            }),
+          ),
+      });
+    },
+    [apply, showToast, showUndo, fail, t],
+  );
+
   const run = useCallback(
     (
       patch: OptimisticPatch | null,
@@ -158,12 +205,13 @@ export function useTaskActions({
         const result = await callAction(call);
         if (result.ok) {
           if (result.data.changed) showUndo(success, result.data.auditId);
+          if (result.data.parentReady) offerParent(result.data.parentReady);
           return;
         }
         fail(result, task);
       });
     },
-    [apply, showUndo, fail],
+    [apply, showUndo, fail, offerParent],
   );
 
   const move = useCallback(
@@ -324,8 +372,44 @@ export function useTaskActions({
     [run, t],
   );
 
+  /**
+   * "Unteraufgabe von…" (`parent`) / "Aus Hauptaufgabe lösen" (null) and the drag in the Checkliste (ADR 0021):
+   * applied at once, the toast offers undo (through the `task.parent` audit entry). A refused nesting
+   * (`invalid_parent`) is an error toast that says why; the optimistic change reverts with the transition.
+   * `from`: the current parent, for the toast of a lift-out.
+   */
+  const setParent = useCallback(
+    (task: TaskRef, parent: TaskRef | null, from: TaskRef | null = null) => {
+      startTransition(async () => {
+        apply?.({ kind: "parent", id: task.id, parentId: parent?.id ?? null });
+        const result = await callAction(() => setParentAction(task.id, parent?.id ?? null));
+        if (!result.ok) {
+          showToast({
+            message:
+              result.error === "invalid_parent"
+                ? nestProblemText(result.detail?.[0], task.title, parent?.title ?? "")
+                : errorText(result.error),
+            tone: "error",
+          });
+          return;
+        }
+        if (!result.data.changed) return;
+        showUndo(
+          parent
+            ? t("toast.nested", { title: task.title, parent: parent.title })
+            : from
+              ? t("toast.unnestedFrom", { title: task.title, parent: from.title })
+              : t("toast.unnested", { title: task.title }),
+          result.data.auditId,
+        );
+      });
+    },
+    [apply, showToast, nestProblemText, errorText, showUndo, t],
+  );
+
   return {
     pending,
+    setParent,
     move,
     assign,
     moveAndAssign,
@@ -340,5 +424,13 @@ export function useTaskActions({
 }
 
 type Result =
-  | { ok: true; data: { changed: boolean; auditId: string | null } }
-  | { ok: false; error: string; detail?: string[] };
+  | {
+      ok: true;
+      data: {
+        changed: boolean;
+        auditId: string | null;
+        /** Status changes: the parent whose subtasks are all finished now (ADR 0021). */
+        parentReady?: { id: string; title: string } | null;
+      };
+    }
+  | { ok: false; error: string; detail?: string[]; count?: number };

@@ -356,3 +356,47 @@ describe("applyTemplateVersion", () => {
     expect(await taskOf(e1, "foto_der_flaeche")).toBeUndefined();
   });
 });
+
+describe("child items (ADR 0021)", () => {
+  it("nests the task of a row that became a child, and lifts it out again (change “parent”)", async () => {
+    const plakate = items[1] as (typeof items)[number];
+    const draft = await createDraft(owner, templateId);
+    // "Unteraufgabe von …" in the editor: inherits the parent's due date, keeps its own role.
+    await updateTemplateItem(owner, draft.versionId, "plakate_aufhaengen", {
+      ...plakate,
+      parentKey: "marktgenehmigung_beantragen",
+    });
+    await publishDraft(owner, draft.versionId, "Plakate unter Genehmigung");
+
+    const preview = await previewTemplateApplication(owner, templateId);
+    const plan = preview.events.find((e) => e.eventId === e1);
+    const update = plan?.update.find((u) => u.key === "plakate_aufhaengen");
+    expect(update?.changes).toEqual(expect.arrayContaining(["parent", "due"]));
+    expect(plan?.cancel).toEqual([]);
+
+    await applyTemplateVersion(owner, templateId, [e1]);
+    const permit = await taskOf(e1, "marktgenehmigung_beantragen");
+    const nested = await taskOf(e1, "plakate_aufhaengen");
+    expect(nested?.parentTaskId).toBe(permit?.id);
+    expect(nested?.dueAt?.getTime()).toBe(permit?.dueAt?.getTime());
+    expect(nested?.dutyRoleId).toBe(cat.roles.setup.id);
+    // Not applied to e2: unchanged there.
+    expect((await taskOf(e2, "plakate_aufhaengen"))?.parentTaskId).toBeNull();
+
+    // "Eigenständig" in the next version lifts it out.
+    const draft3 = await createDraft(owner, templateId);
+    await updateTemplateItem(owner, draft3.versionId, "plakate_aufhaengen", {
+      ...plakate,
+      parentKey: null,
+    });
+    await publishDraft(owner, draft3.versionId, "Plakate wieder eigenständig");
+    const preview3 = await previewTemplateApplication(owner, templateId);
+    expect(
+      preview3.events
+        .find((e) => e.eventId === e1)
+        ?.update.find((u) => u.key === "plakate_aufhaengen")?.changes,
+    ).toContain("parent");
+    await applyTemplateVersion(owner, templateId, [e1]);
+    expect((await taskOf(e1, "plakate_aufhaengen"))?.parentTaskId).toBeNull();
+  });
+});

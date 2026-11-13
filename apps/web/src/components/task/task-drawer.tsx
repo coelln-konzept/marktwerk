@@ -11,14 +11,13 @@ import {
   FileX,
   Paperclip,
   Pencil,
-  Plus,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
-import { editTask, giveEffortFeedback, newSubtask, setStatus } from "@/app/(app)/board/actions";
+import { useCallback, useEffect, useId, useState, useTransition } from "react";
+import { editTask, giveEffortFeedback, newSubtask } from "@/app/(app)/board/actions";
 import { ReasonDialog } from "@/components/board/reason-dialog";
 import { CategoryTag, DueLine } from "@/components/board/task-bits";
 import { useTaskActions } from "@/components/board/use-task-actions";
@@ -36,11 +35,13 @@ import { formatDate, formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate, REASON_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
-import type { StaffOption, TaskDetail } from "@/server/queries/tasks";
+import type { StaffOption, SubtaskRow, TaskDetail } from "@/server/queries/tasks";
 import type { NotifyInput } from "@/server/services/tasks";
+import { DueDateInput } from "./due-input";
 import type { NotifyRecipient } from "./notify-fields";
 import { NotifySection } from "./notify-section";
 import { SnoozeDialog, useSnoozePresets } from "./snooze";
+import { SubtaskList } from "./subtask-list";
 import { TaskActivity } from "./task-activity";
 import { TickMark } from "./task-tick";
 
@@ -69,8 +70,8 @@ function Section({ title, children }: { title: React.ReactNode; children: React.
 
 /**
  * The task drawer (`?aufgabe=<id>`): status incl. "Wartet", assignee, due date, estimate with effort
- * feedback, snooze ("Zurückstellen"), description, check items, evidence, an optional completion note and
- * the task's activity.
+ * feedback, snooze ("Zurückstellen"), description, subtasks (ADR 0021; a subtask links back to its parent
+ * instead), evidence, an optional completion note and the task's activity.
  * Changes save as they are made and confirm with a toast; moves, assignments, status changes and edits of
  * Kernaufgabe, due date, estimate and title offer undo. The due date is saved when the field is left or
  * Enter is pressed (or after a second without typing), not on every keystroke.
@@ -104,8 +105,6 @@ export function TaskDrawer({
   const router = useRouter();
   // The URL says whether the drawer is open: closing replaces it before the server has answered.
   const isOpen = search.get("aufgabe") === task.id || search.get("detail") === `task:${task.id}`;
-  const dueTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const dueSent = useRef<string | null>(null);
   const actions = useTaskActions({ staff, scopeEventId: task.eventId });
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -124,15 +123,19 @@ export function TaskDrawer({
   const uid = useId();
 
   const finished = task.status === "done" || task.status === "skipped";
-  const subtasksDone = task.subtasks.filter(
-    (s) => s.status === "done" || s.status === "skipped",
-  ).length;
   const ref = { id: task.id, title: task.title, status: task.status };
 
-  /** Saves a change; `undo` is the patch that puts the old values back (the toast's "Rückgängig"). */
-  function save(patch: Parameters<typeof editTask>[1], undo?: Parameters<typeof editTask>[1]) {
+  /**
+   * Saves a change of this task (or of one of its subtasks: `id`); `undo` is the patch that puts the old
+   * values back (the toast's "Rückgängig").
+   */
+  function save(
+    patch: Parameters<typeof editTask>[1],
+    undo?: Parameters<typeof editTask>[1],
+    id: string = task.id,
+  ) {
     startTransition(async () => {
-      const result = await editTask(task.id, patch);
+      const result = await editTask(id, patch);
       if (!result.ok) {
         showToast({ message: actions.errorText(result.error) });
         return;
@@ -149,7 +152,7 @@ export function TaskDrawer({
         message: t("saved"),
         actionLabel: tToast("undo"),
         onAction: async () => {
-          const back = await editTask(task.id, undo);
+          const back = await editTask(id, undo);
           showToast({ message: back.ok ? tToast("reverted") : actions.errorText(back.error) });
         },
       });
@@ -190,19 +193,28 @@ export function TaskDrawer({
     return null;
   }
 
-  /** Due date: saved once per committed value (blur, Enter or a pause), not again while that save runs. */
-  function commitDue(value: string) {
-    clearTimeout(dueTimer.current);
-    if (value === "" || value === (task.dueOn ?? "")) return;
-    if (pending && value === dueSent.current) return;
-    dueSent.current = value;
+  /** Due date of this task or a subtask (`DueDateInput` commits once per value); undo restores the flags. */
+  function saveDue(
+    target: Pick<SubtaskRow, "id" | "dueOn" | "dueOverridden" | "customized">,
+    value: string,
+  ) {
     save(
       { dueOn: value },
       {
-        dueOn: task.dueOn,
-        restoreFlags: { dueOverridden: task.dueOverridden, customized: task.customized },
+        dueOn: target.dueOn,
+        restoreFlags: { dueOverridden: target.dueOverridden, customized: target.customized },
       },
+      target.id,
     );
+  }
+
+  /** "Unteraufgabe hinzufügen" (Enter): the field empties and keeps the focus for the next one. */
+  function addSubtask(value: string) {
+    startTransition(async () => {
+      const result = await newSubtask(task.id, value);
+      if (result.ok) setNewItem("");
+      else showToast({ message: actions.errorText(result.error) });
+    });
   }
 
   /** Optimistic close: drop the drawer and the URL parameter now; the opener gets its focus back. */
@@ -213,7 +225,6 @@ export function TaskDrawer({
   // Reset what was typed when the drawer closes, so reopening starts clean.
   useEffect(() => {
     if (isOpen) return;
-    clearTimeout(dueTimer.current);
     setEditing(false);
     setNotifyEditing(false);
     setNote("");
@@ -472,29 +483,33 @@ export function TaskDrawer({
         header={statusHeader}
         closeHref={closeHref}
       >
+        {task.parent && (
+          <p className="m-0 text-muted-foreground text-small">
+            {t.rich("parentTask", {
+              title: task.parent.title,
+              link: (chunks) => (
+                <Link
+                  href={actions.drawer.open(task.parent?.id ?? "") as never}
+                  scroll={false}
+                  className="rounded-sm font-medium text-accent-soft-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
+          </p>
+        )}
         <dl className="m-0 grid grid-cols-[110px_minmax(0,1fr)] items-center gap-x-3 gap-y-3">
           <dt className="text-muted-foreground text-small">
             <label htmlFor={`${uid}-due`}>{t("fields.due")}</label>
           </dt>
           <dd className="m-0 flex flex-wrap items-center gap-2">
             {canWrite ? (
-              <Input
+              <DueDateInput
                 id={`${uid}-due`}
-                type="date"
-                defaultValue={task.dueOn ?? ""}
-                key={task.dueOn ?? "none"}
-                disabled={pending}
-                className="w-auto"
-                onChange={(e) => {
-                  // A pause after the last change also commits (picking in the calendar never blurs).
-                  clearTimeout(dueTimer.current);
-                  const value = e.target.value;
-                  dueTimer.current = setTimeout(() => commitDue(value), 1000);
-                }}
-                onBlur={(e) => commitDue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitDue(e.currentTarget.value);
-                }}
+                value={task.dueOn}
+                pending={pending}
+                onCommit={(value) => saveDue(task, value)}
               />
             ) : (
               <span className="tabular">
@@ -756,78 +771,22 @@ export function TaskDrawer({
           )}
         </Section>
 
-        {task.parent && (
-          <p className="m-0 text-muted-foreground text-small">
-            {t("parentTask", { title: task.parent.title })}
-          </p>
-        )}
-        {/* Subtasks (ADR 0021). Interim list: tick and add; assignee, due and nesting come with the UI step. */}
+        {/* Subtasks (ADR 0021): one level, so a subtask has none of its own. */}
         {!task.parent && (
-          <Section title={t("subtasks", { done: subtasksDone, total: task.subtasks.length })}>
-            {task.subtasks.length > 0 && (
-              <ul className="flex flex-col gap-1">
-                {task.subtasks.map((item) => {
-                  const done = item.status === "done" || item.status === "skipped";
-                  return (
-                    <li key={item.id}>
-                      <label className="flex min-h-8 cursor-pointer items-center gap-2 text-small">
-                        <input
-                          type="checkbox"
-                          checked={done}
-                          disabled={!canWrite || pending}
-                          onChange={(e) =>
-                            startTransition(async () => {
-                              const result = await setStatus(
-                                item.id,
-                                e.target.checked ? "done" : "todo",
-                              );
-                              if (!result.ok)
-                                showToast({ message: actions.errorText(result.error) });
-                            })
-                          }
-                          className="size-4 accent-[var(--primary)]"
-                        />
-                        <span className={done ? "text-muted-foreground line-through" : undefined}>
-                          {item.title}
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {canWrite && (
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const value = newItem.trim();
-                  if (!value) return;
-                  startTransition(async () => {
-                    const result = await newSubtask(task.id, value);
-                    if (result.ok) setNewItem("");
-                    else showToast({ message: actions.errorText(result.error) });
-                  });
-                }}
-              >
-                <Input
-                  aria-label={t("addSubtask")}
-                  placeholder={t("addSubtask")}
-                  value={newItem}
-                  maxLength={200}
-                  onChange={(e) => setNewItem(e.target.value)}
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  aria-label={t("addSubtaskButton")}
-                  disabled={pending || !newItem.trim()}
-                >
-                  <Plus aria-hidden />
-                </Button>
-              </form>
-            )}
-          </Section>
+          <SubtaskList
+            subtasks={task.subtasks}
+            staff={staff}
+            today={today}
+            canWrite={canWrite}
+            canAssign={canAssign}
+            canDelete={canDelete}
+            pending={pending}
+            actions={actions}
+            onSaveDue={saveDue}
+            draft={newItem}
+            onDraftChange={setNewItem}
+            onAdd={addSubtask}
+          />
         )}
 
         {(task.requiresPhoto || task.requiresAttachment) && (

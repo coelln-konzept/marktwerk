@@ -39,6 +39,17 @@ export type BoardContextValue = {
   askReason: (task: BoardTask, status: TaskStatusKey) => void;
   /** "Zurückstellen › Datum wählen …" opens a small date dialog. */
   askSnoozeDate: (task: BoardTask) => void;
+  /**
+   * Subtasks show under their parent and tasks nest by dragging (ADR 0021): the event's board (its Checkliste),
+   * with `task:write`. Across events the cards carry the progress only.
+   */
+  nestable: boolean;
+  /** The subtasks of a task shown on this board, in their order (empty across events). */
+  subtasksOf: (parentId: string) => BoardTask[];
+  /** Any task of this board by id (top-level or subtask). */
+  taskById: (id: string) => BoardTask | undefined;
+  /** "Unteraufgabe von …" opens a dialog to pick the parent. */
+  askParent: (task: BoardTask) => void;
 };
 
 const BoardContext = createContext<BoardContextValue | null>(null);

@@ -266,7 +266,8 @@ export async function BoardScreen({
   }
 
   // ---- cards
-  const [{ tasks: all, truncated }, rail] = await Promise.all([
+  // `subtasks` (event board only) show under their parent; filters and counts work on the top-level tasks.
+  const [{ tasks: all, subtasks, truncated }, rail] = await Promise.all([
     listBoardTasks(actor, { eventId, horizonDays }, today),
     teamHidden ? Promise.resolve(null) : getPeopleRail(actor, { eventId }, today),
   ]);
@@ -345,6 +346,7 @@ export async function BoardScreen({
       ) : (
         <BoardView
           tasks={tasks}
+          subtasks={subtasks}
           staff={staff}
           rail={rail}
           today={today}
