@@ -255,7 +255,9 @@ Progress (branch `feat/saison-backend`, 2026-11-13):
 | R8 | `ensureEventSeason` + nightly job `event-seasons` (00:20 Berlin) + "Markt planen" hook | done |
 | R9 | Season instantiation through the one instantiation path (season context); events skip season items | done |
 | R10 | Anchors recomputed on create/move/cancel/reopen/delete/undo; season tasks follow through `planTaskShift`/`shiftTasks` | done |
-| R11–R14, R18 | Permit link, market-page panel, lists/Kalender/digest labels, propagation, synthetic data | open |
+| R11 | Season permits get `permit.season_id`; the season item with a `permit_type` is the one apply task (`linkPermitTasks`, core `seasonApplyDuplicates`); first-event rule kept as fallback; drawer lists "<Markt> · Saison 2027" (branch `feat/r11-season-permits`) | done |
+| R27 | Permit per market at shared places: a permit with a record covers only its market (`permitServesMarket` in `permitCovers`, fill + Markt planen preview); title names the market where a place has several; drawer offers only that market's dates | done |
+| R12–R14, R18 | Market-page panel, lists/Kalender/digest labels, propagation, synthetic data | open |
 
 Choices made while building R6–R10 that this section left open (to confirm with the product owner):
 1. **Week of next year** = the same ISO week and weekday; a date whose week position falls outside the season (KW 53,
@@ -274,3 +276,22 @@ Choices made while building R6–R10 that this section left open (to confirm wit
 8. Moving an event into another year **creates that year's record** (`ensureEventSeason`, source `event_move`).
 9. A season date change does **not** send the `dates_shifted` notification yet (it links to an event); the audit
    entry `season.anchors` records it. Revisit with the labels in R13.
+
+Choices made while building R11 and R27 (to confirm with the product owner):
+10. **Multi-year and standing permits** also get `season_id` = the record of the season they were made for. The
+    record fixes the **market** for every cadence, the **year** only for season and year permits; a multi-year /
+    standing permit covers its market's later years within its validity. A later season's "Genehmigung beantragen"
+    links to it and, being a second apply task, is deleted (restorable) like any duplicate.
+11. **When the season task arrives later** (e.g. the permit already had its own "beantragen" task or an event's
+    template task under the interim rule), the untouched ones are deleted and the season task stays the one. Tasks
+    somebody worked on or finished always stay, even next to the season task.
+12. The logbook fill **makes a missing Saison record** (through `ensureEventSeasonTx`, audit source `logbook_fill`)
+    when it needs one for a season permit, instead of falling back to a permit without a record. "Markt planen" now
+    makes the records before the fill.
+13. **Permits without a record** (older data, events without a market, permits made by hand) keep the place + season
+    rule and can still serve several markets; there is **no backfill** of `season_id` for existing permits (the dev
+    data is reseeded with R18). A permit of the market's own record wins over one without.
+14. "Several markets at a place" = more than one **not archived** market (preset) with that place, inactive ones
+    included. The market name goes into the title of single-event permits too ("Halteverbot – P6 – 01.05.2027").
+15. **Linking by hand** (permit drawer, "Genehmigung anlegen") is not restricted; the drawer only offers the
+    permit's own market's dates when it has a record.
