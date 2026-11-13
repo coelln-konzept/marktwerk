@@ -23,6 +23,7 @@ export * from "./events/past";
 export * from "./events/preset";
 export * from "./events/rrule";
 export * from "./events/rrule-describe";
+export * from "./events/schedule";
 export * from "./events/scheduling";
 export * from "./finance/budget";
 export * from "./finance/csv";
