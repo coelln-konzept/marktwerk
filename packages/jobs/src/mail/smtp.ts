@@ -25,6 +25,8 @@ export type SmtpMessage = {
   text: string;
   messageId: string;
   date?: Date;
+  /** Extra headers, e.g. `X-Marktwerk-Original-To` from the mail fence. */
+  headers?: Readonly<Record<string, string>>;
 };
 
 type Reply = { code: number; lines: string[] };
@@ -162,6 +164,16 @@ function encodeHeader(value: string): string {
 
 const wrap76 = (base64: string) => base64.replace(/(.{76})/g, "$1\r\n");
 
+const HEADER_NAME = /^X-[A-Za-z0-9-]+$/;
+
+/** Only `X-` headers, so an extra header can never replace or duplicate a standard one. */
+function extraHeaders(headers: Readonly<Record<string, string>> = {}): string[] {
+  return Object.entries(headers).map(([name, value]) => {
+    if (!HEADER_NAME.test(name)) throw new Error(`Invalid extra header name: ${name}`);
+    return `${name}: ${encodeHeader(value)}`;
+  });
+}
+
 /** The full message (headers + base64 body), CRLF line ends. */
 export function buildMessage(message: SmtpMessage): string {
   const date = (message.date ?? new Date()).toUTCString();
@@ -171,6 +183,7 @@ export function buildMessage(message: SmtpMessage): string {
     `Subject: ${encodeHeader(message.subject)}`,
     `Date: ${date}`,
     `Message-ID: <${noBreaks(message.messageId)}>`,
+    ...extraHeaders(message.headers),
     "MIME-Version: 1.0",
     "Content-Type: text/plain; charset=utf-8",
     "Content-Transfer-Encoding: base64",
