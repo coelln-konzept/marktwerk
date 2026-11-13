@@ -21,8 +21,11 @@ import { formatDateWeekdayDay } from "@/lib/format";
 import type { BoardTask } from "@/server/queries/tasks";
 import { useNestProblemText } from "./nesting";
 
-/** What the actions need to know about a task (the drawer has no full card). */
-type TaskRef = Pick<BoardTask, "id" | "title" | "status">;
+/**
+ * What the actions need to know about a task (the drawer has no full card). `openSubtasks`: how many of its
+ * subtasks are still open, where the list knows it (ADR 0021); "Erledigt" then opens the drawer instead.
+ */
+type TaskRef = Pick<BoardTask, "id" | "title" | "status"> & { openSubtasks?: number };
 
 /** What the board shows immediately, before the server has answered. */
 export type OptimisticPatch =
@@ -64,7 +67,8 @@ export function useDrawerHrefs() {
  * Card and drawer actions with their toasts: every change is applied at once, confirmed by an undo
  * toast (UX concept §6: undo instead of asking first) and reverted through the audit entry.
  * `confirmDone` is the one exception (user test 2026-11, decision D1): where a task leaves the list
- * once it is done, "Erledigt" asks first; the undo toast stays.
+ * once it is done, "Erledigt" asks first; the undo toast stays. A task the caller knows has open subtasks
+ * (`openSubtasks`) is not asked about at all: "Erledigt" opens its drawer (R29).
  */
 export function useTaskActions({
   staff,
@@ -191,6 +195,23 @@ export function useTaskActions({
     [apply, showToast, showUndo, fail, t],
   );
 
+  /**
+   * "Erledigt" outside the drawer on a task whose subtasks are still open (R29): nothing is tried, the task's
+   * drawer opens in place (its subtasks are there) and a plain hint in the refusal's words says why.
+   */
+  const openForSubtasks = useCallback(
+    (task: TaskRef) => {
+      router.push(drawer.open(task.id) as never, { scroll: false });
+      showToast({
+        message: t("errors.evidence_missing", {
+          title: task.title,
+          what: evidenceText(["subtasks"], task.openSubtasks),
+        }),
+      });
+    },
+    [router, drawer, showToast, t, evidenceText],
+  );
+
   const run = useCallback(
     (
       patch: OptimisticPatch | null,
@@ -314,7 +335,11 @@ export function useTaskActions({
               ? t("toast.reopened", { title: task.title })
               : t("toast.status", { title: task.title, status: tTasks(`status.${status}`) }),
         );
-      if (!confirmDone || status !== "done") return go();
+      if (status !== "done") return go();
+      // A parent with open subtasks can't be done yet (ADR 0021 done gate): no question the server would
+      // refuse anyway; its drawer opens on the subtasks with a short hint (R29).
+      if ((task.openSubtasks ?? 0) > 0) return openForSubtasks(task);
+      if (!confirmDone) return go();
       void confirm({
         title: t("confirmDone.title"),
         description: t("confirmDone.description", { title: task.title }),
@@ -322,7 +347,7 @@ export function useTaskActions({
         cancelLabel: t("confirmDone.cancel"),
       }).then((ok) => ok && go());
     },
-    [run, t, tTasks, confirmDone, confirm],
+    [run, t, tTasks, confirmDone, confirm, openForSubtasks],
   );
 
   /** "Zurückstellen": hides the task from due lists until `until`; the toast offers undo. */

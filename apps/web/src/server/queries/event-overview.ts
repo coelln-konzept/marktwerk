@@ -104,6 +104,7 @@ export async function getEventOverview(
       subtasksDone: r.subtasksDone,
       subtasksTotal: r.subtasksTotal,
       subtasksOverdue: r.subtasksOverdue,
+      openSubtasks: r.subtasksOpen,
     })) ?? null;
 
   return {

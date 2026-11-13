@@ -17,6 +17,8 @@ export type CompanyActionRow = Pick<
   "id" | "title" | "subjectType" | "subjectId" | "taskSnoozed" | "notificationSnoozed"
 > & {
   taskStatus: string | null;
+  /** Open subtasks of the task: "Erledigt" opens its drawer instead of asking (R29). */
+  openSubtasks?: number;
 };
 
 const FINISHED_TASK = ["done", "skipped"];
@@ -26,6 +28,7 @@ const taskRef = (row: CompanyActionRow) => ({
   id: row.subjectId,
   title: row.title,
   status: row.taskStatus as never,
+  openSubtasks: row.openSubtasks,
 });
 
 /**
@@ -39,7 +42,8 @@ export function useCompanyActions() {
   const locale = useLocale();
   const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
-  // The item leaves the center once its task is done: ask first (decision D1).
+  // The item leaves the center once its task is done: ask first (decision D1). A task with open subtasks
+  // can't be done yet: its drawer opens instead of the question (R29).
   const taskActions = useTaskActions({ staff: [], confirmDone: true });
 
   const errorText = useCallback(
