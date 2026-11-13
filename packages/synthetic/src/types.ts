@@ -23,7 +23,11 @@ export type DutyRoleKey =
   | "permits"
   | "communication"
   | "cash"
-  | "water_power";
+  | "water_power"
+  | "briefing"
+  | "steward"
+  | "night_watch"
+  | "traffic";
 export type PermissionRole = "owner" | "manager" | "staff" | "field";
 export type EmploymentType =
   | "minijob"
@@ -61,20 +65,19 @@ export type TaskStatus =
   | "cancelled";
 export type EffortFeedback = "as_planned" | "longer" | "shorter";
 export type PermitCategory = "city" | "external";
+/** The permit types the dataset seeds (research 13 §4). `other` is the Hoffnungsthal Schaustellerliste. */
 export type PermitType =
   | "market_permit"
+  | "market_fixing"
   | "water"
   | "signage"
   | "no_parking"
+  | "traffic_order"
   | "toilets"
-  | "landowner_ok";
+  | "landowner_ok"
+  | "other";
 /** Permit types a template item can apply for: the seeded ones plus those without a seeded permit. */
-export type TemplatePermitType =
-  | PermitType
-  | "market_fixing"
-  | "gema"
-  | "safety_concept"
-  | "catering";
+export type TemplatePermitType = PermitType | "gema" | "safety_concept" | "catering";
 export type PermitCadence = "per_event" | "per_season" | "per_year" | "multi_year" | "standing";
 export type PermitStatus =
   | "not_started"
@@ -409,6 +412,8 @@ export interface Task {
 export interface PermitRequirement {
   id: string;
   venueId: string;
+  /** Only markets of this event type need it (`permit_requirement.event_type_id`); null = every market there. */
+  eventTypeId: string | null;
   category: PermitCategory;
   permitType: PermitType;
   title: string;

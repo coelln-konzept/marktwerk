@@ -18,11 +18,13 @@ import type {
   EventAnchor,
   EventPreset,
   EventType,
+  Permit,
   Task,
   TaskStatus,
   TemplateItem,
   TemplateSource,
 } from "../types";
+import { permitIsFiled } from "./permits";
 
 /**
  * The team stays on top of its list: past tasks are done (or skipped), except a handful left open on purpose
@@ -200,27 +202,6 @@ export function buildMarketTemplates(
   return { templates, templateIdByPresetId };
 }
 
-/**
- * Adds the `teardownDay` anchor (the last market day, as `defaultAnchors` in core does) to every event that has
- * none. Part A's events generator may create it itself; then this adds nothing.
- */
-export function withTeardownAnchors(
-  rng: Rng,
-  events: readonly Event[],
-  anchors: readonly EventAnchor[],
-): EventAnchor[] {
-  const has = new Set(anchors.filter((a) => a.key === "teardownDay").map((a) => a.eventId));
-  const added = events
-    .filter((event) => !has.has(event.id))
-    .map((event) => ({
-      id: rng.uuid(),
-      eventId: event.id,
-      key: "teardownDay" as const,
-      date: event.endsOn,
-    }));
-  return [...anchors, ...added];
-}
-
 /* ------------------------------------------------------------------------------------------ tasks */
 
 export interface TaskContext {
@@ -230,6 +211,11 @@ export interface TaskContext {
   /** The market's own template for every preset. */
   templateIdByPresetId: Map<string, string>;
   dutyRoleIdByKey: Map<string, string>;
+  /**
+   * The permit a task of an item with `permitType` is linked to on its event (the app's `linkPermitTasks`), or
+   * undefined. A task whose permit is applied for or granted is done, as in the app.
+   */
+  permitFor: (eventId: string, permitType: string) => Permit | undefined;
   clock: Clock;
 }
 
@@ -300,6 +286,8 @@ interface Planned {
   item: TemplateItem;
   event: Event;
   dueDate: string;
+  /** Its item applies for a permit that is already applied for or granted: the task stays done. */
+  filedPermit: boolean;
 }
 
 export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
@@ -319,8 +307,10 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
   const today = ctx.clock.today;
 
   const childItemsByParent = new Map<string, TemplateItem[]>();
+  const permitTypeByItemId = new Map<string, string>();
   for (const tpl of ctx.templates) {
     for (const item of tpl.items) {
+      if (item.permitType !== null) permitTypeByItemId.set(item.id, item.permitType);
       if (item.parentKey === null) continue;
       const key = `${tpl.id}|${item.parentKey}`;
       childItemsByParent.set(key, [...(childItemsByParent.get(key) ?? []), item]);
@@ -346,16 +336,24 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
       const dueAt = berlinInstant(dueDate, item.dueTime ?? "09:00");
       const assigneeId = event.duties[item.dutyRoleKey];
 
-      const decision = decideStatus(rng, today, item, dueDate, event.status);
-      const isDone = decision.status === "done" || decision.status === "skipped";
-      const completedAt = isDone
-        ? new Date(Date.parse(dueAt) + rng.int(-3, 5) * 3_600_000).toISOString()
-        : null;
+      let decision = decideStatus(rng, today, item, dueDate, event.status);
+      let completedAt =
+        decision.status === "done" || decision.status === "skipped"
+          ? new Date(Date.parse(dueAt) + rng.int(-3, 5) * 3_600_000).toISOString()
+          : null;
+      // A task that applies for a permit is done once the permit is applied for (the app's linkPermitTasks).
+      const permit = item.permitType ? ctx.permitFor(event.id, item.permitType) : undefined;
+      const filedPermit = event.status !== "cancelled" && permitIsFiled(permit);
+      if (filedPermit && completedAt === null && permit?.appliedAt) {
+        decision = { ...decision, status: "done", waitingReason: null };
+        completedAt = berlinInstant(permit.appliedAt, "11:00");
+      }
 
       parents.push({
         item,
         event,
         dueDate,
+        filedPermit,
         task: {
           id: rng.uuid(),
           eventId: event.id,
@@ -397,6 +395,19 @@ export function buildTasks(rng: Rng, ctx: TaskContext): Task[] {
     const tplId = ctx.templateIdByPresetId.get(parent.event.presetId);
     const children = childItemsByParent.get(`${tplId}|${parent.item.stableKey}`) ?? [];
     tasks.push(...subtasks(rng, today, parent, children, anchorsByEvent, roleId));
+  }
+  // A subtask that applies for a permit of its own (Festsetzung, Plakatierung) is done once that permit is filed.
+  for (const task of tasks) {
+    if (task.parentTaskId === null || task.status === "cancelled" || task.status === "skipped")
+      continue;
+    const type = permitTypeByItemId.get(task.templateItemId);
+    const permit = type ? ctx.permitFor(task.eventId, type) : undefined;
+    if (task.status !== "done" && permitIsFiled(permit) && permit?.appliedAt) {
+      task.status = "done";
+      task.waitingReason = null;
+      task.completedAt = berlinInstant(permit.appliedAt, "11:00");
+      task.completedById = task.assigneeId;
+    }
   }
   return tasks;
 }
@@ -497,8 +508,8 @@ function subtasks(
  */
 function leaveSomeOverdue(rng: Rng, today: string, planned: Planned[]): void {
   const finished = (task: Task) => task.status === "done" || task.status === "skipped";
-  const candidate = ({ task, dueDate }: Planned) =>
-    finished(task) && task.category !== "permits" && dueDate < today;
+  const candidate = ({ task, dueDate, filedPermit }: Planned) =>
+    finished(task) && task.category !== "permits" && !filedPermit && dueDate < today;
 
   const ofCurrentMarket = planned.filter(
     (p) => candidate(p) && p.event.status !== "cancelled" && p.event.endsOn >= today,
@@ -532,10 +543,12 @@ function leaveSomeOverdue(rng: Rng, today: string, planned: Planned[]): void {
     task.rolloverCount = Math.min(days, 5);
     task.lastRolledAt = berlinInstant(today, "00:05");
   };
-  // A couple of recent permit tasks still wait on the authority (the market is ahead, so that is normal).
+  // A couple of recent permit tasks still wait on the authority (the market is ahead, so that is normal). Not those
+  // whose permit is already applied for: the app counts them as done.
   const waiting = planned.filter(
-    ({ task, event, dueDate }) =>
+    ({ task, event, dueDate, filedPermit }) =>
       task.status === "done" &&
+      !filedPermit &&
       task.category === "permits" &&
       dueDate < today &&
       dueDate >= addDays(today, -30) &&

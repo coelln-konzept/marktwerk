@@ -24,8 +24,6 @@ export interface VenueBlueprint {
   waterAuthorityKey: string | null;
   /** Key into CONTACT_BLUEPRINTS of the landowner, or null when the city owns the ground. */
   landownerKey: string | null;
-  /** Köln Altstadt: the city collects applications in a window and decides in January. */
-  collectiveApplication: boolean;
 }
 
 /*
@@ -51,7 +49,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: null,
-    collectiveApplication: true,
   },
   {
     key: "riehler-guertel",
@@ -69,7 +66,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: null,
-    collectiveApplication: false,
   },
   {
     key: "nippes",
@@ -87,7 +83,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: null,
-    collectiveApplication: false,
   },
   {
     key: "stadion",
@@ -105,7 +100,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: null,
     landownerKey: "stadion_flaechen",
-    collectiveApplication: false,
   },
   {
     key: "suedstadt",
@@ -123,7 +117,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: null,
-    collectiveApplication: false,
   },
   {
     key: "suedbruecke",
@@ -140,7 +133,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: null,
     landownerKey: "suedbruecke_flaechen",
-    collectiveApplication: false,
   },
   {
     key: "rudolfplatz",
@@ -157,7 +149,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: null,
-    collectiveApplication: false,
   },
   {
     key: "rodenkirchen",
@@ -175,7 +166,6 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     cityAuthorityKey: "ordnungsamt_koeln",
     waterAuthorityKey: "wasser_koeln_standrohr",
     landownerKey: null,
-    collectiveApplication: false,
   },
   {
     key: "kerpen",
@@ -190,9 +180,8 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
     accessInfo: "Anlieferung über die Stiftsstraße. Strom aus den Verteilerkästen der Stadt.",
     zones: ["Stiftsplatz", "Stiftsstraße", "Marienplatz"],
     cityAuthorityKey: "ordnungsamt_kerpen",
-    waterAuthorityKey: null,
+    waterAuthorityKey: "wasser_kerpen_standrohr",
     landownerKey: null,
-    collectiveApplication: false,
   },
   {
     key: "hoffnungsthal",
@@ -208,9 +197,8 @@ export const VENUE_BLUEPRINTS: readonly VenueBlueprint[] = [
       "Parkverbot 96 Stunden vorher aufstellen. Verkehrssicherung ab 09:00 Uhr nach Abnahme durch die Feuerwehr.",
     zones: ["Hauptstraße", "Festplätze"],
     cityAuthorityKey: "ordnungsamt_roesrath",
-    waterAuthorityKey: null,
+    waterAuthorityKey: "wasser_roesrath_standrohr",
     landownerKey: null,
-    collectiveApplication: false,
   },
 ];
 

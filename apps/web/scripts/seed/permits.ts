@@ -93,6 +93,7 @@ export async function seedPermits(tx: Tx, { data }: SeedContext) {
     data.permitRequirements.map((r) => ({
       id: r.id,
       venueId: r.venueId,
+      eventTypeId: r.eventTypeId,
       category: r.category,
       permitType: r.permitType,
       title: r.title,

@@ -2,12 +2,23 @@ import { isMarketColor, validateSchedule } from "@marktwerk/core";
 import { beforeAll, describe, expect, it } from "vitest";
 import { MAX_EVENTS_PER_DAY, minijobLimitCents, REFERENCE_DATE } from "./constants";
 import { generateDataset } from "./dataset";
+import { CLIENT_MARKET_PRESET_KEYS } from "./dictionaries/checklist-items";
 import { PRESET_BLUEPRINTS } from "./dictionaries/presets";
 import { scheduleSeason } from "./generators/events";
+import { DECISION_OVERDUE, linkedPermit } from "./generators/permits";
 import { clientMarketByPresetKey, OVERDUE_CURRENT, OVERDUE_LEFTOVERS } from "./generators/tasks";
 import { EXAMPLE_DOMAINS, FICTION_PHONE_PATTERN } from "./lib/fiction";
 import { parseRRule } from "./lib/rrule";
-import type { Dataset, EmploymentContract, Event, EventType, Payable, Task } from "./types";
+import type {
+  Dataset,
+  EmploymentContract,
+  Event,
+  EventType,
+  Payable,
+  Permit,
+  Task,
+  TemplateItem,
+} from "./types";
 
 const TIMEOUT = 120_000;
 const DAY_MS = 86_400_000;
@@ -59,6 +70,29 @@ function eventDays(event: Pick<Event, "startsOn" | "endsOn">): string[] {
   }
   return days;
 }
+
+/** The permit a task is linked to (the seed's `linkPermitTasks` rule): its item's permit type on its event. */
+function permitLinks(d: Dataset): (task: Task) => Permit | undefined {
+  const itemById = new Map<string, TemplateItem>(
+    d.checklistTemplates.flatMap((t) => t.items.map((i) => [i.id, i] as const)),
+  );
+  const permitById = new Map(d.permits.map((p) => [p.id, p]));
+  const byEvent = new Map<string, { permit: Permit; required: boolean }[]>();
+  for (const link of d.eventPermits) {
+    const permit = permitById.get(link.permitId);
+    if (!permit) continue;
+    byEvent.set(link.eventId, [
+      ...(byEvent.get(link.eventId) ?? []),
+      { permit, required: link.required },
+    ]);
+  }
+  return (task) => {
+    const type = itemById.get(task.templateItemId)?.permitType;
+    return type ? linkedPermit(byEvent.get(task.eventId) ?? [], type) : undefined;
+  };
+}
+
+const FILED = new Set(["applied", "granted"]);
 
 /* ------------------------------------------------------------ determinism */
 
@@ -290,6 +324,10 @@ describe("referential integrity", () => {
         ...unresolved(
           data.permitRequirements.map((r) => r.authorityContactId),
           contactIds,
+        ),
+        ...unresolved(
+          data.permitRequirements.map((r) => r.eventTypeId),
+          eventTypeIds,
         ),
       ],
       permits: [
@@ -691,9 +729,14 @@ describe("tasks", () => {
 
   it("puts future top-level tasks in todo or in progress, never done (subtasks may be done early)", () => {
     const today = `${REFERENCE_DATE}T00:00:00.000Z`;
+    const permitOf = permitLinks(data);
     for (const task of data.tasks) {
       if (task.parentTaskId === null && task.dueAt >= today && task.status !== "cancelled") {
-        expect(["todo", "in_progress", "waiting_external"]).toContain(task.status);
+        // A task that applies for a permit is done once that permit is filed, even before it is due.
+        const filed = FILED.has(permitOf(task)?.status ?? "");
+        expect(filed ? ["done"] : ["todo", "in_progress", "waiting_external"]).toContain(
+          task.status,
+        );
       }
       if (task.completedAt !== null) expect(task.completedAt < today).toBe(true);
     }
@@ -923,10 +966,21 @@ describe("permits", () => {
     expect(nextPermit?.expectedDecisionOn).toBe(`${SEASON + 1}-01-15`);
   });
 
-  it("grants current-season permits except the deliberately late ones, and only granted ones have a grant date", () => {
+  it("grants current-season permits except the late examples and upcoming dates, and only granted ones have a grant date", () => {
+    const eventById = new Map(data.events.map((e) => [e.id, e]));
+    const lastCovered = new Map<string, string>();
+    for (const link of data.eventPermits) {
+      const end = eventById.get(link.eventId)?.endsOn ?? "";
+      if (end > (lastCovered.get(link.permitId) ?? "")) lastCovered.set(link.permitId, end);
+    }
     const current = data.permits.filter((p) => p.season === SEASON);
-    const notGranted = current.filter((p) => p.status !== "granted");
-    expect(notGranted.length).toBeLessThanOrEqual(2);
+    // Not granted yet: the late examples (not filed), the overdue decisions, and dates still ahead.
+    const notGranted = current.filter(
+      (p) => p.status !== "granted" && (lastCovered.get(p.id) ?? "") < REFERENCE_DATE,
+    );
+    expect(notGranted).toEqual([]);
+    const pending = current.filter((p) => p.status !== "granted");
+    expect(pending.length).toBeLessThanOrEqual(current.length * 0.15);
     for (const permit of data.permits) {
       if (permit.status === "granted") expect(permit.grantedAt).not.toBeNull();
       else expect(permit.grantedAt).toBeNull();
@@ -948,6 +1002,300 @@ describe("permits", () => {
     );
     expect(signage.length).toBeGreaterThan(0);
     for (const permit of signage) expect(permit.deliverablesReceived.stickers).toBe(100);
+  });
+});
+
+/* ------------------------------------------- permits per market (R19, part C) */
+
+describe("permits per market (research 13 §4)", () => {
+  const presetByKey = (key: string) => data.eventPresets.find((p) => p.key === key);
+  const venueOf = (presetKey: string) =>
+    data.venues.find((v) => v.id === presetByKey(presetKey)?.venueId);
+  /** Permits linked to the events of one market (preset), by type. */
+  const permitsOf = (presetKey: string, type: Permit["permitType"]) => {
+    const preset = presetByKey(presetKey);
+    const eventIds = new Set(data.events.filter((e) => e.presetId === preset?.id).map((e) => e.id));
+    const linked = new Set(
+      data.eventPermits.filter((l) => eventIds.has(l.eventId)).map((l) => l.permitId),
+    );
+    return data.permits.filter((p) => linked.has(p.id) && p.permitType === type);
+  };
+  const seasonsOf = (presetKey: string) =>
+    [
+      ...new Set(
+        data.events
+          .filter((e) => e.presetId === presetByKey(presetKey)?.id && e.status !== "cancelled")
+          .map((e) => e.season),
+      ),
+    ].sort();
+
+  it("gives every municipal market a Marktgenehmigung and a Festsetzung per season, private ones a landowner OK", () => {
+    for (const preset of data.eventPresets) {
+      const venue = venueOf(preset.key);
+      const seasons = seasonsOf(preset.key);
+      const fixing = permitsOf(preset.key, "market_fixing");
+      expect(fixing.map((p) => p.season).sort(), `${preset.key} Festsetzung`).toEqual(seasons);
+      if (venue?.kind === "municipal") {
+        const market = permitsOf(preset.key, "market_permit");
+        expect(market.map((p) => p.season).sort(), `${preset.key} Marktgenehmigung`).toEqual(
+          seasons,
+        );
+        expect(permitsOf(preset.key, "landowner_ok")).toEqual([]);
+      } else {
+        expect(permitsOf(preset.key, "market_permit"), preset.key).toEqual([]);
+        const landowner = permitsOf(preset.key, "landowner_ok");
+        expect(landowner.map((p) => p.season).sort(), `${preset.key} Eigentümer`).toEqual(seasons);
+        for (const permit of landowner)
+          expect(permit.authorityContactId).toBe(venue?.landownerContactId);
+      }
+    }
+  });
+
+  it("keeps a market's season permits to that market's dates, even where markets share a place", () => {
+    const eventById = new Map(data.events.map((e) => [e.id, e]));
+    const presetsByPermit = new Map<string, Set<string>>();
+    for (const link of data.eventPermits) {
+      const presetId = eventById.get(link.eventId)?.presetId ?? "";
+      const set = presetsByPermit.get(link.permitId) ?? new Set<string>();
+      presetsByPermit.set(link.permitId, set.add(presetId));
+    }
+    for (const permit of data.permits) {
+      if (!["market_permit", "market_fixing", "landowner_ok"].includes(permit.permitType)) continue;
+      expect(presetsByPermit.get(permit.id)?.size, permit.title).toBe(1);
+    }
+    // Rodenkirchen hosts three markets: each has its own Festsetzung per season, named after it
+    const rodenkirchen = data.eventPresets.filter((p) => p.key.startsWith("rodenkirchen-"));
+    expect(rodenkirchen).toHaveLength(3);
+    for (const preset of rodenkirchen) {
+      const own = permitsOf(preset.key, "market_fixing");
+      expect(own.length).toBeGreaterThan(0);
+      for (const permit of own) expect(permit.title.endsWith(`– ${preset.name}`)).toBe(true);
+    }
+  });
+
+  it("follows the client's sheets: PVBT, Plakatierung, Standrohr, Schaustellerliste, Verkehr", () => {
+    const hoffnungsthal = seasonsOf("hoffnungsthal");
+    const events = data.events.filter(
+      (e) => e.presetId === presetByKey("hoffnungsthal")?.id && e.status !== "cancelled",
+    );
+    // PVBT (96 h), the standpipe and the Schaustellerliste go per date, the rest per season
+    expect(permitsOf("hoffnungsthal", "no_parking")).toHaveLength(events.length);
+    expect(permitsOf("hoffnungsthal", "no_parking")[0]?.title).toMatch(/PVBT/);
+    expect(permitsOf("hoffnungsthal", "water")).toHaveLength(events.length);
+    expect(
+      permitsOf("hoffnungsthal", "signage")
+        .map((p) => p.season)
+        .sort(),
+    ).toEqual(hoffnungsthal);
+    expect(permitsOf("hoffnungsthal", "traffic_order")).toHaveLength(hoffnungsthal.length);
+    const schausteller = permitsOf("hoffnungsthal", "other");
+    expect(schausteller).toHaveLength(events.length);
+    expect(schausteller[0]?.title).toMatch(/Schaustellerliste/);
+    // school toilets instead of a toilet contract
+    expect(permitsOf("hoffnungsthal", "toilets")).toEqual([]);
+
+    expect(permitsOf("riehler-guertel", "no_parking").length).toBeGreaterThan(0);
+    expect(permitsOf("riehler-guertel", "signage").length).toBeGreaterThan(0);
+    expect(permitsOf("riehler-guertel", "traffic_order").length).toBeGreaterThan(0);
+    expect(permitsOf("altstadt", "traffic_order").length).toBeGreaterThan(0);
+    expect(permitsOf("altstadt", "water").length).toBeGreaterThan(0);
+    // Nippes is a square: no PVBT on its sheet
+    expect(permitsOf("nippes", "no_parking")).toEqual([]);
+  });
+
+  it("keeps the Altstadt's collective application for the Marktgenehmigung and the Festsetzung", () => {
+    const altstadt = venueOf("altstadt");
+    for (const type of ["market_permit", "market_fixing"] as const) {
+      const requirement = data.permitRequirements.find(
+        (r) => r.venueId === altstadt?.id && r.permitType === type,
+      );
+      expect(requirement?.submissionWindowEndMd, type).toBe("11-30");
+    }
+  });
+
+  it("has next season's permits mostly not decided yet, with a couple of overdue decisions", () => {
+    const next = data.permits.filter((p) => p.season === SEASON + 1);
+    const statuses = new Set(next.map((p) => p.status));
+    for (const status of ["not_started", "preparing", "applied"] as const)
+      expect(statuses.has(status), status).toBe(true);
+    expect(next.filter((p) => p.status === "granted").length).toBeLessThan(next.length / 2);
+    const overdue = data.permits.filter(
+      (p) => p.status === "applied" && (p.expectedDecisionOn ?? "") <= REFERENCE_DATE,
+    );
+    expect(overdue).toHaveLength(DECISION_OVERDUE);
+    for (const permit of overdue) expect(permit.notes ?? "").toMatch(/nachfragen/);
+  });
+
+  it("turns a granted Festsetzung into a payable, and only a granted one", () => {
+    for (const permit of data.permits.filter((p) => p.permitType === "market_fixing")) {
+      const payables = data.payables.filter((p) => p.permitId === permit.id);
+      if (permit.status === "granted") {
+        expect(payables, permit.title).toHaveLength(1);
+        expect(payables[0]?.category).toBe("permit");
+        expect(payables[0]?.counterpartyContactId).toBe(permit.authorityContactId);
+        expect(payables[0]?.title).toMatch(/^Festsetzungsgebühr/);
+      } else {
+        expect(payables, permit.title).toEqual([]);
+      }
+    }
+  });
+
+  it("links the Saison Genehmigung and its Festsetzung subtask to the market's permits", () => {
+    const permitOf = permitLinks(data);
+    const presetIdByEvent = new Map(data.events.map((e) => [e.id, e.presetId]));
+    const municipal = new Set(
+      data.eventPresets
+        .filter((p) => data.venues.find((v) => v.id === p.venueId)?.kind === "municipal")
+        .map((p) => p.id),
+    );
+    const genehmigung = data.tasks.filter(
+      (t) =>
+        t.templateStableKey === "saison_genehmigung" &&
+        t.status !== "cancelled" &&
+        municipal.has(presetIdByEvent.get(t.eventId) ?? ""),
+    );
+    expect(genehmigung.length).toBeGreaterThan(0);
+    for (const task of genehmigung) expect(permitOf(task)?.permitType).toBe("market_permit");
+    const festsetzung = data.tasks.filter(
+      (t) => t.templateStableKey === "saison_genehmigung__festsetzung" && t.status !== "cancelled",
+    );
+    expect(festsetzung.length).toBeGreaterThan(0);
+    for (const task of festsetzung) expect(permitOf(task)?.permitType).toBe("market_fixing");
+    // Hoffnungsthal: Standrohr, Plakatierung and Schaustellerliste find their permits too
+    for (const key of [
+      "standrohr_bestellen",
+      "saison_genehmigung__plakatierung",
+      "schaustellerliste",
+    ]) {
+      const tasks = data.tasks.filter(
+        (t) =>
+          t.templateStableKey === key &&
+          t.status !== "cancelled" &&
+          presetIdByEvent.get(t.eventId) === presetByKey("hoffnungsthal")?.id,
+      );
+      expect(tasks.length, key).toBeGreaterThan(0);
+      for (const task of tasks) expect(permitOf(task), key).toBeDefined();
+    }
+  });
+
+  it("closes a permit task once its permit is filed, as the app does", () => {
+    const permitOf = permitLinks(data);
+    for (const task of data.tasks) {
+      if (task.status === "cancelled" || task.status === "skipped") continue;
+      if (FILED.has(permitOf(task)?.status ?? "")) expect(task.status, task.title).toBe("done");
+    }
+  });
+
+  it("keeps the two overdue invoices as examples (Südstadt toilets, Altstadt standpipe)", () => {
+    const overdue = data.payables.filter((p) => p.status === "overdue").map((p) => p.title);
+    expect(overdue).toHaveLength(2);
+    expect(overdue.some((t) => t.startsWith("Toilettenrahmenvertrag"))).toBe(true);
+    expect(overdue.some((t) => t.startsWith("Standrohr-Miete") && t.includes("Altstadt"))).toBe(
+      true,
+    );
+  });
+});
+
+/* ----------------------------------------------- contacts and duty roles */
+
+describe("contacts and duty roles (research 13 §4)", () => {
+  it("has the partners the client's sheets name, with fictional details", () => {
+    const names = data.contacts.map((c) => c.name);
+    for (const pattern of [
+      /^Ortsring Hoffnungsthal/,
+      /^DRK/,
+      /Hausmeister/,
+      /^Signalbau Lindner/,
+      /^Elektro Wendler/,
+      /^Schilder Reuter/,
+      /Rösrath.*Standrohr|Standrohr.*Rösrath/,
+    ]) {
+      expect(
+        names.some((name) => pattern.test(name)),
+        String(pattern),
+      ).toBe(true);
+    }
+    // every firm a template item names is a contact
+    const itemText = data.checklistTemplates.flatMap((t) => t.items.map((i) => i.title)).join(" ");
+    for (const firm of ["Signalbau Lindner", "Elektro Wendler", "Schilder Reuter"]) {
+      expect(itemText).toContain(firm);
+      expect(names.some((name) => name.startsWith(firm))).toBe(true);
+    }
+  });
+
+  it("has the new duty roles from the sheets, each with a default holder", () => {
+    const keys = data.dutyRoles.map((r) => r.key);
+    expect(keys).toEqual(expect.arrayContaining(["steward", "night_watch", "traffic", "briefing"]));
+    for (const role of data.dutyRoles) expect(role.defaultStaffMemberId, role.key).not.toBeNull();
+  });
+
+  it("puts the market-day lines on their own duty roles, Nachkassieren on Kasse", () => {
+    const roleKeyById = new Map(data.dutyRoles.map((r) => [r.id, r.key]));
+    const expected: Record<string, string> = {
+      einweisen: "briefing",
+      einweisen_letzter_tag: "briefing",
+      tageswache_ordner: "steward",
+      tageswache_ordner_letzter_tag: "steward",
+      nachtwache: "night_watch",
+      verkehr_regeln: "traffic",
+      verkehr_regeln_letzter_tag: "traffic",
+      abflattern_verkehr: "traffic",
+      verkehrssicherung: "traffic",
+      verkehrssicherung_abbau: "traffic",
+      nachkassieren: "cash",
+      nachkassieren_letzter_tag: "cash",
+    };
+    const seen = new Set<string>();
+    for (const task of data.tasks) {
+      const want = expected[task.templateStableKey];
+      if (!want) continue;
+      seen.add(task.templateStableKey);
+      expect(roleKeyById.get(task.dutyRoleId), task.templateStableKey).toBe(want);
+    }
+    expect([...seen].sort()).toEqual(Object.keys(expected).sort());
+  });
+
+  it("gives the new roles real people: field crew on the day, different Ordner per market", () => {
+    const roleIdByKey = new Map(data.dutyRoles.map((r) => [r.key, r.id]));
+    const staffById = new Map(data.staffMembers.map((s) => [s.id, s]));
+    const eventById = new Map(data.events.map((e) => [e.id, e]));
+    for (const key of ["steward", "night_watch", "traffic", "briefing"] as const) {
+      const tasks = data.tasks.filter((t) => t.dutyRoleId === roleIdByKey.get(key));
+      expect(tasks.length, key).toBeGreaterThan(0);
+      for (const task of tasks) {
+        expect(task.assigneeId, key).toBe(eventById.get(task.eventId)?.duties[key]);
+        expect(staffById.has(task.assigneeId)).toBe(true);
+      }
+    }
+    // night watch and Ordner are field crew without a login
+    for (const event of data.events) {
+      expect(staffById.get(event.duties.night_watch)?.permissionRole ?? null).toBeNull();
+      expect(staffById.get(event.duties.steward)?.permissionRole ?? null).toBeNull();
+    }
+    const stewards = new Set(data.eventPresets.map((p) => p.defaultDuties.steward));
+    expect(stewards.size).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/* ---------------------------------------------------- merging parts A and B */
+
+describe("merging parts A and B", () => {
+  it("attaches the four client sheets to part A's presets only", () => {
+    expect(CLIENT_MARKET_PRESET_KEYS).toEqual({
+      altstadt: ["altstadt"],
+      "riehler-guertel": ["riehler-guertel"],
+      nippes: ["nippes"],
+      hoffnungsthal: ["hoffnungsthal"],
+    });
+  });
+
+  it("lets the events generator create the teardownDay anchor itself (the last market day)", () => {
+    for (const event of data.events) {
+      const teardown = data.eventAnchors.filter(
+        (a) => a.eventId === event.id && a.key === "teardownDay",
+      );
+      expect(teardown.map((a) => a.date)).toEqual([event.endsOn]);
+    }
   });
 });
 
@@ -1241,10 +1589,15 @@ describe.each(REFERENCE_DATES)("as of %s", (today) => {
       if (permit.status === "applied") {
         expect(permit.appliedAt).not.toBeNull();
         expect((permit.appliedAt ?? "") < today).toBe(true);
-        expect((permit.expectedDecisionOn ?? "") > today).toBe(true);
+        expect(permit.expectedDecisionOn).not.toBeNull();
       }
       if (permit.status === "granted") expect((permit.grantedAt ?? "") <= today).toBe(true);
     }
+    // the authority is late on a couple of decisions, never more
+    const decisionOverdue = d.permits.filter(
+      (p) => p.status === "applied" && (p.expectedDecisionOn ?? "") <= today,
+    );
+    expect(decisionOverdue.length).toBeLessThanOrEqual(DECISION_OVERDUE);
   });
 
   it("spreads expected decisions instead of piling them on one day", () => {

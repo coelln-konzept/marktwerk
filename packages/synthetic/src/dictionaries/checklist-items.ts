@@ -22,19 +22,18 @@ import type {
  */
 
 /**
- * Duty roles the sheets need that do not exist yet (research 13 §4). Until they are added, each maps onto an
- * existing role; switching a line here to the new key is the whole change on this side.
- * - Einweisung → `market_lead`  (new role proposed: `briefing`, Einweisung)
- * - Tageswache „Ordner“ → `setup_crew` (new role proposed: `steward`, Ordner)
- * - Nachtwache → `setup_crew` (new role proposed: `night_watch`, Nachtwache)
- * - Verkehr (regeln, Abflattern, Verkehrssicherung) → `setup_crew` (new role proposed: `traffic`, Verkehr)
+ * The duty roles of the sheets' market-day lines (research 13 §4, part C added the four new roles):
+ * - Einweisung → `briefing`
+ * - Tageswache „Ordner“ → `steward`
+ * - Nachtwache → `night_watch`
+ * - Verkehr (regeln, Abflattern, Verkehrssicherung) → `traffic`
  * - Nachkassieren → `cash` (Kasse fits; no new role needed)
  */
 export const CLIENT_DUTY = {
-  briefing: "market_lead",
-  steward: "setup_crew",
-  nightWatch: "setup_crew",
-  traffic: "setup_crew",
+  briefing: "briefing",
+  steward: "steward",
+  nightWatch: "night_watch",
+  traffic: "traffic",
   collection: "cash",
 } as const satisfies Record<string, DutyRoleKey>;
 
@@ -363,6 +362,7 @@ const STANDROHR_BESTELLEN = item({
   offsetDays: -30,
   dutyRoleKey: "water_power",
   estimateMinutes: 20,
+  permitType: "water", // ordering the standpipe is the application at the water supplier (part C)
   children: [{ key: "abholtermin", title: "Abholtermin vereinbaren", estimateMinutes: 10 }],
 });
 
@@ -670,6 +670,7 @@ const HOFFNUNGSTHAL = fromMaster({
       offsetDays: -60,
       dutyRoleKey: "permits",
       estimateMinutes: 30,
+      permitType: "other", // the Schaustellerliste permit of the market (part C)
     }),
     WERBUNG_AUFHAENGEN,
     STANDROHR_BESTELLEN,
@@ -738,15 +739,12 @@ export const CLIENT_CHECKLISTS: Readonly<Record<ClientMarketKey, readonly ItemBl
   hoffnungsthal: HOFFNUNGSTHAL,
 };
 
-/**
- * Until part A's presets land, the client markets attach to the existing presets listed after their own key.
- * The first key that exists wins, so this works before and after the switch; drop the fallbacks then.
- */
+/** The preset each client sheet attaches to (part A's preset keys; the first key that exists wins). */
 export const CLIENT_MARKET_PRESET_KEYS: Readonly<Record<ClientMarketKey, readonly string[]>> = {
-  altstadt: ["altstadt", "flea-heumarkt"],
-  "riehler-guertel": ["riehler-guertel", "flea-ehrenfeld"],
-  nippes: ["nippes", "flea-nippes"],
-  hoffnungsthal: ["hoffnungsthal", "flea-bergisch"],
+  altstadt: ["altstadt"],
+  "riehler-guertel": ["riehler-guertel"],
+  nippes: ["nippes"],
+  hoffnungsthal: ["hoffnungsthal"],
 };
 
 /* ------------------------------------------------------------- markets without their own sheet yet */

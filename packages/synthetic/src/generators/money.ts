@@ -393,10 +393,32 @@ export function buildPayablesAndInstallments(
     });
   }
 
-  // Toilet framework contracts (one per venue and season). The Südstadt's current invoice is overdue (a deliberate
-  // example), Rudolfplatz's falls due within the next two weeks.
+  // Festsetzung (§ 69 GewO): the fee notice comes with the decision, so only a granted Festsetzung is a payable
+  // (due a month after it). Named after the market where several share a place.
+  const venueNameById = new Map(ctx.venues.map((venue) => [venue.id, venue.name]));
+  for (const permit of ctx.permits) {
+    if (permit.permitType !== "market_fixing" || permit.grantedAt === null) continue;
+    const market = permit.title.split(" – ")[1] ?? venueNameById.get(permit.venueId ?? "") ?? "";
+    drafts.push({
+      ...blank,
+      title: `Festsetzungsgebühr ${market} ${permit.season}`,
+      scope: "company",
+      venueId: permit.venueId,
+      season: permit.season,
+      permitId: permit.id,
+      counterpartyContactId: permit.authorityContactId,
+      category: "permit",
+      totalGrossCents: ctx.feeCentsByPermitId.get(permit.id) ?? 0,
+      critical: true,
+      schedule: [{ dueOn: addDays(permit.grantedAt, 30), share: 100 }],
+    });
+  }
+
+  // Toilet framework contracts (one per venue and season; Hoffnungsthal uses the school's toilets). The Südstadt's
+  // current invoice is overdue (a deliberate example), Rudolfplatz's falls due within the next two weeks.
   ctx.venues.forEach((venue, index) => {
     const venueKey = ctx.venueBlueprintByName.get(venue.name)?.key;
+    if (venueKey === "hoffnungsthal") return;
     for (const season of seasons) {
       const current = season === currentSeason;
       const schedule: Schedule[] =
