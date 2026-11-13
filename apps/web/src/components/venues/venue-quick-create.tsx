@@ -13,6 +13,7 @@ import {
   ContactQuickCreate,
   type CreatedContact,
 } from "@/components/contacts/contact-quick-create";
+import { VenueNeedsDialog } from "@/components/permits/venue-needs-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { QuickCreateDialog } from "@/components/ui/quick-create-dialog";
@@ -26,7 +27,10 @@ export type CreatedVenue = { id: string; name: string; city: string };
 /**
  * "+ Neu" of an Ort picker (user test 2, UT2-01/07): address, Städtisch/Privat and an optional Eigentümer
  * (which can itself be created in a second stacked dialog, UT2-04). The name may stay empty: it becomes
- * "Stadt – Straße". Zones, rows, Zufahrt and coordinates are added later on the Ort's page.
+ * "Stadt – Straße". Zones, rows, Zufahrt and coordinates are added later on the Ort's page. Right after creating,
+ * "Was braucht dieser Ort?" opens in its place (Fahrplan R30; e.g. inside "Markt planen"), pre-ticked from the kind;
+ * the new Ort is already selected, so skipping it loses nothing. Creating an Ort needs `venue:write`, which only
+ * roles with every permit grant have, so the dialog is always offered.
  */
 export function VenueQuickCreate({
   open,
@@ -57,6 +61,8 @@ export function VenueQuickCreate({
   const [landowners, setLandowners] = useState<CreatedContact[]>([]);
   const [newLandowner, setNewLandowner] = useState<string | null>(null);
   const [error, setError] = useState<{ code: string; field: string | null } | null>(null);
+  // The Ort just created, for "Was braucht dieser Ort?".
+  const [needsFor, setNeedsFor] = useState<(CreatedVenue & { kind: VenueKindKey }) | null>(null);
 
   // Each opening starts from what was typed; the Eigentümer are loaded then (not with every page).
   useEffect(() => {
@@ -122,126 +128,139 @@ export function VenueQuickCreate({
         }),
       );
       if (!result.ok) return fail(result.error);
-      onCreated({
+      const created = {
         id: result.data.id,
         name: name.trim().replace(/\s+/g, " ") || derived,
         city: city.trim(),
-      });
+      };
+      onCreated(created);
       onOpenChange(false);
+      setNeedsFor({ ...created, kind });
     });
   }
 
   return (
-    <QuickCreateDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={tQuick("title")}
-      description={tQuick("description")}
-      pending={pending}
-      error={
-        error ? (error.code === NETWORK_ERROR ? tErrors("network") : errorText(error.code)) : null
-      }
-      onSubmit={submit}
-    >
-      <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
+    <>
+      <VenueNeedsDialog
+        open={needsFor !== null}
+        onOpenChange={(next) => !next && setNeedsFor(null)}
+        venueId={needsFor?.id ?? ""}
+        venueName={needsFor?.name ?? ""}
+        kind={needsFor?.kind ?? "municipal"}
+        current={[]}
+        reason="created"
+      />
+      <QuickCreateDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={tQuick("title")}
+        description={tQuick("description")}
+        pending={pending}
+        error={
+          error ? (error.code === NETWORK_ERROR ? tErrors("network") : errorText(error.code)) : null
+        }
+        onSubmit={submit}
+      >
+        <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={id("name")} optional>
+              {t("name")}
+            </Label>
+            <Input
+              id={id("name")}
+              value={name}
+              maxLength={120}
+              autoComplete="off"
+              placeholder={derived || undefined}
+              onChange={(e) => setName(e.target.value)}
+              {...invalid("name")}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={id("kind")}>{t("kind")}</Label>
+            <select
+              id={id("kind")}
+              value={kind}
+              className={SELECT_CLASS}
+              onChange={(e) => setKind(e.target.value as VenueKindKey)}
+            >
+              {VENUE_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {tKinds(k)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id("name")} optional>
-            {t("name")}
+          <Label htmlFor={id("street")} optional>
+            {t("street")}
           </Label>
           <Input
-            id={id("name")}
-            value={name}
+            id={id("street")}
+            value={street}
             maxLength={120}
             autoComplete="off"
-            placeholder={derived || undefined}
-            onChange={(e) => setName(e.target.value)}
-            {...invalid("name")}
+            autoFocus
+            onChange={(e) => setStreet(e.target.value)}
+            {...invalid("street")}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id("kind")}>{t("kind")}</Label>
-          <select
-            id={id("kind")}
-            value={kind}
-            className={SELECT_CLASS}
-            onChange={(e) => setKind(e.target.value as VenueKindKey)}
-          >
-            {VENUE_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {tKinds(k)}
-              </option>
-            ))}
-          </select>
+        <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={id("postal")} optional>
+              {t("postalCode")}
+            </Label>
+            <Input
+              id={id("postal")}
+              value={postalCode}
+              inputMode="numeric"
+              maxLength={5}
+              autoComplete="off"
+              className="tabular"
+              onChange={(e) => setPostalCode(e.target.value)}
+              {...invalid("postal")}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={id("city")}>{t("city")}</Label>
+            <Input
+              id={id("city")}
+              value={city}
+              maxLength={80}
+              autoComplete="off"
+              onChange={(e) => setCity(e.target.value)}
+              {...invalid("city")}
+            />
+          </div>
         </div>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={id("street")} optional>
-          {t("street")}
-        </Label>
-        <Input
-          id={id("street")}
-          value={street}
-          maxLength={120}
-          autoComplete="off"
-          autoFocus
-          onChange={(e) => setStreet(e.target.value)}
-          {...invalid("street")}
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id("postal")} optional>
-            {t("postalCode")}
+          <Label htmlFor={id("landowner")} optional>
+            {t("landowner")}
           </Label>
-          <Input
-            id={id("postal")}
-            value={postalCode}
-            inputMode="numeric"
-            maxLength={5}
-            autoComplete="off"
-            className="tabular"
-            onChange={(e) => setPostalCode(e.target.value)}
-            {...invalid("postal")}
+          <RecordPicker
+            id={id("landowner")}
+            options={options}
+            value={landowner}
+            onChange={setLandowner}
+            allowNone
+            noneLabel={t("noLandowner")}
+            placeholder={t("noLandowner")}
+            aria-invalid={error?.field === id("landowner")}
+            onCreate={(typed) => setNewLandowner(typed)}
+          />
+          <ContactQuickCreate
+            open={newLandowner !== null}
+            onOpenChange={(next) => !next && setNewLandowner(null)}
+            name={newLandowner ?? ""}
+            kinds={["landowner"]}
+            onCreated={(created) => {
+              setLandowners((prev) => [...prev, created]);
+              setLandowner(created.id);
+            }}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id("city")}>{t("city")}</Label>
-          <Input
-            id={id("city")}
-            value={city}
-            maxLength={80}
-            autoComplete="off"
-            onChange={(e) => setCity(e.target.value)}
-            {...invalid("city")}
-          />
-        </div>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={id("landowner")} optional>
-          {t("landowner")}
-        </Label>
-        <RecordPicker
-          id={id("landowner")}
-          options={options}
-          value={landowner}
-          onChange={setLandowner}
-          allowNone
-          noneLabel={t("noLandowner")}
-          placeholder={t("noLandowner")}
-          aria-invalid={error?.field === id("landowner")}
-          onCreate={(typed) => setNewLandowner(typed)}
-        />
-        <ContactQuickCreate
-          open={newLandowner !== null}
-          onOpenChange={(next) => !next && setNewLandowner(null)}
-          name={newLandowner ?? ""}
-          kinds={["landowner"]}
-          onCreated={(created) => {
-            setLandowners((prev) => [...prev, created]);
-            setLandowner(created.id);
-          }}
-        />
-      </div>
-    </QuickCreateDialog>
+      </QuickCreateDialog>
+    </>
   );
 }

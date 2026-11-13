@@ -4,6 +4,7 @@ import {
   defaultAnchors,
   endsOnFor,
   groupConsecutiveDates,
+  itemPermitType,
   type PermitStatus,
   permitCovers,
   permitCoversSeveralEvents,
@@ -112,6 +113,7 @@ export async function previewGeneration(
             ),
           ),
         );
+      const requirementTypes = requirements.map((r) => r.permitType);
       const existingPermits =
         requirements.length === 0
           ? []
@@ -256,9 +258,12 @@ export async function previewGeneration(
           });
           // A "beantragen" task for the permit, unless a template task (or, for a season permit, the season
           // task) already covers that permit type.
+          // A "Genehmigung" item stands for the owner's OK on private ground (Fahrplan R30), as in the fill.
+          const appliesFor = (types: Set<string>) =>
+            [...types].some((type) => itemPermitType(type, requirementTypes) === req.permitType);
           if (
-            !templatePermitTypes.has(req.permitType) &&
-            !(seasonal && seasonPermitTypes(season).has(req.permitType))
+            !appliesFor(templatePermitTypes) &&
+            !(seasonal && appliesFor(seasonPermitTypes(season)))
           ) {
             const applyBy = applyByFor(startsOn, req.leadTimeDays, {
               startMd: req.submissionWindowStartMd,

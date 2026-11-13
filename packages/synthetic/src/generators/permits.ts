@@ -1,3 +1,4 @@
+import { itemPermitType } from "@marktwerk/core";
 import {
   PERMIT_TYPE_BLUEPRINTS,
   type RequirementSpec,
@@ -441,7 +442,8 @@ const LINK_STATUS_ORDER: readonly PermitStatus[] = [
 
 /**
  * The permit a template task of `permitType` is linked to on its event: the seed's and the app's
- * `linkPermitTasks` rule (required links first, then the permit that is furthest along).
+ * `linkPermitTasks` rule (required links first, then the permit that is furthest along). A "Genehmigung" item
+ * (market_permit) applies for the owner's OK on private ground (Fahrplan R30, core `itemPermitType`).
  */
 export function linkedPermit(
   candidates: readonly { permit: Permit; required: boolean }[],
@@ -450,8 +452,12 @@ export function linkedPermit(
   const rank = ({ permit, required }: { permit: Permit; required: boolean }) =>
     (required && permit.status !== "not_required" ? 0 : 100) +
     LINK_STATUS_ORDER.indexOf(permit.status);
+  const type = itemPermitType(
+    permitType,
+    candidates.map((c) => c.permit.permitType),
+  );
   return [...candidates]
-    .filter((c) => c.permit.permitType === permitType)
+    .filter((c) => c.permit.permitType === type)
     .sort((a, b) => rank(a) - rank(b))[0]?.permit;
 }
 

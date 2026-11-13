@@ -1,3 +1,4 @@
+import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Page, PageHeader } from "@/components/shell/page";
@@ -11,7 +12,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function NewVenuePage() {
-  await requirePermission("venue", "write");
+  const user = await requirePermission("venue", "write");
+  // "Was braucht dieser Ort?" sets permit requirements (Fahrplan R30).
+  const canSetNeeds = can(user.role, "permit", "write") && can(user.role, "permit", "delete");
   const t = await getTranslations("venues");
   const tm = await getTranslations("venues.manage");
   const landowners = await listLandownerOptions();
@@ -19,7 +22,7 @@ export default async function NewVenuePage() {
   return (
     <Page crumbs={[{ label: t("title"), href: "/orte" }, { label: tm("newTitle") }]}>
       <PageHeader title={tm("newTitle")} subtitle={tm("newSubtitle")} />
-      <VenueForm initial={EMPTY_VENUE} landowners={landowners} />
+      <VenueForm initial={EMPTY_VENUE} landowners={landowners} canSetNeeds={canSetNeeds} />
     </Page>
   );
 }

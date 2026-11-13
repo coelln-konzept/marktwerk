@@ -37,13 +37,15 @@ const KINDS = VENUE_KINDS;
 
 /**
  * "Neuer Ort" and "Ort bearbeiten": a page, not a modal, because a venue has more than eight fields
- * (UX concept §4). Lengths are typed in metres with a comma and stored as centimetres.
+ * (UX concept §4). Lengths are typed in metres with a comma and stored as centimetres. After creating an Ort, or
+ * switching it between Städtisch and Privat, the Ort page opens "Was braucht dieser Ort?" (`?bedarf=`, Fahrplan R30).
  */
 export function VenueForm({
   venueId,
   initial,
   landowners,
   rowLengthCm = 0,
+  canSetNeeds = false,
 }: {
   /** Set when editing; without it the form creates a venue. */
   venueId?: string;
@@ -51,6 +53,8 @@ export function VenueForm({
   landowners: { id: string; name: string; city: string | null }[];
   /** Total length of the venue's rows; once there are rows, it replaces the stored capacity. */
   rowLengthCm?: number;
+  /** May set the Ort's permit requirements (permit write + delete): then the needs dialog follows. */
+  canSetNeeds?: boolean;
 }) {
   const t = useTranslations("venues");
   const tm = useTranslations("venues.manage");
@@ -151,7 +155,15 @@ export function VenueForm({
           message: tf(editing ? "saved" : "created", { name: name.trim() || derivedName }),
         });
       }
-      router.push(`/orte/${id}` as never);
+      // A new Ort, or one that changed between Städtisch and Privat, asks what it needs (Fahrplan R30).
+      const needs = !canSetNeeds
+        ? null
+        : !editing
+          ? "neu"
+          : kind !== initial.kind && "changed" in result.data && result.data.changed
+            ? "art"
+            : null;
+      router.push(`/orte/${id}${needs ? `?bedarf=${needs}` : ""}` as never);
     });
   }
 

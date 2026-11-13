@@ -3,7 +3,7 @@
  * and which events they cover. Permit fees are `payable`s and are seeded in money.ts.
  */
 
-import { permitCoversApplication } from "@marktwerk/core";
+import { itemPermitType, permitCoversApplication } from "@marktwerk/core";
 import { schema } from "@marktwerk/db";
 import { and, eq, inArray, isNotNull, isNull, ne, notExists } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -16,7 +16,8 @@ const OPEN = ["todo", "in_progress", "waiting_external", "blocked"] as const;
 /**
  * Seed counterpart of `linkPermitTasks` (apps/web/src/server/services/permits.ts; the seed cannot import the
  * server-only services): template tasks whose item names a permit type get the event's permit of that type, season
- * tasks the permit of their Saison record (R11), and open ones whose permit is applied for or granted are done.
+ * tasks the permit of their Saison record (R11), a "Genehmigung" item (market_permit) the owner's OK where the
+ * Ort has that instead of a Marktgenehmigung (R30, `itemPermitType`), and open ones whose permit is applied for or granted are done.
  * Idempotent.
  */
 async function linkPermitTasks(tx: Tx) {
@@ -50,10 +51,18 @@ async function linkPermitTasks(tx: Tx) {
     (c.required && c.status !== "not_required" ? 0 : 100) + STATUS_ORDER.indexOf(c.status);
 
   const byPermit = new Map<string, string[]>();
+  /** The pool's permits of the type the item applies for (R30: market_permit → the Ort's main permit). */
+  const ofType = <C extends { permitType: string }>(pool: C[], itemType: string) => {
+    const type = itemPermitType(
+      itemType,
+      pool.map((c) => c.permitType),
+    );
+    return pool.filter((c) => c.permitType === type);
+  };
   for (const t of open) {
-    const best = (byEvent.get(t.eventId as string) ?? [])
-      .filter((c) => c.permitType === t.permitType)
-      .sort((a, b) => rank(a) - rank(b))[0];
+    const best = ofType(byEvent.get(t.eventId as string) ?? [], t.permitType as string).sort(
+      (a, b) => rank(a) - rank(b),
+    )[0];
     if (best) byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t.id]);
   }
   // Season tasks (R11): the season item that names a permit type links to the permit of its own Saison record.
@@ -81,9 +90,10 @@ async function linkPermitTasks(tx: Tx) {
       and(isNotNull(permit.seasonId), isNull(permit.archivedAt), ne(permit.status, "superseded")),
     );
   for (const t of seasonOpen) {
-    const best = seasonPermits
-      .filter((c) => c.seasonId === t.seasonId && c.permitType === t.permitType)
-      .sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))[0];
+    const best = ofType(
+      seasonPermits.filter((c) => c.seasonId === t.seasonId),
+      t.permitType as string,
+    ).sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))[0];
     if (best) byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t.id]);
   }
   const statusOf = new Map(

@@ -379,7 +379,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
       </section>
 
       <AgreementsSection venueId={id} />
-      <RequirementsSection venueId={id} />
+      <RequirementsSection venueId={id} venueName={venue.name} venueKind={venue.kind} />
     </Page>
   );
 }
