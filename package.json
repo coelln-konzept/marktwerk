@@ -22,6 +22,7 @@
     "db:generate": "pnpm --filter @marktwerk/db generate",
     "db:migrate": "pnpm --filter @marktwerk/db migrate",
     "db:seed": "pnpm --filter @marktwerk/web seed",
+    "db:wipe": "pnpm --filter @marktwerk/web wipe",
     "db:studio": "pnpm --filter @marktwerk/db studio",
     "synth": "pnpm --filter @marktwerk/synthetic generate"
   },
