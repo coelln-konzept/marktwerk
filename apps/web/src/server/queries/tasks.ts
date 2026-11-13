@@ -92,6 +92,8 @@ export type BoardTask = {
   eventColor: string | null;
   /** Kernaufgabe: a task every market needs. */
   isKey: boolean;
+  /** The parent task when this is a subtask (ADR 0021; only in `BoardData.subtasks`), else null. */
+  parentId: string | null;
   dueOn: string | null;
   estimateMinutes: number;
   assigneeId: string | null;
@@ -134,11 +136,107 @@ export type BoardScope = {
 /** Hard cap per query; `truncated` tells the page to say so. */
 const BOARD_LIMIT = 1500;
 
-export type BoardData = { tasks: BoardTask[]; truncated: boolean };
+export type BoardData = {
+  /** Top-level tasks, each with its subtask progress. */
+  tasks: BoardTask[];
+  /**
+   * One event's board (its Checkliste): the subtasks of the tasks in `tasks` (not deleted ones), shown under their
+   * parent (D2-12), in their order under it (board order, then due date and creation, like `listSubtasks`). Never
+   * counted on their own. Across events: empty (the parent carries the progress only).
+   */
+  subtasks: BoardTask[];
+  truncated: boolean;
+};
+
+/** The columns of a board card (the `task` row joined with its event, type, preset and assignee). */
+function boardFields(today: string) {
+  const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
+  return {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    category: task.category,
+    priority: task.priority,
+    source: task.source,
+    eventId: task.eventId,
+    eventName: event.name,
+    eventTypeKey: eventType.key,
+    eventColor: eventPreset.color,
+    isKey: task.isKey,
+    parentId: task.parentTaskId,
+    dueAt: task.dueAt,
+    estimateMinutes: task.estimateMinutes,
+    assigneeId: task.assigneeId,
+    assigneeName: staffMember.displayName,
+    waitingReason: task.waitingReason,
+    boardColumn: task.boardColumn,
+    boardSort: task.boardSort,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    completedAt: task.completedAt,
+    rolloverCount: task.rolloverCount,
+    requiresNote: task.requiresNote,
+    requiresPhoto: task.requiresPhoto,
+    requiresAttachment: task.requiresAttachment,
+    snoozedUntil: task.snoozedUntil,
+    removedFromTemplate: task.removedFromTemplate,
+    subtasksTotal: sub.subtasksTotal,
+    subtasksDone: sub.subtasksDone,
+    subtasksOverdue: sub.subtasksOverdue,
+  };
+}
+
+function selectBoardRows(today: string) {
+  return db
+    .select(boardFields(today))
+    .from(task)
+    .leftJoin(event, eq(event.id, task.eventId))
+    .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
+    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
+    .leftJoin(staffMember, eq(staffMember.id, task.assigneeId));
+}
+
+type BoardRow = Awaited<ReturnType<typeof selectBoardRows>>[number];
+
+function toBoardTask(r: BoardRow, today: string): BoardTask {
+  return {
+    id: r.id,
+    title: r.title,
+    status: r.status,
+    category: r.category,
+    priority: r.priority,
+    source: r.source,
+    eventId: r.eventId,
+    eventName: r.eventName,
+    eventTypeKey: r.eventTypeKey,
+    eventColor: r.eventColor,
+    isKey: r.isKey,
+    parentId: r.parentId,
+    dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
+    estimateMinutes: r.estimateMinutes,
+    assigneeId: r.assigneeId,
+    assigneeName: r.assigneeName,
+    waitingReason: r.waitingReason,
+    boardColumn: r.boardColumn,
+    boardSort: r.boardSort,
+    column: boardColumnFor(r, today),
+    rolloverCount: r.rolloverCount,
+    subtasksTotal: r.subtasksTotal,
+    subtasksDone: r.subtasksDone,
+    subtasksOverdue: r.subtasksOverdue,
+    completedOn: r.completedAt ? berlinDay(r.completedAt) : null,
+    requiresNote: r.requiresNote,
+    requiresPhoto: r.requiresPhoto,
+    requiresAttachment: r.requiresAttachment,
+    snoozedUntil: r.snoozedUntil && r.snoozedUntil > today ? r.snoozedUntil : null,
+    removedFromTemplate: r.removedFromTemplate,
+  };
+}
 
 /**
  * Cards for the board: open tasks plus finished ones of the last 14 days (Erledigt), cancelled ones never.
- * Top-level tasks only, each with its subtask progress (ADR 0021).
+ * Top-level tasks only, each with its subtask progress (ADR 0021); one event's board also gets the subtasks of
+ * those tasks (one more query for all of them, see `BoardData.subtasks`).
  * One event's board is its Checkliste (user test 2026-11), so there every finished task counts.
  * Within a column they are in display order (`board_sort`, then due date).
  */
@@ -147,53 +245,15 @@ export async function listBoardTasks(
   scope: BoardScope,
   today: string,
 ): Promise<BoardData> {
-  if (scope.eventId && !UUID.test(scope.eventId)) return { tasks: [], truncated: false };
+  if (scope.eventId && !UUID.test(scope.eventId))
+    return { tasks: [], subtasks: [], truncated: false };
   const since = resolveRelativeDue(doneVisibleSince(today), 0, "00:00");
   const horizonDays = scope.horizonDays ?? null;
   // Event-less tasks have no market to measure against, so their due date is cut at the horizon.
   const horizon =
     horizonDays === null ? null : resolveRelativeDue(addDays(today, horizonDays + 1), 0, "00:00");
 
-  const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
-
-  const rows = await db
-    .select({
-      id: task.id,
-      title: task.title,
-      status: task.status,
-      category: task.category,
-      priority: task.priority,
-      source: task.source,
-      eventId: task.eventId,
-      eventName: event.name,
-      eventTypeKey: eventType.key,
-      eventColor: eventPreset.color,
-      isKey: task.isKey,
-      dueAt: task.dueAt,
-      estimateMinutes: task.estimateMinutes,
-      assigneeId: task.assigneeId,
-      assigneeName: staffMember.displayName,
-      waitingReason: task.waitingReason,
-      boardColumn: task.boardColumn,
-      boardSort: task.boardSort,
-      createdAt: task.createdAt,
-      updatedAt: task.updatedAt,
-      completedAt: task.completedAt,
-      rolloverCount: task.rolloverCount,
-      requiresNote: task.requiresNote,
-      requiresPhoto: task.requiresPhoto,
-      requiresAttachment: task.requiresAttachment,
-      snoozedUntil: task.snoozedUntil,
-      removedFromTemplate: task.removedFromTemplate,
-      subtasksTotal: sub.subtasksTotal,
-      subtasksDone: sub.subtasksDone,
-      subtasksOverdue: sub.subtasksOverdue,
-    })
-    .from(task)
-    .leftJoin(event, eq(event.id, task.eventId))
-    .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
-    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
-    .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
+  const rows = await selectBoardRows(today)
     .where(
       and(
         visibleTasks(actor),
@@ -225,40 +285,33 @@ export async function listBoardTasks(
     .limit(BOARD_LIMIT + 1);
 
   const truncated = rows.length > BOARD_LIMIT;
-  const cards = rows.slice(0, BOARD_LIMIT).map((r): BoardTask & { sortKey: typeof r } => ({
-    id: r.id,
-    title: r.title,
-    status: r.status,
-    category: r.category,
-    priority: r.priority,
-    source: r.source,
-    eventId: r.eventId,
-    eventName: r.eventName,
-    eventTypeKey: r.eventTypeKey,
-    eventColor: r.eventColor,
-    isKey: r.isKey,
-    dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
-    estimateMinutes: r.estimateMinutes,
-    assigneeId: r.assigneeId,
-    assigneeName: r.assigneeName,
-    waitingReason: r.waitingReason,
-    boardColumn: r.boardColumn,
-    boardSort: r.boardSort,
-    column: boardColumnFor(r, today),
-    rolloverCount: r.rolloverCount,
-    subtasksTotal: r.subtasksTotal,
-    subtasksDone: r.subtasksDone,
-    subtasksOverdue: r.subtasksOverdue,
-    completedOn: r.completedAt ? berlinDay(r.completedAt) : null,
-    requiresNote: r.requiresNote,
-    requiresPhoto: r.requiresPhoto,
-    requiresAttachment: r.requiresAttachment,
-    snoozedUntil: r.snoozedUntil && r.snoozedUntil > today ? r.snoozedUntil : null,
-    removedFromTemplate: r.removedFromTemplate,
-    sortKey: r,
-  }));
-  cards.sort((a, b) => compareCards(a.sortKey, b.sortKey));
-  return { tasks: cards.map(({ sortKey: _sortKey, ...card }) => card), truncated };
+  const kept = rows.slice(0, BOARD_LIMIT);
+  kept.sort(compareCards);
+  const tasks = kept.map((r) => toBoardTask(r, today));
+
+  const subtasks =
+    scope.eventId && tasks.length > 0
+      ? (
+          await selectBoardRows(today)
+            .where(
+              and(
+                visibleTasks(actor),
+                inArray(
+                  task.parentTaskId,
+                  tasks.map((t) => t.id),
+                ),
+                ne(task.status, "cancelled"),
+              ),
+            )
+            .orderBy(
+              asc(task.boardSort),
+              sql`${task.dueAt} asc nulls last`,
+              asc(task.createdAt),
+              asc(task.id),
+            )
+        ).map((r) => toBoardTask(r, today))
+      : [];
+  return { tasks, subtasks, truncated };
 }
 
 // ---------------------------------------------------------------------------------------------

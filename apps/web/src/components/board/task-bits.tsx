@@ -1,6 +1,7 @@
 "use client";
 
 import type { LoadLevel, TaskStatusKey } from "@marktwerk/core";
+import { CircleAlert, ListChecks } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { DueBadge } from "@/components/ui/due-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -64,6 +65,43 @@ export function DueLine({
   if (dueOn === null) return <span className="text-faint-foreground text-tiny">{t("none")}</span>;
   // A wait for somebody else is neutral, never the red "überfällig".
   return <DueBadge dueOn={dueOn} today={today} waiting={status === "waiting_external"} />;
+}
+
+/**
+ * A parent's subtask progress ("3/5") and, when one of its open subtasks is overdue, the flag that says so
+ * (colour + icon + text; ADR 0021, D2-12: an overdue subtask flags its parent). Nothing for a task without
+ * subtasks.
+ */
+export function SubtaskProgress({
+  done,
+  total,
+  overdue,
+}: {
+  done: number;
+  total: number;
+  overdue: number;
+}) {
+  const t = useTranslations("board.nest");
+  if (total === 0) return null;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5">
+      <span
+        title={t("progress", { done, total })}
+        className="tabular inline-flex items-center gap-1 text-muted-foreground text-tiny"
+      >
+        <ListChecks aria-hidden className="size-3.5" />
+        <span className="sr-only">{t("progress", { done, total })}</span>
+        <span aria-hidden>
+          {done}/{total}
+        </span>
+      </span>
+      {overdue > 0 && (
+        <StatusBadge tone="critical" icon={CircleAlert}>
+          {t("overdue", { count: overdue })}
+        </StatusBadge>
+      )}
+    </span>
+  );
 }
 
 const FILL: Record<LoadLevel, string> = {

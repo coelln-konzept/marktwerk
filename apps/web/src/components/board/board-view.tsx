@@ -6,6 +6,7 @@ import {
   isAfterEvent,
   isFinishedStatus,
   sortColumnByDue,
+  subtaskProgress,
   type TaskStatusKey,
 } from "@marktwerk/core";
 import { Keyboard } from "lucide-react";
@@ -21,10 +22,11 @@ import type { BoardTask, PeopleRail, StaffOption } from "@/server/queries/tasks"
 import { AblaufList } from "./ablauf-list";
 import { type BoardActions, BoardProvider, type Lift } from "./board-context";
 import { BoardDnd, useCellDrop, useLaneDrop } from "./board-dnd";
+import { ParentDialog } from "./parent-dialog";
 import { PeopleRailPanel } from "./people-rail";
 import { ReasonDialog } from "./reason-dialog";
 import { LoadBar } from "./task-bits";
-import { CardPreview, TaskCard } from "./task-card";
+import { CardPreview, RowPreview, TaskCard } from "./task-card";
 import { type OptimisticPatch, useTaskActions } from "./use-task-actions";
 
 /** Finished cards shown before "weitere anzeigen" (the column is a collapsed list). */
@@ -62,6 +64,10 @@ function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): 
   const task = state.find((t) => t.id === patch.id);
   if (!task) return state;
   if (patch.kind === "remove") return state.filter((t) => t.id !== patch.id);
+  if (patch.kind === "parent") {
+    // To the end, so a task nested just now shows last under its new parent.
+    return [...state.filter((t) => t.id !== patch.id), { ...task, parentId: patch.parentId }];
+  }
   if (patch.kind === "assign") {
     return state.map((t) =>
       t.id === patch.id
@@ -107,8 +113,12 @@ function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): 
 
 export type BoardLayout = "columns" | "person" | "ablauf";
 
+const NO_TASKS: BoardTask[] = [];
+
 type Props = {
   tasks: BoardTask[];
+  /** Event board: the subtasks of `tasks`, shown under their parent (ADR 0021). */
+  subtasks?: BoardTask[];
   staff: StaffOption[];
   /** People rail; null while the team module is hidden (lib/modules.ts). */
   rail: PeopleRail | null;
@@ -141,9 +151,37 @@ export function BoardView(props: Props) {
   const t = useTranslations("board");
   const locale = useLocale();
   const { today, staff } = props;
-  const [tasks, apply] = useOptimistic(props.tasks, (state, patch: OptimisticPatch) =>
+  // Top-level tasks and subtasks in one optimistic list, so nesting, lifting out and ticking a subtask show at
+  // once; the views get the top-level tasks and the subtasks per parent.
+  const loaded = useMemo(
+    () => (props.subtasks?.length ? [...props.tasks, ...props.subtasks] : props.tasks),
+    [props.tasks, props.subtasks],
+  );
+  const [everything, apply] = useOptimistic(loaded, (state, patch: OptimisticPatch) =>
     applyPatch(state, patch, today),
   );
+  const eventBoard = props.scopeEventId !== null;
+  const { tasks, childrenOf, byId } = useMemo(() => {
+    const children = new Map<string, BoardTask[]>();
+    const top: BoardTask[] = [];
+    for (const task of everything) {
+      if (task.parentId === null) top.push(task);
+      else children.set(task.parentId, [...(children.get(task.parentId) ?? []), task]);
+    }
+    const ids = new Map(everything.map((task) => [task.id, task]));
+    // Across events the server's progress is all there is. On the event board the subtasks are here, so the
+    // parent's "3/5" and overdue flag follow a tick, a nesting or a lift-out at once.
+    if (!eventBoard) return { tasks: top, childrenOf: children, byId: ids };
+    const withProgress = top.map((task) => {
+      const p = subtaskProgress(children.get(task.id) ?? [], today);
+      return p.total === task.subtasksTotal &&
+        p.done === task.subtasksDone &&
+        p.overdue === task.subtasksOverdue
+        ? task
+        : { ...task, subtasksTotal: p.total, subtasksDone: p.done, subtasksOverdue: p.overdue };
+    });
+    return { tasks: withProgress, childrenOf: children, byId: ids };
+  }, [everything, eventBoard, today]);
   // Across events done cards leave the open columns, so "Erledigt" asks first (decision D1); the
   // event's Checkliste keeps them in place and asks nothing.
   const current = useTaskActions({
@@ -166,6 +204,7 @@ export function BoardView(props: Props) {
       snooze: (...args: Parameters<Live["snooze"]>) => liveRef.current.snooze(...args),
       unsnooze: (...args: Parameters<Live["unsnooze"]>) => liveRef.current.unsnooze(...args),
       remove: (...args: Parameters<Live["remove"]>) => liveRef.current.remove(...args),
+      setParent: (...args: Parameters<Live["setParent"]>) => liveRef.current.setParent(...args),
       restore: (...args: Parameters<Live["restore"]>) => liveRef.current.restore(...args),
       errorText: (code: string) => liveRef.current.errorText(code),
       drawer: {
@@ -183,6 +222,7 @@ export function BoardView(props: Props) {
     null,
   );
   const [snoozeFor, setSnoozeFor] = useState<BoardTask | null>(null);
+  const [parentFor, setParentFor] = useState<BoardTask | null>(null);
   const focusAfter = useRef<string | null>(null);
 
   const eventEndsOn = props.eventEndsOn ?? null;
@@ -285,6 +325,12 @@ export function BoardView(props: Props) {
   );
 
   const askSnoozeDate = useCallback((task: BoardTask) => setSnoozeFor(task), []);
+  const askParent = useCallback((task: BoardTask) => setParentFor(task), []);
+  const subtasksOf = useCallback(
+    (parentId: string) => childrenOf.get(parentId) ?? NO_TASKS,
+    [childrenOf],
+  );
+  const taskById = useCallback((id: string) => byId.get(id), [byId]);
 
   const value = useMemo(
     () => ({
@@ -303,8 +349,16 @@ export function BoardView(props: Props) {
       cancelLift,
       askReason,
       askSnoozeDate,
+      nestable: eventBoard && props.canWrite,
+      subtasksOf,
+      taskById,
+      askParent,
     }),
     [
+      eventBoard,
+      subtasksOf,
+      taskById,
+      askParent,
       today,
       staff,
       props.canWrite,
@@ -332,7 +386,17 @@ export function BoardView(props: Props) {
 
   return (
     <BoardProvider value={value}>
-      <BoardDnd tasks={tasks} cardsOf={cardsOf} overlay={(task) => <CardPreview task={task} />}>
+      <BoardDnd
+        tasks={everything}
+        cardsOf={cardsOf}
+        overlay={(task) =>
+          props.layout === "ablauf" || task.parentId !== null ? (
+            <RowPreview task={task} />
+          ) : (
+            <CardPreview task={task} />
+          )
+        }
+      >
         <div className="flex flex-col gap-3">
           {liftedTask && (
             <div
@@ -451,6 +515,19 @@ export function BoardView(props: Props) {
         onSubmit={(reason) => {
           if (reasonFor) actions.setStatus(reasonFor.task, reasonFor.status, { reason });
           setReasonFor(null);
+        }}
+      />
+      <ParentDialog
+        task={parentFor}
+        tasks={tasks}
+        hasSubtasks={(id) =>
+          (childrenOf.get(id)?.length ?? 0) > 0 ||
+          (!eventBoard && (byId.get(id)?.subtasksTotal ?? 0) > 0)
+        }
+        onCancel={() => setParentFor(null)}
+        onPick={(parent) => {
+          if (parentFor) actions.setParent(parentFor, parent);
+          setParentFor(null);
         }}
       />
       <SnoozeDialog

@@ -129,7 +129,10 @@
       "deleted": "„{title}“ gelöscht",
       "restored": "„{title}“ wiederhergestellt",
       "parentReady": "Alle Unteraufgaben von „{title}“ sind erledigt. Hauptaufgabe auch erledigen?",
-      "completeParent": "Hauptaufgabe erledigen"
+      "completeParent": "Hauptaufgabe erledigen",
+      "nested": "„{title}“ ist jetzt Unteraufgabe von „{parent}“",
+      "unnestedFrom": "„{title}“ aus „{parent}“ gelöst",
+      "unnested": "„{title}“ ist keine Unteraufgabe mehr"
     },
     "confirmDone": {
       "title": "Aufgabe erledigt?",
@@ -303,6 +306,35 @@
       "today": "heute",
       "tomorrow": "morgen",
       "inDays": "in {days} Tagen"
+    },
+    "nest": {
+      "menuNest": "Unteraufgabe von …",
+      "menuUnnest": "Aus Hauptaufgabe lösen",
+      "dialogTitle": "Unteraufgabe von …",
+      "dialogDescription": "Unter welche Aufgabe soll „{title}“?",
+      "search": "Aufgabe suchen",
+      "searchPlaceholder": "Titel eingeben …",
+      "candidates": "Aufgaben dieser Veranstaltung",
+      "noMatch": "Keine Aufgabe passt zur Suche.",
+      "noCandidates": "In dieser Veranstaltung gibt es keine offene Aufgabe, unter die „{title}“ passt.",
+      "cancel": "Abbrechen",
+      "dropInto": "Als Unteraufgabe von „{parent}“",
+      "dropOut": "Aus „{parent}“ lösen",
+      "refused": "„{title}“ kann hier keine Unteraufgabe werden: {reason}.",
+      "progress": "{done} von {total} Unteraufgaben erledigt",
+      "overdue": "{count, plural, one {Unteraufgabe überfällig} other {# Unteraufgaben überfällig}}",
+      "subtaskOf": "Unteraufgabe von „{parent}“",
+      "subtasksOf": "Unteraufgaben von „{title}“",
+      "problems": {
+        "self": "eine Aufgabe kann nicht unter sich selbst",
+        "parent_is_subtask": "„{parent}“ ist selbst eine Unteraufgabe (nur eine Ebene)",
+        "has_subtasks": "„{title}“ hat selbst Unteraufgaben (nur eine Ebene)",
+        "other_event": "„{parent}“ gehört zu einer anderen Veranstaltung",
+        "parent_cancelled": "„{parent}“ ist gelöscht",
+        "parent_closed": "„{parent}“ ist schon erledigt",
+        "not_found": "die Hauptaufgabe gibt es nicht mehr oder du siehst sie nicht",
+        "other": "nur eine Ebene, gleiche Veranstaltung, Hauptaufgabe offen"
+      }
     }
   },
   "drawer": {

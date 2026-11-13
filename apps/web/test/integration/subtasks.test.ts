@@ -291,6 +291,102 @@ describe("subtask services", () => {
   });
 });
 
+describe("board query with subtasks (Checkliste, D2-12)", () => {
+  /** Two parents and a plain task on the event; one subtask on the other event. */
+  async function board() {
+    const a = await insertTask({ title: "Aufbau", eventId, dueAt: dueOn("2026-11-10") });
+    const b = await insertTask({ title: "Werbung", eventId, dueAt: dueOn("2026-11-05") });
+    const c = await insertTask({ title: "Schilder", eventId, dueAt: dueOn("2026-11-12") });
+    const a1 = await insertTask({
+      title: "Zelte",
+      eventId,
+      parentTaskId: a.id,
+      dueAt: dueOn("2026-11-08"),
+    });
+    const a2 = await insertTask({
+      title: "Strom",
+      eventId,
+      parentTaskId: a.id,
+      dueAt: dueOn("2026-10-19"),
+      assigneeId: cat.staff.ben.id,
+    });
+    const a3 = await insertTask({ title: "Tische", eventId, parentTaskId: a.id });
+    const aDone = await insertTask({
+      title: "Plan",
+      eventId,
+      parentTaskId: a.id,
+      dueAt: dueOn("2026-11-09"),
+      status: "done",
+      completedAt: new Date("2026-10-20T10:00:00Z"),
+    });
+    await insertTask({ title: "gelöscht", eventId, parentTaskId: a.id, status: "cancelled" });
+    const b1 = await insertTask({ title: "Plakate", eventId, parentTaskId: b.id });
+    const other = await insertTask({ title: "Fremd", eventId: otherEventId });
+    await insertTask({ title: "Fremd-Sub", eventId: otherEventId, parentTaskId: other.id });
+    return { a, b, c, a1, a2, a3, aDone, b1 };
+  }
+
+  it("event board: subtasks under their parents, in their order, never counted on their own", async () => {
+    const { a, b, c, a1, a2, a3, aDone, b1 } = await board();
+    const { tasks, subtasks } = await listBoardTasks(owner, { eventId }, TODAY);
+
+    // Top-level only in `tasks`; no task in both lists.
+    expect(tasks.map((t) => t.id).sort()).toEqual([a.id, b.id, c.id].sort());
+    expect(tasks.every((t) => t.parentId === null)).toBe(true);
+    const top = new Set(tasks.map((t) => t.id));
+    expect(subtasks.some((s) => top.has(s.id))).toBe(false);
+
+    // Under each parent in board order, then due date (undated last); deleted ones left out.
+    const under = (id: string) => subtasks.filter((s) => s.parentId === id).map((s) => s.id);
+    expect(under(a.id)).toEqual([a2.id, a1.id, aDone.id, a3.id]);
+    expect(under(b.id)).toEqual([b1.id]);
+    expect(subtasks).toHaveLength(5);
+
+    // The parent's progress matches the subtasks shown under it.
+    expect(tasks.find((t) => t.id === a.id)).toMatchObject({
+      subtasksTotal: 4,
+      subtasksDone: 1,
+      subtasksOverdue: 1,
+    });
+    expect(subtasks.find((s) => s.id === a2.id)).toMatchObject({
+      assigneeName: "Ben Test",
+      dueOn: "2026-10-19",
+      column: "today",
+      subtasksTotal: 0,
+    });
+    expect(subtasks.find((s) => s.id === aDone.id)).toMatchObject({
+      status: "done",
+      completedOn: "2026-10-20",
+    });
+  });
+
+  it("across events: parents with their progress only, no subtasks", async () => {
+    const { a, a1 } = await board();
+    const { tasks, subtasks } = await listBoardTasks(owner, {}, TODAY);
+    expect(subtasks).toEqual([]);
+    expect(tasks.some((t) => t.id === a1.id || t.parentId !== null)).toBe(false);
+    expect(tasks.find((t) => t.id === a.id)).toMatchObject({ subtasksTotal: 4, subtasksDone: 1 });
+  });
+
+  it("nesting and its undo move the task between the lists", async () => {
+    const { b, c, b1 } = await board();
+    const nested = await setTaskParent(owner, c.id, b.id);
+    let data = await listBoardTasks(owner, { eventId }, TODAY);
+    expect(data.tasks.map((t) => t.id)).not.toContain(c.id);
+    // Its place under the parent follows the same order (dated before undated).
+    expect(data.subtasks.filter((s) => s.parentId === b.id).map((s) => s.id)).toEqual([
+      c.id,
+      b1.id,
+    ]);
+    expect(data.tasks.find((t) => t.id === b.id)?.subtasksTotal).toBe(2);
+
+    await undoTaskChange(owner, nested.auditId as string);
+    data = await listBoardTasks(owner, { eventId }, TODAY);
+    expect(data.tasks.map((t) => t.id)).toContain(c.id);
+    expect(data.subtasks.map((s) => s.id)).not.toContain(c.id);
+  });
+});
+
 describe("lists count a subtask once, through its parent", () => {
   /** Parent (Anna, due later), an overdue subtask of Ben's, an overdue one of Anna's, an unassigned one. */
   async function tree() {

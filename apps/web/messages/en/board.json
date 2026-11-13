@@ -129,7 +129,10 @@
       "deleted": "“{title}” deleted",
       "restored": "“{title}” restored",
       "parentReady": "All subtasks of “{title}” are done. Complete the main task too?",
-      "completeParent": "Complete main task"
+      "completeParent": "Complete main task",
+      "nested": "“{title}” is now a subtask of “{parent}”",
+      "unnestedFrom": "“{title}” taken out of “{parent}”",
+      "unnested": "“{title}” is no longer a subtask"
     },
     "confirmDone": {
       "title": "Task done?",
@@ -303,6 +306,35 @@
       "today": "today",
       "tomorrow": "tomorrow",
       "inDays": "in {days} days"
+    },
+    "nest": {
+      "menuNest": "Subtask of …",
+      "menuUnnest": "Take out of main task",
+      "dialogTitle": "Subtask of …",
+      "dialogDescription": "Which task should “{title}” go under?",
+      "search": "Search tasks",
+      "searchPlaceholder": "Type a title …",
+      "candidates": "Tasks of this event",
+      "noMatch": "No task matches the search.",
+      "noCandidates": "This event has no open task that “{title}” can go under.",
+      "cancel": "Cancel",
+      "dropInto": "As a subtask of “{parent}”",
+      "dropOut": "Take out of “{parent}”",
+      "refused": "“{title}” can't become a subtask here: {reason}.",
+      "progress": "{done} of {total} subtasks done",
+      "overdue": "{count, plural, one {Subtask overdue} other {# subtasks overdue}}",
+      "subtaskOf": "Subtask of “{parent}”",
+      "subtasksOf": "Subtasks of “{title}”",
+      "problems": {
+        "self": "a task can't go under itself",
+        "parent_is_subtask": "“{parent}” is a subtask itself (one level only)",
+        "has_subtasks": "“{title}” has subtasks of its own (one level only)",
+        "other_event": "“{parent}” belongs to another event",
+        "parent_cancelled": "“{parent}” is deleted",
+        "parent_closed": "“{parent}” is already done",
+        "not_found": "the main task no longer exists or you can't see it",
+        "other": "one level only, same event, main task open"
+      }
     }
   },
   "drawer": {
