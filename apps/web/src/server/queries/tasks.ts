@@ -64,7 +64,8 @@ import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import { deadlineScope, notOfPastEvent, visibleTasks } from "../task-scope";
 import { type DocumentRow, listLinkedDocuments } from "./documents";
-import type { CalendarItem, DueItem } from "./due";
+import type { CalendarItem, DueItem, TaskSeason } from "./due";
+import { seasonContext, toTaskSeason } from "./season-context";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const OPEN = [...OPEN_STATUSES];
@@ -88,8 +89,13 @@ export type BoardTask = {
   eventName: string | null;
   /** Event type key (`flea`, …), for the colour marker. */
   eventTypeKey: string | null;
-  /** The market colour of the event's preset (`MARKET_COLORS` key), null = fall back to the type. */
+  /**
+   * The market colour of the event's preset (`MARKET_COLORS` key), null = fall back to the type. A season task
+   * carries its market's colour (and type in `eventTypeKey`) here.
+   */
   eventColor: string | null;
+  /** Season tasks (research 13 §6.3): their market and season, shown where an event task names its event. */
+  season: TaskSeason | null;
   /** Kernaufgabe: a task every market needs. */
   isKey: boolean;
   /** The parent task when this is a subtask (ADR 0021; only in `BoardData.subtasks`), else null. */
@@ -150,8 +156,8 @@ export type BoardData = {
   truncated: boolean;
 };
 
-/** The columns of a board card (the `task` row joined with its event, type, preset and assignee). */
-function boardFields(today: string) {
+/** The columns of a board card (the `task` row joined with its event, type, preset, Saison and assignee). */
+function boardFields(today: string, sc: ReturnType<typeof seasonContext>) {
   const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
   return {
     id: task.id,
@@ -164,6 +170,12 @@ function boardFields(today: string) {
     eventName: event.name,
     eventTypeKey: eventType.key,
     eventColor: eventPreset.color,
+    seasonId: sc.seasonId,
+    seasonYear: sc.seasonYear,
+    seasonPresetId: sc.seasonPresetId,
+    seasonName: sc.seasonName,
+    seasonColor: sc.seasonColor,
+    seasonTypeKey: sc.seasonTypeKey,
     isKey: task.isKey,
     parentId: task.parentTaskId,
     dueAt: task.dueAt,
@@ -190,18 +202,20 @@ function boardFields(today: string) {
 }
 
 function selectBoardRows(today: string) {
+  const sc = seasonContext();
   return db
-    .select(boardFields(today))
+    .select(boardFields(today, sc))
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
     .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
     .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId));
 }
 
 type BoardRow = Awaited<ReturnType<typeof selectBoardRows>>[number];
 
-function toBoardTask(r: BoardRow, today: string): BoardTask {
+function toBoardTask(r: BoardRow, today: string, actor: Actor): BoardTask {
   return {
     id: r.id,
     title: r.title,
@@ -211,8 +225,9 @@ function toBoardTask(r: BoardRow, today: string): BoardTask {
     source: r.source,
     eventId: r.eventId,
     eventName: r.eventName,
-    eventTypeKey: r.eventTypeKey,
-    eventColor: r.eventColor,
+    eventTypeKey: r.eventTypeKey ?? r.seasonTypeKey,
+    eventColor: r.eventColor ?? r.seasonColor,
+    season: toTaskSeason(actor, r),
     isKey: r.isKey,
     parentId: r.parentId,
     dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
@@ -291,7 +306,7 @@ export async function listBoardTasks(
   const truncated = rows.length > BOARD_LIMIT;
   const kept = rows.slice(0, BOARD_LIMIT);
   kept.sort(compareCards);
-  const tasks = kept.map((r) => toBoardTask(r, today));
+  const tasks = kept.map((r) => toBoardTask(r, today, actor));
 
   const subtasks =
     scope.eventId && tasks.length > 0
@@ -313,7 +328,7 @@ export async function listBoardTasks(
               asc(task.createdAt),
               asc(task.id),
             )
-        ).map((r) => toBoardTask(r, today))
+        ).map((r) => toBoardTask(r, today, actor))
       : [];
   return { tasks, subtasks, truncated };
 }
@@ -833,6 +848,8 @@ export type TaskDetail = {
   source: BoardTask["source"];
   eventId: string | null;
   eventName: string | null;
+  /** Season tasks: the drawer's header names "<Markt> · Saison <Jahr>" and links to the market page instead. */
+  season: TaskSeason | null;
   isKey: boolean;
   dueOn: string | null;
   dueOverridden: boolean;
@@ -908,10 +925,15 @@ export async function getTaskDetail(
     })
     .from(staffMember)
     .as("assignee");
+  const sc = seasonContext();
   const [row] = await db
     .select({
       t: task,
       eventName: event.name,
+      seasonId: sc.seasonId,
+      seasonYear: sc.seasonYear,
+      seasonPresetId: sc.seasonPresetId,
+      seasonName: sc.seasonName,
       assigneeName: assignee.name,
       assigneeHasEmail: assignee.hasEmail,
       assigneeHasPhone: assignee.hasPhone,
@@ -921,6 +943,7 @@ export async function getTaskDetail(
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .leftJoin(assignee, eq(assignee.id, task.assigneeId))
     .leftJoin(user, eq(user.id, task.notifyUserId))
     .leftJoin(dutyRole, eq(dutyRole.id, task.dutyRoleId))
@@ -981,6 +1004,7 @@ export async function getTaskDetail(
     source: t.source,
     eventId: t.eventId,
     eventName: row.eventName,
+    season: toTaskSeason(actor, row),
     isKey: t.isKey,
     dueOn: t.dueAt ? berlinDay(t.dueAt) : null,
     dueOverridden: t.dueOverridden,
@@ -1165,6 +1189,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
   const firstOverdueSubtask = sql<Date | null>`(select min(st."due_at") from "app"."task" st
     where st."parent_task_id" = ${task.id} and st."status" in ('todo', 'in_progress', 'blocked')
       and st."due_at" < ${todayStart} and (st."snoozed_until" is null or st."snoozed_until" <= ${today}))`;
+  const sc = seasonContext();
   const rows = await db
     .select({
       id: task.id,
@@ -1175,6 +1200,12 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       eventTypeKey: eventType.key,
       eventColor: eventPreset.color,
       eventStartsOn: event.startsOn,
+      seasonId: sc.seasonId,
+      seasonYear: sc.seasonYear,
+      seasonPresetId: sc.seasonPresetId,
+      seasonName: sc.seasonName,
+      seasonColor: sc.seasonColor,
+      seasonTypeKey: sc.seasonTypeKey,
       isKey: task.isKey,
       status: task.status,
       assigneeName: staffMember.displayName,
@@ -1188,6 +1219,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
     .leftJoin(event, eq(event.id, task.eventId))
     .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
     .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
     .where(
       and(
@@ -1221,9 +1253,11 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       meta: r.eventName ?? undefined,
       metaHref: r.eventId ? `/veranstaltungen/${r.eventId}` : undefined,
       eventId: r.eventId,
-      eventTypeKey: r.eventTypeKey,
-      eventColor: r.eventColor,
+      eventTypeKey: r.eventTypeKey ?? r.seasonTypeKey,
+      eventColor: r.eventColor ?? r.seasonColor,
       eventStartsOn: r.eventStartsOn,
+      // The label ("<Markt> · Saison <Jahr>") is the UI's: the row carries the parts (`tasks.seasonContext`).
+      season: toTaskSeason(actor, r),
       isKey: r.isKey,
       assigneeName: r.assigneeName,
       ...(r.subtasksTotal > 0
@@ -1254,6 +1288,7 @@ export async function calendarItems(
   const start = resolveRelativeDue(from, 0, "00:00");
   const end = resolveRelativeDue(addDays(to, 1), 0, "00:00");
   const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
+  const sc = seasonContext();
   const rows = await db
     .select({
       id: task.id,
@@ -1262,8 +1297,13 @@ export async function calendarItems(
       eventId: task.eventId,
       status: task.status,
       subtasksOverdue: sub.subtasksOverdue,
+      seasonId: sc.seasonId,
+      seasonYear: sc.seasonYear,
+      seasonPresetId: sc.seasonPresetId,
+      seasonName: sc.seasonName,
     })
     .from(task)
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .where(
       and(
         deadlineScope(actor, mineOnly),
@@ -1285,6 +1325,7 @@ export async function calendarItems(
       date,
       title: r.title,
       href: taskLink(r.id, r.eventId),
+      season: toTaskSeason(actor, r),
       // An overdue subtask flags its parent (ADR 0021).
       tone:
         r.subtasksOverdue > 0

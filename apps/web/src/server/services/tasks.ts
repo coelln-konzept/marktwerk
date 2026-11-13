@@ -25,6 +25,7 @@ import {
   PAST_EVENT_SKIP_REASON,
   pastEventCutoff,
   resolveRelativeDue,
+  seasonContextName,
   sortBetween,
   TASK_STATUSES,
   type TaskStatusKey,
@@ -36,6 +37,8 @@ import {
   document,
   event,
   eventDuty,
+  eventPreset,
+  eventSeason,
   notification,
   staffMember,
   task,
@@ -204,10 +207,25 @@ async function loadTask(tx: Tx, actor: Actor, taskId: string): Promise<TaskRow> 
   return row;
 }
 
-async function eventNameOf(tx: Tx, eventId: string | null): Promise<string | null> {
-  if (!eventId) return null;
-  const [row] = await tx.select({ name: event.name }).from(event).where(eq(event.id, eventId));
-  return row?.name ?? null;
+/** What a notification about the task names: its event, or for a season task "<Markt> · Saison <Jahr>". */
+async function contextNameOf(
+  tx: Tx,
+  row: Pick<TaskRow, "eventId" | "seasonId">,
+): Promise<string | null> {
+  if (row.eventId) {
+    const [found] = await tx
+      .select({ name: event.name })
+      .from(event)
+      .where(eq(event.id, row.eventId));
+    return found?.name ?? null;
+  }
+  if (!row.seasonId) return null;
+  const [found] = await tx
+    .select({ name: eventPreset.name, season: eventSeason.season })
+    .from(eventSeason)
+    .innerJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
+    .where(eq(eventSeason.id, row.seasonId));
+  return found ? seasonContextName(found.name, found.season) : null;
 }
 
 async function activeStaff(tx: Tx, staffMemberId: string): Promise<{ id: string; name: string }> {
@@ -684,7 +702,7 @@ export async function assignTask(
     });
     if (person && person.id !== actor.staffMemberId) {
       const text = assignedText(
-        { title: row.title, eventName: await eventNameOf(tx, row.eventId) },
+        { title: row.title, eventName: await contextNameOf(tx, row) },
         actor.displayName,
       );
       await insertNotifications(tx, [

@@ -73,6 +73,17 @@ type Group = {
  */
 export function CommandPalette({ actions }: { actions: SearchHit[] }) {
   const t = useTranslations("palette");
+  const tTasks = useTranslations("tasks");
+  // A season task names its market and season where an event task names its event (research 13 §6.3).
+  const subtitleOf = (hit: SearchHit) =>
+    [
+      hit.subtitle,
+      hit.season
+        ? tTasks("seasonContext", { name: hit.season.name, year: String(hit.season.year) })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" › ");
   const router = useRouter();
   const { paletteOpen, setPaletteOpen } = useShell();
   const [query, setQuery] = useState("");
@@ -335,9 +346,9 @@ export function CommandPalette({ actions }: { actions: SearchHit[] }) {
                           >
                             {hit ? hit.title : t("showAll", { count: option.showAll ?? 0 })}
                           </span>
-                          {hit?.subtitle && (
+                          {hit && (hit.subtitle || hit.season) && (
                             <span className="block truncate text-muted-foreground text-tiny">
-                              {hit.subtitle}
+                              {subtitleOf(hit)}
                             </span>
                           )}
                         </span>

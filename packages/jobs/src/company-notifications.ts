@@ -25,7 +25,14 @@ import {
   task,
 } from "@marktwerk/db";
 import { and, eq, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
-import { berlinDate, notOfPastEvent, OPEN_TASK_STATUSES, openSubtaskDues } from "./shared";
+import {
+  berlinDate,
+  notOfPastEvent,
+  OPEN_TASK_STATUSES,
+  openSubtaskDues,
+  seasonContext,
+  taskContextName,
+} from "./shared";
 
 export type CompanySweepResult = {
   /** New company-wide notifications. */
@@ -94,6 +101,7 @@ export async function companySweep(
 }
 
 async function wantTasks(db: Database, today: string, out: Wanted[]) {
+  const sc = seasonContext(db);
   const rows = await db
     .select({
       id: task.id,
@@ -104,9 +112,13 @@ async function wantTasks(db: Database, today: string, out: Wanted[]) {
       snoozedUntil: task.snoozedUntil,
       eventId: task.eventId,
       eventName: event.name,
+      seasonName: sc.seasonName,
+      seasonYear: sc.seasonYear,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
+    // A season task names its market and season instead (research 13 §6.3).
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .where(
       and(
         inArray(task.status, [...OPEN_TASK_STATUSES]),
@@ -132,13 +144,14 @@ async function wantTasks(db: Database, today: string, out: Wanted[]) {
     if (!kind) continue;
     // A task that waits for somebody else is never overdue (it shows "wartet seit …", UX pass 2026-10-22).
     if (kind === "task_overdue" && t.status === "waiting_external") continue;
+    const where = taskContextName(t);
     out.push({
       reason: kind === "task_overdue" ? "overdue" : "due_soon",
       severity: taskSeverity(kind, t.isKey),
       subjectType: "task",
       subjectId: t.id,
       title: t.title,
-      body: t.eventName ? `${t.eventName} · ${germanDate(dueOn)}` : germanDate(dueOn),
+      body: where ? `${where} · ${germanDate(dueOn)}` : germanDate(dueOn),
       link: taskLink(t.id, t.eventId),
       dedupeKey: companyDedupeKey(kind, t.id, dueOn),
       snoozed: t.snoozedUntil !== null && t.snoozedUntil > today,

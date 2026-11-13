@@ -8,7 +8,7 @@ import type { EventRow } from "@/server/queries/events";
 import { getOverview, listDueItems } from "@/server/queries/overview";
 import { createPayable } from "@/server/services/payables";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
-import { asStaff, dueOn, insertEvent, insertTask, TODAY } from "../helpers/tasks";
+import { asStaff, dueOn, insertEvent, insertSeason, insertTask, TODAY } from "../helpers/tasks";
 
 /**
  * Übersicht aggregation ("Zwei Fragen"): the due items of all modules in one ranked list, the top of it for
@@ -211,6 +211,43 @@ describe("Heute fällig", () => {
       "task:Überfällige Aufgabe",
       "task:Heutige Aufgabe",
     ]);
+  });
+
+  it("season tasks are in the main panel like event tasks, with their market and season (R13)", async () => {
+    const season = await insertSeason(cat);
+    const overdue = await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      isKey: true,
+      assigneeId: cat.staff.anna.id,
+      dueAt: dueOn("2026-10-19"),
+    });
+    const soon = await insertTask({
+      title: "Genehmigung beantragen",
+      seasonId: season.id,
+      assigneeId: cat.staff.ben.id,
+      dueAt: dueOn("2026-10-26"),
+    });
+    const { due } = await getOverview(owner, TODAY);
+    const label = {
+      id: season.id,
+      year: 2027,
+      presetId: cat.presets.flea.id,
+      name: "Testflohmarkt",
+      href: `/vorlagen/${cat.presets.flea.id}`,
+    };
+    expect(due.items.find((i) => i.id === overdue.id)).toMatchObject({
+      urgency: "overdue",
+      eventColor: "petrol",
+      season: label,
+    });
+    expect(due.later.find((i) => i.id === soon.id)).toMatchObject({
+      urgency: "soon",
+      season: label,
+    });
+    // Field users only get the season tasks assigned to them.
+    const field = (await listDueItems(fieldActor, TODAY)).filter((i) => i.season);
+    expect(field.map((i) => i.id)).toEqual([overdue.id]);
   });
 });
 
