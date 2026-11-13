@@ -1,3 +1,7 @@
+import type { MarketColor, ScheduleRow } from "@marktwerk/core";
+
+export type { ScheduleRow } from "@marktwerk/core";
+
 /**
  * Entity types for the synthetic dataset. They mirror docs/architecture/data-model.md (v0.3) with
  * camelCase fields. Conventions: money in integer cents (`...Cents`), lengths in integer centimetres
@@ -9,7 +13,8 @@ export type TimeString = string;
 export type Instant = string;
 
 export type EventTypeKey = "flea" | "antique" | "city_festival" | "food_wine";
-export type VenueKind = "outdoor_public" | "outdoor_private" | "indoor";
+/** "Städtisch" / "Privat" (UT2-03). */
+export type VenueKind = "municipal" | "private";
 export type ContactKind = "authority" | "landowner" | "supplier" | "service" | "other";
 export type DutyRoleKey =
   | "market_lead"
@@ -27,7 +32,7 @@ export type EmploymentType =
   | "part_time"
   | "full_time"
   | "freelance";
-export type AnchorKey = "eventDay" | "setupDay" | "bookingCutoff";
+export type AnchorKey = "eventDay" | "setupDay" | "teardownDay" | "bookingCutoff";
 export type EventStatus =
   | "draft"
   | "planned"
@@ -252,13 +257,6 @@ export interface EmploymentContract {
   validUntil: DateString | null;
 }
 
-export interface DefaultTimes {
-  setup: TimeString;
-  open: TimeString;
-  close: TimeString;
-  teardown: TimeString;
-}
-
 export interface EventPreset {
   id: string;
   key: string;
@@ -270,9 +268,17 @@ export interface EventPreset {
   publicText: string;
   pricePerMCents: number;
   bookingFeeCents: number;
-  defaultTimes: DefaultTimes;
-  /** RFC 5545 recurrence rule (subset: FREQ=MONTHLY|YEARLY, BYMONTH, BYDAY, BYSETPOS). */
-  rrule: string;
+  /** The market's Zeitplan (ADR 0022), copied into every event. */
+  schedule: ScheduleRow[];
+  /** "Marktregeln" (D2-3): a copy of the event type's rules, changed where the market differs. */
+  rules: EventTypeRules;
+  /** "Marktfarbe": a key of the market palette in @marktwerk/core. */
+  color: MarketColor;
+  /**
+   * The rhythm shown on the market page (RFC 5545 subset: FREQ=MONTHLY|YEARLY, BYMONTH, BYDAY, BYSETPOS), or null
+   * when the dates are irregular. The generator's dates come from the date rules in dictionaries/presets.ts.
+   */
+  rrule: string | null;
   durationDays: number;
   defaultDuties: Record<DutyRoleKey, string>;
   active: boolean;
@@ -287,7 +293,8 @@ export interface Event {
   season: number;
   startsOn: DateString;
   endsOn: DateString;
-  times: DefaultTimes;
+  /** Copied from the market; shorter opening hours on single-day markets in winter. */
+  schedule: ScheduleRow[];
   status: EventStatus;
   bookingOpen: boolean;
   fullyBooked: boolean;

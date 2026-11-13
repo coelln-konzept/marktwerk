@@ -1,9 +1,11 @@
 # @marktwerk/synthetic
 
 Deterministic, seeded synthetic data for development. The real data is months away, so this package
-generates a realistic dataset for one fictional German event company, **Demo Märkte GmbH** (Köln area).
-It covers flea markets (Flohmarkt) and antique markets (Antikmarkt), plus Stadtfeste and Food & Wine markets,
-for the current season (the reference date's year) and the planned next season. Nothing else is generated.
+generates a realistic dataset for one German event company (company record: **Demo Märkte GmbH**). Since research 13
+it uses Coelln Konzept's **real market and place names** (Köln, Kerpen, Rösrath-Hoffnungsthal) and real authority types
+(Stadt Köln, Stadt Kerpen, Stadt Rösrath); people, contact details and private organisations stay fictional. It covers
+flea markets (Flohmarkt) and antique markets (Antikmarkt), plus Stadtfeste and Food & Wine markets, for the current
+season (the reference date's year) and the planned next season. Nothing else is generated.
 
 The output follows `docs/architecture/data-model.md` (v0.3): camelCase fields, money in integer cents, lengths
 in integer centimetres, business dates as `YYYY-MM-DD` (Europe/Berlin), times as `HH:mm`, instants as UTC ISO strings.
@@ -45,32 +47,36 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 | `settings` | 1 | Company data, fictional address in Köln, fake IBAN, Europe/Berlin, NW |
 | `legalParameters` | 8 | Minimum wage, Minijob limit (2026 and 2027), HU intervals |
 | `eventTypes` | 4 | `flea`, `antique`, `city_festival`, `food_wine` (exactly these) |
-| `venues` | 12 | Köln, Bonn, Neuss, Düsseldorf, Leverkusen, Bergisch Gladbach, Brühl, Siegburg, Linz, Troisdorf (one indoor). 2–5 zones with rows |
-| `contacts` | 30 | Authorities, service providers, suppliers, landowners |
+| `venues` | 10 | 8 places in Köln, Kerpen Innenstadt, Rösrath-Hoffnungsthal; `kind` municipal (8) or private (Stadion, Südbrücke). Shared places have named zones (Stadion: Vorplatz + P6; Rodenkirchen: Hauptstraße + Maternusplatz), names derived from the address where the client only gives one |
+| `contacts` | 19 | Stadt Köln / Kerpen / Rösrath, service providers, suppliers, two fictional landowners |
 | `staffMembers` | 14 | Owner, office manager, two office staff (logins), logistics lead, nine field crew |
 | `employmentContracts` | 14 | Minijob rates 1390–1600 ct/h |
 | `dutyRoles` | 7 | Marktleitung … Wasser/Strom, each with a default holder |
-| `eventPresets` | 14 | 8 flea, 3 antique, 1 city festival, 2 food & wine. RFC 5545 `rrule` |
-| `events` | 148 | 2026 (74) and 2027 (74). Two 2026 events cancelled |
-| `eventAnchors` | 444 | `eventDay`, `setupDay`, `bookingCutoff` (Monday before) per event |
+| `eventPresets` | 17 | The 16 Coelln Konzept series + Hoffnungsthal (9 flea, 2 antique, 3 city festival, 3 food & wine), each with colour, Marktregeln (`rules`) and Zeitplan (`schedule`) |
+| `events` | 134 | 67 per season (2026, 2027), January–November, 53 on Sundays, 1–3 per day. Two 2026 events cancelled |
+| `eventAnchors` | 536 | `eventDay`, `setupDay`, `teardownDay`, `bookingCutoff` (Monday before) per event |
 | `checklistTemplates` | 4 | One published version per event type, 39–40 German items each |
 | `tasks` | 5,774 | Instantiated per event, due times in Berlin time |
-| `permitRequirements` | 63 | City permits per venue, external ones where the ground is not public |
-| `permits` | 234 | 2026 granted; 2027 applied, preparing or not started |
-| `eventPermits` | 742 | Event ↔ permit links |
+| `permitRequirements` | 52 | City permits per venue, external ones where the ground is not public |
+| `permits` | 214 | 2026 granted; 2027 applied, preparing or not started |
+| `eventPermits` | 690 | Event ↔ permit links |
 | `vehicles` | 3 | Vans with 3,500 or 3,880 kg |
 | `obligations` | 11 | HU, UVV (one overdue), service, insurance renewal, KSK report |
-| `payables` | 90 | Location fees, permit fees, toilets, standpipes, vehicles, insurance, event costs |
-| `installments` | 120 | Sum exactly to each payable's total |
-| `shifts` | 287 | Field crew on past 2026 events |
+| `payables` | 82 | Location fees, permit fees, toilets, standpipes, vehicles, insurance, event costs |
+| `installments` | 106 | Sum exactly to each payable's total |
+| `shifts` | 279 | Field crew on past 2026 events |
 | `vendors` | 1,500 | 75 % private, about 30 % regular |
-| `bookingRequests` | 6,411 | 40–150 per bookable event (flea and antique, completed or confirmed 2026) |
-| `bookingDates` | 5,817 | One per accepted request, with row placement and car grant |
+| `bookingRequests` | 5,145 | 40–150 per bookable event (flea and antique, completed or confirmed 2026) |
+| `bookingDates` | 4,676 | One per accepted request, with row placement and car grant |
 
 ## Rules the data follows
 
-- **Events**: at most 4 events touch any weekend. No venue hosts two events on the same day. Occurrences that break a
-  rule are dropped, not moved. Lifecycle status follows the reference date: ended more than 21 days ago → `closed`,
+- **Events**: dates come from the markets' date rules (`lib/market-dates.ts`, `dictionaries/presets.ts`), which
+  reproduce the 2027 wall calendar (research 13 §2.2): the n-th Sunday per month, Easter/Whitsun Sa–Mo, holiday
+  Thursdays, the last weekend, Fr–So / Do–So. Easter Sunday, Whit Sunday, Allerheiligen, Volkstrauertag and
+  Totensonntag are skipped unless the holiday is the point. At most 3 markets per day and no venue twice on one day:
+  a Sunday date that would break this moves to another Sunday of its month. Single-day markets in winter open an hour
+  later. Lifecycle status follows the reference date: ended more than 21 days ago → `closed`,
   ended before today → `completed`, current season upcoming → `confirmed`, next season → `planned`.
 - **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets and 1 on the last past market (`rolloverCount` 1–5); exactly 2 recent permit tasks wait on an authority (`waiting_external`). Future tasks are `todo` or `in_progress`.
 - **Permits**: next season's permits move `not_started` → `preparing` (75 days before apply-by) → `applied` (about 45 days before); the expected decision is the filing day plus a per-type turnaround, and a decision date in the past means granted. Current-season permits of past events are granted.

@@ -13,7 +13,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@faker-js/faker": "10.6.0"
+    "@faker-js/faker": "10.6.0",
+    "@marktwerk/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

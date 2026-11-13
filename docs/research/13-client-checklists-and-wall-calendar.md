@@ -152,7 +152,7 @@ season.
 |---|---|---|
 | Company | "Demo Märkte GmbH", fictional | One company (Coelln Konzept's markets only), real market and place names; fictional people, contact details and private organisations |
 | Event types | flea, antique, city_festival, food_wine | Same four; Bauernmarkt and Lifestyle/Design only if the client confirms new types |
-| Venues | 12 invented across NRW | ~15 Köln places + Kerpen + Rösrath-Hoffnungsthal; shared venues with zones (Stadion: Vorplatz + P6; Rodenkirchen; Rheinauhafen) |
+| Venues | 12 invented across NRW | 8 Köln places + Kerpen + Rösrath-Hoffnungsthal (the Antik & Design places Neumarkt, Rheinauhafen, Flora, Gürzenich are out with that company); shared venues with zones (Stadion: Vorplatz + P6; Rodenkirchen: Hauptstraße + Maternusplatz) |
 | Presets (markets) | 14 | **~17** (16 Coelln Konzept + Hoffnungsthal), each with colour and Kürzel; markets without a date on the wall get plausible dates |
 | Events / season | 74, Apr–Oct, ≤4 per weekend | **~60–70** (49 identified Coelln Konzept dates + the unplaced series), Jan–Nov, mostly Sundays, 1–3 per day, multi-day Fr–So / Sa–Mo / Do–So |
 | Templates | 4 per-type templates (39–40 items) + derived master | **Grundvorlage** = the core of 1.3; **own templates** for Altstadt, Riehler Gürtel, Nippes, Hoffnungsthal verbatim from the client; every other market gets a master copy plus marked assumptions until the client sends its sheet |

@@ -1,11 +1,12 @@
-import { MAX_EVENTS_PER_WEEKEND } from "../constants";
+import { defaultAnchors, type ScheduleRow, validateSchedule } from "@marktwerk/core";
+import { MAX_EVENTS_PER_DAY } from "../constants";
 import type { PresetBlueprint } from "../dictionaries/presets";
 import { EVENT_NOTES, PUBLIC_TEXT_SENTENCES } from "../dictionaries/texts";
 import type { VenueBlueprint } from "../dictionaries/venues";
 import type { Clock } from "../lib/clock";
-import { addDays, daysBetween, mondayBefore, weekendSaturdaysTouched, yearOf } from "../lib/dates";
+import { addDays, daysBetween, monthOf, yearOf } from "../lib/dates";
+import { daysOf, occurrencesIn } from "../lib/market-dates";
 import type { Rng } from "../lib/rng";
-import { expandRRule } from "../lib/rrule";
 import type {
   DutyRoleKey,
   Event,
@@ -24,45 +25,61 @@ export interface PresetContext {
   dutyDefaults: Record<DutyRoleKey, string>;
 }
 
+/** Throws if a dictionary Zeitplan breaks the rules of @marktwerk/core (a dictionary bug). */
+function checkedSchedule(rows: readonly ScheduleRow[], durationDays: number, what: string) {
+  const issues = validateSchedule(rows, durationDays);
+  if (issues.length > 0) throw new Error(`${what}: invalid Zeitplan ${JSON.stringify(issues)}`);
+  return rows.map((row) => ({ ...row }));
+}
+
 export function buildEventPresets(
   rng: Rng,
   blueprints: readonly PresetBlueprint[],
   ctx: PresetContext,
 ): EventPreset[] {
-  const typeIdByKey = new Map(ctx.eventTypes.map((type) => [type.key, type.id]));
-  const venueIdByKey = new Map<string, string>();
+  const typeByKey = new Map(ctx.eventTypes.map((type) => [type.key, type]));
+  const venueByKey = new Map<string, Venue>();
   for (const venue of ctx.venues) {
     const blueprint = ctx.venueBlueprintByName.get(venue.name);
-    if (blueprint) venueIdByKey.set(blueprint.key, venue.id);
+    if (blueprint) venueByKey.set(blueprint.key, venue);
   }
 
   return blueprints.map((blueprint) => {
-    const venueId = venueIdByKey.get(blueprint.venueKey);
-    const typeId = typeIdByKey.get(blueprint.eventType);
+    const venue = venueByKey.get(blueprint.venueKey);
+    const type = typeByKey.get(blueprint.eventType);
     const templateId = ctx.templateIdByTypeKey.get(blueprint.eventType);
-    const venue = ctx.venues.find((candidate) => candidate.id === venueId);
-    if (!venueId || !typeId || !templateId || !venue) {
+    if (!venue || !type || !templateId) {
       throw new Error(`Preset ${blueprint.key} references an unknown venue, type or template`);
     }
-    const venueBlueprint = ctx.venueBlueprintByName.get(venue.name);
-    const place = venueBlueprint?.publicPlace ?? venue.name;
-    const typeSentences = PUBLIC_TEXT_SENTENCES[blueprint.eventType];
+    const place = ctx.venueBlueprintByName.get(venue.name)?.publicPlace ?? venue.name;
+    const schedule = checkedSchedule(blueprint.schedule, blueprint.durationDays, blueprint.key);
+    const opensAt = schedule.find((r) => r.audience === "visitors" && r.kind === "open")?.from;
+    const typeSentences = PUBLIC_TEXT_SENTENCES[blueprint.eventType].filter(
+      (sentence) =>
+        (!sentence.startsWith("Drei Tage") || blueprint.durationDays === 3) &&
+        (!sentence.includes("ab 08:00") || opensAt === "08:00"),
+    );
     const first = rng.pick(typeSentences);
-    const second = rng.pick(typeSentences.filter((sentence) => sentence !== first));
-    const sentences = rng.chance(0.5) ? [first, second] : [first];
+    const others = typeSentences.filter((sentence) => sentence !== first);
+    const sentences = rng.chance(0.5) && others.length > 0 ? [first, rng.pick(others)] : [first];
     sentences.push(`Der Markt findet ${place} statt.`);
     return {
       id: rng.uuid(),
       key: blueprint.key,
-      eventTypeId: typeId,
-      venueId,
+      eventTypeId: type.id,
+      venueId: venue.id,
       checklistTemplateId: templateId,
       name: blueprint.name,
       publicTitle: blueprint.name,
       publicText: sentences.join(" "),
       pricePerMCents: blueprint.pricePerMCents,
       bookingFeeCents: 250,
-      defaultTimes: { ...blueprint.times },
+      schedule,
+      rules: {
+        ...structuredClone(type.rules),
+        ...structuredClone(blueprint.rules),
+      },
+      color: blueprint.color,
       rrule: blueprint.rrule,
       durationDays: blueprint.durationDays,
       defaultDuties: { ...ctx.dutyDefaults },
@@ -71,57 +88,64 @@ export function buildEventPresets(
   });
 }
 
-interface Candidate {
-  preset: EventPreset;
+export interface ScheduledDate {
+  presetKey: string;
   startsOn: string;
   endsOn: string;
 }
 
 /**
- * Expands every preset over the seasons and applies the scheduling rules, in date order:
- * - at most MAX_EVENTS_PER_WEEKEND events touch one weekend (occurrences over the cap are dropped)
- * - no two events at the same venue on the same day (the later occurrence is dropped)
+ * The market dates of one season from the date rules: every market's dates for the year, placed in order (holiday
+ * dates first, then the markets in dictionary order). A Sunday date takes its first candidate that keeps the venue
+ * free and every day at no more than MAX_EVENTS_PER_DAY markets; a date with no such candidate is dropped (none is,
+ * for the years the tests check).
  */
-function scheduleCandidates(presets: EventPreset[], clock: Clock): Candidate[] {
-  const from = `${clock.season}-01-01`;
-  const to = `${clock.nextSeason}-12-31`;
-  const all: Candidate[] = [];
-  for (const preset of presets) {
-    for (const startsOn of expandRRule(preset.rrule, from, to)) {
-      all.push({ preset, startsOn, endsOn: addDays(startsOn, preset.durationDays - 1) });
+export function scheduleSeason(
+  blueprints: readonly PresetBlueprint[],
+  year: number,
+): ScheduledDate[] {
+  const wanted = blueprints.flatMap((blueprint, order) =>
+    occurrencesIn(blueprint.dates, year, blueprint.durationDays).map((date) => ({
+      blueprint,
+      order,
+      date,
+    })),
+  );
+  wanted.sort(
+    (a, b) =>
+      Number(a.date.candidates.length > 1) - Number(b.date.candidates.length > 1) ||
+      a.order - b.order,
+  );
+
+  const load = new Map<string, number>();
+  const venueDays = new Set<string>();
+  const placed: ScheduledDate[] = [];
+  for (const { blueprint, date } of wanted) {
+    const start = date.candidates.find((candidate) =>
+      daysOf(candidate, date.days).every(
+        (day) =>
+          (load.get(day) ?? 0) < MAX_EVENTS_PER_DAY &&
+          !venueDays.has(`${blueprint.venueKey}|${day}`),
+      ),
+    );
+    if (start === undefined) continue;
+    for (const day of daysOf(start, date.days)) {
+      load.set(day, (load.get(day) ?? 0) + 1);
+      venueDays.add(`${blueprint.venueKey}|${day}`);
     }
+    placed.push({
+      presetKey: blueprint.key,
+      startsOn: start,
+      endsOn: addDays(start, date.days - 1),
+    });
   }
-  all.sort((a, b) =>
+  return placed.sort((a, b) =>
     a.startsOn === b.startsOn
-      ? a.preset.key.localeCompare(b.preset.key)
+      ? a.presetKey.localeCompare(b.presetKey)
       : a.startsOn < b.startsOn
         ? -1
         : 1,
   );
-
-  const weekendCount = new Map<string, number>();
-  const busyDays = new Map<string, Set<string>>();
-  const accepted: Candidate[] = [];
-  for (const candidate of all) {
-    const weekends = weekendSaturdaysTouched(candidate.startsOn, candidate.endsOn);
-    const weekendFull = weekends.some(
-      (saturday) => (weekendCount.get(saturday) ?? 0) >= MAX_EVENTS_PER_WEEKEND,
-    );
-    const days = Array.from(
-      { length: daysBetween(candidate.startsOn, candidate.endsOn) + 1 },
-      (_, offset) => addDays(candidate.startsOn, offset),
-    );
-    const venueDays = busyDays.get(candidate.preset.venueId) ?? new Set<string>();
-    const venueBusy = days.some((day) => venueDays.has(day));
-    if (weekendFull || venueBusy) continue;
-
-    for (const saturday of weekends)
-      weekendCount.set(saturday, (weekendCount.get(saturday) ?? 0) + 1);
-    for (const day of days) venueDays.add(day);
-    busyDays.set(candidate.preset.venueId, venueDays);
-    accepted.push(candidate);
-  }
-  return accepted;
 }
 
 /** Lifecycle status from the reference date. Booking flags are separate (see bookingFlags). */
@@ -135,51 +159,91 @@ function lifecycleStatus(endsOn: string, season: number, clock: Clock): EventSta
   return "planned";
 }
 
+const WINTER_MONTHS = [1, 2, 11, 12];
+
+/** Shifts an "HH:mm" time by whole minutes (stays within the day). */
+function shiftTime(time: string, minutes: number): string {
+  const [h = 0, m = 0] = time.split(":").map(Number);
+  const total = Math.min(23 * 60 + 59, Math.max(0, h * 60 + m + minutes));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/**
+ * The event's Zeitplan: the market's, except on single-day markets in winter, which open an hour later (it is still
+ * dark at eight) and give the vendors that hour for setting up.
+ */
+function eventSchedule(preset: EventPreset, startsOn: string, days: number): ScheduleRow[] {
+  const rows = preset.schedule.map((row) => ({ ...row }));
+  if (days > 1 || !WINTER_MONTHS.includes(monthOf(startsOn))) return rows;
+  const opensAt = rows.find((r) => r.audience === "visitors" && r.kind === "open")?.from;
+  return rows.map((row) => {
+    if (row.audience === "visitors" && row.kind === "open")
+      return { ...row, from: shiftTime(row.from, 60) };
+    if (row.audience === "vendors" && row.kind === "setup" && row.to === opensAt)
+      return { ...row, to: shiftTime(row.to, 60) };
+    return row;
+  });
+}
+
 export interface EventsBundle {
   events: Event[];
   eventAnchors: EventAnchor[];
 }
 
+const ANCHOR_KEY_BY_CORE = {
+  event_day: "eventDay",
+  setup_day: "setupDay",
+  teardown_day: "teardownDay",
+  booking_cutoff: "bookingCutoff",
+} as const;
+
 export function buildEvents(
   rng: Rng,
   presets: EventPreset[],
+  blueprints: readonly PresetBlueprint[],
   ctx: PresetContext,
   clock: Clock,
 ): EventsBundle {
   const typeById = new Map(ctx.eventTypes.map((type) => [type.id, type]));
-  const venueById = new Map(ctx.venues.map((venue) => [venue.id, venue]));
-  const scheduled = scheduleCandidates(presets, clock);
+  const presetByKey = new Map(presets.map((preset) => [preset.key, preset]));
+  const scheduled = [clock.season, clock.nextSeason].flatMap((year) =>
+    scheduleSeason(blueprints, year),
+  );
 
   const events: Event[] = [];
   const eventAnchors: EventAnchor[] = [];
-  for (const candidate of scheduled) {
-    const preset = candidate.preset;
+  for (const date of scheduled) {
+    const preset = presetByKey.get(date.presetKey);
+    if (!preset) throw new Error(`No preset ${date.presetKey}`);
     const type = typeById.get(preset.eventTypeId);
-    const venue = venueById.get(preset.venueId);
-    const blueprint = venue ? ctx.venueBlueprintByName.get(venue.name) : undefined;
-    if (!type || !venue || !blueprint)
-      throw new Error(`Missing type or venue for preset ${preset.key}`);
+    if (!type) throw new Error(`Missing type for preset ${preset.key}`);
 
-    const season = yearOf(candidate.startsOn);
-    const status = lifecycleStatus(candidate.endsOn, season, clock);
+    const season = yearOf(date.startsOn);
+    const status = lifecycleStatus(date.endsOn, season, clock);
+    const durationDays = daysBetween(date.startsOn, date.endsOn) + 1;
+    const anchors = defaultAnchors(date.startsOn, durationDays);
     const eventId = rng.uuid();
-    const setupDay = preset.durationDays > 1 ? addDays(candidate.startsOn, -1) : candidate.startsOn;
-    const bookingCutoff = mondayBefore(candidate.startsOn);
 
-    // Online booking only for types that allow it, and only until the cut-off in the future.
+    // Online booking only where the market allows it, and only until the cut-off in the future.
     const bookingOpen =
-      type.rules.onlineBookingAllowed && status === "confirmed" && bookingCutoff > clock.today;
+      preset.rules.onlineBookingAllowed &&
+      status === "confirmed" &&
+      anchors.booking_cutoff > clock.today;
 
     events.push({
       id: eventId,
       presetId: preset.id,
       eventTypeId: type.id,
-      venueId: venue.id,
+      venueId: preset.venueId,
       name: preset.name,
       season,
-      startsOn: candidate.startsOn,
-      endsOn: candidate.endsOn,
-      times: { ...preset.defaultTimes },
+      startsOn: date.startsOn,
+      endsOn: date.endsOn,
+      schedule: checkedSchedule(
+        eventSchedule(preset, date.startsOn, durationDays),
+        durationDays,
+        `${preset.key} ${date.startsOn}`,
+      ),
       status,
       bookingOpen,
       fullyBooked: false,
@@ -190,11 +254,10 @@ export function buildEvents(
       notes: rng.chance(0.15) ? rng.pick(EVENT_NOTES) : null,
       duties: { ...preset.defaultDuties },
     });
-    eventAnchors.push(
-      { id: rng.uuid(), eventId, key: "eventDay", date: candidate.startsOn },
-      { id: rng.uuid(), eventId, key: "setupDay", date: setupDay },
-      { id: rng.uuid(), eventId, key: "bookingCutoff", date: bookingCutoff },
-    );
+    for (const [coreKey, key] of Object.entries(ANCHOR_KEY_BY_CORE)) {
+      const anchorDate = anchors[coreKey as keyof typeof ANCHOR_KEY_BY_CORE];
+      eventAnchors.push({ id: rng.uuid(), eventId, key, date: anchorDate });
+    }
   }
 
   return { events: cancelSome(rng, events, typeById, clock), eventAnchors };
@@ -212,20 +275,21 @@ function cancelSome(
   clock: Clock,
 ): Event[] {
   const typeKey = (event: Event): string | undefined => typeById.get(event.eventTypeId)?.key;
-  const monthOf = (event: Event): string => event.startsOn.slice(5, 7);
+  const monthOfEvent = (event: Event): string => event.startsOn.slice(5, 7);
   const fleaCandidates = events.filter(
     (e) =>
       e.season === clock.season &&
       e.endsOn < clock.today &&
       typeKey(e) === "flea" &&
-      ["06", "07", "08"].includes(monthOf(e)),
+      ["06", "07", "08"].includes(monthOfEvent(e)),
   );
   const antiqueCandidates = events.filter(
     (e) =>
       e.season === clock.season &&
       e.endsOn < clock.today &&
       typeKey(e) === "antique" &&
-      monthOf(e) === "05",
+      e.startsOn === e.endsOn &&
+      ["04", "05", "06"].includes(monthOfEvent(e)),
   );
   const toCancel = new Map<string, string>();
   const flea = fleaCandidates[rng.int(0, Math.max(0, fleaCandidates.length - 1))];
