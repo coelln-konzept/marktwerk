@@ -114,7 +114,11 @@ export async function setPresetsAction(templateId: string, presetIds: string[]) 
   return run((actor) => setTemplatePresets(actor, templateId, presetIds));
 }
 
-/** "Auf Veranstaltungen anwenden…": the chosen events take over the published version. */
-export async function applyVersionAction(templateId: string, eventIds: string[]) {
-  return run((actor) => applyTemplateVersion(actor, templateId, eventIds));
+/** "Auf Veranstaltungen anwenden…": the chosen events and Saison records take over the published version. */
+export async function applyVersionAction(
+  templateId: string,
+  eventIds: string[],
+  seasonIds: string[] = [],
+) {
+  return run((actor) => applyTemplateVersion(actor, templateId, eventIds, seasonIds));
 }

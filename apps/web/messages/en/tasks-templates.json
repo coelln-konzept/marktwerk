@@ -99,7 +99,7 @@
       "editHint": "Click a row to edit · ⋯ for order, duplicate, delete",
       "readOnlyHint": "View only",
       "empty": "This version has no tasks.",
-      "caption": "Tasks of the timeline template by phase",
+      "caption": "Tasks of the timeline template: the season first, then every date by phase",
       "cols": {
         "title": "Task",
         "category": "Category",
@@ -121,7 +121,10 @@
       "defaultTime": "default",
       "rowMenu": "Actions for {title}",
       "add": "Add task to “{phase}”",
-      "inherited": "same as parent"
+      "inherited": "same as parent",
+      "season": "Whole season",
+      "seasonHint": "once per season",
+      "addSeason": "Add season task"
     },
     "menu": {
       "edit": "Edit",
@@ -212,7 +215,19 @@
         "ownDue": "due {text}",
         "saveFirst": "Please save or cancel first: the changes to this task would be lost otherwise.",
         "newItemHint": "You can add subtasks once the task has been added."
-      }
+      },
+      "scope": "Applies to",
+      "scopes": {
+        "event": "Every date",
+        "season": "Whole season"
+      },
+      "scopeHint": "Every date: the task is created for every event of the market. Whole season: it is created once a year for the season and is due from the season start or the season end.",
+      "scopeInherited": "Applies to the whole season, like its parent task.",
+      "exampleSeason": "Example: {anchor} on {day} → due {due}",
+      "exampleSeasonEnd": "A season without dates has no season end: the task has no due date until then.",
+      "conditionHintSeason": "Without a selection the task is created for the season of every market that uses this template.",
+      "roleHintSeason": "A role, not a person: for the season whoever holds the role in the market's default team takes the task.",
+      "parentHintSeason": "Subtasks are created once per season under their parent task."
     },
     "links": {
       "title": "Used by presets",
@@ -228,7 +243,7 @@
       "title": "How it works",
       "published": "Published versions are immutable; changes are made in a draft.",
       "newEvents": "New events get the tasks of the published version.",
-      "apply": "Existing events only change through “Apply to events…”, after a preview and without a pre-selection.",
+      "apply": "Existing events and seasons only change through “Apply to events…”, after a preview and with nothing pre-selected.",
       "followAnchors": "When an event moves, open tasks move along; done ones never. Without their own time, tasks are due at {time}."
     },
     "apply": {
@@ -237,11 +252,11 @@
       "subtitle": "{name}, version {version}",
       "close": "Close",
       "steps": "Steps",
-      "step1": "Choose events",
+      "step1": "Choose events and seasons",
       "step2": "Preview",
-      "intro": "Existing events take over the published version here. Nothing is pre-selected: you decide per event. Done tasks and tasks edited by hand stay as they are.",
+      "intro": "Existing events and seasons take over the published version here. Nothing is pre-selected: you decide per event and season. Done tasks and tasks edited by hand stay as they are.",
       "changeNote": "What is new:",
-      "empty": "No upcoming event needs this version.",
+      "empty": "No upcoming event and no open season needs this version.",
       "selected": "{count} selected",
       "selectChanged": "Select all {count} with changes",
       "clear": "Clear selection",
@@ -275,7 +290,7 @@
         "due": "due date",
         "parent": "parent task"
       },
-      "previewIntro": "{events, plural, one {# event} other {# events}}: {what}.",
+      "previewIntro": "{targets}: {what}.",
       "markedRemoved": "the task stays open and is marked “No longer in the template”, not deleted",
       "keep": {
         "customized": "edited by hand",
@@ -285,29 +300,41 @@
       "cancel": "Cancel",
       "back": "Back",
       "next": "Continue to preview",
-      "confirm": "{count, plural, one {Apply to # event} other {Apply to # events}}",
+      "confirm": "Apply to {targets}",
       "done": "Applied to {names}: {what}",
       "errors": {
         "generic": "That didn't work. Please try again.",
         "not_found": "This timeline template no longer exists.",
         "no_published_version": "There is no published version yet.",
-        "no_events": "Please choose at least one event.",
-        "not_applicable": "One of the events no longer needs the version (or is no longer running). The page was refreshed, nothing was changed."
+        "no_events": "Please choose at least one event or season.",
+        "not_applicable": "One of the events or seasons no longer needs the version (or is no longer running). The page was refreshed, nothing was changed."
       },
-      "listCount": "Showing {shown} of {total} events",
+      "listCount": "Showing {shown} of {total}",
       "hiddenUnchanged": "{count} without changes hidden",
-      "search": "Search events",
+      "search": "Search events or seasons",
       "onlyChanged": "Only with changes",
-      "nothingChanged": "No event has changes. Untick “Only with changes” to see all of them.",
-      "noMatch": "No event matches the search.",
+      "nothingChanged": "Nothing has changes. Untick “Only with changes” to see everything.",
+      "noMatch": "Nothing matches the search.",
       "noDue": "no due date",
       "dueOn": "due {date}",
       "wouldBeOverdue": "would be overdue at once",
       "overdueTotal": "{count, plural, one {# new task would be} other {# new tasks would be}} overdue at once: the date has already passed. The task is still created.",
-      "previewIntroNone": "{events, plural, one {# event} other {# events}}: no changes to the tasks.",
+      "previewIntroNone": "{targets}: no changes to the tasks.",
       "doneNothing": "Applied to {names}: no changes to the tasks",
       "doneNames": "{first} and {more} more",
-      "cancelled": "the subtask is no longer in the template and is cancelled, not deleted"
+      "cancelled": "the subtask is no longer in the template and is cancelled, not deleted",
+      "seasonLabel": "{name} · Season {season}",
+      "seasonStart": "Season start {date}",
+      "noSeasonStart": "No season start yet",
+      "seasonStatus": {
+        "planning": "Planning",
+        "dates_set": "Dates set",
+        "closed": "Closed"
+      },
+      "groupSeasons": "Seasons",
+      "groupEvents": "Events",
+      "seasonItems": "Gets only the tasks for the whole season.",
+      "targets": "{events, plural, =0 {} one {# event} other {# events}}{both, select, yes { and } other {}}{seasons, plural, =0 {} one {# season} other {# seasons}}"
     },
     "phases": {
       "pre": "Preparation",
@@ -337,7 +364,9 @@
       "setup_day": "Setup day",
       "teardown_day": "Teardown day",
       "booking_cutoff": "Booking cut-off",
-      "permit_decision": "Permit decision"
+      "permit_decision": "Permit decision",
+      "season_start": "Season start",
+      "season_end": "Season end"
     },
     "venueKinds": {
       "municipal": "Municipal",
@@ -384,8 +413,8 @@
       "no_changes": "The draft does not differ from the published version.",
       "too_many_items": "A version can have at most 300 rows.",
       "no_published_version": "There is no published version yet.",
-      "no_events": "Please choose at least one event.",
-      "not_applicable": "One of the events no longer needs the version.",
+      "no_events": "Please choose at least one event or season.",
+      "not_applicable": "One of the events or seasons no longer needs the version.",
       "master_exists": "There is already a master template.",
       "master_protected": "The master template cannot be archived."
     },
