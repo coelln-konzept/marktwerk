@@ -62,9 +62,9 @@ export function DeadlineChip({
         {layerLabel}
         {toneLabel ? `, ${toneLabel}` : ""}:{" "}
       </span>
-      {/* Object first, verb last: a chip cut after two lines still says where and what. */}
-      <span className="line-clamp-2 min-w-0 break-words">
-        {item.text}
+      {/* Object first, verb last: a chip cut after three lines still says where and what. */}
+      <span className="line-clamp-3 min-w-0 break-words">
+        {item.shortText ?? item.text}
         {item.kindLabel && !grouped && (
           <span className="font-normal opacity-80"> · {item.kindLabel}</span>
         )}

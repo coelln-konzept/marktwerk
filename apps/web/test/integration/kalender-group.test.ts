@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deadlineKind,
+  deadlineShortText,
   deadlineText,
   GROUP_MIN,
   groupDeadlines,
@@ -71,6 +72,32 @@ describe("deadlineText", () => {
     const item = permit(1, "decision");
     expect(deadlineKind(item)).toBe("decision");
     expect(deadlineText(item)).toBe("Leverkusen · Halteverbot – 13.03.2027");
+  });
+});
+
+describe("deadlineShortText", () => {
+  it("cuts a permit's venue to its town for the month grid", () => {
+    const item = {
+      layer: "permits" as const,
+      id: "p1:apply",
+      date: "2026-12-04",
+      title: "Antrag: Marktgenehmigung · Bergisch Gladbach – Konrad-Adenauer-Platz",
+      href: "/genehmigungen?genehmigung=p1",
+    } satisfies CalendarItem;
+    expect(deadlineText(item)).toBe("Bergisch Gladbach – Konrad-Adenauer-Platz · Marktgenehmigung");
+    expect(deadlineShortText(item)).toBe("Bergisch Gladbach · Marktgenehmigung");
+  });
+
+  it("leaves other layers and venues without a dash alone", () => {
+    expect(deadlineShortText(permit(1, "decision"))).toBe("Leverkusen · Halteverbot – 13.03.2027");
+    const task = {
+      layer: "tasks" as const,
+      id: "t1",
+      date: "2026-12-04",
+      title: "A – B",
+      href: "/x",
+    };
+    expect(deadlineShortText(task)).toBe("A – B");
   });
 });
 

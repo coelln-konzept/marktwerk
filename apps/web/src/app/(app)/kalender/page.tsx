@@ -26,6 +26,7 @@ import { EventChip } from "@/components/kalender/event-chip";
 import {
   type DisplayItem,
   deadlineKind,
+  deadlineShortText,
   deadlineText,
   groupDeadlines,
 } from "@/components/kalender/group-deadlines";
@@ -141,7 +142,8 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const display: DisplayItem[] = groupDeadlines(deadlines).map((item) => {
     const kind = item.group ? item.group.kind : deadlineKind(item);
     const kindLabel = kind ? t(`permitKind.${kind}`) : undefined;
-    if (!item.group) return { ...item, text: deadlineText(item), kindLabel };
+    if (!item.group)
+      return { ...item, text: deadlineText(item), shortText: deadlineShortText(item), kindLabel };
     const { count } = item.group;
     const text =
       item.layer === "tasks"

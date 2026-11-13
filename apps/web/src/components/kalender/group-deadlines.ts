@@ -21,6 +21,8 @@ export type DisplayItem = GroupedItem & {
   text: string;
   /** The verb ("Entscheidung erwartet"), shown after the object and in the tooltip. */
   kindLabel?: string;
+  /** Shorter text for a month-grid chip: the venue cut to its town ("Neuss · Marktgenehmigung", UT-11 #4). */
+  shortText?: string;
   /** A summary's members with their own texts and links (opened by the summary, UT-11 #2). */
   members?: { key: string; href: string; text: string }[];
 };
@@ -85,4 +87,18 @@ export function deadlineText(item: CalendarItem): string {
     text = i > 0 ? `${rest.slice(i + 3)} · ${rest.slice(0, i)}` : rest;
   }
   return text.replace(ISO_DATE, (_, y, m, d) => `${d}.${m}.${y}`);
+}
+
+/**
+ * `deadlineText` for a narrow month-grid cell: a permit's venue ("Bergisch Gladbach – Konrad-Adenauer-Platz")
+ * is cut to the part before " – ", so the chip still says where and what. Other texts stay as they are.
+ */
+export function deadlineShortText(item: CalendarItem): string {
+  const text = deadlineText(item);
+  if (!deadlineKind(item)) return text;
+  const i = text.indexOf(" · ");
+  if (i <= 0) return text;
+  const venue = text.slice(0, i);
+  const dash = venue.indexOf(" – ");
+  return dash > 0 ? `${venue.slice(0, dash)}${text.slice(i)}` : text;
 }
