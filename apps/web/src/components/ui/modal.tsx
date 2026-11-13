@@ -29,7 +29,8 @@ export function Modal({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-scrim" />
+        {/* forceRender: a nested modal (e.g. QuickCreateDialog) dims the dialog underneath too. */}
+        <Dialog.Backdrop forceRender className="fixed inset-0 z-40 bg-scrim" />
         <Dialog.Popup
           className={cn(
             "-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100dvh-2rem)] w-[min(480px,calc(100%-2rem))] flex-col gap-4 overflow-y-auto rounded-xl border bg-card p-5 shadow-overlay outline-hidden",

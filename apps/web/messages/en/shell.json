@@ -254,5 +254,15 @@
     "all": "All",
     "other": "Digits and other",
     "none": "no entries"
+  },
+  "picker": {
+    "open": "Open list",
+    "empty": "No matches",
+    "create": "New: {text}",
+    "createEmpty": "New …"
+  },
+  "quickCreate": {
+    "cancel": "Cancel",
+    "submit": "Create"
   }
 }

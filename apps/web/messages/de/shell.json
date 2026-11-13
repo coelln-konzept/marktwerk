@@ -254,5 +254,15 @@
     "all": "Alle",
     "other": "Ziffern und Sonstiges",
     "none": "keine Einträge"
+  },
+  "picker": {
+    "open": "Auswahl öffnen",
+    "empty": "Keine Treffer",
+    "create": "Neu: {text}",
+    "createEmpty": "Neu …"
+  },
+  "quickCreate": {
+    "cancel": "Abbrechen",
+    "submit": "Anlegen"
   }
 }
