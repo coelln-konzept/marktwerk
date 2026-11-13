@@ -49,7 +49,8 @@ comes to the event (client's explicit rule, research 05).
 |---|---|---|---|
 | Genehmigung | Permit | `permit` | Any authorisation an event needs. |
 | Kategorie Stadt / Extern | City / external | `permit.category` | Client's own split: city permits vs. external OKs. |
-| Marktgenehmigung (Sondernutzung, §69 Festsetzung…) | Market permit | `permit_type = market_permit` | The core city permit for the event. |
+| Marktgenehmigung (Sondernutzung) | Market permit | `permit_type = market_permit` | The core city permit for the event (use of public space). |
+| Festsetzung (§ 69 GewO) | Market fixing (§ 69 GewO) | `permit_type = market_fixing` | The city fixes the market (type, place, times) under trade law; its own permit next to the Sondernutzung (user test 2, UT2-06). |
 | Wasser / Hydrant / Standrohr | Water / standpipe | `permit_type = water` + `rental` | Hydrant use; standpipes rented from the city utility. |
 | Plakatierung (mit Aufklebern/Plaketten) | Poster/signage permit (with stickers) | `permit_type = signage` | City issues stickers that must be on each poster. |
 | Halteverbot | No-parking order | `permit_type = no_parking` | Temporary no-parking signs. |

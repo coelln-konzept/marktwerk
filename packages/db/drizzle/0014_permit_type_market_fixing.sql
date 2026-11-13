@@ -1,0 +1,1 @@
+ALTER TYPE "app"."permit_type" ADD VALUE 'market_fixing' BEFORE 'water';

@@ -21,6 +21,7 @@ export type PermitStatus = (typeof PERMIT_STATUSES)[number];
 /** The kinds of permit (the database enum `permit_type`). */
 export const PERMIT_TYPES = [
   "market_permit",
+  "market_fixing",
   "water",
   "signage",
   "no_parking",

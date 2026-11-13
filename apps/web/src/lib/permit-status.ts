@@ -49,6 +49,7 @@ export const PERMIT_STATE_ORDER: PermitDisplayState[] = [
 
 export const PERMIT_TYPE_KEYS = [
   "market_permit",
+  "market_fixing",
   "water",
   "signage",
   "no_parking",

@@ -99,6 +99,13 @@
       "when": 1794301535965,
       "tag": "0013_drop_unused_watcher_sidebar",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794571327416,
+      "tag": "0014_permit_type_market_fixing",
+      "breakpoints": true
     }
   ]
 }
