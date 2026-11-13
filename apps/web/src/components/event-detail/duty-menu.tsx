@@ -37,7 +37,7 @@ export function DutyMenu({
   happening: boolean;
 }) {
   const t = useTranslations("eventDetail.team");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const tHappening = useTranslations("eventDetail.happening");
   const { confirm, dialog } = useConfirm();
   /** While the event is happening, every change is confirmed first (decided 2026-10-21). */
@@ -80,7 +80,7 @@ export function DutyMenu({
     startTransition(async () => {
       const result = await assignDuty(eventId, roleId, to);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       if (!result.data.changed) return;
@@ -90,11 +90,14 @@ export function DutyMenu({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoDuty(eventId, roleId, to, from);
-          showToast({
-            message: undone.ok
-              ? t("toast.reverted", { role: roleName, name: nameOf(from) ?? t("unassigned") })
-              : errorText(undone.error),
-          });
+          if (undone.ok)
+            showToast({
+              message: t("toast.reverted", {
+                role: roleName,
+                name: nameOf(from) ?? t("unassigned"),
+              }),
+            });
+          else showError(errorText(undone.error));
         },
       });
     });

@@ -47,7 +47,7 @@ export function CompleteButton({
   const t = useTranslations("company");
   const tc = useTranslations("company.complete");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -124,7 +124,8 @@ export function CompleteButton({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoCompletionAction(completionId, previous, odometer, payableId);
-          showToast({ message: undone.ok ? tc("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: tc("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });

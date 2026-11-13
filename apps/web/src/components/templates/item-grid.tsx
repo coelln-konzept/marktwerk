@@ -99,7 +99,7 @@ export function ItemGrid({
   const offsetText = useOffsetText();
   const roleName = new Map(roles.map((r) => [r.id, r.name]));
   const titleOf = new Map(items.map((i) => [i.key, i.title]));
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const { confirm, dialog } = useConfirm();
   const [pending, startTransition] = useTransition();
 
@@ -120,7 +120,7 @@ export function ItemGrid({
   function run(work: () => Promise<{ ok: boolean; error?: string }>, message?: string) {
     startTransition(async () => {
       const result = await work();
-      if (!result.ok) showToast({ message: errorText(result.error ?? "generic") });
+      if (!result.ok) showError(errorText(result.error ?? "generic"));
       else if (message) showToast({ message });
     });
   }

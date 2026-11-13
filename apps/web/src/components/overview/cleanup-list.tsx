@@ -27,7 +27,7 @@ export function CleanupList({ events }: { events: CleanupEvent[] }) {
   const t = useTranslations("overview.cleanup");
   const locale = useLocale();
   const tDue = useTranslations("due");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const today = todayIn();
   const [pending, startTransition] = useTransition();
 
@@ -35,7 +35,7 @@ export function CleanupList({ events }: { events: CleanupEvent[] }) {
     startTransition(async () => {
       const result = await skipPastMarkets(eventIds);
       if (!result.ok) {
-        showToast({ message: t("error") });
+        showError(t("error"));
         return;
       }
       const { skipped, auditIds } = result.data;
@@ -57,7 +57,8 @@ export function CleanupList({ events }: { events: CleanupEvent[] }) {
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoPastMarketCleanup(auditIds);
-          showToast({ message: undone.ok ? t("reverted") : t("undoFailed") });
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(t("undoFailed"));
         },
       });
     });

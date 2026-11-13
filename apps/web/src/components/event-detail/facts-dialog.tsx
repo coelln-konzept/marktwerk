@@ -44,7 +44,7 @@ export function FactsDialog({
 }) {
   const t = useTranslations("eventDetail.facts");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const tHappening = useTranslations("eventDetail.happening");
   const { confirm, dialog } = useConfirm();
   /** While the event is happening, every change is confirmed first (decided 2026-10-21). */
@@ -112,7 +112,8 @@ export function FactsDialog({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoFacts(eventId, previous, next);
-          showToast({ message: undone.ok ? t("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });

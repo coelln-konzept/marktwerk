@@ -42,7 +42,7 @@ export function RoleSelect({
 }) {
   const t = useTranslations("settings.users");
   const tRoles = useTranslations("roles");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
 
@@ -54,7 +54,7 @@ export function RoleSelect({
       const result = (await setUserRole(userId, to)) as Result;
       if (!result.ok) {
         select.value = from;
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       showToast({
@@ -62,11 +62,9 @@ export function RoleSelect({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = (await setUserRole(userId, from)) as Result;
-          showToast({
-            message: undone.ok
-              ? t("toasts.roleReverted", { name, role: tRoles(from as never) })
-              : errorText(undone.error),
-          });
+          if (undone.ok)
+            showToast({ message: t("toasts.roleReverted", { name, role: tRoles(from as never) }) });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -108,7 +106,7 @@ export function StaffLinkSelect({
   options: StaffOption[];
 }) {
   const t = useTranslations("settings.users");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
   const nameOf = (id: string | null) => options.find((o) => o.id === id)?.displayName ?? "";
@@ -121,7 +119,7 @@ export function StaffLinkSelect({
       const result = (await setUserStaffLink(userId, to)) as Result;
       if (!result.ok) {
         select.value = from ?? "";
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       showToast({
@@ -131,9 +129,8 @@ export function StaffLinkSelect({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = (await setUserStaffLink(userId, from)) as Result;
-          showToast({
-            message: undone.ok ? t("toasts.relinkReverted", { name }) : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("toasts.relinkReverted", { name }) });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -174,7 +171,7 @@ export function ActiveToggle({
   describedBy?: string;
 }) {
   const t = useTranslations("settings.users");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
 
@@ -182,7 +179,7 @@ export function ActiveToggle({
     startTransition(async () => {
       const result = (await (banned ? reactivateUser(userId) : deactivateUser(userId))) as Result;
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       showToast({
@@ -192,13 +189,13 @@ export function ActiveToggle({
           const undone = (await (banned
             ? deactivateUser(userId)
             : reactivateUser(userId))) as Result;
-          showToast({
-            message: undone.ok
-              ? banned
+          if (undone.ok)
+            showToast({
+              message: banned
                 ? t("toasts.deactivated", { name })
-                : t("toasts.reactivated", { name })
-              : errorText(undone.error),
-          });
+                : t("toasts.reactivated", { name }),
+            });
+          else showError(errorText(undone.error));
         },
       });
     });

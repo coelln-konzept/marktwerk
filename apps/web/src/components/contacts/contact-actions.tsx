@@ -28,14 +28,14 @@ export function ContactActions({
 }) {
   const t = useTranslations("contacts");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function archive() {
     startTransition(async () => {
       const result = await archiveContactAction(id);
       if (!result.ok) {
-        showToast({ message: t("toast.failed") });
+        showError(t("toast.failed"));
         return;
       }
       router.replace(closeHref as never, { scroll: false });
@@ -45,11 +45,8 @@ export function ContactActions({
         onAction: async () => {
           const undone = await unarchiveContactAction(id);
           if (undone.ok) router.replace(`/kontakte?vorschau=${id}` as never, { scroll: false });
-          showToast({
-            message: undone.ok
-              ? t("toast.restored", { name: undone.data.name })
-              : t("toast.failed"),
-          });
+          if (undone.ok) showToast({ message: t("toast.restored", { name: undone.data.name }) });
+          else showError(t("toast.failed"));
         },
       });
     });

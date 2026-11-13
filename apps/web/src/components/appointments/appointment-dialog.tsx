@@ -132,7 +132,7 @@ function AppointmentForm({
 }) {
   const t = useTranslations("appointments");
   const tKind = useTranslations("appointments.contactKind");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const uid = useId();
   const existing = data.appointment;
   const [pending, startTransition] = useTransition();
@@ -250,19 +250,18 @@ function AppointmentForm({
         actionLabel: t("toast.undo"),
         onAction: async () => {
           const undone = await guardedCall(() => archiveAppointmentAction(id));
-          showToast(
-            undone.ok
-              ? {
-                  message: t("toast.createdUndone"),
-                  actionLabel: t("toast.undo"),
-                  onAction: async () => {
-                    const restored = await guardedCall(() => restoreAppointmentAction(id));
-                    if (!restored.ok)
-                      showToast({ message: errorText(restored.error), tone: "error" });
-                  },
-                }
-              : { message: errorText(undone.error), tone: "error" },
-          );
+          if (!undone.ok) {
+            showError(errorText(undone.error));
+            return;
+          }
+          showToast({
+            message: t("toast.createdUndone"),
+            actionLabel: t("toast.undo"),
+            onAction: async () => {
+              const restored = await guardedCall(() => restoreAppointmentAction(id));
+              if (!restored.ok) showError(errorText(restored.error));
+            },
+          });
         },
       });
     });

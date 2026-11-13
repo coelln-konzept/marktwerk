@@ -54,7 +54,7 @@ export function NotificationItem({
   const t = useTranslations("notificationsPage");
   const tBell = useTranslations("bell");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
   const unread = row.state === "unread";
   const severity = SEVERITY[row.severity];
@@ -62,7 +62,7 @@ export function NotificationItem({
   function change(state: NotificationRow["state"], message: string) {
     startTransition(async () => {
       const result = await setNotificationStateAction(row.id, state);
-      if (!result.ok) return showToast({ message: t(`errors.${result.error}` as never) });
+      if (!result.ok) return showError(t(`errors.${result.error}` as never));
       const { previous, changed } = result.data;
       if (!changed) return;
       showToast({
@@ -79,7 +79,7 @@ export function NotificationItem({
   function snooze(choice: string) {
     startTransition(async () => {
       const result = await snoozeNotificationAction(row.id, choice);
-      if (!result.ok) return showToast({ message: t("errors.generic") });
+      if (!result.ok) return showError(t("errors.generic"));
       const { until, previous } = result.data;
       showToast({
         message: t("toast.snoozed", { when: formatInstant(new Date(until), locale) }),

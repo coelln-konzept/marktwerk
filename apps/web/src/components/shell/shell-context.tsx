@@ -38,6 +38,11 @@ type Shell = {
   /** The stack, oldest first (the newest is shown at the bottom, next to the thumb on a phone). */
   toasts: readonly ToastEntry[];
   showToast: (toast: Toast) => void;
+  /**
+   * A failed action: the error tone (red, warning icon, `role="alert"`), stays until closed. Use it for every
+   * error, catch and `!result.ok` branch; `showToast` is for successes and undo toasts.
+   */
+  showError: (message: string, options?: Omit<Toast, "message" | "tone">) => void;
   /** Clears one toast if it is still shown; without an argument the whole stack. */
   dismissToast: (which?: Toast) => void;
   dismissToastById: (id: number) => void;
@@ -168,6 +173,12 @@ export function ShellProvider({
     });
   }, []);
 
+  const showError = useCallback(
+    (message: string, options?: Omit<Toast, "message" | "tone">) =>
+      showToast({ ...options, message, tone: "error" }),
+    [showToast],
+  );
+
   /** Runs an action by its toast id, from the toast or from the undo history (the toast may be gone). */
   const runAction = useCallback(
     async (id: number, action: (() => void | Promise<void>) | undefined) => {
@@ -188,12 +199,12 @@ export function ShellProvider({
         await action();
       } catch {
         // An action that throws (offline) must not crash the page; say so instead.
-        showToast({ message: tErrors("network"), tone: "error" });
+        showError(tErrors("network"));
       } finally {
         setBusy(false);
       }
     },
-    [showToast, dismissToastById, forgetUndo, tErrors],
+    [showError, dismissToastById, forgetUndo, tErrors],
   );
 
   const runToastAction = useCallback(
@@ -248,6 +259,7 @@ export function ShellProvider({
       creatable,
       toasts,
       showToast,
+      showError,
       dismissToast,
       dismissToastById,
       runToastAction,
@@ -264,6 +276,7 @@ export function ShellProvider({
       creatable,
       toasts,
       showToast,
+      showError,
       dismissToast,
       dismissToastById,
       runToastAction,
