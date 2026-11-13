@@ -113,6 +113,8 @@ export interface PermitContext {
   venueBlueprintByName: Map<string, VenueBlueprint>;
   venues: Venue[];
   permitsStaffId: string;
+  /** The market's Saison record, which a season permit (one per market and season) belongs to. */
+  seasonIdOf: (presetId: string, season: number) => string;
   clock: Clock;
 }
 
@@ -274,6 +276,7 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
         validFrom: string,
         validUntil: string,
         decision: Decision,
+        seasonId: string | null = null,
       ): Permit => {
         const stickers = requirement.deliverables.stickers;
         const received =
@@ -290,6 +293,7 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
           requirementId: requirement.id,
           venueId: requirement.venueId,
           season,
+          seasonId,
           category: requirement.category,
           permitType: requirement.permitType,
           title,
@@ -333,7 +337,14 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
               : decide(rng, clock, requirement, season, applyBy, first.startsOn);
           const marketName = presetNameById.get(first.presetId) ?? first.name;
           const title = sharedPlace ? `${requirement.title} – ${marketName}` : requirement.title;
-          const permit = makePermit(title, applyBy, `${season}-01-01`, `${season}-12-31`, decision);
+          const permit = makePermit(
+            title,
+            applyBy,
+            `${season}-01-01`,
+            `${season}-12-31`,
+            decision,
+            ctx.seasonIdOf(first.presetId, season),
+          );
           if (requirement.permitType === "market_permit")
             marketPermitBy.set(`${first.presetId}|${season}`, permit);
           if (!window && LATE_TYPES.includes(requirement.permitType))

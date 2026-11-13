@@ -6,8 +6,8 @@
  * template id) with its items; child items (`parent_key`, ADR 0021) are inserted after all parents, so the
  * `template_item_parent` foreign key always finds its parent. Every preset is linked to its own template.
  *
- * INTERIM season items (stable key `saison_…`, see packages/synthetic dictionaries/checklist-items.ts) are
- * ordinary items here: the database has no `scope` column until the Saison record exists.
+ * Season items (Termine planen, Genehmigung; stable key `saison_…`) carry `scope = 'season'` and hang on the season
+ * anchor `season_start`: they become tasks of the market's Saison record, never of an event (research 13 §6).
  */
 
 import { schema } from "@marktwerk/db";
@@ -75,6 +75,7 @@ export async function seedTemplates(tx: Tx, { data, roleIdByKey }: SeedContext) 
       permitType: item.permitType,
       parentKey: item.parentKey,
       ownDue: item.ownDue,
+      scope: item.scope,
     })),
   );
   await insertAll(

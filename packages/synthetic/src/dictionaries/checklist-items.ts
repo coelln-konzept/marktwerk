@@ -38,16 +38,13 @@ export const CLIENT_DUTY = {
 } as const satisfies Record<string, DutyRoleKey>;
 
 /**
- * INTERIM season tasks (research 13 §1.2 kind 1, §6): "Termine planen" and "Genehmigung" happen once per market
- * series and season, relative to its first date. Until the Saison record exists they are template items with
- * `scope: "season"`, instantiated only on the FIRST (non-cancelled) event of each series per season. In the
- * database they are recognisable by all three marks below, so they can be moved to Saison records later:
- * the stable key starts with `saison_`, the title with "Saison: ", and the description says so.
+ * Season items (research 13 §1.2 kind 1, §6): "Termine planen" and "Genehmigung" happen once per market and
+ * season, relative to its first date. They are template items with `scope: "season"` on the season anchor
+ * `seasonStart`, and become tasks of the market's Saison record (`Task.seasonId`), not of an event. The UI labels
+ * them "<Markt> · Saison <Jahr>", so the title carries no prefix. Their stable keys keep the `saison_` prefix they
+ * had while the first event carried them (interim until R18), so existing tasks still match their items.
  */
 export const SEASON_KEY_PREFIX = "saison_";
-export const SEASON_TITLE_PREFIX = "Saison: ";
-export const SEASON_NOTE =
-  "Saisonaufgabe (Übergang bis zum Saison-Datensatz): einmal je Markt und Saison, beim ersten Termin der Saison.";
 
 /** Description of the items a market without its own sheet gets on top of the Grundvorlage. */
 export const ASSUMPTION_NOTE = "Annahme – vom Team noch nicht bestätigt";
@@ -97,13 +94,12 @@ function item(draft: Draft): ItemBlueprint {
   return { anchorKey: "eventDay", dueTime: null, priority: "normal", ...draft };
 }
 
-/** A season item (see SEASON_NOTE): key and title get their prefixes here. */
+/** A season item (see SEASON_KEY_PREFIX): due relative to the season's first date; the key gets its prefix here. */
 function seasonItem(draft: Draft): ItemBlueprint {
   return item({
+    anchorKey: "seasonStart",
     ...draft,
     key: `${SEASON_KEY_PREFIX}${draft.key}`,
-    title: `${SEASON_TITLE_PREFIX}${draft.title}`,
-    description: draft.description ? `${SEASON_NOTE} ${draft.description}` : SEASON_NOTE,
     scope: "season",
   });
 }
@@ -557,7 +553,7 @@ const HOFFNUNGSTHAL = fromMaster({
       ],
     },
     [GENEHMIGUNG.key]: {
-      title: `${SEASON_TITLE_PREFIX}Anträge stellen`,
+      title: "Anträge stellen",
       children: [
         { key: "antrag", title: "Antrag bei der Stadt stellen", estimateMinutes: 90 },
         {
