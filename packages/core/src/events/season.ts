@@ -191,6 +191,18 @@ export function expectedStartProblem(
   return null;
 }
 
+/**
+ * The order of the market page's Saison panels: seasons that are not closed first, by year, then the closed ones,
+ * by year (in November a closed current season sits below the next one). A year without a record (`status` null,
+ * "Saison anlegen") counts as not closed.
+ */
+export function orderSeasonPanels<T extends { season: number; status: SeasonStatus | null }>(
+  panels: readonly T[],
+): T[] {
+  const closed = (p: T) => (p.status === "closed" ? 1 : 0);
+  return [...panels].sort((a, b) => closed(a) - closed(b) || a.season - b.season);
+}
+
 /** What the panel needs to know to order a season task. */
 export type SeasonTaskLike = { title: string; status: string; dueOn: string | null };
 

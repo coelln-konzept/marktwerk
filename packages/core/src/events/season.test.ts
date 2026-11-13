@@ -9,6 +9,7 @@ import {
   isSeasonAnchorKey,
   isSeasonStatus,
   nextSeasonStatus,
+  orderSeasonPanels,
   SEASON_ANCHOR_KEYS,
   SEASON_STATUSES,
   seasonAnchors,
@@ -265,6 +266,42 @@ describe("nextSeasonStatus", () => {
     expect(nextSeasonStatus("planning")).toBe("dates_set");
     expect(nextSeasonStatus("dates_set")).toBe("closed");
     expect(nextSeasonStatus("closed")).toBeNull();
+  });
+});
+
+describe("orderSeasonPanels", () => {
+  const panel = (season: number, status: "planning" | "dates_set" | "closed" | null) => ({
+    season,
+    status,
+  });
+
+  it("puts a closed current season below the next one (November)", () => {
+    expect(orderSeasonPanels([panel(2026, "closed"), panel(2027, "dates_set")])).toEqual([
+      panel(2027, "dates_set"),
+      panel(2026, "closed"),
+    ]);
+  });
+
+  it("keeps open seasons by year, and closed ones by year after them", () => {
+    expect(
+      orderSeasonPanels([
+        panel(2027, "closed"),
+        panel(2027, "planning"),
+        panel(2026, "dates_set"),
+        panel(2026, "closed"),
+      ]).map((p) => [p.season, p.status]),
+    ).toEqual([
+      [2026, "dates_set"],
+      [2027, "planning"],
+      [2026, "closed"],
+      [2027, "closed"],
+    ]);
+  });
+
+  it("counts a year without a record as not closed, and does not change the input", () => {
+    const input = [panel(2027, "closed"), panel(2026, null)];
+    expect(orderSeasonPanels(input)).toEqual([panel(2026, null), panel(2027, "closed")]);
+    expect(input).toEqual([panel(2027, "closed"), panel(2026, null)]);
   });
 });
 

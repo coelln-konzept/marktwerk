@@ -197,9 +197,11 @@ leads nowhere.
 
 ### Market page and its Saison panel (Fahrplan R12, research 13 §6.3)
 The market page (`/vorlagen/<id>`, "Markt bearbeiten") opens with one **"Saison <Jahr>"** section per season record,
-above the edit form: the current calendar year (Berlin) first, the next year's underneath once its record exists
-(the nightly job makes it; archived records are left out). Each is a `Panel` with its title outside the card
-(§6 "Section headings"), the open-task count as `meta` ("3 offen") and the status switch on the right.
+above the edit form: the current calendar year (Berlin) and the next year's once its record exists (the nightly job
+makes it; archived records are left out). Seasons that are not closed come first, by year, closed ones after them
+(product owner 2026-11-13: in November a closed 2026 sits below 2027; `orderSeasonPanels`). Each is a `Panel` with
+its title outside the card (§6 "Section headings"), the open-task count as `meta` ("3 offen", left out on a closed
+season) and the status switch on the right.
 - **Status**: "Status: <badge> ⌄" (colour + icon + text, §7: In Planung · Termine stehen · Abgeschlossen) opens a menu
   with all three in the order planning → dates_set → closed, the current one ticked. Every change is allowed
   (`canChangeSeasonStatus`), applies at once and shows an undo toast ("Saison 2027: Termine stehen" · Rückgängig);
@@ -222,7 +224,7 @@ above the edit form: the current calendar year (Berlin) first, the next year's u
 - **No record yet** for the current year: the section shows "Noch keine Saison 2026", a one-line explanation and
   **"Saison anlegen"** (primary), which runs `ensureEventSeason` (the one path) and confirms with a plain toast
   ("Saison 2026 angelegt · 3 Aufgaben").
-- Rules: `seasonStartInfo`, `canEditExpectedStart`, `expectedStartProblem`, `seasonTaskList` and `nextSeasonStatus` in
+- Rules: `seasonStartInfo`, `canEditExpectedStart`, `expectedStartProblem`, `seasonTaskList`, `orderSeasonPanels` and `nextSeasonStatus` in
   `packages/core/src/events/season.ts`; query `getMarketSeasons`; services `setSeasonStatus` and
   `setSeasonExpectedStart` (`event:write`, audit `season.status` / `season.expected_start`).
 

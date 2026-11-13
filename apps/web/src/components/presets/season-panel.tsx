@@ -1,3 +1,4 @@
+import { orderSeasonPanels } from "@marktwerk/core";
 import { CalendarDays, CalendarRange, ChevronRight, CircleCheck } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
@@ -17,7 +18,8 @@ type Rights = { canWrite: boolean; canWriteTasks: boolean };
 
 /**
  * The Saison panels of the market page (research 13 §6.3, Fahrplan R12): the current year's season (or "Saison
- * anlegen" while it has no record) and the next year's underneath once it exists.
+ * anlegen" while it has no record) and the next year's once it exists. Seasons that are not closed come first, by
+ * year, the closed ones after them (`orderSeasonPanels`).
  */
 export async function SeasonPanels({
   presetId,
@@ -31,24 +33,35 @@ export async function SeasonPanels({
   today: string;
 } & Rights) {
   const rights = { canWrite, canWriteTasks };
+  const panels = orderSeasonPanels([
+    {
+      season: seasons.current.season,
+      status: seasons.current.record?.status ?? null,
+      record: seasons.current.record,
+    },
+    ...(seasons.next
+      ? [{ season: seasons.next.season, status: seasons.next.status, record: seasons.next }]
+      : []),
+  ]);
   return (
     <KeyboardRows className="flex flex-col gap-6">
-      {seasons.current.record ? (
-        <SeasonPanel
-          presetId={presetId}
-          season={seasons.current.record}
-          today={today}
-          {...rights}
-        />
-      ) : (
-        <MissingSeasonPanel
-          presetId={presetId}
-          season={seasons.current.season}
-          canWrite={canWrite}
-        />
-      )}
-      {seasons.next && (
-        <SeasonPanel presetId={presetId} season={seasons.next} today={today} {...rights} />
+      {panels.map((p) =>
+        p.record ? (
+          <SeasonPanel
+            key={p.season}
+            presetId={presetId}
+            season={p.record}
+            today={today}
+            {...rights}
+          />
+        ) : (
+          <MissingSeasonPanel
+            key={p.season}
+            presetId={presetId}
+            season={p.season}
+            canWrite={canWrite}
+          />
+        ),
       )}
     </KeyboardRows>
   );
@@ -109,7 +122,10 @@ async function SeasonPanel({
     <Panel
       title={t("title", { season: season.season })}
       titleId={`season-${season.season}-title`}
-      meta={tasks ? t("openCount", { count: open.length }) : undefined}
+      // A closed season has nothing left to count.
+      meta={
+        tasks && season.status !== "closed" ? t("openCount", { count: open.length }) : undefined
+      }
       actions={<SeasonStatusMenu season={ref} canWrite={canWrite} />}
       cardClassName="overflow-hidden"
     >
