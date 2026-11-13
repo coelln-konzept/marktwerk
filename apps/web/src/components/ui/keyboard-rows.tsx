@@ -152,6 +152,13 @@ export function KeyboardRows({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  /** Opens a row's target. A drawer or Vorschau on this page keeps the scroll position; another page starts at the top. */
+  function open(href: string) {
+    router.push(href as never, {
+      scroll: new URL(href, window.location.href).pathname !== window.location.pathname,
+    });
+  }
+
   function onFocus(event: React.FocusEvent<HTMLDivElement>) {
     const row = (event.target as HTMLElement).closest<HTMLElement>(ROW);
     if (!row || active.current === row) return;
@@ -176,9 +183,9 @@ export function KeyboardRows({
       router.replace(row.dataset.peek as never, { scroll: false });
     } else if (key === "Enter" && row.dataset.href) {
       event.preventDefault();
-      router.push(row.dataset.href as never);
+      open(row.dataset.href);
     } else if (key === "Enter" && row.dataset.peek) {
-      // Rows without a record page of their own (Kontakte): Enter opens the Vorschau, like Space.
+      // Rows without a target of their own: Enter opens the Vorschau, like Space.
       event.preventDefault();
       router.replace(row.dataset.peek as never, { scroll: false });
     }
@@ -187,12 +194,7 @@ export function KeyboardRows({
   function onClick(event: React.MouseEvent<HTMLDivElement>) {
     const box = (event.target as HTMLElement).closest<HTMLElement>("[data-href]");
     if (!box || !ref.current?.contains(box)) return;
-    openOnRowClick(event, box.dataset.href, (href) =>
-      // A drawer or Vorschau on this page keeps the scroll position; another page starts at the top.
-      router.push(href as never, {
-        scroll: new URL(href, window.location.href).pathname !== window.location.pathname,
-      }),
-    );
+    openOnRowClick(event, box.dataset.href, open);
   }
 
   return (
