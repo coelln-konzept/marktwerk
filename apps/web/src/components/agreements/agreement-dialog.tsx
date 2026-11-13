@@ -112,8 +112,9 @@ export function AgreementDialog({
           message: t("created"),
           actionLabel: t("undo"),
           onAction: async () => {
-            await removeAgreement(id);
-            showToast({ message: t("createdUndone") });
+            const undone = await removeAgreement(id);
+            if (undone.ok) showToast({ message: t("createdUndone") });
+            else showError(errorText(undone.error));
           },
         });
         return;

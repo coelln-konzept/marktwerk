@@ -28,6 +28,8 @@ export function MarkAllCompanyButton({
   const t = useTranslations("notificationCenter");
   const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
+  const errorText = (code: string) =>
+    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
   function run() {
     startTransition(async () => {
@@ -39,8 +41,9 @@ export function MarkAllCompanyButton({
         message: t("toast.markedAll", { count: ids.length }),
         actionLabel: t("actions.undo"),
         onAction: async () => {
-          await markCompanyUnreadAction(ids);
-          showToast({ message: t("toast.restored") });
+          const undone = await markCompanyUnreadAction(ids);
+          if (undone.ok) showToast({ message: t("toast.restored") });
+          else showError(errorText(undone.error));
         },
       });
     });

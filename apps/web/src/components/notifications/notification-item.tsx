@@ -56,21 +56,24 @@ export function NotificationItem({
   const locale = useLocale();
   const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
+  const errorText = (code: string) =>
+    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
   const unread = row.state === "unread";
   const severity = SEVERITY[row.severity];
 
   function change(state: NotificationRow["state"], message: string) {
     startTransition(async () => {
       const result = await setNotificationStateAction(row.id, state);
-      if (!result.ok) return showError(t(`errors.${result.error}` as never));
+      if (!result.ok) return showError(errorText(result.error));
       const { previous, changed } = result.data;
       if (!changed) return;
       showToast({
         message,
         actionLabel: t("undo"),
         onAction: async () => {
-          await restoreNotificationAction(row.id, previous);
-          showToast({ message: t("toast.restored") });
+          const undone = await restoreNotificationAction(row.id, previous);
+          if (undone.ok) showToast({ message: t("toast.restored") });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -85,8 +88,9 @@ export function NotificationItem({
         message: t("toast.snoozed", { when: formatInstant(new Date(until), locale) }),
         actionLabel: t("undo"),
         onAction: async () => {
-          await restoreNotificationAction(row.id, previous);
-          showToast({ message: t("toast.restored") });
+          const undone = await restoreNotificationAction(row.id, previous);
+          if (undone.ok) showToast({ message: t("toast.restored") });
+          else showError(errorText(undone.error));
         },
       });
     });

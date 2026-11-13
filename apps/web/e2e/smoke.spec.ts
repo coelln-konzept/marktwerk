@@ -698,6 +698,50 @@ test("Event Genehmigungen tab: add a permit for this event (undo removes it) and
   await expect(page.locator("tbody").getByText(title)).toHaveCount(0);
 });
 
+test("Permit: an undo the server refuses shows a red error toast, never the success toast", async ({
+  page,
+  context,
+}) => {
+  // A throwaway permit on an event's Genehmigungen tab (the Ort is fixed there, so a title is enough).
+  await page.goto("/veranstaltungen");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/genehmigungen`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Genehmigung anlegen" }).click();
+  const dialog = page.getByRole("dialog");
+  const title = `E2E Undo abgelehnt ${Date.now()}`;
+  await dialog.getByLabel("Bezeichnung").fill(title);
+  await dialog.getByRole("button", { name: "Anlegen", exact: true }).click();
+  await expect(page).toHaveURL(/\/genehmigungen\?genehmigung=/);
+  const id = new URL(page.url()).searchParams.get("genehmigung");
+
+  // A second tab removes it, so the first tab's undo of "Genehmigung angelegt" (which removes it) finds nothing.
+  const other = await context.newPage();
+  await other.goto(`/genehmigungen?genehmigung=${id}`);
+  await other.waitForLoadState("networkidle");
+  await other
+    .locator("aside[aria-labelledby]")
+    .last()
+    .getByRole("button", { name: "Aus den Genehmigungen entfernen" })
+    .click();
+  await expect(other.getByText(`„${title}“ entfernt.`)).toBeVisible();
+  await other.close();
+
+  // The top bar's Rückgängig runs the toast's own undo, without racing the toast's 8 s.
+  await page.getByRole("button", { name: /^Rückgängig: Genehmigung angelegt\./ }).click();
+  const region = page.getByRole("region", { name: "Hinweise" });
+  const toast = region
+    .getByRole("alert")
+    .locator("div")
+    .filter({ hasText: "Diese Genehmigung gibt es nicht mehr." });
+  await expect(toast).toBeVisible();
+  await expect(toast).toHaveClass(/text-status-critical/);
+  // The failed undo does not claim success.
+  await expect(region.getByText("Genehmigung wieder entfernt.")).toHaveCount(0);
+  await toast.getByRole("button", { name: "Hinweis schließen" }).click();
+  await expect(toast).toHaveCount(0);
+});
+
 test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembered, Einstellungen in the profile menu", async ({
   page,
 }) => {

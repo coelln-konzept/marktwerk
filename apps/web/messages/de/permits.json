@@ -114,6 +114,7 @@
     "keys": "Enter: Genehmigung öffnen",
     "errors": {
       "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+      "not_found": "Diese Genehmigung gibt es nicht mehr.",
       "invalid_title": "Bitte eine Bezeichnung eingeben (höchstens 200 Zeichen).",
       "invalid_venue": "Bitte einen Ort wählen.",
       "invalid_category": "Bitte eine Kategorie wählen.",

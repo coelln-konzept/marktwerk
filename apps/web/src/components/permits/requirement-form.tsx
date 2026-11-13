@@ -96,7 +96,7 @@ export function RequirementForm({
   const tCad = useTranslations("permitCadences");
   const locale = useLocale();
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const uid = useId();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<{ field: Field; code: string } | null>(null);
@@ -178,8 +178,9 @@ export function RequirementForm({
           message: t("toast.created"),
           actionLabel: t("toast.undo"),
           onAction: async () => {
-            await archiveRequirementAction(id);
-            showToast({ message: t("toast.createdUndone") });
+            const undone = await archiveRequirementAction(id);
+            if (undone.ok) showToast({ message: t("toast.createdUndone") });
+            else showError(errorText(undone.error));
           },
         });
         router.push(back as never);
@@ -195,8 +196,9 @@ export function RequirementForm({
           message: t("toast.saved"),
           actionLabel: t("toast.undo"),
           onAction: async () => {
-            await updateRequirementAction(requirementId, previous, true);
-            showToast({ message: t("toast.reverted") });
+            const undone = await updateRequirementAction(requirementId, previous, true);
+            if (undone.ok) showToast({ message: t("toast.reverted") });
+            else showError(errorText(undone.error));
           },
         });
       }
