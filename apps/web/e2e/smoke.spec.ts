@@ -1038,6 +1038,40 @@ test("Whole rows open their target: a click beside the market name opens the eve
   await expect(page).toHaveURL(new RegExp(`${href}$`));
 });
 
+test("Kontakte: a click anywhere in a row opens its Vorschau; only the phone and mail icons call or write", async ({
+  page,
+}) => {
+  await page.goto("/kontakte");
+  const row = page
+    .locator("tbody tr[data-row]")
+    .filter({ has: page.locator('a[href^="tel:"]') })
+    .first();
+  await expect(row).toBeVisible();
+  const name = (await row.getByRole("link").first().innerText()).trim();
+
+  // Calling is the icon button; the number beside it is plain text, so a click on it opens the contact (UT-18).
+  await expect(row.getByRole("link", { name: `Anrufen: ${name}` })).toHaveAttribute(
+    "href",
+    /^tel:/,
+  );
+  await expect(row.locator('td a[href^="tel:"]')).toHaveCount(1);
+  await row.locator("td").nth(3).locator(".tabular").click();
+  const vorschau = page.getByRole("dialog", { name });
+  await expect(vorschau).toBeVisible();
+  await expect(page).toHaveURL(/[?&]vorschau=/);
+  await page.keyboard.press("Escape");
+  await expect(vorschau).toBeHidden();
+
+  // A cell without any link (Ort) opens it, too, and so does Enter on the focused row.
+  await row.locator("td").nth(5).click();
+  await expect(vorschau).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(vorschau).toBeHidden();
+  await row.focus();
+  await page.keyboard.press("Enter");
+  await expect(vorschau).toBeVisible();
+});
+
 test("Back arrow: returns to the page you came from with its filters, else to the parent page", async ({
   page,
 }) => {

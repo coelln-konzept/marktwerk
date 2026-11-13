@@ -6,14 +6,13 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ContactVorschau } from "@/components/catalogue/contact-vorschau";
 import { ContactKindBadge } from "@/components/catalogue/kinds";
-import { ContactReach } from "@/components/contacts/contact-reach";
+import { ContactReach, ReachValue } from "@/components/contacts/contact-reach";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/chip";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { LetterFilter } from "@/components/ui/letter-filter";
 import { Panel } from "@/components/ui/panel";
-import { MailLink, PhoneLink } from "@/components/ui/phone";
 import { EmptyState } from "@/components/ui/states";
 import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { hrefWith, param } from "@/lib/url";
@@ -131,34 +130,41 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
           </EmptyState>
         ) : (
           <>
-            {/* Phones (< 640 px): stacked cards with Name, Art and the two actions people come here for. */}
-            <ul className="m-0 flex list-none flex-col p-0 sm:hidden">
-              {rows.map((r) => (
-                <li
-                  key={r.id}
-                  data-selected={vorschauId === r.id ? "" : undefined}
-                  className="flex flex-col gap-2 border-border-subtle border-b px-4 py-3 last:border-b-0 data-selected:bg-selected"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <Link
-                      href={hrefWith(PATH, sp, { vorschau: r.id }) as never}
-                      scroll={false}
-                      aria-label={t("preview", { name: r.name })}
-                      className="min-w-0 font-semibold text-accent-soft-foreground [overflow-wrap:anywhere]"
+            {/* Phones (< 640 px): stacked cards with Name, Art and the two actions people come here for.
+                A tap anywhere on a card opens its Vorschau (UT-18); Anrufen and E-Mail are the only calls. */}
+            <KeyboardRows className="sm:hidden">
+              <ul className="m-0 flex list-none flex-col p-0">
+                {rows.map((r) => {
+                  const peek = hrefWith(PATH, sp, { vorschau: r.id });
+                  return (
+                    <li
+                      key={r.id}
+                      data-href={peek}
+                      data-selected={vorschauId === r.id ? "" : undefined}
+                      className="flex cursor-pointer flex-col gap-2 border-border-subtle border-b px-4 py-3 last:border-b-0 hover:bg-hover data-selected:bg-selected"
                     >
-                      {r.name}
-                    </Link>
-                    <ContactKindBadge kind={r.kind} label={t(`kinds.${r.kind}`)} />
-                  </div>
-                  {(r.contactPerson || r.city) && (
-                    <p className="text-muted-foreground text-small">
-                      {[r.contactPerson, r.city].filter(Boolean).join(" · ")}
-                    </p>
-                  )}
-                  <ContactReach name={r.name} phone={r.phone} email={r.email} />
-                </li>
-              ))}
-            </ul>
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          href={peek as never}
+                          scroll={false}
+                          aria-label={t("preview", { name: r.name })}
+                          className="min-w-0 font-semibold text-accent-soft-foreground [overflow-wrap:anywhere]"
+                        >
+                          {r.name}
+                        </Link>
+                        <ContactKindBadge kind={r.kind} label={t(`kinds.${r.kind}`)} />
+                      </div>
+                      {(r.contactPerson || r.city) && (
+                        <p className="text-muted-foreground text-small">
+                          {[r.contactPerson, r.city].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                      <ContactReach name={r.name} phone={r.phone} email={r.email} />
+                    </li>
+                  );
+                })}
+              </ul>
+            </KeyboardRows>
             <div className="hidden sm:block">
               <KeyboardRows>
                 <Table>
@@ -185,9 +191,10 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                           key={r.id}
                           tabIndex={0}
                           data-row
+                          data-href={peek}
                           data-peek={peek}
                           aria-selected={vorschauId === r.id}
-                          className="outline-hidden focus-visible:bg-selected"
+                          className="cursor-pointer outline-hidden focus-visible:bg-selected"
                         >
                           <TD className="min-w-44 max-w-64">
                             <Link
@@ -209,14 +216,14 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                           </TD>
                           <TD>
                             {r.phone ? (
-                              <PhoneLink phone={r.phone} />
+                              <ReachValue kind="phone" value={r.phone} name={r.name} />
                             ) : (
                               <span className="text-faint-foreground">{t("none")}</span>
                             )}
                           </TD>
-                          <TD className="max-w-56">
+                          <TD className="min-w-48 max-w-56">
                             {r.email ? (
-                              <MailLink email={r.email} />
+                              <ReachValue kind="email" value={r.email} name={r.name} />
                             ) : (
                               <span className="text-faint-foreground">{t("none")}</span>
                             )}
