@@ -68,6 +68,7 @@ import {
   listCalendarEvents,
   listVenueOptions,
 } from "@/server/queries/kalender";
+import { getMarketShortCodes } from "@/server/queries/market-short-codes";
 import { requirePermission } from "@/server/session";
 import { getUiState } from "@/server/ui-state";
 
@@ -133,11 +134,12 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     layers.deadlines.includes("appointments") &&
     available.includes("appointments") &&
     !layers.critical;
-  const [rows, deadlines, venues, allAppointments] = await Promise.all([
+  const [rows, deadlines, venues, allAppointments, shortCodes] = await Promise.all([
     listCalendarEvents(actor, { from, to }, layers),
     listCalendarDeadlines(actor, { from, to }, layers, today, HIDDEN_MODULES),
     listVenueOptions(actor),
     showAppointments ? listAppointmentsBetween(from, to) : Promise.resolve([]),
+    getMarketShortCodes(),
   ]);
   const appointments = layers.venue
     ? allAppointments.filter((a) => a.venueId === layers.venue)
@@ -290,6 +292,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
             href={eventHref(r.id)}
             typeKey={r.typeKey}
             color={r.color}
+            shortCode={r.presetId ? shortCodes.get(r.presetId) : undefined}
             name={r.name}
             status={r.status}
             statusLabel={tStatus(r.status)}

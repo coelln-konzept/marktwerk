@@ -57,7 +57,10 @@
         "retired": "(no longer active)",
         "duration": "Duration (days)",
         "active": "Active",
-        "activeHint": "Inactive markets do not show up under “Plan a market”. Tick the box to bring it back."
+        "activeHint": "Inactive markets do not show up under “Plan a market”. Tick the box to bring it back.",
+        "shortCode": "Short code",
+        "shortCodeHint": "Shown next to the colour in the calendar, 1 to 4 letters or digits. Leave it empty to use “{code}” from the name.",
+        "shortCodeHintOwn": "Shown next to the colour in the calendar, 1 to 4 letters or digits."
       },
       "color": {
         "legend": "Market colour",
@@ -140,7 +143,9 @@
         "not_found": "This preset no longer exists.",
         "invalid_input": "The details are incomplete. Please reload the page.",
         "generic": "That didn't work. Please try again.",
-        "invalid_schedule": "Please check the schedule (see the notes at the rows)."
+        "invalid_schedule": "Please check the schedule (see the notes at the rows).",
+        "invalid_short_code": "Please enter 1 to 4 letters or digits, e.g. ALT.",
+        "short_code_taken": "Another active market already has this short code. Please choose a different one."
       },
       "tasksLink": "Tasks of this market:",
       "tasksOwn": "Own task template",
@@ -248,7 +253,8 @@
       "tplOwn": "Own template",
       "tplShared": "shared",
       "tplDraft": "draft",
-      "tplMeta": "{kind} · {version} · {count, plural, one {# task} other {# tasks}}"
+      "tplMeta": "{kind} · {version} · {count, plural, one {# task} other {# tasks}}",
+      "codeTitle": "Short code"
     },
     "others": {
       "title": "Unused timeline templates",

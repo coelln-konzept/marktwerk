@@ -205,6 +205,13 @@ export default async function LibraryPage({
                           >
                             {m.name}
                           </Link>
+                          <span
+                            title={t("markets.codeTitle")}
+                            className="font-semibold text-[11px] text-muted-foreground tracking-wide"
+                          >
+                            <span className="sr-only">{t("markets.codeTitle")}: </span>
+                            {m.code}
+                          </span>
                         </span>
                       </TD>
                       <TD>

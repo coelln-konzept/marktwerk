@@ -80,6 +80,7 @@ export function buildEventPresets(
         ...structuredClone(blueprint.rules),
       },
       color: blueprint.color,
+      shortCode: blueprint.code,
       rrule: blueprint.rrule,
       durationDays: blueprint.durationDays,
       defaultDuties: { ...ctx.dutyDefaults },

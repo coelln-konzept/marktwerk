@@ -69,6 +69,15 @@ describe("checkPresetFields", () => {
     expect(codes({ rrule: "FREQ=WEEKLY;BYDAY=SU" })).toEqual(["invalid_rrule@rrule"]);
     expect(codes({ rrule: "nonsense" })).toEqual(["invalid_rrule@rrule"]);
   });
+
+  it("allows no Kürzel or a normalised one of 1–4 characters", () => {
+    expect(codes({ shortCode: null })).toEqual([]);
+    expect(codes({ shortCode: "ALT" })).toEqual([]);
+    expect(codes({ shortCode: "SÜD" })).toEqual([]);
+    expect(codes({ shortCode: "ABCDE" })).toEqual(["invalid_short_code@shortCode"]);
+    expect(codes({ shortCode: "alt" })).toEqual(["invalid_short_code@shortCode"]);
+    expect(codes({ shortCode: "" })).toEqual(["invalid_short_code@shortCode"]);
+  });
 });
 
 describe("presetKeyBase", () => {

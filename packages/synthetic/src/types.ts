@@ -289,6 +289,8 @@ export interface EventPreset {
   rules: EventTypeRules;
   /** "Marktfarbe": a key of the market palette in @marktwerk/core. */
   color: MarketColor;
+  /** The market's Kürzel (Fahrplan R15), unique, 1–4 upper-case letters or digits ("ALT", "KST", "P6"). */
+  shortCode: string;
   /**
    * The rhythm shown on the market page (RFC 5545 subset: FREQ=MONTHLY|YEARLY, BYMONTH, BYDAY, BYSETPOS), or null
    * when the dates are irregular. The generator's dates come from the date rules in dictionaries/presets.ts.

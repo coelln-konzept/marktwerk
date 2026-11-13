@@ -1,4 +1,5 @@
 import { MAX_PRICE_CENTS } from "./details";
+import { isMarketShortCode } from "./market-short-code";
 import { parseRRule } from "./rrule";
 import { type ScheduleRow, validateSchedule } from "./schedule";
 
@@ -23,6 +24,11 @@ export type PresetFieldsInput = {
   pricePerMCents: number;
   bookingFeeCents: number;
   rrule: string | null;
+  /**
+   * The market's own Kürzel, already normalised (`normalizeMarketShortCode`); null or left out = none
+   * (the derived one is shown).
+   */
+  shortCode?: string | null;
 };
 
 export type PresetIssueCode =
@@ -34,11 +40,14 @@ export type PresetIssueCode =
   | "invalid_schedule"
   | "invalid_price"
   | "invalid_fee"
-  | "invalid_rrule";
+  | "invalid_rrule"
+  /** The Kürzel is not 1–4 letters (A–Z, Ä, Ö, Ü) or digits. */
+  | "invalid_short_code";
 
 /** The form field an issue belongs to. */
 export type PresetIssueField =
   | "name"
+  | "shortCode"
   | "duration"
   | "publicTitle"
   | "publicText"
@@ -58,6 +67,8 @@ export function checkPresetFields(input: PresetFieldsInput): PresetIssue[] {
   const name = input.name.trim();
   if (name.length < 1 || name.length > PRESET_NAME_MAX)
     issues.push({ code: "invalid_name", field: "name" });
+  if (input.shortCode != null && !isMarketShortCode(input.shortCode))
+    issues.push({ code: "invalid_short_code", field: "shortCode" });
   if (
     !Number.isInteger(input.durationDays) ||
     input.durationDays < 1 ||

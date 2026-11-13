@@ -2,6 +2,7 @@ import {
   expectedStartFromLastSeason,
   initialSeasonStatus,
   isMarketColor,
+  isMarketShortCode,
   itemPermitType,
   seasonAnchors,
   validateSchedule,
@@ -620,6 +621,17 @@ describe("markets and the wall calendar", () => {
     for (const preset of data.eventPresets)
       perVenue.set(preset.venueId, (perVenue.get(preset.venueId) ?? 0) + 1);
     expect([...perVenue.values()].sort()).toEqual([1, 1, 1, 1, 1, 1, 2, 2, 3, 4]);
+  });
+
+  it("gives every market its own valid Kürzel, the wall's letters where they are unique", () => {
+    const codes = data.eventPresets.map((p) => p.shortCode);
+    for (const code of codes) expect(isMarketShortCode(code)).toBe(true);
+    expect(new Set(codes).size).toBe(codes.length);
+    const byKey = new Map(data.eventPresets.map((p) => [p.key, p.shortCode]));
+    expect(byKey.get("altstadt")).toBe("ALT");
+    expect(byKey.get("altstadt-lifestyle")).toBe("LS");
+    expect(byKey.get("stadion-p6")).toBe("P6");
+    expect(byKey.get("kerpen-stadtfest")).toBe("KST");
   });
 
   it("gives every market a colour, its type's rules (changed where it differs) and a valid Zeitplan", () => {

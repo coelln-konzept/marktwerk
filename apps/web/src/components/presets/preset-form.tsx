@@ -1,6 +1,11 @@
 "use client";
 
-import { checkPresetFields, parseEuroCents } from "@marktwerk/core";
+import {
+  checkPresetFields,
+  marketShortCodes,
+  normalizeMarketShortCode,
+  parseEuroCents,
+} from "@marktwerk/core";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState, useTransition } from "react";
@@ -38,8 +43,9 @@ const FIELD_ORDER = [
   "name",
   "type",
   "venue",
-  "color",
   "duration",
+  "shortCode",
+  "color",
   "publicTitle",
   "publicText",
   "schedule",
@@ -63,6 +69,7 @@ export function PresetForm({
   initial,
   options,
   colorUsage,
+  otherMarkets = [],
 }: {
   /** Set when editing: the preset and its `updated_at` (ISO) as loaded, for the concurrency check. */
   edit?: { id: string; updatedAt: string };
@@ -70,6 +77,11 @@ export function PresetForm({
   options: PresetFormOptions;
   /** Colour key → names of the other active markets using it (legend of the colour picker). */
   colorUsage: Record<string, string[]>;
+  /**
+   * The other non-archived markets with their own Kürzel: for the derived code shown in the hint (the
+   * same one the Kalender shows) and the "already taken" check among the active ones.
+   */
+  otherMarkets?: { id: string; name: string; shortCode: string | null; active: boolean }[];
 }) {
   const t = useTranslations("templates.form");
   const locale = useLocale();
@@ -93,6 +105,7 @@ export function PresetForm({
   const [duties, setDuties] = useState<Record<string, string>>(initial.defaultDuties);
   const [active, setActive] = useState(initial.active);
   const [color, setColor] = useState<string | null>(initial.color ?? null);
+  const [shortCode, setShortCode] = useState(initial.shortCode ?? "");
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
@@ -102,6 +115,14 @@ export function PresetForm({
   const latestUpdatedAt = useRef(edit?.updatedAt);
   latestUpdatedAt.current = edit?.updatedAt;
   const loadedUpdatedAt = useRef(edit?.updatedAt);
+
+  /** The Kürzel the market gets from its name while the field is empty (as the Kalender would show it). */
+  const selfId = edit?.id ?? "";
+  const derivedCode =
+    marketShortCodes([
+      ...otherMarkets.filter((m) => m.id !== selfId),
+      { id: selfId, name: name.trim(), shortCode: null },
+    ]).get(selfId) ?? "";
 
   const message = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
@@ -130,6 +151,13 @@ export function PresetForm({
     if (rrule === undefined) found.rrule = "rrule_empty";
     if (!typeId) found.type = "invalid_type";
     if (!venueId) found.venue = "invalid_venue";
+    const code = normalizeMarketShortCode(shortCode);
+    if (
+      code !== null &&
+      active &&
+      otherMarkets.some((m) => m.id !== selfId && m.active && m.shortCode === code)
+    )
+      found.shortCode = "short_code_taken";
 
     const input: PresetInput = {
       name: name.trim(),
@@ -145,6 +173,7 @@ export function PresetForm({
       defaultDuties: Object.fromEntries(Object.entries(duties).filter(([, id]) => id !== "")),
       active,
       color,
+      shortCode: code,
     };
     // The same rules the server applies; parse problems found above come first.
     for (const issue of checkPresetFields({
@@ -311,6 +340,36 @@ export function PresetForm({
               {...fieldProps("duration")}
             />
             {fieldError("duration")}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="preset-shortCode" optional>
+              {t("basics.shortCode")}
+            </Label>
+            <Input
+              id="preset-shortCode"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              maxLength={4}
+              placeholder={derivedCode}
+              value={shortCode}
+              onChange={(e) =>
+                setShortCode(e.target.value.replace(/\s+/g, "").toLocaleUpperCase("de-DE"))
+              }
+              aria-describedby={
+                errors.shortCode
+                  ? "preset-shortCode-error preset-shortCode-hint"
+                  : "preset-shortCode-hint"
+              }
+              aria-invalid={errors.shortCode ? true : undefined}
+              className="max-w-24 font-semibold tracking-wide"
+            />
+            <p id="preset-shortCode-hint" className="text-faint-foreground text-small">
+              {shortCode === ""
+                ? t("basics.shortCodeHint", { code: derivedCode })
+                : t("basics.shortCodeHintOwn")}
+            </p>
+            {fieldError("shortCode")}
           </div>
           <MarketColorPicker
             name="preset-color"
