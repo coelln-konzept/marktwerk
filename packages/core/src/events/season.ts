@@ -137,3 +137,99 @@ export function seasonsToKeep(now: Date, timeZone?: string): [number, number] {
   const year = Number(berlinDay(now, timeZone).slice(0, 4));
   return [year, year + 1];
 }
+
+// ---------------------------------------------------------------------------------------------
+// Market page: the Saison panel (research 13 §6.3, Fahrplan R12)
+
+/** The manual order of the status switch: planning → dates_set → closed; null after closed. */
+export function nextSeasonStatus(status: SeasonStatus): SeasonStatus | null {
+  const i = SEASON_STATUSES.indexOf(status);
+  return i >= 0 && i < SEASON_STATUSES.length - 1 ? (SEASON_STATUSES[i + 1] ?? null) : null;
+}
+
+/**
+ * How the panel shows the season's start: its first and last date and how many events it has, or, while it has
+ * none, the expected start ("erwartet ab …"). Cancelled events do not count.
+ */
+export type SeasonStartInfo =
+  | { kind: "dates"; firstDate: string; lastDate: string; events: number }
+  | { kind: "expected"; expectedStart: string };
+
+export function seasonStartInfo(
+  events: readonly SeasonEventDates[],
+  expectedStart: string,
+): SeasonStartInfo {
+  const end = seasonEnd(events);
+  if (end === null) return { kind: "expected", expectedStart };
+  return {
+    kind: "dates",
+    firstDate: seasonStart(events, expectedStart),
+    lastDate: end,
+    events: events.filter(counts).length,
+  };
+}
+
+/**
+ * `expected_start` is edited by hand only while the season has no dates (decision 2026-11-13: editable on the
+ * market page); once it has dates, the first date is the season start.
+ */
+export function canEditExpectedStart(events: readonly SeasonEventDates[]): boolean {
+  return seasonEnd(events) === null;
+}
+
+export type ExpectedStartProblem = "invalid_date" | "outside_season" | "has_dates";
+
+/** Why a new `expected_start` is refused, or null: it must be a real date in the season's year, without dates. */
+export function expectedStartProblem(
+  date: string,
+  season: number,
+  events: readonly SeasonEventDates[],
+): ExpectedStartProblem | null {
+  if (!isIsoDate(date)) return "invalid_date";
+  if (Number(date.slice(0, 4)) !== season) return "outside_season";
+  if (!canEditExpectedStart(events)) return "has_dates";
+  return null;
+}
+
+/**
+ * The order of the market page's Saison panels: seasons that are not closed first, by year, then the closed ones,
+ * by year (in November a closed current season sits below the next one). A year without a record (`status` null,
+ * "Saison anlegen") counts as not closed.
+ */
+export function orderSeasonPanels<T extends { season: number; status: SeasonStatus | null }>(
+  panels: readonly T[],
+): T[] {
+  const closed = (p: T) => (p.status === "closed" ? 1 : 0);
+  return [...panels].sort((a, b) => closed(a) - closed(b) || a.season - b.season);
+}
+
+/** What the panel needs to know to order a season task. */
+export type SeasonTaskLike = { title: string; status: string; dueOn: string | null };
+
+/** Done and skipped tasks are finished; cancelled ones are not listed. */
+const FINISHED = new Set(["done", "skipped"]);
+
+const byDueThenTitle = (a: SeasonTaskLike, b: SeasonTaskLike) => {
+  if (a.dueOn !== b.dueOn) {
+    if (a.dueOn === null) return 1;
+    if (b.dueOn === null) return -1;
+    return a.dueOn < b.dueOn ? -1 : 1;
+  }
+  return a.title.localeCompare(b.title, "de");
+};
+
+/**
+ * The season's tasks as the panel lists them: open ones first (earliest due date first, no due date last), then
+ * the finished ones (done, skipped) in the same order. Cancelled tasks are left out.
+ */
+export function seasonTaskList<T extends SeasonTaskLike>(
+  tasks: readonly T[],
+): { open: T[]; finished: T[] } {
+  const open: T[] = [];
+  const finished: T[] = [];
+  for (const task of tasks) {
+    if (task.status === "cancelled") continue;
+    (FINISHED.has(task.status) ? finished : open).push(task);
+  }
+  return { open: open.sort(byDueThenTitle), finished: finished.sort(byDueThenTitle) };
+}

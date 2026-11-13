@@ -10,6 +10,15 @@ export function taskLink(taskId: string, eventId: string | null): string {
   return eventId ? `/veranstaltungen/${eventId}/board${query}` : `/board${query}`;
 }
 
+/**
+ * What a season task (research 13 §6.3) is about in a stored German text, where an event task names its event:
+ * "Flohmarkt Bilk · Saison 2027". The UI says the same through the message key `tasks.seasonContext`.
+ */
+export function seasonContextName(marketName: string, season: number): string {
+  return `${marketName} · Saison ${season}`;
+}
+
+/** `eventName` is the event's name, or for a season task its {@link seasonContextName}. */
 type Subject = { title: string; eventName: string | null };
 
 const where = (s: Subject) => (s.eventName ? ` (${s.eventName})` : "");

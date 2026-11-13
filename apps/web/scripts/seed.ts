@@ -2,7 +2,7 @@
  * Development seed: company settings, the owner account and the M1 entities from the synthetic
  * dataset (ADR 0016): legal parameters, event types, contacts, venues with zones and rows, staff
  * members (+ logins for those with a permission role, and one field login for the logistics lead), duty roles, presets, events with anchors and
- * duties, vendors (read-only import), and the Phase 1 modules from ./seed/*: templates, checklists and
+ * duties, Saison records with their anchors, vendors (read-only import), and the Phase 1 modules from ./seed/*: templates, checklists and
  * tasks (M2), permits (M3), contracts and shifts (M4), payables and instalments (M5), vehicles and
  * obligations (M6).
  *
@@ -193,6 +193,16 @@ await db.transaction(async (tx) => {
     schema.eventAnchor,
     data.eventAnchors.map((a) => ({ ...a, key: ANCHOR_KEYS[a.key] })),
     "event anchors",
+  );
+  // Saison records (research 13 §6): one per market and year, with `season_start` / `season_end`, as the nightly
+  // `event-seasons` job would have made them (it then finds them and creates nothing). Their checklists and season
+  // tasks are seeded with the other tasks (./seed/tasks.ts); season permits point at them (./seed/permits.ts).
+  await insertAll(tx, schema.eventSeason, data.eventSeasons, "seasons");
+  await insertAll(
+    tx,
+    schema.eventSeasonAnchor,
+    data.eventSeasonAnchors.map((a) => ({ ...a, key: ANCHOR_KEYS[a.key] })),
+    "season anchors",
   );
   const roleIdByKey = new Map(data.dutyRoles.map((r) => [r.key, r.id]));
   await insertAll(

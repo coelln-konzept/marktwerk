@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { permitCoversSeveralEvents, splitApplyTasks } from "./apply-task";
+import { permitCoversSeveralEvents, seasonApplyDuplicates, splitApplyTasks } from "./apply-task";
 import { PERMIT_CADENCES } from "./status";
 
 describe("permitCoversSeveralEvents", () => {
@@ -91,5 +91,36 @@ describe("splitApplyTasks", () => {
 
   it("nothing in, nothing out", () => {
     expect(splitApplyTasks([], [])).toEqual({ keep: [], duplicates: [] });
+  });
+});
+
+describe("seasonApplyDuplicates (Fahrplan R11)", () => {
+  const t = (id: string, seasonId: string | null, status = "todo") => ({ id, status, seasonId });
+  const ids = (r: { id: string }[] | null) => r?.map((x) => x.id) ?? null;
+
+  it("the season task of the permit's own season is the one: untouched others are duplicates", () => {
+    const tasks = [t("season", "s27"), t("event1", null), t("event2", null), t("own", null)];
+    expect(ids(seasonApplyDuplicates(tasks, "s27"))).toEqual(["event1", "event2", "own"]);
+    // A later season that a multi-year permit covers is a duplicate too.
+    expect(ids(seasonApplyDuplicates([t("a", "s27"), t("b", "s28")], "s27"))).toEqual(["b"]);
+    // Several items of the own season all stay.
+    expect(ids(seasonApplyDuplicates([t("a", "s27"), t("b", "s27")], "s27"))).toEqual([]);
+  });
+
+  it("never removes work somebody did, and keeps a worked-on season task too", () => {
+    const tasks = [
+      t("season", "s27", "in_progress"),
+      t("event1", null, "done"),
+      t("event2", null, "waiting_external"),
+      t("event3", null),
+    ];
+    expect(ids(seasonApplyDuplicates(tasks, "s27"))).toEqual(["event3"]);
+  });
+
+  it("falls back (null) without a record or without a task of the permit's season", () => {
+    expect(seasonApplyDuplicates([t("a", "s27"), t("b", null)], null)).toBeNull();
+    expect(seasonApplyDuplicates([t("a", "s27"), t("b", null)], undefined)).toBeNull();
+    expect(seasonApplyDuplicates([t("a", "s28"), t("b", null)], "s27")).toBeNull();
+    expect(seasonApplyDuplicates([], "s27")).toBeNull();
   });
 });

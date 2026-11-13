@@ -26,7 +26,8 @@ pnpm --filter @marktwerk/synthetic typecheck
   every status and due date; the generator never reads the real clock. It is `SYNTHETIC_REFERENCE_DATE` when set, else
   the fixed `2026-10-21` (tests, `pnpm generate`). `pnpm db:seed` sets it to the seed day, so a fresh seed looks
   current. **Every date and both seasons derive from it** (`lib/clock.ts`); only legal parameters keep real dates.
-  A well-run company's normal day: 4 overdue tasks on current markets and 1 forgotten one on the last market that
+  A well-run company's normal day: 4 overdue tasks on current markets (or on a season that has not started yet) and
+  1 forgotten one on the last market that
   ended more than a week ago (`OVERDUE_CURRENT`, `OVERDUE_LEFTOVERS` in `generators/tasks.ts`), 2 overdue instalments,
   1 overdue obligation, at most 2 late permits, at most 2 (`DECISION_OVERDUE`) permits whose decision is overdue,
   expected permit decisions spread over many days.
@@ -40,7 +41,7 @@ pnpm --filter @marktwerk/synthetic typecheck
 `out/` is gitignored. Each entity is one file, `out/<entity>.json`, plus `out/manifest.json` (seed, reference date,
 counts). The seed script (M1) loads these files in dependency order: `settings`, `legalParameters`, `eventTypes`,
 `contacts`, `venues`, `dutyRoles`, `staffMembers`, `employmentContracts`, `checklistTemplates`, `eventPresets`,
-`events`, `eventAnchors`, `tasks`, `permitRequirements`, `permits`, `eventPermits`, `vehicles`, `obligations`,
+`events`, `eventAnchors`, `eventSeasons`, `eventSeasonAnchors`, `tasks`, `permitRequirements`, `permits`, `eventPermits`, `vehicles`, `obligations`,
 `payables`, `installments`, `shifts`, `vendors`, `bookingRequests`, `bookingDates`.
 
 | Entity (file) | Records | Notes |
@@ -56,19 +57,21 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 | `eventPresets` | 17 | The 16 Coelln Konzept series + Hoffnungsthal (9 flea, 2 antique, 3 city festival, 3 food & wine), each with colour, Marktregeln (`rules`) and Zeitplan (`schedule`) |
 | `events` | 134 | 67 per season (2026, 2027), January–November, 53 on Sundays, 1–3 per day. Two 2026 events cancelled |
 | `eventAnchors` | 536 | `eventDay`, `setupDay`, `teardownDay`, `bookingCutoff` (Monday before) per event |
-| `checklistTemplates` | 18 | The Grundvorlage (18 items) and every market's own copy (19–50 items, child items included; 457 items in all) |
-| `tasks` | 2,624 | 1,806 tasks and 818 subtasks (≈ 20 per event, 13–50), due times in Berlin time |
+| `eventSeasons` | 34 | One Saison record per market and year (17 × 2026, 2027). 2026: 14 `closed`, 3 `dates_set` (markets still running); 2027: 17 `dates_set` |
+| `eventSeasonAnchors` | 68 | `seasonStart` and `seasonEnd` per Saison record |
+| `checklistTemplates` | 18 | The Grundvorlage (18 items) and every market's own copy (19–50 items, child items included; 457 items in all, 109 of them `scope: "season"`) |
+| `tasks` | 2,624 | 1,806 tasks and 818 subtasks, due times in Berlin time. Events: 2,418 (≈ 18 per event, 13–43). Saison records: 206 (68 tasks, two per record, and 138 subtasks); 2026 all done, 2027: 23 done, 6 todo, 4 in progress, 1 waiting |
 | `permitRequirements` | 47 | Per place (`VENUE_PERMITS`): Marktgenehmigung and Festsetzung, the landowner's OK on private ground, PVBT, Plakatierung, Standrohr, Sperrung, Schaustellerliste, toilets; some only for one event type |
-| `permits` | 180 | Season permits per market (also where markets share a place), PVBT, Standrohr and Schaustellerliste per date. 2026: 89 granted, 1 late example; 2027: 22 applied (2 with an overdue decision), 7 preparing, 61 not started |
+| `permits` | 180 | Season permits per market (also where markets share a place; 122, each with its market's `seasonId`), PVBT, Standrohr and Schaustellerliste per date. 2026: 89 granted, 1 late example; 2027: 22 applied (2 with an overdue decision), 7 preparing, 61 not started |
 | `eventPermits` | 524 | Event ↔ permit links |
 | `vehicles` | 3 | Vans with 3,500 or 3,880 kg |
 | `obligations` | 11 | HU, UVV (one overdue), service, insurance renewal, KSK report |
 | `payables` | 109 | Location fees, Marktgenehmigung fees, Festsetzung fees (granted ones only), toilets, standpipes, vehicles, insurance, event costs |
 | `installments` | 133 | Sum exactly to each payable's total |
-| `shifts` | 281 | Field crew on past 2026 events |
+| `shifts` | 278 | Field crew on past 2026 events |
 | `vendors` | 1,500 | 75 % private, about 30 % regular |
-| `bookingRequests` | 5,455 | 40–150 per bookable event (flea and antique, completed or confirmed 2026) |
-| `bookingDates` | 4,573 | One per accepted request, with row placement and car grant |
+| `bookingRequests` | 5,578 | 40–150 per bookable event (flea and antique, completed or confirmed 2026) |
+| `bookingDates` | 4,671 | One per accepted request, with row placement and car grant |
 
 ## Rules the data follows
 
@@ -89,19 +92,29 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
   generator creates all four anchors). `CLIENT_MARKET_PRESET_KEYS` attaches the four sheets to the presets
   `altstadt`, `riehler-guertel`, `nippes` and `hoffnungsthal`; `CLIENT_DUTY` puts the market-day lines on their
   roles (Einweisung, Ordner, Nachtwache, Verkehr; Nachkassieren on Kasse).
-- **Season tasks (INTERIM)**: "Termine planen" and "Genehmigung" happen once per market and season, relative to its
-  first date (research 13 §1.2). Until the Saison record exists (research 13 §6) they are template items with
-  `scope: "season"` that only the **first non-cancelled event of each series per season** gets as tasks. In the
-  database they are marked three ways so they can be moved later: stable key `saison_…`, title "Saison: …" and a
-  description saying so. The app itself does not know `scope` yet: "Markt planen" and template propagation would
-  create them on other events of the market too.
-- **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets and 1 on the last past market (`rolloverCount` 1–5); up to 2 recent permit tasks without a filed permit wait on an authority (`waiting_external`). Future tasks are `todo` or `in_progress`. A task whose item applies for a permit (`permitType`: Genehmigung → Marktgenehmigung, its Festsetzung subtask → Festsetzung, Plakatierung, Standrohr bestellen, Schaustellerliste) is `done` once that permit is applied for or granted, as the app's `linkPermitTasks` does; the seed links them. Counts are of top-level tasks, as in the app's lists.
+- **Saison records** (research 13 §6, `generators/seasons.ts`): every market has one `eventSeasons` record for the
+  current and the next season, made by the rules in `@marktwerk/core` (`events/season.ts`), as the nightly
+  `event-seasons` job would: `expectedStart` = the previous season's first non-cancelled date moved to the same
+  weekday and ISO week (the dataset has no season before the current one, so the current season starts from
+  1 January); anchors `seasonStart` (first non-cancelled date) and `seasonEnd` (last day of the last non-cancelled
+  event); `status` as of the reference date (`initialSeasonStatus`: `closed` once the last date has passed, else
+  `dates_set`). After `pnpm db:seed` the job finds both records of every market and creates nothing.
+- **Season tasks**: "Termine planen" and "Genehmigung beantragen" (Hoffnungsthal: "Anträge stellen") happen once per
+  market and season, relative to its first date (research 13 §1.2). They are template items with `scope: "season"`
+  (`template_item.scope`) on the anchor `seasonStart`, and become tasks of the **Saison record** (`seasonId`, no
+  `eventId`), never of an event; their subtasks stay with them. Titles have no prefix (the app labels them
+  "<Markt> · Saison <Jahr>"); stable keys keep `saison_…`. Assignees are the market's default duty holders. Status:
+  done once due (the team plans and applies on time), so the current season's are all done; an upcoming one is
+  `in_progress` within 30 days of its due date, else `todo`; one that applies for a permit follows that season
+  permit (done once filed). Next season's work may be among the few overdue or waiting samples (see Tasks).
+- **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets or seasons that have not started yet and 1 on the last past market (`rolloverCount` 1–5); up to 2 recent permit tasks without a filed permit wait on an authority (`waiting_external`). Future tasks are `todo` or `in_progress`. A task whose item applies for a permit (`permitType`: Genehmigung → Marktgenehmigung, its Festsetzung subtask → Festsetzung, Plakatierung, Standrohr bestellen, Schaustellerliste) is `done` once that permit is applied for or granted, as the app's `linkPermitTasks` does; the seed links the event tasks (linking a season task to its season permit through `permit.seasonId` is Fahrplan R11). Counts are of top-level tasks, as in the app's lists.
 - **Subtasks** follow their parent: a done, skipped or cancelled parent has all subtasks the same; an open parent has
   some done (in progress: at least one; overdue: all but the last); a parent waiting on an authority has its first
   subtask done and the others waiting. A done subtask may be due later (done early), never completed after today.
 - **Permits** (research 13 §4, `dictionaries/permits.ts`): every market applies for its own **Marktgenehmigung
   (Sondernutzung)** and **Festsetzung (§ 69 GewO)** per season at the Ordnungsamt; on private ground (Stadion, P6,
-  Südbrücke) the **landowner's OK** replaces the Marktgenehmigung, the Festsetzung stays. The rest follows the
+  Südbrücke) the **landowner's OK** replaces the Marktgenehmigung, the Festsetzung stays. Every season permit (one
+  per market and season) carries that market's Saison record (`seasonId`); per-date permits have none. The rest follows the
   client's sheets: **PVBT** per date (Riehler Gürtel, Hoffnungsthal 96 h; assumed for Südstadt and the Rodenkirchen
   Straßenfest), **Plakatierung** with city stickers (Riehler Gürtel, Hoffnungsthal, Kerpen), **Standrohr** per date
   at the water supplier (Altstadt, Hoffnungsthal, festivals and wine markets), a road closure (verkehrsrechtliche
@@ -155,6 +168,6 @@ src/
   generate.ts         CLI: writes out/
   index.ts            public exports
   dictionaries/       curated German lists (event types, venues, contacts, staff, presets, checklist items, permits, texts)
-  generators/         one module per entity group (catalogue, people, events, tasks, permits, money, shifts, vendors, bookings)
+  generators/         one module per entity group (catalogue, people, events, seasons, tasks, permits, money, shifts, vendors, bookings)
   lib/                dates (UTC + Berlin time), RRULE subset, seeded RNG, fiction phone and example email helpers
 ```

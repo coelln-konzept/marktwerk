@@ -318,6 +318,36 @@ function CardContent({
         </Link>
       )}
 
+      {/* A season task names its market and season where an event task names its event (research 13 §6.3). */}
+      {board.showEvent &&
+        !hideEvent &&
+        task.season &&
+        (() => {
+          const label = (
+            <>
+              <MarketMarker color={task.eventColor} typeKey={task.eventTypeKey} className="h-3" />
+              <span className="truncate">
+                {tTasks("seasonContext", {
+                  name: task.season.name,
+                  year: String(task.season.year),
+                })}
+              </span>
+            </>
+          );
+          const className = "flex min-w-0 items-center gap-1.5 text-muted-foreground text-tiny";
+          return task.season.href ? (
+            <Link
+              href={task.season.href as never}
+              draggable={false}
+              className={cn(className, "hover:underline")}
+            >
+              {label}
+            </Link>
+          ) : (
+            <span className={className}>{label}</span>
+          );
+        })()}
+
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {canWrite &&
           (finished ? (

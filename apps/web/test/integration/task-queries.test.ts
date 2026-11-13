@@ -25,7 +25,15 @@ import {
   unsnoozeTask,
 } from "@/server/services/tasks";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
-import { asStaff, dueOn, insertEvent, insertStaff, insertTask, TODAY } from "../helpers/tasks";
+import {
+  asStaff,
+  dueOn,
+  insertEvent,
+  insertSeason,
+  insertStaff,
+  insertTask,
+  TODAY,
+} from "../helpers/tasks";
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
 let owner: Actor;
@@ -656,5 +664,112 @@ describe("option lists", () => {
     expect(names).toEqual(["Anna Test", "Ben Test"]);
     const events = await listTaskEventOptions(owner, TODAY);
     expect(events.map((e) => e.name)).toEqual(["Testmarkt"]);
+  });
+});
+
+describe("season tasks (research 13 §6.3, R13)", () => {
+  const label = (presetId: string, href: boolean) => ({
+    year: 2027,
+    presetId,
+    name: "Testflohmarkt",
+    href: href ? `/vorlagen/${presetId}` : null,
+  });
+
+  it("carry their market and season in the due list, the Kalender, the board and the drawer", async () => {
+    const season = await insertSeason(cat);
+    const t = await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      isKey: true,
+      dueAt: dueOn("2026-10-15"),
+      assigneeId: cat.staff.anna.id,
+    });
+    await insertTask({ title: "Aufbau", eventId, dueAt: dueOn("2026-10-22") });
+    const presetId = cat.presets.flea.id;
+
+    const items = await dueItems(owner, TODAY);
+    expect(items.find((i) => i.id === t.id)).toMatchObject({
+      urgency: "overdue",
+      eventId: null,
+      eventColor: "petrol",
+      eventTypeKey: "flea",
+      href: `/board?aufgabe=${t.id}`,
+      season: { id: season.id, ...label(presetId, true) },
+    });
+    expect(items.find((i) => i.title === "Aufbau")?.season).toBeNull();
+
+    const calendar = await calendarItems(owner, "2026-10-01", "2026-10-31", TODAY);
+    expect(calendar.find((i) => i.id === t.id)).toMatchObject({
+      tone: "critical",
+      href: `/board?aufgabe=${t.id}`,
+      season: label(presetId, true),
+    });
+
+    const board = await listBoardTasks(owner, {}, TODAY);
+    expect(board.tasks.find((c) => c.id === t.id)).toMatchObject({
+      eventName: null,
+      eventColor: "petrol",
+      season: label(presetId, true),
+    });
+
+    expect(await getTaskDetail(owner, t.id)).toMatchObject({
+      eventId: null,
+      season: { id: season.id, ...label(presetId, true) },
+      link: `/board?aufgabe=${t.id}`,
+    });
+    // Staff may not open the market page: the label stays, the link goes.
+    const anna = asStaff(await createActor("staff"), cat.staff.anna);
+    expect((await getTaskDetail(anna, t.id))?.season).toMatchObject(label(presetId, false));
+    expect((await dueItems(anna, TODAY)).map((i) => i.season)).toEqual([
+      expect.objectContaining(label(presetId, false)),
+    ]);
+  });
+
+  it("are snoozed like event tasks: out of the due list and the Kalender until their date", async () => {
+    const season = await insertSeason(cat);
+    const t = await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      dueAt: dueOn("2026-10-15"),
+    });
+    await snoozeTask(owner, t.id, "2026-10-23", clock);
+    expect(await dueItems(owner, TODAY)).toEqual([]);
+    expect(await calendarItems(owner, "2026-10-01", "2026-10-31", TODAY)).toEqual([]);
+    expect((await dueItems(owner, "2026-10-23")).map((i) => i.season?.id)).toEqual([season.id]);
+  });
+
+  it("show a field user only the season tasks assigned to them", async () => {
+    const frieda = await insertStaff("Frieda Platz", {
+      userId: "user-field-frieda",
+      role: "field",
+    });
+    const field: Actor = asStaff(
+      { ...(await createActor("field")), id: "user-field-frieda" },
+      frieda,
+    );
+    const season = await insertSeason(cat);
+    const mine = await insertTask({
+      title: "Plakate",
+      seasonId: season.id,
+      assigneeId: frieda.id,
+      dueAt: dueOn("2026-10-22"),
+    });
+    const others = await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      assigneeId: cat.staff.anna.id,
+      dueAt: dueOn("2026-10-22"),
+    });
+    await insertTask({ title: "Genehmigung", seasonId: season.id, dueAt: dueOn("2026-10-22") });
+
+    expect((await dueItems(field, TODAY)).map((i) => i.title)).toEqual(["Plakate"]);
+    expect(
+      (await calendarItems(field, "2026-10-01", "2026-10-31", TODAY)).map((i) => i.title),
+    ).toEqual(["Plakate"]);
+    expect((await listBoardTasks(field, {}, TODAY)).tasks.map((c) => c.title)).toEqual(["Plakate"]);
+    expect((await getTaskDetail(field, mine.id))?.season).toMatchObject({ href: null });
+    expect(await getTaskDetail(field, others.id)).toBeNull();
+    // Office users see all of them.
+    expect((await listBoardTasks(owner, {}, TODAY)).tasks).toHaveLength(3);
   });
 });

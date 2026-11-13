@@ -218,6 +218,7 @@
     "tasksEmpty": "No tasks for this permit.",
     "taskDue": "due {date}",
     "taskNoDue": "no deadline",
+    "taskSeason": "{market} · Season {year}",
     "taskStatus": {
       "todo": "Open",
       "in_progress": "In progress",

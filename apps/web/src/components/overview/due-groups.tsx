@@ -58,10 +58,15 @@ export const DUE_PER_MARKET = 3;
 export const DUE_PREVIEW_CLUSTERS = 10;
 
 type Cluster = {
+  /** The market bar: an event, or a Saison ("<Markt> · Saison <Jahr>", research 13 §6.3). */
   event: {
-    id: string;
+    /** The cluster's key: the event id, or `season:<id>`. */
+    key: string;
+    /** The event (its Vorschau eye); null for a Saison, which has no Vorschau. */
+    eventId: string | null;
     name: string;
-    href: string;
+    /** The event's Überblick or the market page; null when the actor may not open the market page. */
+    href: string | null;
     typeKey: string | null;
     color: string | null;
     startsOn: string | null;
@@ -71,31 +76,44 @@ type Cluster = {
 
 /**
  * Items of one urgency group, bundled by market in ranking order (a market appears where its first item
- * ranks); items without a market stay single rows.
+ * ranks); season tasks are bundled per Saison the same way; items without either stay single rows.
+ * `seasonName` gives a Saison its label.
  */
-function clusters(rows: DueItem[]): Cluster[] {
+function clusters(rows: DueItem[], seasonName: (item: DueItem) => string): Cluster[] {
   const out: Cluster[] = [];
-  const byEvent = new Map<string, Cluster>();
+  const byKey = new Map<string, Cluster>();
   for (const item of rows) {
-    if (!item.eventId || !item.meta) {
+    const head: Cluster["event"] =
+      item.eventId && item.meta
+        ? {
+            key: item.eventId,
+            eventId: item.eventId,
+            name: item.meta,
+            // Every link to a market opens its Überblick.
+            href: item.metaHref ?? `/veranstaltungen/${item.eventId}`,
+            typeKey: item.eventTypeKey ?? null,
+            color: item.eventColor ?? null,
+            startsOn: item.eventStartsOn ?? null,
+          }
+        : item.season
+          ? {
+              key: `season:${item.season.id}`,
+              eventId: null,
+              name: seasonName(item),
+              href: item.season.href,
+              typeKey: item.eventTypeKey ?? null,
+              color: item.eventColor ?? null,
+              startsOn: null,
+            }
+          : null;
+    if (!head) {
       out.push({ event: null, items: [item] });
       continue;
     }
-    let cluster = byEvent.get(item.eventId);
+    let cluster = byKey.get(head.key);
     if (!cluster) {
-      cluster = {
-        event: {
-          id: item.eventId,
-          name: item.meta,
-          // Every link to a market opens its Überblick.
-          href: item.metaHref ?? `/veranstaltungen/${item.eventId}`,
-          typeKey: item.eventTypeKey ?? null,
-          color: item.eventColor ?? null,
-          startsOn: item.eventStartsOn ?? null,
-        },
-        items: [],
-      };
-      byEvent.set(item.eventId, cluster);
+      cluster = { event: head, items: [] };
+      byKey.set(head.key, cluster);
       out.push(cluster);
     }
     cluster.items.push(item);
@@ -300,17 +318,23 @@ function MarketCluster({
     <li className="border-border-subtle border-b last:border-b-0">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-4 pt-3 pb-1">
         <MarketMarker color={event.color} typeKey={event.typeKey} />
-        <Link
-          href={event.href as never}
-          className="min-w-0 break-words font-semibold hover:underline"
-        >
-          {event.name}
-        </Link>
+        {event.href ? (
+          <Link
+            href={event.href as never}
+            className="min-w-0 break-words font-semibold hover:underline"
+          >
+            {event.name}
+          </Link>
+        ) : (
+          <span className="min-w-0 break-words font-semibold">{event.name}</span>
+        )}
         {event.startsOn && <MarketDate date={event.startsOn} today={today} />}
         <span className="tabular text-muted-foreground text-small">
           · {t("eventCount", { count: items.length })}
         </span>
-        <PeekLink eventId={event.id} name={event.name} className="-my-1 ml-auto" />
+        {event.eventId && (
+          <PeekLink eventId={event.eventId} name={event.name} className="-my-1 ml-auto" />
+        )}
       </div>
       <ul className="m-0 flex list-none flex-col p-0 pb-1.5">
         {items.slice(0, DUE_PER_MARKET).map(row)}
@@ -320,9 +344,9 @@ function MarketCluster({
               className="pl-7"
               label={t("moreAtMarket", { count: items.length - DUE_PER_MARKET, name: event.name })}
               link={
-                items.length - DUE_PER_MARKET > MORE_IN_PLACE_MAX
+                items.length - DUE_PER_MARKET > MORE_IN_PLACE_MAX && event.href
                   ? {
-                      href: `/veranstaltungen/${event.id}`,
+                      href: event.href,
                       label: t("moreAtMarketLink", {
                         count: items.length - DUE_PER_MARKET,
                         name: event.name,
@@ -371,11 +395,16 @@ export async function DueGroups({
   bandless?: DueUrgency[];
 }) {
   const t = await getTranslations("overview.due");
+  const tTasks = await getTranslations("tasks");
+  const seasonName = (item: DueItem) =>
+    item.season
+      ? tTasks("seasonContext", { name: item.season.name, year: String(item.season.year) })
+      : "";
   const reserveStar = isModuleVisible("keyTasks") && items.some((i) => i.isKey);
   const render = (cluster: Cluster) =>
     cluster.event ? (
       <MarketCluster
-        key={`event-${cluster.event.id}`}
+        key={`event-${cluster.event.key}`}
         cluster={cluster as Cluster & { event: NonNullable<Cluster["event"]> }}
         today={today}
         canSnooze={canSnooze}
@@ -398,7 +427,7 @@ export async function DueGroups({
       {groups.map((urgency) => {
         const rows = items.filter((i) => i.urgency === urgency);
         if (rows.length === 0) return null;
-        const all = clusters(rows);
+        const all = clusters(rows, seasonName);
         const shown = all.slice(0, DUE_PREVIEW_CLUSTERS);
         const hidden = all.slice(DUE_PREVIEW_CLUSTERS);
         const Band = BAND[urgency].icon;
