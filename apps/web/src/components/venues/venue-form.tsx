@@ -7,6 +7,8 @@ import {
   isPostalCode,
   parseCoordinate,
   parseMetresToCm,
+  VENUE_NAME_MAX,
+  venueNameFromAddress,
 } from "@marktwerk/core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -78,11 +80,13 @@ export function VenueForm({
     if (field) document.getElementById(field)?.focus();
   }
 
+  // An empty name is filled from the address by the service (UT2-02); the field shows what it will be.
+  const derivedName = venueNameFromAddress(city, street);
+
   function submit() {
     setError(null);
     // Required fields and obvious format mistakes are answered on the spot (no round trip), in field
     // order, so the focus lands on the first wrong field.
-    if (name.trim() === "") return fail("invalid_name");
     if (postalCode.trim() !== "" && !isPostalCode(postalCode.trim()))
       return fail("invalid_postal_code");
     if (city.trim() === "") return fail("invalid_city");
@@ -127,7 +131,9 @@ export function VenueForm({
       if (editing && "changed" in result.data && !result.data.changed) {
         showToast({ message: tf("unchanged") });
       } else {
-        showToast({ message: tf(editing ? "saved" : "created", { name: name.trim() }) });
+        showToast({
+          message: tf(editing ? "saved" : "created", { name: name.trim() || derivedName }),
+        });
       }
       router.push(`/orte/${id}` as never);
     });
@@ -153,16 +159,22 @@ export function VenueForm({
             <legend className={FORM_SECTION_TITLE}>{tf("basics")}</legend>
             <div className="grid gap-4 sm:grid-cols-[1fr_14rem]">
               <div className={cell}>
-                <Label htmlFor={f("name")}>{tf("name")}</Label>
+                <Label htmlFor={f("name")} optional>
+                  {tf("name")}
+                </Label>
                 <Input
                   id={f("name")}
                   value={name}
-                  maxLength={120}
-                  required
+                  maxLength={VENUE_NAME_MAX}
                   autoComplete="off"
+                  placeholder={derivedName || undefined}
+                  aria-describedby={`${uid}-name`}
                   onChange={(e) => setName(e.target.value)}
                   {...invalid(f("name"))}
                 />
+                <p id={`${uid}-name`} className={hint}>
+                  {tf("nameHint")}
+                </p>
               </div>
               <div className={cell}>
                 <Label htmlFor={f("kind")}>{tf("kind")}</Label>

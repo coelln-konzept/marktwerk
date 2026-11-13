@@ -1,5 +1,12 @@
 import "server-only";
-import { can, isBundesland, isPostalCode, MAX_LENGTH_CM } from "@marktwerk/core";
+import {
+  can,
+  isBundesland,
+  isPostalCode,
+  MAX_LENGTH_CM,
+  VENUE_NAME_MAX,
+  venueNameFromAddress,
+} from "@marktwerk/core";
 import { auditLog, contact, venue, venueKind, venueRow, zone } from "@marktwerk/db/schema";
 import { and, asc, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
@@ -38,7 +45,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const MAX_NAME_LENGTH = 120;
+export const MAX_NAME_LENGTH = VENUE_NAME_MAX;
 export const MAX_STREET_LENGTH = 120;
 export const MAX_CITY_LENGTH = 80;
 export const MAX_ACCESS_INFO_LENGTH = 2000;
@@ -98,8 +105,6 @@ const isIntBetween = (value: unknown, min: number, max: number): value is number
 
 /** Trims, empties to null and validates; throws the first problem found. */
 function cleanVenue(input: VenueInput): CleanVenue {
-  const name = squash(input.name ?? "");
-  if (name === "" || name.length > MAX_NAME_LENGTH) throw new VenueInputError("invalid_name");
   if (!isVenueKind(input.kind)) throw new VenueInputError("invalid_kind");
   const street = orNull(input.street);
   if (street && street.length > MAX_STREET_LENGTH) throw new VenueInputError("invalid_street");
@@ -107,6 +112,9 @@ function cleanVenue(input: VenueInput): CleanVenue {
   if (postalCode && !isPostalCode(postalCode)) throw new VenueInputError("invalid_postal_code");
   const city = squash(input.city ?? "");
   if (city === "" || city.length > MAX_CITY_LENGTH) throw new VenueInputError("invalid_city");
+  // The name is optional (user test 2, UT2-02): empty → "Stadt – Straße".
+  const name = squash(input.name ?? "") || venueNameFromAddress(city, street);
+  if (name === "" || name.length > MAX_NAME_LENGTH) throw new VenueInputError("invalid_name");
   if (!isBundesland(input.bundesland)) throw new VenueInputError("invalid_bundesland");
   // Access info keeps its line breaks.
   const accessText = (input.accessInfo ?? "").trim();

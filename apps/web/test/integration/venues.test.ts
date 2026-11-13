@@ -127,7 +127,6 @@ describe("createVenue", () => {
   });
 
   it.each([
-    ["invalid_name", { name: "   " }],
     ["invalid_name", { name: "x".repeat(121) }],
     ["invalid_kind", { kind: "garage" }],
     ["invalid_street", { street: "x".repeat(121) }],
@@ -146,6 +145,21 @@ describe("createVenue", () => {
     expect(await codeOf(createVenue(owner, venueInput(patch)))).toBe(code);
     expect(await db.select().from(venue)).toHaveLength(0);
     expect(await auditsOf("venue.create")).toHaveLength(0);
+  });
+
+  it("names an Ort without a name after its address (UT2-02)", async () => {
+    const { id } = await createVenue(
+      owner,
+      venueInput({ name: "   ", city: " Köln ", street: "Neusser  Str. 12" }),
+    );
+    const [row] = await db.select().from(venue).where(eq(venue.id, id));
+    expect(row?.name).toBe("Köln – Neusser Str. 12");
+    const { id: noStreet } = await createVenue(
+      owner,
+      venueInput({ name: "", city: "Bonn", street: null }),
+    );
+    const [other] = await db.select().from(venue).where(eq(venue.id, noStreet));
+    expect(other?.name).toBe("Bonn");
   });
 
   it("only takes a live landowner contact", async () => {

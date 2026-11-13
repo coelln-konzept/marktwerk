@@ -62,6 +62,7 @@
         "access": "Access and landowner",
         "capacitySection": "Capacity and location",
         "name": "Name",
+        "nameHint": "Leave empty to use city and street.",
         "kind": "Type",
         "street": "Street and number",
         "postalCode": "Postal code",

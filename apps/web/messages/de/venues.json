@@ -62,6 +62,7 @@
         "access": "Zufahrt und Eigentümer",
         "capacitySection": "Kapazität und Lage",
         "name": "Name",
+        "nameHint": "Leer lassen: wird aus Stadt und Straße gebildet.",
         "kind": "Art",
         "street": "Straße und Hausnummer",
         "postalCode": "PLZ",
