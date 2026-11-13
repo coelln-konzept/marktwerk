@@ -1162,6 +1162,76 @@ test("Verlauf: Wiederherstellen reopens a task ticked off on the Checkliste", as
   await expect(restore).toHaveCount(0);
 });
 
+test("Checkliste: Unteraufgabe von … nests a task under another, Aus Hauptaufgabe lösen lifts it out, Rückgängig nests it again", async ({
+  page,
+}) => {
+  await page.goto("/board?zeitraum=alle");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/board`);
+  await page.waitForLoadState("networkidle");
+
+  // An open top-level task without subtasks of its own.
+  const childId = await page.locator("li[data-row][data-task]").evaluateAll((rows) => {
+    const parents = new Set(rows.map((r) => r.getAttribute("data-subtask-of")).filter(Boolean));
+    const row = rows.find(
+      (r) =>
+        !r.hasAttribute("data-subtask-of") &&
+        !parents.has(r.getAttribute("data-task")) &&
+        r.querySelector('button[aria-pressed="false"]') !== null,
+    );
+    return row?.getAttribute("data-task") ?? null;
+  });
+  expect(childId).not.toBeNull();
+  const child = page.locator(`li[data-task="${childId}"]`);
+  const title = ((await child.locator("a").first().textContent()) ?? "").trim();
+
+  // Menu › Unteraufgabe von … › the first task offered.
+  await child.getByRole("button", { name: `Aktionen für „${title}“` }).click();
+  await page.getByRole("menuitem", { name: "Unteraufgabe von …" }).click();
+  const dialog = page.getByRole("dialog", { name: "Unteraufgabe von …" });
+  const option = dialog
+    .getByRole("list", { name: "Aufgaben dieser Veranstaltung" })
+    .getByRole("button")
+    .first();
+  const parentId = await option.getAttribute("data-task");
+  const parentTitle = ((await option.locator("span").first().textContent()) ?? "").trim();
+  await option.click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByText(`„${title}“ ist jetzt Unteraufgabe von „${parentTitle}“`),
+  ).toBeVisible();
+
+  // Right under its parent, indented; the parent counts it ("n/m").
+  await expect(child).toHaveAttribute("data-subtask-of", parentId ?? "");
+  const parentRow = page.locator(`li[data-task="${parentId}"]`);
+  await expect(parentRow).toContainText(/\d+\/\d+/);
+  const followsParent = await parentRow.evaluate((row, id) => {
+    let next = row.nextElementSibling;
+    while (next && next.getAttribute("data-subtask-of") === row.getAttribute("data-task")) {
+      if (next.getAttribute("data-task") === id) return true;
+      next = next.nextElementSibling;
+    }
+    return false;
+  }, childId);
+  expect(followsParent).toBe(true);
+
+  // Menu › Aus Hauptaufgabe lösen: top-level again.
+  await child.getByRole("button", { name: `Aktionen für „${title}“` }).click();
+  await page.getByRole("menuitem", { name: "Aus Hauptaufgabe lösen" }).click();
+  await expect(page.getByText(`„${title}“ aus „${parentTitle}“ gelöst`)).toBeVisible();
+  await expect(child).not.toHaveAttribute("data-subtask-of", /.+/);
+
+  // Rückgängig (the newest toast) nests it again.
+  await toastUndo(page).last().click();
+  await expect(page.getByText("Rückgängig gemacht")).toBeVisible();
+  await expect(child).toHaveAttribute("data-subtask-of", parentId ?? "");
+
+  // Clean up: lift it out again, so other tests find the list as it was.
+  await child.getByRole("button", { name: `Aktionen für „${title}“` }).click();
+  await page.getByRole("menuitem", { name: "Aus Hauptaufgabe lösen" }).click();
+  await expect(child).not.toHaveAttribute("data-subtask-of", /.+/);
+});
+
 test("Sidebar: the button at its top right hides it (remembered), the top bar brings it back", async ({
   page,
 }) => {

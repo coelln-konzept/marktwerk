@@ -7,6 +7,8 @@ import {
   CalendarSearch,
   Check,
   ChevronRight,
+  CornerDownRight,
+  CornerLeftUp,
   Ellipsis,
   ExternalLink,
   Trash2,
@@ -44,8 +46,18 @@ export function CardMenu({
   const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
   const router = useRouter();
-  const { staff, canWrite, canAssign, canDelete, actions, askReason, askSnoozeDate, today } =
-    useBoard();
+  const {
+    staff,
+    canWrite,
+    canAssign,
+    canDelete,
+    actions,
+    askReason,
+    askSnoozeDate,
+    askParent,
+    taskById,
+    today,
+  } = useBoard();
   const tSnooze = useTranslations("tasks.snooze");
   const presets = useSnoozePresets(today);
   const finished = task.status === "done" || task.status === "skipped";
@@ -237,6 +249,32 @@ export function CardMenu({
                   </Menu.Positioner>
                 </Menu.Portal>
               </Menu.SubmenuRoot>
+            )}
+
+            {canWrite && (
+              <>
+                <Menu.Separator className="my-1 h-px bg-border" />
+                {/* The drag alternative for subtasks (ADR 0021): nest under a task, or lift out. */}
+                <Menu.Item className={item} onClick={() => askParent(task)}>
+                  <CornerDownRight aria-hidden className="size-4 text-muted-foreground" />
+                  {t("nest.menuNest")}
+                </Menu.Item>
+                {task.parentId && (
+                  <Menu.Item
+                    className={item}
+                    onClick={() =>
+                      actions.setParent(
+                        task,
+                        null,
+                        task.parentId ? (taskById(task.parentId) ?? null) : null,
+                      )
+                    }
+                  >
+                    <CornerLeftUp aria-hidden className="size-4 text-muted-foreground" />
+                    {t("nest.menuUnnest")}
+                  </Menu.Item>
+                )}
+              </>
             )}
 
             {canWrite && (

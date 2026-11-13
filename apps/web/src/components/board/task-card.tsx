@@ -7,7 +7,6 @@ import {
   Clock,
   FileX,
   GripVertical,
-  ListChecks,
   Paperclip,
   Undo2,
   UserRound,
@@ -15,6 +14,7 @@ import {
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { memo, type ReactNode, useState } from "react";
+import { TaskTick, TickMark } from "@/components/task/task-tick";
 import { Avatar } from "@/components/ui/avatar";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
@@ -25,9 +25,9 @@ import { formatEstimate } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { BoardTask } from "@/server/queries/tasks";
 import { useBoard } from "./board-context";
-import { useCardDrag } from "./board-dnd";
+import { nestTargetClass, useCardDrag, useNestDrop } from "./board-dnd";
 import { CardMenu } from "./card-menu";
-import { CategoryTag, DueLine, TaskStatusBadge } from "./task-bits";
+import { CategoryTag, DueLine, SubtaskProgress, TaskStatusBadge } from "./task-bits";
 
 const isFinished = (task: BoardTask) => task.status === "done" || task.status === "skipped";
 
@@ -50,6 +50,10 @@ export const TaskCard = memo(function TaskCard({
   const board = useBoard();
   const { actions, lift, canWrite } = board;
   const drag = useCardDrag(task);
+  // Event board: the middle of the card is a drop zone for nesting (ADR 0021); its top and bottom quarter
+  // keep reordering the column.
+  const nest = useNestDrop(task.id, "card");
+  const subtasks = board.subtasksOf(task.id);
   const [menuOpen, setMenuOpen] = useState(false);
   const lifted = lift?.id === task.id;
   const finished = isFinished(task);
@@ -103,6 +107,7 @@ export const TaskCard = memo(function TaskCard({
         (lifted || drag.dragging) && "opacity-50",
         lifted && "ring-2 ring-ring",
         finished && "bg-surface-2",
+        nestTargetClass(nest.state),
         // drop marker: a bar in the gap above or below this card (no layout shift while dragging)
         drag.edge === "before" &&
           "before:pointer-events-none before:absolute before:inset-x-0 before:-top-[7px] before:h-[3px] before:rounded-full before:bg-primary before:content-['']",
@@ -126,14 +131,112 @@ export const TaskCard = memo(function TaskCard({
       ) : (
         <span className="w-2 shrink-0" />
       )}
+      {board.nestable && (
+        <div
+          ref={nest.ref}
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-1/4 bottom-1/4"
+        />
+      )}
       <CardContent
         task={task}
         menu={<CardMenu task={task} open={menuOpen} onOpenChange={setMenuOpen} />}
         hideEvent={hideEvent}
+        below={subtasks.length > 0 ? <SubtaskList parent={task} subtasks={subtasks} /> : null}
       />
     </li>
   );
 });
+
+/**
+ * The subtasks of a card on the event board, right under it (D2-12): tick, title, assignee, due. Each can be
+ * dragged onto another card (nest there) or out into a column (lift out); its "⋯" menu does the same.
+ */
+function SubtaskList({ parent, subtasks }: { parent: BoardTask; subtasks: BoardTask[] }) {
+  const t = useTranslations("board.nest");
+  const nest = useNestDrop(parent.id, "subtasks");
+  return (
+    <ul
+      ref={nest.ref}
+      aria-label={t("subtasksOf", { title: parent.title })}
+      className="m-0 flex list-none flex-col gap-0.5 border-border-subtle border-t p-0 pt-1"
+    >
+      {subtasks.map((sub) => (
+        <SubtaskItem key={sub.id} task={sub} />
+      ))}
+    </ul>
+  );
+}
+
+function SubtaskItem({ task }: { task: BoardTask }) {
+  const board = useBoard();
+  const { actions, canWrite } = board;
+  const drag = useCardDrag(task, board.nestable);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const finished = isFinished(task);
+  return (
+    <li
+      ref={drag.setNodeRef}
+      {...drag.listeners}
+      data-subtask={task.id}
+      className={cn(
+        "flex min-h-8 items-center gap-1.5 rounded-md pr-0.5 hover:bg-hover",
+        drag.dragging && "opacity-50",
+      )}
+    >
+      {canWrite ? (
+        <TaskTick task={task} onToggle={(next) => actions.setStatus(task, next)} />
+      ) : (
+        <span className="grid size-7 shrink-0 place-items-center">
+          <TickMark status={task.status} />
+        </span>
+      )}
+      <Link
+        href={actions.drawer.open(task.id) as never}
+        scroll={false}
+        draggable={false}
+        title={task.title}
+        className={cn(
+          "min-w-0 flex-1 truncate rounded-sm text-small hover:underline focus-visible:outline-2 focus-visible:outline-ring",
+          finished && "text-muted-foreground line-through decoration-muted-foreground",
+        )}
+      >
+        {task.title}
+      </Link>
+      {isModuleVisible("team") && task.assigneeName && <Avatar name={task.assigneeName} />}
+      <span className="shrink-0">
+        <DueLine
+          dueOn={task.dueOn}
+          today={board.today}
+          status={task.status}
+          completedOn={task.completedOn}
+        />
+      </span>
+      <CardMenu task={task} open={menuOpen} onOpenChange={setMenuOpen} />
+    </li>
+  );
+}
+
+/** A Checkliste row or a subtask as it follows the pointer while dragging (title only, not interactive). */
+export function RowPreview({ task }: { task: BoardTask }) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none flex w-fit max-w-[min(28rem,90vw)] cursor-grabbing items-center gap-2 rounded-lg border border-primary/60 bg-card px-2 py-1.5 shadow-pop"
+    >
+      <GripVertical aria-hidden className="size-4 shrink-0 text-foreground" />
+      <TickMark status={task.status} />
+      <span
+        className={cn(
+          "truncate font-medium text-small",
+          isFinished(task) && "text-muted-foreground line-through",
+        )}
+      >
+        {task.title}
+      </span>
+    </div>
+  );
+}
 
 /** The card as it follows the pointer while dragging (no menu, not interactive). */
 export function CardPreview({ task }: { task: BoardTask }) {
@@ -157,10 +260,13 @@ function CardContent({
   task,
   menu,
   hideEvent = false,
+  below = null,
 }: {
   task: BoardTask;
   menu: ReactNode;
   hideEvent?: boolean;
+  /** Under the card's last line: its subtasks (event board). */
+  below?: ReactNode;
 }) {
   const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
@@ -255,13 +361,11 @@ function CardContent({
           </span>
         )}
         <span className="ml-auto flex items-center gap-1.5">
-          {task.subtasksTotal > 0 && (
-            <span className="tabular inline-flex items-center gap-1 text-muted-foreground text-tiny">
-              <ListChecks aria-hidden className="size-3.5" />
-              <span className="sr-only">{tTasks("checks")}: </span>
-              {task.subtasksDone}/{task.subtasksTotal}
-            </span>
-          )}
+          <SubtaskProgress
+            done={task.subtasksDone}
+            total={task.subtasksTotal}
+            overdue={task.subtasksOverdue}
+          />
           {task.requiresPhoto && !finished && (
             <Camera
               aria-label={tTasks("evidence.photo")}
@@ -287,6 +391,7 @@ function CardContent({
           )}
         </span>
       </div>
+      {below}
     </div>
   );
 }

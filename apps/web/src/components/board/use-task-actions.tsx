@@ -9,6 +9,7 @@ import {
   deleteCard,
   moveCard,
   restoreCard,
+  setParent as setParentAction,
   setStatus as setStatusAction,
   snoozeCard,
   undoChange,
@@ -18,6 +19,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { callAction, NETWORK_ERROR } from "@/lib/call-action";
 import { formatDateWeekdayDay } from "@/lib/format";
 import type { BoardTask } from "@/server/queries/tasks";
+import { useNestProblemText } from "./nesting";
 
 /** What the actions need to know about a task (the drawer has no full card). */
 type TaskRef = Pick<BoardTask, "id" | "title" | "status">;
@@ -29,7 +31,9 @@ export type OptimisticPatch =
   | { kind: "status"; id: string; status: TaskStatusKey }
   | { kind: "snooze"; id: string; until: string | null }
   /** Deleted: gone from the board at once. */
-  | { kind: "remove"; id: string };
+  | { kind: "remove"; id: string }
+  /** Nested under `parentId` or lifted out (null), ADR 0021. */
+  | { kind: "parent"; id: string; parentId: string | null };
 
 type Person = { id: string; displayName: string };
 
@@ -83,6 +87,7 @@ export function useTaskActions({
   const router = useRouter();
   const drawer = useDrawerHrefs();
   const [pending, startTransition] = useTransition();
+  const nestProblemText = useNestProblemText();
 
   const errorText = useCallback(
     (code: string) => {
@@ -324,8 +329,44 @@ export function useTaskActions({
     [run, t],
   );
 
+  /**
+   * "Unteraufgabe von…" (`parent`) / "Aus Hauptaufgabe lösen" (null) and the drag in the Checkliste (ADR 0021):
+   * applied at once, the toast offers undo (through the `task.parent` audit entry). A refused nesting
+   * (`invalid_parent`) is an error toast that says why; the optimistic change reverts with the transition.
+   * `from`: the current parent, for the toast of a lift-out.
+   */
+  const setParent = useCallback(
+    (task: TaskRef, parent: TaskRef | null, from: TaskRef | null = null) => {
+      startTransition(async () => {
+        apply?.({ kind: "parent", id: task.id, parentId: parent?.id ?? null });
+        const result = await callAction(() => setParentAction(task.id, parent?.id ?? null));
+        if (!result.ok) {
+          showToast({
+            message:
+              result.error === "invalid_parent"
+                ? nestProblemText(result.detail?.[0], task.title, parent?.title ?? "")
+                : errorText(result.error),
+            tone: "error",
+          });
+          return;
+        }
+        if (!result.data.changed) return;
+        showUndo(
+          parent
+            ? t("toast.nested", { title: task.title, parent: parent.title })
+            : from
+              ? t("toast.unnestedFrom", { title: task.title, parent: from.title })
+              : t("toast.unnested", { title: task.title }),
+          result.data.auditId,
+        );
+      });
+    },
+    [apply, showToast, nestProblemText, errorText, showUndo, t],
+  );
+
   return {
     pending,
+    setParent,
     move,
     assign,
     moveAndAssign,
