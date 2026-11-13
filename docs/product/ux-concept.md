@@ -355,7 +355,7 @@ announcements in German via `aria-live`.
 |---|---|---|
 | Tasks | Offen · In Arbeit · Wartet (Amt/Extern) · Blockiert · Erledigt · Übersprungen | grey ○ · blue ◐ · violet ⏸ · amber ⛔ · green ✓ · grey ⤼ |
 | Due-ness (all, `DueBadge`) | Heute · Morgen · In 3 Tagen (later: the date) · 3 Tage überfällig / Gestern fällig (weeks after 14 days, months after 59) · Wartet seit 5 Tagen | amber clock · neutral · neutral calendar · red circle-! · neutral hourglass (decision 2026-10-29; "3 T" only in matrix cells) |
-| Permits | Fehlt · In Vorbereitung · Beantragt · Genehmigt · Abgelehnt · Läuft ab · Abgelaufen · Nicht nötig | red ! · blue ◐ · violet ⏳ · green ✓ · red ✕ · amber ⚠ · red ⌛ · grey – |
+| Permits | Fehlt · In Vorbereitung · Beantragt · Genehmigt · Abgelehnt · Läuft ab · Abgelaufen · Nicht nötig (logbook also: Noch nicht fällig · Antwort überfällig) | red ! · blue ◐ · violet ⏳ · green ✓ · red ✕ · amber ⚠ · red ⌛ · grey – (grey calendar-clock · amber clock-alert) |
 | Money | Geplant · Fällig · Teilweise bezahlt · Bezahlt · Überfällig | grey · amber · amber ◐ · green ✓ · red ! |
 | Hours | OK · Grenze nah · Über Grenze (zulässig?) · Unzulässig | green · amber · amber ⚠ · red ⛔ |
 | Health | Im Plan · Achtung · Kritisch | green ● · amber ▲ · red ■ (shape differs, too) |

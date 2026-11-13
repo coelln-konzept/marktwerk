@@ -282,8 +282,12 @@ export async function listLogbook(
     const tier = permitActionTier({ state: derived, applyBy: r.applyBy }, today, horizon);
     return {
       ...r,
-      // "Noch nicht fällig" instead of "Fehlt" when the apply-by date lies beyond the horizon.
-      state: logbookDisplayState(derived, tier),
+      // "Noch nicht fällig" instead of "Fehlt" when the apply-by date lies beyond the horizon,
+      // "Antwort überfällig" instead of "Beantragt" once the expected decision date has passed.
+      state: logbookDisplayState(derived, tier, {
+        expectedDecisionOn: r.expectedDecisionOn,
+        today,
+      }),
       tier,
       feeCents: r.feeCents > 0 ? r.feeCents : null,
       stickers: r.deliverablesReceived.stickers ?? null,
@@ -468,11 +472,13 @@ export async function getPermit(actor: Actor, id: string, today: string) {
     },
     today,
   );
-  // Same reading as the logbook row: not started and beyond the horizon is "Noch nicht fällig".
+  // Same reading as the logbook row: not started and beyond the horizon is "Noch nicht fällig", filed
+  // and past the expected decision is "Antwort überfällig".
   const horizon = await getPermitHorizonDays();
   const state = logbookDisplayState(
     derived,
     permitActionTier({ state: derived, applyBy: row.permit.applyBy }, today, horizon),
+    { expectedDecisionOn: row.permit.expectedDecisionOn, today },
   );
 
   return {
