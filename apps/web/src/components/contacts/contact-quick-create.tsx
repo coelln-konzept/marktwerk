@@ -46,15 +46,17 @@ export function ContactQuickCreate({
   const [email, setEmail] = useState("");
   const [error, setError] = useState<{ code: string; field: string | null } | null>(null);
 
-  // Each opening starts from what was typed in the picker.
+  // Each opening starts from what was typed in the picker. Keyed on the kinds' content, so callers may
+  // pass an inline array.
+  const firstKind = kinds[0] ?? "other";
   useEffect(() => {
     if (!open) return;
     setName(initialName);
-    setKind(kinds[0] ?? "other");
+    setKind(firstKind);
     setPhone("");
     setEmail("");
     setError(null);
-  }, [open, initialName, kinds]);
+  }, [open, initialName, firstKind]);
 
   const fieldOf = (code: string) =>
     code === "name_required"
