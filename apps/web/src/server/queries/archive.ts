@@ -28,7 +28,7 @@ import {
 import { isModuleHidden } from "@/lib/modules";
 import type { Actor } from "../actor";
 import { db } from "../db";
-import { DOCUMENT_LINK_KEYS, type DocumentLinkKey } from "../services/documents";
+import { DOCUMENT_LINK_KEYS, type DocumentLinkKey, documentLinkScope } from "../services/documents";
 import { canReadDocuments } from "./documents";
 
 /*
@@ -57,6 +57,8 @@ const taskEvent = aliasedTable(event, "task_event");
 /**
  * Every live document the person may read, newest first, with what it belongs to (event, permit, venue, task,
  * vehicle …). `q` searches the file name and caption; `kind` narrows to one document kind.
+ * Field users get the download's rule (`readDocument`): every link of the document must be one they may read, and
+ * its event or task one they can see (`documentLinkScope`). Office roles see every document of a readable kind.
  */
 export async function listArchiveDocuments(
   actor: Actor,
@@ -70,6 +72,14 @@ export async function listArchiveDocuments(
     isNull(document.archivedAt),
     or(...readable.map((key) => sql`${document[key]} is not null`)),
   ];
+  const scoped = readable.flatMap((key) => {
+    const scope = documentLinkScope(actor, key, document[key]);
+    return scope ? [or(isNull(document[key]), scope)] : [];
+  });
+  if (scoped.length > 0) {
+    const unreadable = DOCUMENT_LINK_KEYS.filter((key) => !readable.includes(key));
+    where.push(...unreadable.map((key) => isNull(document[key])), ...scoped);
+  }
   if (filters.q) {
     const pattern = like(filters.q);
     where.push(or(ilike(document.fileName, pattern), ilike(document.caption, pattern)));

@@ -9,12 +9,13 @@ import {
   safeFileName,
   sniffDocumentType,
 } from "@marktwerk/core";
-import { document, documentKind } from "@marktwerk/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { document, documentKind, event, task } from "@marktwerk/db/schema";
+import { type AnyColumn, and, eq, exists, isNull, type SQL, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
-import type { Actor } from "../actor";
+import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import { getStorage, sha256Hex, storageKeyFor } from "../storage";
+import { visibleTasks } from "../task-scope";
 import { audit } from "./audit";
 
 export const DOCUMENT_KINDS = documentKind.enumValues;
@@ -79,11 +80,58 @@ export function parseDocumentLink(link: Record<string, unknown>): DocumentLink {
   return clean;
 }
 
-function mayAccess(actor: Actor, link: DocumentLink, mode: "read" | "write"): boolean {
-  return (Object.keys(link) as DocumentLinkKey[]).every((key) => {
+/**
+ * Row scope of one document link: whether the actor can see the record it points at. Field users only reach the
+ * events they work at and the tasks of those events (plus event-less tasks assigned to them), the same
+ * `visibleEvents` / `visibleTasks` rule as every list (decision 2026-10-21). Office roles have no row scope beyond
+ * their grants (null). `id` is the record id, or the `document` column when used inside a query.
+ * Fail closed: a link kind a field user could read but that has no scope here yet is not visible.
+ */
+export function documentLinkScope(
+  actor: Actor,
+  key: DocumentLinkKey,
+  id: string | AnyColumn,
+): SQL | null {
+  if (actor.role !== "field") return null;
+  switch (key) {
+    case "eventId":
+      return exists(
+        db
+          .select({ one: event.id })
+          .from(event)
+          .where(and(eq(event.id, id), visibleEvents(actor))),
+      );
+    case "taskId":
+      return exists(
+        db
+          .select({ one: task.id })
+          .from(task)
+          .where(and(eq(task.id, id), visibleTasks(actor))),
+      );
+    default:
+      return sql`false`;
+  }
+}
+
+/** Role grant for every linked record, then (field users) the row scope of every link. */
+async function mayAccess(
+  actor: Actor,
+  link: DocumentLink,
+  mode: "read" | "write",
+): Promise<boolean> {
+  const keys = Object.keys(link) as DocumentLinkKey[];
+  const granted = keys.every((key) => {
     const rule = DOCUMENT_LINKS[key];
     return can(actor.role, rule.resource as Resource, rule[mode] as Action<Resource>);
   });
+  if (!granted) return false;
+  const scopes = keys.flatMap((key) => {
+    const scope = documentLinkScope(actor, key, link[key] as string);
+    return scope ? [scope] : [];
+  });
+  if (scopes.length === 0) return true;
+  const { rows } = await db.execute<{ ok: boolean }>(sql`select ${and(...scopes)} as ok`);
+  return rows[0]?.ok === true;
 }
 
 /** The receipt kinds that count as "has a receipt" for payments (Beleg fehlt). */
@@ -130,7 +178,7 @@ export async function createDocument(
   input: UploadInput,
 ): Promise<{ id: string; fileName: string; kind: DocumentKind; mime: string }> {
   const link = parseDocumentLink(input.link);
-  if (!mayAccess(actor, link, "write")) forbidden();
+  if (!(await mayAccess(actor, link, "write"))) forbidden();
   if (input.bytes.length === 0) throw new DocumentInputError("empty_file");
   if (input.bytes.length > DOCUMENT_MAX_BYTES) throw new DocumentInputError("too_large");
   const type: DocumentFileType | null = sniffDocumentType(input.bytes);
@@ -202,7 +250,7 @@ export async function readDocument(
     .from(document)
     .where(and(eq(document.id, id), isNull(document.archivedAt)));
   if (!row) throw new DocumentInputError("not_found");
-  if (!mayAccess(actor, linkOf(row), "read")) forbidden();
+  if (!(await mayAccess(actor, linkOf(row), "read"))) forbidden();
   return { row, bytes: await getStorage().get(row.storageKey) };
 }
 
@@ -225,7 +273,7 @@ export async function archiveDocument(
       .where(and(eq(document.id, id), isNull(document.archivedAt)))
       .for("update");
     if (!row) throw new DocumentInputError("not_found");
-    if (!mayAccess(actor, linkOf(row), "write")) forbidden();
+    if (!(await mayAccess(actor, linkOf(row), "write"))) forbidden();
     await tx
       .update(document)
       .set({
@@ -252,7 +300,7 @@ export async function restoreDocument(actor: Actor, id: string): Promise<{ fileN
   return db.transaction(async (tx) => {
     const [row] = await tx.select().from(document).where(eq(document.id, id)).for("update");
     if (!row?.archivedAt) throw new DocumentInputError("not_found");
-    if (!mayAccess(actor, linkOf(row), "write")) forbidden();
+    if (!(await mayAccess(actor, linkOf(row), "write"))) forbidden();
     await tx
       .update(document)
       .set({ archivedAt: null, archivedByStaffMemberId: null, archiveReason: null })
