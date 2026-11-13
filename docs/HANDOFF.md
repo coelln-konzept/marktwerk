@@ -61,8 +61,8 @@ session from its "Next step" card. A stalled step is split into 23a, 23b … in 
 findings become steps there, not separate lists. Big picture and milestones stay in the
 [roadmap](./product/roadmap.md); decisions in [open-questions.md](./open-questions.md).
 
-Outside the Fahrplan: `exp/stand-allocation` (Postfach + Standplan prototype) has its own plan; PR #25 documents its
-Neon branch environment.
+Outside the Fahrplan: `exp/stand-allocation` (Postfach + Standplan prototype) has its own plan and runs in a Neon
+branch environment ([deployment.md](./development/deployment.md#branch-environments-on-neon-manual-for-now), ADR 0023).
 
 ## Gotchas worth keeping
 - **Dev server reloads in a loop** ("Compiled in 1ms" after every request, `[Fast Refresh] rebuilding` on every load):
