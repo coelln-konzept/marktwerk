@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { DueBadge } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
+import { rowFocus } from "@/components/ui/table";
 import { formatDateWeekdayDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CompanyNotificationRow } from "@/server/queries/notifications";
@@ -56,7 +57,8 @@ export function CompanyRow({
       }}
       aria-label={row.title}
       className={cn(
-        "grid cursor-pointer grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-border-subtle border-b px-4 py-3 last:border-b-0 hover:bg-hover focus-visible:bg-hover focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2 sm:grid-cols-[1.25rem_minmax(0,1fr)_auto_auto] sm:items-center",
+        "grid cursor-pointer grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-border-subtle border-b px-4 py-3 last:border-b-0 hover:bg-hover sm:grid-cols-[1.25rem_minmax(0,1fr)_auto_auto] sm:items-center",
+        rowFocus,
         row.unread && "bg-selected/40",
         closed && "text-muted-foreground",
       )}

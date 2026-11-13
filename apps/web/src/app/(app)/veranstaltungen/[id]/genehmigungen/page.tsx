@@ -13,7 +13,7 @@ import { Health } from "@/components/ui/health";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate, todayIn } from "@/lib/format";
 import { isModuleHidden } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
@@ -148,9 +148,10 @@ export default async function EventPermitsPage({
                     key={r.permitId}
                     data-row
                     data-href={peek}
-                    aria-selected={drawerId === r.permitId}
+                    aria-current={drawerId === r.permitId}
                     className={cn(
-                      "cursor-pointer focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+                      "cursor-pointer",
+                      rowFocus,
                       !r.required && "text-muted-foreground",
                     )}
                   >

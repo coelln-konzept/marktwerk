@@ -64,16 +64,16 @@
   /* Status: text colour (fg), badge surface (bg), dot/bar/icon colour (dot). Always with icon + text. */
   --status-ok: light-dark(#1b6b36, #86d9a0);
   --status-ok-bg: light-dark(#e4f3e8, #16301e);
-  --status-ok-dot: light-dark(#2e9b50, #4cc173);
+  --status-ok-dot: light-dark(#23843f, #4cc173);
   --status-warn: light-dark(#8a4b00, #f2c26e);
   --status-warn-bg: light-dark(#fdf0d9, #382910);
-  --status-warn-dot: light-dark(#e0951a, #e8a93a);
+  --status-warn-dot: light-dark(#b06f00, #e8a93a);
   --status-critical: light-dark(#a3201a, #ff9c90);
   --status-critical-bg: light-dark(#fbe5e2, #3c1915);
   --status-critical-dot: light-dark(#c42a1f, #f0645a);
   --status-neutral: light-dark(#55524c, #c2bdb4);
   --status-neutral-bg: light-dark(#eeece8, #2c2b28);
-  --status-neutral-dot: light-dark(#9c978f, #8e8a82);
+  --status-neutral-dot: light-dark(#827d75, #8e8a82);
   --status-info: light-dark(#1a4f96, #95bef6);
   --status-info-bg: light-dark(#e3ecf9, #172842);
   --status-info-dot: light-dark(#2f6fd0, #5e95e6);

@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { appointmentVorschauValue } from "@/components/appointments/appointment-params";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
+import { rowFocus } from "@/components/ui/table";
 import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { AppointmentView } from "@/server/queries/appointments";
@@ -104,7 +105,8 @@ async function AppointmentsToday({
               // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter/Space (KeyboardRows)
               tabIndex={0}
               className={cn(
-                "flex cursor-pointer items-baseline gap-3 border-border-subtle border-b px-4 py-2 last:border-b-0 hover:bg-hover focus-visible:bg-selected",
+                "flex cursor-pointer items-baseline gap-3 border-border-subtle border-b px-4 py-2 last:border-b-0 hover:bg-hover",
+                rowFocus,
                 selected === appointmentVorschauValue(a.id) && "bg-selected",
               )}
             >

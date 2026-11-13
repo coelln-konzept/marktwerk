@@ -9,7 +9,7 @@ import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
+import { rowFocus, Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
 import { formatDateShortYear, formatDateWithWeekday } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { AppointmentView } from "@/server/queries/appointments";
@@ -213,7 +213,8 @@ export async function CalendarList({
                         data-row
                         data-event-row
                         className={cn(
-                          "cursor-pointer outline-hidden focus-visible:bg-selected",
+                          "cursor-pointer",
+                          rowFocus,
                           r.status === "cancelled" && "text-muted-foreground",
                         )}
                       >
@@ -283,7 +284,7 @@ export async function CalendarList({
                         data-row
                         data-href={href}
                         data-peek={href}
-                        className="cursor-pointer outline-hidden focus-visible:bg-selected"
+                        className={`cursor-pointer ${rowFocus}`}
                       >
                         {events.length + i === 0 && dateCell}
                         <TD>
@@ -358,10 +359,7 @@ export async function CalendarList({
                         tabIndex={summary ? undefined : 0}
                         data-row={summary ? undefined : true}
                         data-href={summary ? undefined : item.href}
-                        className={cn(
-                          "outline-hidden focus-visible:bg-selected",
-                          !summary && "cursor-pointer",
-                        )}
+                        className={cn(rowFocus, !summary && "cursor-pointer")}
                       >
                         {events.length + dayAppointments.length + i === 0 && dateCell}
                         {/* A calm deadline has no badge: its text takes the empty status column (on a phone the

@@ -26,6 +26,7 @@ import { Health } from "@/components/ui/health";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
+import { rowFocus } from "@/components/ui/table";
 import {
   formatDateShort,
   formatDateWithWeekday,
@@ -201,7 +202,10 @@ export async function MissingPanel({
                 key={p.id}
                 data-row
                 data-href={href}
-                className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                className={cn(
+                  "flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover",
+                  rowFocus,
+                )}
               >
                 <Link
                   href={href}

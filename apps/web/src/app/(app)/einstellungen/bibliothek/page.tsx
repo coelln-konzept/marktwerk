@@ -18,7 +18,7 @@ import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { RowActions, rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 import { rruleText } from "@/lib/rrule-text";
 import { hrefWith, param } from "@/lib/url";
@@ -195,11 +195,8 @@ export default async function LibraryPage({
                       tabIndex={0}
                       data-row
                       data-peek={peek}
-                      aria-selected={vorschauId === m.id}
-                      className={cn(
-                        "outline-hidden focus-visible:bg-selected",
-                        !m.active && "text-muted-foreground",
-                      )}
+                      aria-current={vorschauId === m.id}
+                      className={cn(rowFocus, !m.active && "text-muted-foreground")}
                     >
                       <TD>
                         <span className="flex items-center gap-2">
