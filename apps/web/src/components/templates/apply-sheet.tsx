@@ -2,6 +2,7 @@
 
 import { Dialog } from "@base-ui/react/dialog";
 import {
+  Ban,
   ChevronRight,
   CircleAlert,
   CircleCheck,
@@ -32,7 +33,7 @@ import { dateOfInstant } from "./labels";
  * "Auf Veranstaltungen anwenden…" (UX concept §4: side sheet with steps). Deliberate by design: nothing is
  * pre-selected, every chosen event shows what would change, and only "Anwenden" writes. Rules (data model):
  * new rows become tasks, open untouched tasks take over the changes, tasks of removed rows stay open and are
- * marked; done and edited tasks are never touched. The list shows only events with changes by default
+ * marked, subtasks of removed child rows are cancelled (ADR 0021); done and edited tasks are never touched. The list shows only events with changes by default
  * (a season has 50+ events, most of them unchanged), dates carry the year when it is not the current one.
  */
 export function ApplySheet({
@@ -69,9 +70,10 @@ export function ApplySheet({
       add: sum.add + e.add.length,
       update: sum.update + e.update.length,
       remove: sum.remove + e.remove.length,
+      cancel: sum.cancel + e.cancel.length,
       overdue: sum.overdue + overdueAdds(e),
     }),
-    { add: 0, update: 0, remove: 0, overdue: 0 },
+    { add: 0, update: 0, remove: 0, cancel: 0, overdue: 0 },
   );
   const close = () => router.replace(closeHref as never, { scroll: false });
 
@@ -106,11 +108,12 @@ export function ApplySheet({
   }
 
   /** "2 neue, 1 geändert": only the counts that are not zero. */
-  function parts(counts: { add: number; update: number; remove: number }) {
+  function parts(counts: { add: number; update: number; remove: number; cancel: number }) {
     return [
       counts.add > 0 && t("summary.add", { count: counts.add }),
       counts.update > 0 && t("summary.update", { count: counts.update }),
       counts.remove > 0 && t("summary.remove", { count: counts.remove }),
+      counts.cancel > 0 && t("summary.cancel", { count: counts.cancel }),
     ]
       .filter(Boolean)
       .join(", ");
@@ -144,6 +147,7 @@ export function ApplySheet({
         add: result.data.added,
         update: result.data.updated,
         remove: result.data.removed,
+        cancel: result.data.cancelled,
       });
       close();
       showToast({
@@ -173,6 +177,12 @@ export function ApplySheet({
           <span className="inline-flex items-center gap-1 text-status-warn">
             <Minus aria-hidden className="size-3.5" />
             {t("summary.remove", { count: e.remove.length })}
+          </span>
+        )}
+        {e.cancel.length > 0 && (
+          <span className="inline-flex items-center gap-1 text-status-warn">
+            <Ban aria-hidden className="size-3.5" />
+            {t("summary.cancel", { count: e.cancel.length })}
           </span>
         )}
         {overdue > 0 && (
@@ -444,6 +454,19 @@ export function ApplySheet({
                               <span className="sr-only">{t("summary.removeLabel")}: </span>
                               {r.title}{" "}
                               <span className="text-muted-foreground">({t("markedRemoved")})</span>
+                            </span>
+                          </li>
+                        ))}
+                        {e.cancel.map((c) => (
+                          <li key={`c-${c.taskId}`} className="flex items-start gap-2">
+                            <Ban
+                              aria-hidden
+                              className="mt-0.5 size-3.5 shrink-0 text-status-warn"
+                            />
+                            <span>
+                              <span className="sr-only">{t("summary.cancelLabel")}: </span>
+                              {c.title}{" "}
+                              <span className="text-muted-foreground">({t("cancelled")})</span>
                             </span>
                           </li>
                         ))}
