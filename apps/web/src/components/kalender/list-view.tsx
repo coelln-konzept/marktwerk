@@ -16,6 +16,7 @@ import type { AppointmentView } from "@/server/queries/appointments";
 import type { EventRow } from "@/server/queries/events";
 import { LAYER_ICONS } from "./deadline-chip";
 import { DeadlineGroup } from "./deadline-group";
+import { EventPopoverTrigger } from "./event-popover";
 import type { DisplayItem } from "./group-deadlines";
 
 /** "Liste · 6 Wochen": the same entries as the month view, grouped by KW with one block per day. */
@@ -201,6 +202,8 @@ export async function CalendarList({
                       </TR>
                     );
                   }
+                  // A click anywhere in the row, Enter or Space opens the event popover (UT2-08, see
+                  // EventPopoverProvider); the name stays a link for a new tab, "Öffnen" goes to the event.
                   const eventRows = events.map((r, i) => {
                     const href = hrefFor(r.id);
                     return (
@@ -208,7 +211,7 @@ export async function CalendarList({
                         key={`${day}-${r.id}`}
                         tabIndex={0}
                         data-row
-                        data-href={href}
+                        data-event-row
                         className={cn(
                           "cursor-pointer outline-hidden focus-visible:bg-selected",
                           r.status === "cancelled" && "text-muted-foreground",
@@ -221,16 +224,17 @@ export async function CalendarList({
                             typeKey={r.typeKey}
                             className="mr-2 align-middle"
                           />
-                          <Link
-                            href={href as never}
+                          <EventPopoverTrigger
+                            eventId={r.id}
+                            href={href}
                             tabIndex={-1}
                             className={cn(
-                              "mr-2 font-semibold hover:underline",
+                              "mr-2 cursor-pointer font-semibold hover:underline",
                               r.status === "cancelled" && "line-through",
                             )}
                           >
                             {r.name}
-                          </Link>
+                          </EventPopoverTrigger>
                           <EventTypeTag typeKey={r.typeKey} className="max-sm:hidden">
                             {locale === "en" ? r.typeNameEn : r.typeNameDe}
                           </EventTypeTag>

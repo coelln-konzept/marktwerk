@@ -3,6 +3,7 @@
 import { Popover } from "@base-ui/react/popover";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { fromEventPopover } from "./event-popover";
 
 /**
  * "+ N weitere" in a Kalender day cell: opens every entry of that day in a popover, in place (handwritten
@@ -28,7 +29,13 @@ export function DayMore({
   children: React.ReactNode;
 }) {
   return (
-    <Popover.Root>
+    <Popover.Root
+      // An event chip in here opens the event popover on top: pressing, focusing or Esc in that one must
+      // not close this one (it holds the chip the event popover is anchored to).
+      onOpenChange={(open, details) => {
+        if (!open && fromEventPopover(details)) details.cancel();
+      }}
+    >
       <Popover.Trigger
         aria-label={aria}
         className="block w-full cursor-pointer rounded-md px-1 py-0.5 text-left font-medium text-accent-soft-foreground text-tiny hover:bg-hover hover:underline focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"

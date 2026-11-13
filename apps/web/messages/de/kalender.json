@@ -107,6 +107,18 @@
     "groupAll": "Alle im Genehmigungen-Logbuch",
     "groupAllTasks": "Alle Aufgaben",
     "groupAria": "{text}: einzeln anzeigen",
-    "spanRange": "{days} Tage · bis {to}"
+    "spanRange": "{days} Tage · bis {to}",
+    "eventPopover": {
+      "date": "Datum",
+      "times": "Zeiten",
+      "timesValue": "{open}–{close} Uhr · Aufbau ab {setup}",
+      "venue": "Ort",
+      "status": "Status ändern",
+      "checklist": "Checkliste",
+      "openTasks": "{count, plural, =0 {nichts offen} other {# offen}}",
+      "overdueTasks": "{count} überfällig",
+      "open": "Öffnen",
+      "close": "Schließen"
+    }
   }
 }
