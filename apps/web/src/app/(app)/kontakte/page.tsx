@@ -221,7 +221,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                               <span className="text-faint-foreground">{t("none")}</span>
                             )}
                           </TD>
-                          <TD className="max-w-56">
+                          <TD className="min-w-48 max-w-56">
                             {r.email ? (
                               <ReachValue kind="email" value={r.email} name={r.name} />
                             ) : (
