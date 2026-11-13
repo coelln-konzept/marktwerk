@@ -47,7 +47,7 @@ export function NewPermitDialog({
   const tTypes = useTranslations("permitTypes");
   const tCat = useTranslations("permitCategories");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const uid = useId();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -117,8 +117,9 @@ export function NewPermitDialog({
         message: t("toast.created"),
         actionLabel: t("toast.undo"),
         onAction: async () => {
-          await archivePermitAction(id);
-          showToast({ message: t("toast.createdUndone") });
+          const undone = await archivePermitAction(id);
+          if (undone.ok) showToast({ message: t("toast.createdUndone") });
+          else showError(errorText(undone.error));
         },
       });
       router.push(

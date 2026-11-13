@@ -22,6 +22,8 @@ export function ArchivePermitButton({
   const router = useRouter();
   const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
+  const errorText = (code: string) =>
+    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
   function archive() {
     startTransition(async () => {
@@ -32,8 +34,9 @@ export function ArchivePermitButton({
         message: t("archived", { title }),
         actionLabel: t("undoArchive"),
         onAction: async () => {
-          await restorePermitAction(permitId);
-          showToast({ message: t("restored") });
+          const undone = await restorePermitAction(permitId);
+          if (undone.ok) showToast({ message: t("restored") });
+          else showError(errorText(undone.error));
         },
       });
     });
