@@ -21,11 +21,30 @@ export const COMPANY_NAME = "Demo Märkte GmbH";
 export const TIME_ZONE = "Europe/Berlin";
 export const GENERATOR_NAME = "@marktwerk/synthetic";
 
-/** Seasons that get events. 2027 is planned, not yet permitted. */
-export const SEASONS = [2026, 2027] as const;
+/**
+ * The two seasons that get events for a reference date: the current year and the next. Everything season-based in
+ * the generators derives from this (see `lib/clock.ts`), never from a calendar literal.
+ */
+export function seasonsFor(today: string): readonly [number, number] {
+  const year = Number(today.slice(0, 4));
+  return [year, year + 1];
+}
+
+/** Seasons for the default (env-driven) reference date. Generators use the `Clock` of their run instead. */
+export const SEASONS = seasonsFor(REFERENCE_DATE);
 
 /** Hard business rule: at most this many events may touch one weekend. */
 export const MAX_EVENTS_PER_WEEKEND = 4;
 
-/** Minimum wage and Minijob limit for 2026, also stored as legal_parameter rows. */
-export const MINIJOB_LIMIT_2026_CENTS = 60300;
+/** Minijob limit per year (also stored as legal_parameter rows). Years without a row use the latest known. */
+export const MINIJOB_LIMIT_CENTS_BY_YEAR: Readonly<Record<number, number>> = {
+  2026: 60300,
+  2027: 63300,
+};
+
+export function minijobLimitCents(year: number): number {
+  const known = Object.keys(MINIJOB_LIMIT_CENTS_BY_YEAR).map(Number);
+  const usable = known.filter((y) => y <= year);
+  const key = usable.length > 0 ? Math.max(...usable) : Math.min(...known);
+  return MINIJOB_LIMIT_CENTS_BY_YEAR[key] ?? 60300;
+}

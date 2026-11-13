@@ -866,6 +866,9 @@ export type TaskPatch = {
   estimateMinutes?: number;
   /** Kernaufgabe flag (a task every market needs). */
   isKey?: boolean;
+  /** Evidence the task asks for before "Erledigt" (a photo / an attachment on the task). */
+  requiresPhoto?: boolean;
+  requiresAttachment?: boolean;
   /** `YYYY-MM-DD`, or null to clear. Editing it pins the date against anchor shifts. */
   dueOn?: string | null;
   /** "Benachrichtigung senden an": channels and when. No channels clears the timing. */
@@ -924,6 +927,16 @@ export async function updateTask(
         set.isKey = patch.isKey;
         before.isKey = row.isKey;
         after.isKey = patch.isKey;
+      }
+    }
+    for (const key of ["requiresPhoto", "requiresAttachment"] as const) {
+      const value = patch[key];
+      if (value === undefined) continue;
+      if (typeof value !== "boolean") throw new TaskInputError("invalid_input");
+      if (value !== row[key]) {
+        set[key] = value;
+        before[key] = row[key];
+        after[key] = value;
       }
     }
     if (patch.dueOn !== undefined) {

@@ -12,6 +12,7 @@ import { HealthShape } from "@/components/ui/health";
 import { TONES } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import type { CalendarLayer } from "@/server/queries/due";
+import { DeadlineGroup } from "./deadline-group";
 import type { DisplayItem } from "./group-deadlines";
 
 export const LAYER_ICONS: Record<CalendarLayer, LucideIcon> = {
@@ -30,10 +31,13 @@ export const LAYER_ICONS: Record<CalendarLayer, LucideIcon> = {
  */
 export function DeadlineChip({
   item,
+  group,
   layerLabel,
   toneLabel,
 }: {
   item: DisplayItem;
+  /** Labels of a summary's popover; set when `item.members` is. */
+  group?: { aria: string; allLabel: string };
   layerLabel: string;
   /** Spoken/hidden text for warn and critical, e.g. "Achtung". */
   toneLabel?: string;
@@ -41,17 +45,15 @@ export function DeadlineChip({
   const Icon = LAYER_ICONS[item.layer] ?? CalendarClock;
   const tone = item.tone ?? "neutral";
   const grouped = item.group !== undefined;
-  return (
-    <Link
-      href={item.href as never}
-      title={`${layerLabel}: ${[item.kindLabel, item.text].filter(Boolean).join(": ")}`}
-      className={cn(
-        "flex items-start gap-1 rounded-md px-1 py-0.5 font-medium text-tiny leading-snug hover:brightness-95",
-        TONES[tone],
-        tone === "neutral" && "text-foreground-2",
-        grouped && "font-semibold",
-      )}
-    >
+  const className = cn(
+    "flex w-full items-start gap-1 rounded-md px-1 py-0.5 font-medium text-tiny leading-snug hover:brightness-95",
+    TONES[tone],
+    tone === "neutral" && "text-foreground-2",
+    grouped && "font-semibold",
+  );
+  const title = `${layerLabel}: ${[item.kindLabel, item.text].filter(Boolean).join(": ")}`;
+  const content = (
+    <>
       {(tone === "warn" || tone === "critical") && (
         <HealthShape level={tone} className="mt-[3px] size-2.5 shrink-0" />
       )}
@@ -60,13 +62,32 @@ export function DeadlineChip({
         {layerLabel}
         {toneLabel ? `, ${toneLabel}` : ""}:{" "}
       </span>
-      {/* Object first, verb last: a chip cut after two lines still says where and what. */}
-      <span className="line-clamp-2 min-w-0 break-words">
-        {item.text}
+      {/* Object first, verb last: a chip cut after three lines still says where and what. */}
+      <span className="line-clamp-3 min-w-0 break-words">
+        {item.shortText ?? item.text}
         {item.kindLabel && !grouped && (
           <span className="font-normal opacity-80"> · {item.kindLabel}</span>
         )}
       </span>
+    </>
+  );
+  if (item.members && group) {
+    return (
+      <DeadlineGroup
+        aria={group.aria}
+        title={item.text}
+        items={item.members}
+        allHref={item.href}
+        allLabel={group.allLabel}
+        className={className}
+      >
+        {content}
+      </DeadlineGroup>
+    );
+  }
+  return (
+    <Link href={item.href as never} title={title} className={className}>
+      {content}
     </Link>
   );
 }

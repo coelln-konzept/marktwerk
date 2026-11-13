@@ -34,7 +34,7 @@ Historical documents (finished plans, early prompts, wireframes, component inven
 - [Setup](development/setup.md)
 - [Conventions](development/conventions.md)
 - [Testing](development/testing.md): unit, integration and e2e tests
-- [Test environment](development/test-environment.md): staging, branch environments, simulated clock, scenarios (ADR 0021, proposed)
+- [Test environment](development/test-environment.md): staging, branch environments, simulated clock, scenarios (ADR 0023, proposed)
 - [Deployment](development/deployment.md): dev on Vercel + Supabase (ADR 0017); Scalingo is the production candidate (ADR 0006)
 
 ## [Open questions & decisions log](open-questions.md)

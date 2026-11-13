@@ -8,6 +8,7 @@ import {
   type HealthLevel,
   isPermitHistory,
   isUnfiled,
+  logbookDisplayState,
   PERMIT_HORIZON_DEFAULT_DAYS,
   type PermitActionTier,
   type PermitDisplayState,
@@ -277,11 +278,13 @@ export async function listLogbook(
     .orderBy(asc(venue.name), asc(permit.permitType), asc(permit.season), asc(permit.applyBy));
 
   const all: LogbookRow[] = raw.map(({ lastEventEnd, ...r }) => {
-    const state = logbookState({ ...r, lastEventEnd }, today);
+    const derived = logbookState({ ...r, lastEventEnd }, today);
+    const tier = permitActionTier({ state: derived, applyBy: r.applyBy }, today, horizon);
     return {
       ...r,
-      state,
-      tier: permitActionTier({ state, applyBy: r.applyBy }, today, horizon),
+      // "Noch nicht fällig" instead of "Fehlt" when the apply-by date lies beyond the horizon.
+      state: logbookDisplayState(derived, tier),
+      tier,
       feeCents: r.feeCents > 0 ? r.feeCents : null,
       stickers: r.deliverablesReceived.stickers ?? null,
     };
@@ -447,25 +450,33 @@ export async function getPermit(actor: Actor, id: string, today: string) {
           .limit(40)
       : [];
 
+  const derived = logbookState(
+    {
+      status: row.permit.status,
+      validUntil: row.permit.validUntil,
+      linkedEvents: events.length,
+      upcomingEvents: events.filter(
+        (e) => e.required && e.status !== "cancelled" && e.endsOn >= today,
+      ).length,
+      lastEventEnd:
+        events
+          .filter((e) => e.required && e.status !== "cancelled")
+          .map((e) => e.endsOn)
+          .sort()
+          .at(-1) ?? null,
+    },
+    today,
+  );
+  // Same reading as the logbook row: not started and beyond the horizon is "Noch nicht fällig".
+  const horizon = await getPermitHorizonDays();
+  const state = logbookDisplayState(
+    derived,
+    permitActionTier({ state: derived, applyBy: row.permit.applyBy }, today, horizon),
+  );
+
   return {
     ...row.permit,
-    state: logbookState(
-      {
-        status: row.permit.status,
-        validUntil: row.permit.validUntil,
-        linkedEvents: events.length,
-        upcomingEvents: events.filter(
-          (e) => e.required && e.status !== "cancelled" && e.endsOn >= today,
-        ).length,
-        lastEventEnd:
-          events
-            .filter((e) => e.required && e.status !== "cancelled")
-            .map((e) => e.endsOn)
-            .sort()
-            .at(-1) ?? null,
-      },
-      today,
-    ),
+    state,
     venueName: row.venueName,
     responsibleName: row.responsibleName,
     authority: row.authorityId

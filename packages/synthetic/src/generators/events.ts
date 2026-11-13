@@ -1,7 +1,8 @@
-import { MAX_EVENTS_PER_WEEKEND, REFERENCE_DATE, SEASONS } from "../constants";
+import { MAX_EVENTS_PER_WEEKEND } from "../constants";
 import type { PresetBlueprint } from "../dictionaries/presets";
 import { EVENT_NOTES, PUBLIC_TEXT_SENTENCES } from "../dictionaries/texts";
 import type { VenueBlueprint } from "../dictionaries/venues";
+import type { Clock } from "../lib/clock";
 import { addDays, daysBetween, mondayBefore, weekendSaturdaysTouched, yearOf } from "../lib/dates";
 import type { Rng } from "../lib/rng";
 import { expandRRule } from "../lib/rrule";
@@ -81,9 +82,9 @@ interface Candidate {
  * - at most MAX_EVENTS_PER_WEEKEND events touch one weekend (occurrences over the cap are dropped)
  * - no two events at the same venue on the same day (the later occurrence is dropped)
  */
-function scheduleCandidates(presets: EventPreset[]): Candidate[] {
-  const from = `${SEASONS[0]}-01-01`;
-  const to = `${SEASONS[SEASONS.length - 1]}-12-31`;
+function scheduleCandidates(presets: EventPreset[], clock: Clock): Candidate[] {
+  const from = `${clock.season}-01-01`;
+  const to = `${clock.nextSeason}-12-31`;
   const all: Candidate[] = [];
   for (const preset of presets) {
     for (const startsOn of expandRRule(preset.rrule, from, to)) {
@@ -124,11 +125,11 @@ function scheduleCandidates(presets: EventPreset[]): Candidate[] {
 }
 
 /** Lifecycle status from the reference date. Booking flags are separate (see bookingFlags). */
-function lifecycleStatus(endsOn: string, season: number): EventStatus {
-  if (endsOn < REFERENCE_DATE) {
-    return endsOn < addDays(REFERENCE_DATE, -21) ? "closed" : "completed";
+function lifecycleStatus(endsOn: string, season: number, clock: Clock): EventStatus {
+  if (endsOn < clock.today) {
+    return endsOn < addDays(clock.today, -21) ? "closed" : "completed";
   }
-  if (season === SEASONS[0]) return "confirmed";
+  if (season === clock.season) return "confirmed";
   // New dates go online right away (client decision 2026-10-22): next season's events are planned,
   // whether or not the venue has applied yet; confirmation follows the permits.
   return "planned";
@@ -139,10 +140,15 @@ export interface EventsBundle {
   eventAnchors: EventAnchor[];
 }
 
-export function buildEvents(rng: Rng, presets: EventPreset[], ctx: PresetContext): EventsBundle {
+export function buildEvents(
+  rng: Rng,
+  presets: EventPreset[],
+  ctx: PresetContext,
+  clock: Clock,
+): EventsBundle {
   const typeById = new Map(ctx.eventTypes.map((type) => [type.id, type]));
   const venueById = new Map(ctx.venues.map((venue) => [venue.id, venue]));
-  const scheduled = scheduleCandidates(presets);
+  const scheduled = scheduleCandidates(presets, clock);
 
   const events: Event[] = [];
   const eventAnchors: EventAnchor[] = [];
@@ -155,14 +161,14 @@ export function buildEvents(rng: Rng, presets: EventPreset[], ctx: PresetContext
       throw new Error(`Missing type or venue for preset ${preset.key}`);
 
     const season = yearOf(candidate.startsOn);
-    const status = lifecycleStatus(candidate.endsOn, season);
+    const status = lifecycleStatus(candidate.endsOn, season, clock);
     const eventId = rng.uuid();
     const setupDay = preset.durationDays > 1 ? addDays(candidate.startsOn, -1) : candidate.startsOn;
     const bookingCutoff = mondayBefore(candidate.startsOn);
 
     // Online booking only for types that allow it, and only until the cut-off in the future.
     const bookingOpen =
-      type.rules.onlineBookingAllowed && status === "confirmed" && bookingCutoff > REFERENCE_DATE;
+      type.rules.onlineBookingAllowed && status === "confirmed" && bookingCutoff > clock.today;
 
     events.push({
       id: eventId,
@@ -191,21 +197,35 @@ export function buildEvents(rng: Rng, presets: EventPreset[], ctx: PresetContext
     );
   }
 
-  return { events: cancelSome(rng, events, typeById), eventAnchors };
+  return { events: cancelSome(rng, events, typeById, clock), eventAnchors };
 }
 
 /**
- * Two events of the 2026 season are cancelled (one flea for weather, one antique for a late permit).
- * They keep their place in the calendar but have no bookings, shifts or open tasks.
+ * Up to two events of the current season that already took place are cancelled in hindsight (one flea for
+ * weather, one antique for a late permit). They keep their place in the calendar but have no bookings,
+ * shifts or open tasks. Nothing ahead is cancelled.
  */
-function cancelSome(rng: Rng, events: Event[], typeById: Map<string, EventType>): Event[] {
+function cancelSome(
+  rng: Rng,
+  events: Event[],
+  typeById: Map<string, EventType>,
+  clock: Clock,
+): Event[] {
   const typeKey = (event: Event): string | undefined => typeById.get(event.eventTypeId)?.key;
   const monthOf = (event: Event): string => event.startsOn.slice(5, 7);
   const fleaCandidates = events.filter(
-    (e) => e.season === 2026 && typeKey(e) === "flea" && ["06", "07", "08"].includes(monthOf(e)),
+    (e) =>
+      e.season === clock.season &&
+      e.endsOn < clock.today &&
+      typeKey(e) === "flea" &&
+      ["06", "07", "08"].includes(monthOf(e)),
   );
   const antiqueCandidates = events.filter(
-    (e) => e.season === 2026 && typeKey(e) === "antique" && monthOf(e) === "05",
+    (e) =>
+      e.season === clock.season &&
+      e.endsOn < clock.today &&
+      typeKey(e) === "antique" &&
+      monthOf(e) === "05",
   );
   const toCancel = new Map<string, string>();
   const flea = fleaCandidates[rng.int(0, Math.max(0, fleaCandidates.length - 1))];

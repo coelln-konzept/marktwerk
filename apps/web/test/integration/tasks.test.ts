@@ -411,6 +411,32 @@ describe("updateTask", () => {
     expect(entry?.diff).toMatchObject({ before: { title: "Alt" }, after: { title: "Neu" } });
   });
 
+  it("adds and removes photo/attachment evidence on a task, audited, which then blocks or frees Erledigt", async () => {
+    const t = await insertTask({ title: "Fotos vom Markt", eventId });
+    const result = await updateTask(owner, t.id, {
+      requiresPhoto: true,
+      requiresAttachment: false,
+    });
+    expect(result.fields).toEqual(["requiresPhoto"]);
+    expect(await getTask(t.id)).toMatchObject({
+      requiresPhoto: true,
+      requiresAttachment: false,
+      customized: true,
+    });
+    const [entry] = await audits("task.update");
+    expect(entry?.diff).toMatchObject({
+      before: { requiresPhoto: false },
+      after: { requiresPhoto: true },
+    });
+    expect(await code(setTaskStatus(owner, t.id, "done", {}, clock))).toBe("evidence_missing");
+    await updateTask(owner, t.id, { requiresPhoto: false });
+    await setTaskStatus(owner, t.id, "done", {}, clock);
+    expect((await getTask(t.id)).status).toBe("done");
+    expect(await code(updateTask(owner, t.id, { requiresPhoto: "ja" as never }))).toBe(
+      "invalid_input",
+    );
+  });
+
   it("flags and unflags a Kernaufgabe, audited, and ignores a no-op", async () => {
     const t = await insertTask({ title: "A", eventId });
     expect(t.isKey).toBe(false);

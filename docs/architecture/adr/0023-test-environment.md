@@ -1,4 +1,4 @@
-# 0021: Test environment: staging, simulated clock, fenced mail, scenarios
+# 0023: Test environment: staging, simulated clock, fenced mail, scenarios
 
 **Status:** proposed (2026-11-04). Hosting of the staging database and the staging mail sink are open
 (spec §9, D1/D2). Design: [`development/test-environment.md`](../../development/test-environment.md).

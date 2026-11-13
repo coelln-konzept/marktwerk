@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { MAX_EVENTS_PER_WEEKEND, REFERENCE_DATE } from "./constants";
+import { MAX_EVENTS_PER_WEEKEND, minijobLimitCents, REFERENCE_DATE } from "./constants";
 import { generateDataset } from "./dataset";
 import { OVERDUE_CURRENT, OVERDUE_LEFTOVERS } from "./generators/tasks";
 import { EXAMPLE_DOMAINS, FICTION_PHONE_PATTERN } from "./lib/fiction";
@@ -7,7 +7,9 @@ import type { Dataset, EmploymentContract, Event, EventType, Payable, Task } fro
 
 const TIMEOUT = 120_000;
 const DAY_MS = 86_400_000;
-const MINIJOB_LIMIT_CENTS = 60300;
+/** Season of the default reference date (the first of the two seasons). */
+const SEASON = Number(REFERENCE_DATE.slice(0, 4));
+const MINIJOB_LIMIT_CENTS = minijobLimitCents(SEASON);
 
 let data: Dataset;
 
@@ -421,7 +423,7 @@ describe("events and scheduling", () => {
 
   it("assigns statuses from the reference date", () => {
     for (const event of data.events) {
-      if (event.season === 2026) {
+      if (event.season === SEASON) {
         expect(["completed", "closed", "confirmed", "cancelled"]).toContain(event.status);
       } else {
         expect(event.status).toBe("planned");
@@ -547,19 +549,20 @@ describe("permits", () => {
     );
     expect(requirement?.submissionWindowStartMd).toBe("10-01");
     expect(requirement?.expectedDecisionMd).toBe("01-15");
-    const permit2027 = data.permits.find(
-      (p) => p.requirementId === requirement?.id && p.season === 2027,
+    const nextPermit = data.permits.find(
+      (p) => p.requirementId === requirement?.id && p.season === SEASON + 1,
     );
-    expect(permit2027?.status).toBe("applied");
-    expect(permit2027?.expectedDecisionOn).toBe("2027-01-15");
+    expect(nextPermit?.status).toBe("applied");
+    expect(nextPermit?.expectedDecisionOn).toBe(`${SEASON + 1}-01-15`);
   });
 
-  it("grants 2026 permits and never grants a 2027 permit that has not been applied for", () => {
-    expect(data.permits.filter((p) => p.season === 2026).every((p) => p.status === "granted")).toBe(
-      true,
-    );
-    for (const permit of data.permits.filter((p) => p.season === 2027)) {
-      expect(["applied", "preparing", "not_started"]).toContain(permit.status);
+  it("grants current-season permits except the deliberately late ones, and only granted ones have a grant date", () => {
+    const current = data.permits.filter((p) => p.season === SEASON);
+    const notGranted = current.filter((p) => p.status !== "granted");
+    expect(notGranted.length).toBeLessThanOrEqual(2);
+    for (const permit of data.permits) {
+      if (permit.status === "granted") expect(permit.grantedAt).not.toBeNull();
+      else expect(permit.grantedAt).toBeNull();
     }
   });
 
@@ -572,8 +575,10 @@ describe("permits", () => {
     for (const requirement of landowner) expect(publicVenues.has(requirement.venueId)).toBe(false);
   });
 
-  it("records 100 stickers on signage permits in 2026", () => {
-    const signage = data.permits.filter((p) => p.permitType === "signage" && p.season === 2026);
+  it("records 100 stickers on granted signage permits", () => {
+    const signage = data.permits.filter(
+      (p) => p.permitType === "signage" && p.status === "granted",
+    );
     expect(signage.length).toBeGreaterThan(0);
     for (const permit of signage) expect(permit.deliverablesReceived.stickers).toBe(100);
   });
@@ -595,8 +600,8 @@ describe("money", () => {
     const overdue = data.installments.filter(
       (i) => i.status !== "paid" && i.dueOn < REFERENCE_DATE,
     );
-    expect(overdue.length).toBeGreaterThanOrEqual(2);
-    expect(overdue.length).toBeLessThanOrEqual(3);
+    expect(overdue.length).toBeGreaterThanOrEqual(1);
+    expect(overdue.length).toBeLessThanOrEqual(2);
     const soonEnd = isoDay(Date.parse(`${REFERENCE_DATE}T00:00:00Z`) + 14 * DAY_MS);
     const dueSoon = data.installments.filter(
       (i) => i.status === "open" && i.dueOn >= REFERENCE_DATE && i.dueOn <= soonEnd,
@@ -646,11 +651,11 @@ describe("shifts and Minijob earnings", () => {
     expect(values.filter((v) => v > MINIJOB_LIMIT_CENTS).length).toBeLessThanOrEqual(2);
   });
 
-  it("has shifts only on past 2026 events, and some recent shifts without actual times", () => {
+  it("has shifts only on past events of the current season, and some recent shifts without actual times", () => {
     const eventById = new Map(data.events.map((e) => [e.id, e]));
     for (const shift of data.shifts) {
       const event = eventById.get(shift.eventId);
-      expect(event?.season).toBe(2026);
+      expect(event?.season).toBe(SEASON);
       expect(event !== undefined && event.endsOn < REFERENCE_DATE).toBe(true);
     }
     const recent = data.shifts.filter(
@@ -668,11 +673,11 @@ describe("bookings", () => {
     eventById = new Map(data.events.map((e) => [e.id, e]));
   });
 
-  it("books only completed, closed or confirmed 2026 flea and antique events", () => {
+  it("books only completed, closed or confirmed current-season flea and antique events", () => {
     const typeKey = new Map(data.eventTypes.map((t) => [t.id, t.key]));
     for (const event of data.events) {
       const bookable =
-        event.season === 2026 &&
+        event.season === SEASON &&
         ["completed", "closed", "confirmed"].includes(event.status) &&
         ["flea", "antique"].includes(typeKey.get(event.eventTypeId) ?? "");
       const requests = data.bookingRequests.filter((r) => r.eventId === event.id);
@@ -793,5 +798,120 @@ describe("privacy and wording", () => {
     expect(data.settings.companyName).toBe("Demo Märkte GmbH");
     expect(data.settings.timeZone).toBe("Europe/Berlin");
     expect(data.settings.bundesland).toBe("NW");
+  });
+});
+
+/* ------------------------------------------------- across reference dates */
+
+/** The data must look like a well-run company's normal day on any reference date, not only the default. */
+const REFERENCE_DATES = ["2026-10-21", "2026-11-10", "2027-01-05", "2027-03-15", "2027-07-01"];
+
+function daysAfter(date: string, days: number): string {
+  return isoDay(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS);
+}
+
+describe.each(REFERENCE_DATES)("as of %s", (today) => {
+  let d: Dataset;
+  beforeAll(() => {
+    d = generateDataset({ referenceDate: today });
+  }, TIMEOUT);
+  const season = Number(today.slice(0, 4));
+
+  it("derives the two seasons from the date and sets statuses from it", () => {
+    expect(new Set(d.events.map((e) => e.season))).toEqual(new Set([season, season + 1]));
+    for (const event of d.events) {
+      if (event.status === "cancelled") {
+        expect(event.endsOn < today).toBe(true);
+      } else if (event.endsOn < today) {
+        expect(["completed", "closed"]).toContain(event.status);
+      } else {
+        expect(event.status).toBe(event.season === season ? "confirmed" : "planned");
+      }
+    }
+  });
+
+  it(
+    "keeps the weekend cap and is deterministic",
+    () => {
+      const counts = new Map<string, number>();
+      for (const event of d.events)
+        for (const saturday of weekendKeys(event.startsOn, event.endsOn))
+          counts.set(saturday, (counts.get(saturday) ?? 0) + 1);
+      expect(Math.max(...counts.values())).toBeLessThanOrEqual(MAX_EVENTS_PER_WEEKEND);
+      expect(JSON.stringify(generateDataset({ referenceDate: today }))).toBe(JSON.stringify(d));
+    },
+    TIMEOUT,
+  );
+
+  it("has only a handful of overdue open tasks", () => {
+    const overdue = d.tasks.filter(
+      (t) =>
+        t.dueAt < `${today}T00:00:00.000Z` && !["done", "skipped", "cancelled"].includes(t.status),
+    );
+    expect(overdue.length).toBeLessThanOrEqual(8);
+    const notWaiting = overdue.filter((t) => t.status !== "waiting_external");
+    expect(notWaiting.length).toBeLessThanOrEqual(6);
+  });
+
+  it("files permits on time: at most two are really late, and past events are covered", () => {
+    const late = d.permits.filter((p) => p.status === "not_started" && p.applyBy < today);
+    expect(late.length).toBeLessThanOrEqual(2);
+    const unfiledPastDue = d.permits.filter(
+      (p) => (p.status === "not_started" || p.status === "preparing") && p.applyBy < today,
+    );
+    expect(unfiledPastDue.length).toBeLessThanOrEqual(2);
+
+    // permits of events that already happened are granted
+    const eventById = new Map(d.events.map((e) => [e.id, e]));
+    const permitById = new Map(d.permits.map((p) => [p.id, p]));
+    for (const link of d.eventPermits) {
+      const event = eventById.get(link.eventId);
+      const permit = permitById.get(link.permitId);
+      if (event && permit && event.endsOn < today && event.status !== "cancelled" && link.required)
+        expect(permit.status, `${permit.title} for ${event.startsOn}`).toBe("granted");
+    }
+
+    // dates agree with statuses
+    for (const permit of d.permits) {
+      if (permit.status === "applied") {
+        expect(permit.appliedAt).not.toBeNull();
+        expect((permit.appliedAt ?? "") < today).toBe(true);
+        expect((permit.expectedDecisionOn ?? "") > today).toBe(true);
+      }
+      if (permit.status === "granted") expect((permit.grantedAt ?? "") <= today).toBe(true);
+    }
+  });
+
+  it("spreads expected decisions instead of piling them on one day", () => {
+    const perDay = new Map<string, number>();
+    for (const permit of d.permits) {
+      if (permit.status !== "applied" || permit.expectedDecisionOn === null) continue;
+      perDay.set(permit.expectedDecisionOn, (perDay.get(permit.expectedDecisionOn) ?? 0) + 1);
+    }
+    expect(Math.max(0, ...perDay.values())).toBeLessThanOrEqual(10);
+  });
+
+  it("has a few overdue instalments and obligations, most past instalments paid", () => {
+    const pastDue = d.installments.filter((i) => i.dueOn < today);
+    const overdue = pastDue.filter((i) => i.status !== "paid");
+    expect(overdue.length).toBeGreaterThanOrEqual(1);
+    expect(overdue.length).toBeLessThanOrEqual(2);
+    // early in the year there are only a few past instalments, so the share only means something later
+    if (pastDue.length >= 20) expect(overdue.length / pastDue.length).toBeLessThan(0.1);
+    for (const i of d.installments) if (i.dueOn > today) expect(i.status).toBe("open");
+    expect(d.obligations.filter((o) => o.nextDueOn < today).length).toBeLessThanOrEqual(2);
+    const soon = daysAfter(today, 14);
+    expect(
+      d.installments.some((i) => i.status === "open" && i.dueOn >= today && i.dueOn <= soon),
+    ).toBe(true);
+  });
+
+  it("keeps every date inside the seasons around the reference date", () => {
+    const years = new Set([season, season + 1]);
+    for (const e of d.events) expect(years.has(Number(e.startsOn.slice(0, 4)))).toBe(true);
+    for (const i of d.installments) {
+      expect(Number(i.dueOn.slice(0, 4))).toBeGreaterThanOrEqual(season - 1);
+      expect(Number(i.dueOn.slice(0, 4))).toBeLessThanOrEqual(season + 1);
+    }
   });
 });

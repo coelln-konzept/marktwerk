@@ -103,6 +103,10 @@
       "warn": "Attention",
       "critical": "Overdue",
       "neutral": "Planned"
-    }
+    },
+    "groupAll": "All in the permits logbook",
+    "groupAllTasks": "All tasks",
+    "groupAria": "{text}: show each",
+    "spanRange": "{days} days · until {to}"
   }
 }

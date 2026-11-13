@@ -3,7 +3,7 @@
 Deterministic, seeded synthetic data for development. The real data is months away, so this package
 generates a realistic dataset for one fictional German event company, **Demo Märkte GmbH** (Köln area).
 It covers flea markets (Flohmarkt) and antique markets (Antikmarkt), plus Stadtfeste and Food & Wine markets,
-for the 2026 season and the planned 2027 season. Nothing else is generated.
+for the current season (the reference date's year) and the planned next season. Nothing else is generated.
 
 The output follows `docs/architecture/data-model.md` (v0.3): camelCase fields, money in integer cents, lengths
 in integer centimetres, business dates as `YYYY-MM-DD` (Europe/Berlin), times as `HH:mm`, instants as UTC ISO strings.
@@ -23,8 +23,11 @@ pnpm --filter @marktwerk/synthetic typecheck
 - `SEED = 20261021` and `REFERENCE_DATE` live in `src/constants.ts`. The reference date stands in for "today" for
   every status and due date; the generator never reads the real clock. It is `SYNTHETIC_REFERENCE_DATE` when set, else
   the fixed `2026-10-21` (tests, `pnpm generate`). `pnpm db:seed` sets it to the seed day, so a fresh seed looks
-  current: past tasks are done, with exactly 4 overdue tasks on current markets and 2 forgotten ones on the last
-  market that ended more than a week ago (`OVERDUE_CURRENT`, `OVERDUE_LEFTOVERS` in `generators/tasks.ts`).
+  current. **Every date and both seasons derive from it** (`lib/clock.ts`); only legal parameters keep real dates.
+  A well-run company's normal day: 4 overdue tasks on current markets and 1 forgotten one on the last market that
+  ended more than a week ago (`OVERDUE_CURRENT`, `OVERDUE_LEFTOVERS` in `generators/tasks.ts`), 2 overdue instalments,
+  1 overdue obligation, at most 2 late permits, expected permit decisions spread over many days.
+  `dataset.test.ts` checks this for several reference dates. The counts in the table below are for the default date.
 - Every random decision goes through one seeded Faker instance (German locale stack, the same as `fakerDE`).
   All ids come from `faker.string.uuid()` after seeding.
 - Two runs produce byte-identical output. A test checks this. Changing generator code or dictionaries changes the output.
@@ -68,13 +71,13 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 
 - **Events**: at most 4 events touch any weekend. No venue hosts two events on the same day. Occurrences that break a
   rule are dropped, not moved. Lifecycle status follows the reference date: ended more than 21 days ago → `closed`,
-  ended before today → `completed`, 2026 upcoming → `confirmed`, 2027 → `planned` (venue permit applied) or `draft`.
-- **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets and 2 on the last past market (`rolloverCount` 1–5); permit tasks of upcoming markets sometimes wait on an authority.
-  Permit tasks of recent events may be `waiting_external`. Future tasks are `todo` or `in_progress`.
+  ended before today → `completed`, current season upcoming → `confirmed`, next season → `planned`.
+- **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets and 1 on the last past market (`rolloverCount` 1–5); exactly 2 recent permit tasks wait on an authority (`waiting_external`). Future tasks are `todo` or `in_progress`.
+- **Permits**: next season's permits move `not_started` → `preparing` (75 days before apply-by) → `applied` (about 45 days before); the expected decision is the filing day plus a per-type turnaround, and a decision date in the past means granted. Current-season permits of past events are granted.
 - **Bookings**: placements are first-fit along the venue rows, so they never overlap. Car requests are placed first. A car
   is granted only if it is not longer than the booked stall and a car slot is free.
-- **Payables**: instalments sum to the total. Three instalments are overdue, and several fall due within 14 days.
-- **Minijob**: monthly earnings stay under the 2026 limit (603 €) except one person in August 2026, who goes slightly over.
+- **Payables**: instalments sum to the total. Rates due up to today are paid, except 2 deliberate overdue ones; at least one falls due within 14 days.
+- **Minijob**: monthly earnings stay under that year's limit (`MINIJOB_LIMIT_CENTS_BY_YEAR`) except one person in August, who goes slightly over.
 
 ## Privacy
 

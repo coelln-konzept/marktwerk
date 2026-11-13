@@ -52,7 +52,10 @@
       "missing": "missing",
       "given": "given",
       "addPhoto": "Add photo",
-      "addAttachment": "Add attachment"
+      "addAttachment": "Add attachment",
+      "requirePhoto": "Require a photo",
+      "requireAttachment": "Require an attachment",
+      "requireHint": "Without it the task can't be marked done."
     },
     "reason": {
       "waiting_external": {
@@ -117,7 +120,9 @@
       "assignee": "Assigned to",
       "role": "Role",
       "completed": "Done on",
-      "notify": "Notification"
+      "notify": "Notification",
+      "requiresPhoto": "Photo evidence",
+      "requiresAttachment": "Attachment evidence"
     },
     "source": {
       "template": "From timeline template",

@@ -11,8 +11,8 @@ export function deadlineKind(item: Pick<CalendarItem, "layer" | "id">): Deadline
 
 /** An entry as the Kalender shows it: a single item, or one summary standing for several. */
 export type GroupedItem = CalendarItem & {
-  /** Set on a summary of `count` items of one day, layer, kind and urgency. */
-  group?: { count: number; kind: DeadlineKind | null };
+  /** Set on a summary of `count` items of one day, layer, kind and urgency; `members` are those items. */
+  group?: { count: number; kind: DeadlineKind | null; members: CalendarItem[] };
 };
 
 /** An entry with its texts already translated (done once by the page, used by chip and list row). */
@@ -21,6 +21,10 @@ export type DisplayItem = GroupedItem & {
   text: string;
   /** The verb ("Entscheidung erwartet"), shown after the object and in the tooltip. */
   kindLabel?: string;
+  /** Shorter text for a month-grid chip: the venue cut to its town ("Neuss · Marktgenehmigung", UT-11 #4). */
+  shortText?: string;
+  /** A summary's members with their own texts and links (opened by the summary, UT-11 #2). */
+  members?: { key: string; href: string; text: string }[];
 };
 
 /** Layers that have a page a summary can link to. */
@@ -41,23 +45,29 @@ export const GROUP_MIN = 4;
 export function groupDeadlines(items: CalendarItem[], min = GROUP_MIN): GroupedItem[] {
   const keyOf = (i: CalendarItem) =>
     `${i.date}|${i.layer}|${deadlineKind(i) ?? ""}|${i.tone ?? "neutral"}`;
-  const counts = new Map<string, number>();
+  const members = new Map<string, CalendarItem[]>();
   for (const i of items) {
-    if (GROUP_HREF[i.layer]) counts.set(keyOf(i), (counts.get(keyOf(i)) ?? 0) + 1);
+    if (GROUP_HREF[i.layer]) members.set(keyOf(i), [...(members.get(keyOf(i)) ?? []), i]);
   }
   const done = new Set<string>();
   const out: GroupedItem[] = [];
   for (const i of items) {
     const key = keyOf(i);
     const href = GROUP_HREF[i.layer];
-    const count = counts.get(key) ?? 0;
+    const group = members.get(key) ?? [];
+    const count = group.length;
     if (!href || count < min) {
       out.push(i);
       continue;
     }
     if (done.has(key)) continue;
     done.add(key);
-    out.push({ ...i, id: `group:${key}`, href, group: { count, kind: deadlineKind(i) } });
+    out.push({
+      ...i,
+      id: `group:${key}`,
+      href,
+      group: { count, kind: deadlineKind(i), members: group },
+    });
   }
   return out;
 }
@@ -77,4 +87,18 @@ export function deadlineText(item: CalendarItem): string {
     text = i > 0 ? `${rest.slice(i + 3)} · ${rest.slice(0, i)}` : rest;
   }
   return text.replace(ISO_DATE, (_, y, m, d) => `${d}.${m}.${y}`);
+}
+
+/**
+ * `deadlineText` for a narrow month-grid cell: a permit's venue ("Bergisch Gladbach – Konrad-Adenauer-Platz")
+ * is cut to the part before " – ", so the chip still says where and what. Other texts stay as they are.
+ */
+export function deadlineShortText(item: CalendarItem): string {
+  const text = deadlineText(item);
+  if (!deadlineKind(item)) return text;
+  const i = text.indexOf(" · ");
+  if (i <= 0) return text;
+  const venue = text.slice(0, i);
+  const dash = venue.indexOf(" – ");
+  return dash > 0 ? `${venue.slice(0, dash)}${text.slice(i)}` : text;
 }

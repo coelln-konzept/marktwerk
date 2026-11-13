@@ -1,6 +1,7 @@
 {
   "permitStatus": {
     "missing": "Missing",
+    "not_due": "Not due yet",
     "preparing": "In preparation",
     "applied": "Applied",
     "granted": "Granted",

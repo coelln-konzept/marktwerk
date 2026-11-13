@@ -22,6 +22,9 @@ feedback 9 (PR #22: Besprechungen, Übersicht layout, task notification setting,
 
 The milestone text below still describes the full scope; *(UI hidden for now)* marks the parts above.
 
+**Step by step:** the [Marktwerk Fahrplan](https://claude.ai/artifact/Ei3Xy9VGSDWr5WsEujn639) breaks everything
+below into ≤30-minute steps with done-checks and tracks progress.
+
 **Left for the M6 exit (pilot):** production hosting (Scalingo candidate) with backups; S3 file storage and phone photo
 uploads; user invitations / magic link; "Passwort vergessen" (needs SMTP); the DATEV export format; real client data
 instead of synthetic; then the pilot and the go/no-go for Phase 2. The Postfach + Standplan prototype on
@@ -179,7 +182,7 @@ requirement is planned without them, decision 2026-11-03.)*
 - Recurring **obligations** (date and/or km): vehicles (HU 24/12 months, **UVV yearly**, service, insurance, tax),
   insurance renewals, KSK report (31 March); vehicle defect reports with photo
 - **Production hosting** set up (Scalingo candidate) and **pilot** with the office team for one block of events (real data entered by them); weekly feedback
-- **Test environment** in place before the pilot ([ADR 0021](../architecture/adr/0021-test-environment.md)): staging with reset,
+- **Test environment** in place before the pilot ([ADR 0023](../architecture/adr/0023-test-environment.md)): staging with reset,
   simulated clock, fenced mail and the first scenarios; every later module adds a scenario to its definition of done
 - **Exit:** go/no-go for Phase 2; success metrics measured.
 

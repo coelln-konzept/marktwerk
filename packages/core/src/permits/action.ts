@@ -34,6 +34,8 @@ export function permitActionTier(
     case "rejected":
     case "expired":
       return "overdue";
+    case "not_due":
+      return "not_due";
     case "missing":
     case "preparing": {
       if (permit.applyBy === null) return "apply_now";
@@ -44,6 +46,18 @@ export function permitActionTier(
     default:
       return null;
   }
+}
+
+/**
+ * The state the logbook shows: a permit not started yet whose apply-by date lies beyond the horizon is
+ * "Noch nicht fällig" (neutral), not "Fehlt" (red). Everything else keeps its state. Product owner,
+ * 2026-11-10: with realistic data most next-season permits are simply not due yet.
+ */
+export function logbookDisplayState(
+  state: PermitDisplayState,
+  tier: PermitActionTier | null,
+): PermitDisplayState {
+  return state === "missing" && tier === "not_due" ? "not_due" : state;
 }
 
 /** Does the permit count for the badge and the "Jetzt zu tun" chip: overdue or due within the horizon. */

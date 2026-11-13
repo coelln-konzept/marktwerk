@@ -103,6 +103,10 @@
       "warn": "Achtung",
       "critical": "Überfällig",
       "neutral": "Geplant"
-    }
+    },
+    "groupAll": "Alle im Genehmigungen-Logbuch",
+    "groupAllTasks": "Alle Aufgaben",
+    "groupAria": "{text}: einzeln anzeigen",
+    "spanRange": "{days} Tage · bis {to}"
   }
 }

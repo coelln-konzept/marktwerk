@@ -1,6 +1,6 @@
-import { REFERENCE_DATE } from "../constants";
 import type { VenueBlueprint } from "../dictionaries/venues";
-import { addDays, addMonths } from "../lib/dates";
+import { type Clock, laterOf } from "../lib/clock";
+import { addDays, addMonths, yearOf } from "../lib/dates";
 import type { Rng } from "../lib/rng";
 import type {
   Event,
@@ -74,7 +74,29 @@ export function buildVehicles(rng: Rng): Vehicle[] {
   }));
 }
 
+/**
+ * Days from today to the next due date of each recurring check, per van. Everything is relative to the
+ * reference date; Transporter 2's UVV is the one deliberate overdue obligation (the others are ahead).
+ */
+const HU_DAYS_AHEAD = [140, 200, 410];
+const UVV_DAYS_AHEAD = [95, -18, 200];
+const SERVICE_DAYS_AHEAD = [70, 115, 170];
+
+/** Last HU date of a van, derived so the next one falls `HU_DAYS_AHEAD` days from today. */
+function huLastDone(clock: Clock, grossWeightKg: number, index: number): string {
+  const months = grossWeightKg > 3500 ? 12 : 24;
+  return addMonths(addDays(clock.today, HU_DAYS_AHEAD[index] ?? 200), -months);
+}
+
+/** The next occurrence of a yearly month-day on or after `today`, and the one before it. */
+function yearlyAround(today: string, md: string): { next: string; last: string } {
+  const thisYear = `${yearOf(today)}-${md}`;
+  const next = thisYear >= today ? thisYear : `${yearOf(today) + 1}-${md}`;
+  return { next, last: `${yearOf(next) - 1}-${md}` };
+}
+
 export interface ObligationContext {
+  clock: Clock;
   vehicles: Vehicle[];
   logisticsStaffId: string;
   officeManagerStaffId: string;
@@ -90,9 +112,8 @@ export function buildObligations(rng: Rng, ctx: ObligationContext): Obligation[]
   };
 
   // HU: 24 months up to 3.5 t, 12 months above (see legal_parameter rows).
-  const huLast = ["2025-02-10", "2026-03-20", "2025-06-01"];
   vehicles.forEach((vehicle, index) => {
-    const last = huLast[index] ?? "2025-01-01";
+    const last = huLastDone(ctx.clock, vehicle.grossWeightKg, index);
     const months = vehicle.grossWeightKg > 3500 ? 12 : 24;
     add({
       title: `HU / TÜV – ${vehicle.name}`,
@@ -111,9 +132,9 @@ export function buildObligations(rng: Rng, ctx: ObligationContext): Obligation[]
   });
 
   // UVV (DGUV Vorschrift 70) yearly. Transporter 2 is deliberately overdue.
-  const uvvLast = ["2025-11-05", "2025-09-30", "2025-12-01"];
   vehicles.forEach((vehicle, index) => {
-    const last = uvvLast[index] ?? "2025-01-01";
+    const next = addDays(ctx.clock.today, UVV_DAYS_AHEAD[index] ?? 120);
+    const last = addMonths(next, -12);
     add({
       title: `UVV-Prüfung (DGUV Vorschrift 70) – ${vehicle.name}`,
       scope: "vehicle",
@@ -121,7 +142,7 @@ export function buildObligations(rng: Rng, ctx: ObligationContext): Obligation[]
       venueId: null,
       intervalMonths: 12,
       intervalKm: null,
-      nextDueOn: addMonths(last, 12),
+      nextDueOn: next,
       nextDueKm: null,
       leadDays: 14,
       responsibleStaffMemberId: ctx.logisticsStaffId,
@@ -131,7 +152,8 @@ export function buildObligations(rng: Rng, ctx: ObligationContext): Obligation[]
   });
 
   // Service: yearly or every 30,000 km, whichever comes first.
-  vehicles.forEach((vehicle) => {
+  vehicles.forEach((vehicle, index) => {
+    const next = addDays(ctx.clock.today, SERVICE_DAYS_AHEAD[index] ?? 120);
     add({
       title: `Inspektion – ${vehicle.name}`,
       scope: "vehicle",
@@ -139,15 +161,16 @@ export function buildObligations(rng: Rng, ctx: ObligationContext): Obligation[]
       venueId: null,
       intervalMonths: 12,
       intervalKm: 30000,
-      nextDueOn: "2026-12-15",
+      nextDueOn: next,
       nextDueKm: vehicle.odometerKm + 8000,
       leadDays: 21,
       responsibleStaffMemberId: ctx.logisticsStaffId,
       createsPayable: true,
-      lastDoneOn: "2025-12-15",
+      lastDoneOn: addMonths(next, -12),
     });
   });
 
+  const insuranceYear = yearlyAround(addDays(ctx.clock.today, 1), "01-01");
   add({
     title: "Kfz-Versicherung (Verlängerung)",
     scope: "company",
@@ -155,14 +178,15 @@ export function buildObligations(rng: Rng, ctx: ObligationContext): Obligation[]
     venueId: null,
     intervalMonths: 12,
     intervalKm: null,
-    nextDueOn: "2027-01-01",
+    nextDueOn: insuranceYear.next,
     nextDueKm: null,
     leadDays: 60,
     responsibleStaffMemberId: ctx.officeManagerStaffId,
     createsPayable: true,
-    lastDoneOn: "2026-01-01",
+    lastDoneOn: insuranceYear.last,
   });
 
+  const ksk = yearlyAround(ctx.clock.today, "03-31");
   add({
     title: "KSK-Jahresmeldung",
     scope: "company",
@@ -170,12 +194,12 @@ export function buildObligations(rng: Rng, ctx: ObligationContext): Obligation[]
     venueId: null,
     intervalMonths: 12,
     intervalKm: null,
-    nextDueOn: "2027-03-31",
+    nextDueOn: ksk.next,
     nextDueKm: null,
     leadDays: 30,
     responsibleStaffMemberId: ctx.officeManagerStaffId,
     createsPayable: false,
-    lastDoneOn: "2026-03-31",
+    lastDoneOn: ksk.last,
   });
 
   return obligations;
@@ -189,7 +213,11 @@ export interface Schedule {
   dueOn: string;
   /** Share of the total in percent. The last instalment absorbs rounding so the sum is exact. */
   share: number;
-  paid?: "full" | "half";
+  /**
+   * Left out, the status follows the date: due on or before today means paid, later means open. "open" keeps a
+   * past-due row unpaid on purpose (an overdue example); "half" is a partial payment.
+   */
+  paid?: "full" | "half" | "open";
 }
 
 /** Installment rows for one payable. `paid` decides the status; unpaid rows are open. */
@@ -199,6 +227,7 @@ function buildInstallments(
   totalCents: number,
   schedule: Schedule[],
   reference: string,
+  today: string,
 ): Installment[] {
   const amounts: number[] = [];
   let remaining = totalCents;
@@ -217,11 +246,12 @@ function buildInstallments(
     let status: InstallmentStatus = "open";
     let paidOn: string | null = null;
     let paidAmountCents: number | null = null;
-    if (row.paid === "full") {
+    const paid = row.paid ?? (row.dueOn <= today ? "full" : "open");
+    if (paid === "full") {
       status = "paid";
       paidOn = addDays(row.dueOn, -rng.int(0, 5));
       paidAmountCents = amount;
-    } else if (row.paid === "half") {
+    } else if (paid === "half") {
       status = "partially_paid";
       paidOn = addDays(row.dueOn, 1);
       paidAmountCents = Math.round(amount / 2 / 100) * 100;
@@ -258,15 +288,16 @@ interface PayableDraft {
 }
 
 /** Derived status: all paid → paid; unpaid and past due → overdue; some paid → partially_paid; else open. */
-function payableStatus(installments: Installment[]): Payable["status"] {
+function payableStatus(installments: Installment[], today: string): Payable["status"] {
   if (installments.every((i) => i.status === "paid")) return "paid";
-  if (installments.some((i) => i.status !== "paid" && i.dueOn < REFERENCE_DATE)) return "overdue";
+  if (installments.some((i) => i.status !== "paid" && i.dueOn < today)) return "overdue";
   if (installments.some((i) => i.status === "paid" || i.status === "partially_paid"))
     return "partially_paid";
   return "open";
 }
 
 export interface MoneyContext {
+  clock: Clock;
   venues: Venue[];
   venueBlueprintByName: Map<string, VenueBlueprint>;
   contactIdByKey: Map<string, string>;
@@ -283,39 +314,15 @@ export interface MoneyBundle {
   installments: Installment[];
 }
 
-function venueSchedule(venueKey: string, index: number, season: number): Schedule[] {
-  if (season !== 2026) {
-    return index % 2 === 0
-      ? [
-          { dueOn: "2027-02-28", share: 40 },
-          { dueOn: "2027-06-30", share: 40 },
-          { dueOn: "2027-10-31", share: 20 },
-        ]
-      : [{ dueOn: "2027-03-31", share: 100 }];
-  }
-  // Deliberate overdue cases (2 location fees) and due-soon instalments (due in the next 14 days).
-  if (venueKey === "heumarkt") {
-    return [
-      { dueOn: "2026-02-28", share: 40, paid: "full" },
-      { dueOn: "2026-06-30", share: 40, paid: "full" },
-      { dueOn: "2026-09-30", share: 20 },
-    ];
-  }
-  if (venueKey === "bonn") {
-    return [
-      { dueOn: "2026-02-28", share: 40, paid: "full" },
-      { dueOn: "2026-06-30", share: 40, paid: "full" },
-      { dueOn: "2026-09-30", share: 20, paid: "half" },
-    ];
-  }
-  if (index % 2 === 0) {
-    return [
-      { dueOn: "2026-02-28", share: 40, paid: "full" },
-      { dueOn: "2026-06-30", share: 40, paid: "full" },
-      { dueOn: "2026-10-31", share: 20 },
-    ];
-  }
-  return [{ dueOn: "2026-03-31", share: 100, paid: "full" }];
+/** Location fee instalments: three per season for every other venue, one for the rest. Dates follow the season. */
+function venueSchedule(index: number, season: number): Schedule[] {
+  return index % 2 === 0
+    ? [
+        { dueOn: `${season}-02-28`, share: 40 },
+        { dueOn: `${season}-06-30`, share: 40 },
+        { dueOn: `${season}-10-31`, share: 20 },
+      ]
+    : [{ dueOn: `${season}-03-31`, share: 100 }];
 }
 
 export function buildPayablesAndInstallments(
@@ -330,6 +337,8 @@ export function buildPayablesAndInstallments(
   },
 ): MoneyBundle {
   const drafts: PayableDraft[] = [];
+  const { today, season: currentSeason, nextSeason } = ctx.clock;
+  const seasons = [currentSeason, nextSeason];
   const blank = {
     eventId: null,
     venueId: null,
@@ -344,7 +353,7 @@ export function buildPayablesAndInstallments(
   ctx.venues.forEach((venue, index) => {
     const blueprint = ctx.venueBlueprintByName.get(venue.name);
     if (!blueprint) throw new Error(`No blueprint for ${venue.name}`);
-    for (const season of [2026, 2027]) {
+    for (const season of seasons) {
       const counterpartyKey = blueprint.landownerKey ?? blueprint.cityAuthorityKey;
       drafts.push({
         ...blank,
@@ -356,7 +365,7 @@ export function buildPayablesAndInstallments(
         category: "location",
         totalGrossCents: rng.stepped(800000, 2500000, 10000),
         critical: true,
-        schedule: venueSchedule(blueprint.key, index, season),
+        schedule: venueSchedule(index, season),
       });
     }
   });
@@ -365,10 +374,10 @@ export function buildPayablesAndInstallments(
   for (const permit of ctx.permits) {
     if (permit.permitType !== "market_permit") continue;
     const fee = ctx.feeCentsByPermitId.get(permit.id) ?? 0;
-    const due =
-      permit.season === 2026
-        ? addDays(permit.grantedAt ?? "2026-01-15", 14)
-        : `${permit.season}-03-31`;
+    // Invoice 14 days after the decision (the expected one while it is pending, at the earliest in 30 days).
+    const decided =
+      permit.grantedAt ?? laterOf(permit.expectedDecisionOn ?? today, addDays(today, 16));
+    const due = addDays(decided, 14);
     drafts.push({
       ...blank,
       title: `Genehmigungsgebühr ${permit.title} ${permit.season}`,
@@ -380,21 +389,21 @@ export function buildPayablesAndInstallments(
       category: "permit",
       totalGrossCents: fee,
       critical: true,
-      schedule: [
-        { dueOn: due, share: 100, ...(permit.season === 2026 ? { paid: "full" as const } : {}) },
-      ],
+      schedule: [{ dueOn: due, share: 100 }],
     });
   }
 
-  // Toilet framework contracts (one per venue and season). Ehrenfeld's 2026 invoice is overdue.
+  // Toilet framework contracts (one per venue and season). Ehrenfeld's current invoice is overdue (a deliberate
+  // example), Bonn's falls due within the next two weeks.
   ctx.venues.forEach((venue, index) => {
-    for (const season of [2026, 2027]) {
-      const overdue = season === 2026 && venue.name.startsWith("Köln-Ehrenfeld");
-      const schedule: Schedule[] = overdue
-        ? [{ dueOn: "2026-10-01", share: 100 }]
-        : season === 2026
-          ? [{ dueOn: "2026-03-31", share: 100, paid: "full" }]
-          : [{ dueOn: "2027-03-31", share: 100 }];
+    for (const season of seasons) {
+      const current = season === currentSeason;
+      const schedule: Schedule[] =
+        current && venue.name.startsWith("Köln-Ehrenfeld")
+          ? [{ dueOn: addDays(today, -12), share: 100, paid: "open" }]
+          : current && venue.name.startsWith("Bonn")
+            ? [{ dueOn: addDays(today, 6), share: 100 }]
+            : [{ dueOn: `${season}-03-31`, share: 100 }];
       drafts.push({
         ...blank,
         title: `Toilettenrahmenvertrag ${venue.name} ${season}`,
@@ -415,7 +424,7 @@ export function buildPayablesAndInstallments(
     const blueprint = ctx.venueBlueprintByName.get(venue.name);
     if (!blueprint?.waterAuthorityKey) return;
     const counterpartyId = ctx.contactIdByKey.get(blueprint.waterAuthorityKey);
-    for (const season of [2026, 2027]) {
+    for (const season of seasons) {
       drafts.push({
         ...blank,
         title: `Standrohr-Miete ${venue.name} ${season}`,
@@ -427,9 +436,9 @@ export function buildPayablesAndInstallments(
         totalGrossCents: 18000,
         critical: false,
         schedule:
-          season === 2026
-            ? [{ dueOn: "2026-04-30", share: 100, paid: "full" }]
-            : [{ dueOn: "2027-04-30", share: 100 }],
+          season === currentSeason && blueprint.key === "heumarkt"
+            ? [{ dueOn: addDays(today, -7), share: 100, paid: "open" }]
+            : [{ dueOn: `${season}-04-30`, share: 100 }],
       });
     }
   });
@@ -438,41 +447,42 @@ export function buildPayablesAndInstallments(
   ctx.vehicles.forEach((vehicle) => {
     drafts.push({
       ...blank,
-      title: `Kfz-Versicherung 2026 – ${vehicle.name}`,
+      title: `Kfz-Versicherung ${currentSeason} – ${vehicle.name}`,
       scope: "vehicle",
       vehicleId: vehicle.id,
       counterpartyContactId: ids.insuranceId,
       category: "insurance",
       totalGrossCents: rng.stepped(60000, 95000, 100),
       critical: true,
-      schedule: [{ dueOn: "2026-01-15", share: 100, paid: "full" }],
+      schedule: [{ dueOn: `${currentSeason}-01-15`, share: 100 }],
     });
   });
 
-  // Motor tax per van, and the HU fee for Transporter 2 (inspected in March 2026).
+  // Motor tax per van, and the HU fee for Transporter 2 (paid when it was last inspected).
   ctx.vehicles.forEach((vehicle, index) => {
     drafts.push({
       ...blank,
-      title: `Kfz-Steuer 2026 – ${vehicle.name}`,
+      title: `Kfz-Steuer ${currentSeason} – ${vehicle.name}`,
       scope: "vehicle",
       vehicleId: vehicle.id,
       counterpartyContactId: null,
       category: "vehicle",
       totalGrossCents: rng.stepped(9000, 16000, 100),
       critical: false,
-      schedule: [{ dueOn: "2026-07-01", share: 100, paid: "full" }],
+      schedule: [{ dueOn: `${currentSeason}-07-01`, share: 100 }],
     });
     if (index === 1) {
+      const huDone = huLastDone(ctx.clock, vehicle.grossWeightKg, index);
       drafts.push({
         ...blank,
-        title: `HU / TÜV-Gebühr – ${vehicle.name} 2026`,
+        title: `HU / TÜV-Gebühr – ${vehicle.name} ${yearOf(huDone)}`,
         scope: "vehicle",
         vehicleId: vehicle.id,
         counterpartyContactId: null,
         category: "vehicle",
         totalGrossCents: 12500,
         critical: false,
-        schedule: [{ dueOn: "2026-03-20", share: 100, paid: "full" }],
+        schedule: [{ dueOn: huDone, share: 100 }],
       });
     }
   });
@@ -480,24 +490,24 @@ export function buildPayablesAndInstallments(
   // Company liability insurance, quarterly.
   drafts.push({
     ...blank,
-    title: "Betriebs- und Veranstalterhaftpflicht 2026",
+    title: `Betriebs- und Veranstalterhaftpflicht ${currentSeason}`,
     scope: "company",
     counterpartyContactId: ids.insuranceId,
     category: "insurance",
     totalGrossCents: 240000,
     critical: true,
     schedule: [
-      { dueOn: "2026-01-15", share: 25, paid: "full" },
-      { dueOn: "2026-04-15", share: 25, paid: "full" },
-      { dueOn: "2026-07-15", share: 25, paid: "full" },
-      { dueOn: "2026-10-15", share: 25, paid: "full" },
+      { dueOn: `${currentSeason}-01-15`, share: 25 },
+      { dueOn: `${currentSeason}-04-15`, share: 25 },
+      { dueOn: `${currentSeason}-07-15`, share: 25 },
+      { dueOn: `${currentSeason}-10-15`, share: 25 },
     ],
   });
 
   // Event costs for the Stadtfest (security, music rights).
   const festival = ctx.events.find(
     (event) =>
-      event.season === 2026 &&
+      event.season === currentSeason &&
       ctx.eventTypeKeyById.get(event.eventTypeId) === "city_festival" &&
       event.status !== "cancelled",
   );
@@ -512,8 +522,8 @@ export function buildPayablesAndInstallments(
       totalGrossCents: 180000,
       critical: false,
       schedule: [
-        { dueOn: addDays(festival.startsOn, -30), share: 50, paid: "full" },
-        { dueOn: addDays(festival.startsOn, -5), share: 50, paid: "full" },
+        { dueOn: addDays(festival.startsOn, -30), share: 50 },
+        { dueOn: addDays(festival.startsOn, -5), share: 50 },
       ],
     });
     drafts.push({
@@ -525,7 +535,7 @@ export function buildPayablesAndInstallments(
       category: "gema",
       totalGrossCents: 48000,
       critical: false,
-      schedule: [{ dueOn: addDays(festival.startsOn, -14), share: 100, paid: "full" }],
+      schedule: [{ dueOn: addDays(festival.startsOn, -14), share: 100 }],
     });
   }
 
@@ -539,6 +549,7 @@ export function buildPayablesAndInstallments(
       draft.totalGrossCents,
       draft.schedule,
       `RE-${draft.season ?? "F"}-${String(index + 1).padStart(4, "0")}`,
+      today,
     );
     installments.push(...rows);
     payables.push({
@@ -555,7 +566,7 @@ export function buildPayablesAndInstallments(
       totalGrossCents: draft.totalGrossCents,
       vatRateBp: 1900,
       critical: draft.critical,
-      status: payableStatus(rows),
+      status: payableStatus(rows, today),
       notes: draft.notes,
     });
   });
