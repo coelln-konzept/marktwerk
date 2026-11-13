@@ -1,3 +1,4 @@
+import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { PayableForm } from "@/components/finance/payable-form";
@@ -16,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * `?veranstaltung=<id>` presets an event payable (from the Geld tab).
  */
 export default async function NewPayablePage({ searchParams }: PageProps<"/finanzen/neu">) {
-  await requirePermission("finance", "write");
+  const user = await requirePermission("finance", "write");
   const sp = await searchParams;
   const t = await getTranslations("finance");
   const eventId = param(sp.veranstaltung);
@@ -28,6 +29,7 @@ export default async function NewPayablePage({ searchParams }: PageProps<"/finan
       <PayableForm
         options={options}
         today={todayIn()}
+        canCreateContact={can(user.role, "contact", "write")}
         initial={preset ? { scope: "event", eventId: preset } : undefined}
       />
     </Page>

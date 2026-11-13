@@ -85,12 +85,12 @@ export async function getAgreement(id: string) {
   return (await withDates(rows))[0] ?? null;
 }
 
-export type ContactOption = { id: string; name: string };
+export type ContactOption = { id: string; name: string; city: string | null };
 
 /** Contacts to pick the counterparty from (not archived). */
 export async function listContactOptions(): Promise<ContactOption[]> {
   return db
-    .select({ id: contact.id, name: contact.name })
+    .select({ id: contact.id, name: contact.name, city: contact.city })
     .from(contact)
     .where(isNull(contact.archivedAt))
     .orderBy(asc(contact.name));

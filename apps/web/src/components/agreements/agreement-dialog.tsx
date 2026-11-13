@@ -3,12 +3,13 @@
 import { isIsoDate } from "@marktwerk/core";
 import { Pencil, Plus, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import {
   addAgreement,
   removeAgreement,
   saveAgreement,
 } from "@/app/(app)/orte/[id]/vereinbarungen/actions";
+import { ContactPicker } from "@/components/contacts/contact-picker";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,10 +19,10 @@ import { formatDate } from "@/lib/format";
 import type { ContactOption } from "@/server/queries/agreements";
 import type { AgreementInput } from "@/server/services/agreements";
 
-const FIELD_CLASS =
-  "flex min-h-(--control-h) w-full rounded-lg border border-input bg-card px-3 py-1 text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-1";
-
 type Existing = AgreementInput & { id: string };
+
+/** Any kind may be the counterparty; "+ Neu" starts with Eigentümer, the usual one. */
+const COUNTERPARTY_KINDS = ["landowner", "authority", "supplier", "service", "other"] as const;
 
 /**
  * Create or edit a location agreement: counterparty, validity, fixed dates, terms. Five fields, so a
@@ -30,10 +31,13 @@ type Existing = AgreementInput & { id: string };
 export function AgreementDialog({
   venueId,
   contacts,
+  canCreateContact,
   agreement,
 }: {
   venueId: string;
   contacts: ContactOption[];
+  /** `contact:write`: the Vertragspartner picker offers "+ Neu". */
+  canCreateContact: boolean;
   /** Omit to create a new agreement. */
   agreement?: Existing;
 }) {
@@ -44,6 +48,10 @@ export function AgreementDialog({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [contactId, setContactId] = useState("");
+  const contactOptions = useMemo(
+    () => contacts.map((c) => ({ id: c.id, label: c.name, hint: c.city })),
+    [contacts],
+  );
   const [validFrom, setValidFrom] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [dates, setDates] = useState<string[]>([]);
@@ -162,20 +170,18 @@ export function AgreementDialog({
             <Label htmlFor="agreement-contact" optional>
               {t("counterparty")}
             </Label>
-            <select
+            <ContactPicker
               id="agreement-contact"
-              value={contactId}
-              onChange={(e) => setContactId(e.target.value)}
-              className={FIELD_CLASS}
+              options={contactOptions}
+              value={contactId || null}
+              onChange={(id) => setContactId(id ?? "")}
+              allowNone
+              noneLabel={t("noCounterparty")}
+              placeholder={t("noCounterparty")}
+              kinds={COUNTERPARTY_KINDS}
+              canCreate={canCreateContact}
               {...invalid("contact")}
-            >
-              <option value="">{t("noCounterparty")}</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
