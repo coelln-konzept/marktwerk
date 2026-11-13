@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import type { MarketRules } from "@marktwerk/core";
+import { defaultSchedule, type MarketRules } from "@marktwerk/core";
 import { auditLog, eventPreset, eventType } from "@marktwerk/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -67,7 +67,7 @@ describe("event_preset.rules", () => {
       durationDays: 1,
       publicTitle: null,
       publicText: null,
-      times: { setup: "06:00", open: "08:00", close: "16:00", teardown: "18:00" },
+      schedule: defaultSchedule(),
       pricePerMCents: 1500,
       bookingFeeCents: 500,
       rrule: null,
@@ -80,7 +80,7 @@ describe("event_preset.rules", () => {
       name: "Herbstmarkt",
       eventTypeId: cat.type.id,
       venueId: cat.venue.id,
-      times: { setup: "06:00", open: "08:00", close: "16:00", teardown: "18:00" },
+      schedule: defaultSchedule(),
       pricePerMCents: 1500,
       bookingFeeCents: 500,
       rrule: null,

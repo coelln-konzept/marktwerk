@@ -251,7 +251,7 @@ describe("instantiation on event creation", () => {
       eventTypeId: cat.type.id,
       venueId: cat.venue.id,
       durationDays: 1,
-      times: cat.times,
+      schedule: cat.schedule,
       pricePerMCents: 1000,
       bookingFeeCents: 0,
       startsOn: EVENT_DAY,

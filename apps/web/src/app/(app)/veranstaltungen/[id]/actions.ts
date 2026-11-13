@@ -155,7 +155,7 @@ async function detailsAction<T>(
   }
 }
 
-/** "Eckdaten bearbeiten": times and prices of this event. */
+/** "Eckdaten bearbeiten": Zeitplan and prices of this event. */
 export async function saveFacts(eventId: string, facts: EventFacts) {
   return detailsAction((actor) => updateEventFacts(actor, eventId, facts));
 }

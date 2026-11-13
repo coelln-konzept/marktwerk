@@ -392,7 +392,7 @@ test("Kalender: an event opens its popover in place (Monat and Liste); linkable,
   await expect(popover).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/kalender\\?.*vorschau=veranstaltung(%3A|:)${id}`));
   await expect(popover.getByText(/KW \d+/)).toBeVisible();
-  await expect(popover.getByText(/Aufbau ab \d\d:\d\d/)).toBeVisible();
+  await expect(popover.getByText(/Aufbau ab (Vortag )?\d\d:\d\d/)).toBeVisible();
   await expect(popover.getByRole("link", { name: "Öffnen" })).toHaveAttribute("href", href);
   await expect(popover.getByRole("link", { name: /^Checkliste/ })).toHaveAttribute(
     "href",

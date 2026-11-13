@@ -55,9 +55,7 @@ describe("itemApplies", () => {
     expect(itemApplies({ venueIds: ["v1"] }, facts)).toBe(true);
     expect(itemApplies({ venueIds: ["v2"] }, facts)).toBe(false);
     expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["private"] }, facts)).toBe(false);
-    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["municipal"] }, facts)).toBe(
-      true,
-    );
+    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["municipal"] }, facts)).toBe(true);
   });
 
   it("a venue kind condition does not match a venue without kind", () => {

@@ -7,13 +7,15 @@ import {
   can,
   canMoveEvent,
   checkCandidates,
-  checkEventTimes,
   daysBetween,
   defaultAnchors,
-  type EventTimesInput,
   isAnnounced,
   isIsoDate,
   MAX_PRICE_CENTS,
+  parseSchedule,
+  type Schedule,
+  sameSchedule,
+  validateSchedule,
 } from "@marktwerk/core";
 import type { EventStatus } from "@marktwerk/core/events/lifecycle";
 import { event, eventAnchor, eventType, venue } from "@marktwerk/db/schema";
@@ -28,10 +30,8 @@ import { notifyDatesShifted, planTaskShift, type ShiftedTask, shiftTasks } from 
 
 export type EventDetailsError =
   | "not_found"
-  | "invalid_time"
-  | "open_after_close"
-  | "close_after_teardown"
-  | "setup_after_open"
+  /** The Zeitplan has an issue (the dialog shows the row issues from validateSchedule). */
+  | "invalid_schedule"
   | "invalid_price"
   | "invalid_flag"
   | "invalid_date"
@@ -64,23 +64,22 @@ async function lockEvent(tx: Tx, id: string) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Eckdaten: times and prices
+// Eckdaten: Zeitplan and prices
 
 export type EventFacts = {
-  times: EventTimesInput;
+  /** The event's Zeitplan (ADR 0022). */
+  schedule: Schedule;
   pricePerMCents: number;
   bookingFeeCents: number;
 };
-
-const sameTimes = (a: EventTimesInput, b: EventTimesInput) =>
-  a.setup === b.setup && a.open === b.open && a.close === b.close && a.teardown === b.teardown;
 
 const validPrice = (cents: number) =>
   Number.isSafeInteger(cents) && cents >= 0 && cents <= MAX_PRICE_CENTS;
 
 /**
- * "Eckdaten bearbeiten": times of the event day and prices, for this event only (the preset stays).
- * `expected` (undo toast) applies the change only while the event still has those values.
+ * "Eckdaten bearbeiten": the Zeitplan and prices, for this event only (the market stays). The Zeitplan
+ * is checked with validateSchedule for the event's length. `expected` (undo toast) applies the change
+ * only while the event still has those values.
  * Audited as "event.update" with {field: {from, to}} for the fields that changed.
  */
 export async function updateEventFacts(
@@ -92,26 +91,25 @@ export async function updateEventFacts(
   if (!can(actor.role, "event", "write")) forbidden();
   if (!validPrice(next.pricePerMCents) || !validPrice(next.bookingFeeCents))
     throw new EventDetailsInputError("invalid_price");
-  const times: EventTimesInput = {
-    setup: next.times.setup,
-    open: next.times.open,
-    close: next.times.close,
-    teardown: next.times.teardown,
-  };
+  const schedule = parseSchedule(next.schedule);
+  if (!schedule) throw new EventDetailsInputError("invalid_schedule");
+  const expectedSchedule = expected ? parseSchedule(expected.schedule) : null;
+  if (expected && !expectedSchedule) throw new EventDetailsInputError("conflict");
 
   return db.transaction(async (tx) => {
     const current = await lockEvent(tx, id);
-    const timesError = checkEventTimes(times, current.endsOn !== current.startsOn);
-    if (timesError) throw new EventDetailsInputError(timesError);
+    const durationDays = daysBetween(current.startsOn, current.endsOn) + 1;
+    if (validateSchedule(schedule, durationDays).length > 0)
+      throw new EventDetailsInputError("invalid_schedule");
     const previous: EventFacts = {
-      times: current.times,
+      schedule: current.schedule,
       pricePerMCents: current.pricePerMCents,
       bookingFeeCents: current.bookingFeeCents,
     };
     if (
       expected &&
       !(
-        sameTimes(previous.times, expected.times) &&
+        sameSchedule(previous.schedule, expectedSchedule ?? []) &&
         previous.pricePerMCents === expected.pricePerMCents &&
         previous.bookingFeeCents === expected.bookingFeeCents
       )
@@ -119,7 +117,8 @@ export async function updateEventFacts(
       throw new EventDetailsInputError("conflict");
 
     const changes: Record<string, { from: unknown; to: unknown }> = {};
-    if (!sameTimes(previous.times, times)) changes.times = { from: previous.times, to: times };
+    if (!sameSchedule(previous.schedule, schedule))
+      changes.schedule = { from: previous.schedule, to: schedule };
     if (previous.pricePerMCents !== next.pricePerMCents)
       changes.pricePerMCents = { from: previous.pricePerMCents, to: next.pricePerMCents };
     if (previous.bookingFeeCents !== next.bookingFeeCents)
@@ -129,7 +128,7 @@ export async function updateEventFacts(
     await tx
       .update(event)
       .set({
-        times,
+        schedule,
         pricePerMCents: next.pricePerMCents,
         bookingFeeCents: next.bookingFeeCents,
       })

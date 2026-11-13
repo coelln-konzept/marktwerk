@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStatusChange } from "@/components/event-detail/status-menu";
 import { EventStatusBadge } from "@/components/events/event-status";
+import { formatScheduleSummary } from "@/components/schedule/schedule-format";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { formatDateWithWeekday, formatWeek } from "@/lib/format";
 import { EVENT_STATUS } from "@/lib/status";
@@ -255,14 +256,6 @@ export function EventPopoverProvider({
   );
 }
 
-/** "08–16" for full hours, else "08:30–16:00". */
-function hourRange(open: string, close: string) {
-  const full = (time: string) => time.endsWith(":00");
-  return full(open) && full(close)
-    ? { open: open.slice(0, 2), close: close.slice(0, 2) }
-    : { open, close };
-}
-
 function EventPopoverBody({
   preview,
   path,
@@ -278,6 +271,7 @@ function EventPopoverBody({
 }) {
   const t = useTranslations("kalenderPage.eventPopover");
   const tStatus = useTranslations("status.event");
+  const tSchedule = useTranslations("schedule");
   const locale = useLocale();
   const change = useStatusChange({
     eventId: preview.id,
@@ -291,14 +285,11 @@ function EventPopoverBody({
     replaceVorschau(path, eventVorschauValue(preview.id));
   }, [path, preview.id]);
 
-  const { startsOn, endsOn, times, tasks } = preview;
+  const { startsOn, endsOn, schedule, tasks } = preview;
   const date = `${formatDateWithWeekday(startsOn, locale)}${endsOn !== startsOn ? ` – ${formatDateWithWeekday(endsOn, locale)}` : ""} · ${formatWeek(startsOn, locale)}`;
   const facts = [
     { label: t("date"), value: date },
-    {
-      label: t("times"),
-      value: t("timesValue", { ...hourRange(times.open, times.close), setup: times.setup }),
-    },
+    { label: t("times"), value: formatScheduleSummary(schedule, tSchedule) },
     { label: t("venue"), value: preview.venueName },
   ];
   const eventHref = `/veranstaltungen/${preview.id}`;

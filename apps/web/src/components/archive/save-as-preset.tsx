@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { centsToInput, type EventFieldsValue } from "@/components/events/event-fields";
 import { NewMarketForm } from "@/components/events/new-market-form";
+import { toScheduleDraft } from "@/components/schedule/schedule-editor";
 import { useShell } from "@/components/shell/shell-context";
 import { Modal } from "@/components/ui/modal";
 import type { EventTypeOption } from "@/server/queries/event-form";
@@ -42,7 +43,7 @@ export function SaveAsPreset({
     venueId: source.venueId,
     startsOn: "",
     days: String(daysBetween(source.startsOn, source.endsOn) + 1),
-    times: { ...source.times },
+    schedule: toScheduleDraft(source.schedule),
     price: centsToInput(source.pricePerMCents, locale),
     fee: centsToInput(source.bookingFeeCents, locale),
     // The event's own prices, not the type's defaults.

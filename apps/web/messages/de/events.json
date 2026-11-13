@@ -51,12 +51,64 @@
       "date": "Datum",
       "venue": "Ort",
       "times": "Zeiten",
-      "timesValue": "Aufbau {setup} · {open}–{close} Uhr · Abbau {teardown}",
       "team": "Team",
       "teamValue": "{assigned} von {total} Zuständigkeiten besetzt",
       "price": "Standpreis",
       "cutoff": "Buchungsschluss",
       "health": "Zustand"
+    }
+  },
+  "schedule": {
+    "title": "Zeitplan",
+    "audience": {
+      "team": "Team",
+      "vendors": "Händler",
+      "visitors": "Besucher"
+    },
+    "kind": {
+      "setup": "Aufbau",
+      "open": "geöffnet",
+      "teardown": "Abbau"
+    },
+    "day": {
+      "before": "Vortag",
+      "first": "erster Tag",
+      "each": "jeder Tag",
+      "last": "letzter Tag"
+    },
+    "hours": "{from}–{to} Uhr",
+    "summary": {
+      "hours": "{from}–{to} Uhr",
+      "setup": "Aufbau ab {time}",
+      "setupBefore": "Aufbau ab Vortag {time}",
+      "noHours": "Keine Öffnungszeiten"
+    },
+    "editor": {
+      "hint": "Ein Eintrag je Zeitfenster: wer, was, an welchem Tag, von–bis. „Vortag“ ist der Tag vor dem ersten Markttag.",
+      "audience": "Wer",
+      "kind": "Was",
+      "day": "Tag",
+      "from": "von",
+      "to": "bis",
+      "fieldAria": "{field}, Zeile {n}",
+      "add": "Zeile hinzufügen",
+      "remove": "Zeile {n} entfernen",
+      "empty": "Noch keine Zeile. Füge mindestens die Öffnungszeiten für Besucher hinzu.",
+      "errors": {
+        "invalid_row": "Bitte Wer, Was und Tag auswählen.",
+        "invalid_time": "Bitte beide Zeiten als HH:MM angeben.",
+        "from_not_before_to": "„bis“ muss nach „von“ liegen.",
+        "before_not_setup": "Am Vortag gibt es nur Aufbau.",
+        "teardown_before_open": "An einem eintägigen Markt beginnt der Abbau erst, wenn geöffnet ist.",
+        "duplicate_row": "Diese Zeile gibt es schon.",
+        "no_visitor_hours": "Es fehlt eine Zeile „Besucher · geöffnet“.",
+        "too_many": "Höchstens {max} Zeilen."
+      }
+    },
+    "view": {
+      "before": "Vortag · {date}",
+      "empty": "Kein Zeitplan hinterlegt.",
+      "row": "{audience} · {kind}"
     }
   }
 }

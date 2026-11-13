@@ -96,7 +96,7 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
           durationDays: preset.durationDays,
           publicTitle: preset.publicTitle,
           publicText: preset.publicText,
-          times: preset.defaultTimes,
+          schedule: preset.schedule,
           pricePerMCents: preset.pricePerMCents,
           bookingFeeCents: preset.bookingFeeCents,
           rrule: preset.rrule,

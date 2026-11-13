@@ -1,16 +1,18 @@
 "use client";
 
-import {
-  checkPresetFields,
-  type EventTimesInput,
-  normalizeClockTime,
-  parseEuroCents,
-} from "@marktwerk/core";
+import { checkPresetFields, parseEuroCents } from "@marktwerk/core";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState, useTransition } from "react";
 import { createPresetAction, updatePresetAction } from "@/app/(app)/vorlagen/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
+import {
+  fromScheduleDraft,
+  type ScheduleDraftRow,
+  ScheduleEditor,
+  scheduleDraftIssues,
+  toScheduleDraft,
+} from "@/components/schedule/schedule-editor";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +23,6 @@ import type { PresetFormOptions } from "@/server/queries/presets";
 import type { PresetInput } from "@/server/services/presets";
 import { NO_RHYTHM, type Rhythm, rhythmFromRule, rhythmToRule } from "./rhythm";
 import { RhythmBuilder } from "./rhythm-builder";
-
-const TIME_FIELDS = ["setup", "open", "close", "teardown"] as const;
 
 const SELECT_CLASS =
   "flex min-h-(--control-h) w-full rounded-lg border border-input bg-card px-3 py-1 text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-1 aria-invalid:border-destructive";
@@ -42,7 +42,7 @@ const FIELD_ORDER = [
   "duration",
   "publicTitle",
   "publicText",
-  ...TIME_FIELDS,
+  "schedule",
   "price",
   "fee",
   "rrule",
@@ -84,7 +84,9 @@ export function PresetForm({
   const [duration, setDuration] = useState(String(initial.durationDays));
   const [publicTitle, setPublicTitle] = useState(initial.publicTitle ?? "");
   const [publicText, setPublicText] = useState(initial.publicText ?? "");
-  const [times, setTimes] = useState<EventTimesInput>(initial.times);
+  const [schedule, setSchedule] = useState<ScheduleDraftRow[]>(() =>
+    toScheduleDraft(initial.schedule),
+  );
   const [price, setPrice] = useState(centsToInput(initial.pricePerMCents, locale));
   const [fee, setFee] = useState(centsToInput(initial.bookingFeeCents, locale));
   const [rhythm, setRhythm] = useState<Rhythm>(editing ? rhythmFromRule(initial.rrule) : NO_RHYTHM);
@@ -118,13 +120,6 @@ export function PresetForm({
   /** Form state → service input, or the errors that keep it from being one. */
   function build(): { input: PresetInput } | { errors: Errors } {
     const found: Errors = {};
-    const normalizedTimes = { ...times };
-    for (const key of TIME_FIELDS) {
-      const value = normalizeClockTime(times[key]);
-      if (value === null) found[key] = "invalid_time";
-      else normalizedTimes[key] = value;
-    }
-    setTimes(normalizedTimes);
     const pricePerMCents = parseEuroCents(price);
     if (pricePerMCents === null) found.price = "invalid_price";
     const bookingFeeCents = parseEuroCents(fee);
@@ -143,7 +138,7 @@ export function PresetForm({
       durationDays,
       publicTitle: publicTitle.trim() === "" ? null : publicTitle.trim(),
       publicText: publicText.trim() === "" ? null : publicText.trim(),
-      times: normalizedTimes,
+      schedule: fromScheduleDraft(schedule),
       pricePerMCents: pricePerMCents ?? 0,
       bookingFeeCents: bookingFeeCents ?? 0,
       rrule: rrule ?? null,
@@ -165,8 +160,20 @@ export function PresetForm({
     const first =
       FIELD_ORDER.find((f) => fields.includes(f)) ?? fields.find((f) => f.startsWith("duty."));
     if (!first) return;
-    const id = first.startsWith("duty.") ? `preset-duty-${first.slice(5)}` : `preset-${first}`;
+    const id = first.startsWith("duty.")
+      ? `preset-duty-${first.slice(5)}`
+      : first === "schedule"
+        ? scheduleFocusId()
+        : `preset-${first}`;
     document.getElementById(id)?.focus();
+  }
+
+  /** The first Zeitplan row with an issue, or "Zeile hinzufügen" when a row is missing. */
+  function scheduleFocusId() {
+    const days = /^\d{1,2}$/.test(duration.trim()) ? Number(duration) : 1;
+    const row = scheduleDraftIssues(schedule, days).find((issue) => issue.row !== null)?.row;
+    const key = row != null ? schedule[row]?.key : undefined;
+    return key ? `preset-schedule-${key}-audience` : "preset-schedule-add";
   }
 
   function submit(overwrite: boolean) {
@@ -372,38 +379,19 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-times-title">
+      <Panel aria-labelledby="preset-schedule-title">
         <PanelHeader>
-          <PanelTitle id="preset-times-title">{t("times.title")}</PanelTitle>
+          <PanelTitle id="preset-schedule-title">{t("schedule.title")}</PanelTitle>
         </PanelHeader>
         <PanelBody className="flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {TIME_FIELDS.map((key) => (
-              <div key={key} className="flex flex-col gap-1.5">
-                <Label htmlFor={`preset-${key}`}>{t(`times.${key}`)}</Label>
-                <Input
-                  id={`preset-${key}`}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="HH:MM"
-                  maxLength={9}
-                  required
-                  value={times[key]}
-                  onChange={(e) => setTimes({ ...times, [key]: e.target.value })}
-                  onBlur={(e) => {
-                    const value = normalizeClockTime(e.target.value);
-                    if (value) setTimes((prev) => ({ ...prev, [key]: value }));
-                  }}
-                  className="tabular"
-                  {...fieldProps(key)}
-                />
-              </div>
-            ))}
-          </div>
-          {TIME_FIELDS.map((key) => (
-            <div key={key}>{fieldError(key)}</div>
-          ))}
-          <p className="text-faint-foreground text-small">{t("times.hint")}</p>
+          <ScheduleEditor
+            value={schedule}
+            onChange={setSchedule}
+            durationDays={/^\d{1,2}$/.test(duration.trim()) ? Number(duration) : 1}
+            showErrors={Boolean(errors.schedule)}
+            idPrefix="preset-schedule"
+          />
+          {fieldError("schedule")}
         </PanelBody>
       </Panel>
 

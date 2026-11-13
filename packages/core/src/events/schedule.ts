@@ -1,4 +1,4 @@
-import { type EventTimesInput, isClockTime } from "./details";
+import { type EventTimesInput, isClockTime, normalizeClockTime } from "./details";
 
 /**
  * Zeitplan (ADR 0022): a market's and an event's times as a list of windows, each saying who it is for,
@@ -294,4 +294,55 @@ export function scheduleSummary(rows: readonly ScheduleRow[]): ScheduleSummary {
     valid.filter((r) => r.audience === "vendors" && r.kind === "setup"),
   )[0];
   return { open, earliestSetup: setup?.from ?? null, earliestSetupDay: setup?.day ?? null };
+}
+
+/** At most this many rows in one Zeitplan (a guard against junk input, far above real use). */
+export const MAX_SCHEDULE_ROWS = 20;
+
+/**
+ * Untrusted input (a server action argument) → a Zeitplan with exactly the five row fields, or null
+ * if it isn't a list of at most MAX_SCHEDULE_ROWS objects with string fields. Values are not checked
+ * here (validateSchedule does that); times are normalised as typed ("6" → "06:00", "6.30" → "06:30").
+ */
+export function parseSchedule(input: unknown): Schedule | null {
+  if (!Array.isArray(input) || input.length > MAX_SCHEDULE_ROWS) return null;
+  const rows: Schedule = [];
+  for (const item of input) {
+    if (item === null || typeof item !== "object") return null;
+    const { audience, kind, day, from, to } = item as Record<string, unknown>;
+    if (
+      typeof audience !== "string" ||
+      typeof kind !== "string" ||
+      typeof day !== "string" ||
+      typeof from !== "string" ||
+      typeof to !== "string"
+    )
+      return null;
+    rows.push({
+      audience: audience as ScheduleAudience,
+      kind: kind as ScheduleKind,
+      day: day as ScheduleDay,
+      from: normalizeClockTime(from) ?? from,
+      to: normalizeClockTime(to) ?? to,
+    });
+  }
+  return rows;
+}
+
+/** Same rows in the same order (what the services compare before writing). */
+export function sameSchedule(a: readonly ScheduleRow[], b: readonly ScheduleRow[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((row, i) => {
+      const other = b[i];
+      return (
+        other !== undefined &&
+        row.audience === other.audience &&
+        row.kind === other.kind &&
+        row.day === other.day &&
+        row.from === other.from &&
+        row.to === other.to
+      );
+    })
+  );
 }

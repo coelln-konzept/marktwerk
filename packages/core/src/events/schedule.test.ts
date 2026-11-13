@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SCHEDULE,
   defaultSchedule,
+  MAX_SCHEDULE_ROWS,
+  parseSchedule,
   rowsForDay,
   type ScheduleRow,
+  sameSchedule,
   scheduleFromTimes,
   scheduleSummary,
   sortSchedule,
@@ -347,5 +350,46 @@ describe("scheduleSummary", () => {
         row("vendors", "setup", "first", "06:00", "24:00"),
       ]),
     ).toEqual({ open: null, earliestSetup: null, earliestSetupDay: null });
+  });
+});
+
+describe("parseSchedule", () => {
+  it("keeps exactly the five fields and normalises typed times", () => {
+    expect(
+      parseSchedule([
+        { audience: "vendors", kind: "setup", day: "first", from: "6", to: "8.30", extra: 1 },
+      ]),
+    ).toEqual([row("vendors", "setup", "first", "06:00", "08:30")]);
+  });
+
+  it("leaves unknown values for validateSchedule", () => {
+    const parsed = parseSchedule([
+      { audience: "press", kind: "open", day: "each", from: "x", to: "16:00" },
+    ]);
+    expect(parsed).toEqual([
+      { audience: "press", kind: "open", day: "each", from: "x", to: "16:00" },
+    ]);
+    expect(validateSchedule(parsed ?? [], 1).map((i) => i.code)).toEqual([
+      "invalid_row",
+      "no_visitor_hours",
+    ]);
+  });
+
+  it("rejects anything that isn't a short list of rows with string fields", () => {
+    expect(parseSchedule(null)).toBeNull();
+    expect(parseSchedule({})).toBeNull();
+    expect(parseSchedule([null])).toBeNull();
+    expect(parseSchedule([{ ...openEach, from: 8 }])).toBeNull();
+    expect(parseSchedule(Array.from({ length: MAX_SCHEDULE_ROWS + 1 }, () => openEach))).toBeNull();
+    expect(parseSchedule([])).toEqual([]);
+  });
+});
+
+describe("sameSchedule", () => {
+  it("compares rows field by field, in order", () => {
+    expect(sameSchedule(defaultSchedule(), defaultSchedule())).toBe(true);
+    expect(sameSchedule([setupFirst, openEach], [openEach, setupFirst])).toBe(false);
+    expect(sameSchedule([openEach], [{ ...openEach, to: "17:00" }])).toBe(false);
+    expect(sameSchedule([openEach], [openEach, teardownLast])).toBe(false);
   });
 });
