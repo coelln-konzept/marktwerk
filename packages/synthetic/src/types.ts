@@ -27,7 +27,7 @@ export type EmploymentType =
   | "part_time"
   | "full_time"
   | "freelance";
-export type AnchorKey = "eventDay" | "setupDay" | "bookingCutoff";
+export type AnchorKey = "eventDay" | "setupDay" | "teardownDay" | "bookingCutoff";
 export type EventStatus =
   | "draft"
   | "planned"
@@ -64,7 +64,12 @@ export type PermitType =
   | "toilets"
   | "landowner_ok";
 /** Permit types a template item can apply for: the seeded ones plus those without a seeded permit. */
-export type TemplatePermitType = PermitType | "gema" | "safety_concept" | "catering";
+export type TemplatePermitType =
+  | PermitType
+  | "market_fixing"
+  | "gema"
+  | "safety_concept"
+  | "catering";
 export type PermitCadence = "per_event" | "per_season" | "per_year" | "multi_year" | "standing";
 export type PermitStatus =
   | "not_started"
@@ -306,17 +311,27 @@ export interface EventAnchor {
   date: DateString;
 }
 
+/**
+ * `event`: one task per event. `season` (INTERIM until the Saison record, research 13 §6): a task once per market
+ * series and season, carried by the first event of the series in that season. Mirrors the planned
+ * `template_item.scope`; the database has no such column yet, so these items are marked by their `saison_`
+ * stable key, the "Saison: " title prefix and their description (see dictionaries/checklist-items.ts).
+ */
+export type TemplateItemScope = "event" | "season";
+
 export interface TemplateItem {
   id: string;
   stableKey: string;
   sort: number;
   title: string;
+  description: string | null;
   phase: TaskPhase;
   category: TaskCategory;
   anchorKey: AnchorKey;
   offsetDays: number;
   dueTime: TimeString | null;
-  dutyRoleKey: DutyRoleKey;
+  /** Null only on child items that take the parent's duty role. */
+  dutyRoleKey: DutyRoleKey | null;
   priority: TaskPriority;
   estimateMinutes: number;
   requiresPhoto: boolean;
@@ -324,12 +339,30 @@ export interface TemplateItem {
   isKey: boolean;
   /** The permit this item applies for (its task counts as done once that permit is applied for / granted). */
   permitType: TemplatePermitType | null;
+  /** Child item (ADR 0021): the stable key of its parent item in the same template. One level only. */
+  parentKey: string | null;
+  /**
+   * Child items only: true = own anchor, offset and due time; false = the parent's (the child then carries the
+   * parent's values, as migration 0019 does).
+   */
+  ownDue: boolean;
+  scope: TemplateItemScope;
 }
+
+/** Where a template's content comes from (the seed writes it as the version's change note). */
+export type TemplateSource = "master" | "client_checklist" | "master_copy";
 
 export interface ChecklistTemplate {
   id: string;
-  eventTypeId: string;
+  /** Null for the Grundvorlage (any event type). */
+  eventTypeId: string | null;
   name: string;
+  description: string | null;
+  /** The one Grundvorlage (`checklist_template.is_master`). */
+  isMaster: boolean;
+  /** A market's own copy (`checklist_template.owner_preset_id`); null for the Grundvorlage. */
+  ownerPresetId: string | null;
+  source: TemplateSource;
   version: number;
   status: "published";
   publishedOn: DateString;
@@ -341,9 +374,12 @@ export interface Task {
   eventId: string;
   templateItemId: string;
   templateStableKey: string;
+  /** Subtask (ADR 0021): the task made from the parent item, on the same event. One level only. */
+  parentTaskId: string | null;
   phase: TaskPhase;
   category: TaskCategory;
   title: string;
+  description: string | null;
   anchorKey: AnchorKey;
   offsetDays: number;
   dueAt: Instant;
