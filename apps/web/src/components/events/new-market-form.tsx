@@ -22,7 +22,7 @@ import type { GenerationPreset } from "@/server/queries/presets";
 import type { VenueOption } from "@/server/queries/venues";
 
 /**
- * "Neuen Markt anlegen": the compact form inside "Markt planen" (name, type, venue, default times,
+ * "Neuen Markt anlegen": the compact form inside "Markt planen" (name, type, venue, Zeitplan,
  * prices, rhythm optional). Creates the market through `createMarket` (own task template copied from the
  * master) and hands it to the sheet, which continues with choosing dates.
  */
@@ -81,7 +81,6 @@ export function NewMarketForm({
     const rrule = rhythmToRule(rhythm, null);
     if (rrule === undefined) return setProblem({ field: "rrule", code: "invalid_rrule" });
     const input = parsed.input;
-    setValue((v) => ({ ...v, times: input.times }));
     setProblem(null);
     startTransition(async () => {
       const result = await createMarketAction(
@@ -90,7 +89,7 @@ export function NewMarketForm({
           eventTypeId: input.eventTypeId,
           venueId: input.venueId,
           durationDays: input.durationDays,
-          times: input.times,
+          schedule: input.schedule,
           pricePerMCents: input.pricePerMCents,
           bookingFeeCents: input.bookingFeeCents,
           rrule,

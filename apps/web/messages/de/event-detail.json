@@ -2,8 +2,8 @@
   "eventDetail": {
     "kicker": "Veranstaltung",
     "header": {
-      "dateLine": "{date} · {open}–{close} Uhr · {week}",
-      "dateLineRange": "{from} – {to} · {open}–{close} Uhr · {week}",
+      "dateLine": "{date} · {hours} · {week}",
+      "dateLineRange": "{from} – {to} · {hours} · {week}",
       "noPreset": "Ohne Vorlage",
       "booking": {
         "open": "buchbar",
@@ -74,8 +74,7 @@
       "facts": {
         "title": "Eckdaten",
         "venue": "Ort",
-        "times": "Zeiten",
-        "timesValue": "Aufbau {setup} · {open}–{close} Uhr · Abbau {teardown}",
+        "times": "Zeitplan",
         "price": "Standpreis",
         "pricePerM": "{price} je Meter",
         "fee": "Buchungsgebühr",
@@ -86,7 +85,7 @@
         "yes": "ja",
         "no": "nein",
         "cancelledReason": "Grund der Absage",
-        "summary": "{venue} · {open}–{close} Uhr · {price} je Meter",
+        "summary": "{venue} · {hours} · {price} je Meter",
         "preset": "Vorlage"
       },
       "team": {
@@ -227,7 +226,8 @@
         "bookingFeeCents": "Buchungsgebühr",
         "name": "Name",
         "durationDays": "Dauer",
-        "venueId": "Ort"
+        "venueId": "Ort",
+        "schedule": "Zeitplan"
       },
       "bookingOn": "{flag}: ja",
       "bookingOff": "{flag}: nein",
@@ -252,14 +252,7 @@
     "facts": {
       "edit": "Bearbeiten",
       "title": "Eckdaten bearbeiten",
-      "description": "Zeiten und Preise dieser Veranstaltung.",
-      "times": "Zeiten (Uhr)",
-      "time": {
-        "setup": "Aufbau",
-        "open": "Beginn",
-        "close": "Ende",
-        "teardown": "Abbau"
-      },
+      "description": "Zeitplan und Preise dieser Veranstaltung.",
       "price": "Standpreis",
       "perMeter": "€ je m",
       "fee": "Buchungsgebühr",
@@ -271,15 +264,13 @@
       "undo": "Rückgängig",
       "reverted": "Änderung an den Eckdaten rückgängig gemacht",
       "errors": {
-        "invalid_time": "Bitte alle Zeiten als HH:MM angeben.",
-        "open_after_close": "Das Ende muss nach dem Beginn liegen.",
-        "close_after_teardown": "Der Abbau kann nicht vor dem Ende liegen.",
-        "setup_after_open": "Der Aufbau kann bei eintägigen Märkten nicht nach dem Beginn liegen.",
         "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
         "conflict": "Die Eckdaten wurden zwischenzeitlich geändert. Nichts zurückgesetzt.",
-        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
-      }
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+        "invalid_schedule": "Bitte den Zeitplan prüfen (Hinweise an den Zeilen)."
+      },
+      "schedule": "Zeitplan"
     },
     "rules": {
       "edit": "Bearbeiten",

@@ -76,8 +76,8 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
       venueId: venue.id,
       venueName: venue.name,
       city: venue.city,
-      /** Wall-clock times of an event day (setup, open, close, teardown). */
-      times: event.times,
+      /** The Zeitplan (ADR 0022); the Kalender shows its summary. */
+      schedule: event.schedule,
       duties: sql<number>`(select count(*)::int from ${eventDuty} where ${eventDuty.eventId} = ${event.id})`,
     })
     .from(event)
@@ -271,7 +271,7 @@ export type EventDetail = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
 
 /**
  * What "Als Vorlage speichern" (Archiv) copies from a past event into the new-market form: name, type, venue,
- * length, times and prices. Null when the event is gone or not visible to the person.
+ * length, Zeitplan and prices. Null when the event is gone or not visible to the person.
  */
 export async function getPresetSource(actor: Actor, id: string) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
@@ -283,7 +283,7 @@ export async function getPresetSource(actor: Actor, id: string) {
       venueId: event.venueId,
       startsOn: event.startsOn,
       endsOn: event.endsOn,
-      times: event.times,
+      schedule: event.schedule,
       pricePerMCents: event.pricePerMCents,
       bookingFeeCents: event.bookingFeeCents,
     })

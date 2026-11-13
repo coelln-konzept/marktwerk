@@ -3,6 +3,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventStatusBadge } from "@/components/events/event-status";
+import { formatVisitorHours } from "@/components/schedule/schedule-format";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -31,6 +32,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
   const tHealth = await getTranslations("health");
   const tMoney = await getTranslations("eventMoney");
   const tBoard = await getTranslations("board");
+  const tSchedule = await getTranslations("schedule");
   const locale = await getLocale();
   const base = `/veranstaltungen/${event.id}`;
   const multiDay = event.endsOn !== event.startsOn;
@@ -73,14 +75,12 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
     ? t("header.dateLineRange", {
         from: formatDateWithWeekday(event.startsOn, locale),
         to: formatDateWithWeekday(event.endsOn, locale),
-        open: event.times.open,
-        close: event.times.close,
+        hours: formatVisitorHours(event.schedule, tSchedule),
         week: formatWeek(event.startsOn, locale),
       })
     : t("header.dateLine", {
         date: formatDateWithWeekday(event.startsOn, locale),
-        open: event.times.open,
-        close: event.times.close,
+        hours: formatVisitorHours(event.schedule, tSchedule),
         week: formatWeek(event.startsOn, locale),
       });
 

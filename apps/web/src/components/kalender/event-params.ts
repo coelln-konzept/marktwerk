@@ -1,3 +1,4 @@
+import type { ScheduleRow } from "@marktwerk/core";
 import type { EventStatus } from "@/lib/status";
 
 /**
@@ -28,8 +29,8 @@ export type EventPreview = {
   startsOn: string;
   endsOn: string;
   venueName: string;
-  /** Wall-clock times of an event day, "HH:mm". */
-  times: { setup: string; open: string; close: string; teardown: string };
+  /** The Zeitplan (ADR 0022); the popover shows its summary ("08–16 Uhr · Aufbau ab 06:00"). */
+  schedule: ScheduleRow[];
   /** Open tasks the person can see, and how many of them are overdue. */
   tasks: { open: number; overdue: number };
 };

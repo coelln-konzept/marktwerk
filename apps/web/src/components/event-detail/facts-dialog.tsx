@@ -1,10 +1,17 @@
 "use client";
 
-import { checkEventTimes, normalizeClockTime, parseEuroCents } from "@marktwerk/core";
+import { parseEuroCents } from "@marktwerk/core";
 import { Pencil } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { saveFacts, undoFacts } from "@/app/(app)/veranstaltungen/[id]/actions";
+import {
+  fromScheduleDraft,
+  type ScheduleDraftRow,
+  ScheduleEditor,
+  scheduleDraftIssues,
+  toScheduleDraft,
+} from "@/components/schedule/schedule-editor";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
@@ -13,8 +20,6 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import type { EventFacts } from "@/server/services/event-details";
 
-const TIME_FIELDS = ["setup", "open", "close", "teardown"] as const;
-
 /** 1250 → "12,50" (de) / "12.50" (en), the way it's typed back in. */
 function centsToInput(cents: number, locale: string) {
   const text = (cents / 100).toFixed(2);
@@ -22,18 +27,19 @@ function centsToInput(cents: number, locale: string) {
 }
 
 /**
- * "Bearbeiten" in the Eckdaten panel: times of the event day and prices, for this event only.
- * Six fields, so a modal (UX concept §4); saving shows an undo toast.
+ * "Bearbeiten" in the Eckdaten panel: the Zeitplan (ADR 0022) and prices, for this event only.
+ * A modal (UX concept §4); Zeitplan issues show at their rows; saving shows an undo toast.
  */
 export function FactsDialog({
   eventId,
   facts,
-  multiDay,
+  durationDays,
   happening,
 }: {
   eventId: string;
   facts: EventFacts;
-  multiDay: boolean;
+  /** The event's length (the Zeitplan's day rules depend on it). */
+  durationDays: number;
   happening: boolean;
 }) {
   const t = useTranslations("eventDetail.facts");
@@ -52,7 +58,9 @@ export function FactsDialog({
     });
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [times, setTimes] = useState(facts.times);
+  const [schedule, setSchedule] = useState<ScheduleDraftRow[]>(() =>
+    toScheduleDraft(facts.schedule),
+  );
   const [price, setPrice] = useState("");
   const [fee, setFee] = useState("");
   const [error, setError] = useState<{ field: string; text: string } | null>(null);
@@ -60,18 +68,10 @@ export function FactsDialog({
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
   const fieldOf = (code: string) =>
-    code === "open_after_close"
-      ? "close"
-      : code === "close_after_teardown"
-        ? "teardown"
-        : code === "setup_after_open"
-          ? "setup"
-          : code === "invalid_time"
-            ? "open"
-            : "form";
+    code === "invalid_schedule" ? "schedule" : code === "invalid_price" ? "price" : "form";
 
   function openDialog() {
-    setTimes(facts.times);
+    setSchedule(toScheduleDraft(facts.schedule));
     setPrice(centsToInput(facts.pricePerMCents, locale));
     setFee(centsToInput(facts.bookingFeeCents, locale));
     setError(null);
@@ -79,23 +79,20 @@ export function FactsDialog({
   }
 
   async function submit() {
+    if (scheduleDraftIssues(schedule, durationDays).length > 0)
+      return setError({ field: "schedule", text: errorText("invalid_schedule") });
     const pricePerMCents = parseEuroCents(price);
     if (pricePerMCents === null)
       return setError({ field: "price", text: t("errors.invalid_price") });
     const bookingFeeCents = parseEuroCents(fee);
     if (bookingFeeCents === null)
       return setError({ field: "fee", text: t("errors.invalid_price") });
-    const normalized = { ...times };
-    for (const key of TIME_FIELDS) {
-      const value = normalizeClockTime(times[key]);
-      if (value === null) return setError({ field: key, text: errorText("invalid_time") });
-      normalized[key] = value;
-    }
-    setTimes(normalized);
-    const timesError = checkEventTimes(normalized, multiDay);
-    if (timesError) return setError({ field: fieldOf(timesError), text: errorText(timesError) });
 
-    const next: EventFacts = { times: normalized, pricePerMCents, bookingFeeCents };
+    const next: EventFacts = {
+      schedule: fromScheduleDraft(schedule),
+      pricePerMCents,
+      bookingFeeCents,
+    };
     setError(null);
     if (!(await confirmed())) return;
     startTransition(async () => {
@@ -138,6 +135,7 @@ export function FactsDialog({
         title={t("title")}
         description={t("description")}
         closeLabel={t("cancel")}
+        className="w-[min(680px,calc(100%-2rem))]"
       >
         <form
           noValidate
@@ -147,31 +145,15 @@ export function FactsDialog({
             submit();
           }}
         >
-          <fieldset className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <legend className="mb-2 font-medium text-small">{t("times")}</legend>
-            {TIME_FIELDS.map((key) => (
-              <div key={key} className="flex flex-col gap-1.5">
-                <Label htmlFor={`facts-${key}`} className="text-small">
-                  {t(`time.${key}`)}
-                </Label>
-                <Input
-                  id={`facts-${key}`}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="HH:MM"
-                  maxLength={9}
-                  required
-                  value={times[key]}
-                  onChange={(e) => setTimes({ ...times, [key]: e.target.value })}
-                  onBlur={(e) => {
-                    const value = normalizeClockTime(e.target.value);
-                    if (value) setTimes((prev) => ({ ...prev, [key]: value }));
-                  }}
-                  className="tabular"
-                  {...invalid(key)}
-                />
-              </div>
-            ))}
+          <fieldset className="m-0 min-w-0 border-0 p-0">
+            <legend className="mb-2 p-0 font-medium text-small">{t("schedule")}</legend>
+            <ScheduleEditor
+              value={schedule}
+              onChange={setSchedule}
+              durationDays={durationDays}
+              showErrors={error?.field === "schedule"}
+              idPrefix="facts-schedule"
+            />
           </fieldset>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">

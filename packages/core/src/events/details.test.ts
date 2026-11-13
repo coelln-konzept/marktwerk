@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   canMoveEvent,
-  checkEventTimes,
   isAnnounced,
   isClockTime,
   isHappening,
@@ -9,30 +8,13 @@ import {
   parseEuroCents,
 } from "./details";
 
-const times = { setup: "05:00", open: "08:00", close: "16:00", teardown: "18:00" };
-
-describe("checkEventTimes", () => {
-  it("accepts the usual market day", () => {
-    expect(checkEventTimes(times, false)).toBeNull();
-    expect(checkEventTimes({ ...times, teardown: "16:00" }, false)).toBeNull();
-  });
-
-  it("rejects malformed times", () => {
+describe("isClockTime", () => {
+  it("accepts only HH:mm from 00:00 to 23:59", () => {
     expect(isClockTime("24:00")).toBe(false);
     expect(isClockTime("7:00")).toBe(false);
+    expect(isClockTime("8 Uhr")).toBe(false);
     expect(isClockTime("23:59")).toBe(true);
-    expect(checkEventTimes({ ...times, open: "8 Uhr" }, false)).toBe("invalid_time");
-  });
-
-  it("needs open < close ≤ teardown", () => {
-    expect(checkEventTimes({ ...times, close: "08:00" }, false)).toBe("open_after_close");
-    expect(checkEventTimes({ ...times, teardown: "15:00" }, false)).toBe("close_after_teardown");
-  });
-
-  it("allows a late setup time only for multi-day events (set up the day before)", () => {
-    const late = { ...times, setup: "14:00" };
-    expect(checkEventTimes(late, false)).toBe("setup_after_open");
-    expect(checkEventTimes(late, true)).toBeNull();
+    expect(isClockTime("00:00")).toBe(true);
   });
 });
 

@@ -51,12 +51,64 @@
       "date": "Date",
       "venue": "Venue",
       "times": "Times",
-      "timesValue": "Setup {setup} · {open}–{close} · teardown {teardown}",
       "team": "Team",
       "teamValue": "{assigned} of {total} duties staffed",
       "price": "Stall price",
       "cutoff": "Booking cut-off",
       "health": "Health"
+    }
+  },
+  "schedule": {
+    "title": "Schedule",
+    "audience": {
+      "team": "Team",
+      "vendors": "Vendors",
+      "visitors": "Visitors"
+    },
+    "kind": {
+      "setup": "Setup",
+      "open": "open",
+      "teardown": "Teardown"
+    },
+    "day": {
+      "before": "Day before",
+      "first": "First day",
+      "each": "Every day",
+      "last": "Last day"
+    },
+    "hours": "{from}–{to}",
+    "summary": {
+      "hours": "{from}–{to}",
+      "setup": "setup from {time}",
+      "setupBefore": "setup from the day before, {time}",
+      "noHours": "No opening hours"
+    },
+    "editor": {
+      "hint": "One row per time window: who, what, on which day, from–to. “Day before” is the day before the first market day.",
+      "audience": "Who",
+      "kind": "What",
+      "day": "Day",
+      "from": "from",
+      "to": "to",
+      "fieldAria": "{field}, row {n}",
+      "add": "Add row",
+      "remove": "Remove row {n}",
+      "empty": "No rows yet. Add at least the opening hours for visitors.",
+      "errors": {
+        "invalid_row": "Please choose who, what and day.",
+        "invalid_time": "Please enter both times as HH:MM.",
+        "from_not_before_to": "“to” must be after “from”.",
+        "before_not_setup": "Only setup can happen on the day before.",
+        "teardown_before_open": "On a one-day market, teardown starts once the market is open.",
+        "duplicate_row": "This row exists already.",
+        "no_visitor_hours": "A “Visitors · open” row is missing.",
+        "too_many": "At most {max} rows."
+      }
+    },
+    "view": {
+      "before": "Day before · {date}",
+      "empty": "No schedule yet.",
+      "row": "{audience} · {kind}"
     }
   }
 }

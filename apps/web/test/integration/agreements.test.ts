@@ -1,3 +1,4 @@
+import { scheduleFromTimes } from "@marktwerk/core";
 import {
   auditLog,
   contact,
@@ -58,7 +59,12 @@ const manualPlan = () => ({
     name: "Gemeindefest",
     eventTypeId: cat.type.id,
     durationDays: 1,
-    times: { setup: "06:00", open: "09:00", close: "17:00", teardown: "19:00" },
+    schedule: scheduleFromTimes({
+      setup: "06:00",
+      open: "09:00",
+      close: "17:00",
+      teardown: "19:00",
+    }),
     pricePerMCents: 1000,
     bookingFeeCents: 0,
   },

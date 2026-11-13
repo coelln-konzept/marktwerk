@@ -1,26 +1,19 @@
 "use client";
 
-import { checkEventTimes, isIsoDate, normalizeClockTime, parseEuroCents } from "@marktwerk/core";
+import { defaultSchedule, isIsoDate, parseEuroCents, type ScheduleRow } from "@marktwerk/core";
 import { useLocale, useTranslations } from "next-intl";
+import {
+  fromScheduleDraft,
+  type ScheduleDraftRow,
+  ScheduleEditor,
+  scheduleDraftIssues,
+  toScheduleDraft,
+} from "@/components/schedule/schedule-editor";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VenuePicker } from "@/components/venues/venue-picker";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { VenueOption } from "@/server/queries/venues";
-
-const TIME_KEYS = ["setup", "open", "close", "teardown"] as const;
-type TimeKey = (typeof TIME_KEYS)[number];
-
-/**
- * Pre-filled times of a new single event (no preset to copy them from). Product assumption, not a
- * decision: the usual flea market day; the office adjusts them.
- */
-export const DEFAULT_TIMES: Record<TimeKey, string> = {
-  setup: "06:00",
-  open: "08:00",
-  close: "16:00",
-  teardown: "18:00",
-};
 
 export const MAX_EVENT_DAYS = 14;
 
@@ -31,7 +24,8 @@ export type EventFieldsValue = {
   /** First day, YYYY-MM-DD (empty while not chosen). */
   startsOn: string;
   days: string;
-  times: Record<TimeKey, string>;
+  /** The Zeitplan as edited (ADR 0022); a new market or single event starts with the default rows. */
+  schedule: ScheduleDraftRow[];
   price: string;
   fee: string;
   /** Prices stop following the event type once the office typed one. */
@@ -66,7 +60,7 @@ export function initialFields(
     venueId: preset.venueId ?? "",
     startsOn: preset.startsOn ?? "",
     days: "1",
-    times: { ...DEFAULT_TIMES },
+    schedule: toScheduleDraft(defaultSchedule()),
     ...typeDefaults(type, locale),
     priceTouched: false,
     feeTouched: false,
@@ -108,13 +102,8 @@ export function fieldOfCode(code: string): string {
       return "start";
     case "invalid_duration":
       return "days";
-    case "open_after_close":
-    case "invalid_time":
-      return "open";
-    case "close_after_teardown":
-      return "close";
-    case "setup_after_open":
-      return "setup";
+    case "invalid_schedule":
+      return "schedule";
     case "invalid_price":
       return "price";
     default:
@@ -128,12 +117,16 @@ export type ParsedFields = {
   venueId: string;
   startsOn: string;
   durationDays: number;
-  times: Record<TimeKey, string>;
+  schedule: ScheduleRow[];
   pricePerMCents: number;
   bookingFeeCents: number;
 };
 
-/** Client-side check of the typed values (the service checks again); times come back normalised. */
+/**
+ * Client-side check of the typed values (the service checks again); the Zeitplan comes back with its
+ * times normalised. A Zeitplan issue is `invalid_schedule` on the field "schedule"; the editor shows
+ * which rows.
+ */
 export function parseFields(
   value: EventFieldsValue,
   options: { needsVenue: boolean; needsStart: boolean },
@@ -147,14 +140,8 @@ export function parseFields(
   const durationDays = Number(value.days);
   if (!/^\d{1,2}$/.test(value.days.trim()) || durationDays < 1 || durationDays > MAX_EVENT_DAYS)
     return fail("days", "invalid_duration");
-  const times = { ...value.times };
-  for (const key of TIME_KEYS) {
-    const normalized = normalizeClockTime(value.times[key]);
-    if (normalized === null) return fail(key, "invalid_time");
-    times[key] = normalized;
-  }
-  const timesError = checkEventTimes(times, durationDays > 1);
-  if (timesError) return fail(fieldOfCode(timesError), timesError);
+  if (scheduleDraftIssues(value.schedule, durationDays).length > 0)
+    return fail("schedule", "invalid_schedule");
   const pricePerMCents = parseEuroCents(value.price);
   if (pricePerMCents === null) return fail("price", "invalid_price");
   const bookingFeeCents = parseEuroCents(value.fee);
@@ -167,7 +154,7 @@ export function parseFields(
       venueId: value.venueId,
       startsOn: value.startsOn,
       durationDays,
-      times,
+      schedule: fromScheduleDraft(value.schedule),
       pricePerMCents,
       bookingFeeCents,
     },
@@ -179,7 +166,7 @@ const SELECT_CLASS =
 
 /**
  * The fields of a single event: name, type, venue (optional), first day (optional), number of days,
- * the four times as 24-hour text (like "Eckdaten bearbeiten") and the prices. Controlled; the parent
+ * the Zeitplan (rows with 24-hour text times, like "Eckdaten bearbeiten") and the prices. Controlled; the parent
  * owns the value and the problem to show.
  */
 export function EventFields({
@@ -214,6 +201,7 @@ export function EventFields({
   const invalid = (field: string) =>
     problem?.field === field ? { "aria-invalid": true as const, "aria-describedby": errorId } : {};
   const id = (field: string) => `${idPrefix}-${field}`;
+  const showScheduleErrors = problem?.field === "schedule";
 
   return (
     <div className="flex flex-col gap-5">
@@ -292,31 +280,15 @@ export function EventFields({
         </div>
       </div>
 
-      <fieldset className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <legend className="mb-2 font-medium text-small">{t("times")}</legend>
-        {TIME_KEYS.map((key) => (
-          <div key={key} className="flex flex-col gap-1.5">
-            <Label htmlFor={id(key)} className="text-small">
-              {t(`time.${key}`)}
-            </Label>
-            <Input
-              id={id(key)}
-              inputMode="numeric"
-              autoComplete="off"
-              placeholder="HH:MM"
-              maxLength={9}
-              required
-              value={value.times[key]}
-              onChange={(e) => set({ times: { ...value.times, [key]: e.target.value } })}
-              onBlur={(e) => {
-                const normalized = normalizeClockTime(e.target.value);
-                if (normalized) set({ times: { ...value.times, [key]: normalized } });
-              }}
-              className="tabular"
-              {...invalid(key)}
-            />
-          </div>
-        ))}
+      <fieldset className="m-0 min-w-0 border-0 p-0">
+        <legend className="mb-2 p-0 font-medium text-small">{t("schedule")}</legend>
+        <ScheduleEditor
+          value={value.schedule}
+          onChange={(schedule) => set({ schedule })}
+          durationDays={Number(value.days)}
+          showErrors={showScheduleErrors}
+          idPrefix={id("schedule")}
+        />
       </fieldset>
 
       <div className="grid gap-4 sm:grid-cols-2">

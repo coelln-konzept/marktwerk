@@ -25,7 +25,7 @@ export async function insertEvent(
       season: Number(startsOn.slice(0, 4)),
       startsOn,
       endsOn: startsOn,
-      times: cat.times,
+      schedule: cat.schedule,
       status: "planned",
       pricePerMCents: 1200,
       bookingFeeCents: 500,

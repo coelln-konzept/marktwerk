@@ -16,8 +16,18 @@ import { app } from "./_schema";
 import { type EventTypeRules, eventType, locationAgreement, venue } from "./catalogue";
 import { dutyRole, staffMember } from "./people";
 
-/** Local wall-clock times ("HH:mm", Europe/Berlin) of an event day. */
-export type EventTimes = { setup: string; open: string; close: string; teardown: string };
+/**
+ * One window of a Zeitplan (ADR 0022): who it is for, what happens, on which day, from–to ("HH:mm",
+ * Europe/Berlin). Same shape as `ScheduleRow` in @marktwerk/core, which holds the rules.
+ */
+export type ScheduleRowValue = {
+  audience: "team" | "vendors" | "visitors";
+  kind: "setup" | "open" | "teardown";
+  /** `before` = the day before the first day. */
+  day: "before" | "first" | "each" | "last";
+  from: string;
+  to: string;
+};
 
 /** duty_role.key → staff_member.id */
 export type DefaultDuties = Record<string, string>;
@@ -39,7 +49,8 @@ export const eventPreset = app.table(
     publicText: text(),
     pricePerMCents: integer().notNull(),
     bookingFeeCents: integer().notNull(),
-    defaultTimes: jsonb().$type<EventTimes>().notNull(),
+    /** The market's default Zeitplan (ADR 0022), copied into every new event of this market. */
+    schedule: jsonb().$type<ScheduleRowValue[]>().notNull(),
     /** RFC 5545 subset, e.g. "FREQ=MONTHLY;BYMONTH=4,5;BYDAY=SU;BYSETPOS=1". */
     rrule: text(),
     durationDays: integer().notNull().default(1),
@@ -95,7 +106,8 @@ export const event = app.table(
     season: integer().notNull(),
     startsOn: date().notNull(),
     endsOn: date().notNull(),
-    times: jsonb().$type<EventTimes>().notNull(),
+    /** The event's Zeitplan (ADR 0022): copied from the market at instantiation, editable per event. */
+    schedule: jsonb().$type<ScheduleRowValue[]>().notNull(),
     status: eventStatus().notNull().default("draft"),
     bookingOpen: boolean().notNull().default(false),
     fullyBooked: boolean().notNull().default(false),

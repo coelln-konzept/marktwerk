@@ -3,16 +3,18 @@ import { randomBytes } from "node:crypto";
 import {
   can,
   checkPresetFields,
-  type EventTimesInput,
+  defaultSchedule,
   isMarketColor,
   type MarketColor,
   type MarketRules,
   nextMarketColor,
-  normalizeClockTime,
   normalizeMarketRules,
   type PresetFieldsInput,
   type PresetIssueCode,
+  parseSchedule,
   presetKeyBase,
+  type Schedule,
+  type ScheduleRow,
   sameMarketRules,
 } from "@marktwerk/core";
 import {
@@ -78,15 +80,12 @@ export type PresetInput = PresetFieldsInput & {
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const UUID = /^[0-9a-f-]{36}$/i;
-const TIME_KEYS = ["setup", "open", "close", "teardown"] as const;
 
-/** Trims and normalises what can be normalised ("5.30" → "05:30", blank text → null). */
+/**
+ * Trims and normalises what can be normalised ("5.30" → "05:30", blank text → null); the Zeitplan keeps
+ * exactly the row fields (assertShape made sure it parses).
+ */
 function normalize(input: PresetInput): PresetInput {
-  const times = { ...input.times };
-  for (const key of TIME_KEYS) {
-    const value = typeof times[key] === "string" ? normalizeClockTime(times[key]) : null;
-    if (value !== null) times[key] = value;
-  }
   const blankToNull = (text: string | null) => {
     const trimmed = typeof text === "string" ? text.trim() : "";
     return trimmed === "" ? null : trimmed;
@@ -96,7 +95,7 @@ function normalize(input: PresetInput): PresetInput {
     name: typeof input.name === "string" ? input.name.trim() : "",
     publicTitle: blankToNull(input.publicTitle),
     publicText: blankToNull(input.publicText),
-    times,
+    schedule: parseSchedule(input.schedule) ?? [],
     rrule: input.rrule === null || input.rrule === "" ? null : input.rrule,
   };
 }
@@ -111,8 +110,7 @@ function assertShape(input: PresetInput) {
     typeof input.durationDays === "number" &&
     typeof input.pricePerMCents === "number" &&
     typeof input.bookingFeeCents === "number" &&
-    typeof input.times === "object" &&
-    input.times !== null &&
+    parseSchedule(input.schedule) !== null &&
     typeof input.defaultDuties === "object" &&
     input.defaultDuties !== null &&
     !Array.isArray(input.defaultDuties) &&
@@ -210,7 +208,7 @@ type Fields = {
   durationDays: number;
   publicTitle: string | null;
   publicText: string | null;
-  defaultTimes: EventTimesInput;
+  schedule: Schedule;
   pricePerMCents: number;
   bookingFeeCents: number;
   rrule: string | null;
@@ -227,7 +225,7 @@ const storedFields = (row: typeof eventPreset.$inferSelect): Fields => ({
   durationDays: row.durationDays,
   publicTitle: row.publicTitle,
   publicText: row.publicText,
-  defaultTimes: timesOf(row.defaultTimes),
+  schedule: scheduleOf(row.schedule),
   pricePerMCents: row.pricePerMCents,
   bookingFeeCents: row.bookingFeeCents,
   rrule: row.rrule,
@@ -244,7 +242,7 @@ const inputFields = (input: PresetInput, color: string | null): Fields => ({
   durationDays: input.durationDays,
   publicTitle: input.publicTitle,
   publicText: input.publicText,
-  defaultTimes: timesOf(input.times),
+  schedule: scheduleOf(input.schedule),
   pricePerMCents: input.pricePerMCents,
   bookingFeeCents: input.bookingFeeCents,
   rrule: input.rrule,
@@ -262,8 +260,9 @@ function diffOf(from: Fields | null, to: Fields) {
   return changes;
 }
 
-function timesOf(times: EventTimesInput): EventTimesInput {
-  return { setup: times.setup, open: times.open, close: times.close, teardown: times.teardown };
+/** A copy with exactly the row fields, in a fixed key order (stored and audited as is). */
+function scheduleOf(rows: readonly ScheduleRow[]): Schedule {
+  return rows.map(({ audience, kind, day, from, to }) => ({ audience, kind, day, from, to }));
 }
 
 /**
@@ -310,7 +309,7 @@ async function insertPreset(
       publicText: input.publicText,
       pricePerMCents: input.pricePerMCents,
       bookingFeeCents: input.bookingFeeCents,
-      defaultTimes: timesOf(input.times),
+      schedule: scheduleOf(input.schedule),
       rrule: input.rrule,
       durationDays: input.durationDays,
       defaultDuties: input.defaultDuties,
@@ -365,9 +364,11 @@ async function leastUsedColor(tx: Tx): Promise<MarketColor> {
 /** What the "Neuen Markt anlegen" form asks for; everything else starts with its default. */
 export type MarketInput = Pick<
   PresetInput,
-  "name" | "eventTypeId" | "venueId" | "times" | "pricePerMCents" | "bookingFeeCents" | "rrule"
+  "name" | "eventTypeId" | "venueId" | "pricePerMCents" | "bookingFeeCents" | "rrule"
 > & {
   durationDays?: number;
+  /** The market's Zeitplan; left out = the three default rows of a new market (ADR 0022). */
+  schedule?: Schedule;
   /** A colour key; `null` = no colour; omitted = the least used one (the form's suggestion). */
   color?: string | null;
 };
@@ -395,6 +396,7 @@ export async function createMarket(
   const full: PresetInput = {
     ...rawInput,
     durationDays: rawInput?.durationDays ?? 1,
+    schedule: rawInput?.schedule ?? defaultSchedule(),
     publicTitle: null,
     publicText: null,
     defaultDuties: {},
@@ -499,7 +501,7 @@ export async function updatePreset(
         publicText: input.publicText,
         pricePerMCents: input.pricePerMCents,
         bookingFeeCents: input.bookingFeeCents,
-        defaultTimes: timesOf(input.times),
+        schedule: scheduleOf(input.schedule),
         rrule: input.rrule,
         durationDays: input.durationDays,
         defaultDuties: input.defaultDuties,

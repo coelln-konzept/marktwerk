@@ -62,7 +62,7 @@ describe("createEventsFromPreset", () => {
         status: "planned",
         pricePerMCents: 1200,
         bookingFeeCents: 500,
-        times: cat.times,
+        schedule: cat.schedule,
         archivedAt: null,
       });
     }

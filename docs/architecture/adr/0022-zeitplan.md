@@ -1,6 +1,7 @@
 # 0022: A market's times are a Zeitplan of windows, not four fixed fields
 
 **Status:** accepted (2026-11-13, product owner, user test 2: [research 12](../../research/12-user-test-2026-11-13.md) UT2-09/10, D2-5).
+Implemented 2026-11-13 (Fahrplan E1–E4), see "Implementation notes" below.
 
 ## Context
 A market and each event store one `times = { setup, open, close, teardown }` (HH:mm). Nothing says who a time is for.
@@ -29,3 +30,16 @@ Four fixed fields can't hold a second window or say which day a window belongs t
   to the Zeitplan.
 - Later, the website and vendor information can pick rows by audience (ADR 0013) without another model change.
 - The synthetic dataset produces `schedule` on markets and events (research 12 §5).
+
+## Implementation notes
+- Migration 0017 adds `schedule` to `event_preset` and `event` and fills it from `default_times` / `times` with a
+  SQL function that follows core `scheduleFromTimes` exactly (an integration test runs the shipped function against
+  it); 0018 drops `default_times` and `times`. `checkEventTimes` is gone from core.
+- The services (`createPreset`, `updatePreset`, `createMarket`, `manualTemplate`, `updateEventFacts`) parse the rows
+  with core `parseSchedule` and check them with `validateSchedule` for the market's / event's length; any issue is
+  one error code `invalid_schedule`, the editor shows the row issues itself (same core function).
+- Single events without a market and agreement dates without a market use the same editor, prefilled with the
+  default rows; the service falls back to the default rows when no Zeitplan is given.
+- Changing an event's length later (dates/basics) does not re-check its Zeitplan; a row that no longer fits (e.g. an
+  early tear-down after shortening to one day) shows at its row the next time Eckdaten are edited.
+- Until the new synthetic dataset produces `schedule`, the seed maps the synthetic `times` with `scheduleFromTimes`.

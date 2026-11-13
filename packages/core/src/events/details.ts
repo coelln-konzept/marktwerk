@@ -1,13 +1,10 @@
 import type { EventStatus } from "./lifecycle";
 
-/** Local wall-clock times of an event day ("HH:mm", Europe/Berlin). */
+/**
+ * The old four times of an event day ("HH:mm", Europe/Berlin), replaced by the Zeitplan (ADR 0022).
+ * Only the conversion `scheduleFromTimes` (synthetic data, migration check) still takes them.
+ */
 export type EventTimesInput = { setup: string; open: string; close: string; teardown: string };
-
-export type EventTimesError =
-  | "invalid_time"
-  | "open_after_close"
-  | "close_after_teardown"
-  | "setup_after_open";
 
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -27,20 +24,6 @@ export function normalizeClockTime(input: string): string | null {
   const minutes = Number(match[2] ?? "0");
   if (hours > 23 || minutes > 59) return null;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
-
-/**
- * Order of the times of one event day: open < close ≤ teardown. Setup must not be after opening on
- * single-day markets (set up the same morning); multi-day events are set up the day before, so any
- * setup time is fine there. Times past midnight are not supported.
- */
-export function checkEventTimes(times: EventTimesInput, multiDay: boolean): EventTimesError | null {
-  if (![times.setup, times.open, times.close, times.teardown].every(isClockTime))
-    return "invalid_time";
-  if (times.open >= times.close) return "open_after_close";
-  if (times.close > times.teardown) return "close_after_teardown";
-  if (!multiDay && times.setup > times.open) return "setup_after_open";
-  return null;
 }
 
 /** Upper bound for prices and fees typed in the office (10.000 €). */

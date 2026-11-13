@@ -101,7 +101,10 @@ erDiagram
   Phase 1 needs zones + capacity; rows matter from M8.
 - **event_preset** ("Vorlage", the old website's preset): `event_type_id`, `venue_id`, `name`,
   `public_title`, `public_text` (rich text, for the website later), `price_per_m_cents`, `booking_fee_cents`,
-  `default_times` (setup/open/close/teardown), `rrule?`, `default_duties` (duty_role → staff_member),
+  **`schedule`** (Zeitplan, ADR 0022: jsonb list of windows `{audience: team|vendors|visitors, kind: setup|open|teardown,
+  day: before|first|each|last, from, to}` ("HH:mm", Berlin), not null, checked with core `validateSchedule` for
+  the preset's length; new markets start with core `DEFAULT_SCHEDULE`, migration 0017 converted the old
+  `default_times` with the rules of core `scheduleFromTimes`, 0018 dropped `default_times`), `rrule?`, `default_duties` (duty_role → staff_member),
   `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M11), active,
   **`color`** (Marktfarbe: a key of the palette in `packages/core/src/events/market-colors.ts`, shown as a thin
   bar next to the market's name; assigned as the least used one when a market is created, editable in the
@@ -118,7 +121,10 @@ erDiagram
 
 ### Events
 - **event**: `preset_id?`, `event_type_id`, `venue_id`, `name`, `starts_on` (date), `ends_on` (date),
-  local times, **`status`** (`draft | planned | confirmed | live | completed | closed | cancelled`)
+  **`schedule`** (Zeitplan, same shape as `event_preset.schedule`: copied from the preset at instantiation, the
+  default rows for events without a preset, edited per event in "Eckdaten bearbeiten" (`updateEventFacts`,
+  audited as `event.update` with `changes.schedule`); `times` was converted by 0017 and dropped in 0018),
+  **`status`** (`draft | planned | confirmed | live | completed | closed | cancelled`)
   where *planned* = announced/public but permit not confirmed (not bookable). **New events start as `planned`**
   (they go online before permits are in); `draft` is only reached by a manual change. A planned event becomes
   `confirmed` **automatically** once it has at least one required permit and all of them are granted
@@ -362,7 +368,7 @@ erDiagram
 createEvent(preset | agreement, date [, durationDays]):
   ("Markt planen" may merge consecutive dates first: core groupConsecutiveDates → one event per run,
    length = max(run, preset length), at most 14 days; the run's length overrides the preset's)
-  tx: insert event (copy price/times/type), anchors (event_day, booking_cutoff = previous Monday, …)
+  tx: insert event (copy price/Zeitplan/type), anchors (event_day, booking_cutoff = previous Monday, …)
       duties ← preset.default_duties
       for template in preset.templates (current published version): checklist + tasks
           (due_at from anchor/offset/day_mode; assignee from duty; estimate from item)

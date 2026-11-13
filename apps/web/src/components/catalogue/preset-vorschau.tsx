@@ -4,6 +4,7 @@ import { asc } from "drizzle-orm";
 import { CalendarPlus, Pencil } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { formatScheduleSummary } from "@/components/schedule/schedule-format";
 import { buttonVariants } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
@@ -26,7 +27,7 @@ export function nextPresetDates(rule: string | null, today: string, limit = 5): 
   }
 }
 
-/** Vorschau of one event preset: public title, times, default team, next dates, "Termine erzeugen". */
+/** Vorschau of one event preset: public title, Zeitplan summary, default team, next dates, "Termine erzeugen". */
 export async function PresetVorschau({
   preset,
   closeHref,
@@ -39,6 +40,7 @@ export async function PresetVorschau({
 }) {
   const actor = await getActor();
   const t = await getTranslations("templates");
+  const tSchedule = await getTranslations("schedule");
   const locale = await getLocale();
   const roles = await db
     .select({ key: dutyRole.key, nameDe: dutyRole.nameDe, nameEn: dutyRole.nameEn })
@@ -47,7 +49,6 @@ export async function PresetVorschau({
   const personOf = new Map(preset.team.map((m) => [m.roleKey, m.name]));
   const dates = nextPresetDates(preset.rrule, todayIn());
   const canGenerate = can(actor.role, "event", "write") && preset.active;
-  const times = preset.defaultTimes;
   return (
     <Vorschau
       kind={t("vorschau.kind")}
@@ -81,7 +82,7 @@ export async function PresetVorschau({
             value: preset.rrule ? rruleText(preset.rrule, locale) : t("vorschau.noRule"),
           },
           { label: t("vorschau.duration"), value: t("duration", { days: preset.durationDays }) },
-          { label: t("vorschau.times"), value: t("vorschau.timesValue", times) },
+          { label: t("vorschau.times"), value: formatScheduleSummary(preset.schedule, tSchedule) },
           {
             label: t("vorschau.price"),
             value: t("perMeter", { price: formatMoney(preset.pricePerMCents, locale) }),

@@ -314,7 +314,7 @@ describe("deadline sweep: tasks", () => {
         season: 2026,
         startsOn: "2026-10-25",
         endsOn: "2026-10-25",
-        times: cat.times,
+        schedule: cat.schedule,
         status: "cancelled",
         pricePerMCents: 0,
         bookingFeeCents: 0,
@@ -341,7 +341,7 @@ describe("deadline sweep: permits", () => {
         season: Number(day.slice(0, 4)),
         startsOn: day,
         endsOn: day,
-        times: cat.times,
+        schedule: cat.schedule,
         pricePerMCents: 0,
         bookingFeeCents: 0,
       })

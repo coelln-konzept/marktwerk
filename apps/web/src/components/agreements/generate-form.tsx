@@ -108,7 +108,6 @@ export function AgreementGenerateForm({
     } else {
       const parsed = parseFields(fields, { needsVenue: false, needsStart: false });
       if (!parsed.ok) return setProblem(parsed.problem);
-      setFields((v) => ({ ...v, times: parsed.input.times }));
       const { venueId: _venue, startsOn: _start, ...manual } = parsed.input;
       plan = { manual };
     }

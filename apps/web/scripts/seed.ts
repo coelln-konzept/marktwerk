@@ -11,7 +11,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { nextMarketColor, toVenueKind } from "@marktwerk/core";
+import { nextMarketColor, scheduleFromTimes, toVenueKind } from "@marktwerk/core";
 import { createDb, schema } from "@marktwerk/db";
 import { deadlineSweep } from "@marktwerk/jobs";
 import { generateDataset } from "@marktwerk/synthetic";
@@ -181,18 +181,29 @@ await db.transaction(async (tx) => {
   // Marktregeln (D2-3): each preset starts with a copy of its event type's rules.
   const presetColors: string[] = [];
   const typeRules = new Map(data.eventTypes.map((t) => [t.id, t.rules]));
-  const presetRows = data.eventPresets.map(({ checklistTemplateId: _template, ...p }) => {
-    const color = nextMarketColor(presetColors);
-    presetColors.push(color);
-    const rules = typeRules.get(p.eventTypeId);
-    if (!rules) throw new Error(`preset ${p.id}: unknown event type ${p.eventTypeId}`);
-    return { ...p, color, rules: structuredClone(rules) };
-  });
+  // Zeitplan (ADR 0022): the synthetic data still has the four old times; mapped like migration 0017.
+  const presetRows = data.eventPresets.map(
+    ({ checklistTemplateId: _template, defaultTimes, ...p }) => {
+      const color = nextMarketColor(presetColors);
+      presetColors.push(color);
+      const rules = typeRules.get(p.eventTypeId);
+      if (!rules) throw new Error(`preset ${p.id}: unknown event type ${p.eventTypeId}`);
+      return {
+        ...p,
+        schedule: scheduleFromTimes(defaultTimes),
+        color,
+        rules: structuredClone(rules),
+      };
+    },
+  );
   await insertAll(tx, schema.eventPreset, presetRows, "presets");
   await insertAll(
     tx,
     schema.event,
-    data.events.map(({ duties: _duties, ...e }) => e),
+    data.events.map(({ duties: _duties, times, ...e }) => ({
+      ...e,
+      schedule: scheduleFromTimes(times),
+    })),
     "events",
   );
   await insertAll(

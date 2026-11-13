@@ -1,3 +1,4 @@
+import type { ScheduleRow } from "@marktwerk/core";
 import {
   auditLog,
   event,
@@ -60,35 +61,52 @@ const anchorsOf = async (id: string) =>
 const auditsOf = (action: string) =>
   db.select().from(auditLog).where(eq(auditLog.action, action)).orderBy(auditLog.at);
 
+const row = (
+  audience: ScheduleRow["audience"],
+  kind: ScheduleRow["kind"],
+  day: ScheduleRow["day"],
+  from: string,
+  to: string,
+): ScheduleRow => ({ audience, kind, day, from, to });
+
 const facts = {
-  times: { setup: "06:00", open: "09:00", close: "17:00", teardown: "19:00" },
+  schedule: [
+    row("team", "setup", "first", "05:00", "06:00"),
+    row("vendors", "setup", "first", "06:00", "09:00"),
+    row("visitors", "open", "each", "09:00", "17:00"),
+    row("vendors", "teardown", "last", "17:00", "19:00"),
+  ],
   pricePerMCents: 1500,
   bookingFeeCents: 300,
 };
 
 describe("updateEventFacts", () => {
-  it("updates times and prices of this event only and audits what changed", async () => {
+  it("updates the Zeitplan and prices of this event only and audits what changed", async () => {
     const id = await oneEvent();
     const result = await updateEventFacts(owner, id, { ...facts, bookingFeeCents: 500 });
     expect(result.changed).toBe(true);
     expect(result.previous).toEqual({
-      times: cat.times,
+      schedule: cat.schedule,
       pricePerMCents: 1200,
       bookingFeeCents: 500,
     });
 
-    const row = await load(id);
-    expect(row).toMatchObject({ times: facts.times, pricePerMCents: 1500, bookingFeeCents: 500 });
+    const stored = await load(id);
+    expect(stored).toMatchObject({
+      schedule: facts.schedule,
+      pricePerMCents: 1500,
+      bookingFeeCents: 500,
+    });
     const [preset] = await db
       .select()
       .from(eventPreset)
       .where(eq(eventPreset.id, cat.presets.flea.id));
-    expect(preset).toMatchObject({ defaultTimes: cat.times, pricePerMCents: 1200 });
+    expect(preset).toMatchObject({ schedule: cat.schedule, pricePerMCents: 1200 });
 
     const [entry] = await auditsOf("event.update");
     expect(entry?.diff).toEqual({
       changes: {
-        times: { from: cat.times, to: facts.times },
+        schedule: { from: cat.schedule, to: facts.schedule },
         pricePerMCents: { from: 1200, to: 1500 },
       },
     });
@@ -96,26 +114,42 @@ describe("updateEventFacts", () => {
 
   it("writes nothing when nothing changed", async () => {
     const id = await oneEvent();
-    const same = { times: cat.times, pricePerMCents: 1200, bookingFeeCents: 500 };
+    const same = { schedule: cat.schedule, pricePerMCents: 1200, bookingFeeCents: 500 };
     expect((await updateEventFacts(owner, id, same)).changed).toBe(false);
     expect(await auditsOf("event.update")).toHaveLength(0);
   });
 
-  it("checks the order of the times (setup may be late only for multi-day events)", async () => {
+  it("normalises typed times and keeps only the row fields", async () => {
     const id = await oneEvent();
-    const lateSetup = { ...facts, times: { ...facts.times, setup: "10:00" } };
-    await expect(updateEventFacts(owner, id, lateSetup)).rejects.toMatchObject({
-      code: "setup_after_open",
-    });
-    await expect(
-      updateEventFacts(owner, id, { ...facts, times: { ...facts.times, close: "08:00" } }),
-    ).rejects.toMatchObject({ code: "open_after_close" });
+    const typed = [{ ...row("visitors", "open", "each", "9", "17.30"), note: "x" } as ScheduleRow];
+    await updateEventFacts(owner, id, { ...facts, schedule: typed });
+    expect((await load(id)).schedule).toEqual([row("visitors", "open", "each", "09:00", "17:30")]);
+  });
+
+  it("checks the Zeitplan with the core rules for the event's length", async () => {
+    const id = await oneEvent();
+    // Early tear-down on the last morning: only after a night, so not on a single-day event.
+    const earlyTeardown = {
+      ...facts,
+      schedule: [...facts.schedule, row("vendors", "teardown", "last", "07:00", "10:00")],
+    };
+    const invalid = [
+      earlyTeardown,
+      { ...facts, schedule: [row("visitors", "open", "each", "17:00", "09:00")] },
+      { ...facts, schedule: [row("vendors", "setup", "first", "06:00", "09:00")] },
+      { ...facts, schedule: [row("visitors", "open", "each", "25:00", "26:00")] },
+      { ...facts, schedule: "08–16" as unknown as ScheduleRow[] },
+    ];
+    for (const next of invalid)
+      await expect(updateEventFacts(owner, id, next)).rejects.toMatchObject({
+        code: "invalid_schedule",
+      });
     await expect(
       updateEventFacts(owner, id, { ...facts, pricePerMCents: -1 }),
     ).rejects.toMatchObject({ code: "invalid_price" });
 
     const festival = await oneEvent(cat.presets.festival.id, "2026-12-04");
-    expect((await updateEventFacts(owner, festival, lateSetup)).changed).toBe(true);
+    expect((await updateEventFacts(owner, festival, earlyTeardown)).changed).toBe(true);
   });
 
   it("undo applies only while the values are still the saved ones", async () => {
