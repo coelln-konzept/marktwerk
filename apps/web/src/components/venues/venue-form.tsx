@@ -7,12 +7,19 @@ import {
   isPostalCode,
   parseCoordinate,
   parseMetresToCm,
+  VENUE_KINDS,
+  VENUE_NAME_MAX,
+  venueNameFromAddress,
 } from "@marktwerk/core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import { createVenueAction, updateVenueAction } from "@/app/(app)/orte/actions";
+import {
+  ContactQuickCreate,
+  type CreatedContact,
+} from "@/components/contacts/contact-quick-create";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -20,12 +27,13 @@ import { FORM_SECTION, FORM_SECTION_TITLE } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
 import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
+import { RecordPicker } from "@/components/ui/record-picker";
 import { formatLength } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { VenueFormValues } from "./defaults";
 import { fieldOfVenueError, SELECT_CLASS, useErrorText } from "./shared";
 
-const KINDS = ["outdoor_public", "outdoor_private", "indoor"] as const;
+const KINDS = VENUE_KINDS;
 
 /**
  * "Neuer Ort" and "Ort bearbeiten": a page, not a modal, because a venue has more than eight fields
@@ -62,7 +70,17 @@ export function VenueForm({
   const [city, setCity] = useState(initial.city);
   const [bundesland, setBundesland] = useState(initial.bundesland);
   const [accessInfo, setAccessInfo] = useState(initial.accessInfo ?? "");
-  const [landowner, setLandowner] = useState(initial.landownerContactId ?? "");
+  const [landowner, setLandowner] = useState<string | null>(initial.landownerContactId);
+  // Eigentümer created in place (UT2-04) join the options until the page data has them.
+  const [createdLandowners, setCreatedLandowners] = useState<CreatedContact[]>([]);
+  const [newLandowner, setNewLandowner] = useState<string | null>(null);
+  const landownerOptions = useMemo(
+    () => [
+      ...landowners.map((l) => ({ id: l.id, label: l.name, hint: l.city })),
+      ...createdLandowners.filter((c) => !landowners.some((l) => l.id === c.id)),
+    ],
+    [landowners, createdLandowners],
+  );
   const [capacity, setCapacity] = useState(
     initial.capacityCm === null ? "" : formatMetres(initial.capacityCm, locale),
   );
@@ -78,11 +96,13 @@ export function VenueForm({
     if (field) document.getElementById(field)?.focus();
   }
 
+  // An empty name is filled from the address by the service (UT2-02); the field shows what it will be.
+  const derivedName = venueNameFromAddress(city, street);
+
   function submit() {
     setError(null);
     // Required fields and obvious format mistakes are answered on the spot (no round trip), in field
     // order, so the focus lands on the first wrong field.
-    if (name.trim() === "") return fail("invalid_name");
     if (postalCode.trim() !== "" && !isPostalCode(postalCode.trim()))
       return fail("invalid_postal_code");
     if (city.trim() === "") return fail("invalid_city");
@@ -127,7 +147,9 @@ export function VenueForm({
       if (editing && "changed" in result.data && !result.data.changed) {
         showToast({ message: tf("unchanged") });
       } else {
-        showToast({ message: tf(editing ? "saved" : "created", { name: name.trim() }) });
+        showToast({
+          message: tf(editing ? "saved" : "created", { name: name.trim() || derivedName }),
+        });
       }
       router.push(`/orte/${id}` as never);
     });
@@ -153,16 +175,22 @@ export function VenueForm({
             <legend className={FORM_SECTION_TITLE}>{tf("basics")}</legend>
             <div className="grid gap-4 sm:grid-cols-[1fr_14rem]">
               <div className={cell}>
-                <Label htmlFor={f("name")}>{tf("name")}</Label>
+                <Label htmlFor={f("name")} optional>
+                  {tf("name")}
+                </Label>
                 <Input
                   id={f("name")}
                   value={name}
-                  maxLength={120}
-                  required
+                  maxLength={VENUE_NAME_MAX}
                   autoComplete="off"
+                  placeholder={derivedName || undefined}
+                  aria-describedby={`${uid}-name`}
                   onChange={(e) => setName(e.target.value)}
                   {...invalid(f("name"))}
                 />
+                <p id={`${uid}-name`} className={hint}>
+                  {tf("nameHint")}
+                </p>
               </div>
               <div className={cell}>
                 <Label htmlFor={f("kind")}>{tf("kind")}</Label>
@@ -274,21 +302,28 @@ export function VenueForm({
                 <Label htmlFor={f("landowner")} optional>
                   {tf("landowner")}
                 </Label>
-                <select
+                <RecordPicker
                   id={f("landowner")}
+                  options={landownerOptions}
                   value={landowner}
+                  onChange={setLandowner}
+                  allowNone
+                  noneLabel={tf("noLandowner")}
+                  placeholder={tf("noLandowner")}
                   aria-describedby={`${uid}-landowner`}
-                  className={SELECT_CLASS}
-                  onChange={(e) => setLandowner(e.target.value)}
-                  {...invalid(f("landowner"))}
-                >
-                  <option value="">{tf("noLandowner")}</option>
-                  {landowners.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.city ? `${l.name} · ${l.city}` : l.name}
-                    </option>
-                  ))}
-                </select>
+                  aria-invalid={error?.field === f("landowner")}
+                  onCreate={(text) => setNewLandowner(text)}
+                />
+                <ContactQuickCreate
+                  open={newLandowner !== null}
+                  onOpenChange={(open) => !open && setNewLandowner(null)}
+                  name={newLandowner ?? ""}
+                  kinds={["landowner"]}
+                  onCreated={(created) => {
+                    setCreatedLandowners((prev) => [...prev, created]);
+                    setLandowner(created.id);
+                  }}
+                />
                 <p id={`${uid}-landowner`} className={hint}>
                   {tf("landownerHint")}
                 </p>

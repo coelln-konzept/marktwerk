@@ -21,6 +21,7 @@ export async function AgreementsSection({ venueId }: { venueId: string }) {
   const locale = await getLocale();
   const canWrite = can(actor.role, "venue", "write");
   const canGenerate = can(actor.role, "event", "write");
+  const canCreateContact = can(actor.role, "contact", "write");
   const showEvents = can(actor.role, "event", "read");
   const [agreements, contacts] = await Promise.all([
     listVenueAgreements(venueId),
@@ -33,7 +34,13 @@ export async function AgreementsSection({ venueId }: { venueId: string }) {
         <h2 id="agreements-title" className="font-semibold text-[15px]">
           {t("title")}
         </h2>
-        {canWrite && <AgreementDialog venueId={venueId} contacts={contacts} />}
+        {canWrite && (
+          <AgreementDialog
+            venueId={venueId}
+            contacts={contacts}
+            canCreateContact={canCreateContact}
+          />
+        )}
       </div>
       {agreements.length === 0 ? (
         <Panel>
@@ -117,6 +124,7 @@ export async function AgreementsSection({ venueId }: { venueId: string }) {
                       <AgreementDialog
                         venueId={venueId}
                         contacts={contacts}
+                        canCreateContact={canCreateContact}
                         agreement={{
                           id: a.id,
                           counterpartyContactId: a.counterpartyContactId,

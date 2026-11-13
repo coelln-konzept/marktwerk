@@ -310,9 +310,8 @@
       "permit_decision": "Genehmigungsentscheid"
     },
     "venueKinds": {
-      "outdoor_public": "Draußen, öffentlich",
-      "outdoor_private": "Draußen, privat",
-      "indoor": "Drinnen"
+      "municipal": "Städtisch",
+      "private": "Privat"
     },
     "evidence": {
       "photo": "Foto",

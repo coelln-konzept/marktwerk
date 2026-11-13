@@ -11,7 +11,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { nextMarketColor } from "@marktwerk/core";
+import { nextMarketColor, toVenueKind } from "@marktwerk/core";
 import { createDb, schema } from "@marktwerk/db";
 import { deadlineSweep } from "@marktwerk/jobs";
 import { generateDataset } from "@marktwerk/synthetic";
@@ -103,7 +103,8 @@ await db.transaction(async (tx) => {
   await insertAll(
     tx,
     schema.venue,
-    data.venues.map(({ zones: _zones, ...v }) => v),
+    // The synthetic dataset may still use the kinds from before UT2-03 (outdoor_public, …).
+    data.venues.map(({ zones: _zones, ...v }) => ({ ...v, kind: toVenueKind(v.kind) })),
     "venues",
   );
   const zones = data.venues.flatMap((v) => v.zones);

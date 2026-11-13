@@ -224,7 +224,7 @@ describe("updateEventBasics", () => {
     const id = await oneEvent(); // Sa 2026-11-14, 1 day
     const [other] = await db
       .insert(venue)
-      .values({ name: "Rheinwiesen", kind: "outdoor_public", city: "Köln" })
+      .values({ name: "Rheinwiesen", kind: "municipal", city: "Köln" })
       .returning();
     if (!other) throw new Error("no venue");
     const result = await updateEventBasics(owner, id, {
@@ -322,7 +322,7 @@ describe("updateEventBasics", () => {
     await db.update(venue).set({ archivedAt: new Date() }).where(eq(venue.id, cat.venue.id));
     const [other] = await db
       .insert(venue)
-      .values({ name: "Alt", kind: "outdoor_public", city: "Köln", archivedAt: new Date() })
+      .values({ name: "Alt", kind: "municipal", city: "Köln", archivedAt: new Date() })
       .returning();
     await expect(
       updateEventBasics(owner, id, { ...base, venueId: other?.id ?? "" }),
@@ -339,7 +339,7 @@ describe("updateEventBasics", () => {
     const id = await oneEvent();
     const [other] = await db
       .insert(venue)
-      .values({ name: "Rheinwiesen", kind: "outdoor_public", city: "Köln" })
+      .values({ name: "Rheinwiesen", kind: "municipal", city: "Köln" })
       .returning();
     if (!other) throw new Error("no venue");
     const [busy] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-11-14"]);

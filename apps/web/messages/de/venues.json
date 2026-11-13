@@ -20,9 +20,8 @@
       "actions": "Aktionen"
     },
     "kinds": {
-      "outdoor_public": "Öffentlicher Platz",
-      "outdoor_private": "Privatgelände",
-      "indoor": "Halle"
+      "municipal": "Städtisch",
+      "private": "Privat"
     },
     "upcomingTitle": "Kommende Veranstaltungen (ohne abgesagte)",
     "preview": "Vorschau: {name}",
@@ -62,6 +61,7 @@
         "access": "Zufahrt und Eigentümer",
         "capacitySection": "Kapazität und Lage",
         "name": "Name",
+        "nameHint": "Leer lassen: wird aus Stadt und Straße gebildet.",
         "kind": "Art",
         "street": "Straße und Hausnummer",
         "postalCode": "PLZ",
@@ -216,6 +216,10 @@
       "presets": "Märkte an diesem Ort",
       "noPresets": "Für diesen Ort gibt es keinen Markt.",
       "presetInactive": "inaktiv"
+    },
+    "quick": {
+      "title": "Ort anlegen",
+      "description": "Adresse und Art reichen. Zonen, Reihen und Zufahrt ergänzt du später auf der Seite des Ortes."
     }
   }
 }

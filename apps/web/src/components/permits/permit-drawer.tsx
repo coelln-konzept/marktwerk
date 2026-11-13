@@ -116,7 +116,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
                 notes: permit.notes ?? "",
               }}
               deliverables={permit.deliverablesReceived}
-              contacts={contacts.map((c) => ({ id: c.id, name: c.name }))}
+              contacts={contacts.map((c) => ({ id: c.id, name: c.name, city: c.city }))}
+              canCreateContact={can(actor.role, "contact", "write")}
               staff={staff}
             />
           )}

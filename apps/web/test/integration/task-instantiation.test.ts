@@ -281,7 +281,7 @@ describe("instantiation on event creation", () => {
       [
         baseItem({ title: "Nach Entscheid", anchorKey: "permit_decision", offsetDays: 2 }),
         baseItem({ title: "Nur Flohmarkt", condition: { eventTypeKeys: ["flea"] } }),
-        baseItem({ title: "Nur drinnen", condition: { venueKinds: ["indoor"] } }),
+        baseItem({ title: "Nur drinnen", condition: { venueKinds: ["private"] } }),
         baseItem({ title: "Nur im Messeplatz", condition: { venueIds: [cat.venue.id] } }),
       ],
       { name: "Bedingungen", presetIds: [cat.presets.festival.id] },

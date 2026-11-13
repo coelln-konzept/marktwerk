@@ -4,6 +4,7 @@ import { checkEventTimes, isIsoDate, normalizeClockTime, parseEuroCents } from "
 import { useLocale, useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { VenuePicker } from "@/components/venues/venue-picker";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { VenueOption } from "@/server/queries/venues";
 
@@ -190,6 +191,7 @@ export function EventFields({
   problem,
   errorId,
   idPrefix = "ef",
+  canCreateVenue = true,
 }: {
   value: EventFieldsValue;
   onChange: (next: EventFieldsValue) => void;
@@ -200,6 +202,11 @@ export function EventFields({
   problem: FieldProblem | null;
   errorId: string;
   idPrefix?: string;
+  /**
+   * "+ Neu" in the Ort picker (UT2-01). On by default: these forms need event:write (owner, manager), who
+   * may write venues too.
+   */
+  canCreateVenue?: boolean;
 }) {
   const t = useTranslations("generate.single");
   const locale = useLocale();
@@ -242,22 +249,16 @@ export function EventFields({
         {venues && (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={id("venue")}>{t("venue")}</Label>
-            <select
+            <VenuePicker
               id={id("venue")}
+              venues={venues}
               value={value.venueId}
-              onChange={(e) => set({ venueId: e.target.value })}
-              className={SELECT_CLASS}
-              {...invalid("venue")}
-            >
-              <option value="" disabled>
-                {t("venuePlaceholder")}
-              </option>
-              {venues.map((venue) => (
-                <option key={venue.id} value={venue.id}>
-                  {venue.name} · {venue.city}
-                </option>
-              ))}
-            </select>
+              onChange={(venueId) => set({ venueId })}
+              canCreate={canCreateVenue}
+              placeholder={t("venuePlaceholder")}
+              invalid={problem?.field === "venue"}
+              describedBy={problem?.field === "venue" ? errorId : undefined}
+            />
           </div>
         )}
         {showStart && (

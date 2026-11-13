@@ -50,3 +50,4 @@ export * from "./text/fold";
 export * from "./text/letter";
 export * from "./text/phone";
 export * from "./venues/measure";
+export * from "./venues/name";

@@ -27,6 +27,7 @@ import {
   type LogbookFocus,
   listLogbook,
 } from "@/server/queries/permits";
+import { listVenueOptions } from "@/server/queries/venues";
 import { requirePermission } from "@/server/session";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -63,6 +64,8 @@ export default async function PermitsPage({ searchParams }: PageProps<"/genehmig
   const tCat = await getTranslations("permitCategories");
   const today = todayIn();
   const canWrite = can(actor.role, "permit", "write");
+  // Every Ort, not only those with permits already: a first permit for a new Ort starts here (UT2-01).
+  const venueOptions = canWrite ? await listVenueOptions() : [];
 
   const venueParam = param(sp.ort);
   const venueId = isPermitId(venueParam) ? venueParam : undefined;
@@ -151,7 +154,13 @@ export default async function PermitsPage({ searchParams }: PageProps<"/genehmig
         title={t("title")}
         subtitle={t("subtitle", { count: logbook.rows.length, venues: venueCount })}
         actions={
-          canWrite && <NewPermitDialog venues={logbook.venues} defaultSeason={defaultSeason} />
+          canWrite && (
+            <NewPermitDialog
+              venues={venueOptions}
+              defaultSeason={defaultSeason}
+              canCreateVenue={can(actor.role, "venue", "write")}
+            />
+          )
         }
       />
 
