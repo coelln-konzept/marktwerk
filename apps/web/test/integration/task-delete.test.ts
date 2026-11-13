@@ -86,7 +86,11 @@ describe("restoreTask", () => {
 
     let history = await listEventHistory(owner, eventId);
     const deleted = history.find((e) => e.action === "task.delete");
-    expect(deleted).toMatchObject({ restoreTaskId: t.id, restoreDeleted: true, subject: "Schilder" });
+    expect(deleted).toMatchObject({
+      restoreTaskId: t.id,
+      restoreDeleted: true,
+      subject: "Schilder",
+    });
 
     const restored = await restoreTask(office, t.id);
     expect((await getTask(t.id)).status).toBe("blocked");
