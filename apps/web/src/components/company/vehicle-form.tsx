@@ -9,6 +9,7 @@ import { createVehicleAction, updateVehicleAction } from "@/app/(app)/firma/acti
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { FORM_SECTION, FORM_SECTION_TITLE } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
@@ -153,7 +154,6 @@ export function VehicleForm({
     });
   }
 
-  const legend = "mb-3 font-semibold text-[15px]";
   const cell = "flex flex-col gap-1.5";
   const hint = "text-faint-foreground text-small";
   const backHref = editing ? `/firma/fahrzeuge/${vehicleId}` : "/firma/fahrzeuge";
@@ -167,9 +167,9 @@ export function VehicleForm({
       }}
     >
       <Panel>
-        <PanelBody className="flex flex-col gap-7">
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("basics")}</legend>
+        <PanelBody className="flex flex-col gap-6">
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("basics")}</legend>
             <div className="grid gap-4 sm:grid-cols-6">
               <div className={cn(cell, "sm:col-span-3")}>
                 <Label htmlFor={f("name")}>{tf("name")}</Label>
@@ -272,8 +272,8 @@ export function VehicleForm({
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("odometerSection")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("odometerSection")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
                 <Label htmlFor={f("odometer")} optional>
@@ -309,8 +309,8 @@ export function VehicleForm({
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("insuranceSection")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("insuranceSection")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
                 <Label htmlFor={f("insurer")} optional>
