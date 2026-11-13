@@ -232,20 +232,20 @@ test('Event page: one "…" menu holds Bearbeiten, Verschieben and Status änder
 test("Task drawer: Erledigt and Wartet are buttons, the status badge opens every state", async ({
   page,
 }) => {
-  await page.goto("/veranstaltungen?saison=2026");
-  const href = (await page
-    .locator("tbody tr[data-row]")
+  // Any open task the Übersicht lists (the seed always has some due this week); it opens the same drawer.
+  await page.goto("/");
+  await page
+    .locator("li:has(button[aria-label$='als erledigt markieren']) a[href*='aufgabe=']")
     .first()
-    .getAttribute("data-href")) as string;
-  await page.goto(href);
-  await page.getByRole("heading", { level: 2, name: "Was fehlt" }).waitFor();
-  await page.locator("a[href*='aufgabe=']").first().click();
+    .click();
   // The drawer is a non-modal dialog (not a landmark).
   const drawer = page.getByRole("dialog");
-  await expect(drawer.getByRole("button", { name: "Erledigt", exact: true })).toBeVisible();
+  const done = drawer.getByRole("button", { name: "Erledigt", exact: true });
+  await expect(done).toBeVisible();
   await expect(drawer.getByRole("button", { name: "Wartet", exact: true })).toBeVisible();
-  // An open task offers no "Wieder öffnen"; that one belongs to finished tasks only.
-  await expect(drawer.getByRole("button", { name: "Wieder öffnen" })).toHaveCount(0);
+  // An open task is not shown as finished: its Erledigt toggle is not pressed (only a finished task's toggle
+  // reads "… wieder öffnen"; a finished subtask's tick in the list may, which is fine).
+  await expect(done).toHaveAttribute("aria-pressed", "false");
   // The status badge itself opens every status; the current one is marked and can't be picked again.
   // The seeded task may be Offen or already In Arbeit: switch to the other one and back.
   const statusBadge = drawer.getByRole("button", { name: /^Status ändern \(jetzt: / });
@@ -568,12 +568,23 @@ test("Markt planen: Saturday and Sunday picked become one two-day event (switcha
   // Start from nothing picked, then pick one Saturday and the Sunday after it.
   const picked = sheet.locator("button[data-day][aria-pressed=true]");
   while ((await picked.count()) > 0) await picked.first().click();
-  const sat = sheet.locator("button[data-day][aria-label^='Sa ']:not([disabled])").nth(5);
-  const day = (await sat.getAttribute("data-day")) as string;
-  const next = new Date(`${day}T12:00:00Z`);
-  next.setUTCDate(next.getUTCDate() + 1);
-  await sat.click();
-  await sheet.locator(`button[data-day='${next.toISOString().slice(0, 10)}']`).click();
+  // A free Saturday whose Sunday is free too (a day the place is taken, "Ort belegt", is not merged).
+  const saturdays = sheet.locator(
+    "button[data-day][aria-label^='Sa ']:not([disabled]):not([aria-label*='belegt'])",
+  );
+  let sunday = "";
+  for (let i = 5; i < (await saturdays.count()) && sunday === ""; i++) {
+    const day = (await saturdays.nth(i).getAttribute("data-day")) as string;
+    const next = new Date(`${day}T12:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const candidate = next.toISOString().slice(0, 10);
+    const free = `button[data-day='${candidate}']:not([disabled]):not([aria-label*='belegt'])`;
+    if ((await sheet.locator(free).count()) === 0) continue;
+    await saturdays.nth(i).click();
+    sunday = candidate;
+  }
+  expect(sunday).not.toBe("");
+  await sheet.locator(`button[data-day='${sunday}']`).click();
 
   const merge = sheet.getByRole("checkbox", { name: /Aufeinanderfolgende Tage/ });
   await expect(merge).toBeChecked();
@@ -810,13 +821,20 @@ test("Benachrichtigungen: no bell, the page stays; filters, Erledigt and Zurück
   await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
   await expect(confirm).toBeHidden();
   expect(await open()).toBe(before);
-  // Confirmed, it completes the task (own undo toast); the notification resolves with it.
+  // Confirmed, it completes the task (own undo toast); the notification resolves with it. A task with open
+  // subtasks can't be done yet (ADR 0021): a red toast says so and nothing changes.
   await task.getByRole("button", { name: "Erledigt", exact: true }).click();
   await confirm.getByRole("button", { name: "Ja, erledigt" }).click();
-  await expect(toastUndo(page)).toBeVisible();
-  await expect.poll(open).toBe(before - 1);
-  await toastUndo(page).click();
-  await expect.poll(open).toBe(before);
+  const refused = page.getByRole("alert").filter({ hasText: "kann noch nicht erledigt werden" });
+  await expect(toastUndo(page).or(refused).first()).toBeVisible();
+  if (await refused.first().isVisible()) {
+    expect(await open()).toBe(before);
+    await refused.first().getByRole("button", { name: "Hinweis schließen" }).click();
+  } else {
+    await expect.poll(open).toBe(before - 1);
+    await toastUndo(page).click();
+    await expect.poll(open).toBe(before);
+  }
 
   // Zurückstellen (in the "…" menu) with a preset moves it to "Zurückgestellt"; undo brings it back.
   await rows
