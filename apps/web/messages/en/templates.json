@@ -147,6 +147,75 @@
       "schedule": {
         "title": "Schedule"
       }
+    },
+    "season": {
+      "title": "Season {season}",
+      "statusLabel": "Status",
+      "statusChange": "Change the season's status (now: {status})",
+      "status": {
+        "planning": "Planning",
+        "dates_set": "Dates set",
+        "closed": "Closed"
+      },
+      "openCount": "{count} open",
+      "start": {
+        "first": "First date {date} · {week}",
+        "dates": "{count, plural, one {# date} other {# dates}}, last on {last}",
+        "expected": "Expected from {date}",
+        "expectedHint": "{week} · no dates yet. Once the first date exists, it is the start.",
+        "expectedLabel": "Expected from",
+        "edit": "Change",
+        "editLabel": "Change the expected start of season {season}",
+        "save": "Save",
+        "cancel": "Cancel"
+      },
+      "suggest": {
+        "dates_set": {
+          "hint": "The dates have been created.",
+          "action": "Set to “Dates set”"
+        },
+        "closed": {
+          "hint": "The last date is over and no season task is open.",
+          "action": "Close the season"
+        },
+        "planning": {
+          "hint": "The season has no dates any more.",
+          "action": "Back to “Planning”"
+        }
+      },
+      "tasks": {
+        "title": "Season tasks",
+        "none": "No season tasks. They come from the season items of the task template.",
+        "allDone": "All season tasks done",
+        "finished": "Done ({count})"
+      },
+      "assignee": "Assignee",
+      "unassigned": "Nobody assigned",
+      "snoozedUntil": "Snoozed until {date}",
+      "missing": {
+        "title": "No season {season} yet",
+        "hint": "The season collects the work done once a year, such as planning the dates or applying for permits."
+      },
+      "create": "Create season",
+      "toast": {
+        "status": "Season {season}: {status}",
+        "expected": "Season {season} expected from {date}",
+        "shifted": "{count, plural, one {# task moved} other {# tasks moved}}",
+        "created": "Season {season} created · {count, plural, =0 {no tasks} one {# task} other {# tasks}}",
+        "undo": "Undo"
+      },
+      "errors": {
+        "generic": "That didn't work. Please try again.",
+        "conflict": "The season was changed in the meantime. The page now shows the current state.",
+        "season_not_found": "This season no longer exists.",
+        "preset_not_found": "This market no longer exists.",
+        "invalid_season": "Please enter a valid year.",
+        "invalid_status": "Please pick a valid status.",
+        "invalid_transition": "The season already has this status.",
+        "invalid_date": "Please enter a valid date.",
+        "outside_season": "Please pick a date in {season}.",
+        "has_dates": "The season already has dates; its first date is the season start."
+      }
     }
   },
   "library": {

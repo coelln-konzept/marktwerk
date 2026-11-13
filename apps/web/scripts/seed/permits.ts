@@ -118,6 +118,10 @@ export async function seedPermits(tx: Tx, { data }: SeedContext) {
       requirementId: p.requirementId,
       venueId: p.venueId,
       season: p.season,
+      // Season permits (one per market and season) belong to that market's Saison record. Linking their apply task
+      // through it (one task per season permit) is Fahrplan R11; until then `linkPermitTasks` below links event
+      // tasks only, and the season tasks' statuses already follow their permit in the dataset.
+      seasonId: p.seasonId,
       category: p.category,
       permitType: p.permitType,
       title: p.title,

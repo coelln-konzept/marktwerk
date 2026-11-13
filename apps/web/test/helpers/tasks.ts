@@ -1,4 +1,12 @@
-import { event, eventDuty, staffMember, task, user } from "@marktwerk/db/schema";
+import {
+  event,
+  eventDuty,
+  eventPreset,
+  eventSeason,
+  staffMember,
+  task,
+  user,
+} from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
@@ -98,5 +106,22 @@ export async function insertStaff(
     })
     .returning();
   if (!row) throw new Error("staff failed");
+  return row;
+}
+
+/**
+ * A Saison record (research 13 §6) of the catalogue's flea market ("Testflohmarkt", colour "petrol") without going
+ * through `ensureEventSeason`, so no season template items interfere. Season tasks point at it with `seasonId`.
+ */
+export async function insertSeason(cat: Catalogue, season = 2027) {
+  await db
+    .update(eventPreset)
+    .set({ color: "petrol" })
+    .where(eq(eventPreset.id, cat.presets.flea.id));
+  const [row] = await db
+    .insert(eventSeason)
+    .values({ presetId: cat.presets.flea.id, season, expectedStart: `${season}-03-07` })
+    .returning();
+  if (!row) throw new Error("season failed");
   return row;
 }

@@ -35,12 +35,17 @@ export async function insertAll<T extends object>(
   console.log(`✓ ${label}: ${rows.length}`);
 }
 
-/** Synthetic anchor keys (camelCase) → `event_anchor.key` / `template_item.anchor_key` (snake_case). */
+/**
+ * Synthetic anchor keys (camelCase) → `event_anchor.key`, `event_season_anchor.key` and
+ * `template_item.anchor_key` / `task.anchor_key` (snake_case).
+ */
 export const ANCHOR_KEYS = {
   eventDay: "event_day",
   setupDay: "setup_day",
   teardownDay: "teardown_day",
   bookingCutoff: "booking_cutoff",
+  seasonStart: "season_start",
+  seasonEnd: "season_end",
 } as const;
 
 /**

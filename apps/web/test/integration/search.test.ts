@@ -7,7 +7,7 @@ import { createVehicle } from "@/server/services/company";
 import { createPayable } from "@/server/services/payables";
 import { archivePermit } from "@/server/services/permits";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
-import { asStaff, insertEvent, insertTask } from "../helpers/tasks";
+import { asStaff, insertEvent, insertSeason, insertTask } from "../helpers/tasks";
 
 /** Command palette search: tasks, permits, payments and vehicles next to events and people. */
 
@@ -196,6 +196,33 @@ describe("searchAs", () => {
     });
     const hit = (await search(owner, "halteverbot")).find((h) => h.kind === "permit");
     expect(hit?.title).toBe("Halteverbot – 18.04.2026");
+  });
+
+  it("finds season tasks with their market and season, also by the market's name (R13)", async () => {
+    const season = await insertSeason(cat);
+    const t = await insertTask({ title: "Termine planen", seasonId: season.id });
+    await insertTask({ title: "Termine planen", eventId: foreignEvent });
+    const hits = (await search(owner, "termine planen")).filter((h) => h.kind === "task");
+    expect(hits).toHaveLength(2);
+    expect(hits.find((h) => h.href === `/board?aufgabe=${t.id}`)?.season).toEqual({
+      id: season.id,
+      year: 2027,
+      presetId: cat.presets.flea.id,
+      name: "Testflohmarkt",
+      href: `/vorlagen/${cat.presets.flea.id}`,
+    });
+    // With several words the market's name and the season year count, like an event's name.
+    const byMarket = (await search(owner, "termine testflohmarkt")).filter(
+      (h) => h.kind === "task",
+    );
+    expect(byMarket.map((h) => h.href)).toEqual([`/board?aufgabe=${t.id}`]);
+    expect(
+      (await search(owner, "termine 2027")).filter((h) => h.kind === "task").map((h) => h.href),
+    ).toEqual([`/board?aufgabe=${t.id}`]);
+    // Staff find it too, without the link to the market page.
+    expect(
+      (await search(staff, "termine testflohmarkt")).find((h) => h.kind === "task")?.season?.href,
+    ).toBeNull();
   });
 
   it("an archived permit is not found", async () => {

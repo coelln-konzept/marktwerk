@@ -248,8 +248,10 @@ erDiagram
   template tracking (`customized`, `removed_from_template`).
   *(0022: **`season_id?`** → `event_season` (`on delete cascade`, index `(season_id, status)`): a task of a Saison
   record (`event_id` null), made by the season instantiation from `season` items, assigned through the market's
-  `default_duties`, due relative to the season anchors. Lists, digest and labels "<Markt> · Saison 2027" come with
-  Fahrplan R12/R13.)*
+  `default_duties`, due relative to the season anchors. Since R13 every task list carries the Saison (market name,
+  colour, year; `seasonContext()` in `apps/web/src/server/queries/season-context.ts`, `seasonContext(db)` in
+  `packages/jobs/src/shared.ts`) and labels it "<Markt> · Saison 2027" (UI key `tasks.seasonContext`, stored
+  German texts `seasonContextName`); the market-page panel is Fahrplan R12.)*
   *(0019, [ADR 0021](adr/0021-subtasks.md): **subtasks** use `parent_task_id` (`on delete set null`). One level: the
   trigger `task_one_level_subtasks` refuses a parent that is itself a subtask and a task with subtasks becoming one
   (check `task_not_own_parent` refuses itself); the services check first (`nestingProblem`: same event, parent not

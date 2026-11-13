@@ -1656,3 +1656,34 @@ test('Task drawer: subtasks are added with Enter, ticked off, and "Hauptaufgabe 
   await drawer.getByRole("button", { name: `„${title}“ löschen` }).click();
   await expect(drawer).toBeHidden();
 });
+
+test('Market page: the Saison panel shows its heading, its status (or "Saison anlegen") and its start', async ({
+  page,
+}) => {
+  await page.goto("/einstellungen/bibliothek");
+  const href = await page
+    .locator('a[href^="/vorlagen/"]:not([href*="/ablauf/"])')
+    .first()
+    .getAttribute("href");
+  expect(href).toMatch(/^\/vorlagen\/[0-9a-f-]{36}$/);
+  await page.goto(href as string);
+
+  const year = new Intl.DateTimeFormat("de-DE", {
+    year: "numeric",
+    timeZone: "Europe/Berlin",
+  }).format(new Date());
+  await expect(
+    page.getByRole("heading", { level: 2, name: `Saison ${year}`, exact: true }),
+  ).toBeVisible();
+  const panel = page.getByRole("region", { name: `Saison ${year}`, exact: true });
+  const create = panel.getByRole("button", { name: "Saison anlegen" });
+  if ((await create.count()) > 0) {
+    await expect(panel.getByText(`Noch keine Saison ${year}`)).toBeVisible();
+  } else {
+    // Status as colour + icon + text in the switch, and the start: the first date or "Erwartet ab …".
+    await expect(panel.getByRole("button", { name: /Status der Saison ändern/ })).toContainText(
+      /In Planung|Termine stehen|Abgeschlossen/,
+    );
+    await expect(panel.getByText(/^(Erster Termin|Erwartet ab) /).first()).toBeVisible();
+  }
+});

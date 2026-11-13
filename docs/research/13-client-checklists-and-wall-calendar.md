@@ -256,8 +256,11 @@ Progress (branch `feat/saison-backend`, 2026-11-13):
 | R9 | Season instantiation through the one instantiation path (season context); events skip season items | done |
 | R10 | Anchors recomputed on create/move/cancel/reopen/delete/undo; season tasks follow through `planTaskShift`/`shiftTasks` | done |
 | R11 | Season permits get `permit.season_id`; the season item with a `permit_type` is the one apply task (`linkPermitTasks`, core `seasonApplyDuplicates`); first-event rule kept as fallback; drawer lists "<Markt> · Saison 2027" (branch `feat/r11-season-permits`) | done |
+| R12 | Market-page Saison panel (`/vorlagen/<id>`): start / "Erwartet ab" (editable without dates), status switch with undo, season tasks, "Saison anlegen" (ux-concept §5 "Market page and its Saison panel") | done (branch `feat/r12-season-panel`) |
+| R13 | Season tasks in the lists (branch `feat/r13-season-in-lists`): Übersicht (one market bar per Saison), Kalender Aufgaben layer, board cards, task drawer (header links to `/vorlagen/<presetId>`), search, assignment, carry-over, reminders, escalations, notification center and digest name "<Markt> · Saison <Jahr>"; season Kernaufgaben stay out of Bereitschaft/Matrix | done |
+| R14 | Propagation | open |
+| R18 | Synthetic data and seed: a Saison record per market and year with anchors (core rules), season items with `scope = 'season'` on `season_start`, season tasks on the record (no "Saison:" prefix, keys `saison_…` kept), season permits with `season_id`; the interim first-event carrier is gone (branch `feat/r18-season-data`) | done |
 | R27 | Permit per market at shared places: a permit with a record covers only its market (`permitServesMarket` in `permitCovers`, fill + Markt planen preview); title names the market where a place has several; drawer offers only that market's dates | done |
-| R12–R14, R18 | Market-page panel, lists/Kalender/digest labels, propagation, synthetic data | open |
 
 Choices made while building R6–R10 that this section left open (to confirm with the product owner):
 1. **Week of next year** = the same ISO week and weekday; a date whose week position falls outside the season (KW 53,
@@ -275,7 +278,15 @@ Choices made while building R6–R10 that this section left open (to confirm wit
    through propagation (R14). A market without season items gets no (empty) season checklist.
 8. Moving an event into another year **creates that year's record** (`ensureEventSeason`, source `event_move`).
 9. A season date change does **not** send the `dates_shifted` notification yet (it links to an event); the audit
-   entry `season.anchors` records it. Revisit with the labels in R13.
+   entry `season.anchors` records it. Still open after R13 (the labels exist now; the notification itself is not
+   built).
+
+Choices made while building R13:
+1. The link to the market page (`/vorlagen/<presetId>`, which needs `template:write`) is shown to owners and managers
+   only; staff and field users see the label "<Markt> · Saison <Jahr>" without a link.
+2. Escalation titles name the task's event or Saison too ("Eskaliert: Termine planen · Flohmarkt Bilk · Saison 2027
+   ist seit 2 Tagen überfällig"), event tasks included, so the many "Termine planen" can be told apart.
+3. In "Überfällig" a Saison bar ranks like an item without a market (it has no first day yet).
 
 Choices made while building R11 and R27 (to confirm with the product owner):
 10. **Multi-year and standing permits** also get `season_id` = the record of the season they were made for. The

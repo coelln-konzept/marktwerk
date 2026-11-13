@@ -17,6 +17,22 @@ export type DueKind = (typeof DUE_KINDS)[number];
 export const DUE_URGENCIES = ["overdue", "today", "soon", "upcoming", "waiting"] as const;
 export type DueUrgency = (typeof DUE_URGENCIES)[number];
 
+/**
+ * The market and season of a season task (research 13 §6.3: `task.season_id`, no event). Lists label it
+ * "<Markt> · Saison <Jahr>" (message `tasks.seasonContext`) where an event task names its event, and link to the
+ * market page instead of an event page.
+ */
+export type TaskSeason = {
+  id: string;
+  /** The calendar year of the season. */
+  year: number;
+  presetId: string;
+  /** The market's (preset's) name. */
+  name: string;
+  /** The market page `/vorlagen/<presetId>`; null when the actor may not open it (it needs `template:write`). */
+  href: string | null;
+};
+
 export type DueItem = {
   kind: DueKind;
   id: string;
@@ -32,8 +48,13 @@ export type DueItem = {
   eventId?: string | null;
   /** Event type key (`flea`, …) for the colour marker when items are grouped by event. */
   eventTypeKey?: string | null;
-  /** Market colour of the event's preset (`MARKET_COLORS` key), null = use the type marker. */
+  /**
+   * Market colour of the event's preset (`MARKET_COLORS` key), null = use the type marker. For a season task the
+   * colour (and `eventTypeKey` the type) of its market.
+   */
   eventColor?: string | null;
+  /** Season tasks: their market and season; grouped per Saison like event tasks per event. */
+  season?: TaskSeason | null;
   /** Kernaufgabe: ranks first within its urgency group and gets the quiet key marker. */
   isKey?: boolean;
   /** First day of the event (`YYYY-MM-DD`); for a permit the next market that needs it. Orders "Überfällig". */
@@ -66,4 +87,6 @@ export type CalendarItem = {
   title: string;
   href: string;
   tone?: "ok" | "warn" | "critical" | "neutral";
+  /** Tasks layer: a season task's market and season (shown after the title, "<Markt> · Saison <Jahr>"). */
+  season?: TaskSeason | null;
 };
