@@ -98,10 +98,11 @@ export const CORE_STAFF_BLUEPRINTS: readonly StaffBlueprint[] = [
       hoursPerWeek: 30,
       validFrom: "2022-05-01",
     },
-    defaultDuties: ["setup_crew", "water_power"],
+    defaultDuties: ["setup_crew", "water_power", "traffic"],
     crew: true,
     hasEmail: false,
-    notes: "Leitet Aufbau und Abbau am Veranstaltungstag.",
+    notes:
+      "Leitet Aufbau und Abbau am Veranstaltungstag, regelt Absperrung und Verkehr mit der Verkehrssicherungsfirma.",
   },
 ];
 
@@ -120,7 +121,8 @@ export const FIELD_CREW_BLUEPRINTS: readonly StaffBlueprint[] = [
         hoursPerWeek: 8,
         validFrom: "2025-01-01",
       },
-      defaultDuties: [],
+      // The first Minijob person is the default Ordner; markets rotate the Ordner through the Minijob crew.
+      defaultDuties: index === 0 ? ["steward"] : [],
       crew: true,
       hasEmail: index % 3 === 0,
       notes: null,
@@ -137,10 +139,10 @@ export const FIELD_CREW_BLUEPRINTS: readonly StaffBlueprint[] = [
       hoursPerWeek: 10,
       validFrom: "2025-09-01",
     },
-    defaultDuties: [],
+    defaultDuties: ["night_watch"],
     crew: true,
     hasEmail: false,
-    notes: "Nur an Wochenenden verfügbar.",
+    notes: "Nur an Wochenenden verfügbar, übernimmt die Nachtwache zwischen zwei Markttagen.",
   },
   {
     key: "field_part_time",
@@ -153,10 +155,10 @@ export const FIELD_CREW_BLUEPRINTS: readonly StaffBlueprint[] = [
       hoursPerWeek: 15,
       validFrom: "2024-04-01",
     },
-    defaultDuties: [],
+    defaultDuties: ["briefing"],
     crew: true,
     hasEmail: false,
-    notes: null,
+    notes: "Weist die Aussteller:innen am Markttag ein.",
   },
 ];
 

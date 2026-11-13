@@ -1,9 +1,24 @@
+import { isMarketColor, validateSchedule } from "@marktwerk/core";
 import { beforeAll, describe, expect, it } from "vitest";
-import { MAX_EVENTS_PER_WEEKEND, minijobLimitCents, REFERENCE_DATE } from "./constants";
+import { MAX_EVENTS_PER_DAY, minijobLimitCents, REFERENCE_DATE } from "./constants";
 import { generateDataset } from "./dataset";
-import { OVERDUE_CURRENT, OVERDUE_LEFTOVERS } from "./generators/tasks";
+import { CLIENT_MARKET_PRESET_KEYS } from "./dictionaries/checklist-items";
+import { PRESET_BLUEPRINTS } from "./dictionaries/presets";
+import { scheduleSeason } from "./generators/events";
+import { DECISION_OVERDUE, linkedPermit } from "./generators/permits";
+import { clientMarketByPresetKey, OVERDUE_CURRENT, OVERDUE_LEFTOVERS } from "./generators/tasks";
 import { EXAMPLE_DOMAINS, FICTION_PHONE_PATTERN } from "./lib/fiction";
-import type { Dataset, EmploymentContract, Event, EventType, Payable, Task } from "./types";
+import { parseRRule } from "./lib/rrule";
+import type {
+  Dataset,
+  EmploymentContract,
+  Event,
+  EventType,
+  Payable,
+  Permit,
+  Task,
+  TemplateItem,
+} from "./types";
 
 const TIMEOUT = 120_000;
 const DAY_MS = 86_400_000;
@@ -36,22 +51,15 @@ function isoDay(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/** Saturday keys of every weekend an event touches (Sat or Sun). */
-function weekendKeys(startsOn: string, endsOn: string): string[] {
-  const keys = new Set<string>();
-  for (
-    let t = Date.parse(`${startsOn}T00:00:00Z`);
-    t <= Date.parse(`${endsOn}T00:00:00Z`);
-    t += DAY_MS
-  ) {
-    const day = new Date(t).getUTCDay();
-    if (day === 6) keys.add(isoDay(t));
-    if (day === 0) keys.add(isoDay(t - DAY_MS));
-  }
-  return [...keys];
+/** Markets per calendar day (every day of a multi-day event counts). */
+function loadPerDay(events: readonly Pick<Event, "startsOn" | "endsOn">[]): Map<string, number> {
+  const load = new Map<string, number>();
+  for (const event of events)
+    for (const day of eventDays(event)) load.set(day, (load.get(day) ?? 0) + 1);
+  return load;
 }
 
-function eventDays(event: Event): string[] {
+function eventDays(event: Pick<Event, "startsOn" | "endsOn">): string[] {
   const days: string[] = [];
   for (
     let t = Date.parse(`${event.startsOn}T00:00:00Z`);
@@ -62,6 +70,29 @@ function eventDays(event: Event): string[] {
   }
   return days;
 }
+
+/** The permit a task is linked to (the seed's `linkPermitTasks` rule): its item's permit type on its event. */
+function permitLinks(d: Dataset): (task: Task) => Permit | undefined {
+  const itemById = new Map<string, TemplateItem>(
+    d.checklistTemplates.flatMap((t) => t.items.map((i) => [i.id, i] as const)),
+  );
+  const permitById = new Map(d.permits.map((p) => [p.id, p]));
+  const byEvent = new Map<string, { permit: Permit; required: boolean }[]>();
+  for (const link of d.eventPermits) {
+    const permit = permitById.get(link.permitId);
+    if (!permit) continue;
+    byEvent.set(link.eventId, [
+      ...(byEvent.get(link.eventId) ?? []),
+      { permit, required: link.required },
+    ]);
+  }
+  return (task) => {
+    const type = itemById.get(task.templateItemId)?.permitType;
+    return type ? linkedPermit(byEvent.get(task.eventId) ?? [], type) : undefined;
+  };
+}
+
+const FILED = new Set(["applied", "granted"]);
 
 /* ------------------------------------------------------------ determinism */
 
@@ -103,11 +134,22 @@ describe("catalogue", () => {
     expect(keys).toEqual(["antique", "city_festival", "flea", "food_wine"]);
   });
 
-  it("has 12 venues in the Rhineland with zones and rows", () => {
-    expect(data.venues).toHaveLength(12);
+  it("has the 10 places of the markets (Köln, Kerpen, Rösrath) with zones and rows", () => {
+    expect(data.venues).toHaveLength(10);
+    expect(new Set(data.venues.map((venue) => venue.city))).toEqual(
+      new Set(["Köln", "Kerpen", "Rösrath"]),
+    );
+    expect(new Set(data.venues.map((venue) => venue.kind))).toEqual(
+      new Set(["municipal", "private"]),
+    );
+    // Places named only by their address get the name the app derives from it.
+    expect(data.venues.map((venue) => venue.name)).toContain("Köln – Riehler Gürtel");
+    const stadion = data.venues.find((venue) => venue.name === "RheinEnergie Stadion");
+    expect(stadion?.zones.map((zone) => zone.name)).toEqual(["Vorplatz", "P6"]);
     for (const venue of data.venues) {
       expect(venue.zones.length).toBeGreaterThanOrEqual(2);
-      expect(venue.zones.length).toBeLessThanOrEqual(5);
+      expect(venue.zones.length).toBeLessThanOrEqual(4);
+      if (venue.kind === "private") expect(venue.landownerContactId).not.toBeNull();
       expect(venue.capacityCm).toBe(
         venue.zones.reduce((sum, zone) => sum + zone.rows.reduce((s, r) => s + r.lengthCm, 0), 0),
       );
@@ -125,11 +167,20 @@ describe("catalogue", () => {
     ]);
   });
 
-  it("uses German checklist templates with 25–40 items each", () => {
-    expect(data.checklistTemplates).toHaveLength(4);
+  it("has one Grundvorlage and an own published template for every market", () => {
+    const masters = data.checklistTemplates.filter((t) => t.isMaster);
+    expect(masters).toHaveLength(1);
+    expect(masters[0]?.name).toBe("Grundvorlage");
+    expect(masters[0]?.ownerPresetId).toBeNull();
+    expect(data.checklistTemplates).toHaveLength(data.eventPresets.length + 1);
+    for (const preset of data.eventPresets) {
+      const own = data.checklistTemplates.find((t) => t.id === preset.checklistTemplateId);
+      expect(own?.ownerPresetId).toBe(preset.id);
+      expect(own?.eventTypeId).toBe(preset.eventTypeId);
+    }
     for (const template of data.checklistTemplates) {
-      expect(template.items.length).toBeGreaterThanOrEqual(25);
-      expect(template.items.length).toBeLessThanOrEqual(40);
+      expect(template.items.length).toBeGreaterThanOrEqual(15);
+      expect(template.items.length).toBeLessThanOrEqual(60);
       expect(template.version).toBe(1);
       expect(template.status).toBe("published");
     }
@@ -229,11 +280,21 @@ describe("referential integrity", () => {
         data.eventAnchors.map((a) => a.eventId),
         eventIds,
       ),
-      checklistTemplates: unresolved(
-        data.checklistTemplates.map((t) => t.eventTypeId),
-        eventTypeIds,
-      ),
+      checklistTemplates: [
+        ...unresolved(
+          data.checklistTemplates.map((t) => t.eventTypeId),
+          eventTypeIds,
+        ),
+        ...unresolved(
+          data.checklistTemplates.map((t) => t.ownerPresetId),
+          presetIds,
+        ),
+      ],
       tasks: [
+        ...unresolved(
+          data.tasks.map((t) => t.parentTaskId),
+          idsOf(data.tasks),
+        ),
         ...unresolved(
           data.tasks.map((t) => t.eventId),
           eventIds,
@@ -263,6 +324,10 @@ describe("referential integrity", () => {
         ...unresolved(
           data.permitRequirements.map((r) => r.authorityContactId),
           contactIds,
+        ),
+        ...unresolved(
+          data.permitRequirements.map((r) => r.eventTypeId),
+          eventTypeIds,
         ),
       ],
       permits: [
@@ -396,15 +461,8 @@ describe("referential integrity", () => {
 /* -------------------------------------------------------------- scheduling */
 
 describe("events and scheduling", () => {
-  it("has at most four events touching any weekend", () => {
-    const counts = new Map<string, number>();
-    for (const event of data.events) {
-      for (const saturday of weekendKeys(event.startsOn, event.endsOn)) {
-        counts.set(saturday, (counts.get(saturday) ?? 0) + 1);
-      }
-    }
-    const worst = Math.max(...counts.values());
-    expect(worst).toBeLessThanOrEqual(MAX_EVENTS_PER_WEEKEND);
+  it("has at most three markets on any day", () => {
+    expect(Math.max(...loadPerDay(data.events).values())).toBeLessThanOrEqual(MAX_EVENTS_PER_DAY);
   });
 
   it("never double-books a venue on the same day", () => {
@@ -439,19 +497,176 @@ describe("events and scheduling", () => {
     for (const event of cancelled) expect(event.cancelledReason).not.toBeNull();
   });
 
-  it("gives every event three anchors with the booking cut-off on the Monday before", () => {
-    expect(data.eventAnchors).toHaveLength(data.events.length * 3);
+  it("gives every event four anchors with the booking cut-off on the Monday before", () => {
+    expect(data.eventAnchors).toHaveLength(data.events.length * 4);
     for (const event of data.events) {
       const anchors = data.eventAnchors.filter((a) => a.eventId === event.id);
       const eventDay = anchors.find((a) => a.key === "eventDay");
+      const setupDay = anchors.find((a) => a.key === "setupDay");
+      const teardownDay = anchors.find((a) => a.key === "teardownDay");
       const cutoff = anchors.find((a) => a.key === "bookingCutoff");
       expect(eventDay?.date).toBe(event.startsOn);
+      expect(teardownDay?.date).toBe(event.endsOn);
+      expect(setupDay?.date).toBe(
+        event.startsOn === event.endsOn ? event.startsOn : daysAfter(event.startsOn, -1),
+      );
       expect(cutoff).toBeDefined();
       if (cutoff) {
         expect(new Date(`${cutoff.date}T00:00:00Z`).getUTCDay()).toBe(1);
         expect(cutoff.date < event.startsOn).toBe(true);
       }
     }
+  });
+});
+
+/* ------------------------------------------------- markets and wall calendar */
+
+/** The 2027 dates read from the office's wall calendar (research 13 §2.2): [first day, last day]. */
+const WALL_CALENDAR_2027: Record<string, [string, string][]> = {
+  nippes: [
+    "01-17",
+    "02-21",
+    "03-21",
+    "04-25",
+    "05-23",
+    "06-20",
+    "07-18",
+    "08-22",
+    "09-19",
+    "10-17",
+    "11-28",
+  ].map((d) => [d, d]),
+  "riehler-guertel": ["04-11", "05-09", "06-13", "07-11", "08-08", "09-05", "10-03", "11-07"].map(
+    (d) => [d, d],
+  ),
+  suedbruecke: ["03-07", "04-11", "05-09", "06-06", "07-04", "08-08", "09-12", "10-10"].map((d) => [
+    d,
+    d,
+  ]),
+  altstadt: [
+    ["03-27", "03-29"],
+    ["05-15", "05-17"],
+    ["06-26", "06-27"],
+    ["07-24", "07-25"],
+    ["08-28", "08-29"],
+    ["09-25", "09-26"],
+    ["10-30", "10-31"],
+  ],
+  stadion: ["03-14", "04-18", "05-30"].map((d) => [d, d]),
+  "stadion-p6": ["04-04", "05-06", "06-13", "07-18"].map((d) => [d, d]),
+  suedstadt: ["04-18", "05-27", "06-20"].map((d) => [d, d]),
+  rudolfplatz: [
+    ["03-05", "03-07"],
+    ["09-17", "09-19"],
+  ],
+  "kerpen-weintage": [["07-22", "07-25"]],
+  "rodenkirchen-hauptstrasse": [["05-15", "05-16"]],
+  hoffnungsthal: [["09-12", "09-12"]],
+};
+
+describe("markets and the wall calendar", () => {
+  it("has the 16 Coelln Konzept series plus Hoffnungsthal, with the keys other parts rely on", () => {
+    expect(data.eventPresets).toHaveLength(17);
+    const keys = data.eventPresets.map((p) => p.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const key of ["altstadt", "riehler-guertel", "nippes", "hoffnungsthal"])
+      expect(keys).toContain(key);
+    // Shared places: Stadion (Vorplatz + P6), Altstadt (+ Lifestyle), Rodenkirchen (3), Kerpen (4).
+    const perVenue = new Map<string, number>();
+    for (const preset of data.eventPresets)
+      perVenue.set(preset.venueId, (perVenue.get(preset.venueId) ?? 0) + 1);
+    expect([...perVenue.values()].sort()).toEqual([1, 1, 1, 1, 1, 1, 2, 2, 3, 4]);
+  });
+
+  it("gives every market a colour, its type's rules (changed where it differs) and a valid Zeitplan", () => {
+    const typeById = new Map(data.eventTypes.map((t) => [t.id, t]));
+    for (const preset of data.eventPresets) {
+      expect(isMarketColor(preset.color)).toBe(true);
+      if (preset.rrule !== null) expect(() => parseRRule(preset.rrule ?? "")).not.toThrow();
+      const type = typeById.get(preset.eventTypeId);
+      expect(Object.keys(preset.rules).sort()).toEqual(Object.keys(type?.rules ?? {}).sort());
+      expect(validateSchedule(preset.schedule, preset.durationDays)).toEqual([]);
+      expect(preset.schedule.some((r) => r.audience === "vendors" && r.kind === "setup")).toBe(
+        true,
+      );
+      expect(preset.schedule.some((r) => r.audience === "vendors" && r.kind === "teardown")).toBe(
+        true,
+      );
+    }
+    const lifestyle = data.eventPresets.find((p) => p.key === "altstadt-lifestyle");
+    expect(lifestyle?.rules.newGoodsMaxShare).toBe(0.6);
+    // Multi-day Altstadt: some vendors leave early on the last morning, the team builds up the day before.
+    const altstadt = data.eventPresets.find((p) => p.key === "altstadt");
+    expect(
+      altstadt?.schedule.filter((r) => r.audience === "vendors" && r.kind === "teardown"),
+    ).toHaveLength(2);
+    expect(altstadt?.schedule.some((r) => r.day === "before")).toBe(true);
+  });
+
+  it("copies the market's Zeitplan into its events (an hour later in winter on single days)", () => {
+    const presetById = new Map(data.eventPresets.map((p) => [p.id, p]));
+    for (const event of data.events) {
+      const preset = presetById.get(event.presetId);
+      const days = eventDays(event).length;
+      expect(validateSchedule(event.schedule, days)).toEqual([]);
+      const winter = days === 1 && ["01", "02", "11", "12"].includes(event.startsOn.slice(5, 7));
+      if (!winter) expect(event.schedule).toEqual(preset?.schedule);
+      else expect(event.schedule).not.toEqual(preset?.schedule);
+    }
+  });
+
+  it("reproduces every 2027 date of the wall calendar", () => {
+    const placed = scheduleSeason(PRESET_BLUEPRINTS, 2027);
+    for (const [key, dates] of Object.entries(WALL_CALENDAR_2027)) {
+      const actual = placed
+        .filter((date) => date.presetKey === key)
+        .map((date) => [date.startsOn.slice(5), date.endsOn.slice(5)]);
+      expect(actual, key).toEqual(dates);
+    }
+    // The dataset's next season is that 2027.
+    const nippes = data.eventPresets.find((p) => p.key === "nippes");
+    expect(
+      data.events
+        .filter((e) => e.presetId === nippes?.id && e.season === 2027)
+        .map((e) => e.startsOn.slice(5)),
+    ).toEqual(WALL_CALENDAR_2027.nippes?.map(([start]) => start));
+  });
+
+  it.each([2026, 2027, 2028, 2029, 2030])("plans a realistic season %i", (year) => {
+    const placed = scheduleSeason(PRESET_BLUEPRINTS, year);
+    // Every rule's date finds a place, 60–70 events, January to November.
+    const wanted = PRESET_BLUEPRINTS.reduce((sum, p) => sum + p.dates.length, 0);
+    expect(placed).toHaveLength(wanted);
+    expect(placed.length).toBeGreaterThanOrEqual(60);
+    expect(placed.length).toBeLessThanOrEqual(70);
+    for (const date of placed) {
+      expect(date.endsOn.slice(0, 4)).toBe(String(year));
+      expect(date.endsOn.slice(5, 7) <= "11").toBe(true);
+    }
+    // 1–3 markets per day, most dates start on a Sunday, Thursdays only on holidays or Do–So.
+    expect(Math.max(...loadPerDay(placed).values())).toBeLessThanOrEqual(MAX_EVENTS_PER_DAY);
+    const weekdays = placed.map((date) => new Date(`${date.startsOn}T00:00:00Z`).getUTCDay());
+    expect(weekdays.filter((day) => day === 0).length / placed.length).toBeGreaterThan(0.75);
+    expect(weekdays.every((day) => [0, 4, 5, 6].includes(day))).toBe(true);
+    // The same market and the same place never twice on one day.
+    const venueOf = new Map(PRESET_BLUEPRINTS.map((p) => [p.key, p.venueKey]));
+    const seen = new Set<string>();
+    for (const date of placed)
+      for (const day of eventDays(date)) {
+        const key = `${venueOf.get(date.presetKey)}|${day}`;
+        expect(seen.has(key), key).toBe(false);
+        seen.add(key);
+      }
+  });
+
+  it("keeps markets off Whit Sunday, Volkstrauertag and Totensonntag unless the holiday is the point", () => {
+    // 2026: Whit Sunday 24 May, Volkstrauertag 15 Nov, Totensonntag 22 Nov; 2027: 16 May, 14 Nov, 21 Nov.
+    const blocked = ["2026-05-24", "2026-11-15", "2026-11-22", "2027-11-14", "2027-11-21"];
+    const holidayMarkets = new Set(["altstadt", "rodenkirchen-hauptstrasse"]);
+    for (const year of [2026, 2027])
+      for (const date of scheduleSeason(PRESET_BLUEPRINTS, year))
+        if (!holidayMarkets.has(date.presetKey))
+          for (const day of eventDays(date)) expect(blocked, date.presetKey).not.toContain(day);
   });
 });
 
@@ -466,8 +681,13 @@ describe("tasks", () => {
 
   it("leaves open only the few overdue tasks: OVERDUE_CURRENT on current markets, OVERDUE_LEFTOVERS on the last past one", () => {
     const today = `${REFERENCE_DATE}T00:00:00.000Z`;
+    // Lists count top-level tasks; an overdue subtask shows on its parent (ADR 0021).
     const overdue = data.tasks.filter(
-      (task) => task.dueAt < today && open(task) && task.status !== "waiting_external",
+      (task) =>
+        task.parentTaskId === null &&
+        task.dueAt < today &&
+        open(task) &&
+        task.status !== "waiting_external",
     );
     const current = overdue.filter(
       (task) => (eventById.get(task.eventId)?.endsOn ?? "") >= REFERENCE_DATE,
@@ -507,11 +727,18 @@ describe("tasks", () => {
     }
   });
 
-  it("puts future tasks in todo or in progress, never done", () => {
+  it("puts future top-level tasks in todo or in progress, never done (subtasks may be done early)", () => {
+    const today = `${REFERENCE_DATE}T00:00:00.000Z`;
+    const permitOf = permitLinks(data);
     for (const task of data.tasks) {
-      if (task.dueAt >= `${REFERENCE_DATE}T00:00:00.000Z` && task.status !== "cancelled") {
-        expect(["todo", "in_progress", "waiting_external"]).toContain(task.status);
+      if (task.parentTaskId === null && task.dueAt >= today && task.status !== "cancelled") {
+        // A task that applies for a permit is done once that permit is filed, even before it is due.
+        const filed = FILED.has(permitOf(task)?.status ?? "");
+        expect(filed ? ["done"] : ["todo", "in_progress", "waiting_external"]).toContain(
+          task.status,
+        );
       }
+      if (task.completedAt !== null) expect(task.completedAt < today).toBe(true);
     }
   });
 
@@ -522,20 +749,203 @@ describe("tasks", () => {
       ),
     );
     expect([...keyKeys].sort()).toEqual(
-      [
-        "buchungsliste",
-        "flyer_drucken",
-        "halteverbot_beantragen",
-        "marktgenehmigung",
-        "muell_bestellen",
-        "plakatierung",
-        "standrohr_reservieren",
-        "termin_website",
-        "toiletten_bestaetigen",
-      ].sort(),
+      ["bringto_einladen", "saison_genehmigung", "saison_termine_planen", "schichtplan"].sort(),
     );
     for (const task of data.tasks) expect(task.isKey).toBe(keyKeys.has(task.templateStableKey));
     expect(data.tasks.some((task) => task.isKey)).toBe(true);
+  });
+
+  it("has about 15–25 tasks per event on average, subtasks included", () => {
+    const perEvent = new Map<string, number>();
+    for (const task of data.tasks)
+      perEvent.set(task.eventId, (perEvent.get(task.eventId) ?? 0) + 1);
+    expect(perEvent.size).toBe(data.events.length);
+    const average = data.tasks.length / data.events.length;
+    expect(average).toBeGreaterThanOrEqual(15);
+    expect(average).toBeLessThanOrEqual(25);
+    expect(Math.min(...perEvent.values())).toBeGreaterThanOrEqual(10);
+    expect(Math.max(...perEvent.values())).toBeLessThanOrEqual(60);
+    expect(data.tasks.filter((task) => task.parentTaskId !== null).length).toBeGreaterThan(
+      data.events.length * 3,
+    );
+  });
+});
+
+/* ------------------------------------------------- templates and subtasks */
+
+describe("templates and subtasks (ADR 0021)", () => {
+  const open = (task: Task): boolean => !["done", "skipped", "cancelled"].includes(task.status);
+  const itemsOf = (presetKey: string) => {
+    const preset = data.eventPresets.find((p) => p.key === presetKey);
+    return data.checklistTemplates.find((t) => t.id === preset?.checklistTemplateId)?.items ?? [];
+  };
+
+  it("nests child items one level deep, right below a parent of the same template", () => {
+    for (const template of data.checklistTemplates) {
+      const byKey = new Map(template.items.map((i) => [i.stableKey, i]));
+      expect(byKey.size).toBe(template.items.length);
+      for (const item of template.items) {
+        if (item.parentKey === null) {
+          expect(item.dutyRoleKey).not.toBeNull();
+          expect(item.ownDue).toBe(false);
+          continue;
+        }
+        const parent = byKey.get(item.parentKey);
+        expect(parent, `${template.name}: ${item.stableKey}`).toBeDefined();
+        expect(parent?.parentKey).toBeNull();
+        expect(item.sort).toBeGreaterThan(parent?.sort ?? Number.POSITIVE_INFINITY);
+        expect(item.phase).toBe(parent?.phase);
+        expect(item.scope).toBe(parent?.scope);
+        if (!item.ownDue) {
+          expect(item.anchorKey).toBe(parent?.anchorKey);
+          expect(item.offsetDays).toBe(parent?.offsetDays);
+          expect(item.dueTime).toBe(parent?.dueTime);
+        }
+      }
+      expect(template.items.map((i) => i.sort)).toEqual(template.items.map((_, n) => n + 1));
+    }
+  });
+
+  it("builds the Grundvorlage from the core of the client's sheets", () => {
+    const master = data.checklistTemplates.find((t) => t.isMaster);
+    expect(master?.items.filter((i) => i.parentKey === null).map((i) => i.stableKey)).toEqual([
+      "saison_termine_planen",
+      "saison_genehmigung",
+      "schichtplan",
+      "einzeichnen",
+      "bringto_einladen",
+      "einweisen",
+      "tageswache_ordner",
+      "nachkassieren",
+      "flyer_verteilen",
+      "reinigung",
+      "nachbereitung",
+    ]);
+    expect(master?.items.find((i) => i.stableKey === "saison_genehmigung")?.permitType).toBe(
+      "market_permit",
+    );
+    expect(
+      master?.items.find((i) => i.stableKey === "saison_genehmigung__festsetzung")?.permitType,
+    ).toBe("market_fixing");
+  });
+
+  it("gives the four client markets their own sheets and marks assumptions on every other market", () => {
+    const clients = clientMarketByPresetKey(data.eventPresets.map((p) => p.key));
+    const presetKeyOf = (market: string) =>
+      [...clients].find(([, client]) => client === market)?.[0] ?? "";
+    const clientKeys = [...clients.keys()];
+    expect(clientKeys).toHaveLength(4);
+    const altstadt = itemsOf(presetKeyOf("altstadt"));
+    expect(altstadt.map((i) => i.stableKey)).toEqual(
+      expect.arrayContaining(["nachtwache", "leihstaende_abbauen", "reinigung"]),
+    );
+    expect(altstadt.find((i) => i.stableKey === "saison_genehmigung")?.offsetDays).toBe(-210);
+    expect(altstadt.find((i) => i.stableKey === "reinigung")?.anchorKey).toBe("teardownDay");
+    expect(itemsOf(presetKeyOf("nippes")).find((i) => i.stableKey === "einzeichnen")?.phase).toBe(
+      "live",
+    );
+    expect(itemsOf(presetKeyOf("riehler-guertel")).map((i) => i.stableKey)).toContain(
+      "pvbt_werbung_aufhaengen",
+    );
+    expect(itemsOf(presetKeyOf("hoffnungsthal")).map((i) => i.stableKey)).toEqual(
+      expect.arrayContaining(["drk_anfragen", "druckwerbung", "pvbt_aufstellen"]),
+    );
+    const masterKeys = new Set(
+      data.checklistTemplates.find((t) => t.isMaster)?.items.map((i) => i.stableKey),
+    );
+    for (const template of data.checklistTemplates) {
+      if (template.isMaster) continue;
+      const preset = data.eventPresets.find((p) => p.id === template.ownerPresetId);
+      const client = clientKeys.includes(preset?.key ?? "");
+      expect(template.source).toBe(client ? "client_checklist" : "master_copy");
+      const added = template.items.filter(
+        (i) => i.parentKey === null && !masterKeys.has(i.stableKey),
+      );
+      expect(added.length).toBeGreaterThan(0);
+      for (const item of added) {
+        if (client) expect(item.description ?? "").not.toMatch(/^Annahme/);
+        else expect(item.description).toBe("Annahme – vom Team noch nicht bestätigt");
+      }
+    }
+  });
+
+  it("puts market-day lines in the live phase, on a market day", () => {
+    for (const template of data.checklistTemplates) {
+      for (const item of template.items.filter((i) => i.phase === "live")) {
+        expect(item.offsetDays).toBe(0);
+        expect(["eventDay", "teardownDay"]).toContain(item.anchorKey);
+      }
+    }
+  });
+
+  it("makes subtasks only under top-level tasks of the same event, from the parent item's children", () => {
+    const byId = new Map(data.tasks.map((t) => [t.id, t]));
+    const itemById = new Map(
+      data.checklistTemplates.flatMap((t) => t.items.map((i) => [i.id, i] as const)),
+    );
+    for (const task of data.tasks) {
+      const item = itemById.get(task.templateItemId);
+      if (task.parentTaskId === null) {
+        expect(item?.parentKey).toBeNull();
+        continue;
+      }
+      const parent = byId.get(task.parentTaskId);
+      expect(parent?.parentTaskId).toBeNull();
+      expect(parent?.eventId).toBe(task.eventId);
+      expect(item?.parentKey).toBe(parent?.templateStableKey);
+      if (item && !item.ownDue) expect(task.dueAt).toBe(parent?.dueAt);
+      if (item?.dutyRoleKey === null) expect(task.dutyRoleId).toBe(parent?.dutyRoleId);
+    }
+    // every parent gets all its children
+    const childCount = new Map<string, number>();
+    for (const task of data.tasks)
+      if (task.parentTaskId)
+        childCount.set(task.parentTaskId, (childCount.get(task.parentTaskId) ?? 0) + 1);
+    for (const task of data.tasks) {
+      if (task.parentTaskId !== null) continue;
+      const item = itemById.get(task.templateItemId);
+      const template = data.checklistTemplates.find((t) => t.items.some((i) => i.id === item?.id));
+      const expected = template?.items.filter((i) => i.parentKey === item?.stableKey).length ?? 0;
+      expect(childCount.get(task.id) ?? 0).toBe(expected);
+    }
+  });
+
+  it("never has a done task with open subtasks, and open parents have some subtasks done", () => {
+    const children = new Map<string, Task[]>();
+    for (const task of data.tasks)
+      if (task.parentTaskId)
+        children.set(task.parentTaskId, [...(children.get(task.parentTaskId) ?? []), task]);
+    let openParentsWithDone = 0;
+    for (const task of data.tasks) {
+      const subs = children.get(task.id) ?? [];
+      if (subs.length === 0) continue;
+      if (task.status === "done") {
+        expect(subs.filter(open)).toEqual([]);
+        for (const sub of subs)
+          expect((sub.completedAt ?? "") <= (task.completedAt ?? "")).toBe(true);
+      }
+      if (task.status === "cancelled") for (const sub of subs) expect(sub.status).toBe("cancelled");
+      if (open(task) && subs.some((sub) => sub.status === "done")) openParentsWithDone += 1;
+    }
+    expect(openParentsWithDone).toBeGreaterThan(0);
+  });
+
+  it("creates the interim season tasks only on the first event of each series per season", () => {
+    const seasonTasks = data.tasks.filter((t) => t.templateStableKey.startsWith("saison_"));
+    for (const task of seasonTasks) {
+      expect(task.title.startsWith("Saison: ") || task.parentTaskId !== null).toBe(true);
+    }
+    const carrierIds = new Set(seasonTasks.map((t) => t.eventId));
+    const firstBySeries = new Map<string, Event>();
+    for (const event of data.events) {
+      if (event.status === "cancelled") continue;
+      const key = `${event.presetId}|${event.season}`;
+      const first = firstBySeries.get(key);
+      if (!first || event.startsOn < first.startsOn) firstBySeries.set(key, event);
+    }
+    expect(carrierIds).toEqual(new Set([...firstBySeries.values()].map((e) => e.id)));
+    // two season tasks (Termine planen, Genehmigung) per series and season
+    expect(seasonTasks.filter((t) => t.parentTaskId === null)).toHaveLength(firstBySeries.size * 2);
   });
 });
 
@@ -543,7 +953,7 @@ describe("tasks", () => {
 
 describe("permits", () => {
   it("gives Köln Altstadt a submission window with an expected January decision", () => {
-    const altstadt = data.venues.find((venue) => venue.name === "Köln Altstadt – Heumarkt");
+    const altstadt = data.venues.find((venue) => venue.name.startsWith("Köln Altstadt"));
     const requirement = data.permitRequirements.find(
       (r) => r.venueId === altstadt?.id && r.permitType === "market_permit",
     );
@@ -556,10 +966,21 @@ describe("permits", () => {
     expect(nextPermit?.expectedDecisionOn).toBe(`${SEASON + 1}-01-15`);
   });
 
-  it("grants current-season permits except the deliberately late ones, and only granted ones have a grant date", () => {
+  it("grants current-season permits except the late examples and upcoming dates, and only granted ones have a grant date", () => {
+    const eventById = new Map(data.events.map((e) => [e.id, e]));
+    const lastCovered = new Map<string, string>();
+    for (const link of data.eventPermits) {
+      const end = eventById.get(link.eventId)?.endsOn ?? "";
+      if (end > (lastCovered.get(link.permitId) ?? "")) lastCovered.set(link.permitId, end);
+    }
     const current = data.permits.filter((p) => p.season === SEASON);
-    const notGranted = current.filter((p) => p.status !== "granted");
-    expect(notGranted.length).toBeLessThanOrEqual(2);
+    // Not granted yet: the late examples (not filed), the overdue decisions, and dates still ahead.
+    const notGranted = current.filter(
+      (p) => p.status !== "granted" && (lastCovered.get(p.id) ?? "") < REFERENCE_DATE,
+    );
+    expect(notGranted).toEqual([]);
+    const pending = current.filter((p) => p.status !== "granted");
+    expect(pending.length).toBeLessThanOrEqual(current.length * 0.15);
     for (const permit of data.permits) {
       if (permit.status === "granted") expect(permit.grantedAt).not.toBeNull();
       else expect(permit.grantedAt).toBeNull();
@@ -568,7 +989,7 @@ describe("permits", () => {
 
   it("links external permits only where the ground is not public", () => {
     const publicVenues = new Set(
-      data.venues.filter((v) => v.kind === "outdoor_public").map((v) => v.id),
+      data.venues.filter((v) => v.kind === "municipal").map((v) => v.id),
     );
     const landowner = data.permitRequirements.filter((r) => r.permitType === "landowner_ok");
     expect(landowner.length).toBeGreaterThan(0);
@@ -581,6 +1002,300 @@ describe("permits", () => {
     );
     expect(signage.length).toBeGreaterThan(0);
     for (const permit of signage) expect(permit.deliverablesReceived.stickers).toBe(100);
+  });
+});
+
+/* ------------------------------------------- permits per market (R19, part C) */
+
+describe("permits per market (research 13 §4)", () => {
+  const presetByKey = (key: string) => data.eventPresets.find((p) => p.key === key);
+  const venueOf = (presetKey: string) =>
+    data.venues.find((v) => v.id === presetByKey(presetKey)?.venueId);
+  /** Permits linked to the events of one market (preset), by type. */
+  const permitsOf = (presetKey: string, type: Permit["permitType"]) => {
+    const preset = presetByKey(presetKey);
+    const eventIds = new Set(data.events.filter((e) => e.presetId === preset?.id).map((e) => e.id));
+    const linked = new Set(
+      data.eventPermits.filter((l) => eventIds.has(l.eventId)).map((l) => l.permitId),
+    );
+    return data.permits.filter((p) => linked.has(p.id) && p.permitType === type);
+  };
+  const seasonsOf = (presetKey: string) =>
+    [
+      ...new Set(
+        data.events
+          .filter((e) => e.presetId === presetByKey(presetKey)?.id && e.status !== "cancelled")
+          .map((e) => e.season),
+      ),
+    ].sort();
+
+  it("gives every municipal market a Marktgenehmigung and a Festsetzung per season, private ones a landowner OK", () => {
+    for (const preset of data.eventPresets) {
+      const venue = venueOf(preset.key);
+      const seasons = seasonsOf(preset.key);
+      const fixing = permitsOf(preset.key, "market_fixing");
+      expect(fixing.map((p) => p.season).sort(), `${preset.key} Festsetzung`).toEqual(seasons);
+      if (venue?.kind === "municipal") {
+        const market = permitsOf(preset.key, "market_permit");
+        expect(market.map((p) => p.season).sort(), `${preset.key} Marktgenehmigung`).toEqual(
+          seasons,
+        );
+        expect(permitsOf(preset.key, "landowner_ok")).toEqual([]);
+      } else {
+        expect(permitsOf(preset.key, "market_permit"), preset.key).toEqual([]);
+        const landowner = permitsOf(preset.key, "landowner_ok");
+        expect(landowner.map((p) => p.season).sort(), `${preset.key} Eigentümer`).toEqual(seasons);
+        for (const permit of landowner)
+          expect(permit.authorityContactId).toBe(venue?.landownerContactId);
+      }
+    }
+  });
+
+  it("keeps a market's season permits to that market's dates, even where markets share a place", () => {
+    const eventById = new Map(data.events.map((e) => [e.id, e]));
+    const presetsByPermit = new Map<string, Set<string>>();
+    for (const link of data.eventPermits) {
+      const presetId = eventById.get(link.eventId)?.presetId ?? "";
+      const set = presetsByPermit.get(link.permitId) ?? new Set<string>();
+      presetsByPermit.set(link.permitId, set.add(presetId));
+    }
+    for (const permit of data.permits) {
+      if (!["market_permit", "market_fixing", "landowner_ok"].includes(permit.permitType)) continue;
+      expect(presetsByPermit.get(permit.id)?.size, permit.title).toBe(1);
+    }
+    // Rodenkirchen hosts three markets: each has its own Festsetzung per season, named after it
+    const rodenkirchen = data.eventPresets.filter((p) => p.key.startsWith("rodenkirchen-"));
+    expect(rodenkirchen).toHaveLength(3);
+    for (const preset of rodenkirchen) {
+      const own = permitsOf(preset.key, "market_fixing");
+      expect(own.length).toBeGreaterThan(0);
+      for (const permit of own) expect(permit.title.endsWith(`– ${preset.name}`)).toBe(true);
+    }
+  });
+
+  it("follows the client's sheets: PVBT, Plakatierung, Standrohr, Schaustellerliste, Verkehr", () => {
+    const hoffnungsthal = seasonsOf("hoffnungsthal");
+    const events = data.events.filter(
+      (e) => e.presetId === presetByKey("hoffnungsthal")?.id && e.status !== "cancelled",
+    );
+    // PVBT (96 h), the standpipe and the Schaustellerliste go per date, the rest per season
+    expect(permitsOf("hoffnungsthal", "no_parking")).toHaveLength(events.length);
+    expect(permitsOf("hoffnungsthal", "no_parking")[0]?.title).toMatch(/PVBT/);
+    expect(permitsOf("hoffnungsthal", "water")).toHaveLength(events.length);
+    expect(
+      permitsOf("hoffnungsthal", "signage")
+        .map((p) => p.season)
+        .sort(),
+    ).toEqual(hoffnungsthal);
+    expect(permitsOf("hoffnungsthal", "traffic_order")).toHaveLength(hoffnungsthal.length);
+    const schausteller = permitsOf("hoffnungsthal", "other");
+    expect(schausteller).toHaveLength(events.length);
+    expect(schausteller[0]?.title).toMatch(/Schaustellerliste/);
+    // school toilets instead of a toilet contract
+    expect(permitsOf("hoffnungsthal", "toilets")).toEqual([]);
+
+    expect(permitsOf("riehler-guertel", "no_parking").length).toBeGreaterThan(0);
+    expect(permitsOf("riehler-guertel", "signage").length).toBeGreaterThan(0);
+    expect(permitsOf("riehler-guertel", "traffic_order").length).toBeGreaterThan(0);
+    expect(permitsOf("altstadt", "traffic_order").length).toBeGreaterThan(0);
+    expect(permitsOf("altstadt", "water").length).toBeGreaterThan(0);
+    // Nippes is a square: no PVBT on its sheet
+    expect(permitsOf("nippes", "no_parking")).toEqual([]);
+  });
+
+  it("keeps the Altstadt's collective application for the Marktgenehmigung and the Festsetzung", () => {
+    const altstadt = venueOf("altstadt");
+    for (const type of ["market_permit", "market_fixing"] as const) {
+      const requirement = data.permitRequirements.find(
+        (r) => r.venueId === altstadt?.id && r.permitType === type,
+      );
+      expect(requirement?.submissionWindowEndMd, type).toBe("11-30");
+    }
+  });
+
+  it("has next season's permits mostly not decided yet, with a couple of overdue decisions", () => {
+    const next = data.permits.filter((p) => p.season === SEASON + 1);
+    const statuses = new Set(next.map((p) => p.status));
+    for (const status of ["not_started", "preparing", "applied"] as const)
+      expect(statuses.has(status), status).toBe(true);
+    expect(next.filter((p) => p.status === "granted").length).toBeLessThan(next.length / 2);
+    const overdue = data.permits.filter(
+      (p) => p.status === "applied" && (p.expectedDecisionOn ?? "") <= REFERENCE_DATE,
+    );
+    expect(overdue).toHaveLength(DECISION_OVERDUE);
+    for (const permit of overdue) expect(permit.notes ?? "").toMatch(/nachfragen/);
+  });
+
+  it("turns a granted Festsetzung into a payable, and only a granted one", () => {
+    for (const permit of data.permits.filter((p) => p.permitType === "market_fixing")) {
+      const payables = data.payables.filter((p) => p.permitId === permit.id);
+      if (permit.status === "granted") {
+        expect(payables, permit.title).toHaveLength(1);
+        expect(payables[0]?.category).toBe("permit");
+        expect(payables[0]?.counterpartyContactId).toBe(permit.authorityContactId);
+        expect(payables[0]?.title).toMatch(/^Festsetzungsgebühr/);
+      } else {
+        expect(payables, permit.title).toEqual([]);
+      }
+    }
+  });
+
+  it("links the Saison Genehmigung and its Festsetzung subtask to the market's permits", () => {
+    const permitOf = permitLinks(data);
+    const presetIdByEvent = new Map(data.events.map((e) => [e.id, e.presetId]));
+    const municipal = new Set(
+      data.eventPresets
+        .filter((p) => data.venues.find((v) => v.id === p.venueId)?.kind === "municipal")
+        .map((p) => p.id),
+    );
+    const genehmigung = data.tasks.filter(
+      (t) =>
+        t.templateStableKey === "saison_genehmigung" &&
+        t.status !== "cancelled" &&
+        municipal.has(presetIdByEvent.get(t.eventId) ?? ""),
+    );
+    expect(genehmigung.length).toBeGreaterThan(0);
+    for (const task of genehmigung) expect(permitOf(task)?.permitType).toBe("market_permit");
+    const festsetzung = data.tasks.filter(
+      (t) => t.templateStableKey === "saison_genehmigung__festsetzung" && t.status !== "cancelled",
+    );
+    expect(festsetzung.length).toBeGreaterThan(0);
+    for (const task of festsetzung) expect(permitOf(task)?.permitType).toBe("market_fixing");
+    // Hoffnungsthal: Standrohr, Plakatierung and Schaustellerliste find their permits too
+    for (const key of [
+      "standrohr_bestellen",
+      "saison_genehmigung__plakatierung",
+      "schaustellerliste",
+    ]) {
+      const tasks = data.tasks.filter(
+        (t) =>
+          t.templateStableKey === key &&
+          t.status !== "cancelled" &&
+          presetIdByEvent.get(t.eventId) === presetByKey("hoffnungsthal")?.id,
+      );
+      expect(tasks.length, key).toBeGreaterThan(0);
+      for (const task of tasks) expect(permitOf(task), key).toBeDefined();
+    }
+  });
+
+  it("closes a permit task once its permit is filed, as the app does", () => {
+    const permitOf = permitLinks(data);
+    for (const task of data.tasks) {
+      if (task.status === "cancelled" || task.status === "skipped") continue;
+      if (FILED.has(permitOf(task)?.status ?? "")) expect(task.status, task.title).toBe("done");
+    }
+  });
+
+  it("keeps the two overdue invoices as examples (Südstadt toilets, Altstadt standpipe)", () => {
+    const overdue = data.payables.filter((p) => p.status === "overdue").map((p) => p.title);
+    expect(overdue).toHaveLength(2);
+    expect(overdue.some((t) => t.startsWith("Toilettenrahmenvertrag"))).toBe(true);
+    expect(overdue.some((t) => t.startsWith("Standrohr-Miete") && t.includes("Altstadt"))).toBe(
+      true,
+    );
+  });
+});
+
+/* ----------------------------------------------- contacts and duty roles */
+
+describe("contacts and duty roles (research 13 §4)", () => {
+  it("has the partners the client's sheets name, with fictional details", () => {
+    const names = data.contacts.map((c) => c.name);
+    for (const pattern of [
+      /^Ortsring Hoffnungsthal/,
+      /^DRK/,
+      /Hausmeister/,
+      /^Signalbau Lindner/,
+      /^Elektro Wendler/,
+      /^Schilder Reuter/,
+      /Rösrath.*Standrohr|Standrohr.*Rösrath/,
+    ]) {
+      expect(
+        names.some((name) => pattern.test(name)),
+        String(pattern),
+      ).toBe(true);
+    }
+    // every firm a template item names is a contact
+    const itemText = data.checklistTemplates.flatMap((t) => t.items.map((i) => i.title)).join(" ");
+    for (const firm of ["Signalbau Lindner", "Elektro Wendler", "Schilder Reuter"]) {
+      expect(itemText).toContain(firm);
+      expect(names.some((name) => name.startsWith(firm))).toBe(true);
+    }
+  });
+
+  it("has the new duty roles from the sheets, each with a default holder", () => {
+    const keys = data.dutyRoles.map((r) => r.key);
+    expect(keys).toEqual(expect.arrayContaining(["steward", "night_watch", "traffic", "briefing"]));
+    for (const role of data.dutyRoles) expect(role.defaultStaffMemberId, role.key).not.toBeNull();
+  });
+
+  it("puts the market-day lines on their own duty roles, Nachkassieren on Kasse", () => {
+    const roleKeyById = new Map(data.dutyRoles.map((r) => [r.id, r.key]));
+    const expected: Record<string, string> = {
+      einweisen: "briefing",
+      einweisen_letzter_tag: "briefing",
+      tageswache_ordner: "steward",
+      tageswache_ordner_letzter_tag: "steward",
+      nachtwache: "night_watch",
+      verkehr_regeln: "traffic",
+      verkehr_regeln_letzter_tag: "traffic",
+      abflattern_verkehr: "traffic",
+      verkehrssicherung: "traffic",
+      verkehrssicherung_abbau: "traffic",
+      nachkassieren: "cash",
+      nachkassieren_letzter_tag: "cash",
+    };
+    const seen = new Set<string>();
+    for (const task of data.tasks) {
+      const want = expected[task.templateStableKey];
+      if (!want) continue;
+      seen.add(task.templateStableKey);
+      expect(roleKeyById.get(task.dutyRoleId), task.templateStableKey).toBe(want);
+    }
+    expect([...seen].sort()).toEqual(Object.keys(expected).sort());
+  });
+
+  it("gives the new roles real people: field crew on the day, different Ordner per market", () => {
+    const roleIdByKey = new Map(data.dutyRoles.map((r) => [r.key, r.id]));
+    const staffById = new Map(data.staffMembers.map((s) => [s.id, s]));
+    const eventById = new Map(data.events.map((e) => [e.id, e]));
+    for (const key of ["steward", "night_watch", "traffic", "briefing"] as const) {
+      const tasks = data.tasks.filter((t) => t.dutyRoleId === roleIdByKey.get(key));
+      expect(tasks.length, key).toBeGreaterThan(0);
+      for (const task of tasks) {
+        expect(task.assigneeId, key).toBe(eventById.get(task.eventId)?.duties[key]);
+        expect(staffById.has(task.assigneeId)).toBe(true);
+      }
+    }
+    // night watch and Ordner are field crew without a login
+    for (const event of data.events) {
+      expect(staffById.get(event.duties.night_watch)?.permissionRole ?? null).toBeNull();
+      expect(staffById.get(event.duties.steward)?.permissionRole ?? null).toBeNull();
+    }
+    const stewards = new Set(data.eventPresets.map((p) => p.defaultDuties.steward));
+    expect(stewards.size).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/* ---------------------------------------------------- merging parts A and B */
+
+describe("merging parts A and B", () => {
+  it("attaches the four client sheets to part A's presets only", () => {
+    expect(CLIENT_MARKET_PRESET_KEYS).toEqual({
+      altstadt: ["altstadt"],
+      "riehler-guertel": ["riehler-guertel"],
+      nippes: ["nippes"],
+      hoffnungsthal: ["hoffnungsthal"],
+    });
+  });
+
+  it("lets the events generator create the teardownDay anchor itself (the last market day)", () => {
+    for (const event of data.events) {
+      const teardown = data.eventAnchors.filter(
+        (a) => a.eventId === event.id && a.key === "teardownDay",
+      );
+      expect(teardown.map((a) => a.date)).toEqual([event.endsOn]);
+    }
   });
 });
 
@@ -831,13 +1546,9 @@ describe.each(REFERENCE_DATES)("as of %s", (today) => {
   });
 
   it(
-    "keeps the weekend cap and is deterministic",
+    "keeps the day cap and is deterministic",
     () => {
-      const counts = new Map<string, number>();
-      for (const event of d.events)
-        for (const saturday of weekendKeys(event.startsOn, event.endsOn))
-          counts.set(saturday, (counts.get(saturday) ?? 0) + 1);
-      expect(Math.max(...counts.values())).toBeLessThanOrEqual(MAX_EVENTS_PER_WEEKEND);
+      expect(Math.max(...loadPerDay(d.events).values())).toBeLessThanOrEqual(MAX_EVENTS_PER_DAY);
       expect(JSON.stringify(generateDataset({ referenceDate: today }))).toBe(JSON.stringify(d));
     },
     TIMEOUT,
@@ -846,7 +1557,9 @@ describe.each(REFERENCE_DATES)("as of %s", (today) => {
   it("has only a handful of overdue open tasks", () => {
     const overdue = d.tasks.filter(
       (t) =>
-        t.dueAt < `${today}T00:00:00.000Z` && !["done", "skipped", "cancelled"].includes(t.status),
+        t.parentTaskId === null &&
+        t.dueAt < `${today}T00:00:00.000Z` &&
+        !["done", "skipped", "cancelled"].includes(t.status),
     );
     expect(overdue.length).toBeLessThanOrEqual(8);
     const notWaiting = overdue.filter((t) => t.status !== "waiting_external");
@@ -876,10 +1589,15 @@ describe.each(REFERENCE_DATES)("as of %s", (today) => {
       if (permit.status === "applied") {
         expect(permit.appliedAt).not.toBeNull();
         expect((permit.appliedAt ?? "") < today).toBe(true);
-        expect((permit.expectedDecisionOn ?? "") > today).toBe(true);
+        expect(permit.expectedDecisionOn).not.toBeNull();
       }
       if (permit.status === "granted") expect((permit.grantedAt ?? "") <= today).toBe(true);
     }
+    // the authority is late on a couple of decisions, never more
+    const decisionOverdue = d.permits.filter(
+      (p) => p.status === "applied" && (p.expectedDecisionOn ?? "") <= today,
+    );
+    expect(decisionOverdue.length).toBeLessThanOrEqual(DECISION_OVERDUE);
   });
 
   it("spreads expected decisions instead of piling them on one day", () => {

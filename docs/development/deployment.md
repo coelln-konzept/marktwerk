@@ -116,12 +116,16 @@ is loaded by the manual workflow `.github/workflows/seed-dev.yml`.
    day, so the seed **refuses a database that already holds synthetic data** ("The database already holds synthetic
    data…"). To run it again, enter the original seed day as `reference_date` (the deployed DB: `2026-10-26`); then
    the run is idempotent (`ON CONFLICT DO NOTHING`, fixed ids) and changes nothing that exists. Fresh data as of
-   today needs the `app` data wiped first. Re-running never changes existing logins or passwords. The seed does
-   **not** migrate: migrations run in the Vercel production build (`vercel.json`, see *Migrations in the Vercel build*),
-   so deploy `main` first when the schema changed.
+   today needs the `app` data wiped first: type `wipe` in the `wipe` field (leave `reference_date` empty). That
+   empties **every app table except the sign-in tables** (`user`, `session`, `account`, `verification`,
+   `user_preference`; `apps/web/scripts/wipe-app-data.ts`), so logins keep working and are linked to the new staff
+   records by e-mail. Everything else (templates, markets, dates, tasks, permits, contacts, vendors, money, settings)
+   is replaced. Destructive: ask the product owner first. Re-running never changes existing logins or passwords. The
+   seed does **not** migrate: migrations run in the Vercel production build (`vercel.json`, see *Migrations in the
+   Vercel build*), so deploy `main` first when the schema changed.
 
 Locally the same thing is `pnpm db:seed` (reads the root `.env` if there is one; in CI the variables come from the
-environment).
+environment); `pnpm db:wipe -- --yes` empties the app data first (logins kept).
 
 ## Branch environments on Neon (manual for now)
 A branch under test gets its own deployment and database next to `main` ([ADR 0023](../architecture/adr/0023-test-environments.md)).

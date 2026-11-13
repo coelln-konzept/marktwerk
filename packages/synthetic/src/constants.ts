@@ -33,8 +33,8 @@ export function seasonsFor(today: string): readonly [number, number] {
 /** Seasons for the default (env-driven) reference date. Generators use the `Clock` of their run instead. */
 export const SEASONS = seasonsFor(REFERENCE_DATE);
 
-/** Hard business rule: at most this many events may touch one weekend. */
-export const MAX_EVENTS_PER_WEEKEND = 4;
+/** Load per day on the wall calendar (research 13 §2.3): at most this many markets on one day. */
+export const MAX_EVENTS_PER_DAY = 3;
 
 /** Minijob limit per year (also stored as legal_parameter rows). Years without a row use the latest known. */
 export const MINIJOB_LIMIT_CENTS_BY_YEAR: Readonly<Record<number, number>> = {

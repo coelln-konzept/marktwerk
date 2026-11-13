@@ -11,7 +11,6 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { nextMarketColor, scheduleFromTimes, toVenueKind } from "@marktwerk/core";
 import { createDb, schema } from "@marktwerk/db";
 import { deadlineSweep } from "@marktwerk/jobs";
 import { generateDataset } from "@marktwerk/synthetic";
@@ -103,8 +102,7 @@ await db.transaction(async (tx) => {
   await insertAll(
     tx,
     schema.venue,
-    // The synthetic dataset may still use the kinds from before UT2-03 (outdoor_public, …).
-    data.venues.map(({ zones: _zones, ...v }) => ({ ...v, kind: toVenueKind(v.kind) })),
+    data.venues.map(({ zones: _zones, ...v }) => v),
     "venues",
   );
   const zones = data.venues.flatMap((v) => v.zones);
@@ -177,33 +175,17 @@ await db.transaction(async (tx) => {
     }
   }
 
-  // Marktfarbe: assigned in creation order, each preset gets the least used colour so far.
-  // Marktregeln (D2-3): each preset starts with a copy of its event type's rules.
-  const presetColors: string[] = [];
-  const typeRules = new Map(data.eventTypes.map((t) => [t.id, t.rules]));
-  // Zeitplan (ADR 0022): the synthetic data still has the four old times; mapped like migration 0017.
-  const presetRows = data.eventPresets.map(
-    ({ checklistTemplateId: _template, defaultTimes, ...p }) => {
-      const color = nextMarketColor(presetColors);
-      presetColors.push(color);
-      const rules = typeRules.get(p.eventTypeId);
-      if (!rules) throw new Error(`preset ${p.id}: unknown event type ${p.eventTypeId}`);
-      return {
-        ...p,
-        schedule: scheduleFromTimes(defaultTimes),
-        color,
-        rules: structuredClone(rules),
-      };
-    },
+  // Markets with their colour, Marktregeln (D2-3) and Zeitplan (ADR 0022) as the synthetic dataset defines them.
+  await insertAll(
+    tx,
+    schema.eventPreset,
+    data.eventPresets.map(({ checklistTemplateId: _template, ...p }) => p),
+    "presets",
   );
-  await insertAll(tx, schema.eventPreset, presetRows, "presets");
   await insertAll(
     tx,
     schema.event,
-    data.events.map(({ duties: _duties, times, ...e }) => ({
-      ...e,
-      schedule: scheduleFromTimes(times),
-    })),
+    data.events.map(({ duties: _duties, ...e }) => e),
     "events",
   );
   await insertAll(

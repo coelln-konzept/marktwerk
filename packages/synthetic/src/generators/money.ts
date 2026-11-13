@@ -393,15 +393,38 @@ export function buildPayablesAndInstallments(
     });
   }
 
-  // Toilet framework contracts (one per venue and season). Ehrenfeld's current invoice is overdue (a deliberate
-  // example), Bonn's falls due within the next two weeks.
+  // Festsetzung (§ 69 GewO): the fee notice comes with the decision, so only a granted Festsetzung is a payable
+  // (due a month after it). Named after the market where several share a place.
+  const venueNameById = new Map(ctx.venues.map((venue) => [venue.id, venue.name]));
+  for (const permit of ctx.permits) {
+    if (permit.permitType !== "market_fixing" || permit.grantedAt === null) continue;
+    const market = permit.title.split(" – ")[1] ?? venueNameById.get(permit.venueId ?? "") ?? "";
+    drafts.push({
+      ...blank,
+      title: `Festsetzungsgebühr ${market} ${permit.season}`,
+      scope: "company",
+      venueId: permit.venueId,
+      season: permit.season,
+      permitId: permit.id,
+      counterpartyContactId: permit.authorityContactId,
+      category: "permit",
+      totalGrossCents: ctx.feeCentsByPermitId.get(permit.id) ?? 0,
+      critical: true,
+      schedule: [{ dueOn: addDays(permit.grantedAt, 30), share: 100 }],
+    });
+  }
+
+  // Toilet framework contracts (one per venue and season; Hoffnungsthal uses the school's toilets). The Südstadt's
+  // current invoice is overdue (a deliberate example), Rudolfplatz's falls due within the next two weeks.
   ctx.venues.forEach((venue, index) => {
+    const venueKey = ctx.venueBlueprintByName.get(venue.name)?.key;
+    if (venueKey === "hoffnungsthal") return;
     for (const season of seasons) {
       const current = season === currentSeason;
       const schedule: Schedule[] =
-        current && venue.name.startsWith("Köln-Ehrenfeld")
+        current && venueKey === "suedstadt"
           ? [{ dueOn: addDays(today, -12), share: 100, paid: "open" }]
-          : current && venue.name.startsWith("Bonn")
+          : current && venueKey === "rudolfplatz"
             ? [{ dueOn: addDays(today, 6), share: 100 }]
             : [{ dueOn: `${season}-03-31`, share: 100 }];
       drafts.push({
@@ -436,7 +459,7 @@ export function buildPayablesAndInstallments(
         totalGrossCents: 18000,
         critical: false,
         schedule:
-          season === currentSeason && blueprint.key === "heumarkt"
+          season === currentSeason && blueprint.key === "altstadt"
             ? [{ dueOn: addDays(today, -7), share: 100, paid: "open" }]
             : [{ dueOn: `${season}-04-30`, share: 100 }],
       });
