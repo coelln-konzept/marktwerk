@@ -108,6 +108,8 @@ export type BoardTask = {
   subtasksTotal: number;
   subtasksDone: number;
   subtasksOverdue: number;
+  /** Subtasks still open: "Erledigt" on the card opens the drawer instead (done gate, R29). */
+  openSubtasks: number;
   /** Day the task was finished (done tasks), `YYYY-MM-DD`. */
   completedOn: string | null;
   requiresNote: boolean;
@@ -183,6 +185,7 @@ function boardFields(today: string) {
     subtasksTotal: sub.subtasksTotal,
     subtasksDone: sub.subtasksDone,
     subtasksOverdue: sub.subtasksOverdue,
+    subtasksOpen: sub.subtasksOpen,
   };
 }
 
@@ -224,6 +227,7 @@ function toBoardTask(r: BoardRow, today: string): BoardTask {
     subtasksTotal: r.subtasksTotal,
     subtasksDone: r.subtasksDone,
     subtasksOverdue: r.subtasksOverdue,
+    openSubtasks: r.subtasksOpen,
     completedOn: r.completedAt ? berlinDay(r.completedAt) : null,
     requiresNote: r.requiresNote,
     requiresPhoto: r.requiresPhoto,
@@ -778,6 +782,42 @@ export async function taskSummaryByEvent(
   return result;
 }
 
+/** How far an event's Checkliste is: finished (done or skipped) of all top-level tasks, cancelled ones left out. */
+export type ChecklistProgress = { done: number; total: number };
+
+/**
+ * Checkliste progress of several events at once (the Übersicht's weekend box), one query for all of them;
+ * the same count as the event's Zusammenfassung (`taskProgress`: top-level tasks the actor may see, without
+ * cancelled ones). Events without tasks map to 0 of 0.
+ */
+export async function checklistProgressByEvent(
+  actor: Actor,
+  eventIds: string[],
+): Promise<Map<string, ChecklistProgress>> {
+  const result = new Map<string, ChecklistProgress>(
+    eventIds.map((id) => [id, { done: 0, total: 0 }]),
+  );
+  if (eventIds.length === 0) return result;
+  const rows = await db
+    .select({
+      eventId: task.eventId,
+      total: sql<number>`count(*)::int`,
+      done: sql<number>`(count(*) filter (where ${task.status} in ('done', 'skipped')))::int`,
+    })
+    .from(task)
+    .where(
+      and(
+        visibleTasks(actor),
+        isTopLevel(),
+        inArray(task.eventId, eventIds),
+        ne(task.status, "cancelled"),
+      ),
+    )
+    .groupBy(task.eventId);
+  for (const { eventId, done, total } of rows) if (eventId) result.set(eventId, { done, total });
+  return result;
+}
+
 // ---------------------------------------------------------------------------------------------
 // detail
 
@@ -1141,6 +1181,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       subtasksTotal: sub.subtasksTotal,
       subtasksDone: sub.subtasksDone,
       subtasksOverdue: sub.subtasksOverdue,
+      subtasksOpen: sub.subtasksOpen,
       firstOverdueSubtask,
     })
     .from(task)
@@ -1190,6 +1231,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
             subtasks: {
               done: r.subtasksDone,
               total: r.subtasksTotal,
+              open: r.subtasksOpen,
               overdue: r.subtasksOverdue,
             },
           }

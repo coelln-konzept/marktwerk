@@ -137,6 +137,8 @@ function DueRow({
       data-row
       data-href={href}
       data-peek={itemPeek(item)}
+      // Quick done opens the drawer instead of asking when subtasks are still open (R29); e2e reads it.
+      data-open-subtasks={(item.subtasks?.open ?? 0) > 0 ? item.subtasks?.open : undefined}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter/Space (KeyboardRows)
       tabIndex={0}
       className={cn(
@@ -146,7 +148,14 @@ function DueRow({
       )}
     >
       {editable ? (
-        <TaskDoneButton task={{ id: item.id, title: item.title, status: "todo" }} />
+        <TaskDoneButton
+          task={{
+            id: item.id,
+            title: item.title,
+            status: "todo",
+            openSubtasks: item.subtasks?.open ?? 0,
+          }}
+        />
       ) : (
         <span
           title={t(`kind.${item.kind}`)}
@@ -343,9 +352,9 @@ async function MarketDate({ date, today }: { date: string; today: string }) {
 }
 
 /**
- * Due items by urgency group (Überfällig · Heute · Diese Woche · Genehmigungen demnächst · Wartet), each
+ * Due items by urgency group (Überfällig · Heute · Nächste Tage · Genehmigungen demnächst · Wartet), each
  * group bundled per market in ranking order. A market shows its first three items and a group its first
- * ten markets; "+ N weitere" opens the rest in place. `bandless` groups skip their band (the panel title
+ * ten markets; "+ N weitere" opens the rest in place. `bandless` groups skip their band (the section heading
  * already names them).
  */
 export async function DueGroups({

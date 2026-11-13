@@ -3,6 +3,8 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import type { DueItem } from "@/server/queries/due";
+import { getEventOverview } from "@/server/queries/event-overview";
+import type { EventRow } from "@/server/queries/events";
 import { getOverview, listDueItems } from "@/server/queries/overview";
 import { createPayable } from "@/server/services/payables";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -10,7 +12,7 @@ import { asStaff, dueOn, insertEvent, insertTask, TODAY } from "../helpers/tasks
 
 /**
  * Übersicht aggregation ("Zwei Fragen"): the due items of all modules in one ranked list, the top of it for
- * "Heute & überfällig", and the weekend card with verdict and blockers per market, for the roles that see
+ * "Heute & überfällig", and the weekend box with the Checkliste progress per event, for the roles that see
  * different parts of it.
  *
  * Business "today" is Wednesday 21 Oct 2026, so the coming weekend is 24/25 Oct.
@@ -117,7 +119,7 @@ beforeEach(async () => {
     status: "confirmed",
   });
 
-  // An obligation due in three days whose reminder has not started (no lead): "Diese Woche".
+  // An obligation due in three days whose reminder has not started (no lead): "Nächste Tage".
   await db.insert(obligation).values({
     kind: "other",
     title: "Brandschutzprüfung",
@@ -157,7 +159,7 @@ describe("Heute fällig", () => {
     for (const hidden of ["Erledigt", "Ohne Datum", "Später"]) expect(titles).not.toContain(hidden);
   });
 
-  it('"Heute & überfällig" holds every overdue and due-today item, "Diese Woche" the rest, in ranking order', async () => {
+  it('"Heute & überfällig" holds every overdue and due-today item, "Nächste Tage" the rest, in ranking order', async () => {
     const { due } = await getOverview(owner, TODAY);
     expect(due.total).toBe(6);
     expect(due.items.map((i) => i.title)).toEqual([
@@ -298,7 +300,7 @@ describe("Pflichten reminders (research 10)", () => {
       "today:Inspektion · K-MW 123:2026-10-21",
       "today:HU · K-MW 123:2026-11-20",
     ]);
-    // Before its window (and the lead-less one due this week stays in "Diese Woche").
+    // Before its window (and the lead-less one due this week stays in "Nächste Tage").
     expect(obligations(due.later).map((i) => i.title)).toEqual(["Brandschutzprüfung"]);
     const all = [...due.items, ...due.later].map((i) => i.title);
     expect(all).not.toContain("Betriebshaftpflicht");
@@ -350,55 +352,64 @@ describe("Heute & überfällig counts", () => {
 });
 
 describe("Dieses Wochenende", () => {
-  it("lists the weekend's markets with a verdict and the items that hold them up", async () => {
-    const { weekend } = await getOverview(owner, TODAY);
+  it("lists the weekend's events with their Checkliste progress and the overdue count", async () => {
+    const { weekend, nextEvents } = await getOverview(owner, TODAY);
     expect(weekend.saturday).toBe("2026-10-24");
     expect(weekend.markets.map((m) => m.row.name)).toEqual(["Wochenendmarkt"]);
-    const [market] = weekend.markets;
-    // Tasks: one overdue → Achtung (health), but the verdict is critical, like Board > Bereitschaft.
-    expect(market?.row.health.tasks).toBe("warn");
-    expect(market?.verdict.level).toBe("critical");
-    expect(market?.verdict.reasons).toContainEqual({ key: "tasksOverdue", count: 1 });
-    expect(market?.verdict.reasons).toContainEqual({ key: "tasksToday", count: 1 });
-    // Overdue and due today only: no instalments, nothing dated later this week.
-    expect(market?.blockers.map((b) => b.title)).toEqual([
-      "Überfällige Aufgabe",
-      "Heutige Aufgabe",
-    ]);
+    // Four tasks, one of them done; one open task is overdue.
+    expect(weekend.markets[0]?.checklist).toEqual({ done: 1, total: 4, overdue: 1 });
+    // The weekend has an event, so the box does not look further ahead.
+    expect(nextEvents).toEqual([]);
   });
 
-  it("a permit whose deadline has passed holds the market up, a later one does not", async () => {
-    const [late, later] = await db
-      .insert(permit)
-      .values([
-        {
+  it("counts a skipped task as finished and leaves cancelled tasks and subtasks out", async () => {
+    const parent = await insertTask({
+      title: "Übersprungen",
+      eventId: weekendEvent,
+      status: "skipped",
+    });
+    await insertTask({ title: "Abgesagt", eventId: weekendEvent, status: "cancelled" });
+    await insertTask({ title: "Unteraufgabe", eventId: weekendEvent, parentTaskId: parent.id });
+    const { weekend } = await getOverview(owner, TODAY);
+    expect(weekend.markets[0]?.checklist).toMatchObject({ done: 2, total: 5 });
+  });
+
+  it('counts missing permits by the rule of "Was fehlt"', async () => {
+    // No permit yet: nothing is missing.
+    expect((await getOverview(owner, TODAY)).weekend.markets[0]?.permitsMissing).toBe(0);
+    const link = async (patch: Partial<typeof permit.$inferInsert>, required = true) => {
+      const [row] = await db
+        .insert(permit)
+        .values({
+          venueId: cat.venue.id,
           category: "city",
           permitType: "water",
-          title: "Wasser Wochenende",
+          title: "Wasser",
           season: 2026,
-          status: "not_started",
-          applyBy: "2026-10-20",
-        },
-        {
-          category: "city",
-          permitType: "other",
-          title: "Lärm Wochenende",
-          season: 2026,
-          status: "not_started",
-          applyBy: "2026-11-10",
-        },
-      ])
-      .returning();
-    await db.insert(eventPermit).values([
-      { eventId: weekendEvent, permitId: late?.id as string },
-      { eventId: weekendEvent, permitId: later?.id as string },
-    ]);
-    const { weekend } = await getOverview(owner, TODAY);
-    const blockers = weekend.markets[0]?.blockers ?? [];
-    const blocker = blockers.find((b) => b.title === "Wasser Wochenende");
-    expect(blocker).toMatchObject({ kind: "permit", urgency: "overdue" });
-    expect(blocker?.href).toBe(`/genehmigungen?genehmigung=${late?.id}`);
-    expect(blockers.map((b) => b.title)).not.toContain("Lärm Wochenende");
+          ...patch,
+        })
+        .returning();
+      await db
+        .insert(eventPermit)
+        .values({ eventId: weekendEvent, permitId: row?.id as string, required });
+    };
+    // Missing: not filed; granted but ending before the market; filed but not granted three days before
+    // the market (within 14 days of it, a filed permit counts too).
+    await link({ title: "Offen", status: "not_started" });
+    await link({ title: "Zu kurz", status: "granted", validUntil: "2026-10-23" });
+    await link({ title: "Beantragt", status: "applied", applyBy: "2026-10-30" });
+    // Not missing: granted, optional, not required, superseded, archived.
+    await link({ title: "Erteilt", status: "granted" });
+    await link({ title: "Optional", status: "not_started" }, false);
+    await link({ title: "Nicht nötig", status: "not_required" });
+    await link({ title: "Abgelöst", status: "superseded" });
+    await link({ title: "Archiviert", status: "not_started", archivedAt: new Date() });
+
+    const [market] = (await getOverview(owner, TODAY)).weekend.markets;
+    expect(market?.permitsMissing).toBe(3);
+    // The same permits the event's Zusammenfassung lists under "Was fehlt".
+    const { permits } = await getEventOverview(owner, market?.row as EventRow, TODAY);
+    expect(permits?.missing.map((p) => p.title).sort()).toEqual(["Beantragt", "Offen", "Zu kurz"]);
   });
 
   it("is the Saturday and Sunday of the current week from Monday to Sunday, also on Sunday evening", async () => {
@@ -419,20 +430,22 @@ describe("Dieses Wochenende", () => {
     expect([week.saturday, week.sunday]).toEqual(["2026-10-24", "2026-10-25"]);
   });
 
-  it('also gives the weekend after that, for the compact row "Nächstes Wochenende"', async () => {
-    const { nextWeekend } = await getOverview(owner, TODAY);
-    expect([nextWeekend.saturday, nextWeekend.sunday]).toEqual(["2026-10-31", "2026-11-01"]);
-    expect(nextWeekend.markets).toEqual([]);
+  it("an empty weekend shows the next events instead: the first one and the rest of its weekend", async () => {
+    // A Wednesday event before the November weekend, and one a week later that stays out.
+    await insertEvent(cat, "Mittwochsmarkt", "2026-11-11");
+    await insertEvent(cat, "Spätmarkt", "2026-11-21");
     vi.setSystemTime(new Date("2026-11-04T08:00:00+01:00"));
-    const later = await getOverview(owner, "2026-11-04");
-    expect(later.nextWeekend.saturday).toBe("2026-11-14");
-    expect(later.nextWeekend.markets.map((m) => m.row.name)).toEqual(["Novembermarkt"]);
+    const { weekend, nextEvents } = await getOverview(owner, "2026-11-04");
+    expect(weekend.markets).toEqual([]);
+    expect(nextEvents.map((m) => m.row.name)).toEqual(["Mittwochsmarkt", "Novembermarkt"]);
+    // "Ohne Datum" and "Später": nothing done yet.
+    expect(nextEvents[1]?.checklist).toEqual({ done: 0, total: 2, overdue: 0 });
   });
 
   it("field users see their own weekend event only, without money", async () => {
     const { weekend } = await getOverview(fieldActor, TODAY);
     expect(weekend.markets.map((m) => m.row.name)).toEqual(["Wochenendmarkt"]);
     expect(weekend.markets[0]?.row.health.money).toBeNull();
-    expect(weekend.markets[0]?.blockers.every((b) => b.kind === "task")).toBe(true);
+    expect(weekend.markets[0]?.checklist).toMatchObject({ done: 1, total: 4 });
   });
 });

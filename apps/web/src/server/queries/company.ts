@@ -435,7 +435,7 @@ const obligationHref = (id: string) => `/firma/pflichten/${id}`;
 
 /**
  * Obligations for the Übersicht (research 10: Pflichten reminders on the Übersicht). Everything whose reminder
- * runs is listed under "Heute & überfällig", like the `obligation-reminders` job notifies (`obligationStatus`):
+ * runs is listed under "Heute & nächste Tage", like the `obligation-reminders` job notifies (`obligationStatus`):
  * overdue (date or km) as `overdue`; due today or inside the "Erinnerung ab" window (`lead_days` before the date,
  * or within `DEFAULT_KM_LEAD` km of the km target) as `today`, with the real due date for the badge. Without a
  * running reminder (a lead shorter than a week) a date within the next 7 days still shows in "Diese Woche".

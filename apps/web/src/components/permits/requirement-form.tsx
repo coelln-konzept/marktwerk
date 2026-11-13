@@ -17,7 +17,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { centsToInput, parseMoneyToCents } from "@/lib/format";
 import { dayMonthInput, parseDayMonth } from "@/lib/month-day";
 import { PERMIT_TYPE_KEYS } from "@/lib/permit-status";
@@ -225,10 +225,7 @@ export function RequirementForm({
         submit();
       }}
     >
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{tForm("sectionBasics")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={tForm("sectionBasics")}>
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           {field(
             "category",
@@ -312,10 +309,7 @@ export function RequirementForm({
         </PanelBody>
       </Panel>
 
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{tForm("sectionTiming")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={tForm("sectionTiming")}>
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           {field(
             "cadence",
@@ -387,10 +381,7 @@ export function RequirementForm({
         </PanelBody>
       </Panel>
 
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{tForm("sectionExtras")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={tForm("sectionExtras")}>
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           {field(
             "fee",

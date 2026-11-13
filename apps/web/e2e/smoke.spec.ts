@@ -11,53 +11,61 @@ test("Übersicht loads after login", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).first()).toBeVisible();
 });
 
-test('Übersicht: Heute & überfällig left, the weekend right with a collapsed Top-5 toggle, Diese Woche below; "+ N weitere" opens in place; no KPI or season strip', async ({
+test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the weekend box right with its link, permits last, no "Diese Woche"; "+ N weitere" opens in place; no KPI or season strip', async ({
   page,
 }) => {
   await page.goto("/");
+  const due = page.getByRole("heading", { level: 2, name: "Heute & nächste Tage" });
   const weekend = page.getByRole("heading", { level: 2, name: "Dieses Wochenende" });
-  const due = page.getByRole("heading", { level: 2, name: "Heute & überfällig" });
-  await expect(weekend).toBeVisible();
-  await expect(due).toBeVisible();
-  const [weekendBox, dueBox] = await Promise.all([weekend.boundingBox(), due.boundingBox()]);
-  // Two cards side by side on desktop: Heute & überfällig is the left one (CF9-2), the headings sit on one
-  // line (the due header carries count badges, so its heading can be a few px higher than the weekend's).
+  const permits = page.getByRole("heading", { level: 2, name: "Genehmigungen demnächst" });
+  for (const heading of [due, weekend, permits]) await expect(heading).toBeVisible();
+  const [dueBox, weekendBox, permitsBox] = await Promise.all(
+    [due, weekend, permits].map((h) => h.boundingBox()),
+  );
+  // Desktop: the main panel left, the weekend box right, their headings on one line (decision 2026-11-13).
   expect(dueBox?.x ?? 0).toBeLessThan(weekendBox?.x ?? 0);
   expect(Math.abs((weekendBox?.y ?? 0) - (dueBox?.y ?? 0))).toBeLessThan(24);
 
-  // The weekend's blockers are collapsed behind "Top-N-Aufgaben anzeigen" and show at most 5 rows.
-  const toggle = page.getByRole("button", {
-    name: /^(Top-\d+-Aufgaben|Wichtigste Aufgabe) anzeigen$/,
-  });
-  if ((await toggle.count()) > 0) {
-    const first = toggle.first();
-    const list = page.locator(`[id="${await first.getAttribute("aria-controls")}"]`);
-    await expect(first).toHaveAttribute("aria-expanded", "false");
-    await expect(list).toBeHidden();
-    await first.click();
-    await expect(first).toHaveAttribute("aria-expanded", "true");
-    await expect(list).toBeVisible();
-    const rows = await list.locator("li[data-row]").count();
-    expect(rows).toBeGreaterThan(0);
-    expect(rows).toBeLessThanOrEqual(5);
-    await first.click();
-    await expect(list).toBeHidden();
+  // The headings sit above their cards (option C): each section is named by its h2, the card follows it.
+  const main = page.getByRole("region", { name: "Heute & nächste Tage" });
+  const box = page.getByRole("region", { name: "Dieses Wochenende" });
+
+  // The main panel holds the groups Überfällig, Heute and Nächste Tage (the former "Diese Woche"), in
+  // that order; each band names its count.
+  const bands = ["Überfällig", "Heute", "Nächste Tage"].map((name) =>
+    main.getByRole("heading", { level: 3, name: new RegExp(`^${name}\\s*\\d+$`) }),
+  );
+  let above = 0;
+  for (const band of bands) {
+    await expect(band).toBeVisible();
+    const y = (await band.boundingBox())?.y ?? 0;
+    expect(y).toBeGreaterThan(above);
+    above = y;
+  }
+  await expect(main.getByText("je Markt gebündelt")).toHaveCount(0);
+
+  // "Diese Woche" is no section of its own any more.
+  await expect(page.getByRole("heading", { name: "Diese Woche", exact: true })).toHaveCount(0);
+
+  // The weekend box is an information card: events with their Checkliste status, a link to all events, no
+  // date-range line and no task rows of its own.
+  await expect(box.getByRole("link", { name: "Alle Veranstaltungen" })).toHaveAttribute(
+    "href",
+    "/veranstaltungen",
+  );
+  await expect(box.getByText(/^Sa \d\d\.\d\d\.–So \d\d\.\d\d\. · KW/)).toHaveCount(0);
+  await expect(box.getByRole("button", { name: /als erledigt markieren$/ })).toHaveCount(0);
+  const events = box.locator("li[data-row]");
+  if ((await events.count()) > 0) {
+    await expect(events.first().getByRole("heading", { level: 3 })).toBeVisible();
+    await expect(events.first()).toContainText(/\d+ von \d+ erledigt|Noch keine Aufgaben/);
+  } else {
+    await expect(box).toContainText("An diesem Wochenende ist nichts geplant");
   }
 
-  // "Genehmigungen demnächst" is its own panel in the right column, directly under the weekend (CF9-6).
-  const permits = page.getByRole("heading", { level: 2, name: "Genehmigungen demnächst" });
-  await expect(permits).toBeVisible();
-  const permitsBox = await permits.boundingBox();
-  expect(permitsBox?.y ?? 0).toBeGreaterThan(weekendBox?.y ?? 0);
-  expect(Math.abs((permitsBox?.x ?? 0) - (weekendBox?.x ?? 0))).toBeLessThan(40);
-
-  // "Diese Woche" (the next 7 days, per market) runs across both columns below them.
-  const week = page.getByRole("heading", { level: 2, name: "Diese Woche" });
-  await expect(week).toBeVisible();
-  const weekBox = await week.boundingBox();
-  expect(weekBox?.y ?? 0).toBeGreaterThan(permitsBox?.y ?? 0);
-  expect(weekBox?.y ?? 0).toBeGreaterThan(Math.max(weekendBox?.y ?? 0, dueBox?.y ?? 0));
-  expect(weekBox?.x ?? 0).toBeLessThan((weekendBox?.x ?? 0) - 100);
+  // The permits coming up are the last section of the page, below both columns.
+  expect(permitsBox?.y ?? 0).toBeGreaterThan(Math.max(dueBox?.y ?? 0, weekendBox?.y ?? 0));
+  await expect(page.locator("main h2").last()).toHaveText("Genehmigungen demnächst");
 
   // "+ N weitere" opens the rest in place instead of navigating away.
   const more = page
@@ -78,11 +86,25 @@ test('Übersicht: Heute & überfällig left, the weekend right with a collapsed 
   await expect(page).toHaveURL(/[?&]vorschau=/);
   await page.goto("/");
 
-  // No KPI strip (the card headers carry the counts), no season strip, no filter chips, no estimate legend.
+  // No KPI strip (the group bands carry the counts), no season strip, no filter chips, no estimate legend.
   await expect(page.locator('dl[aria-label="Kennzahlen"]')).toHaveCount(0);
   await expect(page.getByText(/^Saison 2026/)).toHaveCount(0);
   await expect(page.getByRole("group", { name: "Filter" })).toHaveCount(0);
   await expect(page.getByText(/Aufwand =/)).toHaveCount(0);
+
+  // Phone (390 px): main panel, weekend box, permits stack in that order; nothing scrolls sideways.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const [dueY = 0, weekendY = 0, permitsY = 0] = await Promise.all(
+    [due, weekend, permits].map(async (h) => (await h.boundingBox())?.y ?? 0),
+  );
+  expect(dueY).toBeLessThan(weekendY);
+  expect(weekendY).toBeLessThan(permitsY);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
 });
 
 test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a market and undoes", async ({
@@ -91,6 +113,12 @@ test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a ma
   await page.goto("/");
   const line = page.getByText(/offene Aufgaben? aus vergangenen Märkten/);
   await expect(line).toBeVisible();
+  // Below everything else: the permits coming up are the last section, the line comes after them.
+  const permits = page.getByRole("region", { name: "Genehmigungen demnächst" });
+  const permitsBox = await permits.boundingBox();
+  expect((await line.boundingBox())?.y ?? 0).toBeGreaterThan(
+    (permitsBox?.y ?? 0) + (permitsBox?.height ?? 0),
+  );
   await page.getByRole("link", { name: "Aufräumen", exact: true }).click();
   await expect(page).toHaveURL(/aufraeumen=1/);
   // The drawer is a non-modal dialog labelled by its title.
@@ -858,26 +886,55 @@ test("Benachrichtigungen: no bell, the page stays; filters, Erledigt and Zurück
   await page.keyboard.press("k");
   await expect(rows.first()).toBeFocused();
 
-  // Erledigt on a task asks first (it leaves the list, decision D1): Abbrechen changes nothing.
-  const task = page.locator("li[data-row][data-task]").first();
   const confirm = page.getByRole("dialog", { name: "Aufgabe erledigt?" });
-  await task.getByRole("button", { name: "Erledigt", exact: true }).click();
-  await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
-  await expect(confirm).toBeHidden();
-  expect(await open()).toBe(before);
-  // Confirmed, it completes the task (own undo toast); the notification resolves with it. A task with open
-  // subtasks can't be done yet (ADR 0021): a red toast says so and nothing changes.
-  await task.getByRole("button", { name: "Erledigt", exact: true }).click();
-  await confirm.getByRole("button", { name: "Ja, erledigt" }).click();
   const refused = page.getByRole("alert").filter({ hasText: "kann noch nicht erledigt werden" });
-  await expect(toastUndo(page).or(refused).first()).toBeVisible();
-  if (await refused.first().isVisible()) {
+
+  // A task with open subtasks can't be done yet (ADR 0021): Erledigt asks nothing it would then refuse, it
+  // opens the task's drawer in place with a hint that says how many are open (R29); nothing changes.
+  const first = page.locator("li[data-row][data-task]").first();
+  const openSubtasks = Number((await first.getAttribute("data-open-subtasks")) ?? 0);
+  if (openSubtasks > 0) {
+    const id = await first.getAttribute("data-task");
+    const title = (await first.getAttribute("aria-label")) ?? "";
+    await first.getByRole("button", { name: "Erledigt", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/benachrichtigungen\\?(.*&)?aufgabe=${id}`));
+    await expect(page.getByRole("dialog", { name: title })).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Hinweise" })
+        .getByText(
+          `„${title}“ kann noch nicht erledigt werden: ${openSubtasks} offene Unteraufgabe`,
+        ),
+    ).toBeVisible();
+    await expect(confirm).toHaveCount(0);
+    await expect(refused).toHaveCount(0);
     expect(await open()).toBe(before);
-    await refused.first().getByRole("button", { name: "Hinweis schließen" }).click();
-  } else {
-    await expect.poll(open).toBe(before - 1);
-    await toastUndo(page).click();
-    await expect.poll(open).toBe(before);
+    await page.keyboard.press("Escape");
+    await expect(page).not.toHaveURL(/aufgabe=/);
+  }
+
+  // Erledigt on any other task asks first (it leaves the list, decision D1): Abbrechen changes nothing.
+  // The seed may hold no such task notification; then this part has nothing to check.
+  const task = page.locator("li[data-row][data-task]:not([data-open-subtasks])").first();
+  if ((await task.count()) > 0) {
+    await task.getByRole("button", { name: "Erledigt", exact: true }).click();
+    await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
+    await expect(confirm).toBeHidden();
+    expect(await open()).toBe(before);
+    // Confirmed, it completes the task (own undo toast); the notification resolves with it. Only other
+    // missing evidence (photo, attachment) can still refuse it: a red toast says so and nothing changes.
+    await task.getByRole("button", { name: "Erledigt", exact: true }).click();
+    await confirm.getByRole("button", { name: "Ja, erledigt" }).click();
+    await expect(toastUndo(page).or(refused).first()).toBeVisible();
+    if (await refused.first().isVisible()) {
+      await expect(refused.first()).not.toContainText("Unteraufgabe");
+      expect(await open()).toBe(before);
+      await refused.first().getByRole("button", { name: "Hinweis schließen" }).click();
+    } else {
+      await expect.poll(open).toBe(before - 1);
+      await toastUndo(page).click();
+      await expect.poll(open).toBe(before);
+    }
   }
 
   // Zurückstellen (in the "…" menu) with a preset moves it to "Zurückgestellt"; undo brings it back.
@@ -1217,7 +1274,11 @@ test("Übersicht: Erledigt asks first, since the task leaves the list; Abbrechen
 }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
-  const tick = page.getByRole("button", { name: /als erledigt markieren$/ }).first();
+  // A task without open subtasks: one with open subtasks opens its drawer instead of asking (R29).
+  const tick = page
+    .locator("li[data-row]:not([data-open-subtasks])")
+    .getByRole("button", { name: /als erledigt markieren$/ })
+    .first();
   const label = await tick.getAttribute("aria-label");
   await tick.click();
   const confirm = page.getByRole("dialog", { name: "Aufgabe erledigt?" });
@@ -1225,7 +1286,7 @@ test("Übersicht: Erledigt asks first, since the task leaves the list; Abbrechen
   await expect(confirm).toContainText("als erledigt markieren?");
   await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
   await expect(confirm).toBeHidden();
-  // A task can sit in more than one Übersicht card (e.g. Heute and Diese Woche): any of its ticks will do.
+  // Any tick with that label will do (the same title can show up under more than one market).
   await expect(page.getByRole("button", { name: label ?? "" }).first()).toBeVisible();
   await expect(toastUndo(page)).toHaveCount(0);
 });
@@ -1450,7 +1511,7 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   await expect(page.getByText("Besprechung angelegt")).toBeVisible();
   await expect(dialog).toBeHidden();
 
-  // Übersicht: first group of "Heute & überfällig", all-day Besprechungen first.
+  // Übersicht: first group of "Heute & nächste Tage", all-day Besprechungen first.
   const group = page.getByRole("region", { name: "Besprechungen heute" });
   await expect(group).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();

@@ -96,7 +96,12 @@ export async function MarketPanel({
                 )}
                 {canWrite && (
                   <TaskQuickActions
-                    task={{ id: task.id, title: task.title, status: task.status }}
+                    task={{
+                      id: task.id,
+                      title: task.title,
+                      status: task.status,
+                      openSubtasks: task.openSubtasks,
+                    }}
                     today={today}
                   />
                 )}

@@ -1,6 +1,6 @@
 import { History } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDateShort } from "@/lib/format";
@@ -162,10 +162,7 @@ export async function HistoryTable({
     ) : null;
 
   return (
-    <Panel aria-labelledby="history-title">
-      <PanelHeader>
-        <PanelTitle id="history-title">{t("title")}</PanelTitle>
-      </PanelHeader>
+    <Panel title={t("title")} titleId="history-title">
       {entries.length === 0 ? (
         <EmptyState icon={History} title={t("empty")} hint={t("emptyHint")} />
       ) : (

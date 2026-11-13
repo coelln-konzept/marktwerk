@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MarketColorPicker } from "@/components/ui/market-color-picker";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import type { PresetFormOptions } from "@/server/queries/presets";
 import type { PresetInput } from "@/server/services/presets";
 import { NO_RHYTHM, type Rhythm, rhythmFromRule, rhythmToRule } from "./rhythm";
@@ -242,10 +242,7 @@ export function PresetForm({
         {t("propagationHint")}
       </p>
 
-      <Panel aria-labelledby="preset-basics-title">
-        <PanelHeader>
-          <PanelTitle id="preset-basics-title">{t("basics.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("basics.title")} titleId="preset-basics-title">
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="preset-name">{t("basics.name")}</Label>
@@ -344,10 +341,7 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-public-title-heading">
-        <PanelHeader>
-          <PanelTitle id="preset-public-title-heading">{t("public.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("public.title")} titleId="preset-public-title-heading">
         <PanelBody className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="preset-publicTitle" optional>
@@ -379,10 +373,7 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-schedule-title">
-        <PanelHeader>
-          <PanelTitle id="preset-schedule-title">{t("schedule.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("schedule.title")} titleId="preset-schedule-title">
         <PanelBody className="flex flex-col gap-3">
           <ScheduleEditor
             value={schedule}
@@ -395,10 +386,7 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-prices-title">
-        <PanelHeader>
-          <PanelTitle id="preset-prices-title">{t("prices.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("prices.title")} titleId="preset-prices-title">
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="preset-price">{t("prices.price")}</Label>
@@ -448,10 +436,7 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-rhythm-title">
-        <PanelHeader>
-          <PanelTitle id="preset-rhythm-title">{t("rhythm.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("rhythm.title")} titleId="preset-rhythm-title">
         <PanelBody>
           <RhythmBuilder
             rhythm={rhythm}
@@ -463,10 +448,7 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-team-title">
-        <PanelHeader>
-          <PanelTitle id="preset-team-title">{t("team.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("team.title")} titleId="preset-team-title">
         <PanelBody className="flex flex-col gap-4">
           <p className="text-faint-foreground text-small">{t("team.hint")}</p>
           {options.roles.length === 0 ? (

@@ -30,6 +30,8 @@ export type OverviewTask = {
   subtasksDone?: number;
   subtasksTotal?: number;
   subtasksOverdue?: number;
+  /** Subtasks still open: a quick "Erledigt" opens the task's drawer instead (done gate, R29). */
+  openSubtasks?: number;
 };
 
 // ---------------------------------------------------------------------------------------------

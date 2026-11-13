@@ -6,7 +6,7 @@ import { setPresetsAction } from "@/app/(app)/vorlagen/ablauf/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 
 export type PresetChoice = {
   id: string;
@@ -53,10 +53,7 @@ export function PresetLinks({
   }
 
   return (
-    <Panel>
-      <PanelHeader>
-        <PanelTitle>{t("title")}</PanelTitle>
-      </PanelHeader>
+    <Panel title={t("title")}>
       <PanelBody className="flex flex-col gap-3">
         <p className="text-muted-foreground text-small">{t("hint")}</p>
         {presets.length === 0 ? (

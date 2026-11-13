@@ -11,12 +11,19 @@ import { task } from "./schema";
  * - A person's own list (their Übersicht/Kalender, digest, their reminders, workload per person): work items
  *   ({@link isOwnWorkItem}): top-level tasks plus subtasks assigned to somebody other than the parent's assignee.
  *
- * The subqueries use the table name `app.task` with their own alias and refer to the outer row as `task`, so
- * they fit any query whose `task` table is not aliased.
+ * The subqueries use the table name `app.task` with their own alias and refer to the outer row as
+ * `"app"."task"`, so they fit any query whose `task` table is not aliased (with or without joins).
  */
 
 /** Open = still to be done (same list as `OPEN_STATUSES` in @marktwerk/core). */
 const OPEN = sql.raw(`('todo', 'in_progress', 'waiting_external', 'blocked')`);
+
+/**
+ * The outer row's id, always qualified. Drizzle writes a column that sits directly in a select field of a
+ * single-table query without its table (`"id"`), which inside the subquery would mean `st."id"` and count
+ * nothing (R29: the event Überblick read 0 for every subtask count).
+ */
+const OUTER_ID = sql.raw(`"app"."task"."id"`);
 
 /** Top-level tasks only (`parent_task_id is null`). */
 export function isTopLevel(): SQL {
@@ -43,7 +50,7 @@ export function isOwnWorkItem(): SQL {
  * Berlin midnight), not waiting for somebody else, not snoozed. Same rule as `isSubtaskOverdue`.
  */
 function overdueSubtaskWhere(today: string, todayStart: Date): SQL {
-  return sql`st."parent_task_id" = ${task.id} and st."status" in ${OPEN}
+  return sql`st."parent_task_id" = ${OUTER_ID} and st."status" in ${OPEN}
     and st."status" <> 'waiting_external' and st."due_at" < ${todayStart}
     and (st."snoozed_until" is null or st."snoozed_until" <= ${today})`;
 }
@@ -68,9 +75,9 @@ export function isOverdueWithSubtasks(today: string, todayStart: Date): SQL<bool
  */
 export function subtaskAggregates(today: string, todayStart: Date) {
   return {
-    subtasksTotal: sql<number>`(select count(*)::int from "app"."task" st where st."parent_task_id" = ${task.id} and st."status" <> 'cancelled')`,
-    subtasksDone: sql<number>`(select count(*)::int from "app"."task" st where st."parent_task_id" = ${task.id} and st."status" in ('done', 'skipped'))`,
-    subtasksOpen: sql<number>`(select count(*)::int from "app"."task" st where st."parent_task_id" = ${task.id} and st."status" in ${OPEN})`,
+    subtasksTotal: sql<number>`(select count(*)::int from "app"."task" st where st."parent_task_id" = ${OUTER_ID} and st."status" <> 'cancelled')`,
+    subtasksDone: sql<number>`(select count(*)::int from "app"."task" st where st."parent_task_id" = ${OUTER_ID} and st."status" in ('done', 'skipped'))`,
+    subtasksOpen: sql<number>`(select count(*)::int from "app"."task" st where st."parent_task_id" = ${OUTER_ID} and st."status" in ${OPEN})`,
     subtasksOverdue: sql<number>`(select count(*)::int from "app"."task" st where ${overdueSubtaskWhere(today, todayStart)})`,
   };
 }
