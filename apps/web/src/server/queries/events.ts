@@ -73,6 +73,8 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
       typeNameEn: eventType.nameEn,
       /** Market colour of the event's preset (`MARKET_COLORS` key), null = use the type marker. */
       color: eventPreset.color,
+      /** The event's market; its Kürzel comes from `getMarketShortCodes`. */
+      presetId: event.presetId,
       venueId: venue.id,
       venueName: venue.name,
       city: venue.city,

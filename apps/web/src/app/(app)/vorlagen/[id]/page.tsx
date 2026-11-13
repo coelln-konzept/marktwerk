@@ -13,6 +13,7 @@ import { todayIn } from "@/lib/format";
 import { param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { listMarketColorUsage } from "@/server/queries/market-colors";
+import { listShortCodeMarkets } from "@/server/queries/market-short-codes";
 import {
   getPresetForEdit,
   getPresetFormOptions,
@@ -70,6 +71,7 @@ export default async function EditPresetPage({
   const tNav = await getTranslations("nav");
   const taskTemplates = await getPresetTaskTemplates(preset.id);
   const colorUsage = await listMarketColorUsage(preset.id);
+  const otherMarkets = (await listShortCodeMarkets()).filter((m) => m.id !== preset.id);
   const options = await getPresetFormOptions({
     eventTypeId: preset.eventTypeId,
     venueId: preset.venueId,
@@ -136,6 +138,7 @@ export default async function EditPresetPage({
       <PresetForm
         options={options}
         colorUsage={colorUsage}
+        otherMarkets={otherMarkets}
         edit={{ id: preset.id, updatedAt: preset.updatedAt.toISOString() }}
         initial={{
           name: preset.name,
@@ -151,6 +154,7 @@ export default async function EditPresetPage({
           defaultDuties,
           active: preset.active,
           color: preset.color,
+          shortCode: preset.shortCode,
         }}
       />
       {drawer}

@@ -9,6 +9,7 @@ import {
   primaryKey,
   text,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { archivedAt, id, timestamps } from "./_columns";
@@ -63,6 +64,12 @@ export const eventPreset = app.table(
      */
     color: text(),
     /**
+     * The market's "Kürzel" (Fahrplan R15): 1–4 upper-case letters or digits ("ALT", "KS", "P6"), shown
+     * next to the colour where space is tight (Kalender chips). Unique among the active markets. Null =
+     * derived from the name (`marketShortCodes` in @marktwerk/core).
+     */
+    shortCode: text(),
+    /**
      * "Marktregeln" (decision D2-3): the market's own rules, same shape as `event_type.rules`. Copied
      * from the event type when the market is created, then edited on the event page; they apply to
      * every event of this market. Events without a market show their type's rules.
@@ -75,6 +82,11 @@ export const eventPreset = app.table(
     index().on(t.eventTypeId),
     index().on(t.venueId),
     check("event_preset_duration", sql`${t.durationDays} between 1 and 14`),
+    check("event_preset_short_code", sql`${t.shortCode} ~ '^[A-Z0-9ÄÖÜ]{1,4}$'`),
+    // One Kürzel per active market; archived and inactive markets may keep an old one.
+    uniqueIndex("event_preset_active_short_code")
+      .on(t.shortCode)
+      .where(sql`${t.archivedAt} is null and ${t.active}`),
   ],
 );
 

@@ -1,11 +1,12 @@
 import { eventTypeClasses } from "@/components/ui/event-type-tag";
-import { MarketMarker } from "@/components/ui/market-marker";
+import { MarketCode, MarketMarker } from "@/components/ui/market-marker";
 import { EVENT_STATUS, type EventStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import { EventPopoverTrigger } from "./event-popover";
 
 /**
- * Event entry of the Kalender month grid: market marker (bar in the market colour, or the type square),
+ * Event entry of the Kalender month grid: market marker (bar in the market colour, or the type square)
+ * with the market's Kürzel right after it ("▌ALT", Fahrplan R15; events without a market have none),
  * status icon (hourglass = geplant, check = bestätigt, … the same icons as the status badge) and the
  * name on up to two lines. The chip's tint stays the event type's. A multi-day event joins its neighbour
  * days into one bar (square corners where it continues); on a `continuation` day the content is kept but
@@ -17,6 +18,7 @@ export function EventChip({
   href,
   typeKey,
   color,
+  shortCode,
   name,
   status,
   statusLabel,
@@ -29,6 +31,8 @@ export function EventChip({
   href: string;
   typeKey: string;
   color?: string | null;
+  /** The market's Kürzel ("ALT"); left out for an event without a market. */
+  shortCode?: string;
   name: string;
   status: EventStatus;
   /** Spoken and tooltip text of the status ("bestätigt"). */
@@ -50,7 +54,7 @@ export function EventChip({
       href={href}
       title={[name, statusLabel, spanLabel].filter(Boolean).join(" · ")}
       className={cn(
-        "flex cursor-pointer items-start gap-1 break-words rounded-md px-1 py-0.5 font-medium text-tiny leading-snug hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:outline-2 data-[popup-open]:outline-ring",
+        "@container flex cursor-pointer items-start gap-1 break-words rounded-md px-1 py-0.5 font-medium text-tiny leading-snug hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:outline-2 data-[popup-open]:outline-ring",
         eventTypeClasses(typeKey),
         cancelled && "opacity-70",
         continuesBefore && "-ml-1.5 rounded-l-none pl-2.5",
@@ -62,13 +66,19 @@ export function EventChip({
         aria-hidden={continuation || undefined}
         className={cn("contents", continuation && "[&>*]:invisible")}
       >
-        <MarketMarker
-          color={color}
-          typeKey={typeKey}
-          className={cn(color ? "h-3" : "size-2", "mt-[3px] shrink-0")}
-        />
+        {shortCode ? (
+          <MarketCode code={shortCode} color={color} typeKey={typeKey} className="mt-[3px] h-3" />
+        ) : (
+          <MarketMarker
+            color={color}
+            typeKey={typeKey}
+            className={cn(color ? "h-3" : "size-2", "mt-[3px] shrink-0")}
+          />
+        )}
         <Icon aria-hidden className="mt-[2px] size-3 shrink-0" strokeWidth={2.25} />
-        <span className="min-w-0">
+        {/* In a narrow day column the name would break into fragments: the Kürzel stands in for it
+            (name in the tooltip and for screen readers). */}
+        <span className={cn("min-w-0", shortCode && "@max-[7rem]:sr-only")}>
           <span className={cn(cancelled && "line-through")}>{name}</span>
         </span>
       </span>

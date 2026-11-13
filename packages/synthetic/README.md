@@ -54,7 +54,7 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 | `staffMembers` | 14 | Owner, office manager, two office staff (logins), logistics lead, nine field crew |
 | `employmentContracts` | 14 | Minijob rates 1390–1600 ct/h |
 | `dutyRoles` | 11 | Marktleitung … Wasser/Strom, plus the sheets' market-day roles Einweisung, Tageswache (Ordner), Nachtwache and Verkehr. Each has a default holder (field crew for Einweisung, Ordner, Nachtwache; the logistics lead for Verkehr); the Ordner rotates through the Minijob crew per market |
-| `eventPresets` | 17 | The 16 Coelln Konzept series + Hoffnungsthal (9 flea, 2 antique, 3 city festival, 3 food & wine), each with colour, Marktregeln (`rules`) and Zeitplan (`schedule`) |
+| `eventPresets` | 17 | The 16 Coelln Konzept series + Hoffnungsthal (9 flea, 2 antique, 3 city festival, 3 food & wine), each with colour, Kürzel (`shortCode`), Marktregeln (`rules`) and Zeitplan (`schedule`) |
 | `events` | 134 | 67 per season (2026, 2027), January–November, 53 on Sundays, 1–3 per day. Two 2026 events cancelled |
 | `eventAnchors` | 536 | `eventDay`, `setupDay`, `teardownDay`, `bookingCutoff` (Monday before) per event |
 | `eventSeasons` | 34 | One Saison record per market and year (17 × 2026, 2027). 2026: 14 `closed`, 3 `dates_set` (markets still running); 2027: 17 `dates_set` |

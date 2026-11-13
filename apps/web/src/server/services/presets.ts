@@ -9,6 +9,7 @@ import {
   type MarketRules,
   nextMarketColor,
   normalizeMarketRules,
+  normalizeMarketShortCode,
   type PresetFieldsInput,
   type PresetIssueCode,
   parseSchedule,
@@ -27,7 +28,7 @@ import {
   staffMember,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
@@ -41,6 +42,8 @@ export type PresetError =
   | "not_found"
   | "invalid_type"
   | "invalid_color"
+  /** Another active market already has this Kürzel. */
+  | "short_code_taken"
   | "invalid_venue"
   | "invalid_duty_role"
   | "invalid_staff"
@@ -75,6 +78,11 @@ export type PresetInput = PresetFieldsInput & {
    * the least used colour, an edit keeps the stored one.
    */
   color?: string | null;
+  /**
+   * Kürzel as typed ("alt" is stored as "ALT"); blank or null = none (the name-derived one is shown).
+   * Left out: a new preset has none, an edit keeps the stored one.
+   */
+  shortCode?: string | null;
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -97,6 +105,8 @@ function normalize(input: PresetInput): PresetInput {
     publicText: blankToNull(input.publicText),
     schedule: parseSchedule(input.schedule) ?? [],
     rrule: input.rrule === null || input.rrule === "" ? null : input.rrule,
+    shortCode:
+      input.shortCode === undefined ? undefined : normalizeMarketShortCode(input.shortCode),
   };
 }
 
@@ -110,6 +120,9 @@ function assertShape(input: PresetInput) {
     typeof input.durationDays === "number" &&
     typeof input.pricePerMCents === "number" &&
     typeof input.bookingFeeCents === "number" &&
+    (input.shortCode === undefined ||
+      input.shortCode === null ||
+      typeof input.shortCode === "string") &&
     parseSchedule(input.schedule) !== null &&
     typeof input.defaultDuties === "object" &&
     input.defaultDuties !== null &&
@@ -215,6 +228,7 @@ type Fields = {
   defaultDuties: Record<string, string>;
   active: boolean;
   color: string | null;
+  shortCode: string | null;
 };
 
 /** The audited fields of a stored preset. */
@@ -232,10 +246,15 @@ const storedFields = (row: typeof eventPreset.$inferSelect): Fields => ({
   defaultDuties: row.defaultDuties,
   active: row.active,
   color: row.color,
+  shortCode: row.shortCode,
 });
 
-/** The same fields of a (normalised) form input; `color` is what ends up stored. */
-const inputFields = (input: PresetInput, color: string | null): Fields => ({
+/** The same fields of a (normalised) form input; `color` and `shortCode` are what ends up stored. */
+const inputFields = (
+  input: PresetInput,
+  color: string | null,
+  shortCode: string | null,
+): Fields => ({
   name: input.name,
   eventTypeId: input.eventTypeId,
   venueId: input.venueId,
@@ -249,7 +268,45 @@ const inputFields = (input: PresetInput, color: string | null): Fields => ({
   defaultDuties: input.defaultDuties,
   active: input.active,
   color,
+  shortCode,
 });
+
+/**
+ * A Kürzel is unique among the active (non-archived, `active`) markets. Checked before the write so
+ * the form gets a field error; the partial unique index `event_preset_active_short_code` catches a race
+ * (`rethrowShortCodeTaken`).
+ */
+async function checkShortCodeFree(
+  tx: Tx,
+  shortCode: string | null,
+  active: boolean,
+  exceptId?: string,
+) {
+  if (shortCode === null || !active) return;
+  const [taken] = await tx
+    .select({ id: eventPreset.id })
+    .from(eventPreset)
+    .where(
+      and(
+        eq(eventPreset.shortCode, shortCode),
+        eq(eventPreset.active, true),
+        isNull(eventPreset.archivedAt),
+        exceptId ? ne(eventPreset.id, exceptId) : undefined,
+      ),
+    )
+    .limit(1);
+  if (taken) throw new PresetInputError("short_code_taken", "shortCode");
+}
+
+/** Maps the unique violation of a racing save to the same error as `checkShortCodeFree`. */
+function rethrowShortCodeTaken(error: unknown): never {
+  for (let e = error as { code?: string; constraint?: string; cause?: unknown } | null; e; ) {
+    if (e.code === "23505" && e.constraint === "event_preset_active_short_code")
+      throw new PresetInputError("short_code_taken", "shortCode");
+    e = e.cause as typeof e;
+  }
+  throw error;
+}
 
 function diffOf(from: Fields | null, to: Fields) {
   const changes: Record<string, { from: unknown; to: unknown }> = {};
@@ -277,6 +334,8 @@ async function insertPreset(
   extraDiff: Record<string, unknown> = {},
 ): Promise<{ id: string; key: string }> {
   await checkReferences(tx, input);
+  const shortCode = input.shortCode ?? null;
+  await checkShortCodeFree(tx, shortCode, input.active);
   const base = presetKeyBase(input.name);
   let key = "";
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -315,6 +374,7 @@ async function insertPreset(
       defaultDuties: input.defaultDuties,
       active: input.active,
       color,
+      shortCode,
       rules: type.rules,
     })
     .returning({ id: eventPreset.id });
@@ -324,7 +384,7 @@ async function insertPreset(
       action: "preset.create",
       entityType: "event_preset",
       entityId: row.id,
-      diff: { key, changes: diffOf(null, inputFields(input, color)), ...extraDiff },
+      diff: { key, changes: diffOf(null, inputFields(input, color, shortCode)), ...extraDiff },
     },
   ]);
   return { id: row.id, key };
@@ -342,14 +402,16 @@ export async function createPreset(
   assertShape(rawInput);
   const input = normalize(rawInput);
   checkFields(input);
-  return db.transaction(async (tx) =>
-    insertPreset(
-      tx,
-      actor,
-      input,
-      input.color === undefined ? await leastUsedColor(tx) : input.color,
-    ),
-  );
+  return db
+    .transaction(async (tx) =>
+      insertPreset(
+        tx,
+        actor,
+        input,
+        input.color === undefined ? await leastUsedColor(tx) : input.color,
+      ),
+    )
+    .catch(rethrowShortCodeTaken);
 }
 
 /** The colour for a new market: the least used one among the existing (non-archived) markets. */
@@ -475,46 +537,55 @@ export async function updatePreset(
   const input = normalize(rawInput);
   checkFields(input);
 
-  return db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(eventPreset)
-      .where(and(eq(eventPreset.id, id), isNull(eventPreset.archivedAt)))
-      .for("update");
-    if (!current) throw new PresetInputError("not_found");
-    if (current.updatedAt.getTime() !== expected.getTime()) throw new PresetInputError("conflict");
+  return db
+    .transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(eventPreset)
+        .where(and(eq(eventPreset.id, id), isNull(eventPreset.archivedAt)))
+        .for("update");
+      if (!current) throw new PresetInputError("not_found");
+      if (current.updatedAt.getTime() !== expected.getTime())
+        throw new PresetInputError("conflict");
 
-    await checkReferences(tx, input, current);
-    const color = input.color === undefined ? current.color : input.color;
-    const changes = diffOf(storedFields(current), inputFields(input, color));
-    if (Object.keys(changes).length === 0) return { changed: false, updatedAt: current.updatedAt };
+      await checkReferences(tx, input, current);
+      const color = input.color === undefined ? current.color : input.color;
+      const shortCode = input.shortCode === undefined ? current.shortCode : input.shortCode;
+      const changes = diffOf(storedFields(current), inputFields(input, color, shortCode));
+      if (Object.keys(changes).length === 0)
+        return { changed: false, updatedAt: current.updatedAt };
+      // A new Kürzel, or a market made active again, must not clash with another active market.
+      if (changes.shortCode || changes.active)
+        await checkShortCodeFree(tx, shortCode, input.active, id);
 
-    // Strictly newer than the version the editor saw, even within the same millisecond.
-    const updatedAt = new Date(Math.max(Date.now(), current.updatedAt.getTime() + 1));
-    await tx
-      .update(eventPreset)
-      .set({
-        eventTypeId: input.eventTypeId,
-        venueId: input.venueId,
-        name: input.name,
-        publicTitle: input.publicTitle,
-        publicText: input.publicText,
-        pricePerMCents: input.pricePerMCents,
-        bookingFeeCents: input.bookingFeeCents,
-        schedule: scheduleOf(input.schedule),
-        rrule: input.rrule,
-        durationDays: input.durationDays,
-        defaultDuties: input.defaultDuties,
-        active: input.active,
-        color,
-        updatedAt,
-      })
-      .where(eq(eventPreset.id, id));
-    await audit(tx, actor.id, [
-      { action: "preset.update", entityType: "event_preset", entityId: id, diff: { changes } },
-    ]);
-    return { changed: true, updatedAt };
-  });
+      // Strictly newer than the version the editor saw, even within the same millisecond.
+      const updatedAt = new Date(Math.max(Date.now(), current.updatedAt.getTime() + 1));
+      await tx
+        .update(eventPreset)
+        .set({
+          eventTypeId: input.eventTypeId,
+          venueId: input.venueId,
+          name: input.name,
+          publicTitle: input.publicTitle,
+          publicText: input.publicText,
+          pricePerMCents: input.pricePerMCents,
+          bookingFeeCents: input.bookingFeeCents,
+          schedule: scheduleOf(input.schedule),
+          rrule: input.rrule,
+          durationDays: input.durationDays,
+          defaultDuties: input.defaultDuties,
+          active: input.active,
+          color,
+          shortCode,
+          updatedAt,
+        })
+        .where(eq(eventPreset.id, id));
+      await audit(tx, actor.id, [
+        { action: "preset.update", entityType: "event_preset", entityId: id, diff: { changes } },
+      ]);
+      return { changed: true, updatedAt };
+    })
+    .catch(rethrowShortCodeTaken);
 }
 
 /**

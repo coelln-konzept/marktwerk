@@ -108,7 +108,11 @@ erDiagram
   `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M11), active,
   **`color`** (Marktfarbe: a key of the palette in `packages/core/src/events/market-colors.ts`, shown as a thin
   bar next to the market's name; assigned as the least used one when a market is created, editable in the
-  market editor; null = fall back to the event type's colour), **`rules`** (Marktregeln, jsonb with the same
+  market editor; null = fall back to the event type's colour), **`short_code`** (Kürzel, Fahrplan R15, migration
+  0023: 1–4 of `A–Z Ä Ö Ü 0–9`, check `event_preset_short_code`; unique among active, non-archived markets via the
+  partial unique index `event_preset_active_short_code`, checked first by the service as `short_code_taken`; null =
+  derived from the name, core `marketShortCodes` resolves own and derived codes over all non-archived markets so
+  derived ones never clash), **`rules`** (Marktregeln, jsonb with the same
   shape as `event_type.rules`, not null; decision D2-3 / UT2-12): a new market copies its event type's rules
   (`insertPreset`), migration 0015 filled the existing presets the same way, and from then on they are the
   market's own: edited on the event page ("Marktregeln bearbeiten", `updateMarketRules`, template:write,

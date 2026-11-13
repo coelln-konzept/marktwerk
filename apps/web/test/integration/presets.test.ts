@@ -3,6 +3,8 @@ import { auditLog, event, eventPreset, eventType, staffMember, venue } from "@ma
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { getMarketShortCodes } from "@/server/queries/market-short-codes";
+import { listPresets } from "@/server/queries/presets";
 import { createEventsFromPreset } from "@/server/services/events";
 import {
   createPreset,
@@ -165,6 +167,139 @@ describe("market colour", () => {
       "invalid_color",
       "color",
     );
+  });
+});
+
+describe("Kürzel (short code)", () => {
+  it("stores a typed Kürzel normalised, and none when left out or blank", async () => {
+    const a = await createPreset(owner, input({ name: "Altstadt", shortCode: " alt " }));
+    const b = await createPreset(owner, input({ name: "Nippes" }));
+    const c = await createPreset(owner, input({ name: "Südstadt", shortCode: "  " }));
+    expect((await load(a.id)).shortCode).toBe("ALT");
+    expect((await load(b.id)).shortCode).toBeNull();
+    expect((await load(c.id)).shortCode).toBeNull();
+    const created = (await audits("preset.create")).find((e) => e.entityId === a.id);
+    expect(created?.diff).toMatchObject({ changes: { shortCode: { from: null, to: "ALT" } } });
+  });
+
+  it("edits the Kürzel (audited), keeps it when left out and allows clearing it", async () => {
+    const { id } = await createPreset(owner, input({ shortCode: "FM" }));
+    let { updatedAt } = await load(id);
+    await updatePreset(owner, id, input({ name: "Anders" }), updatedAt);
+    expect((await load(id)).shortCode).toBe("FM");
+    ({ updatedAt } = await load(id));
+    const result = await updatePreset(
+      owner,
+      id,
+      input({ name: "Anders", shortCode: "p6" }),
+      updatedAt,
+    );
+    expect(result.changed).toBe(true);
+    expect((await load(id)).shortCode).toBe("P6");
+    const entry = (await audits("preset.update")).at(-1);
+    expect(entry?.diff).toMatchObject({ changes: { shortCode: { from: "FM", to: "P6" } } });
+    await updatePreset(owner, id, input({ name: "Anders", shortCode: "" }), result.updatedAt);
+    expect((await load(id)).shortCode).toBeNull();
+  });
+
+  it("rejects codes that are not 1–4 letters or digits", async () => {
+    for (const shortCode of ["ABCDE", "A-B", "straß", "É"])
+      await rejects(createPreset(owner, input({ shortCode })), "invalid_short_code", "shortCode");
+    await rejects(
+      createPreset(owner, input({ shortCode: 42 as unknown as string })),
+      "invalid_input",
+    );
+    const { id } = await createPreset(owner, input());
+    const { updatedAt } = await load(id);
+    await rejects(
+      updatePreset(owner, id, input({ shortCode: "TOOLONG" }), updatedAt),
+      "invalid_short_code",
+      "shortCode",
+    );
+  });
+
+  it("keeps a Kürzel unique among active markets only", async () => {
+    await createPreset(owner, input({ name: "Altstadt", shortCode: "ALT" }));
+    await rejects(
+      createPreset(owner, input({ name: "Altenberg", shortCode: "alt" })),
+      "short_code_taken",
+      "shortCode",
+    );
+    // An inactive market may keep (or get) a code an active one has.
+    const inactive = await createPreset(
+      owner,
+      input({ name: "Altenberg", shortCode: "ALT", active: false }),
+    );
+    const row = await load(inactive.id);
+    // … but cannot become active again while the code is taken.
+    await rejects(
+      updatePreset(owner, inactive.id, input({ name: "Altenberg", active: true }), row.updatedAt),
+      "short_code_taken",
+      "shortCode",
+    );
+    expect((await load(inactive.id)).active).toBe(false);
+    // With another code it can.
+    await updatePreset(
+      owner,
+      inactive.id,
+      input({ name: "Altenberg", active: true, shortCode: "ABG" }),
+      row.updatedAt,
+    );
+    expect(await load(inactive.id)).toMatchObject({ active: true, shortCode: "ABG" });
+  });
+
+  it("rejects taking another active market's Kürzel on edit, but saving its own again is fine", async () => {
+    await createPreset(owner, input({ name: "Altstadt", shortCode: "ALT" }));
+    const { id } = await createPreset(owner, input({ name: "Nippes", shortCode: "NIP" }));
+    const before = await load(id);
+    await rejects(
+      updatePreset(owner, id, input({ name: "Nippes", shortCode: "ALT" }), before.updatedAt),
+      "short_code_taken",
+      "shortCode",
+    );
+    expect((await load(id)).shortCode).toBe("NIP");
+    const same = await updatePreset(
+      owner,
+      id,
+      input({ name: "Nippes", shortCode: "NIP" }),
+      before.updatedAt,
+    );
+    expect(same.changed).toBe(false);
+  });
+
+  it("is backed by a partial unique index (a racing save is caught by the database)", async () => {
+    const a = await createPreset(owner, input({ name: "A", shortCode: "ALT" }));
+    const b = await createPreset(owner, input({ name: "B" }));
+    // Bypasses the service's check, as a concurrent save would.
+    await expect(
+      db.update(eventPreset).set({ shortCode: "ALT" }).where(eq(eventPreset.id, b.id)),
+    ).rejects.toThrow();
+    // Archived markets don't count.
+    await db.update(eventPreset).set({ archivedAt: new Date() }).where(eq(eventPreset.id, a.id));
+    await db.update(eventPreset).set({ shortCode: "ALT" }).where(eq(eventPreset.id, b.id));
+    expect((await load(b.id)).shortCode).toBe("ALT");
+    // The check constraint refuses lower case and long codes.
+    await expect(
+      db.update(eventPreset).set({ shortCode: "alt" }).where(eq(eventPreset.id, b.id)),
+    ).rejects.toThrow();
+    await expect(
+      db.update(eventPreset).set({ shortCode: "ABCDE" }).where(eq(eventPreset.id, b.id)),
+    ).rejects.toThrow();
+  });
+
+  it("resolves the Kürzel to show: own codes first, derived ones kept apart", async () => {
+    const own = await createPreset(owner, input({ name: "Südbrücke", shortCode: "SÜD" }));
+    const derived = await createPreset(owner, input({ name: "Südstadt" }));
+    const kerpen = await createPreset(owner, input({ name: "Kerpen Stadtfest" }));
+    const codes = await getMarketShortCodes();
+    expect(codes.get(own.id)).toBe("SÜD");
+    expect(codes.get(derived.id)).toBe("SÜDS");
+    expect(codes.get(kerpen.id)).toBe("KS");
+    // The seeded catalogue's markets get one too, all different.
+    expect(new Set(codes.values()).size).toBe(codes.size);
+    // The Bibliothek shows the same codes.
+    const listed = await listPresets();
+    for (const p of listed) expect(p.code).toBe(codes.get(p.id));
   });
 });
 

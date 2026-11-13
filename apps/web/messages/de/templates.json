@@ -57,7 +57,10 @@
         "retired": "(nicht mehr aktiv)",
         "duration": "Dauer (Tage)",
         "active": "Aktiv",
-        "activeHint": "Inaktive Märkte erscheinen nicht unter „Markt planen“. Mit dem Haken erscheint er wieder."
+        "activeHint": "Inaktive Märkte erscheinen nicht unter „Markt planen“. Mit dem Haken erscheint er wieder.",
+        "shortCode": "Kürzel",
+        "shortCodeHint": "Steht im Kalender neben der Farbe, 1 bis 4 Buchstaben oder Ziffern. Leer lassen, dann gilt „{code}“ aus dem Namen.",
+        "shortCodeHintOwn": "Steht im Kalender neben der Farbe, 1 bis 4 Buchstaben oder Ziffern."
       },
       "color": {
         "legend": "Farbe des Markts",
@@ -140,7 +143,9 @@
         "not_found": "Diese Vorlage gibt es nicht mehr.",
         "invalid_input": "Die Angaben sind unvollständig. Bitte die Seite neu laden.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
-        "invalid_schedule": "Bitte den Zeitplan prüfen (Hinweise an den Zeilen)."
+        "invalid_schedule": "Bitte den Zeitplan prüfen (Hinweise an den Zeilen).",
+        "invalid_short_code": "Bitte 1 bis 4 Buchstaben oder Ziffern angeben, z. B. ALT.",
+        "short_code_taken": "Dieses Kürzel hat schon ein anderer aktiver Markt. Bitte ein anderes wählen."
       },
       "tasksLink": "Aufgaben dieses Markts:",
       "tasksOwn": "Eigene Aufgabenvorlage",
@@ -248,7 +253,8 @@
       "tplOwn": "Eigene Vorlage",
       "tplShared": "gemeinsam genutzt",
       "tplDraft": "Entwurf",
-      "tplMeta": "{kind} · {version} · {count, plural, one {# Aufgabe} other {# Aufgaben}}"
+      "tplMeta": "{kind} · {version} · {count, plural, one {# Aufgabe} other {# Aufgaben}}",
+      "codeTitle": "Kürzel"
     },
     "others": {
       "title": "Nicht verwendete Ablaufvorlagen",

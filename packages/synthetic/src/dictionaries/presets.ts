@@ -10,8 +10,13 @@ export interface PresetBlueprint {
   /** The zone of a shared venue the market uses (Stadion: Vorplatz or P6). Informational. */
   zone: string | null;
   name: string;
-  /** Short code on the wall calendar's magnets (research 13 G3). Not stored yet (no column before R15). */
-  code: string | null;
+  /**
+   * The market's Kürzel (`event_preset.short_code`, Fahrplan R15; research 13 G3). The wall calendar's magnet letters
+   * repeat ("S" is both Rodenkirchen Hauptstraße and Kerpen Stadtfest), so the place goes in front: Rodenkirchen
+   * "RS", "RA", "RM"; Kerpen with three letters ("KST", "KWT" …, so none reads as "KW" = Kalenderwoche). "LS" and
+   * "P6" are as on the wall; the others get the short form the team would use ("ALT", "NIP"). Unique, 1–4 characters.
+   */
+  code: string;
   color: MarketColor;
   /** Usual length in days; a single date may differ (Altstadt is 3 days at Easter and Whitsun). */
   durationDays: number;
@@ -75,7 +80,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "altstadt",
     zone: null,
     name: "Altstadt",
-    code: null,
+    code: "ALT",
     color: "brown",
     durationDays: 2,
     // Easter and Whitsun Sa–Mo, otherwise the last weekend Sa–So June to October.
@@ -127,7 +132,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "riehler-guertel",
     zone: null,
     name: "Riehler Gürtel",
-    code: null,
+    code: "RIE",
     color: "petrol",
     durationDays: 1,
     // Monthly April–November, 2nd Sunday; 1st Sunday from September.
@@ -149,7 +154,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "nippes",
     zone: null,
     name: "Nippes, Wilhelmplatz",
-    code: null,
+    code: "NIP",
     color: "olive",
     durationDays: 1,
     // Monthly January–November, 3rd Sunday (4th in April and August), never on Whitsun or Totensonntag.
@@ -172,7 +177,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "stadion",
     zone: "Vorplatz",
     name: "RheinEnergie Stadion",
-    code: null,
+    code: "STA",
     color: "slate",
     durationDays: 1,
     dates: nthSundays({ 3: 2, 4: 3, 5: -1 }),
@@ -214,7 +219,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "suedstadt",
     zone: null,
     name: "Südstadt",
-    code: null,
+    code: "SÜD",
     color: "cyan",
     durationDays: 1,
     dates: [...nthSundays({ 4: 3 }), holiday("corpus_christi"), ...nthSundays({ 6: 3 })],
@@ -235,7 +240,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "suedbruecke",
     zone: null,
     name: "Südbrücke",
-    code: null,
+    code: "SBR",
     color: "indigo",
     durationDays: 1,
     // Monthly March–October, 1st or 2nd Sunday (often the same day as Riehler Gürtel).
@@ -257,7 +262,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "rudolfplatz",
     zone: null,
     name: "Rudolfplatz",
-    code: null,
+    code: "RUD",
     color: "plum",
     durationDays: 3,
     // Twice a year, Fr–So: the weekend of the 1st Sunday in March and of the 3rd Sunday in September.
@@ -279,7 +284,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "rodenkirchen",
     zone: "Hauptstraße",
     name: "Rodenkirchen Hauptstraße",
-    code: "S",
+    code: "RS",
     color: "sand",
     durationDays: 2,
     // Whitsun Sa–So (grey magnet, 15–16 May 2027).
@@ -302,7 +307,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "rodenkirchen",
     zone: "Maternusplatz",
     name: "Rodenkirchen Maternusplatz (Antik)",
-    code: "A",
+    code: "RA",
     color: "brown",
     durationDays: 1,
     dates: sundays([4, 6, 8, 10], 1),
@@ -323,7 +328,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "rodenkirchen",
     zone: "Maternusplatz",
     name: "Rodenkirchen Maternusplatz (Trödel)",
-    code: "M",
+    code: "RM",
     color: "cyan",
     durationDays: 1,
     dates: sundays([5, 6, 7, 8, 9], 4),
@@ -344,7 +349,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "kerpen",
     zone: null,
     name: "Kerpen Stadtfest",
-    code: "S",
+    code: "KST",
     color: "rose",
     durationDays: 3,
     // Fr–So, the weekend of the 2nd Sunday in June.
@@ -367,7 +372,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "kerpen",
     zone: null,
     name: "Kerpen Weintage",
-    code: "W",
+    code: "KWT",
     color: "plum",
     durationDays: 4,
     // Do–So, ending on the last Sunday in July.
@@ -389,7 +394,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "kerpen",
     zone: null,
     name: "Kerpen Bauernmarkt",
-    code: "B",
+    code: "KBM",
     color: "olive",
     durationDays: 1,
     // Spring and Erntedank (1st Sunday in May and October).
@@ -412,7 +417,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "kerpen",
     zone: null,
     name: "Kerpener Trödelmarkt",
-    code: "T",
+    code: "KTM",
     color: "slate",
     durationDays: 1,
     dates: sundays([4, 8, 10], 3),
@@ -433,7 +438,7 @@ export const PRESET_BLUEPRINTS: readonly PresetBlueprint[] = [
     venueKey: "hoffnungsthal",
     zone: null,
     name: "Hoffnungsthal",
-    code: null,
+    code: "HOF",
     color: "petrol",
     durationDays: 1,
     // Once a year with the Ortsring, 2nd Sunday in September (handwritten on 12 Sep 2027).

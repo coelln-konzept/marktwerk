@@ -60,3 +60,39 @@ export function MarketMarker({
     );
   return <EventTypeMarker typeKey={typeKey} className={className} />;
 }
+
+/**
+ * The market's Kürzel (Fahrplan R15) joined to its colour marker: a short bar in the market colour (or the
+ * type square) directly followed by the code in small, bold capitals ("▌ALT"). For places where space is
+ * tight (Kalender month chips). Decorative like the marker: the market name sits next to it or in the
+ * tooltip, so screen readers skip it.
+ */
+export function MarketCode({
+  code,
+  color,
+  typeKey,
+  className,
+}: {
+  code: string;
+  color: string | null | undefined;
+  typeKey?: string | null;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      data-market-code={code}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-[3px] whitespace-nowrap font-semibold text-[10px] leading-none tracking-wide",
+        className,
+      )}
+    >
+      <MarketMarker
+        color={color}
+        typeKey={typeKey}
+        className={isMarketColor(color) ? "h-3" : "size-2"}
+      />
+      {code}
+    </span>
+  );
+}
