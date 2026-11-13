@@ -457,6 +457,47 @@ export async function completeTasksForPermit(
   return completed;
 }
 
+/** Audit reason of a template apply task removed because its season permit has one already. */
+export const PERMIT_SHARED_REASON =
+  "Genehmigung gilt für mehrere Veranstaltungen: eine Antragsaufgabe";
+
+/**
+ * Removes open template apply tasks that would apply a second time for a permit covering several events
+ * (research 10, Fahrplan 18: one apply task per season permit). Same change as "Löschen" (`deleteTask`):
+ * status `cancelled`, open subtasks go with it, audited as `task.delete` (`auto: true`, reason
+ * {@link PERMIT_SHARED_REASON}) when there is an actor, so the Verlauf can restore it. Inside the caller's
+ * transaction and without the task-scope check, like {@link completeTasksForPermit}. Returns the ids removed.
+ */
+export async function cancelDuplicatePermitTasks(
+  tx: Tx,
+  actor: Pick<Actor, "id"> | undefined,
+  permitId: string,
+  taskIds: readonly string[],
+): Promise<string[]> {
+  if (taskIds.length === 0) return [];
+  const rows = await tx
+    .select()
+    .from(task)
+    .where(and(inArray(task.id, [...taskIds]), inArray(task.status, [...OPEN_STATUSES])))
+    .orderBy(task.id)
+    .for("update");
+  for (const row of rows) {
+    const before = stateOf(row);
+    await tx.update(task).set({ status: "cancelled" }).where(eq(task.id, row.id));
+    const subtasks = await cancelOpenSubtasks(tx, row.id);
+    if (actor)
+      await writeAudit(tx, actor, "task.delete", row.id, {
+        ...stateDiff(before, { ...before, status: "cancelled" }),
+        title: row.title,
+        ...(subtasks.length > 0 ? { subtasks } : {}),
+        auto: true,
+        reason: PERMIT_SHARED_REASON,
+        permitId,
+      });
+  }
+  return rows.map((r) => r.id);
+}
+
 // ---------------------------------------------------------------------------------------------
 // move
 

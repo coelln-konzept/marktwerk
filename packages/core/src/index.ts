@@ -35,6 +35,7 @@ export * from "./notifications/company";
 export * from "./notifications/company-order";
 export * from "./notifications/digest";
 export * from "./permits/action";
+export * from "./permits/apply-task";
 export * from "./permits/coverage";
 export * from "./permits/event-state";
 export * from "./permits/order";

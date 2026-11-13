@@ -419,7 +419,8 @@ export async function getPermit(actor: Actor, id: string, today: string) {
       .from(task)
       .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
       .leftJoin(event, eq(event.id, task.eventId))
-      .where(eq(task.permitId, id))
+      // Deleted tasks (cancelled, e.g. a season permit's duplicate apply tasks) are left out like everywhere.
+      .where(and(eq(task.permitId, id), ne(task.status, "cancelled")))
       .orderBy(asc(task.dueAt), asc(task.title)),
     db
       .select({ id: payable.id, title: payable.title, totalGrossCents: payable.totalGrossCents })
