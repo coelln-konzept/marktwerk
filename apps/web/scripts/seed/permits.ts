@@ -15,8 +15,9 @@ const OPEN = ["todo", "in_progress", "waiting_external", "blocked"] as const;
 
 /**
  * Seed counterpart of `linkPermitTasks` (apps/web/src/server/services/permits.ts; the seed cannot import the
- * server-only services): template tasks whose item names a permit type get the event's permit of that type,
- * and open ones whose permit is applied for or granted are done. Idempotent.
+ * server-only services): template tasks whose item names a permit type get the event's permit of that type, season
+ * tasks the permit of their Saison record (R11), and open ones whose permit is applied for or granted are done.
+ * Idempotent.
  */
 async function linkPermitTasks(tx: Tx) {
   const { task, templateItem, eventPermit, permit } = schema;
@@ -55,7 +56,39 @@ async function linkPermitTasks(tx: Tx) {
       .sort((a, b) => rank(a) - rank(b))[0];
     if (best) byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t.id]);
   }
-  const statusOf = new Map(candidates.map((c) => [c.permitId, c.status]));
+  // Season tasks (R11): the season item that names a permit type links to the permit of its own Saison record.
+  const seasonOpen = await tx
+    .select({ id: task.id, seasonId: task.seasonId, permitType: templateItem.permitType })
+    .from(task)
+    .innerJoin(templateItem, eq(templateItem.id, task.templateItemId))
+    .where(
+      and(
+        isNull(task.permitId),
+        isNotNull(task.seasonId),
+        isNotNull(templateItem.permitType),
+        ne(task.status, "cancelled"),
+      ),
+    );
+  const seasonPermits = await tx
+    .select({
+      seasonId: permit.seasonId,
+      permitId: permit.id,
+      permitType: permit.permitType,
+      status: permit.status,
+    })
+    .from(permit)
+    .where(
+      and(isNotNull(permit.seasonId), isNull(permit.archivedAt), ne(permit.status, "superseded")),
+    );
+  for (const t of seasonOpen) {
+    const best = seasonPermits
+      .filter((c) => c.seasonId === t.seasonId && c.permitType === t.permitType)
+      .sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))[0];
+    if (best) byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t.id]);
+  }
+  const statusOf = new Map(
+    [...candidates, ...seasonPermits].map((c) => [c.permitId, c.status] as const),
+  );
   let linked = 0;
   let done = 0;
   for (const [permitId, ids] of byPermit) {
@@ -118,9 +151,8 @@ export async function seedPermits(tx: Tx, { data }: SeedContext) {
       requirementId: p.requirementId,
       venueId: p.venueId,
       season: p.season,
-      // Season permits (one per market and season) belong to that market's Saison record. Linking their apply task
-      // through it (one task per season permit) is Fahrplan R11; until then `linkPermitTasks` below links event
-      // tasks only, and the season tasks' statuses already follow their permit in the dataset.
+      // Season permits (one per market and season) belong to that market's Saison record; `linkPermitTasks` below
+      // links the season's apply task to it (one task per season permit, Fahrplan R11).
       seasonId: p.seasonId,
       category: p.category,
       permitType: p.permitType,
