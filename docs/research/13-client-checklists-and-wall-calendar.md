@@ -255,7 +255,8 @@ Progress (branch `feat/saison-backend`, 2026-11-13):
 | R8 | `ensureEventSeason` + nightly job `event-seasons` (00:20 Berlin) + "Markt planen" hook | done |
 | R9 | Season instantiation through the one instantiation path (season context); events skip season items | done |
 | R10 | Anchors recomputed on create/move/cancel/reopen/delete/undo; season tasks follow through `planTaskShift`/`shiftTasks` | done |
-| R11–R14 | Permit link, market-page panel, lists/Kalender/digest labels, propagation | open |
+| R12 | Market-page Saison panel (`/vorlagen/<id>`): start / "Erwartet ab" (editable without dates), status switch with undo, season tasks, "Saison anlegen" (ux-concept §5 "Market page and its Saison panel") | done (branch `feat/r12-season-panel`) |
+| R11, R13, R14 | Permit link, lists/Kalender/digest labels, propagation | open |
 | R18 | Synthetic data and seed: a Saison record per market and year with anchors (core rules), season items with `scope = 'season'` on `season_start`, season tasks on the record (no "Saison:" prefix, keys `saison_…` kept), season permits with `season_id`; the interim first-event carrier is gone (branch `feat/r18-season-data`) | done |
 
 Choices made while building R6–R10 that this section left open (to confirm with the product owner):
