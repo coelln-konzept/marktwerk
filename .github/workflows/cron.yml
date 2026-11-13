@@ -35,6 +35,7 @@ on:
           - obligation-reminders
           - installment-reminders
           - payroll-reminders
+          - event-seasons
 
 jobs:
   plan:
@@ -62,6 +63,7 @@ jobs:
             [ "$now" -ge 5 ] && due+=(task-rollover)                             # from 00:05
             [ "$now" -ge 700 ] && [ "$now" -lt 1200 ] && due+=(daily-digest)     # 07:00-11:59, a digest after noon is pointless
             [ "$now" -ge 705 ] && due+=(payroll-reminders)                       # from 07:05
+            [ "$now" -ge 20 ] && due+=(event-seasons)                            # from 00:20 (Saison records)
           else
             due=(send-emails)
           fi

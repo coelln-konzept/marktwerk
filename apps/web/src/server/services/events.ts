@@ -29,6 +29,7 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { fillLogbookForEvents } from "./permits";
+import { ensureSeasonsTx } from "./seasons";
 import { instantiateTemplatesForEvents } from "./task-instantiation";
 
 /** At most this many events per run (a full season of one preset is ~10). */
@@ -178,6 +179,17 @@ export async function instantiateEvents(
     created.map((c) => c.id),
     actor,
   );
+  // Saison (research 13 §6.2): the market has its record for every season it now has dates in.
+  if (template.presetId) {
+    const presetId = template.presetId;
+    const seasons = [...new Set(created.map((c) => Number(c.startsOn.slice(0, 4))))].sort();
+    await ensureSeasonsTx(
+      tx,
+      actor,
+      seasons.map((season) => ({ presetId, season })),
+      source === "agreement" ? "agreement" : "markt_planen",
+    );
+  }
   await audit(
     tx,
     actor.id,

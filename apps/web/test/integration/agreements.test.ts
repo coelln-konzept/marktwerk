@@ -229,7 +229,13 @@ describe("createEventsFromAgreement", () => {
     }
     // Default duties of the preset come along, like in a normal generation.
     expect(await db.select().from(eventDuty)).toHaveLength(6);
-    const entries = await db.select().from(auditLog);
+    const all = await db.select().from(auditLog);
+    // Plus the market's Saison record of each year with a date (research 13 §6), audited on their own.
+    const seasons = all.filter((e) => e.action === "season.create");
+    const years = new Set(rows.map((r) => r.season));
+    expect(seasons).toHaveLength(years.size);
+    expect(seasons.every((e) => (e.diff as { source: string }).source === "agreement")).toBe(true);
+    const entries = all.filter((e) => e.action !== "season.create");
     expect(entries).toHaveLength(3);
     expect(entries.map((e) => e.diff)).toContainEqual({
       presetId: cat.presets.flea.id,

@@ -136,6 +136,7 @@ export async function previewGeneration(
       for (const { startsOn, durationDays } of plan) {
         const endsOn = endsOnFor(startsOn, durationDays);
         const ev: EventContext = {
+          scope: "event",
           id: startsOn,
           name: template.name,
           startsOn,

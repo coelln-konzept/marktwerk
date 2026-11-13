@@ -186,7 +186,10 @@ describe("createEventsFromPreset", () => {
       "2026-11-28",
       "2026-12-12",
     ]);
-    const entries = await db.select().from(auditLog);
+    const all = await db.select().from(auditLog);
+    // Plus one Saison record for 2026 (research 13 §6), audited on its own.
+    expect(all.filter((e) => e.action === "season.create")).toHaveLength(1);
+    const entries = all.filter((e) => e.action !== "season.create");
     expect(entries).toHaveLength(3);
     expect(entries.every((e) => e.action === "event.create" && e.entityType === "event")).toBe(
       true,

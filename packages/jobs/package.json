@@ -2,10 +2,11 @@
   "name": "@marktwerk/jobs",
   "version": "0.0.0",
   "private": true,
-  "description": "Background job handlers, shared by the worker (pg-boss) and the cron HTTP endpoint (serverless hosting).",
+  "description": "Background job handlers, shared by the worker (pg-boss) and the cron HTTP endpoint (serverless hosting), and the service paths they share with the web app (template instantiation, Saison records).",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
   },
   "scripts": {
     "typecheck": "tsc"
