@@ -2,15 +2,20 @@
 
 import { Dialog } from "@base-ui/react/dialog";
 import {
+  anchorFitsScope,
   checkTemplateItem,
   defaultAnchors,
   dueDateForNrw,
   type ItemCondition,
   insertPoint,
+  isSeasonAnchorKey,
   normalizeCondition,
   PERMIT_TYPES,
+  SEASON_ANCHOR_KEYS,
   STANDARD_ANCHOR_KEYS,
+  TEMPLATE_ITEM_SCOPES,
   type TemplateItemFields,
+  type TemplateItemScope,
 } from "@marktwerk/core";
 import { ArrowDown, ArrowUp, CornerLeftUp, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
@@ -70,6 +75,8 @@ type Form = {
   parentKey: string | null;
   /** Child item: own anchor/offset/day mode/time instead of the parent's. */
   ownDue: boolean;
+  /** "Gilt für" (research 13 §6.1): every date of the market, or once per season. A child item takes its parent's. */
+  scope: TemplateItemScope;
   eventTypeKeys: string[];
   venueKinds: string[];
   venueIds: string[];
@@ -81,14 +88,24 @@ const DEFAULT_OFFSET: Record<TemplateItemFields["phase"], string> = {
   post: "1",
 };
 
-function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]): Form {
+/** The anchor a row gets when it switches to a scope its current anchor does not fit. */
+const SCOPE_ANCHOR: Record<TemplateItemScope, string> = {
+  event: "event_day",
+  season: "season_start",
+};
+
+function initialForm(
+  item: ItemView | null,
+  phase: TemplateItemFields["phase"],
+  scope: TemplateItemScope = "event",
+): Form {
   if (!item)
     return {
       title: "",
       description: "",
       phase,
       category: "general",
-      anchorKey: "event_day",
+      anchorKey: SCOPE_ANCHOR[scope],
       offsetDays: DEFAULT_OFFSET[phase],
       dayMode: "calendar",
       dueTime: "",
@@ -103,6 +120,7 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
       permitType: "",
       parentKey: null,
       ownDue: false,
+      scope,
       eventTypeKeys: [],
       venueKinds: [],
       venueIds: [],
@@ -127,6 +145,7 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
     permitType: item.permitType ?? "",
     parentKey: item.parentKey,
     ownDue: item.ownDue,
+    scope: item.scope ?? "event",
     eventTypeKeys: item.condition?.eventTypeKeys ?? [],
     venueKinds: item.condition?.venueKinds ?? [],
     venueIds: item.condition?.venueIds ?? [],
@@ -161,6 +180,7 @@ function toFields(form: Form): TemplateItemFields {
     approverDutyRoleId: form.approverDutyRoleId || null,
     parentKey: form.parentKey,
     ownDue: form.ownDue,
+    scope: form.scope,
     condition: normalizeCondition(condition),
   };
 }
@@ -193,12 +213,15 @@ function newChildFields(parent: ItemView, title: string): TemplateItemFields {
  * draft; published versions show the same fields read-only. A top-level row lists its child items
  * ("Unteraufgaben", ADR 0021): add by title, open, reorder, remove (with undo). A child item opens in the same
  * drawer and inherits the parent's due date ("Eigene Fälligkeit" off) and role ("Wie Hauptaufgabe").
+ * "Gilt für" (research 13 §6.1) makes a top-level row a season row ("Ganze Saison": once per season, due from
+ * Saisonbeginn or Saisonende) or a row of every date; child rows take their parent's and show no choice.
  */
 export function ItemDrawer({
   versionId,
   editable,
   item,
   newPhase,
+  newScope = "event",
   items,
   roles,
   eventTypes,
@@ -212,6 +235,8 @@ export function ItemDrawer({
   /** null = a new row */
   item: ItemView | null;
   newPhase: TemplateItemFields["phase"];
+  /** Scope of a new row (`?gilt=saison` from the grid's Saison section). */
+  newScope?: TemplateItemScope;
   items: ItemView[];
   roles: RoleChoice[];
   eventTypes: TypeChoice[];
@@ -228,7 +253,7 @@ export function ItemDrawer({
   const locale = useLocale();
   const router = useRouter();
   const { showToast, showError: showErrorToast } = useShell();
-  const [form, setForm] = useState(() => initialForm(item, newPhase));
+  const [form, setForm] = useState(() => initialForm(item, newPhase, newScope));
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -254,14 +279,25 @@ export function ItemDrawer({
   const toggle = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
-  const anchorOptions = [...new Set([...STANDARD_ANCHOR_KEYS, ...extraAnchors, form.anchorKey])];
+  const season = form.scope === "season";
+  // Season rows hang only on the season anchors, rows of every date never on them (core `anchorFitsScope`).
+  const anchorOptions = season
+    ? [...new Set<string>([...SEASON_ANCHOR_KEYS, form.anchorKey])]
+    : [
+        ...new Set([
+          ...STANDARD_ANCHOR_KEYS,
+          ...extraAnchors.filter((key) => !isSeasonAnchorKey(key)),
+          form.anchorKey,
+        ]),
+      ];
   const anchorName = (key: string) =>
     t.has(`anchors.${key}` as never) ? t(`anchors.${key}` as never) : key;
 
   const fields = toFields(form);
   const issue = checkTemplateItem(fields)[0];
   const dirty =
-    editable && JSON.stringify(fields) !== JSON.stringify(toFields(initialForm(item, newPhase)));
+    editable &&
+    JSON.stringify(fields) !== JSON.stringify(toFields(initialForm(item, newPhase, newScope)));
 
   /** Going to another row (a child, the parent) would drop the typed changes: ask to save first. */
   function guard(event: MouseEvent) {
@@ -278,10 +314,27 @@ export function ItemDrawer({
     dueTime: p.dueTime ?? "",
   });
 
+  /** "Gilt für": an anchor that does not fit the new scope moves to the scope's main anchor. */
+  function chooseScope(scope: TemplateItemScope) {
+    set(
+      anchorFitsScope(scope, form.anchorKey)
+        ? { scope }
+        : { scope, anchorKey: SCOPE_ANCHOR[scope] },
+    );
+  }
+
   function chooseParent(key: string) {
     const next = key ? items.find((i) => i.key === key) : undefined;
-    // A child stands in its parent's phase (the service keeps it so as well).
-    if (next) set({ parentKey: next.key, phase: next.phase });
+    const nextScope = next?.scope ?? "event";
+    // A child stands in its parent's phase and scope (the service keeps it so as well); an own date that does
+    // not fit the parent's scope starts again from the parent's.
+    if (next)
+      set({
+        parentKey: next.key,
+        phase: next.phase,
+        scope: nextScope,
+        ...(form.ownDue && !anchorFitsScope(nextScope, form.anchorKey) ? parentDue(next) : {}),
+      });
     // An inheriting child that becomes standalone keeps what it was due by and assigned to so far.
     else if (parent && !form.ownDue)
       set({
@@ -357,20 +410,33 @@ export function ItemDrawer({
   }
   const showError = error?.field ?? (error ? "form" : undefined);
 
-  // "Beispiel": when this row would be due for a one-day event on the sample day.
-  const anchors = new Map<string, string>(Object.entries(defaultAnchors(exampleDay, 1)));
+  // "Beispiel": when this row would be due for a one-day event on the sample day (a season row: for a season
+  // that starts or ends on that day).
+  const anchors = new Map<string, string>(
+    season
+      ? SEASON_ANCHOR_KEYS.map((key) => [key, exampleDay])
+      : Object.entries(defaultAnchors(exampleDay, 1)),
+  );
   const anchorDay = anchors.get(form.anchorKey);
   const example =
     anchorDay && Number.isInteger(fields.offsetDays)
       ? dueDateForNrw(anchorDay, fields.offsetDays, form.dayMode)
       : null;
 
-  // A new row goes where its due date puts it, so the phase stays in order (A7-05).
-  const point = insertPoint(items, {
-    phase: form.phase,
-    anchorKey: form.anchorKey,
-    offsetDays: Number.isInteger(fields.offsetDays) ? fields.offsetDays : 0,
-  });
+  // A new row goes where its due date puts it, so the phase stays in order (A7-05). Season rows stand in one
+  // section of their own, whatever their phase.
+  const offsetDays = Number.isInteger(fields.offsetDays) ? fields.offsetDays : 0;
+  const point = season
+    ? insertPoint(
+        items
+          .filter((i) => i.scope === "season" && i.parentKey === null)
+          .map((i) => ({ ...i, phase: "pre" as const })),
+        { phase: "pre", anchorKey: form.anchorKey, offsetDays },
+      )
+    : insertPoint(
+        items.filter((i) => (i.scope ?? "event") === "event"),
+        { phase: form.phase, anchorKey: form.anchorKey, offsetDays },
+      );
 
   function submit() {
     setError(null);
@@ -511,9 +577,49 @@ export function ItemDrawer({
                         ))}
                       </select>
                       {fieldError("parentKey")}
-                      <p className="text-muted-foreground text-tiny">{t("drawer.parentHint")}</p>
+                      <p className="text-muted-foreground text-tiny">
+                        {parent?.scope === "season"
+                          ? t("drawer.parentHintSeason")
+                          : t("drawer.parentHint")}
+                      </p>
                     </div>
                   )}
+
+              {isChild ? (
+                parent?.scope === "season" && (
+                  <p className="text-muted-foreground text-tiny">{t("drawer.scopeInherited")}</p>
+                )
+              ) : (
+                <fieldset className="flex flex-col gap-1.5">
+                  <legend className="mb-1.5 font-semibold text-small">{t("drawer.scope")}</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {TEMPLATE_ITEM_SCOPES.map((scope) => (
+                      <label
+                        key={scope}
+                        className={cn(
+                          "flex min-h-(--control-h) items-center gap-2 rounded-lg border px-3 py-1.5",
+                          !disabled && "cursor-pointer hover:bg-hover",
+                          form.scope === scope && "border-primary bg-selected",
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="item-scope"
+                          value={scope}
+                          className="size-4 accent-(--primary)"
+                          checked={form.scope === scope}
+                          disabled={disabled}
+                          aria-invalid={invalid("scope")}
+                          onChange={() => chooseScope(scope)}
+                        />
+                        <span className="font-medium">{t(`drawer.scopes.${scope}`)}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {fieldError("scope")}
+                  <p className="text-muted-foreground text-tiny">{t("drawer.scopeHint")}</p>
+                </fieldset>
+              )}
 
               {showChildren && (
                 <section
@@ -787,13 +893,24 @@ export function ItemDrawer({
                     {t("drawer.timeHint", { time: defaultDueTime })}
                   </p>
                   <p className="rounded-md bg-sunken px-3 py-2 text-small" aria-live="polite">
-                    {example
-                      ? t("drawer.example", {
-                          day: formatDateWithWeekday(exampleDay, locale),
-                          due: formatDateWithWeekday(example, locale),
-                        })
-                      : t("drawer.exampleNone")}
+                    {!example
+                      ? t("drawer.exampleNone")
+                      : season
+                        ? t("drawer.exampleSeason", {
+                            anchor: anchorName(form.anchorKey),
+                            day: formatDateWithWeekday(exampleDay, locale),
+                            due: formatDateWithWeekday(example, locale),
+                          })
+                        : t("drawer.example", {
+                            day: formatDateWithWeekday(exampleDay, locale),
+                            due: formatDateWithWeekday(example, locale),
+                          })}
                   </p>
+                  {form.anchorKey === "season_end" && (
+                    <p className="text-muted-foreground text-tiny">
+                      {t("drawer.exampleSeasonEnd")}
+                    </p>
+                  )}
                 </fieldset>
               )}
 
@@ -839,7 +956,9 @@ export function ItemDrawer({
                   </select>
                 </div>
               </div>
-              <p className="-mt-2 text-muted-foreground text-tiny">{t("drawer.roleHint")}</p>
+              <p className="-mt-2 text-muted-foreground text-tiny">
+                {season ? t("drawer.roleHintSeason") : t("drawer.roleHint")}
+              </p>
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="item-permit" optional>
@@ -927,7 +1046,9 @@ export function ItemDrawer({
                   {t("drawer.conditionLegend")}
                   <OptionalMark />
                 </legend>
-                <p className="text-muted-foreground text-tiny">{t("drawer.conditionHint")}</p>
+                <p className="text-muted-foreground text-tiny">
+                  {season ? t("drawer.conditionHintSeason") : t("drawer.conditionHint")}
+                </p>
                 <div className="flex flex-col gap-1">
                   <span className="font-medium text-small">{t("drawer.conditionTypes")}</span>
                   <div className="flex flex-wrap gap-x-4 gap-y-1">

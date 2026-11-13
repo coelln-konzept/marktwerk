@@ -534,7 +534,13 @@ remaining_hours = max(0, limit − earned_month) / rate
 ### Template propagation (deliberate)
 Publishing creates version n+1 and changes nothing else. "Apply to events…" opens a picker with **no events
 pre-selected**, a per-event preview and the merge rules (add / update non-customized open tasks / cancel
-untouched removed tasks; done tasks, comments, evidence never touched).
+untouched removed tasks; done tasks, comments, evidence never touched). *(Fahrplan R14, research 13 §6.2: the same
+path brings **Saison records** to the new version: `applyTemplateVersion(actor, templateId, eventIds, seasonIds)`.
+Targets are open records (`event_season` not archived, status not `closed`, season ≥ the current year) with an older
+checklist of the template or linked to it through their market; a record without a checklist only when the version
+has season items for it, like instantiation. A season takes the `season` items (due from its anchors, assigned through
+the market's default duties), an event the `event` items; the merge rules are the same. Audit `template.apply` on
+`event_season`. Season permits are not linked here yet (R11).)*
 
 ## Phase 2 sketch: bookings (M7–M10)
 - **vendor**: kind (private/commercial), name, contact, categories (antique, design, handmade, food…), default

@@ -9,6 +9,7 @@ import { applyTemplateVersion } from "@/server/services/template-propagation";
 import {
   addTemplateItem,
   createDraft,
+  moveTemplateItem,
   publishDraft,
   updateTemplateItem,
 } from "@/server/services/templates";
@@ -291,5 +292,25 @@ describe("template items with a scope", () => {
         .from(templateItem)
         .where(and(eq(templateItem.versionId, draft.versionId), isNull(templateItem.parentKey))),
     ).toHaveLength(3);
+  });
+
+  it("moves a season row past the next season row, whatever its phase (the editor's Saison section)", async () => {
+    const draft = await createDraft(owner, templateId);
+    const order = async () =>
+      (
+        await db
+          .select({ key: templateItem.stableKey, sort: templateItem.sort })
+          .from(templateItem)
+          .where(and(eq(templateItem.versionId, draft.versionId), isNull(templateItem.parentKey)))
+          .orderBy(asc(templateItem.sort))
+      ).map((i) => i.key);
+    expect(await order()).toEqual(["termine_planen", "aufbau", "saisonabschluss"]);
+    // "Saisonabschluss" (post) goes up past "Aufbau" (an event row) to before "Termine planen" (pre).
+    await moveTemplateItem(owner, draft.versionId, "saisonabschluss", "up");
+    expect(await order()).toEqual(["saisonabschluss", "termine_planen", "aufbau"]);
+    // "Aufbau" has no event sibling in its phase: it stays.
+    expect(await moveTemplateItem(owner, draft.versionId, "aufbau", "up")).toEqual({
+      moved: false,
+    });
   });
 });

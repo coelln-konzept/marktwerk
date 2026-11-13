@@ -4,6 +4,7 @@ import { Menu } from "@base-ui/react/menu";
 import {
   ArrowDown,
   ArrowUp,
+  CalendarRange,
   Camera,
   ChevronDown,
   Copy,
@@ -40,18 +41,22 @@ import type { ItemView, RoleChoice } from "./types";
 /** One grid line: a top-level row, or a child item right under its parent (ADR 0021). */
 type GridRow = { item: ItemView; number: string; siblings: ItemView[]; children: number };
 
+/** A top-level row of the Saison section ("Ganze Saison", research 13 §6.1), whatever its phase. */
+const inSeason = (i: ItemView) => i.scope === "season";
+
 /**
- * The rows of one phase in display order: top-level rows of the phase in their order, each followed by its
- * child items (children stand in their parent's phase; a child whose parent is missing shows as top-level).
+ * The rows of one section in display order: its top-level rows in their order, each followed by its child items
+ * (children stand in their parent's phase and scope; a child whose parent is missing shows as top-level). The
+ * sections are the season rows, then the rows of every date by phase.
  */
-function phaseRows(
+function sectionRows(
   items: ItemView[],
-  phase: ItemView["phase"],
+  inSection: (item: ItemView) => boolean,
   start: number,
 ): { rows: GridRow[]; tops: number } {
   const keys = new Set(items.map((i) => i.key));
   const isTop = (i: ItemView) => i.parentKey === null || !keys.has(i.parentKey);
-  const tops = items.filter((i) => isTop(i) && i.phase === phase);
+  const tops = items.filter((i) => isTop(i) && inSection(i));
   const rows: GridRow[] = [];
   tops.forEach((item, index) => {
     const children = items.filter((i) => i.parentKey === item.key);
@@ -73,7 +78,9 @@ const MENU_ITEM =
   "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[disabled]:opacity-45 data-[highlighted]:bg-hover";
 
 /**
- * The Excel-like grid of a template version (UX concept §4/§5): rows grouped by phase, one line each with
+ * The Excel-like grid of a template version (UX concept §4/§5): the season rows in a "Ganze Saison" section on
+ * top (research 13 §6.1, due from Saisonbeginn / Saisonende), then the rows of every date grouped by phase, one
+ * line each with
  * category, anchor + offset, role, time, priority, effort and evidence; child items (ADR 0021) are indented
  * right under their parent ("3.1"). A row opens the editor drawer (`?zeile=<key>`); in the draft each row has
  * a menu (up, down among its siblings, duplicate, delete) instead of dragging.
@@ -140,6 +147,35 @@ export function ItemGrid({
       run(() => deleteItemAction(versionId, item.key), t("delete.done", { title: item.title }));
   }
 
+  // The Saison section first (once per season), then every date by phase. In a draft the Saison section is always
+  // there, so season rows can be added; read-only it shows only when the version has season rows.
+  const showSeason = editable || items.some(inSeason);
+  const sections = [
+    ...(showSeason
+      ? [
+          {
+            key: "season",
+            inSection: inSeason,
+            label: (
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarRange aria-hidden className="size-3.5" />
+                {t("grid.season")} · {t("grid.seasonHint")}
+              </span>
+            ),
+            addHref: `${baseHref}&zeile=neu&gilt=saison`,
+            addLabel: t("grid.addSeason"),
+          },
+        ]
+      : []),
+    ...PHASES.map((phase) => ({
+      key: phase,
+      inSection: (i: ItemView) => !inSeason(i) && i.phase === phase,
+      label: t(`phases.${phase}`),
+      addHref: `${baseHref}&zeile=neu&phase=${phase}`,
+      addLabel: t("grid.add", { phase: t(`phases.${phase}`) }),
+    })),
+  ];
+
   let topCount = 0;
   return (
     <>
@@ -164,14 +200,14 @@ export function ItemGrid({
               </TH>
             </tr>
           </THead>
-          {PHASES.map((phase) => {
-            const { rows, tops } = phaseRows(items, phase, topCount);
+          {sections.map((section) => {
+            const { rows, tops } = sectionRows(items, section.inSection, topCount);
             topCount += tops;
             const total = rows.reduce((sum, r) => sum + r.item.estimateMinutes, 0);
             return (
-              <tbody key={phase}>
+              <tbody key={section.key}>
                 <TGroup colSpan={10}>
-                  {t(`phases.${phase}`)} · {t("grid.count", { count: tops })}
+                  {section.label} · {t("grid.count", { count: tops })}
                   {rows.length > tops && (
                     <> · {t("grid.children", { count: rows.length - tops })}</>
                   )}
@@ -427,12 +463,12 @@ export function ItemGrid({
                   <tr className="border-border-subtle border-b last:border-b-0">
                     <td colSpan={10} className="px-3 py-1">
                       <Link
-                        href={`${baseHref}&zeile=neu&phase=${phase}` as never}
+                        href={section.addHref as never}
                         scroll={false}
                         className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 font-medium text-accent-soft-foreground hover:bg-hover"
                       >
                         <Plus aria-hidden className="size-4" />
-                        {t("grid.add", { phase: t(`phases.${phase}`) })}
+                        {section.addLabel}
                       </Link>
                     </td>
                   </tr>

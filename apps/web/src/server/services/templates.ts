@@ -831,11 +831,14 @@ export async function moveTemplateItem(
     const items = await itemsOf(tx, version.id);
     const index = items.findIndex((i) => i.stableKey === key);
     if (index < 0) throw new TemplateInputError("item_not_found", undefined, key);
-    // The editor shows rows grouped by phase with child items under their parent, so "one up" means past
-    // the next sibling: a top-level row of the same phase, or a child item of the same parent.
+    // The editor shows the season rows in one section ("Ganze Saison") above the event rows grouped by phase, with
+    // child items under their parent, so "one up" means past the next sibling: a top-level season row, a top-level
+    // event row of the same phase, or a child item of the same parent.
     const moving = items[index] as ItemRow;
     const isSibling = (i: ItemRow) =>
-      i.parentKey === moving.parentKey && (moving.parentKey !== null || i.phase === moving.phase);
+      i.parentKey === moving.parentKey &&
+      (moving.parentKey !== null ||
+        (i.scope === moving.scope && (moving.scope === "season" || i.phase === moving.phase)));
     const step = direction === "up" ? -1 : 1;
     let target = index + step;
     while (items[target] && !isSibling(items[target] as ItemRow)) target += step;
