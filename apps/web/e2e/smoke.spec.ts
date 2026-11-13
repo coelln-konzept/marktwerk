@@ -449,6 +449,57 @@ test("Kalender: an event opens its popover in place (Monat and Liste); linkable,
   await expect(page.getByRole("dialog")).toBeHidden();
 });
 
+test("Kalender: Jahr shows twelve months with market dots; a dot opens the popover, the legend hides a market, printing leaves the chrome out", async ({
+  page,
+}) => {
+  const year = new Date().getFullYear() + 1;
+  const all = "ebenen=1&typ=flea,antique,city_festival,food_wine&feiertage=1";
+  await page.goto(`/kalender?ansicht=jahr&jahr=${year}&${all}`);
+  await page.waitForLoadState("networkidle"); // hydrated, so a click opens the popover
+  const grid = page.getByRole("region", { name: `Jahresübersicht ${year}` });
+  await expect(grid.locator("caption")).toHaveCount(12);
+  // The month title opens that month in Monat.
+  await expect(
+    page.getByRole("link", { name: `März ${year} in der Monatsansicht` }),
+  ).toHaveAttribute("href", new RegExp(`^/kalender\\?(?=.*ansicht=monat)(?=.*monat=${year}-03)`));
+
+  // A dot: market colour + Kürzel, spoken as "<Markt> (<Kürzel>), <Wochentag> <Tag>. <Monat>".
+  // (a market's dot: an Einzeltermin has no Kürzel)
+  const dot = grid.locator('a[data-event-trigger][title*="), "]').first();
+  test.skip((await dot.count()) === 0, `no market date in ${year}`);
+  const label = (await dot.getAttribute("title")) as string;
+  const match = /^(.+) \(([A-Z0-9ÄÖÜ]{1,4})\), [A-Z][a-z] \d{1,2}\. \S+/.exec(label);
+  expect(match).not.toBeNull();
+  const code = (match as RegExpExecArray)[2] as string;
+  await expect(dot).toHaveAttribute("href", /^\/veranstaltungen\/[0-9a-f-]{36}$/);
+  await dot.click();
+  const popover = page.getByRole("dialog");
+  await expect(popover.getByRole("link", { name: "Öffnen" })).toBeVisible();
+  await expect(page).toHaveURL(/vorschau=veranstaltung(%3A|:)/);
+  await page.keyboard.press("Escape");
+  await expect(popover).toBeHidden();
+  await expect(dot).toBeFocused();
+
+  // The legend names every market with its Kürzel; switching one off hides its dots (and is in the URL).
+  const legend = page.getByRole("region", { name: "Märkte" });
+  const toggle = legend.getByRole("button", { name: new RegExp(`\\(${code}\\), `) });
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await toggle.click();
+  await expect(page).toHaveURL(/ohne=/);
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(grid.locator(`a[data-event-trigger][title*="(${code}),"]`)).toHaveCount(0);
+  await legend.getByRole("button", { name: "Alle zeigen" }).click();
+  await expect(page).not.toHaveURL(/ohne=/);
+  await expect(grid.locator(`a[data-event-trigger][title*="(${code}),"]`).first()).toBeVisible();
+
+  // Print: no sidebar, top bar, toolbar or Ebenen; the sheet has its own title.
+  await page.emulateMedia({ media: "print" });
+  await expect(page.getByRole("button", { name: "Ebenen" })).toBeHidden();
+  await expect(page.getByRole("banner")).toBeHidden();
+  await expect(page.getByRole("heading", { name: `Jahresübersicht ${year}` })).toBeVisible();
+  await page.emulateMedia({ media: "screen" });
+});
+
 test('Permit: "Als ersetzt markieren" toggles back; the top bar\'s Rückgängig works after the toast is gone', async ({
   page,
 }) => {

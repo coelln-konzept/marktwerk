@@ -322,8 +322,31 @@ state** (offen · zurückgestellt · erledigt), no team set-up needed. Staff and
 - **Bell:** unread open count, popover with the five most urgent open items (quick Erledigt) and "Alle anzeigen".
 
 ### Kalender (module)
-- **Views:** Monat (with KW column) and **"Liste · 6 Wochen"**; phones open the Liste (decision 2026-10-28, cookie `mw_kal_phone`), an explicit `?ansicht=` wins. Same-day deadlines of one kind collapse into one entry ("65 Genehmigungen: Entscheidung erwartet"), "+ N weitere" opens **all entries of that day in a popover** in place (same chips, Escape closes; HN-10), with "In der Liste ab diesem Tag →" at its bottom, ←/→ change the month, the month title opens a month/year jump. Veranstaltungen keeps its own Liste/Kalender toggle;
+- **Views:** Monat (with KW column), **"Liste · 6 Wochen"** and **Jahr** (below); phones open the Liste (decision 2026-10-28, cookie `mw_kal_phone`), an explicit `?ansicht=` wins. Same-day deadlines of one kind collapse into one entry ("65 Genehmigungen: Entscheidung erwartet"), "+ N weitere" opens **all entries of that day in a popover** in place (same chips, Escape closes; HN-10), with "In der Liste ab diesem Tag →" at its bottom, ←/→ change the month, the month title opens a month/year jump. Veranstaltungen keeps its own Liste/Kalender toggle;
   the Kalender module is the company-wide view across modules.
+- **Jahr ("Jahresübersicht", Fahrplan R22, research 13 G2):** replaces the office's paper wall calendar.
+  `?ansicht=jahr&jahr=2027` (no `jahr` = this year; ‹ › and ←/→ change the year, "Heute" goes back to this year).
+  Twelve compact month grids (Mo–So with a KW column, Sa/So lightly shaded), each market date a **dot in
+  the market colour with the market's Kürzel** ("● ALT"; Kürzel from `getMarketShortCodes`, R15); an event without
+  a market (Einzeltermin) shows its type square without a code; a multi-day event has a dot on each day. Cancelled
+  dates are faded with the Kürzel struck through. NRW holidays are tinted with a red day number, stille Feiertage
+  get the amber warning icon (same rules as Monat, `holidays.ts`, R23); the name is in the tooltip and spoken.
+  Every dot is a link to the event (new tab) whose plain click opens the **event popover** (the same one as Monat
+  and Liste, also linkable with `?vorschau=veranstaltung:<id>`); its spoken name and tooltip read "Altstadt (ALT),
+  Sa 6. März" plus "Tag 2/3", "abgesagt" and the holiday where they apply. The month title opens that month in
+  Monat. Switching views keeps the browsed year (Jahr → Monat opens January of that year, this month in the
+  current year). **Legend "Märkte"** below the grids, like the one on the wall: every active market of the shown
+  types (at the chosen Ort) with colour, Kürzel, name and its number of Termine in the year (cancelled ones not
+  counted), also markets without a date yet; inactive or archived markets only when they have dates; "Einzeltermine"
+  last when there are any. Each line is a toggle button (pressed = shown) that hides or shows the market's dots;
+  the hidden markets are in the URL (`?ohne=<id>,…,einzel`), kept across years, not saved per person; "Alle
+  zeigen" clears it. While "Nur Achtung und Kritisch" or "Nur meine Zuständigkeit" narrows, markets without a date
+  are left out. The **Ebenen** panel offers only the event types, Feiertage NRW and the narrowing there (no
+  presets, no Fristen: the Jahr view shows no deadlines and no Besprechungen). **Printing** ("Drucken" or Strg+P):
+  one A4 landscape page, three months across and four down, the title "Jahresübersicht 2027 · Stand <date>", the
+  legend of the shown markets and the symbol line; sidebar, top bar, toolbar and Ebenen are left out (the sidebar
+  and top bar never print, on any page). Code: `components/kalender/year-grid.tsx`, `year-legend.tsx`, query
+  `getCalendarYear` (`server/queries/kalender-year.ts`), rules `events/year-overview.ts` and `monthWeeks` in core.
 - **Layer panel ("Ebenen"):** collapsed behind an "Ebenen" button (state remembered, cookie `mw_kal_ebenen`).
   *Veranstaltungen* by type (Flohmarkt, Antikmarkt, Stadtfest, Food & Wine); *Fristen*: Genehmigungen, Raten &
   Zahlungen, Aufgaben, **Besprechungen** (CF9-1), Fahrzeuge & Pflichten; *Team*: Schichten; *Hintergrund*: Feiertage NRW. Hidden modules' layers
