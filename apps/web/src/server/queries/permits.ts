@@ -6,6 +6,7 @@ import {
   daysBetween,
   eventPermitHealth,
   type HealthLevel,
+  isAnswerOverdue,
   isPermitHistory,
   isUnfiled,
   logbookDisplayState,
@@ -153,13 +154,17 @@ export const LOGBOOK_FOCUS = ["fehlt"] as const;
 export type LogbookFocus = (typeof LOGBOOK_FOCUS)[number];
 
 /**
- * "Jetzt zu tun": a permit in a missing state that at least one upcoming (not cancelled) event requires
- * and whose application is overdue or due within the company's permit horizon (`permitActionTier`,
- * product owner 2026-10-29). Later ones are "noch nicht fällig". One definition for the sidebar badge
- * and the Genehmigungen focus chip.
+ * "Jetzt zu tun": a permit that at least one upcoming (not cancelled) event requires and that is either
+ * still to be applied for, overdue or due within the company's permit horizon (`permitActionTier`,
+ * product owner 2026-10-29), or applied with its decision overdue ("Antwort überfällig": time to chase
+ * the authority, product owner 2026-11-13). Later applications are "noch nicht fällig". One definition
+ * for the sidebar badge and the Genehmigungen focus chip.
  */
-const needsAction = (row: Pick<LogbookRow, "tier" | "upcomingEvents">) =>
-  row.upcomingEvents > 0 && (row.tier === "overdue" || row.tier === "apply_now");
+const needsAction = (
+  row: Pick<LogbookRow, "tier" | "upcomingEvents"> & { answerOverdue: boolean },
+) =>
+  row.upcomingEvents > 0 &&
+  (row.tier === "overdue" || row.tier === "apply_now" || row.answerOverdue);
 /** Still to be applied for, but later than the horizon: shown, not counted. */
 const notDue = (row: Pick<LogbookRow, "tier" | "upcomingEvents">) =>
   row.upcomingEvents > 0 && row.tier === "not_due";
@@ -315,7 +320,9 @@ export async function listLogbook(
   for (const r of scoped) counts[r.state] += 1;
 
   // Needing action depends on upcoming markets, not on the season, so this focus looks across seasons.
-  const urgent = all.filter(needsAction);
+  const urgent = all.filter((r) =>
+    needsAction({ ...r, answerOverdue: r.state === "answer_overdue" }),
+  );
   let rows = filters.focus === "fehlt" ? urgent : scoped;
   if (filters.state) rows = rows.filter((r) => r.state === filters.state);
   const drawerHidden =
@@ -337,7 +344,7 @@ export async function listLogbook(
 
 /**
  * The sidebar badge: permits to act on now, i.e. an application that is overdue or due within the permit
- * horizon (`permitActionTier`). Equals the "Jetzt zu tun" chip on the Genehmigungen page
+ * horizon (`permitActionTier`), or a decision that is overdue ("Antwort überfällig"). Equals the "Jetzt zu tun" chip on the Genehmigungen page
  * (`Logbook.needsAction`), same definition.
  */
 export async function missingPermitCount(
@@ -352,6 +359,7 @@ export async function missingPermitCount(
       status: permit.status,
       validUntil: permit.validUntil,
       applyBy: permit.applyBy,
+      expectedDecisionOn: permit.expectedDecisionOn,
       upcoming: upcomingCount(today),
     })
     .from(permit)
@@ -363,6 +371,7 @@ export async function missingPermitCount(
     return needsAction({
       tier: permitActionTier({ state, applyBy: r.applyBy }, today, horizon),
       upcomingEvents: r.upcoming,
+      answerOverdue: isAnswerOverdue(r, today),
     });
   }).length;
 }

@@ -276,8 +276,13 @@ describe("logbook query", () => {
         (r) => r.title,
       ),
     ).toEqual(["Überfällig"]);
-    // Chasing the authority is not "Jetzt zu tun" (the badge counts permits to apply for).
-    expect(logbook.rows.find((r) => r.title === "Überfällig")?.tier).toBeNull();
+    // Chasing the authority is "Jetzt zu tun" and counts in the sidebar badge (product owner 2026-11-13);
+    // the one decided today is not overdue yet.
+    expect(logbook.needsAction).toBe(1);
+    expect((await listLogbook(owner, { focus: "fehlt" }, TODAY)).rows.map((r) => r.title)).toEqual([
+      "Überfällig",
+    ]);
+    expect(await missingPermitCount(owner, TODAY)).toBe(1);
     // The drawer reads the same; a day later the one due today is overdue too.
     expect((await getPermit(owner, overdue.id, TODAY))?.state).toBe("answer_overdue");
     expect((await getPermit(owner, today.id, TODAY))?.state).toBe("applied");

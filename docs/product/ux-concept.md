@@ -80,8 +80,8 @@ in Einstellungen → Firma. The old route `/logbuch` redirects permanently to `/
   the new-task dialog on the Übersicht (`/?neu=1`, event to pick; the task then opens on its event's page), and the
   permit drawer's task links go to the event. The route itself still answers by URL). Team and Finanzen join them when their modules return. The red
   badge on Genehmigungen is the number "Jetzt zu tun" (decision 2026-10-29): permits whose apply-by date has passed
-  without an application, or falls within `permit_horizon_days`, plus rejected and expired ones; later ones are "noch
-  nicht fällig" and don't count. It is the same number as the focus chip of that name on the Genehmigungen page (one
+  without an application, or falls within `permit_horizon_days`, plus rejected and expired ones, plus "Antwort
+  überfällig" (applied, decision date passed; 2026-11-13); later ones are "noch nicht fällig" and don't count. It is the same number as the focus chip of that name on the Genehmigungen page (one
   rule, core `permitActionTier`). Below, the
   collapsible group **Stammdaten** (Orte · Kontakte · Aussteller · Wissen · Archiv · Pflichten), collapsed by default; the
   state is remembered per browser (cookie `mw_nav_stammdaten`) and the group opens by itself when the current page is
