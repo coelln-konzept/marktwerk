@@ -241,7 +241,10 @@
       "documentArchived": "Dokument entfernt: {file}",
       "documentRestored": "Dokument wiederhergestellt: {file}",
       "restore": "Wiederherstellen",
-      "restoreAria": "„{title}“ wiederherstellen (wieder offen)"
+      "restoreAria": "„{title}“ wiederherstellen (wieder offen)",
+      "taskDeleted": "Aufgabe gelöscht: {title}",
+      "taskRestored": "Aufgabe wiederhergestellt: {title}",
+      "restoreDeletedAria": "„{title}“ wiederherstellen"
     },
     "facts": {
       "edit": "Bearbeiten",

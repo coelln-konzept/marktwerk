@@ -61,6 +61,7 @@ type Live = ReturnType<typeof useTaskActions>;
 function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): BoardTask[] {
   const task = state.find((t) => t.id === patch.id);
   if (!task) return state;
+  if (patch.kind === "remove") return state.filter((t) => t.id !== patch.id);
   if (patch.kind === "assign") {
     return state.map((t) =>
       t.id === patch.id
@@ -115,6 +116,8 @@ type Props = {
   weekLabel: string;
   canWrite: boolean;
   canAssign: boolean;
+  /** "Löschen" in the card menu (UT2-13, `task:delete`). */
+  canDelete?: boolean;
   /** Event board: its id (card order is kept per event). Across events: null. */
   scopeEventId: string | null;
   /** Event board: last day of the event; tasks due after it sit under "Nach der Veranstaltung". */
@@ -162,6 +165,8 @@ export function BoardView(props: Props) {
       setStatus: (...args: Parameters<Live["setStatus"]>) => liveRef.current.setStatus(...args),
       snooze: (...args: Parameters<Live["snooze"]>) => liveRef.current.snooze(...args),
       unsnooze: (...args: Parameters<Live["unsnooze"]>) => liveRef.current.unsnooze(...args),
+      remove: (...args: Parameters<Live["remove"]>) => liveRef.current.remove(...args),
+      restore: (...args: Parameters<Live["restore"]>) => liveRef.current.restore(...args),
       errorText: (code: string) => liveRef.current.errorText(code),
       drawer: {
         open: (id: string) => liveRef.current.drawer.open(id),
@@ -287,6 +292,7 @@ export function BoardView(props: Props) {
       staff,
       canWrite: props.canWrite,
       canAssign: props.canAssign,
+      canDelete: props.canDelete ?? false,
       showEvent: props.scopeEventId === null,
       liftable: props.canWrite && props.layout !== "ablauf",
       actions,
@@ -303,6 +309,7 @@ export function BoardView(props: Props) {
       staff,
       props.canWrite,
       props.canAssign,
+      props.canDelete,
       props.scopeEventId,
       props.layout,
       actions,

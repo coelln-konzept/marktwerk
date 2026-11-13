@@ -174,7 +174,7 @@ async function writeAudit(
 // ---------------------------------------------------------------------------------------------
 // helpers
 
-function need(actor: Actor, action: "read" | "write" | "assign") {
+function need(actor: Actor, action: "read" | "write" | "assign" | "delete") {
   if (!can(actor.role, "task", action)) forbidden();
 }
 
@@ -653,7 +653,15 @@ export async function unsnoozeTask(actor: Actor, taskId: string): Promise<TaskCh
 // ---------------------------------------------------------------------------------------------
 // undo
 
-const UNDOABLE = ["task.move", "task.assign", "task.status", "task.snooze", "task.unsnooze"];
+const UNDOABLE = [
+  "task.move",
+  "task.assign",
+  "task.status",
+  "task.snooze",
+  "task.unsnooze",
+  "task.delete",
+  "task.restore",
+];
 
 /**
  * Undo toast: reverts one of the actor's own moves, assignments or status changes, but only while the
@@ -701,6 +709,8 @@ async function undoEntry(
   const diff = entry?.diff as { before?: Partial<TaskState>; after?: Partial<TaskState> } | null;
   if (!entry?.entityId || !diff?.before || !diff.after) throw new TaskInputError("not_undoable");
   if ("assigneeId" in diff.before) need(actor, "assign");
+  // Undoing a delete brings the task back, undoing a restore deletes it again: both are deleting rights.
+  if (entry.action === "task.delete" || entry.action === "task.restore") need(actor, "delete");
 
   const row = await loadTask(tx, actor, entry.entityId);
   const current = stateOf(row);
@@ -730,6 +740,66 @@ async function undoEntry(
     after: diff.before,
   });
   return { taskId: row.id, action: entry.action };
+}
+
+// ---------------------------------------------------------------------------------------------
+// delete and restore (user test 2, UT2-13)
+
+/**
+ * "Löschen": the task goes to status `cancelled`, which every list, count and job already leaves out. Nothing
+ * else changes, so the undo toast (through the `task.delete` audit entry) and "Wiederherstellen" in the Verlauf
+ * bring it back exactly as it was. Owner, manager and staff may delete (`task:delete`); field users can't.
+ */
+export async function deleteTask(actor: Actor, taskId: string): Promise<TaskChange> {
+  need(actor, "delete");
+  return db.transaction(async (tx) => {
+    const row = await loadTask(tx, actor, taskId);
+    if (row.status === "cancelled") throw new TaskInputError("invalid_state");
+    const before = stateOf(row);
+    const after: TaskState = { ...before, status: "cancelled" };
+    await tx.update(task).set({ status: "cancelled" }).where(eq(task.id, row.id));
+    const auditId = await writeAudit(tx, actor, "task.delete", row.id, {
+      ...stateDiff(before, after),
+      title: row.title,
+    });
+    return { changed: true, auditId };
+  });
+}
+
+/**
+ * "Wiederherstellen" of a deleted task: back to the status it had before its newest `task.delete`
+ * (`todo` when there is none, e.g. a task cancelled with its event). Audited as `task.restore`, undoable.
+ */
+export async function restoreTask(actor: Actor, taskId: string): Promise<TaskChange> {
+  need(actor, "delete");
+  return db.transaction(async (tx) => {
+    const row = await loadTask(tx, actor, taskId);
+    if (row.status !== "cancelled") throw new TaskInputError("invalid_state");
+    const [deleted] = await tx
+      .select({ diff: auditLog.diff })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.entityType, "task"),
+          eq(auditLog.entityId, row.id),
+          eq(auditLog.action, "task.delete"),
+        ),
+      )
+      .orderBy(sql`${auditLog.at} desc, ${auditLog.id} desc`)
+      .limit(1);
+    const previous = (deleted?.diff as { before?: { status?: TaskStatusKey } } | null)?.before
+      ?.status;
+    const status: TaskStatusKey =
+      previous && TASK_STATUSES.includes(previous) && previous !== "cancelled" ? previous : "todo";
+    const before = stateOf(row);
+    const after: TaskState = { ...before, status };
+    await tx.update(task).set({ status }).where(eq(task.id, row.id));
+    const auditId = await writeAudit(tx, actor, "task.restore", row.id, {
+      ...stateDiff(before, after),
+      title: row.title,
+    });
+    return { changed: true, auditId };
+  });
 }
 
 // ---------------------------------------------------------------------------------------------

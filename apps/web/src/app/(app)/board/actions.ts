@@ -7,11 +7,13 @@ import {
   addCheckItem,
   assignTask,
   createTask,
+  deleteTask,
   type EffortFeedback,
   type MovePosition,
   type MoveScope,
   moveTask,
   type NewTask,
+  restoreTask,
   setCheckItemDone,
   setEffortFeedback,
   setTaskStatus,
@@ -71,6 +73,20 @@ export async function setStatus(
   await requirePermission("task", "write");
   const actor = await getActor();
   return run(() => setTaskStatus(actor, taskId, status, input));
+}
+
+/** "Löschen" in the task drawer and the card menu (UT2-13); the toast offers undo. */
+export async function deleteCard(taskId: string) {
+  await requirePermission("task", "delete");
+  const actor = await getActor();
+  return run(() => deleteTask(actor, taskId));
+}
+
+/** "Wiederherstellen" of a deleted task in the Verlauf. */
+export async function restoreCard(taskId: string) {
+  await requirePermission("task", "delete");
+  const actor = await getActor();
+  return run(() => restoreTask(actor, taskId));
 }
 
 /** Undo toast of a move, assignment or status change. */

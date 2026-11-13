@@ -56,7 +56,8 @@ const GRANTS: Record<Role, Grants> = {
     event: ["read"],
     appointment: ["read", "write", "delete"],
     template: ["read"],
-    task: ["read", "write", "assign"],
+    // Staff may delete tasks too (user test 2, D2-6); field users can't.
+    task: ["read", "write", "assign", "delete"],
     permit: ["read", "write"],
     contact: ["read", "write"],
     company: ["read"],

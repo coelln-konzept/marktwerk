@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Ellipsis,
   ExternalLink,
+  Trash2,
   UserMinus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -43,7 +44,8 @@ export function CardMenu({
   const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
   const router = useRouter();
-  const { staff, canWrite, canAssign, actions, askReason, askSnoozeDate, today } = useBoard();
+  const { staff, canWrite, canAssign, canDelete, actions, askReason, askSnoozeDate, today } =
+    useBoard();
   const tSnooze = useTranslations("tasks.snooze");
   const presets = useSnoozePresets(today);
   const finished = task.status === "done" || task.status === "skipped";
@@ -250,6 +252,15 @@ export function CardMenu({
                     <Kbd className="ml-auto">E</Kbd>
                   </Menu.Item>
                 )}
+              </>
+            )}
+            {canDelete && (
+              <>
+                <Menu.Separator className="my-1 h-px bg-border" />
+                <Menu.Item className={item} onClick={() => actions.remove(task)}>
+                  <Trash2 aria-hidden className="size-4 text-muted-foreground" />
+                  {t("menu.delete")}
+                </Menu.Item>
               </>
             )}
           </Menu.Popup>

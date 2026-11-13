@@ -6,6 +6,7 @@ import {
   holidaysBetween,
   isIsoDate,
   isoDate,
+  MAX_EVENTS_PER_WEEKEND,
   mondayOf,
   weekday,
   weekendsTouched,
@@ -217,7 +218,9 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     for (const s of weekendsTouched(r.startsOn, r.endsOn))
       perWeekend.set(s, (perWeekend.get(s) ?? 0) + 1);
   }
-  const flagged = new Set([...perWeekend].filter(([, n]) => n >= 4).map(([s]) => s));
+  const flagged = new Set(
+    [...perWeekend].filter(([, n]) => n >= MAX_EVENTS_PER_WEEKEND).map(([s]) => s),
+  );
 
   // Multi-day events first (by start), so each keeps the same slot on all its days and reads as one bar
   // (UT-11 #1); the name shows on its first day and again on Mondays, the other days continue the bar.

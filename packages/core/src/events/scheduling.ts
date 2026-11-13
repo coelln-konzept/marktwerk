@@ -1,6 +1,12 @@
 import { addDays, eachDay } from "../dates/calendar";
 import { type Bundesland, type Holiday, holidaysBetween } from "../dates/holidays";
 
+/**
+ * Business rule from the client meeting: a weekend with this many events is full (the Kalender marks it ⚑).
+ * Planning no longer warns about it (user test 2, UT2-11).
+ */
+export const MAX_EVENTS_PER_WEEKEND = 4;
+
 export type ScheduledEvent = {
   id: string;
   name: string;

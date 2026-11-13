@@ -61,6 +61,7 @@ export default async function EventOverviewPage({
         staff={await listStaffOptions()}
         canWrite={canWriteTasks}
         canAssign={false}
+        canDelete={can(actor.role, "task", "delete")}
         today={today}
         closeHref={closeHref}
       />

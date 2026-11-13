@@ -241,7 +241,10 @@
       "documentArchived": "Document removed: {file}",
       "documentRestored": "Document restored: {file}",
       "restore": "Restore",
-      "restoreAria": "Restore “{title}” (reopen)"
+      "restoreAria": "Restore “{title}” (reopen)",
+      "taskDeleted": "Task deleted: {title}",
+      "taskRestored": "Task restored: {title}",
+      "restoreDeletedAria": "Restore “{title}”"
     },
     "facts": {
       "edit": "Edit",
