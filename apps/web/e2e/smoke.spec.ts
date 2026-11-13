@@ -814,20 +814,46 @@ test("Benachrichtigungen: no bell, the page stays; filters, Erledigt and Zurück
   await page.keyboard.press("k");
   await expect(rows.first()).toBeFocused();
 
-  // Erledigt on a task asks first (it leaves the list, decision D1): Abbrechen changes nothing.
-  const task = page.locator("li[data-row][data-task]").first();
   const confirm = page.getByRole("dialog", { name: "Aufgabe erledigt?" });
+  const refused = page.getByRole("alert").filter({ hasText: "kann noch nicht erledigt werden" });
+
+  // A task with open subtasks can't be done yet (ADR 0021): Erledigt asks nothing it would then refuse, it
+  // opens the task's drawer in place with a hint that says how many are open (R29); nothing changes.
+  const first = page.locator("li[data-row][data-task]").first();
+  const openSubtasks = Number((await first.getAttribute("data-open-subtasks")) ?? 0);
+  if (openSubtasks > 0) {
+    const id = await first.getAttribute("data-task");
+    const title = (await first.getAttribute("aria-label")) ?? "";
+    await first.getByRole("button", { name: "Erledigt", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/benachrichtigungen\\?(.*&)?aufgabe=${id}`));
+    await expect(page.getByRole("dialog", { name: title })).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Hinweise" })
+        .getByText(
+          `„${title}“ kann noch nicht erledigt werden: ${openSubtasks} offene Unteraufgabe`,
+        ),
+    ).toBeVisible();
+    await expect(confirm).toHaveCount(0);
+    await expect(refused).toHaveCount(0);
+    expect(await open()).toBe(before);
+    await page.keyboard.press("Escape");
+    await expect(page).not.toHaveURL(/aufgabe=/);
+  }
+
+  // Erledigt on any other task asks first (it leaves the list, decision D1): Abbrechen changes nothing.
+  const task = page.locator("li[data-row][data-task]:not([data-open-subtasks])").first();
   await task.getByRole("button", { name: "Erledigt", exact: true }).click();
   await confirm.getByRole("button", { name: "Abbrechen" }).last().click();
   await expect(confirm).toBeHidden();
   expect(await open()).toBe(before);
-  // Confirmed, it completes the task (own undo toast); the notification resolves with it. A task with open
-  // subtasks can't be done yet (ADR 0021): a red toast says so and nothing changes.
+  // Confirmed, it completes the task (own undo toast); the notification resolves with it. Only other missing
+  // evidence (photo, attachment) can still refuse it: a red toast says so and nothing changes.
   await task.getByRole("button", { name: "Erledigt", exact: true }).click();
   await confirm.getByRole("button", { name: "Ja, erledigt" }).click();
-  const refused = page.getByRole("alert").filter({ hasText: "kann noch nicht erledigt werden" });
   await expect(toastUndo(page).or(refused).first()).toBeVisible();
   if (await refused.first().isVisible()) {
+    await expect(refused.first()).not.toContainText("Unteraufgabe");
     expect(await open()).toBe(before);
     await refused.first().getByRole("button", { name: "Hinweis schließen" }).click();
   } else {

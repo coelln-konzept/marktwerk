@@ -146,7 +146,14 @@ function DueRow({
       )}
     >
       {editable ? (
-        <TaskDoneButton task={{ id: item.id, title: item.title, status: "todo" }} />
+        <TaskDoneButton
+          task={{
+            id: item.id,
+            title: item.title,
+            status: "todo",
+            openSubtasks: item.subtasks?.open ?? 0,
+          }}
+        />
       ) : (
         <span
           title={t(`kind.${item.kind}`)}
