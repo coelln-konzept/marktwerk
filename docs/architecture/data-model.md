@@ -205,7 +205,11 @@ erDiagram
   `task.delete`, restorable), see core `seasonApplyDuplicates`. Fallback for permits without a record and markets
   without season items (the interim rule of Fahrplan 18): the first covered event carries it, the untouched
   duplicates of the other events are deleted the same way, see `splitApplyTasks`. Worked-on and finished tasks are
-  never removed. The permit drawer lists the season task as "<Markt> · Saison 2027".
+  never removed. The permit drawer lists the season task as "<Markt> · Saison 2027". **Main permit** (Fahrplan R30,
+  no migration): an item naming `market_permit` applies for the Ort's main permit, so where the event or season has
+  no Marktgenehmigung but an owner's OK (`landowner_ok`, private ground) it links to that one (core
+  `itemPermitType`; the logbook fill, the Markt planen preview and the seed count the same way). Where an Ort needs
+  both, the Marktgenehmigung keeps the item and the OK gets its own "beantragen" task.
   *(implemented 0002: `task_category` also has `office` (the synthetic Büro tasks); `phase` is `pre | live | post`;
   `priority` is `low | normal | high`; `checklist_template.kind` (`event | permit`, a permit-prep template has
   kind `permit`) and `event_type_id?`; `template_version` has `published_at`, `published_by_id`, `change_note`, a
@@ -311,7 +315,9 @@ erDiagram
   in the drawer ("Notiz") and the activity.)*
 
 ### Permits & logbook
-- **permit_requirement** (blueprint per venue, optionally narrowed by event type): `category` (`city | external`),
+- **permit_requirement** (blueprint per venue, optionally narrowed by event type; set in one go by the dialog "Was
+  braucht dieser Ort?" when an Ort is created or switched Städtisch ↔ Privat, Fahrplan R30: `setVenueNeeds`, core
+  `VENUE_NEED_TYPES` / `VENUE_NEED_DEFAULTS` / `planVenueNeeds`, audited with `source: "venue_needs"`): `category` (`city | external`),
   `permit_type` (`market_permit | water | signage | no_parking | toilets | landowner_ok | gema | safety_concept |
   traffic_order | catering | insurance | other`), title, `authority_contact_id?`, `cadence` (`per_event |
   per_season | per_year | multi_year | standing`), `lead_time_days`, `submission_window_start_md?` /
@@ -486,7 +492,8 @@ createEvent(preset | agreement, date [, durationDays]):
           else → new permit (apply_by = event_day − lead_time, or window end; season_id = the market's
               record when the cadence covers several events; title names the market at shared places)
               + its "beantragen" task unless a template task or the season task applies for it
-          linkPermitTasks: template and season tasks with a permit_type → that permit; one apply task
+          linkPermitTasks: template and season tasks with a permit_type → that permit (market_permit →
+              the owner's OK where the Ort has no Marktgenehmigung, R30); one apply task
               per season permit (the season task, else the first covered event)
       auto-confirm: all required permits already granted → planned → confirmed (audit auto, same tx)
       (undo "Rückgängig" after a run: audit-based, an event qualifies while its audit trail holds only

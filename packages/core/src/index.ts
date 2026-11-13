@@ -43,6 +43,7 @@ export * from "./permits/coverage";
 export * from "./permits/event-state";
 export * from "./permits/order";
 export * from "./permits/status";
+export * from "./permits/venue-needs";
 export * from "./staff/hours";
 export * from "./staff/minijob";
 export * from "./staff/worktime";

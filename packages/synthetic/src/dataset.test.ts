@@ -3,6 +3,7 @@ import {
   initialSeasonStatus,
   isMarketColor,
   isMarketShortCode,
+  itemPermitType,
   seasonAnchors,
   validateSchedule,
 } from "@marktwerk/core";
@@ -99,8 +100,14 @@ function permitLinks(d: Dataset): (task: Task) => Permit | undefined {
   return (task) => {
     const type = itemById.get(task.templateItemId)?.permitType;
     if (!type) return undefined;
-    if (task.seasonId !== null)
-      return d.permits.find((p) => p.seasonId === task.seasonId && p.permitType === type);
+    if (task.seasonId !== null) {
+      const own = d.permits.filter((p) => p.seasonId === task.seasonId);
+      const resolved = itemPermitType(
+        type,
+        own.map((p) => p.permitType),
+      );
+      return own.find((p) => p.permitType === resolved);
+    }
     return linkedPermit(byEvent.get(task.eventId ?? "") ?? [], type);
   };
 }
@@ -1352,6 +1359,16 @@ describe("permits per market (research 13 §4)", () => {
     );
     expect(genehmigung.length).toBeGreaterThan(0);
     for (const task of genehmigung) expect(permitOf(task)?.permitType).toBe("market_permit");
+    // Private ground (Stadion, P6, Südbrücke): the same season task applies for the owner's OK (Fahrplan R30)
+    const onPrivate = data.tasks.filter(
+      (t) =>
+        t.templateStableKey === "saison_genehmigung" &&
+        t.status !== "cancelled" &&
+        t.seasonId !== null &&
+        !municipal.has(presetOf(t) ?? ""),
+    );
+    expect(onPrivate.length).toBeGreaterThan(0);
+    for (const task of onPrivate) expect(permitOf(task)?.permitType).toBe("landowner_ok");
     const festsetzung = data.tasks.filter(
       (t) => t.templateStableKey === "saison_genehmigung__festsetzung" && t.status !== "cancelled",
     );

@@ -38,6 +38,7 @@ export function isJobName(value: string): value is JobName {
 export { type AppEnv, parseMailFence } from "@marktwerk/core";
 export { sendSmtp } from "./mail/smtp";
 export { createLogTransport, createMailTransport, type MailTransport } from "./mail/transport";
+export { CLAIM_TIMEOUT_MS } from "./send-emails";
 export {
   dailyDigest,
   deadlineSweep,

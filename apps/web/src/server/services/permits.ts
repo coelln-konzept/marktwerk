@@ -7,6 +7,7 @@ import {
   canTransitionPermit,
   expectedDecisionAfter,
   isIsoDate,
+  itemPermitType,
   PERMIT_STATUSES,
   type PermitSeasonRecord,
   type PermitStatus,
@@ -141,6 +142,16 @@ type SeasonRecords = {
 };
 
 const seasonKey = (presetId: string, season: number) => `${presetId}:${season}`;
+
+/** The permit types template tasks name, by their event or Saison record. */
+function itemTypesBy(rows: (readonly [string | null, string | null])[]): Map<string, Set<string>> {
+  const byOwner = new Map<string, Set<string>>();
+  for (const [owner, type] of rows) {
+    if (!owner || !type) continue;
+    byOwner.set(owner, (byOwner.get(owner) ?? new Set()).add(type));
+  }
+  return byOwner;
+}
 
 async function loadSeasonRecords(
   tx: Tx,
@@ -301,7 +312,7 @@ export async function fillLogbookForEvents(
   // Season tasks that apply for a permit type ("Genehmigung beantragen" on the Saison record): they apply for
   // the season permit, so it gets no own "beantragen" task (Fahrplan R11).
   const seasonIds = [...new Set(records.idOf.values())];
-  const seasonCovered = new Set(
+  const seasonCovered = itemTypesBy(
     seasonIds.length === 0
       ? []
       : (
@@ -317,12 +328,12 @@ export async function fillLogbookForEvents(
                 ne(task.status, "cancelled"),
               ),
             )
-        ).map((t) => `${t.seasonId}:${t.permitType}`),
+        ).map((t) => [t.seasonId, t.permitType] as const),
   );
 
   // Template tasks that apply for a permit of some type ("Marktgenehmigung beantragen"): they are linked
   // to the permit afterwards, so the fill must not add a second "beantragen" task for the same work.
-  const templateCovered = new Set(
+  const templateCovered = itemTypesBy(
     (
       await tx
         .select({ eventId: task.eventId, permitType: templateItem.permitType })
@@ -336,8 +347,19 @@ export async function fillLogbookForEvents(
             ne(task.status, "cancelled"),
           ),
         )
-    ).map((t) => `${t.eventId}:${t.permitType}`),
+    ).map((t) => [t.eventId, t.permitType] as const),
   );
+  // Whether one of these item types applies for the requirement's permit at this event: a "Genehmigung" item
+  // (market_permit) applies for the owner's OK where the Ort needs that instead (Fahrplan R30, `itemPermitType`).
+  const requirementTypesOf = (ev: (typeof events)[number]) =>
+    requirements.filter((r) => appliesTo(r, ev)).map((r) => r.permitType);
+  const covers = (
+    itemTypes: Set<string> | undefined,
+    ev: (typeof events)[number],
+    reqType: string,
+  ) =>
+    itemTypes !== undefined &&
+    [...itemTypes].some((type) => itemPermitType(type, requirementTypesOf(ev)) === reqType);
 
   const linkedEvents = new Map<string, string[]>();
   const newTasks: { assignee: string | null; permitId: string }[] = [];
@@ -419,8 +441,8 @@ export async function fillLogbookForEvents(
       permits.push(created);
       result.createdPermits.push(created.id);
       await link(created, ev.id);
-      if (templateCovered.has(`${ev.id}:${req.permitType}`)) continue;
-      if (seasonId && seasonCovered.has(`${seasonId}:${req.permitType}`)) continue;
+      if (covers(templateCovered.get(ev.id), ev, req.permitType)) continue;
+      if (seasonId && covers(seasonCovered.get(seasonId), ev, req.permitType)) continue;
       await tx.insert(task).values({
         // A permit that covers a season belongs to no single event; only single-event permits show on one.
         eventId: req.cadence === "per_event" ? ev.id : null,
@@ -515,6 +537,10 @@ export async function fillLogbookForEvents(
  * exactly that one apply task: the untouched event tasks, its own "beantragen" task and later seasons' tasks are
  * removed as above (`seasonApplyDuplicates`). The first-covered-event rule stays the fallback for permits without
  * a record and markets without season items. The seasons looked at are those of `eventIds` plus `seasonIds`.
+ *
+ * Main permit (Fahrplan R30): an item naming `market_permit` ("Genehmigung beantragen") applies for the Ort's main
+ * permit, so where the event or season has no Marktgenehmigung but an owner's OK (`landowner_ok`, private ground)
+ * it links to that (core `itemPermitType`; the logbook fill counts the same way).
  *
  * With an `actor`, open tasks whose permit is applied for / granted are completed right away (audited as
  * "task.status", reason "Genehmigung beantragt/erteilt"). Returns the number of linked tasks, the completed
@@ -642,18 +668,29 @@ export async function linkPermitTasks(
   const seasonRank = (c: (typeof seasonCandidates)[number]) =>
     (c.permitSeasonId === c.seasonId ? 0 : 100) + COVER_PREFERENCE.indexOf(c.status);
 
+  // A "Genehmigung" item (market_permit) applies for the Ort's main permit: the owner's OK on private ground
+  // without a Marktgenehmigung (Fahrplan R30, `itemPermitType`).
+  const ofType = <C extends { permitType: string }>(pool: C[], itemType: string) => {
+    const type = itemPermitType(
+      itemType,
+      pool.map((c) => c.permitType),
+    );
+    return pool.filter((c) => c.permitType === type);
+  };
   const byPermit = new Map<string, (typeof open)[number][]>();
   for (const t of open) {
+    const itemType = t.permitType as string;
     const best = t.seasonId
-      ? seasonCandidates
-          .filter((c) => c.seasonId === t.seasonId && c.permitType === t.permitType)
-          .sort(
-            (a, b) =>
-              seasonRank(a) - seasonRank(b) || a.createdAt.getTime() - b.createdAt.getTime(),
-          )[0]
-      : candidates
-          .filter((c) => c.eventId === t.eventId && c.permitType === t.permitType)
-          .sort((a, b) => rank(a) - rank(b) || a.createdAt.getTime() - b.createdAt.getTime())[0];
+      ? ofType(
+          seasonCandidates.filter((c) => c.seasonId === t.seasonId),
+          itemType,
+        ).sort(
+          (a, b) => seasonRank(a) - seasonRank(b) || a.createdAt.getTime() - b.createdAt.getTime(),
+        )[0]
+      : ofType(
+          candidates.filter((c) => c.eventId === t.eventId),
+          itemType,
+        ).sort((a, b) => rank(a) - rank(b) || a.createdAt.getTime() - b.createdAt.getTime())[0];
     if (!best) continue;
     byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t]);
   }

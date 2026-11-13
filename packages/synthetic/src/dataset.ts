@@ -1,3 +1,4 @@
+import { itemPermitType } from "@marktwerk/core";
 import { REFERENCE_DATE, SEED } from "./constants";
 import { PRESET_BLUEPRINTS } from "./dictionaries/presets";
 import { CORE_STAFF_BLUEPRINTS, FIELD_CREW_BLUEPRINTS } from "./dictionaries/staff";
@@ -145,9 +146,15 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
   }
 
   const seasonPermits = new Map<string, Permit>();
+  const seasonPermitTypes = new Map<string, string[]>();
   for (const permit of permitBundle.permits)
-    if (permit.seasonId !== null)
+    if (permit.seasonId !== null) {
       seasonPermits.set(`${permit.seasonId}|${permit.permitType}`, permit);
+      seasonPermitTypes.set(permit.seasonId, [
+        ...(seasonPermitTypes.get(permit.seasonId) ?? []),
+        permit.permitType,
+      ]);
+    }
 
   const tasks = buildTasks(rng, {
     events: scheduledEvents,
@@ -160,7 +167,11 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     dutyRoleIdByKey,
     permitFor: (eventId, permitType) =>
       linkedPermit(permitLinksByEvent.get(eventId) ?? [], permitType),
-    seasonPermitFor: (seasonId, permitType) => seasonPermits.get(`${seasonId}|${permitType}`),
+    // A "Genehmigung" item applies for the owner's OK on private ground (Fahrplan R30), as in the app.
+    seasonPermitFor: (seasonId, permitType) =>
+      seasonPermits.get(
+        `${seasonId}|${itemPermitType(permitType, seasonPermitTypes.get(seasonId) ?? [])}`,
+      ),
     clock,
   });
 

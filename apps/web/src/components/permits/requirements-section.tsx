@@ -1,4 +1,4 @@
-import { can } from "@marktwerk/core";
+import { can, type VenueKindKey } from "@marktwerk/core";
 import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -10,14 +10,24 @@ import { getActor } from "@/server/actor";
 import { listVenueRequirements } from "@/server/queries/permits";
 import { ApplyRequirementsButton } from "./apply-requirements-button";
 import { RemoveRequirementButton } from "./remove-requirement-button";
+import { VenueNeedsButton } from "./venue-needs-button";
 
 /**
  * "Genehmigungen und Zustimmungen" on the venue page: which permits an event here needs, how far ahead,
  * when the authority collects and decides, and what it usually costs. New events create the missing
  * permits (and their tasks) from this. Self-contained: the venue page only renders
- * `<RequirementsSection venueId={…} />`. Create / edit are pages (more than eight fields).
+ * `<RequirementsSection venueId={…} venueName={…} venueKind={…} />`. Create / edit are pages (more than eight
+ * fields); "Was braucht dieser Ort?" sets several at once from the venue's kind (Fahrplan R30).
  */
-export async function RequirementsSection({ venueId }: { venueId: string }) {
+export async function RequirementsSection({
+  venueId,
+  venueName,
+  venueKind,
+}: {
+  venueId: string;
+  venueName: string;
+  venueKind: VenueKindKey;
+}) {
   const actor = await getActor();
   if (!can(actor.role, "permit", "read")) return null;
   const t = await getTranslations("requirements");
@@ -40,6 +50,14 @@ export async function RequirementsSection({ venueId }: { venueId: string }) {
             canWrite ? (
               <>
                 {rows.length > 0 && <ApplyRequirementsButton venueId={venueId} />}
+                {canDelete && (
+                  <VenueNeedsButton
+                    venueId={venueId}
+                    venueName={venueName}
+                    kind={venueKind}
+                    current={rows.map((r) => r.permitType)}
+                  />
+                )}
                 <Link
                   href={`/orte/${venueId}/genehmigungen/neu` as never}
                   className={buttonVariants({ variant: "default" })}

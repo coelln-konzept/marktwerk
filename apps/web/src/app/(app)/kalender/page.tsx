@@ -11,6 +11,7 @@ import {
   weekday,
   weekendsTouched,
 } from "@marktwerk/core";
+import { TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
@@ -54,6 +55,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Panel } from "@/components/ui/panel";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
 import { formatDate, formatDateWithWeekday, formatMonth, todayIn } from "@/lib/format";
+import { type CalendarHoliday, quietHoursValues } from "@/lib/holidays";
 import { HIDDEN_MODULES, isModuleVisible } from "@/lib/modules";
 import { EVENT_STATUS } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
@@ -91,6 +93,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const tAppt = await getTranslations("appointments");
   const tStatus = await getTranslations("status.event");
   const tTasks = await getTranslations("tasks");
+  const tNotes = await getTranslations("holidayNotes");
   const locale = await getLocale();
   const today = todayIn();
 
@@ -185,12 +188,22 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     allLabel: item.layer === "tasks" ? t("groupAllTasks") : t("groupAll"),
   });
 
-  const allHolidays = holidaysBetween(from, to);
-  const holidays = new Map(
+  // Holidays plus the stille Tage that are no holiday (Volkstrauertag, Totensonntag, Heiligabend): their names
+  // show in the day cell, the stille Feiertage with a warning (markets mostly not allowed, FeiertG NW §6).
+  const allHolidays = holidaysBetween(from, to, "NW", { observances: true });
+  const holidays = new Map<string, CalendarHoliday>(
     layers.holidays
-      ? [...allHolidays].map(([d, h]) => [d, locale === "en" ? h.nameEn : h.nameDe] as const)
+      ? [...allHolidays].map(([d, h]) => [
+          d,
+          {
+            name: locale === "en" ? h.nameEn : h.nameDe,
+            dayOff: !h.observance,
+            quiet: h.quiet ? tNotes("quiet", quietHoursValues(h.quiet)) : null,
+          },
+        ])
       : [],
   );
+  const anyQuiet = [...holidays.values()].some((h) => h.quiet);
   // Every link to a market opens its Überblick (UX pass 2026-10-22); a plain click on a chip or row opens
   // the event popover first (UT2-08). Its data comes from the rows already loaded (no query per event).
   const eventHref = (id: string) => `/veranstaltungen/${id}`;
@@ -495,6 +508,12 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
             <span className="inline-flex items-center gap-1">
               <span aria-hidden className="size-2.5 rounded-[2px] bg-status-critical-dot" />
               {t("legend.holiday")}
+            </span>
+          )}
+          {anyQuiet && (
+            <span className="inline-flex items-center gap-1 text-status-warn">
+              <TriangleAlert aria-hidden className="size-3" />
+              {tNotes("legendQuiet")}
             </span>
           )}
           <span>{t("legend.cancelled")}</span>

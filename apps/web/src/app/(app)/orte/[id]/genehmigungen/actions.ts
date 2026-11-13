@@ -8,7 +8,10 @@ import {
   createRequirement,
   type RequirementInput,
   restoreRequirement,
+  setVenueNeeds,
+  undoVenueNeeds,
   updateRequirement,
+  type VenueNeedsChange,
 } from "@/server/services/permit-requirements";
 import { PermitInputError } from "@/server/services/permits";
 import { requirePermission } from "@/server/session";
@@ -56,4 +59,18 @@ export async function applyRequirementsAction(venueId: string) {
   await requirePermission("permit", "write");
   const actor = await getActor();
   return guarded(() => applyRequirementsToUpcomingEvents(actor, venueId));
+}
+
+/** "Was braucht dieser Ort?": sets the Ort's requirements from the ticked permit types (Fahrplan R30). */
+export async function setVenueNeedsAction(venueId: string, wanted: string[]) {
+  await requirePermission("permit", "write");
+  const actor = await getActor();
+  return guarded(() => setVenueNeeds(actor, venueId, wanted));
+}
+
+/** Undo toast of "Was braucht dieser Ort?". */
+export async function undoVenueNeedsAction(venueId: string, change: VenueNeedsChange) {
+  await requirePermission("permit", "delete");
+  const actor = await getActor();
+  return guarded(() => undoVenueNeeds(actor, venueId, change));
 }

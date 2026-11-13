@@ -1,13 +1,40 @@
 "use client";
 
-import type { CandidateCheck } from "@marktwerk/core";
-import { CalendarClock, Loader2, TriangleAlert, XCircle } from "lucide-react";
+import type { CandidateCheck, Holiday } from "@marktwerk/core";
+import { CalendarClock, CalendarRange, Loader2, TriangleAlert, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { todayIn } from "@/lib/format";
+import { quietHoursValues } from "@/lib/holidays";
+import { cn } from "@/lib/utils";
 
 /** The date lies before today: every task would be overdue the moment the event exists. */
 export function isPastCandidate(c: Pick<CandidateCheck, "startsOn">): boolean {
   return c.startsOn < todayIn();
+}
+
+/**
+ * One holiday hint: "Pfingstsonntag (Feiertag)", or for a stiller Feiertag "Volkstrauertag: stiller Feiertag –
+ * Märkte meist nicht erlaubt (5–13 Uhr)" (FeiertG NW §6). Used wherever dates are checked before saving.
+ */
+export function HolidayNote({ holiday, className }: { holiday: Holiday; className?: string }) {
+  const t = useTranslations("generate.warn");
+  const tNotes = useTranslations("holidayNotes");
+  const locale = useLocale();
+  const name = locale === "en" ? holiday.nameEn : holiday.nameDe;
+  return (
+    <li
+      className={cn(
+        "flex items-start gap-1 text-status-warn",
+        holiday.quiet && "font-medium",
+        className,
+      )}
+    >
+      <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+      {holiday.quiet
+        ? tNotes("warnQuiet", { name, ...quietHoursValues(holiday.quiet) })
+        : t("holiday", { name })}
+    </li>
+  );
 }
 
 /** Number of hints for one candidate date (holidays, venue booked, overlap, past). */
@@ -23,6 +50,8 @@ export function candidateWarningCount(c: CandidateCheck): number {
 /**
  * The hints shown for a date before events are created (same wording everywhere: "Aus Vorlage
  * erzeugen", "Einzeltermin", agreement dates). Hints never block; the office decides.
+ *
+ * Easter and Whitsun weekends get a muted line that does not count as a hint.
  *
  * `state`: while the existing events are still loading (or loading failed) "keine Hinweise" must not
  * be shown: the venue check depends on them. No weekend hint: markets of the same weekend are planned on
@@ -47,11 +76,17 @@ export function CandidateNotes({
         </li>
       )}
       {check.holidays.map((h) => (
-        <li key={h.key} className="flex items-center gap-1 text-status-warn">
-          <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
-          {t("warn.holiday", { name: locale === "en" ? h.nameEn : h.nameDe })}
-        </li>
+        <HolidayNote key={h.key} holiday={h} />
       ))}
+      {/* The quieter hint, only when no holiday of that weekend is named already (Karsamstag, Pfingstsamstag). */}
+      {check.holidayWeekends
+        .filter((w) => !check.holidays.some((h) => h.date >= w.from && h.date <= w.to))
+        .map((w) => (
+          <li key={w.key} className="flex items-center gap-1 text-muted-foreground">
+            <CalendarRange aria-hidden className="size-3.5 shrink-0" />
+            {locale === "en" ? w.nameEn : w.nameDe}
+          </li>
+        ))}
       {check.venueConflicts.map((v) => (
         <li key={v.id} className="flex items-center gap-1 text-status-critical">
           <XCircle aria-hidden className="size-3.5 shrink-0" />

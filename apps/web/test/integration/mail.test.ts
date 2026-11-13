@@ -1,6 +1,6 @@
 import { createLogTransport, createMailTransport, sendSmtp } from "@marktwerk/jobs";
 import { afterEach, describe, expect, it } from "vitest";
-import { fakeSmtpServer as fakeServer, parseReceived } from "../helpers/fake-smtp";
+import { fakeSmtpServer as fakeServer, parseReceived, selfSignedCert } from "../helpers/fake-smtp";
 
 let running: Awaited<ReturnType<typeof fakeServer>> | null = null;
 afterEach(async () => {
@@ -38,14 +38,67 @@ describe("sendSmtp", () => {
     );
   });
 
-  it("authenticates with AUTH PLAIN when a user is configured", async () => {
-    running = await fakeServer();
-    await sendSmtp(
-      { host: "127.0.0.1", port: running.port, secure: false, user: "mailer", password: "s3cret" },
-      { from: "a@b.de", to: "c@d.de", subject: "x", text: "y", messageId: "m@b.de" },
+  it("with a user: upgrades with STARTTLS (certificate checked) before AUTH PLAIN", async () => {
+    const certificate = selfSignedCert();
+    running = await fakeServer({ tls: certificate });
+    const config = {
+      host: "127.0.0.1",
+      port: running.port,
+      secure: false,
+      user: "mailer",
+      password: "s3cret",
+    };
+    const message = { from: "a@b.de", to: "c@d.de", subject: "x", text: "y", messageId: "m@b.de" };
+    await sendSmtp({ ...config, ca: certificate.cert }, message);
+    expect(running.received.slice(0, 2)).toEqual(["EHLO marktwerk.local", "STARTTLS"]);
+    const authAt = running.received.findIndex((l) => l.startsWith("AUTH PLAIN "));
+    const tlsFrom = running.tlsFrom();
+    expect(tlsFrom).toBe(2);
+    expect(authAt).toBeGreaterThan(tlsFrom ?? Number.POSITIVE_INFINITY);
+    const auth = running.received[authAt] ?? "";
+    expect(Buffer.from(auth.slice(11), "base64").toString("utf8")).toBe("\0mailer\0s3cret");
+    expect(running.received).toContain("RCPT TO:<c@d.de>");
+
+    // An untrusted certificate fails the handshake: nothing is authenticated or sent.
+    await running.close();
+    running = await fakeServer({ tls: certificate });
+    await expect(sendSmtp({ ...config, port: running.port }, message)).rejects.toThrow(
+      /certificate/i,
     );
-    const auth = running.received.find((l) => l.startsWith("AUTH PLAIN "));
-    expect(Buffer.from(auth?.slice(11) ?? "", "base64").toString("utf8")).toBe("\0mailer\0s3cret");
+    expect(running.received.some((l) => l.startsWith("AUTH"))).toBe(false);
+    expect(running.received).not.toContain("RCPT TO:<c@d.de>");
+  });
+
+  it("with a user: refuses a server without STARTTLS before sending the credentials", async () => {
+    running = await fakeServer();
+    await expect(
+      sendSmtp(
+        {
+          host: "127.0.0.1",
+          port: running.port,
+          secure: false,
+          user: "mailer",
+          password: "s3cret",
+        },
+        { from: "a@b.de", to: "c@d.de", subject: "x", text: "y", messageId: "m@b.de" },
+      ),
+    ).rejects.toThrow(/does not offer TLS/);
+    expect(running.received).toEqual(["EHLO marktwerk.local"]);
+  });
+
+  it("the transport from SMTP_USER/SMTP_PASSWORD also refuses plain-text authentication", async () => {
+    running = await fakeServer();
+    const transport = createMailTransport({
+      APP_ENV: "production",
+      SMTP_HOST: "127.0.0.1",
+      SMTP_PORT: String(running.port),
+      SMTP_USER: "mailer",
+      SMTP_PASSWORD: "s3cret",
+    });
+    await expect(
+      transport.send({ to: "anna@test.local", subject: "Hi", text: "x" }),
+    ).rejects.toThrow(/does not offer TLS/);
+    expect(running.received.some((l) => l.startsWith("AUTH"))).toBe(false);
   });
 
   it("rejects when the server refuses the recipient, and refuses bad addresses and header injection", async () => {
