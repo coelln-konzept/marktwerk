@@ -50,7 +50,7 @@ async function makeEvent(startsOn: string, name = "Flohmarkt") {
       season: Number(startsOn.slice(0, 4)),
       startsOn,
       endsOn: startsOn,
-      times: cat.times,
+      schedule: cat.schedule,
       pricePerMCents: 0,
       bookingFeeCents: 0,
     })
@@ -465,7 +465,7 @@ describe("a permit judged for its event (UX pass 2026-10-22)", () => {
         season: 2026,
         startsOn: "2026-11-06",
         endsOn: "2026-11-08",
-        times: cat.times,
+        schedule: cat.schedule,
         pricePerMCents: 0,
         bookingFeeCents: 0,
       })

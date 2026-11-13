@@ -1,3 +1,4 @@
+import { defaultSchedule, type ScheduleRow } from "@marktwerk/core";
 import { auditLog, event, eventAnchor, eventDuty } from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -29,9 +30,20 @@ const input = (): ManualEventInput & { startsOn: string } => ({
   venueId: cat.venue.id,
   startsOn: "2026-12-04",
   durationDays: 1,
-  times: { setup: "6:00", open: "08:00", close: "16:30", teardown: "18:00" },
+  schedule: [
+    { audience: "vendors", kind: "setup", day: "first", from: "6:00", to: "08:00" },
+    { audience: "visitors", kind: "open", day: "each", from: "08:00", to: "16:30" },
+  ],
   pricePerMCents: 1500,
   bookingFeeCents: 0,
+});
+
+const visitors = (from: string, to: string): ScheduleRow => ({
+  audience: "visitors",
+  kind: "open",
+  day: "each",
+  from,
+  to,
 });
 
 const counts = async () => ({
@@ -62,13 +74,11 @@ describe("createManualEvent (Einzeltermin)", () => {
       bookingFeeCents: 0,
       archivedAt: null,
     });
-    // Times are stored as normalised 24-hour text.
-    expect(row?.times).toEqual({
-      setup: "06:00",
-      open: "08:00",
-      close: "16:30",
-      teardown: "18:00",
-    });
+    // The Zeitplan is stored with normalised 24-hour text.
+    expect(row?.schedule).toEqual([
+      { audience: "vendors", kind: "setup", day: "first", from: "06:00", to: "08:00" },
+      visitors("08:00", "16:30"),
+    ]);
     expect(await db.select().from(eventDuty).where(eq(eventDuty.eventId, created.id))).toEqual([]);
     const anchors = Object.fromEntries(
       (await db.select().from(eventAnchor).where(eq(eventAnchor.eventId, created.id))).map((a) => [
@@ -84,11 +94,21 @@ describe("createManualEvent (Einzeltermin)", () => {
     });
   });
 
+  it("starts with the default Zeitplan when none is given", async () => {
+    const { schedule: _schedule, ...rest } = input();
+    const created = await createManualEvent(owner, rest);
+    const [row] = await db.select().from(event).where(eq(event.id, created.id));
+    expect(row?.schedule).toEqual(defaultSchedule());
+  });
+
   it("handles several days: end date, setup the day before", async () => {
     const created = await createManualEvent(owner, {
       ...input(),
       durationDays: 3,
-      times: { setup: "14:00", open: "10:00", close: "20:00", teardown: "22:00" },
+      schedule: [
+        { audience: "vendors", kind: "setup", day: "before", from: "14:00", to: "20:00" },
+        visitors("10:00", "20:00"),
+      ],
     });
     const [row] = await db.select().from(event).where(eq(event.id, created.id));
     expect(row).toMatchObject({ startsOn: "2026-12-04", endsOn: "2026-12-06" });
@@ -135,26 +155,28 @@ describe("createManualEvent (Einzeltermin)", () => {
       ["a fractional number of days", { durationDays: 1.5 }, "invalid_duration"],
       ["a malformed first day", { startsOn: "04.12.2026" }, "invalid_date"],
       ["a non-existent first day", { startsOn: "2026-02-30" }, "invalid_date"],
+      ["a time that isn't one", { schedule: [visitors("8", "25:00")] }, "invalid_schedule"],
+      ["opening after closing", { schedule: [visitors("17:00", "16:00")] }, "invalid_schedule"],
       [
-        "a time that isn't one",
-        { times: { setup: "5", open: "25:00", close: "16:00", teardown: "18:00" } },
-        "invalid_time",
+        "no visitor hours",
+        {
+          schedule: [
+            { audience: "vendors", kind: "setup", day: "first", from: "05:00", to: "08:00" },
+          ] as ScheduleRow[],
+        },
+        "invalid_schedule",
       ],
       [
-        "opening after closing",
-        { times: { setup: "05:00", open: "17:00", close: "16:00", teardown: "18:00" } },
-        "open_after_close",
+        "an early tear-down on a single day",
+        {
+          schedule: [
+            visitors("08:00", "16:00"),
+            { audience: "vendors", kind: "teardown", day: "last", from: "07:00", to: "10:00" },
+          ] as ScheduleRow[],
+        },
+        "invalid_schedule",
       ],
-      [
-        "closing after teardown",
-        { times: { setup: "05:00", open: "08:00", close: "19:00", teardown: "18:00" } },
-        "close_after_teardown",
-      ],
-      [
-        "setup after opening on a single day",
-        { times: { setup: "09:00", open: "08:00", close: "16:00", teardown: "18:00" } },
-        "setup_after_open",
-      ],
+      ["a Zeitplan that isn't a list", { schedule: {} as ScheduleRow[] }, "invalid_schedule"],
       ["a negative price", { pricePerMCents: -1 }, "invalid_price"],
       ["a price above the maximum", { pricePerMCents: 1_000_001 }, "invalid_price"],
       ["a fractional fee", { bookingFeeCents: 10.5 }, "invalid_price"],
@@ -173,12 +195,15 @@ describe("createManualEvent (Einzeltermin)", () => {
     });
   });
 
-  it("accepts setup after opening when the event lasts several days", async () => {
+  it("accepts an early tear-down on the last morning when the event lasts several days", async () => {
     await expect(
       createManualEvent(owner, {
         ...input(),
         durationDays: 2,
-        times: { setup: "15:00", open: "08:00", close: "16:00", teardown: "18:00" },
+        schedule: [
+          visitors("08:00", "16:00"),
+          { audience: "vendors", kind: "teardown", day: "last", from: "07:00", to: "10:00" },
+        ],
       }),
     ).resolves.toBeDefined();
   });

@@ -1,3 +1,4 @@
+import { defaultSchedule, type ScheduleRow, scheduleFromTimes } from "@marktwerk/core";
 import { auditLog, event, eventPreset, eventType, staffMember, venue } from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -34,7 +35,12 @@ const input = (patch: Partial<PresetInput> = {}): PresetInput => ({
   durationDays: 1,
   publicTitle: "Frühjahrs-Flohmarkt",
   publicText: "Trödeln im Park.",
-  times: { setup: "6", open: "8.00", close: "16:00", teardown: "18:00" },
+  // As typed: "6" and "8.00" are normalised.
+  schedule: [
+    { audience: "vendors", kind: "setup", day: "first", from: "6", to: "8.00" },
+    { audience: "visitors", kind: "open", day: "each", from: "8.00", to: "16:00" },
+    { audience: "vendors", kind: "teardown", day: "last", from: "16:00", to: "18:00" },
+  ],
   pricePerMCents: 1500,
   bookingFeeCents: 500,
   rrule: "FREQ=MONTHLY;BYMONTH=4,5;BYDAY=SU;BYSETPOS=1",
@@ -63,7 +69,7 @@ const audits = (action: string) =>
   db.select().from(auditLog).where(eq(auditLog.action, action)).orderBy(auditLog.at);
 
 describe("createPreset", () => {
-  it("stores the preset with normalised times and a unique key", async () => {
+  it("stores the preset with a normalised Zeitplan and a unique key", async () => {
     const { id, key } = await createPreset(owner, input());
     expect(key).toMatch(/^fruehjahrsmarkt-[0-9a-f]{6}$/);
     const row = await load(id);
@@ -82,12 +88,7 @@ describe("createPreset", () => {
       active: true,
       archivedAt: null,
     });
-    expect(row.defaultTimes).toEqual({
-      setup: "06:00",
-      open: "08:00",
-      close: "16:00",
-      teardown: "18:00",
-    });
+    expect(row.schedule).toEqual(defaultSchedule());
   });
 
   it("gives presets with the same name different keys, trims, and turns blank texts into null", async () => {
@@ -117,12 +118,7 @@ describe("createPreset", () => {
     expect(diff.key).toBe(key);
     expect(diff.changes.name).toEqual({ from: null, to: "Frühjahrsmarkt" });
     expect(diff.changes.pricePerMCents).toEqual({ from: null, to: 1500 });
-    expect(diff.changes.defaultTimes?.to).toEqual({
-      setup: "06:00",
-      open: "08:00",
-      close: "16:00",
-      teardown: "18:00",
-    });
+    expect(diff.changes.schedule?.to).toEqual(defaultSchedule());
   });
 });
 
@@ -185,35 +181,32 @@ describe("validation", () => {
     await createPreset(owner, input({ durationDays: 14 }));
   });
 
-  it("names the time field that is wrong", async () => {
+  it("checks the Zeitplan with the core rules for the preset's length", async () => {
+    const visitors = (from: string, to: string): ScheduleRow => ({
+      audience: "visitors",
+      kind: "open",
+      day: "each",
+      from,
+      to,
+    });
+    for (const schedule of [
+      [visitors("08:00", "25:00")],
+      [visitors("17:00", "16:00")],
+      [{ ...visitors("06:00", "08:00"), audience: "vendors", kind: "setup" } as ScheduleRow],
+      [visitors("08:00", "16:00"), visitors("08:00", "16:00")],
+    ])
+      await rejects(createPreset(owner, input({ schedule })), "invalid_schedule", "schedule");
     await rejects(
-      createPreset(
-        owner,
-        input({ times: { setup: "06:00", open: "08:00", close: "16:00", teardown: "25:00" } }),
-      ),
-      "invalid_time",
-      "teardown",
+      createPreset(owner, input({ schedule: "08–16" as unknown as ScheduleRow[] })),
+      "invalid_input",
     );
-    await rejects(
-      createPreset(
-        owner,
-        input({ times: { setup: "06:00", open: "17:00", close: "16:00", teardown: "18:00" } }),
-      ),
-      "open_after_close",
-      "close",
-    );
-    await rejects(
-      createPreset(
-        owner,
-        input({ times: { setup: "06:00", open: "08:00", close: "19:00", teardown: "18:00" } }),
-      ),
-      "close_after_teardown",
-      "teardown",
-    );
-    // A late setup is fine for multi-day presets (set up the day before), not for single-day ones.
-    const late = { setup: "09:00", open: "08:00", close: "16:00", teardown: "18:00" };
-    await rejects(createPreset(owner, input({ times: late })), "setup_after_open", "setup");
-    await createPreset(owner, input({ times: late, durationDays: 3 }));
+    // An early tear-down on the last morning is fine for multi-day markets, not for single-day ones.
+    const early: ScheduleRow[] = [
+      ...defaultSchedule(),
+      { audience: "vendors", kind: "teardown", day: "last", from: "07:00", to: "10:00" },
+    ];
+    await rejects(createPreset(owner, input({ schedule: early })), "invalid_schedule", "schedule");
+    await createPreset(owner, input({ schedule: early, durationDays: 3 }));
   });
 
   it("limits prices to 0 – 1.000.000 cents", async () => {
@@ -289,7 +282,7 @@ describe("updatePreset", () => {
         name: "Testflohmarkt",
         pricePerMCents: 1300,
         bookingFeeCents: before.bookingFeeCents,
-        times: before.defaultTimes,
+        schedule: before.schedule,
         rrule: null,
         defaultDuties: before.defaultDuties,
         publicTitle: null,
@@ -330,7 +323,12 @@ describe("updatePreset", () => {
         pricePerMCents: before.pricePerMCents,
         bookingFeeCents: before.bookingFeeCents,
         defaultDuties: { market_lead: cat.staff.ben.id, setup: cat.staff.anna.id },
-        times: { setup: "07:30", open: "10:00", close: "22:00", teardown: "23:30" },
+        schedule: scheduleFromTimes({
+          setup: "07:30",
+          open: "10:00",
+          close: "22:00",
+          teardown: "23:30",
+        }),
         active: false,
       }),
       before.updatedAt,
@@ -341,16 +339,11 @@ describe("updatePreset", () => {
       rrule: "FREQ=MONTHLY;BYMONTH=4,5;BYDAY=SU;BYSETPOS=1",
       defaultDuties: { market_lead: cat.staff.ben.id, setup: cat.staff.anna.id },
     });
-    expect(after.defaultTimes.setup).toBe("07:30");
+    expect(after.schedule[0]).toMatchObject({ kind: "setup", from: "07:30", to: "10:00" });
     const [entry] = await audits("preset.update");
     const changes =
       (entry?.diff as { changes: Record<string, unknown> } | undefined)?.changes ?? {};
-    expect(Object.keys(changes).sort()).toEqual([
-      "active",
-      "defaultDuties",
-      "defaultTimes",
-      "rrule",
-    ]);
+    expect(Object.keys(changes).sort()).toEqual(["active", "defaultDuties", "rrule", "schedule"]);
   });
 
   it("reactivating an inactive preset is just another update", async () => {
@@ -496,7 +489,12 @@ describe("existing events", () => {
         durationDays: 5,
         pricePerMCents: 9900,
         bookingFeeCents: 900,
-        times: { setup: "04:00", open: "09:00", close: "20:00", teardown: "22:00" },
+        schedule: scheduleFromTimes({
+          setup: "04:00",
+          open: "09:00",
+          close: "20:00",
+          teardown: "22:00",
+        }),
         defaultDuties: {},
       }),
       preset.updatedAt,
@@ -521,7 +519,7 @@ function same(row: typeof eventPreset.$inferSelect, patch: Partial<PresetInput> 
     durationDays: row.durationDays,
     publicTitle: row.publicTitle,
     publicText: row.publicText,
-    times: row.defaultTimes,
+    schedule: row.schedule,
     pricePerMCents: row.pricePerMCents,
     bookingFeeCents: row.bookingFeeCents,
     rrule: row.rrule,

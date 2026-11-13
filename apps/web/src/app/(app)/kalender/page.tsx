@@ -189,7 +189,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     startsOn: r.startsOn,
     endsOn: r.endsOn,
     venueName: r.venueName,
-    times: r.times,
+    schedule: r.schedule,
     tasks: r.taskCounts,
   }));
 

@@ -72,7 +72,7 @@ async function insertEvent(name = "Flohmarkt Test", startsOn = "2027-05-02") {
       season: Number(startsOn.slice(0, 4)),
       startsOn,
       endsOn: startsOn,
-      times: cat.times,
+      schedule: cat.schedule,
       pricePerMCents: 1200,
       bookingFeeCents: 500,
     })

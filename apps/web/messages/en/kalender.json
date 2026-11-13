@@ -111,7 +111,6 @@
     "eventPopover": {
       "date": "Date",
       "times": "Times",
-      "timesValue": "{open}–{close} · setup from {setup}",
       "venue": "Venue",
       "status": "Change status",
       "checklist": "Checklist",

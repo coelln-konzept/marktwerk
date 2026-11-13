@@ -2,8 +2,8 @@
   "eventDetail": {
     "kicker": "Event",
     "header": {
-      "dateLine": "{date} · {open}–{close} · {week}",
-      "dateLineRange": "{from} – {to} · {open}–{close} · {week}",
+      "dateLine": "{date} · {hours} · {week}",
+      "dateLineRange": "{from} – {to} · {hours} · {week}",
       "noPreset": "No preset",
       "booking": {
         "open": "bookable",
@@ -74,8 +74,7 @@
       "facts": {
         "title": "Key facts",
         "venue": "Venue",
-        "times": "Times",
-        "timesValue": "Setup {setup} · {open}–{close} · teardown {teardown}",
+        "times": "Schedule",
         "price": "Stall price",
         "pricePerM": "{price} per metre",
         "fee": "Booking fee",
@@ -86,7 +85,7 @@
         "yes": "yes",
         "no": "no",
         "cancelledReason": "Reason for cancelling",
-        "summary": "{venue} · {open}–{close} · {price} per metre",
+        "summary": "{venue} · {hours} · {price} per metre",
         "preset": "Template"
       },
       "team": {
@@ -227,7 +226,8 @@
         "bookingFeeCents": "booking fee",
         "name": "name",
         "durationDays": "length",
-        "venueId": "venue"
+        "venueId": "venue",
+        "schedule": "schedule"
       },
       "bookingOn": "{flag}: yes",
       "bookingOff": "{flag}: no",
@@ -252,14 +252,7 @@
     "facts": {
       "edit": "Edit",
       "title": "Edit key facts",
-      "description": "Times and prices of this event.",
-      "times": "Times",
-      "time": {
-        "setup": "Setup",
-        "open": "Opens",
-        "close": "Closes",
-        "teardown": "Teardown"
-      },
+      "description": "Schedule and prices of this event.",
       "price": "Pitch price",
       "perMeter": "€ per m",
       "fee": "Booking fee",
@@ -271,15 +264,13 @@
       "undo": "Undo",
       "reverted": "Key facts reverted",
       "errors": {
-        "invalid_time": "Please enter all times as HH:MM.",
-        "open_after_close": "Closing must be after opening.",
-        "close_after_teardown": "Teardown can't be before closing.",
-        "setup_after_open": "For single-day markets, setup can't be after opening.",
         "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most €10,000).",
         "not_found": "This event no longer exists.",
         "conflict": "The key facts were changed in the meantime. Nothing was reverted.",
-        "generic": "That didn't work. Please try again."
-      }
+        "generic": "That didn't work. Please try again.",
+        "invalid_schedule": "Please check the schedule (see the notes at the rows)."
+      },
+      "schedule": "Schedule"
     },
     "rules": {
       "edit": "Edit",

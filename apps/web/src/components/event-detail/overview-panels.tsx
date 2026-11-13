@@ -19,6 +19,8 @@ import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PermitStateBadge } from "@/components/permits/permit-state-badge";
 import { formatPermitTitle } from "@/components/permits/permit-title";
+import { formatVisitorHours } from "@/components/schedule/schedule-format";
+import { ScheduleView } from "@/components/schedule/schedule-view";
 import { useDueText } from "@/components/ui/due-badge";
 import { Health } from "@/components/ui/health";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
@@ -450,12 +452,16 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-/** "Eckdaten": venue, times and prices; collapsed with a one-line summary, editable with event:write. */
+/**
+ * "Eckdaten": venue, the full Zeitplan grouped by day (ADR 0022) and prices; collapsed with a one-line
+ * summary, editable with event:write.
+ */
 export async function FactsPanel({ event, canWrite }: { event: EventDetail; canWrite: boolean }) {
   const t = await getTranslations("eventDetail.overview.facts");
   const tHeader = await getTranslations("eventDetail.header");
+  const tSchedule = await getTranslations("schedule");
   const locale = await getLocale();
-  const { venue, times } = event;
+  const { venue } = event;
   const address = [venue.street, [venue.postalCode, venue.city].filter(Boolean).join(" ")]
     .filter(Boolean)
     .join(", ");
@@ -465,8 +471,7 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
       title={t("title")}
       summary={t("summary", {
         venue: venue.name,
-        open: times.open,
-        close: times.close,
+        hours: formatVisitorHours(event.schedule, tSchedule),
         price: formatMoney(event.pricePerMCents, locale),
       })}
     >
@@ -475,10 +480,10 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
           <div className="mb-3 flex justify-end">
             <FactsDialog
               eventId={event.id}
-              multiDay={event.endsOn !== event.startsOn}
+              durationDays={daysBetween(event.startsOn, event.endsOn) + 1}
               happening={isHappening(event, todayIn())}
               facts={{
-                times: event.times,
+                schedule: event.schedule,
                 pricePerMCents: event.pricePerMCents,
                 bookingFeeCents: event.bookingFeeCents,
               }}
@@ -508,14 +513,11 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
             )}
           </Fact>
           <Fact label={t("times")}>
-            <span className="tabular">
-              {t("timesValue", {
-                setup: times.setup,
-                open: times.open,
-                close: times.close,
-                teardown: times.teardown,
-              })}
-            </span>
+            <ScheduleView
+              schedule={event.schedule}
+              startsOn={event.startsOn}
+              endsOn={event.endsOn}
+            />
           </Fact>
           <Fact label={t("price")}>
             <span className="tabular">

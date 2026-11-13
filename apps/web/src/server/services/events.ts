@@ -1,20 +1,21 @@
 import "server-only";
 import {
   can,
-  checkEventTimes,
   defaultAnchors,
+  defaultSchedule,
   endsOnFor,
   groupConsecutiveDates,
   isIsoDate,
   MAX_PRICE_CENTS,
-  normalizeClockTime,
+  parseSchedule,
+  type Schedule,
   type ScheduledEvent,
+  validateSchedule,
 } from "@marktwerk/core";
 import {
   auditLog,
   type DefaultDuties,
   dutyRole,
-  type EventTimes,
   event,
   eventAnchor,
   eventDuty,
@@ -89,7 +90,8 @@ export type EventTemplate = {
   venueId: string;
   name: string;
   durationDays: number;
-  times: EventTimes;
+  /** The Zeitplan every new event gets a copy of (ADR 0022). */
+  schedule: Schedule;
   pricePerMCents: number;
   bookingFeeCents: number;
   /** duty_role.key → staff_member.id; empty for events without a preset. */
@@ -103,7 +105,7 @@ export type EventDay = string | { startsOn: string; durationDays: number };
 
 /**
  * THE one service path that creates events (CLAUDE.md, data model "Generating events"): copies type,
- * venue, times and prices from the template, sets the named anchors and the default duties, all inside
+ * venue, Zeitplan and prices from the template, sets the named anchors and the default duties, all inside
  * the caller's transaction with an audit entry per event. Presets, single events and location
  * agreements only differ in where the template comes from (and the audit `source`); nothing else may
  * insert into `event`. Warnings (holidays, weekend cap, venue already booked) never block; the office
@@ -146,7 +148,7 @@ export async function instantiateEvents(
         season: Number(startsOn.slice(0, 4)),
         startsOn,
         endsOn,
-        times: template.times,
+        schedule: template.schedule.map((row) => ({ ...row })),
         status: "planned",
         pricePerMCents: template.pricePerMCents,
         bookingFeeCents: template.bookingFeeCents,
@@ -208,7 +210,7 @@ export async function presetTemplate(presetId: string): Promise<EventTemplate> {
     venueId: preset.venueId,
     name: preset.name,
     durationDays: preset.durationDays,
-    times: preset.defaultTimes,
+    schedule: preset.schedule,
     pricePerMCents: preset.pricePerMCents,
     bookingFeeCents: preset.bookingFeeCents,
     defaultDuties: preset.defaultDuties,
@@ -221,7 +223,8 @@ export type ManualEventInput = {
   eventTypeId: string;
   venueId: string;
   durationDays: number;
-  times: EventTimes;
+  /** The Zeitplan as edited; left out = the default Zeitplan of a new market (ADR 0022). */
+  schedule?: Schedule;
   pricePerMCents: number;
   bookingFeeCents: number;
 };
@@ -242,15 +245,9 @@ export async function manualTemplate(input: ManualEventInput): Promise<EventTemp
     input.durationDays > MAX_EVENT_DAYS
   )
     throw new EventInputError("invalid_duration");
-  const clock = (value: unknown) => normalizeClockTime(String(value ?? "")) ?? "";
-  const times: EventTimes = {
-    setup: clock(input.times?.setup),
-    open: clock(input.times?.open),
-    close: clock(input.times?.close),
-    teardown: clock(input.times?.teardown),
-  };
-  const timesError = checkEventTimes(times, input.durationDays > 1);
-  if (timesError) throw new EventInputError(timesError);
+  const schedule = input.schedule === undefined ? defaultSchedule() : parseSchedule(input.schedule);
+  if (!schedule || validateSchedule(schedule, input.durationDays).length > 0)
+    throw new EventInputError("invalid_schedule");
   if (!validCents(input.pricePerMCents) || !validCents(input.bookingFeeCents))
     throw new EventInputError("invalid_price");
 
@@ -275,7 +272,7 @@ export async function manualTemplate(input: ManualEventInput): Promise<EventTemp
     venueId: place.id,
     name,
     durationDays: input.durationDays,
-    times,
+    schedule,
     pricePerMCents: input.pricePerMCents,
     bookingFeeCents: input.bookingFeeCents,
     defaultDuties: {},

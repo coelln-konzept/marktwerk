@@ -49,7 +49,6 @@ export function ManualEventForm({
   function submit() {
     const parsed = parseFields(value, { needsVenue: true, needsStart: true });
     if (!parsed.ok) return setProblem(parsed.problem);
-    setValue((v) => ({ ...v, times: parsed.input.times }));
     setProblem(null);
     startTransition(async () => {
       const result = await createSingleEvent(parsed.input);

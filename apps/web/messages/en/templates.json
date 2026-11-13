@@ -27,7 +27,6 @@
       "duration": "Duration",
       "publicTitle": "Public title",
       "times": "Times",
-      "timesValue": "Setup {setup} · {open}–{close} · teardown {teardown}",
       "price": "Stall price",
       "fee": "Booking fee",
       "team": "Default team",
@@ -84,14 +83,6 @@
         "publicTitle": "Public title",
         "publicText": "Public text"
       },
-      "times": {
-        "title": "Times (24-hour)",
-        "setup": "Setup",
-        "open": "Start",
-        "close": "End",
-        "teardown": "Teardown",
-        "hint": "24-hour format, e.g. 08:00. Entries like 8 or 8.30 are completed for you."
-      },
       "prices": {
         "title": "Prices",
         "price": "Stall price",
@@ -137,10 +128,6 @@
         "invalid_duration": "Please enter 1 to 14 days.",
         "invalid_public_title": "The public title can be at most 200 characters.",
         "invalid_public_text": "The public text can be at most 5,000 characters.",
-        "invalid_time": "Please enter the time as HH:MM, e.g. 08:00.",
-        "open_after_close": "The end must be after the start.",
-        "close_after_teardown": "Teardown cannot be before the end.",
-        "setup_after_open": "Setup cannot be after the start on single-day markets.",
         "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most €10,000).",
         "invalid_fee": "Please enter an amount in euros, e.g. 5 (at most €10,000).",
         "invalid_rrule": "This recurrence is not valid. Please check weekdays and months.",
@@ -152,10 +139,14 @@
         "invalid_staff": "This person is not (or no longer) active. Please choose somebody else.",
         "not_found": "This preset no longer exists.",
         "invalid_input": "The details are incomplete. Please reload the page.",
-        "generic": "That didn't work. Please try again."
+        "generic": "That didn't work. Please try again.",
+        "invalid_schedule": "Please check the schedule (see the notes at the rows)."
       },
       "tasksLink": "Tasks of this market:",
-      "tasksOwn": "Own task template"
+      "tasksOwn": "Own task template",
+      "schedule": {
+        "title": "Schedule"
+      }
     }
   },
   "library": {

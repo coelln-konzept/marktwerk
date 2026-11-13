@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { checkPresetFields, type PresetFieldsInput, presetKeyBase } from "./preset";
+import { defaultSchedule, type ScheduleRow } from "./schedule";
 
 const valid: PresetFieldsInput = {
   name: "Flohmarkt Neumarkt",
   durationDays: 1,
   publicTitle: null,
   publicText: null,
-  times: { setup: "05:00", open: "08:00", close: "16:00", teardown: "18:00" },
+  schedule: defaultSchedule(),
   pricePerMCents: 1200,
   bookingFeeCents: 500,
   rrule: "FREQ=MONTHLY;BYDAY=SU;BYSETPOS=1",
@@ -39,20 +40,22 @@ describe("checkPresetFields", () => {
     expect(codes({ publicText: "x".repeat(5001) })).toEqual(["invalid_public_text@publicText"]);
   });
 
-  it("names the time field that is wrong", () => {
-    expect(codes({ times: { ...valid.times, teardown: "25:00" } })).toEqual([
-      "invalid_time@teardown",
+  it("flags a Zeitplan with any issue (the rows say which, via validateSchedule)", () => {
+    const [setup, open, teardown] = defaultSchedule();
+    if (!setup || !open || !teardown) throw new Error("default schedule");
+    expect(codes({ schedule: [setup, teardown] })).toEqual(["invalid_schedule@schedule"]);
+    expect(codes({ schedule: [{ ...open, to: "25:00" }] })).toEqual(["invalid_schedule@schedule"]);
+    expect(codes({ schedule: [{ ...open, from: "17:00" }] })).toEqual([
+      "invalid_schedule@schedule",
     ]);
-    expect(codes({ times: { ...valid.times, open: "17:00" } })).toEqual(["open_after_close@close"]);
-    expect(codes({ times: { ...valid.times, teardown: "15:00" } })).toEqual([
-      "close_after_teardown@teardown",
-    ]);
+    expect(codes({ schedule: [open] })).toEqual([]);
   });
 
-  it("accepts a late setup time only for multi-day presets", () => {
-    const times = { ...valid.times, setup: "09:00" };
-    expect(codes({ times })).toEqual(["setup_after_open@setup"]);
-    expect(codes({ times, durationDays: 3 })).toEqual([]);
+  it("checks the day rules for the preset's length", () => {
+    const earlyTeardown = { ...defaultSchedule()[2], from: "07:00", to: "10:00" } as ScheduleRow;
+    const schedule = [...defaultSchedule(), earlyTeardown];
+    expect(codes({ schedule })).toEqual(["invalid_schedule@schedule"]);
+    expect(codes({ schedule, durationDays: 2 })).toEqual([]);
   });
 
   it("limits prices to 0 – 1.000.000 cents", () => {
