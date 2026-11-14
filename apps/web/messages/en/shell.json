@@ -253,7 +253,8 @@
     "label": "Filter by first letter",
     "all": "All",
     "other": "Digits and other",
-    "none": "no entries"
+    "none": "no entries",
+    "toggle": "A–Z · {current}"
   },
   "picker": {
     "open": "Open list",

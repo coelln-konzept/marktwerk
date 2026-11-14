@@ -189,9 +189,11 @@ export function DateField({
         >
           <CalendarDays aria-hidden className="size-4" />
         </button>
-        {/* The browser's own calendar, opened by the button; never focused or read on its own. */}
+        {/* The browser's own calendar, opened by the button; never focused or read on its own. `form=""`
+            gives it no form owner, so its own min/max never block a submit (only the text field's check does). */}
         <input
           ref={pickerRef}
+          form=""
           type="date"
           tabIndex={-1}
           aria-hidden

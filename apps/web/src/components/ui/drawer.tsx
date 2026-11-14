@@ -64,7 +64,10 @@ export function escapeClosesOverlay(event: KeyboardEvent): boolean {
   const target = event.target instanceof HTMLElement ? event.target : null;
   if (target?.closest('[role=listbox], [role=status], [role=alert], [data-editing="true"]'))
     return false;
-  return !document.querySelector('[role="menu"], [role="dialog"][aria-modal="true"]');
+  // base-ui dialogs carry no aria-modal, so any dialog counts unless it says it is not modal (drawer, Vorschau).
+  return !document.querySelector(
+    '[role="menu"], [role="alertdialog"], [role="dialog"]:not([aria-modal="false"])',
+  );
 }
 
 /**

@@ -86,7 +86,7 @@ export function LetterFilter({
       {/* Phones: folded; open while a letter is chosen, so the choice stays visible. */}
       <details open={active !== undefined} className={cn("group sm:hidden", className)}>
         <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full border border-input bg-card px-3 font-medium text-small [&::-webkit-details-marker]:hidden">
-          A–Z · {active ?? t("all")}
+          {t("toggle", { current: active ?? t("all") })}
           <ChevronDown aria-hidden className="size-4 transition-transform group-open:rotate-180" />
         </summary>
         <nav aria-label={t("label")} className="mt-2 flex flex-wrap items-center gap-0.5">

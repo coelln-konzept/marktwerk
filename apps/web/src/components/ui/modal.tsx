@@ -3,7 +3,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import type * as React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /** Form controls a dialog starts on (UX-030: "dialogs focus the first field"). */
@@ -48,20 +48,32 @@ const inertCount = new WeakMap<Element, number>();
 const isToastRegion = (el: Element) =>
   el.querySelector(':scope > [role="status"], :scope > [role="alert"]') !== null;
 
+/** Mark `el` inert for one more open modal. */
+function markInert(el: Element, marked: Element[]) {
+  inertCount.set(el, (inertCount.get(el) ?? 0) + 1);
+  el.setAttribute("inert", "");
+  marked.push(el);
+}
+
 /**
  * Makes everything outside `popup` inert (UX-053): Tab cannot leave the dialog, the page behind it can't be
- * clicked or read. Works on the children of <body> (the app, other portals); the toast region stays live
- * so an undo can still be reached. Nested modals stack: the outer dialog turns inert under the inner one.
+ * clicked or read. Walks up from the popup's portal node to <body> and marks the siblings at every level
+ * (the app and other portals at body level; inside a parent portal, the outer dialog and its backdrop). The
+ * toast region stays live so an undo can still be reached. Nested modals stack: base-ui mounts the inner
+ * portal inside the outer one, so the outer dialog turns inert under the inner one.
  */
 function useInertOutside(popup: HTMLElement | null) {
   useEffect(() => {
     if (!popup) return;
     const marked: Element[] = [];
-    for (const el of document.body.children) {
-      if (el.contains(popup) || el.tagName === "SCRIPT" || isToastRegion(el)) continue;
-      inertCount.set(el, (inertCount.get(el) ?? 0) + 1);
-      el.setAttribute("inert", "");
-      marked.push(el);
+    let node: Element = popup.closest("[data-base-ui-portal]") ?? popup;
+    while (node !== document.body && node.parentElement) {
+      const parent: Element = node.parentElement;
+      for (const el of parent.children) {
+        if (el === node || el.tagName === "SCRIPT" || isToastRegion(el)) continue;
+        markInert(el, marked);
+      }
+      node = parent;
     }
     return () => {
       for (const el of marked) {
@@ -71,6 +83,30 @@ function useInertOutside(popup: HTMLElement | null) {
       }
     };
   }, [popup]);
+}
+
+/**
+ * Where focus goes back to on close. A menu item that opened the modal unmounts with its menu, so the
+ * menu's trigger (the ⋯ or "Zurückstellen" button) stands in for it.
+ */
+function openerOf(active: Element | null): HTMLElement | null {
+  if (!(active instanceof HTMLElement) || active === document.body) return null;
+  const menu = active.closest<HTMLElement>('[role="menu"]');
+  if (!menu) return active;
+  if (!menu.id) return null;
+  return document.querySelector<HTMLElement>(
+    `[aria-haspopup="menu"][aria-controls="${CSS.escape(menu.id)}"]`,
+  );
+}
+
+/** Never leave focus on <body> after a close (UX-030): `#main` takes it when nothing else did. */
+function focusMainIfLost() {
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      document.getElementById("main")?.focus({ preventScroll: true });
+    }, 0);
+  });
 }
 
 /**
@@ -106,24 +142,29 @@ export function Modal({
   // Remember the opener when the dialog opens, while it still has focus (before the dialog takes it).
   if (open !== wasOpen.current) {
     wasOpen.current = open;
-    if (open && typeof document !== "undefined") {
-      const active = document.activeElement;
-      opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
-    }
+    if (open && typeof document !== "undefined") opener.current = openerOf(document.activeElement);
   }
 
   useInertOutside(open ? popup : null);
 
+  const setPopupRef = useCallback((el: HTMLDivElement | null) => {
+    popupRef.current = el;
+    setPopup(el);
+  }, []);
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen) focusMainIfLost();
+      }}
+    >
       <Dialog.Portal>
         {/* forceRender: a nested modal (e.g. QuickCreateDialog) dims the dialog underneath too. */}
         <Dialog.Backdrop forceRender className="fixed inset-0 z-40 bg-scrim" />
         <Dialog.Popup
-          ref={(el) => {
-            popupRef.current = el;
-            setPopup(el);
-          }}
+          ref={setPopupRef}
           initialFocus={(type) => {
             const el = popupRef.current;
             if (!el) return true;
@@ -149,7 +190,8 @@ export function Modal({
           finalFocus={() => {
             const back = opener.current;
             if (back?.isConnected && !back.closest("[inert]")) return back;
-            return document.getElementById("main") ?? true;
+            // Gone or inert: base-ui's default (its trigger, else the previously focused element).
+            return true;
           }}
           className={cn(
             "-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100dvh-2rem)] w-[min(480px,calc(100%-2rem))] flex-col gap-4 overflow-y-auto rounded-xl border bg-card p-5 shadow-overlay outline-hidden",

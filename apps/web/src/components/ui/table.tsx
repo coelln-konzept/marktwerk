@@ -9,7 +9,10 @@ import { cn } from "@/lib/utils";
  * `cards` (UX-003): below 640 px every row becomes a card and every cell a line "Label  value", so
  * nothing needs a sideways scroll and row actions stay on screen. Give each `TD` its column name as
  * `label` (cells without one, e.g. the title or the actions, span the card without a label); the header
- * row is then hidden visually but stays for screen readers.
+ * row is then hidden visually. Card mode changes `display` on the table parts, and some browsers (Safari
+ * with VoiceOver, some Chromium versions) then drop the table semantics, so the header row is not a
+ * reliable label there. The `label` drawn in front of each value (`content: attr(data-label)`) is what
+ * carries the column name; most screen readers read it.
  */
 export function Table({
   className,
