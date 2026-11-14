@@ -213,7 +213,14 @@ erDiagram
   instantiation and propagation), `requires_approval_by?`, `condition` (on event
   type/venue attributes), sort), `permit_type?` (0008: the item applies for a permit of that type, e.g.
   "Marktgenehmigung beantragen" → `market_permit`; its tasks get `task.permit_id` = the event's permit of that type
-  via `linkPermitTasks` and complete automatically once that permit is applied for or granted). A permit that
+  via `linkPermitTasks` and complete automatically once that permit is applied for or granted), `contact_role?`
+  (0025, enum `task_contact_role`: `authority | landowner`, "Behörde des Orts" / "Eigentümer des Orts", Fahrplan R24:
+  the one instantiation path resolves it per event or season with core `contactForRole` and sets `task.contact_id`
+  on **new** tasks: Eigentümer = the Ort's owner; Behörde = the Behörde of the Ort's requirement of the item's
+  `permit_type` (the Marktgenehmigung standing for the main permit, `itemPermitType`), else the one Behörde all the
+  Ort's requirements name, else the owner if that is a Behörde; never a guess between two. No match = no contact
+  (the drawer then suggests one from the same role once the Ort has it). Propagation adds it to tasks it creates but
+  leaves existing tasks' contacts alone; an update without the field keeps it). A permit that
   covers several events (cadence `per_season | per_year | multi_year | standing`) gets **one** apply task. Since
   Fahrplan R11 that is the **season task**: a `season` item with a `permit_type` ("Genehmigung beantragen") links
   through `linkPermitTasks` to the permit of its Saison record (`permit.season_id`; else a multi-year / standing
@@ -307,6 +314,18 @@ erDiagram
   KPIs, the weekend blockers, the Kalender "Aufgaben" layer, the deadline sweep (reminders, escalation) and the daily
   digest; they stay on the board with a "Zurückgestellt bis …" badge. Set and cleared through `snoozeTask` /
   `unsnoozeTask` (audit `task.snooze` / `task.unsnooze`, undoable).)*
+  *(implemented 0025 (Fahrplan R24, gap G7): **`contact_id?`** → `contact` (`on delete set null`, indexed): the
+  contact the task is about ("Ordnungsamt anrufen", "Eigentümer fragen"), one at most. Set, changed and removed through
+  `updateTask(actor, id, { contactId })` (needs `contact` read on top of `task` write, so field users can't; a new
+  contact must be live, else `invalid_contact`; audit `task.update` with `before/after.contactId` and `contactName`;
+  undo = the previous id). A contact-only change does not mark the task `customized`, and propagation never touches
+  the contact. The drawer's **suggestion** for a task without one is computed on read, never saved
+  (`queries/task-contact.ts` → core `suggestTaskContact`): the Behörde of the task's permit (`task.permit_id`, or its
+  checklist's permit), else the template item's default role, else for a permit task (it applies for a permit or its
+  category is Genehmigungen) the Ort's Behörde, else the Ort's owner; for a Logistik task the Ort's owner; otherwise
+  none. Archived contacts are never suggested. The Ort's contacts come from `loadContactContexts` (jobs): the owner
+  (`venue.landowner_contact_id`, live) and the live permit requirements for the event's type or every type
+  (type-specific first) with their live Behörde.)*
   *(implemented 0009 (CF9-3): **notify setting** "Benachrichtigung senden an": `notify_channels text[]` (subset of
   `email | whatsapp`, default empty), `notify_timing?` (enum `task_notify_timing`: `on_create | due_day | before_1d |
   before_3d | before_7d | custom`) and `notify_at?` (instant, only for `custom`). Checks: channels are a subset of the

@@ -56,6 +56,7 @@ import { NotifySection } from "./notify-section";
 import { SnoozeDialog, useSnoozePresets } from "./snooze";
 import { SubtaskList } from "./subtask-list";
 import { TaskActivity } from "./task-activity";
+import { TaskContactSection } from "./task-contact";
 import { isTickFinished, TickMark } from "./task-tick";
 
 const FEEDBACK = ["as_planned", "longer", "shorter"] as const;
@@ -150,6 +151,7 @@ export function TaskDrawer({
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [notifyEditing, setNotifyEditing] = useState(false);
+  const [contactPicking, setContactPicking] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [requiresPhoto, setRequiresPhoto] = useState(task.requiresPhoto);
@@ -262,6 +264,36 @@ export function TaskDrawer({
       },
     });
     return null;
+  }
+
+  /**
+   * "Kontakt" (Fahrplan R24): sets, changes or removes the task's contact; the toast names it and offers undo (the
+   * contact before). Resolves to whether it was saved.
+   */
+  async function saveContact(next: string | null, name: string | null): Promise<boolean> {
+    const previous = task.contact.contact?.id ?? null;
+    const result = await callAction(() => editTask(task.id, { contactId: next }));
+    if (!result.ok) {
+      showError(actions.errorText(result.error));
+      return false;
+    }
+    if (!result.data.changed) return true;
+    const message =
+      next === null
+        ? t("contact.removed", { title: task.title })
+        : name
+          ? t("contact.set", { name, title: task.title })
+          : t("contact.setUnnamed", { title: task.title });
+    showToast({
+      message,
+      actionLabel: tToast("undo"),
+      onAction: async () => {
+        const back = await callAction(() => editTask(task.id, { contactId: previous }));
+        if (back.ok) showToast({ message: tToast("revertedTitle", { title: task.title }) });
+        else showError(actions.errorText(back.error));
+      },
+    });
+    return true;
   }
 
   /**
@@ -381,13 +413,14 @@ export function TaskDrawer({
     if (isOpen) return;
     setEditing(false);
     setNotifyEditing(false);
+    setContactPicking(false);
     setNote("");
     setNewItem("");
     setTitleError(false);
   }, [isOpen]);
 
   // Esc and × close at once. Typing that is not saved yet is kept: the first Esc only leaves the field.
-  const hasDraft = editing || notifyEditing || note !== "" || newItem !== "";
+  const hasDraft = editing || notifyEditing || contactPicking || note !== "" || newItem !== "";
   useEffect(() => {
     if (!isOpen) return;
     function onKey(event: KeyboardEvent) {
@@ -905,6 +938,14 @@ export function TaskDrawer({
             </>
           )}
         </dl>
+
+        <TaskContactSection
+          key={`contact-${task.id}`}
+          info={task.contact}
+          writable={writable}
+          onSet={saveContact}
+          onPickingChange={setContactPicking}
+        />
 
         {task.status === "done" && writable && isModuleVisible("estimates") && (
           <Section title={t("feedback.title")}>

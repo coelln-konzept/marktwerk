@@ -173,6 +173,13 @@
       "permitType": "Gehört zur Genehmigung",
       "noPermitType": "Keine",
       "permitTypeHint": "Erledigt sich, sobald diese Genehmigung dieser Veranstaltung beantragt oder erteilt ist. Nur für Aufgaben, die eine Genehmigung beantragen.",
+      "contactRole": "Kontakt der Aufgabe",
+      "noContactRole": "Keiner",
+      "contactRoles": {
+        "authority": "Behörde des Orts",
+        "landowner": "Eigentümer des Orts"
+      },
+      "contactRoleHint": "Neue Aufgaben bekommen diesen Kontakt vom Ort der Veranstaltung, z. B. für „Ordnungsamt anrufen“. Bestehende Aufgaben bleiben, wie sie sind.",
       "isKey": "Kernaufgabe",
       "isKeyHint": "Jeder Markt braucht diese Aufgabe. Sie erscheint in der Kernaufgaben-Übersicht und wird bei Verzug stärker hervorgehoben.",
       "conditionLegend": "Gilt nur für",
@@ -401,6 +408,7 @@
       "invalid_estimate": "Bitte den Aufwand in ganzen Minuten angeben.",
       "invalid_parent": "Die Hauptaufgabe gibt es in dieser Version nicht oder sie ist selbst eine Unteraufgabe (nur eine Ebene).",
       "invalid_permit_type": "Bitte eine Genehmigungsart aus der Liste wählen.",
+      "invalid_contact_role": "Bitte einen Kontakt aus der Liste wählen.",
       "invalid_scope": "Bitte Veranstaltung oder Saison wählen.",
       "invalid_condition": "Die Bedingung ist nicht gültig.",
       "invalid_name": "Bitte einen Namen angeben (höchstens 120 Zeichen).",

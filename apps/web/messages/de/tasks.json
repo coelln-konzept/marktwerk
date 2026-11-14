@@ -125,7 +125,8 @@
       "completed": "Erledigt am",
       "notify": "Benachrichtigung",
       "requiresPhoto": "Foto als Nachweis",
-      "requiresAttachment": "Anhang als Nachweis"
+      "requiresAttachment": "Anhang als Nachweis",
+      "contactId": "Kontakt"
     },
     "source": {
       "template": "Aus Ablaufvorlage",
@@ -207,7 +208,9 @@
       "other": "{name}: {action}",
       "snooze": "{name} hat die Aufgabe bis {date} zurückgestellt.",
       "unsnooze": "{name} hat die Zurückstellung aufgehoben.",
-      "note": "Notiz: {note}"
+      "note": "Notiz: {note}",
+      "contactSet": "{name} hat den Kontakt „{contact}“ eingetragen",
+      "contactRemoved": "{name} hat den Kontakt „{contact}“ entfernt"
     },
     "snooze": {
       "title": "Zurückstellen",
@@ -243,6 +246,34 @@
     "removedFromTemplateHint": "Die Vorlage enthält diese Aufgabe nicht mehr. Sie bleibt offen, bis du sie erledigst oder überspringst.",
     "reopenAria": "„{title}“ wieder öffnen",
     "delete": "Löschen",
-    "deleteAria": "„{title}“ löschen"
+    "deleteAria": "„{title}“ löschen",
+    "contact": {
+      "title": "Kontakt",
+      "person": "Ansprechpartner: {person}",
+      "archived": "Archiviert",
+      "noReach": "Keine Telefonnummer und keine E-Mail hinterlegt.",
+      "open": "In Kontakte öffnen",
+      "change": "Ändern",
+      "remove": "Entfernen",
+      "removeAria": "Kontakt „{name}“ entfernen",
+      "suggestion": "Vorschlag: <b>{name}</b>",
+      "reason": {
+        "permit": "(aus der Genehmigung)",
+        "authority": "(Behörde des Orts)",
+        "landowner": "(Eigentümer des Orts)"
+      },
+      "accept": "Übernehmen",
+      "acceptAria": "„{name}“ als Kontakt übernehmen",
+      "pickOther": "Anderen wählen",
+      "none": "Kein Kontakt",
+      "pick": "Kontakt wählen",
+      "pickerLabel": "Kontakt suchen",
+      "pickerPlaceholder": "Name, Behörde oder Firma",
+      "loading": "Kontakte werden geladen …",
+      "cancel": "Abbrechen",
+      "set": "Kontakt „{name}“ bei „{title}“ eingetragen",
+      "setUnnamed": "Kontakt bei „{title}“ eingetragen",
+      "removed": "Kontakt bei „{title}“ entfernt"
+    }
   }
 }

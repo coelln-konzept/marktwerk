@@ -125,7 +125,8 @@
       "completed": "Done on",
       "notify": "Notification",
       "requiresPhoto": "Photo evidence",
-      "requiresAttachment": "Attachment evidence"
+      "requiresAttachment": "Attachment evidence",
+      "contactId": "Contact"
     },
     "source": {
       "template": "From timeline template",
@@ -207,7 +208,9 @@
       "other": "{name}: {action}",
       "snooze": "{name} snoozed the task until {date}.",
       "unsnooze": "{name} ended the snooze.",
-      "note": "Note: {note}"
+      "note": "Note: {note}",
+      "contactSet": "{name} set the contact “{contact}”",
+      "contactRemoved": "{name} removed the contact “{contact}”"
     },
     "snooze": {
       "title": "Snooze",
@@ -243,6 +246,34 @@
     "removedFromTemplateHint": "The template no longer contains this task. It stays open until you complete or skip it.",
     "reopenAria": "Reopen “{title}”",
     "delete": "Delete",
-    "deleteAria": "Delete “{title}”"
+    "deleteAria": "Delete “{title}”",
+    "contact": {
+      "title": "Contact",
+      "person": "Contact person: {person}",
+      "archived": "Archived",
+      "noReach": "No phone number and no e-mail on file.",
+      "open": "Open in Contacts",
+      "change": "Change",
+      "remove": "Remove",
+      "removeAria": "Remove contact “{name}”",
+      "suggestion": "Suggestion: <b>{name}</b>",
+      "reason": {
+        "permit": "(from the permit)",
+        "authority": "(authority of the location)",
+        "landowner": "(owner of the location)"
+      },
+      "accept": "Use",
+      "acceptAria": "Use “{name}” as contact",
+      "pickOther": "Choose another",
+      "none": "No contact",
+      "pick": "Choose contact",
+      "pickerLabel": "Search contacts",
+      "pickerPlaceholder": "Name, authority or company",
+      "loading": "Loading contacts …",
+      "cancel": "Cancel",
+      "set": "Contact “{name}” added to “{title}”",
+      "setUnnamed": "Contact added to “{title}”",
+      "removed": "Contact removed from “{title}”"
+    }
   }
 }

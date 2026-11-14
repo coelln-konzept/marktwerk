@@ -15,6 +15,7 @@ import {
 import { archivedAt, id, timestamps } from "./_columns";
 import { app } from "./_schema";
 import { user } from "./auth";
+import { contact } from "./catalogue";
 import { obligation } from "./company";
 import { event, eventSeason } from "./events";
 import { payable } from "./money";
@@ -127,6 +128,12 @@ export const task = app.table(
     priority: taskPriority().notNull().default("normal"),
     labels: text().array().notNull().default([]),
 
+    /**
+     * The contact the task is about ("Ordnungsamt anrufen", Fahrplan R24): shown in the drawer with Anrufen / E-Mail.
+     * Optional; set by hand or from the template item's `contact_role` when the task is made.
+     */
+    contactId: uuid().references(() => contact.id, { onDelete: "set null" }),
+
     // assignment
     dutyRoleId: uuid().references(() => dutyRole.id, { onDelete: "set null" }),
     assigneeId: uuid().references(() => staffMember.id, { onDelete: "set null" }),
@@ -207,6 +214,7 @@ export const task = app.table(
     index().on(t.obligationId),
     index().on(t.parentTaskId),
     index().on(t.templateItemId),
+    index().on(t.contactId),
     // Instantiation is idempotent: a checklist holds one task per template item.
     uniqueIndex("task_checklist_stable_key")
       .on(t.checklistId, t.templateStableKey)
