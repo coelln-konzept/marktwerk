@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Truck,
   Wallet,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -31,6 +32,7 @@ const KIND_ICONS: Record<DueKind, LucideIcon> = {
   installment: Wallet,
   task: CircleCheck,
   hours: Clock,
+  issue: Wrench,
   obligation: Truck,
 };
 
@@ -144,8 +146,9 @@ function DueRow({
   const Icon = KIND_ICONS[item.kind];
   const editable = item.kind === "task" && canSnooze;
   const meta = nested ? null : item.meta;
-  // A Pflicht has no market around it, so the row names its kind in words (research 10).
-  const kindLabel = item.kind === "obligation" ? t("kind.obligation") : null;
+  // A Pflicht or a Mangel has no market around it, so the row names its kind in words (research 10).
+  const kindLabel =
+    item.kind === "obligation" || item.kind === "issue" ? t(`kind.${item.kind}`) : null;
   const assignee =
     item.assigneeName && isModuleVisible("team")
       ? t("assignee", { name: item.assigneeName })

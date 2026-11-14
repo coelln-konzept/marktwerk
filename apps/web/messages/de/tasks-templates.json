@@ -124,7 +124,9 @@
       "inherited": "wie Hauptaufgabe",
       "season": "Ganze Saison",
       "seasonHint": "einmal je Saison",
-      "addSeason": "Saison-Aufgabe hinzufügen"
+      "addSeason": "Saison-Aufgabe hinzufügen",
+      "permit": "Genehmigung: {type}",
+      "onlyPermits": "Nur Aufgaben mit Genehmigung ({count})"
     },
     "menu": {
       "edit": "Bearbeiten",
@@ -133,15 +135,14 @@
       "down": "Nach unten",
       "duplicate": "Duplizieren",
       "duplicated": "„{title}“ dupliziert",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "moved": "„{title}“ verschoben",
+      "undo": "Rückgängig"
     },
     "delete": {
-      "title": "„{title}“ löschen?",
-      "description": "Die Zeile verschwindet aus dem Entwurf. Aufgaben in bestehenden Veranstaltungen bleiben unverändert.",
-      "confirm": "Löschen",
-      "cancel": "Abbrechen",
       "done": "„{title}“ gelöscht",
-      "descriptionChildren": "{count, plural, one {Die Zeile und ihre Unteraufgabe verschwinden aus dem Entwurf.} other {Die Zeile und ihre # Unteraufgaben verschwinden aus dem Entwurf.}} Aufgaben in bestehenden Veranstaltungen bleiben unverändert."
+      "doneChildren": "{count, plural, one {„{title}“ mit Unteraufgabe gelöscht} other {„{title}“ mit # Unteraufgaben gelöscht}}",
+      "undo": "Rückgängig"
     },
     "drawer": {
       "newTitle": "Neue Aufgabe",
@@ -307,7 +308,7 @@
         "not_found": "Diese Ablaufvorlage gibt es nicht mehr.",
         "no_published_version": "Es gibt noch keine veröffentlichte Version.",
         "no_events": "Bitte mindestens eine Veranstaltung oder Saison wählen.",
-        "not_applicable": "Eine der Veranstaltungen oder Saisons braucht die Version nicht mehr (oder läuft nicht mehr). Die Seite wurde aktualisiert, es wurde nichts geändert."
+        "not_applicable": "Eine der gewählten Veranstaltungen oder Saisons braucht die Version nicht mehr (vielleicht wurde sie gerade anderswo angewendet). Es wurde nichts geändert. Die Liste ist aktualisiert, bitte die Auswahl prüfen."
       },
       "listCount": "{shown} von {total} angezeigt",
       "hiddenUnchanged": "{count} ohne Änderungen ausgeblendet",
@@ -334,7 +335,11 @@
       "groupSeasons": "Saisons",
       "groupEvents": "Veranstaltungen",
       "seasonItems": "Bekommt nur die Aufgaben für die ganze Saison.",
-      "targets": "{events, plural, =0 {} one {# Veranstaltung} other {# Veranstaltungen}}{both, select, yes { und } other {}}{seasons, plural, =0 {} one {# Saison} other {# Saisons}}"
+      "targets": "{events, plural, =0 {} one {# Veranstaltung} other {# Veranstaltungen}}{both, select, yes { und } other {}}{seasons, plural, =0 {} one {# Saison} other {# Saisons}}",
+      "irreversible": "Anwenden lässt sich nicht rückgängig machen. Danach änderst du einzelne Aufgaben nur noch in der Veranstaltung selbst.",
+      "step1Heading": "Schritt 1 von 2: Veranstaltungen und Saisons wählen",
+      "step2Heading": "Schritt 2 von 2: Vorschau prüfen",
+      "nothingChosen": "Nichts mehr gewählt: Die Auswahl ist nicht mehr aktuell. Geh zurück und wähle neu."
     },
     "phases": {
       "pre": "Vorbereitung",
@@ -416,7 +421,8 @@
       "no_events": "Bitte mindestens eine Veranstaltung oder Saison wählen.",
       "not_applicable": "Eine der Veranstaltungen oder Saisons braucht die Version nicht mehr.",
       "master_exists": "Es gibt schon eine Grundvorlage.",
-      "master_protected": "Die Grundvorlage kann nicht archiviert werden."
+      "master_protected": "Die Grundvorlage kann nicht archiviert werden.",
+      "item_exists": "Diese Zeile gibt es schon wieder. Die Seite wurde aktualisiert."
     },
     "offset": {
       "on": "am Tag selbst",

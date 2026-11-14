@@ -46,6 +46,25 @@ export const TASK_CATEGORIES = [
   "office",
 ] as const;
 
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
+
+/** German URL values of the categories (`?kategorie=genehmigungen`, UX-052). */
+export const TASK_CATEGORY_SLUGS: Record<TaskCategory, string> = {
+  general: "allgemein",
+  permits: "genehmigungen",
+  logistics: "logistik",
+  communication: "kommunikation",
+  finance: "finanzen",
+  staff: "team",
+  office: "buero",
+};
+
+/** The category a `?kategorie=` value names; older links with the English key still work. */
+export function categoryFromSlug(slug: string | undefined): TaskCategory | undefined {
+  if (!slug) return undefined;
+  return TASK_CATEGORIES.find((c) => TASK_CATEGORY_SLUGS[c] === slug || c === slug);
+}
+
 /**
  * Categories offered as filter chips. "Team" and "Finanzen" go while those modules are hidden
  * (lib/modules.ts); tasks of those categories still exist and still show.

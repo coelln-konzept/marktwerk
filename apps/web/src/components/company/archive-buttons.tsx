@@ -1,8 +1,9 @@
 "use client";
 
-import { Archive } from "lucide-react";
+import { Archive, ArchiveRestore } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useTransition } from "react";
 import {
   archiveObligationAction,
@@ -11,7 +12,8 @@ import {
   restoreVehicleAction,
 } from "@/app/(app)/firma/actions";
 import { useShell } from "@/components/shell/shell-context";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { formatDate } from "@/lib/format";
 import { useErrorText } from "./shared";
 
 /**
@@ -55,6 +57,97 @@ export function ArchiveObligationButton({ id, title }: { id: string; title: stri
       <Archive aria-hidden />
       {t("obligation.archive")}
     </Button>
+  );
+}
+
+/**
+ * Banner on an archived vehicle or obligation (UX-060: an archived vehicle showed only an icon and could not
+ * be brought back after the undo toast was gone): when it was archived and "Wiederherstellen". The restore
+ * shows an undo toast that archives it again. An obligation of an archived vehicle links to the vehicle
+ * instead: one archived together with it comes back with it, one archived on its own before can only be
+ * restored once the vehicle is back.
+ */
+export function ArchivedBanner({
+  kind,
+  id,
+  archivedOn,
+  canRestore,
+  vehicle,
+}: {
+  kind: "vehicle" | "obligation";
+  id: string;
+  /** Berlin day it was archived ("YYYY-MM-DD"). */
+  archivedOn: string;
+  canRestore: boolean;
+  /**
+   * Obligation of an archived vehicle: the vehicle's page, and whether the two were archived together (then
+   * the obligation comes back with the vehicle).
+   */
+  vehicle?: { href: string; together: boolean };
+}) {
+  const t = useTranslations("company");
+  const tb = useTranslations("company.archived");
+  const locale = useLocale();
+  const router = useRouter();
+  const { showToast, showError } = useShell();
+  const errorText = useErrorText();
+  const [pending, startTransition] = useTransition();
+
+  function restore() {
+    startTransition(async () => {
+      const result =
+        kind === "vehicle" ? await restoreVehicleAction(id) : await restoreObligationAction(id);
+      if (!result.ok) {
+        showError(errorText(result.error));
+        return;
+      }
+      showToast({
+        message:
+          "name" in result.data
+            ? t("vehicle.restored", { name: result.data.name })
+            : t("obligation.restored", { title: result.data.title }),
+        actionLabel: t("undo"),
+        onAction: async () => {
+          const undone =
+            kind === "vehicle" ? await archiveVehicleAction(id) : await archiveObligationAction(id);
+          if (!undone.ok) return showError(errorText(undone.error));
+          router.refresh();
+          showToast({ message: tb("archivedAgain") });
+        },
+      });
+    });
+  }
+
+  const date = formatDate(archivedOn, locale);
+  return (
+    <div
+      role="status"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-status-neutral-bg px-4 py-3 sm:flex-row sm:items-center"
+    >
+      <p className="m-0 flex min-w-0 flex-1 items-start gap-2 text-foreground">
+        <Archive aria-hidden className="mt-0.5 size-4 shrink-0" />
+        <span>
+          <span className="font-semibold">{tb("title", { date })}</span>{" "}
+          {vehicle
+            ? tb(vehicle.together ? "withVehicle" : "vehicleAlsoArchived")
+            : kind === "vehicle"
+              ? tb("vehicleNote")
+              : t("obligation.archivedNote")}
+        </span>
+      </p>
+      {vehicle ? (
+        <Link href={vehicle.href as never} className={buttonVariants({ variant: "outline" })}>
+          {tb("toVehicle")}
+        </Link>
+      ) : (
+        canRestore && (
+          <Button disabled={pending} aria-busy={pending} onClick={restore}>
+            <ArchiveRestore aria-hidden />
+            {tb("restore")}
+          </Button>
+        )
+      )}
+    </div>
   );
 }
 

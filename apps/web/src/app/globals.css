@@ -11,6 +11,16 @@
  */
 /* Touch screens without hover: hide keyboard hints ("Leertaste: Vorschau …") with `touch:hidden`. */
 @custom-variant touch (@media (hover: none) and (pointer: coarse));
+/*
+ * 44 px hit targets (UX-029, the field rule of UX concept §6): touch screens and phone widths, in both
+ * densities. Grow the box (min-h-11 / min-w-11 / size-11), not the glyphs. Button, Input, NativeSelect,
+ * DateField, Chip, Segments and the overlay close buttons carry it; checkboxes and radios get it below.
+ */
+@custom-variant tap {
+  @media (pointer: coarse), (width < 40rem) {
+    @slot;
+  }
+}
 
 @custom-variant dark {
   &:where([data-theme="dark"], [data-theme="dark"] *) {
@@ -162,6 +172,14 @@
   --text-body: var(--fs-body);
   --text-small: var(--fs-small);
   --text-tiny: var(--fs-tiny);
+  /*
+   * Type scale beyond body/small/tiny (UX-070): use these instead of text-[Npx].
+   * micro 11 px: counts and badges · title 15 px: card and Vorschau titles · display 22 px: key figures.
+   * Headings use text-lg (18 px) and text-xl (20 px).
+   */
+  --text-micro: 11px;
+  --text-title: 15px;
+  --text-display: 22px;
   --spacing-row: var(--row-h);
   --spacing-control: var(--control-h);
   --color-background: var(--background);
@@ -282,6 +300,20 @@
     }
   }
   /* biome-ignore-end lint/complexity/noImportantStyles: see above */
+}
+
+/*
+ * Checkboxes and radios on touch screens and phones (UX-029): a bigger box, and a label that holds one
+ * is a 44 px row. Unlayered on purpose, so it wins over `size-4` / `min-h-8` utilities in both densities.
+ */
+@media (pointer: coarse), (width < 40rem) {
+  input:where([type="checkbox"], [type="radio"]) {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  label:has(> input:where([type="checkbox"], [type="radio"])) {
+    min-height: 2.75rem;
+  }
 }
 
 @utility tabular {

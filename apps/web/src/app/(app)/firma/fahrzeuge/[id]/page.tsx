@@ -4,8 +4,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { ArchiveVehicleButton } from "@/components/company/archive-buttons";
+import { ArchivedBanner, ArchiveVehicleButton } from "@/components/company/archive-buttons";
 import { CompleteButton } from "@/components/company/complete-dialog";
+import { completeTargetOf } from "@/components/company/complete-target";
 import { ReportIssueButton } from "@/components/company/issue-dialog";
 import { IssuesTable } from "@/components/company/issues-table";
 import { KindIcon } from "@/components/company/kind-icon";
@@ -100,6 +101,15 @@ export default async function VehiclePage({ params }: PageProps<"/firma/fahrzeug
           ) : undefined
         }
       />
+
+      {v.archivedAt && (
+        <ArchivedBanner
+          kind="vehicle"
+          id={v.id}
+          archivedOn={todayIn("Europe/Berlin", v.archivedAt)}
+          canRestore={can(actor.role, "company", "write")}
+        />
+      )}
 
       <Panel title={tv("facts")}>
         <PanelBody>
@@ -252,19 +262,7 @@ export default async function VehiclePage({ params }: PageProps<"/firma/fahrzeug
                   <TD className="whitespace-nowrap">{o.responsibleName}</TD>
                   {canWrite && (
                     <TD className="text-right">
-                      <CompleteButton
-                        size="sm"
-                        today={today}
-                        target={{
-                          id: o.id,
-                          title: o.title,
-                          kind: o.kind,
-                          intervalKm: o.intervalKm,
-                          onVehicle: true,
-                          createsPayable: o.createsPayable,
-                          currentKm: o.currentKm,
-                        }}
-                      />
+                      <CompleteButton size="sm" today={today} target={completeTargetOf(o)} />
                     </TD>
                   )}
                 </TR>

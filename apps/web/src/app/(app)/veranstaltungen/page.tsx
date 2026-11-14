@@ -1,35 +1,34 @@
-import { can, canMoveEvent, daysBetween, isoWeek } from "@marktwerk/core";
-import { CalendarPlus, Eye, MapPin, SearchX } from "lucide-react";
+import { can } from "@marktwerk/core";
+import { CalendarPlus, History, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Fragment } from "react";
-import { EventActions } from "@/components/event-detail/event-actions";
-import { EventStatusBadge } from "@/components/events/event-status";
+import { EventRows } from "@/components/events/event-rows";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { FilterToggle } from "@/components/events/filter-toggle";
 import { GenerateSheet } from "@/components/events/generate-sheet";
+import { LiveSearchInput } from "@/components/events/live-search-input";
+import { PagingMore } from "@/components/events/paging-more";
 import { SearchHotkey } from "@/components/events/search-hotkey";
 import { Page, PageHeader } from "@/components/shell/page";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
-import { MarketMarker } from "@/components/ui/market-marker";
 import { Panel } from "@/components/ui/panel";
-import { LinkRow } from "@/components/ui/row-link";
 import { EmptyState } from "@/components/ui/states";
-import { RowActions, rowFocus, Table, TD, TGroup, TH, THead } from "@/components/ui/table";
-import { formatDateRangeYear, formatMonth, todayIn } from "@/lib/format";
+import { Table, TH, THead } from "@/components/ui/table";
+import { todayIn } from "@/lib/format";
 import { isModuleHidden, isModuleVisible } from "@/lib/modules";
-import { EVENT_STATUSES } from "@/lib/status";
+import { EVENT_STATUS, EVENT_STATUSES } from "@/lib/status";
 import { hrefWith, param } from "@/lib/url";
-import { cn } from "@/lib/utils";
 import { getActor } from "@/server/actor";
 import { listEventTypeOptions } from "@/server/queries/event-form";
 import {
+  countEvents,
   type EventStatusKey,
+  eventSearchMode,
   listEvents,
   listEventTypes,
   listSeasons,
@@ -44,11 +43,18 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const PATH = "/veranstaltungen";
+const CancelledIcon = EVENT_STATUS.cancelled.icon;
 
 /** Sortable columns (`?sortierung=`; Datum is the default and the only one with month headers). */
 const SORT_KEYS = ["datum", "name", "art", "ort", "status"] as const;
 type SortKey = (typeof SORT_KEYS)[number];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Rows per page (`?anzahl=` shows more): a season with its row menus made the page 1.8 MB of HTML
+ * (UX-069). Counts, chips and month headers still cover every match.
+ */
+const PAGE_SIZE = 50;
+const MAX_ROWS = 1000;
 
 export default async function EventsPage({ searchParams }: PageProps<"/veranstaltungen">) {
   await requirePermission("event", "read");
@@ -68,6 +74,8 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   const currentYear = Number(today.slice(0, 4));
   const seasonParam = Number(param(sp.saison));
   const seasonPicked = seasons.includes(seasonParam) ? seasonParam : undefined;
+  // `?saison=alle`: every season (the "Alle Treffer" link of a search; "Alle Saisons" in the select).
+  const allSeasons = !seasonPicked && param(sp.saison) === "alle";
   const financeHidden = isModuleHidden("finance");
   // Default "aktuell": markets that are running or still to come (all seasons). Past ones are one
   // select away ("Alle" or one status), so the list opens at the current week.
@@ -79,9 +87,11 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
         ? (statusParam as EventStatusKey)
         : "aktuell";
   const upcomingOnly = statusKey === "aktuell";
-  const season = upcomingOnly
-    ? seasonPicked
-    : (seasonPicked ?? (seasons.includes(currentYear) ? currentYear : (seasons[0] ?? currentYear)));
+  const season =
+    upcomingOnly || allSeasons
+      ? seasonPicked
+      : (seasonPicked ??
+        (seasons.includes(currentYear) ? currentYear : (seasons[0] ?? currentYear)));
   const typeKey = param(sp.art);
   // "Ort" chip in a row: only the events at that venue (handwritten notes HN-07).
   const venueParam = param(sp.ort);
@@ -91,7 +101,8 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
     ? (sortParam as SortKey)
     : "datum";
   const sortDir: "asc" | "desc" = param(sp.richtung) === "ab" ? "desc" : "asc";
-  const q = param(sp.q)?.slice(0, 100);
+  // Trimmed once: Enter on a box of spaces sends `?q=+++`, which must read as no search at all.
+  const q = param(sp.q)?.trim().slice(0, 100) || undefined;
   // "Ohne Genehmigung" (from the Übersicht KPI): upcoming planned events whose permits are not all
   // granted. It looks across seasons, like the KPI does.
   const openPermits = param(sp.genehmigung) === "offen";
@@ -104,6 +115,12 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
     .filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
     .slice(0, 60);
   const justCreated = createdIds.length > 0;
+  // "Aktuell & kommend" and "Alle außer abgesagt" leave cancelled events out; the "N abgesagt" chip
+  // (`?abgesagte=1`) brings them back into the same view (UX-049).
+  const hidesCancelled = (upcomingOnly || statusKey === "aktiv") && !openPermits && !justCreated;
+  const withCancelled = hidesCancelled && param(sp.abgesagte) === "1";
+  // Same matching as the command palette (word starts, umlauts, typos), so its counts fit (UX-066).
+  const qMode = q && !justCreated ? await eventSearchMode(actor, q) : undefined;
   const filters = {
     season: openPermits || justCreated ? undefined : season,
     status: justCreated
@@ -111,12 +128,15 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
       : openPermits
         ? ("planned" as const)
         : upcomingOnly || statusKey === "aktiv"
-          ? ("active" as const)
+          ? withCancelled
+            ? undefined
+            : ("active" as const)
           : statusKey === "alle" || overFilter
             ? undefined
             : statusKey,
     from: justCreated || (upcomingOnly && !openPermits) ? today : undefined,
     q: justCreated ? undefined : q,
+    qMode,
   };
 
   // One query without the type filter: the type chips count from it, the table narrows it by type.
@@ -156,6 +176,33 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
     (a, b) => (sortDir === "desc" ? -1 : 1) * compare[sortKey](a, b),
   );
   const total = byVenue.length;
+  const anzahl = Number(param(sp.anzahl));
+  const limit =
+    Number.isInteger(anzahl) && anzahl > PAGE_SIZE ? Math.min(anzahl, MAX_ROWS) : PAGE_SIZE;
+  const pageRows = rows.slice(0, limit);
+  // What the view leaves out: cancelled events (chip) and, for a search, matches in the past, in other
+  // seasons or with another status ("Auch passend: …", with a link to all of them).
+  const narrowing = { typeKey, venueId, q: filters.q, qMode };
+  const hints = !justCreated && !openPermits;
+  const [cancelledCount, allMatches, pastMatches, literalMatches, typoMatches] = await Promise.all([
+    !hidesCancelled
+      ? 0
+      : withCancelled
+        ? rows.filter((r) => r.status === "cancelled").length
+        : countEvents(actor, { ...filters, ...narrowing, status: "cancelled" }),
+    hints && q ? countEvents(actor, narrowing) : 0,
+    hints && q && upcomingOnly && !seasonPicked
+      ? countEvents(actor, { ...narrowing, endedBefore: today })
+      : 0,
+    // Typo matching includes every literal match; the hint only when it adds a row to this view.
+    hints && qMode === "typos"
+      ? countEvents(actor, { ...filters, ...narrowing, qMode: "words" })
+      : 0,
+    hints && qMode === "typos" ? countEvents(actor, { ...filters, ...narrowing }) : 0,
+  ]);
+  const typoOnly = typoMatches > literalMatches;
+  const hiddenMatches = Math.max(0, allMatches - rows.length);
+  const hiddenCancelled = withCancelled ? 0 : cancelledCount;
   const sortBy = (key: SortKey) => ({
     href: hrefWith(PATH, sp, {
       sortierung: key === "datum" ? undefined : key,
@@ -188,7 +235,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   const activeType = typeKey ? types.find((x) => x.key === typeKey) : undefined;
   const filterSummary = [
     activeType ? (locale === "en" ? activeType.nameEn : activeType.nameDe) : null,
-    season ? t("seasonOption", { season }) : null,
+    season ? t("seasonOption", { season }) : allSeasons ? t("seasonAny") : null,
     statusKey === "aktuell"
       ? null
       : statusKey === "alle"
@@ -200,6 +247,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                 financeHidden && statusKey === "completed" ? t("statusOver") : tStatus(statusKey),
             }),
     openPermits ? t("permitFilter.open") : null,
+    withCancelled ? t("cancelled.shown") : null,
     venueFilterName ?? null,
   ]
     .filter(Boolean)
@@ -210,8 +258,10 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
     const key = r.startsOn.slice(0, 7);
     perMonth.set(key, (perMonth.get(key) ?? 0) + 1);
   }
-  const columns = isModuleVisible("estimates") ? 8 : 7;
-  let openMonth = "";
+  // Row links keep the page's filters (string params only, as `hrefWith` reads them).
+  const rowQuery = Object.fromEntries(
+    Object.entries(sp).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+  );
 
   return (
     <Page crumbs={[{ label: tNav("events") }]}>
@@ -220,7 +270,9 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
         subtitle={
           season
             ? t("subtitle", { season, count: total, planned })
-            : t("subtitleUpcoming", { count: total, planned })
+            : allSeasons && !upcomingOnly
+              ? t("subtitleAll", { count: total, planned })
+              : t("subtitleUpcoming", { count: total, planned })
         }
         actions={
           canWrite && (
@@ -240,15 +292,19 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
       <form method="get" action={PATH} className="flex flex-wrap items-center gap-x-2 gap-y-3">
         {typeKey && <input type="hidden" name="art" value={typeKey} />}
         {venueId && <input type="hidden" name="ort" value={venueId} />}
+        {withCancelled && <input type="hidden" name="abgesagte" value="1" />}
+        {sortParam && <input type="hidden" name="sortierung" value={sortParam} />}
+        {sortDir === "desc" && <input type="hidden" name="richtung" value="ab" />}
         <label className="sr-only" htmlFor="q">
           {t("search")}
         </label>
-        <input
+        <LiveSearchInput
           id="q"
           name="q"
-          type="search"
           defaultValue={q}
           placeholder={t("search")}
+          maxLength={100}
+          autoComplete="off"
           aria-keyshortcuts="/"
           className="min-h-(--control-h) w-64 rounded-lg border border-input bg-card px-3 max-sm:w-full"
         />
@@ -256,8 +312,12 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
           <label className="sr-only" htmlFor="saison">
             {t("season")}
           </label>
-          <AutoSubmitSelect id="saison" name="saison" defaultValue={season ? String(season) : ""}>
-            {upcomingOnly && <option value="">{t("seasonAny")}</option>}
+          <AutoSubmitSelect
+            id="saison"
+            name="saison"
+            defaultValue={season ? String(season) : allSeasons && !upcomingOnly ? "alle" : ""}
+          >
+            <option value={upcomingOnly ? "" : "alle"}>{t("seasonAny")}</option>
             {seasons.map((s) => (
               <option key={s} value={s}>
                 {t("seasonOption", { season: s })}
@@ -318,6 +378,24 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                 </FilterChips>
               </FilterGroup>
             )}
+            {(withCancelled || cancelledCount > 0) && (
+              <FilterGroup label={t("cancelled.label")}>
+                <FilterChips>
+                  <FilterChip
+                    href={hrefWith(PATH, sp, {
+                      abgesagte: withCancelled ? undefined : 1,
+                      anzahl: undefined,
+                      vorschau: undefined,
+                    })}
+                    active={withCancelled}
+                    title={withCancelled ? t("cancelled.hide") : t("cancelled.show")}
+                  >
+                    <CancelledIcon aria-hidden className="size-3.5 shrink-0" />
+                    {t("cancelled.chip", { count: cancelledCount })}
+                  </FilterChip>
+                </FilterChips>
+              </FilterGroup>
+            )}
             {openPermits && (
               <FilterGroup label={t("permitFilter.label")}>
                 <FilterChips>
@@ -349,9 +427,50 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
         </p>
       )}
 
+      {q && hints && (hiddenMatches > 0 || typoOnly) && (
+        <p
+          role="status"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-status-info-bg px-3 py-2 text-status-info"
+        >
+          <History aria-hidden className="size-4 shrink-0" />
+          {typoOnly && <span>{t("alsoMatching.typos", { q })}</span>}
+          {hiddenMatches > 0 && (
+            <>
+              <span>
+                {upcomingOnly && !seasonPicked
+                  ? pastMatches > 0 && hiddenCancelled > 0
+                    ? t("alsoMatching.pastCancelled", {
+                        past: pastMatches,
+                        cancelled: hiddenCancelled,
+                      })
+                    : pastMatches > 0
+                      ? t("alsoMatching.past", { count: pastMatches })
+                      : t("alsoMatching.cancelled", { count: hiddenCancelled })
+                  : t("alsoMatching.other", { count: hiddenMatches })}
+              </span>
+              <Link
+                href={
+                  hrefWith(PATH, sp, {
+                    status: "alle",
+                    saison: "alle",
+                    abgesagte: undefined,
+                    anzahl: undefined,
+                    vorschau: undefined,
+                  }) as never
+                }
+                scroll={false}
+                className="font-medium underline underline-offset-2 hover:no-underline"
+              >
+                {t("alsoMatching.showAll", { count: allMatches })}
+              </Link>
+            </>
+          )}
+        </p>
+      )}
+
       <Panel className="overflow-hidden">
         {rows.length === 0 ? (
-          <EmptyState icon={SearchX} title={t("emptyFiltered")}>
+          <EmptyState icon={SearchX} title={q ? t("emptySearch", { q }) : t("emptyFiltered")}>
             <Link
               href={PATH}
               className="inline-flex min-h-8 items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover"
@@ -381,125 +500,56 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                 </tr>
               </THead>
               <tbody className="max-sm:block">
-                {rows.map((r) => {
-                  const href = `${PATH}/${r.id}`;
-                  const peek = hrefWith(PATH, sp, { vorschau: r.id, erzeugen: undefined });
-                  const month = r.startsOn.slice(0, 7);
-                  const header =
-                    sortKey === "datum" && month !== openMonth ? (
-                      <TGroup colSpan={columns}>
-                        {formatMonth(r.startsOn, locale)} ·{" "}
-                        {t("groupCount", { count: perMonth.get(month) ?? 0 })}
-                      </TGroup>
-                    ) : null;
-                  openMonth = month;
-                  return (
-                    <Fragment key={r.id}>
-                      {header}
-                      <LinkRow
-                        href={href}
-                        tabIndex={0}
-                        data-row
-                        data-href={href}
-                        data-peek={peek}
-                        aria-current={vorschauId === r.id}
-                        className={cn(
-                          rowFocus,
-                          "max-sm:grid max-sm:grid-cols-[auto_auto_1fr_auto] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-0.5 max-sm:px-3 max-sm:py-2.5",
-                          r.status === "cancelled" && "text-muted-foreground",
-                        )}
-                      >
-                        <TD className="tabular text-muted-foreground max-sm:col-start-2 max-sm:row-start-2 max-sm:h-auto max-sm:p-0 max-sm:text-small">
-                          <span className="sm:hidden">{t("cols.week")} </span>
-                          {isoWeek(r.startsOn).week}
-                        </TD>
-                        <TD className="tabular whitespace-nowrap font-semibold max-sm:col-start-1 max-sm:row-start-2 max-sm:h-auto max-sm:p-0 max-sm:text-small">
-                          {formatDateRangeYear(r.startsOn, r.endsOn, locale, today)}
-                        </TD>
-                        <TD className="max-sm:col-span-3 max-sm:col-start-1 max-sm:row-start-1 max-sm:h-auto max-sm:min-w-0 max-sm:p-0">
-                          <span className="inline-flex items-center gap-2">
-                            <MarketMarker color={r.color} typeKey={r.typeKey} shape="dot" />
-                            <Link
-                              href={href as never}
-                              tabIndex={-1}
-                              className="whitespace-nowrap font-semibold text-accent-soft-foreground hover:underline max-sm:whitespace-normal"
-                            >
-                              {r.name}
-                            </Link>
-                          </span>
-                        </TD>
-                        <TD className="max-sm:hidden">
-                          <EventTypeTag typeKey={r.typeKey}>{typeName(r)}</EventTypeTag>
-                        </TD>
-                        <TD
-                          className="max-w-64 truncate max-sm:col-start-3 max-sm:row-start-2 max-sm:h-auto max-sm:min-w-0 max-sm:max-w-none max-sm:p-0 max-sm:text-small max-sm:text-muted-foreground max-sm:before:mr-2 max-sm:before:content-['·']"
-                          title={r.venueName}
-                        >
-                          <Link
-                            href={
-                              hrefWith(PATH, sp, { ort: r.venueId, vorschau: undefined }) as never
-                            }
-                            scroll={false}
-                            tabIndex={-1}
-                            title={t("venueOnly", { name: r.venueName })}
-                            className="inline-flex max-w-full items-center gap-1 rounded-md bg-surface-2 px-1.5 py-0.5 text-small hover:bg-hover hover:underline max-sm:bg-transparent max-sm:p-0"
-                          >
-                            <MapPin
-                              aria-hidden
-                              className="size-3.5 shrink-0 text-muted-foreground"
-                            />
-                            <span className="truncate">{r.venueName}</span>
-                          </Link>
-                        </TD>
-                        <TD className="max-sm:col-start-4 max-sm:row-start-1 max-sm:h-auto max-sm:p-0">
-                          <EventStatusBadge status={r.status} />
-                        </TD>
-                        {isModuleVisible("estimates") && (
-                          <TD className="tabular text-right text-muted-foreground max-sm:hidden">
-                            –
-                          </TD>
-                        )}
-                        <TD className="w-24 max-sm:hidden">
-                          <RowActions>
-                            <Link
-                              href={peek as never}
-                              scroll={false}
-                              tabIndex={-1}
-                              aria-label={t("preview", { name: r.name })}
-                              className="grid size-7 place-items-center rounded-md hover:bg-hover"
-                            >
-                              <Eye className="size-4" />
-                            </Link>
-                            {canWrite && (
-                              <EventActions
-                                eventId={r.id}
-                                eventName={r.name}
-                                status={r.status}
-                                startsOn={r.startsOn}
-                                canMove={canMoveEvent(r.status)}
-                                canDelete={can(actor.role, "event", "delete")}
-                                venues={venueOptions}
-                                types={typeChoices}
-                                basics={{
-                                  name: r.name,
-                                  durationDays: daysBetween(r.startsOn, r.endsOn) + 1,
-                                  venueId: r.venueId,
-                                  eventTypeId: r.eventTypeId,
-                                }}
-                                triggerClassName="grid size-7 cursor-pointer place-items-center rounded-md text-foreground-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover"
-                              />
-                            )}
-                          </RowActions>
-                        </TD>
-                      </LinkRow>
-                    </Fragment>
-                  );
-                })}
+                <EventRows
+                  rows={pageRows.map((r) => ({
+                    id: r.id,
+                    name: r.name,
+                    startsOn: r.startsOn,
+                    endsOn: r.endsOn,
+                    status: r.status,
+                    typeKey: r.typeKey,
+                    typeName: typeName(r),
+                    color: r.color,
+                    venueId: r.venueId,
+                    venueName: r.venueName,
+                    eventTypeId: r.eventTypeId,
+                  }))}
+                  query={rowQuery}
+                  monthHeaders={sortKey === "datum"}
+                  perMonth={Object.fromEntries(perMonth)}
+                  today={today}
+                  vorschauId={vorschauId}
+                  actions={
+                    canWrite
+                      ? {
+                          canDelete: can(actor.role, "event", "delete"),
+                          venues: venueOptions,
+                          types: typeChoices,
+                        }
+                      : undefined
+                  }
+                />
               </tbody>
             </Table>
           </KeyboardRows>
         )}
       </Panel>
+
+      {/* Stays once every row is shown, so the focus of the last "weitere anzeigen" has a place to go. */}
+      {rows.length > PAGE_SIZE && (
+        <PagingMore
+          shownText={t("paging.shown", { shown: pageRows.length, total: rows.length })}
+          allText={t("paging.all", { total: rows.length })}
+          moreText={t("paging.more", {
+            count: Math.min(PAGE_SIZE, rows.length - pageRows.length),
+          })}
+          moreHref={
+            rows.length > pageRows.length
+              ? hrefWith(PATH, sp, { anzahl: limit + PAGE_SIZE, vorschau: undefined })
+              : null
+          }
+        />
+      )}
 
       <SearchHotkey inputId="q" />
       <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-tiny touch:hidden">

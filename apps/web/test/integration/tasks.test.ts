@@ -232,7 +232,7 @@ describe("assignTask", () => {
     expect(note).toMatchObject({
       recipientStaffMemberId: cat.staff.ben.id,
       body: "Test owner hat dir die Aufgabe zugewiesen (Testflohmarkt · Saison 2027).",
-      link: `/board?aufgabe=${t.id}`,
+      link: `/?aufgabe=${t.id}`,
     });
   });
 

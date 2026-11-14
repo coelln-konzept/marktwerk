@@ -44,6 +44,23 @@ describe("foldText / escapeLike", () => {
   it("folds like the SQL side", () => {
     expect(foldText("Müller-Öl, Café")).toBe("muller-ol, cafe");
   });
+  it("folds the ASCII spellings of umlauts and ß the same way (UX-014)", () => {
+    for (const [typed, stored] of [
+      ["Koeln", "Köln"],
+      ["Huerth", "Hürth"],
+      ["Troedelmarkt", "Trödelmarkt"],
+      ["Mueller", "Müller"],
+      ["Strasse", "Straße"],
+      ["Baeckerei", "Bäckerei"],
+    ] as const) {
+      expect(foldText(typed)).toBe(foldText(stored));
+    }
+    expect(foldText("Straße")).toBe("strase");
+    // Query and record fold alike, so a plain "ue" still finds itself.
+    expect(scoreMatch("manuel", "Manuel Test")).toBe(0);
+    expect(scoreMatch("koeln", "Flohmarkt Köln")).toBe(1);
+    expect(scoreMatch("köln", "Koelner Treff")).toBe(0);
+  });
   it("escapes like wildcards", () => {
     expect(escapeLike("100%_a\\b")).toBe("100\\%\\_a\\\\b");
   });
