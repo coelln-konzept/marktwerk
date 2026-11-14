@@ -35,6 +35,7 @@ export type TemplateError =
   | "invalid_type"
   | "version_not_found"
   | "item_not_found"
+  | "item_exists"
   | "not_draft"
   | "draft_exists"
   | "empty"
@@ -814,6 +815,91 @@ export async function deleteTemplateItem(
       },
     ]);
     return { title: row.title };
+  });
+}
+
+/** A deleted row as the editor knows it, with its own stable key (undo of "Löschen"). */
+export type RestoredItem = TemplateItemFields & { key: string };
+
+/**
+ * Undo of "Löschen" (row menu, the drawer's list of child items): puts deleted rows back with their own stable
+ * keys, so the tasks of existing events still match them on the next apply. The rows go in the given order before
+ * `beforeKey` (else after `afterKey`, else at the end); a child names its parent, which is in the draft or one of
+ * the rows before it. A key that is taken again (a second undo, a new row with the same key) is refused.
+ */
+export async function restoreTemplateItems(
+  actor: Actor,
+  versionId: string,
+  rows: RestoredItem[],
+  afterKey?: string | null,
+  beforeKey?: string | null,
+): Promise<{ keys: string[] }> {
+  if (!can(actor.role, "template", "write")) forbidden();
+  if (!Array.isArray(rows) || rows.length === 0 || rows.length > MAX_ITEMS_PER_VERSION)
+    throw new TemplateInputError("invalid_input");
+  const restoring = rows.map((row) => {
+    assertShape(row);
+    const { key, ...rest } = row;
+    if (typeof key !== "string" || key.trim() === "" || key.length > 200)
+      throw new TemplateInputError("invalid_input");
+    return { key, fields: normalizeItem(rest) };
+  });
+  if (new Set(restoring.map((r) => r.key)).size !== restoring.length)
+    throw new TemplateInputError("invalid_input");
+
+  return db.transaction(async (tx) => {
+    const { version } = await lockDraft(tx, versionId);
+    const items = await itemsOf(tx, version.id);
+    if (items.length + restoring.length > MAX_ITEMS_PER_VERSION)
+      throw new TemplateInputError("too_many_items");
+    const taken = new Set(items.map((i) => i.stableKey));
+    const clash = restoring.find((r) => taken.has(r.key));
+    if (clash) throw new TemplateInputError("item_exists", undefined, clash.key);
+    await checkRoles(
+      tx,
+      restoring.flatMap((r) => [r.fields.dutyRoleId, r.fields.approverDutyRoleId]),
+    );
+    checkItemParents([
+      ...items.map((i) => ({ stableKey: i.stableKey, parentKey: i.parentKey })),
+      ...restoring.map((r) => ({ stableKey: r.key, parentKey: r.fields.parentKey })),
+    ]);
+    const known: {
+      stableKey: string;
+      phase: TemplateItemFields["phase"];
+      scope: TemplateItemScope;
+    }[] = items.map((i) => ({ stableKey: i.stableKey, phase: i.phase, scope: i.scope }));
+    const ids: string[] = [];
+    for (const r of restoring) {
+      const values = withParentPhase(r.fields, known, "event", r.key);
+      const [row] = await tx
+        .insert(templateItem)
+        .values({
+          versionId: version.id,
+          stableKey: r.key,
+          sort: items.length + ids.length,
+          ...values,
+          dueTime: values.dueTime,
+        })
+        .returning({ id: templateItem.id });
+      if (!row) throw new Error("insert failed");
+      known.push({ stableKey: r.key, phase: values.phase, scope: values.scope });
+      ids.push(row.id);
+    }
+    const order = items.map((i) => i.id);
+    const before = beforeKey ? items.findIndex((i) => i.stableKey === beforeKey) : -1;
+    const after = afterKey ? items.findIndex((i) => i.stableKey === afterKey) : -1;
+    order.splice(before >= 0 ? before : after >= 0 ? after + 1 : order.length, 0, ...ids);
+    await resequence(tx, version.id, order);
+    const keys = restoring.map((r) => r.key);
+    await audit(tx, actor.id, [
+      {
+        action: "template.item_restore",
+        entityType: "template_version",
+        entityId: version.id,
+        diff: { version: version.version, keys, title: restoring[0]?.fields.title },
+      },
+    ]);
+    return { keys };
   });
 }
 

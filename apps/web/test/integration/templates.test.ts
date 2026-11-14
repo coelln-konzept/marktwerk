@@ -17,6 +17,7 @@ import {
   duplicateTemplateItem,
   moveTemplateItem,
   publishDraft,
+  restoreTemplateItems,
   setTemplateArchived,
   setTemplatePresets,
   TemplateInputError,
@@ -156,6 +157,13 @@ describe("templates", () => {
         true,
       );
       expect(isForbidden(await setTemplatePresets(actor, id, []).catch((e) => e))).toBe(true);
+      expect(
+        isForbidden(
+          await restoreTemplateItems(actor, versionId, [{ ...baseItem(), key: "x" }]).catch(
+            (e) => e,
+          ),
+        ),
+      ).toBe(true);
     }
     // A manager may.
     const manager = await createActor("manager");
@@ -480,6 +488,69 @@ describe("draft items", () => {
     ]);
   });
 
+  it("restores a deleted row with its children and own keys at the same place (the grid's undo)", async () => {
+    await addTemplateItem(owner, draftId, baseItem({ title: "Eins" }));
+    // A key that the title would not give again ("eins_2" for "Eins (Kopie)").
+    const copy = await duplicateTemplateItem(owner, draftId, "eins");
+    await addTemplateItem(
+      owner,
+      draftId,
+      baseItem({ title: "Tische", parentKey: copy.key, dutyRoleId: cat.roles.setup.id }),
+    );
+    await addTemplateItem(owner, draftId, baseItem({ title: "Strom", parentKey: copy.key }));
+    await addTemplateItem(owner, draftId, baseItem({ title: "Drei" }));
+    const before = await itemsOf(draftId);
+    const view = (key: string) => {
+      const row = before.find((i) => i.stableKey === key);
+      if (!row) throw new Error(key);
+      return {
+        ...baseItem({
+          title: row.title,
+          parentKey: row.parentKey,
+          dutyRoleId: row.dutyRoleId,
+          offsetDays: row.offsetDays,
+        }),
+        key,
+      };
+    };
+    const rows = [view(copy.key), view("tische"), view("strom")];
+
+    await deleteTemplateItem(owner, draftId, copy.key);
+    expect((await itemsOf(draftId)).map((i) => i.stableKey)).toEqual(["eins", "drei"]);
+
+    expect(await restoreTemplateItems(owner, draftId, rows, "eins", "drei")).toEqual({
+      keys: ["eins_2", "tische", "strom"],
+    });
+    const after = await itemsOf(draftId);
+    expect(after.map((i) => [i.stableKey, i.parentKey, i.title])).toEqual([
+      ["eins", null, "Eins"],
+      ["eins_2", null, "Eins (Kopie)"],
+      ["tische", "eins_2", "Tische"],
+      ["strom", "eins_2", "Strom"],
+      ["drei", null, "Drei"],
+    ]);
+    expect(after.map((i) => i.sort)).toEqual([0, 1, 2, 3, 4]);
+    expect(after.find((i) => i.stableKey === "tische")?.dutyRoleId).toBe(cat.roles.setup.id);
+    const [entry] = await audits("template.item_restore");
+    expect(entry?.diff).toMatchObject({
+      keys: ["eins_2", "tische", "strom"],
+      title: "Eins (Kopie)",
+    });
+
+    // A second undo finds the keys taken; a child without its parent is refused; nothing is written.
+    expect(await codeOf(restoreTemplateItems(owner, draftId, rows, null, null))).toBe(
+      "item_exists",
+    );
+    await deleteTemplateItem(owner, draftId, copy.key);
+    expect(await codeOf(restoreTemplateItems(owner, draftId, [view("tische")], null, null))).toBe(
+      "invalid_parent",
+    );
+    expect(await codeOf(restoreTemplateItems(owner, draftId, [], null, null))).toBe(
+      "invalid_input",
+    );
+    expect((await itemsOf(draftId)).map((i) => i.stableKey)).toEqual(["eins", "drei"]);
+  });
+
   it("refuses to publish an empty draft", async () => {
     expect(await codeOf(publishDraft(owner, draftId))).toBe("empty");
   });
@@ -506,6 +577,11 @@ describe("versions", () => {
     expect(await codeOf(deleteTemplateItem(owner, v1, "eins"))).toBe("not_draft");
     expect(await codeOf(moveTemplateItem(owner, v1, "eins", "down"))).toBe("not_draft");
     expect(await codeOf(duplicateTemplateItem(owner, v1, "eins"))).toBe("not_draft");
+    expect(
+      await codeOf(
+        restoreTemplateItems(owner, v1, [{ ...baseItem({ title: "Neu" }), key: "neu" }]),
+      ),
+    ).toBe("not_draft");
     expect(await codeOf(publishDraft(owner, v1))).toBe("not_draft");
     expect(await codeOf(discardDraft(owner, v1))).toBe("not_draft");
     expect(await itemsOf(v1)).toHaveLength(2);
