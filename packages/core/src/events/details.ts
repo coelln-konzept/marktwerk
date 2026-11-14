@@ -1,4 +1,5 @@
 import { isIsoDate } from "../dates/calendar";
+import { isInEventDateRange } from "./date-range";
 import type { EventStatus } from "./lifecycle";
 
 /**
@@ -51,21 +52,9 @@ export function canMoveEvent(status: EventStatus): boolean {
   return status === "draft" || status === "planned" || status === "confirmed";
 }
 
-/** Event dates may lie from last year to this many years ahead (UX-041); a year like 9999 is a typo. */
-export const EVENT_YEARS_BACK = 1;
-export const EVENT_YEARS_AHEAD = 5;
-
-/** The first and last day an event date may take, relative to `today` (ISO dates). */
-export function eventDateRange(today: string): { min: string; max: string } {
-  const year = Number(today.slice(0, 4));
-  return { min: `${year - EVENT_YEARS_BACK}-01-01`, max: `${year + EVENT_YEARS_AHEAD}-12-31` };
-}
-
-/** A valid ISO date inside {@link eventDateRange}. */
+/** A valid ISO date inside {@link eventDateRange} (the plannable years, UX-041; defined in ./date-range). */
 export function isEventDateInRange(date: unknown, today: string): date is string {
-  if (!isIsoDate(date)) return false;
-  const { min, max } = eventDateRange(today);
-  return date >= min && date <= max;
+  return typeof date === "string" && isInEventDateRange(date, today);
 }
 
 /** Already announced: moving it needs a word to vendors, so the preview warns. */
