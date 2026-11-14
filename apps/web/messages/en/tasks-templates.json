@@ -124,7 +124,9 @@
       "inherited": "same as parent",
       "season": "Whole season",
       "seasonHint": "once per season",
-      "addSeason": "Add season task"
+      "addSeason": "Add season task",
+      "permit": "Permit: {type}",
+      "onlyPermits": "Only tasks with a permit ({count})"
     },
     "menu": {
       "edit": "Edit",
@@ -133,15 +135,14 @@
       "down": "Move down",
       "duplicate": "Duplicate",
       "duplicated": "“{title}” duplicated",
-      "delete": "Delete"
+      "delete": "Delete",
+      "moved": "“{title}” moved",
+      "undo": "Undo"
     },
     "delete": {
-      "title": "Delete “{title}”?",
-      "description": "The row disappears from the draft. Tasks in existing events stay as they are.",
-      "confirm": "Delete",
-      "cancel": "Cancel",
       "done": "“{title}” deleted",
-      "descriptionChildren": "{count, plural, one {The row and its subtask disappear from the draft.} other {The row and its # subtasks disappear from the draft.}} Tasks in existing events stay as they are."
+      "doneChildren": "{count, plural, one {“{title}” and its subtask deleted} other {“{title}” and its # subtasks deleted}}",
+      "undo": "Undo"
     },
     "drawer": {
       "newTitle": "New task",
@@ -307,7 +308,7 @@
         "not_found": "This timeline template no longer exists.",
         "no_published_version": "There is no published version yet.",
         "no_events": "Please choose at least one event or season.",
-        "not_applicable": "One of the events or seasons no longer needs the version (or is no longer running). The page was refreshed, nothing was changed."
+        "not_applicable": "One of the chosen events or seasons no longer needs the version (maybe it was just applied elsewhere). Nothing was changed. The list is up to date, please check the selection."
       },
       "listCount": "Showing {shown} of {total}",
       "hiddenUnchanged": "{count} without changes hidden",
@@ -334,7 +335,11 @@
       "groupSeasons": "Seasons",
       "groupEvents": "Events",
       "seasonItems": "Gets only the tasks for the whole season.",
-      "targets": "{events, plural, =0 {} one {# event} other {# events}}{both, select, yes { and } other {}}{seasons, plural, =0 {} one {# season} other {# seasons}}"
+      "targets": "{events, plural, =0 {} one {# event} other {# events}}{both, select, yes { and } other {}}{seasons, plural, =0 {} one {# season} other {# seasons}}",
+      "irreversible": "Applying cannot be undone. Afterwards you change single tasks only in the event itself.",
+      "step1Heading": "Step 1 of 2: choose events and seasons",
+      "step2Heading": "Step 2 of 2: check the preview",
+      "nothingChosen": "Nothing is selected any more: the selection is out of date. Go back and choose again."
     },
     "phases": {
       "pre": "Preparation",
@@ -416,7 +421,8 @@
       "no_events": "Please choose at least one event or season.",
       "not_applicable": "One of the events or seasons no longer needs the version.",
       "master_exists": "There is already a master template.",
-      "master_protected": "The master template cannot be archived."
+      "master_protected": "The master template cannot be archived.",
+      "item_exists": "This row exists again already. The page was refreshed."
     },
     "offset": {
       "on": "on the day",
