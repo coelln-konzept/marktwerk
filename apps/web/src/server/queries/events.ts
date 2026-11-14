@@ -114,7 +114,10 @@ export async function eventSearchMode(actor: Actor, q: string): Promise<EventSea
   return tokens.some(typoTolerant) ? "typos" : "words";
 }
 
-/** How many events match the filters (no health, no rows): the list's "N abgesagt" and "Auch passend" hints. */
+/**
+ * How many rows `listEvents` returns for these filters, without loading them: the list's "N abgesagt" and
+ * "Auch passend" hints, and the command palette's "anzeigen" link count.
+ */
 export async function countEvents(actor: Actor, filters: EventFilters): Promise<number> {
   const [row] = await db
     .select({ n: count() })
@@ -366,17 +369,3 @@ export async function getPresetSource(actor: Actor, id: string) {
 }
 
 export type PresetSource = NonNullable<Awaited<ReturnType<typeof getPresetSource>>>;
-
-/**
- * How many rows `listEvents` returns for these filters, without loading them: the command palette says how
- * many events its "anzeigen" link really opens on the list page.
- */
-export async function countEvents(actor: Actor, filters: EventFilters): Promise<number> {
-  const [row] = await db
-    .select({ n: count() })
-    .from(event)
-    .innerJoin(eventType, eq(eventType.id, event.eventTypeId))
-    .innerJoin(venue, eq(venue.id, event.venueId))
-    .where(where(actor, filters));
-  return row?.n ?? 0;
-}
