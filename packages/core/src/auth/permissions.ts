@@ -31,6 +31,12 @@ export const PERMISSIONS = {
   audit: ["read"],
   /** The company-wide notification center (owner and manager); everybody has their personal inbox. */
   notification: ["read", "manage"],
+  /**
+   * "Fürs nächste Mal" notes against a market (Fahrplan R25): everyone who works at a date may write one and mark
+   * it done; field users only at the dates they work at (row-level scope in the query layer). Deleting someone
+   * else's note is for owner and manager; a note's author may always take back their own (undo of "Notieren").
+   */
+  nextTimeNote: ["read", "write", "delete"],
 } as const;
 
 export type Resource = keyof typeof PERMISSIONS;
@@ -63,6 +69,7 @@ const GRANTS: Record<Role, Grants> = {
     company: ["read"],
     vendor: ["read", "write"],
     kb: ["read", "write"],
+    nextTimeNote: ["read", "write"],
   },
   // Field users: only events they work at (shift or duty). That row-level
   // scoping happens in the query layer, not here (decision 2026-10-21).
@@ -70,6 +77,7 @@ const GRANTS: Record<Role, Grants> = {
     event: ["read"],
     task: ["read", "write"],
     kb: ["read"],
+    nextTimeNote: ["read", "write"],
   },
 };
 

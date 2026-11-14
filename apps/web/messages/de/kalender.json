@@ -9,7 +9,8 @@
     "view": "Ansicht",
     "views": {
       "monat": "Monat",
-      "liste": "Liste · 6 Wochen"
+      "liste": "Liste · 6 Wochen",
+      "jahr": "Jahr"
     },
     "layers": {
       "title": "Ebenen",
@@ -118,6 +119,23 @@
       "overdueTasks": "{count} überfällig",
       "open": "Öffnen",
       "close": "Schließen"
+    },
+    "year": {
+      "title": "Jahresübersicht {year}",
+      "asOf": "Stand {date}",
+      "print": "Drucken",
+      "openMonth": "{month} in der Monatsansicht",
+      "dot": "{name} ({code}), {date}",
+      "dotNoCode": "{name}, {date}",
+      "legendTitle": "Märkte",
+      "legendHint": "Klick blendet einen Markt aus oder ein",
+      "showAll": "Alle zeigen",
+      "singleEvents": "Einzeltermine",
+      "legendItem": "{name} ({code}), {count}",
+      "legendItemNoCode": "{name}, {count}",
+      "count": "{count, plural, =0 {kein Termin} one {# Termin} other {# Termine}}",
+      "hiddenCount": "{count, plural, one {# Markt ausgeblendet} other {# Märkte ausgeblendet}}",
+      "empty": "Für diese Auswahl gibt es in diesem Jahr keine Termine."
     }
   }
 }

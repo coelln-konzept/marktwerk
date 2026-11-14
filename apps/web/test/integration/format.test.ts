@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatDateRangeYear, formatDateShortYear } from "@/lib/format";
+import {
+  formatDateRangeYear,
+  formatDateShortYear,
+  formatMonthName,
+  formatWeekdayDayMonth,
+} from "@/lib/format";
 
 const today = "2026-10-22";
 
@@ -42,5 +47,18 @@ describe("formatDateRangeYear", () => {
     expect(formatDateRangeYear("2026-12-30", "2027-01-02", "de", today)).toBe(
       "Mi 30.12.–Sa 02.01.2027",
     );
+  });
+});
+
+describe("Jahresübersicht formats", () => {
+  it("names a dot's day with weekday, day and month", () => {
+    expect(formatWeekdayDayMonth("2027-03-06", "de")).toBe("Sa 6. März");
+    expect(formatWeekdayDayMonth("2027-10-31", "de")).toBe("So 31. Oktober");
+    expect(formatWeekdayDayMonth("2027-03-06", "en")).toBe("Sat 6 March");
+  });
+
+  it("names the month alone", () => {
+    expect(formatMonthName("2027-03-01", "de")).toBe("März");
+    expect(formatMonthName("2027-12-01", "en")).toBe("December");
   });
 });

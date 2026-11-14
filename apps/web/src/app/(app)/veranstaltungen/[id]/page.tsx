@@ -11,6 +11,7 @@ import {
   StatusLine,
   TeamSummaryPanel,
 } from "@/components/event-detail/overview-panels";
+import { NextTimeOverviewPanel } from "@/components/next-time-notes/next-time-note-panels";
 import { PermitDrawer } from "@/components/permits/permit-drawer";
 import { TaskDrawer } from "@/components/task/task-drawer";
 import { Drawer } from "@/components/ui/drawer";
@@ -21,6 +22,7 @@ import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { getEventOverview } from "@/server/queries/event-overview";
 import { getEvent } from "@/server/queries/events";
+import { getEventNextTimeNotes } from "@/server/queries/next-time-notes";
 import { getTaskDetail, listStaffOptions } from "@/server/queries/tasks";
 import { requirePermission } from "@/server/session";
 
@@ -41,7 +43,10 @@ export default async function EventOverviewPage({
   const today = todayIn();
   const canWrite = can(actor.role, "event", "write");
   const canWriteTasks = can(actor.role, "task", "write");
-  const overview = await getEventOverview(actor, event, today);
+  const [overview, nextTime] = await Promise.all([
+    getEventOverview(actor, event, today),
+    getEventNextTimeNotes(actor, event, today),
+  ]);
 
   const sp = await searchParams;
   const taskId = param(sp.aufgabe);
@@ -75,6 +80,11 @@ export default async function EventOverviewPage({
   return (
     <KeyboardRows className="flex flex-col gap-6">
       <StatusLine event={event} overview={overview} />
+      <NextTimeOverviewPanel
+        event={event}
+        notes={nextTime}
+        canWrite={can(actor.role, "nextTimeNote", "write")}
+      />
       <NotesExcerpt event={event} />
       <MissingPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2">

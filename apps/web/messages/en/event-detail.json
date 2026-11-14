@@ -430,5 +430,68 @@
       "count": "{count, plural, one {# document} other {# documents}}",
       "kind": "Type"
     }
+  },
+  "nextTimeNotes": {
+    "title": "For next time",
+    "intro": "What should go differently at the next date of “{market}”. Open notes are shown on top of the next date and in “Plan market”.",
+    "label": "New note for next time",
+    "placeholder": "e.g. No power at stand 12",
+    "add": "Note it",
+    "saving": "saving …",
+    "chars": "{count} / {max}",
+    "empty": "No open notes.",
+    "openCount": "{count} open",
+    "noMarket": "This date belongs to no market. Notes for next time exist for markets only.",
+    "nextDate": "The next date is {date}. The open notes are shown on top there.",
+    "nextDateLink": "Go to the next date",
+    "isNextDate": "This is the next date: the open notes are also shown in the summary.",
+    "doneToggle": "Done ({count})",
+    "doneMore": "The last {shown} of {count}.",
+    "markDone": "Done",
+    "doneAria": "Mark “{text}” as done",
+    "reopen": "Reopen",
+    "reopenAria": "Reopen “{text}”",
+    "meta": {
+      "unknownAuthor": "Unknown",
+      "written": "noted on {date}",
+      "atDate": "date {date}",
+      "marketPage": "on the market page",
+      "task": "task “{title}”",
+      "done": "done on {date} by {name}",
+      "doneNoName": "done on {date}"
+    },
+    "toast": {
+      "added": "Noted for next time",
+      "done": "Done: “{text}”",
+      "reopened": "Open again: “{text}”",
+      "removed": "Note removed",
+      "undo": "Undo"
+    },
+    "errors": {
+      "empty": "Please enter a text.",
+      "too_long": "The text is too long (at most {max} characters).",
+      "not_found": "This note or date no longer exists.",
+      "no_market": "This date belongs to no market. Notes for next time exist for markets only.",
+      "failed": "That did not work. Please try again."
+    },
+    "overview": {
+      "intro": "Noted at earlier dates of “{market}”. Tick off what is done.",
+      "link": "All notes"
+    },
+    "drawer": {
+      "open": "Note for next time",
+      "hint": "Goes to the market “{market}” and is shown on top of its next date.",
+      "cancel": "Cancel"
+    },
+    "market": {
+      "intro": "Notes from the dates of this market. Open ones are shown on top of the next date and in “Plan market”."
+    },
+    "generate": {
+      "title": "For next time",
+      "intro": "Open notes of this market. Tick off what is done; the rest is shown on top of the next date again.",
+      "loading": "Loading notes …",
+      "failed": "The notes for next time could not be loaded.",
+      "retry": "Try again"
+    }
   }
 }

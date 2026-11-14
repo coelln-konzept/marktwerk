@@ -45,6 +45,11 @@ type Props = {
   keep: Record<string, string>;
   /** How many layers differ from the default selection (shown on the collapsed button). */
   changedCount: number;
+  /**
+   * Only the event layers (Jahr view): no presets and no Fristen/Team groups, since the Jahresübersicht
+   * shows markets and holidays only. The saved selection of those layers is kept as it is.
+   */
+  eventsOnly?: boolean;
 };
 
 const DESKTOP = "(min-width: 1024px)";
@@ -83,6 +88,7 @@ export function LayerPanel({
   canMine,
   keep,
   changedCount,
+  eventsOnly = false,
 }: Props) {
   const t = useTranslations("kalenderPage.layers");
   const router = useRouter();
@@ -149,7 +155,7 @@ export function LayerPanel({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 print:hidden">
         {toolbar}
         <div className="ml-auto flex items-center gap-2">
           {changedCount > 0 && (
@@ -200,13 +206,18 @@ export function LayerPanel({
           className="fixed inset-0 z-40 cursor-default bg-black/30 lg:hidden"
         />
       )}
-      <div className={cn("grid items-start gap-4", open && "lg:grid-cols-[260px_minmax(0,1fr)]")}>
+      <div
+        className={cn(
+          "grid items-start gap-4 print:block",
+          open && "lg:grid-cols-[260px_minmax(0,1fr)]",
+        )}
+      >
         <aside
           id="kalender-layers"
           aria-label={t("title")}
           aria-busy={pending}
           className={cn(
-            "rounded-xl border bg-card lg:sticky lg:top-4 lg:self-start",
+            "rounded-xl border bg-card lg:sticky lg:top-4 lg:self-start print:hidden",
             open ? "lg:block" : "lg:hidden",
             // Below lg: a sheet over the calendar instead of pushing it down.
             sheetOpen
@@ -247,21 +258,23 @@ export function LayerPanel({
             ))}
             <input type="hidden" name="ebenen" value="1" />
 
-            <FilterGroup label={t("presets")}>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESETS.map((p) => (
-                  <button
-                    key={p.key}
-                    type="button"
-                    aria-pressed={preset === p.key}
-                    onClick={() => applyPreset(p.key)}
-                    className="min-h-7 whitespace-nowrap rounded-full border border-input bg-card px-3 font-medium text-small hover:bg-hover aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background"
-                  >
-                    {t(`preset.${p.key}`)}
-                  </button>
-                ))}
-              </div>
-            </FilterGroup>
+            {!eventsOnly && (
+              <FilterGroup label={t("presets")}>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESETS.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      aria-pressed={preset === p.key}
+                      onClick={() => applyPreset(p.key)}
+                      className="min-h-7 whitespace-nowrap rounded-full border border-input bg-card px-3 font-medium text-small hover:bg-hover aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background"
+                    >
+                      {t(`preset.${p.key}`)}
+                    </button>
+                  ))}
+                </div>
+              </FilterGroup>
+            )}
 
             <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
               <legend className="mb-1 p-0 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">
@@ -280,7 +293,7 @@ export function LayerPanel({
               ))}
             </fieldset>
 
-            {(["deadlines", "team"] as const).map((group) => {
+            {(eventsOnly ? [] : (["deadlines", "team"] as const)).map((group) => {
               const keys = DEADLINE_GROUPS[group].filter((k) => available.includes(k));
               if (keys.length === 0) return null;
               return (
