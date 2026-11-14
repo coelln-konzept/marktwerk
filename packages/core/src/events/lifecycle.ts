@@ -42,3 +42,12 @@ export function canTransition(from: EventStatus, to: EventStatus): boolean {
 export function requiresReason(to: EventStatus): boolean {
   return to === "cancelled";
 }
+
+/**
+ * "Absage aufheben" (UX-049): the status a cancelled event goes back to, taken from the `from` of the audit
+ * entry that cancelled it. Only the statuses a cancellation can come from count; anything else (no entry,
+ * older data) falls back to the regular way out of "abgesagt", the draft.
+ */
+export function statusBeforeCancel(from: unknown): EventStatus {
+  return from === "planned" || from === "confirmed" || from === "draft" ? from : "draft";
+}

@@ -278,7 +278,8 @@ function CardContent({
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
       <div className="flex items-start justify-between gap-1">
-        <div className="flex flex-wrap items-center gap-1">
+        {/* min-w-0: the chips wrap inside a narrow card instead of running past its edge (UX-003). */}
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
           <CategoryTag category={task.category} />
           {task.isKey && <KeyTaskMark />}
           {task.status !== "todo" && !(finished && task.status === "done") && (
@@ -390,7 +391,7 @@ function CardContent({
             {tTasks("snooze.until", { date: formatDateWeekdayDay(task.snoozedUntil, locale) })}
           </span>
         )}
-        <span className="ml-auto flex items-center gap-1.5">
+        <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">
           <SubtaskProgress
             done={task.subtasksDone}
             total={task.subtasksTotal}

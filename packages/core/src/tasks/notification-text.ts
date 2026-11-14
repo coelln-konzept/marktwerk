@@ -4,10 +4,14 @@
  * services and the nightly carry-over job, not in the UI message files.
  */
 
-/** App-relative link that opens the task drawer on the right board. */
+/**
+ * App-relative link that opens the task drawer: on its event's Checkliste, or for a task without an event (a
+ * season task) on the Übersicht. The global `/board` is hidden (web `lib/modules.ts`, `globalBoard`), so no
+ * link leads there.
+ */
 export function taskLink(taskId: string, eventId: string | null): string {
   const query = `?aufgabe=${taskId}`;
-  return eventId ? `/veranstaltungen/${eventId}/board${query}` : `/board${query}`;
+  return eventId ? `/veranstaltungen/${eventId}/board${query}` : `/${query}`;
 }
 
 /**

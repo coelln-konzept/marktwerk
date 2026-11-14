@@ -143,7 +143,22 @@
     "cancel": "Cancel",
     "save": "Save",
     "saved": "Saved",
+    "savedTitle": "“{title}” saved",
+    "dueCleared": "Due date of “{title}” removed",
     "unchanged": "Nothing changed",
+    "dueField": {
+      "incomplete": "Please enter the full date.",
+      "invalid": "Please enter a date between 2000 and 2099."
+    },
+    "dueRequiredByNotify": "The notification is timed from this date. Please change the notification first.",
+    "deleted": {
+      "badge": "Deleted",
+      "restore": "Restore",
+      "hint": "The task no longer shows up in any list. Restore brings it back with its previous status.",
+      "hintNoRestore": "The task no longer shows up in any list.",
+      "eventBadge": "Cancelled with the event",
+      "eventHint": "The event is cancelled, so the task no longer shows up in any list. If the event is back on, its open tasks come back."
+    },
     "hours": "hours",
     "nobody": "Nobody",
     "dueSetByHand": "set by hand, no longer follows the event date",
@@ -158,7 +173,9 @@
       "none": "No subtasks.",
       "dueAria": "Due date: “{title}”",
       "assignAria": "Assign: “{title}” (now: {name})",
-      "deleteAria": "Delete subtask “{title}”"
+      "deleteAria": "Delete subtask “{title}”",
+      "saving": "saving …",
+      "addFailed": "“{title}” was not added. {reason}"
     },
     "feedback": {
       "title": "How was the effort?",

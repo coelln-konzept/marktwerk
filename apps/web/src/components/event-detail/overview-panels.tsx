@@ -70,7 +70,8 @@ function ProgressBar({ label, ratio }: { label: string; ratio: number }) {
 
 /**
  * Status line: days until the market, tasks done with a slim bar, permits granted. Every piece links to
- * the place it summarises (Termine below, Board tab, Genehmigungen tab).
+ * the place it summarises (Termine below, Board tab, Genehmigungen tab). Not shown for a cancelled event:
+ * a countdown and "0/0 erledigt" would make it look live; the "Abgesagt" banner says it all (UX-049).
  */
 export async function StatusLine({
   event,
@@ -79,6 +80,7 @@ export async function StatusLine({
   event: EventDetail;
   overview: EventOverview;
 }) {
+  if (event.status === "cancelled") return null;
   const t = await getTranslations("eventDetail.overview.status");
   const locale = await getLocale();
   const base = `/veranstaltungen/${event.id}`;
@@ -161,6 +163,8 @@ export async function MissingPanel({
   today: string;
   canWrite: boolean;
 }) {
+  // Nothing is missing at a cancelled event: its open tasks went with the cancellation (UX-049).
+  if (event.status === "cancelled") return null;
   const t = await getTranslations("eventDetail.overview.missing");
   const locale = await getLocale();
   const tasks = overview.tasks?.missing ?? [];

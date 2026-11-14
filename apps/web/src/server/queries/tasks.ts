@@ -848,6 +848,8 @@ export type TaskDetail = {
   source: BoardTask["source"];
   eventId: string | null;
   eventName: string | null;
+  /** Its event is cancelled ("abgesagt"): a `cancelled` task then went with the event, not by "Löschen". */
+  eventCancelled: boolean;
   /** Season tasks: the drawer's header names "<Markt> · Saison <Jahr>" and links to the market page instead. */
   season: TaskSeason | null;
   /** The market of its date or Saison ("Fürs nächste Mal notieren", Fahrplan R25); null for an Einzeltermin. */
@@ -932,6 +934,7 @@ export async function getTaskDetail(
     .select({
       t: task,
       eventName: event.name,
+      eventStatus: event.status,
       eventPresetId: eventPreset.id,
       eventPresetName: eventPreset.name,
       seasonId: sc.seasonId,
@@ -1009,6 +1012,7 @@ export async function getTaskDetail(
     source: t.source,
     eventId: t.eventId,
     eventName: row.eventName,
+    eventCancelled: row.eventStatus === "cancelled",
     season: toTaskSeason(actor, row),
     market:
       row.eventPresetId && row.eventPresetName

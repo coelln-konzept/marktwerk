@@ -8,7 +8,15 @@ import type { HistoryEntry } from "@/server/queries/event-detail";
 import { formatInstant } from "./format-instant";
 import { RestoreTaskButton } from "./restore-task-button";
 
-type StatusDiff = { from?: string; to?: string; reason?: string; undo?: boolean };
+type StatusDiff = {
+  from?: string;
+  to?: string;
+  reason?: string;
+  undo?: boolean;
+  restored?: boolean;
+  cancelledTasks?: unknown[];
+  reopenedTaskIds?: unknown[];
+};
 type CreateDiff = { source?: string };
 type DutyDiff = {
   roleDe?: string;
@@ -19,7 +27,15 @@ type DutyDiff = {
 };
 type UpdateDiff = { changes?: Record<string, unknown>; undo?: boolean };
 type BookingDiff = { flag?: string; to?: boolean };
-type MoveDiff = { from?: { startsOn?: string }; to?: { startsOn?: string }; undo?: boolean };
+type MoveDiff = {
+  from?: { startsOn?: string };
+  to?: { startsOn?: string };
+  undo?: boolean;
+  tasksShifted?: number;
+  seasonTasksShifted?: number;
+};
+
+const countOf = (list: unknown) => (Array.isArray(list) ? list.length : 0);
 type TaskStatusDiff = { from?: string; to?: string; reason?: string; note?: string };
 type SnoozeDiff = { until?: string };
 
@@ -54,12 +70,20 @@ export async function HistoryTable({
     switch (entry.action) {
       case "event.status": {
         const d = asObject<StatusDiff>(entry.diff);
+        // What happened to the tasks with it (UX-049): "12 Aufgaben mit abgesagt" / "… wieder offen".
+        const cancelled = countOf(d.cancelledTasks);
+        const reopened = countOf(d.reopenedTaskIds);
+        const details = [
+          ...(d.reason ? [t("reason", { reason: d.reason })] : []),
+          ...(cancelled > 0 ? [t("tasksCancelled", { count: cancelled })] : []),
+          ...(reopened > 0 ? [t("tasksReopened", { count: reopened })] : []),
+        ];
         return {
-          text: t(d.undo ? "statusUndone" : "statusChanged", {
+          text: t(d.restored ? "statusRestored" : d.undo ? "statusUndone" : "statusChanged", {
             from: status(d.from),
             to: status(d.to),
           }),
-          reason: d.reason ? t("reason", { reason: d.reason }) : undefined,
+          reason: details.length > 0 ? details.join(" · ") : undefined,
         };
       }
       case "event.create": {
@@ -101,9 +125,16 @@ export async function HistoryTable({
       case "event.move": {
         const d = asObject<MoveDiff>(entry.diff);
         const day = (date?: string) => (date ? formatDateShort(date, locale) : "?");
+        const details = [
+          ...(d.undo ? [t("undone")] : []),
+          ...(d.tasksShifted ? [t("tasksShifted", { count: d.tasksShifted })] : []),
+          ...(d.seasonTasksShifted
+            ? [t("seasonTasksShifted", { count: d.seasonTasksShifted })]
+            : []),
+        ];
         return {
           text: t("moved", { from: day(d.from?.startsOn), to: day(d.to?.startsOn) }),
-          reason: d.undo ? t("undone") : undefined,
+          reason: details.length > 0 ? details.join(" · ") : undefined,
         };
       }
       case "event.archive":

@@ -49,6 +49,8 @@ export function useDrawerHrefs() {
       const params = new URLSearchParams(search.toString());
       params.set("aufgabe", id);
       params.delete("detail");
+      // "+ Neu" asks for a create dialog with `neu=1`; a task opened from there must not reopen it (UX-004).
+      if (params.get("neu") === "1") params.delete("neu");
       return `${pathname}?${params.toString()}`;
     },
     [pathname, search],
@@ -120,8 +122,9 @@ export function useTaskActions({
     [tTasks],
   );
 
+  /** The change's toast with "Rückgängig"; the confirmation of the undo names the task too (UX-031). */
   const showUndo = useCallback(
-    (message: string, auditId: string | null) => {
+    (message: string, auditId: string | null, title: string) => {
       if (!auditId) {
         showToast({ message });
         return;
@@ -131,7 +134,7 @@ export function useTaskActions({
         actionLabel: t("toast.undo"),
         onAction: async () => {
           const result = await callAction(() => undoChange(auditId));
-          if (result.ok) showToast({ message: t("toast.reverted") });
+          if (result.ok) showToast({ message: t("toast.revertedTitle", { title }) });
           else showError(errorText(result.error));
         },
       });
@@ -147,18 +150,25 @@ export function useTaskActions({
   const fail = useCallback(
     (result: Extract<Result, { ok: false }>, task: TaskRef) => {
       if (result.error === "evidence_missing") {
-        showError(
-          t("errors.evidence_missing", {
-            title: task.title,
-            what: evidenceText(result.detail, result.count),
-          }),
-          {
-            actionLabel: t("toast.open"),
-            // "Öffnen" goes somewhere; Strg+Z must not trigger it.
-            undoable: false,
-            onAction: () => router.push(drawer.open(task.id) as never),
-          },
-        );
+        const message = t("errors.evidence_missing", {
+          title: task.title,
+          what: evidenceText(result.detail, result.count),
+        });
+        // Its drawer is already open (the refusal came from there): no "Öffnen" that leads nowhere (UX-068).
+        // Same test as the drawer's own: `?aufgabe=<id>` or `?detail=task:<id>`.
+        const params = new URLSearchParams(window.location.search);
+        const open =
+          params.get("aufgabe") === task.id || params.get("detail") === `task:${task.id}`;
+        if (open) {
+          showError(message);
+          return;
+        }
+        showError(message, {
+          actionLabel: t("toast.open"),
+          // "Öffnen" goes somewhere; Strg+Z must not trigger it.
+          undoable: false,
+          onAction: () => router.push(drawer.open(task.id) as never),
+        });
         return;
       }
       showError(errorText(result.error));
@@ -185,7 +195,11 @@ export function useTaskActions({
               const result = await callAction(() => setStatusAction(parent.id, "done"));
               if (result.ok) {
                 if (result.data.changed)
-                  showUndo(t("toast.done", { title: parent.title }), result.data.auditId);
+                  showUndo(
+                    t("toast.done", { title: parent.title }),
+                    result.data.auditId,
+                    parent.title,
+                  );
               } else fail(result, ref);
               resolve();
             }),
@@ -223,7 +237,7 @@ export function useTaskActions({
         if (patch) apply?.(patch);
         const result = await callAction(call);
         if (result.ok) {
-          if (result.data.changed) showUndo(success, result.data.auditId);
+          if (result.data.changed) showUndo(success, result.data.auditId, task.title);
           if (result.data.parentReady) offerParent(result.data.parentReady);
           return;
         }
@@ -310,7 +324,7 @@ export function useTaskActions({
               }
             }
             if (failure) showError(errorText(failure));
-            else showToast({ message: t("toast.reverted") });
+            else showToast({ message: t("toast.revertedTitle", { title: task.title }) });
           },
         });
       });
@@ -419,6 +433,7 @@ export function useTaskActions({
               ? t("toast.unnestedFrom", { title: task.title, parent: from.title })
               : t("toast.unnested", { title: task.title }),
           result.data.auditId,
+          task.title,
         );
       });
     },

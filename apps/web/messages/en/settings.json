@@ -91,14 +91,20 @@
       "bankSummary": "Tax number, IBAN, BIC",
       "units": {
         "days": "days"
+      },
+      "unsaved": {
+        "notice": "Unsaved changes",
+        "leave": "Your changes to the company data are not saved yet.",
+        "discard": "Discard",
+        "keepEditing": "Keep editing"
       }
     },
     "users": {
       "title": "Users & roles",
       "subtitle": "{count, plural, one {# login} other {# logins}} · Roles decide what someone can see and change.",
       "readOnly": "Only the owner can change roles and deactivate logins.",
-      "invite": "Invite user",
-      "inviteSoon": "Coming later: how new logins get created has not been decided yet.",
+      "inviteTitle": "Add a new user",
+      "inviteHow": "This can't be done here yet. Send name, email address and role to the person who looks after marktwerk for you. Then set the role and linked person here.",
       "caption": "Logins with role, linked person and status",
       "empty": "No logins yet.",
       "cols": {
@@ -126,11 +132,12 @@
       "lastOwnerShort": "Last owner",
       "fieldNoStaff": "Without a linked person, this field login sees no events.",
       "roleHints": {
-        "owner": "Everything, including users and company data",
-        "manager": "Everything except users and company data",
-        "staff": "Read, tasks, permits, contacts",
-        "field": "Only their own events"
+        "owner": "May do everything, including changing users, roles and company data.",
+        "manager": "May do everything except users, roles and company data.",
+        "staff": "Works on tasks, permits, contacts and meetings. Markets, venues and templates are read-only.",
+        "field": "Sees only the events the linked person works at, and completes tasks there."
       },
+      "rolesTitle": "What the roles may do",
       "undo": "Undo",
       "toasts": {
         "role": "{name}: role is now {role}.",
@@ -139,7 +146,9 @@
         "reactivated": "{name} is active again.",
         "linked": "{name} is linked to {staff}.",
         "unlinked": "The link of {name} was removed.",
-        "relinkReverted": "Link of {name} restored."
+        "relinkReverted": "Link of {name} restored.",
+        "promotedOwner": "{name} is now an owner and can change users, roles and company data.",
+        "ownRole": "Your role is now {role}."
       },
       "errors": {
         "not_found": "This login no longer exists.",
@@ -148,6 +157,12 @@
         "staff_not_found": "This person no longer exists.",
         "staff_taken": "This person already belongs to another login.",
         "generic": "That didn't work. Please try again."
+      },
+      "confirmOwn": {
+        "title": "Change your own role?",
+        "description": "As {role} you can no longer change users, roles or company data. Only another owner can give the role back to you.",
+        "confirm": "Change role",
+        "cancel": "Cancel"
       }
     },
     "legal": {

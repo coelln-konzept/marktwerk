@@ -13,7 +13,8 @@ describe("season tasks in notification texts", () => {
     );
   });
 
-  it("opens a season task on the board, as it has no event board", () => {
-    expect(taskLink("t1", null)).toBe("/board?aufgabe=t1");
+  it("opens a season task on the Übersicht, as it has no event board (the global board is hidden)", () => {
+    expect(taskLink("t1", null)).toBe("/?aufgabe=t1");
+    expect(taskLink("t1", "e1")).toBe("/veranstaltungen/e1/board?aufgabe=t1");
   });
 });
