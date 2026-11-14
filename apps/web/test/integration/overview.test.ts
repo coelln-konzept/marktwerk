@@ -1,4 +1,5 @@
-import { eventPermit, obligation, permit, shift, vehicle } from "@marktwerk/db/schema";
+import { event, eventPermit, obligation, permit, shift, vehicle } from "@marktwerk/db/schema";
+import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
@@ -438,7 +439,10 @@ describe('"Weitere Aufgaben" (UX-013)', () => {
       dueOn: null,
       assigneeName: anna.displayName,
       waiting: null,
+      // Its open subtask: a quick "Erledigt" opens the drawer instead (R29).
+      openSubtasks: 1,
     });
+    expect(otherTasks.find((t) => t.id === later.id)?.openSubtasks).toBe(0);
     expect(otherTasks.find((t) => t.id === waiting.id)?.waiting).toEqual({ reason: "Angebot" });
     // Never twice: what a due group shows stays out.
     const shown = new Set([...due.items, ...due.later].map((i) => i.id));
@@ -449,6 +453,41 @@ describe('"Weitere Aufgaben" (UX-013)', () => {
     vi.setSystemTime(new Date("2026-10-30T10:00:00+01:00"));
     const back = await getOverview(owner, "2026-10-30");
     expect(back.otherTasks.map((t) => t.title)).toContain("Zurückgestellt");
+  });
+
+  it("leaves out a task with an overdue subtask: Überfällig shows it, whatever its own date", async () => {
+    const undated = await insertTask({ title: "Inventur" });
+    const far = await insertTask({ title: "Jahresplanung", dueAt: dueOn("2026-12-15") });
+    for (const parent of [undated, far])
+      await insertTask({
+        title: `Teil von ${parent.title}`,
+        parentTaskId: parent.id,
+        dueAt: dueOn("2026-10-19"),
+      });
+    // A done or snoozed overdue subtask does not count: its parent stays in "Weitere Aufgaben".
+    const calm = await insertTask({ title: "Ruhig" });
+    await insertTask({
+      title: "Erledigt",
+      parentTaskId: calm.id,
+      dueAt: dueOn("2026-10-19"),
+      status: "done",
+      completedAt: new Date(),
+    });
+    await insertTask({
+      title: "Später dran",
+      parentTaskId: calm.id,
+      dueAt: dueOn("2026-10-19"),
+      snoozedUntil: "2026-10-30",
+    });
+
+    const { otherTasks, due } = await getOverview(owner, TODAY);
+    for (const parent of [undated, far]) {
+      expect(due.items.find((i) => i.id === parent.id)?.urgency).toBe("overdue");
+      expect(otherTasks.some((t) => t.id === parent.id)).toBe(false);
+    }
+    expect(otherTasks.find((t) => t.id === calm.id)?.openSubtasks).toBe(1);
+    const shown = new Set([...due.items, ...due.later].map((i) => i.id));
+    expect(otherTasks.some((t) => shown.has(t.id))).toBe(false);
   });
 
   it("staff and field users only see their own", async () => {
@@ -561,8 +600,61 @@ describe("Dieses Wochenende", () => {
     expect(await status()).toBe("missing");
     await db.update(permit).set({ status: "granted" });
     expect(await status()).toBe("ok");
+    // A two-day market whose permit ends after the first day: it ends early.
+    await db.update(event).set({ endsOn: "2026-10-25" }).where(eq(event.id, weekendEvent));
+    await db.update(permit).set({ validUntil: "2026-10-24" });
+    expect(await status()).toBe("ending");
+    await db.update(permit).set({ validUntil: "2026-10-25" });
+    expect(await status()).toBe("ok");
     // Field users may not read permits: no line.
     expect(await status(fieldActor)).toBeNull();
+    // A finished event gets no line.
+    await db.update(event).set({ status: "completed" }).where(eq(event.id, weekendEvent));
+    expect(await status()).toBeNull();
+  });
+
+  it("an event weeks ahead with a permit only applied for is not complete (UX-064)", async () => {
+    // The weekend has no event left: the box shows the Novembermarkt (14 Nov, 24 days ahead) instead.
+    await db.update(event).set({ status: "cancelled" }).where(eq(event.id, weekendEvent));
+    const link = async (patch: Partial<typeof permit.$inferInsert>) => {
+      const [row] = await db
+        .insert(permit)
+        .values({
+          venueId: cat.venue.id,
+          category: "city",
+          permitType: "market_permit",
+          title: "Sondernutzung",
+          season: 2026,
+          ...patch,
+        })
+        .returning();
+      await db
+        .insert(eventPermit)
+        .values({ eventId: laterEvent, permitId: row?.id as string, required: true });
+      return row?.id as string;
+    };
+    const status = async () => {
+      const { nextEvents } = await getOverview(owner, TODAY);
+      const market = nextEvents.find((m) => m.row.id === laterEvent);
+      return { line: market?.permitStatus, missing: market?.permitsMissing };
+    };
+    await link({ title: "Erteilt", status: "granted" });
+    // Filed, the decision is expected later: not missing ("Was fehlt"), but not "vollständig" either.
+    const applied = await link({
+      title: "Beantragt",
+      status: "applied",
+      expectedDecisionOn: "2026-11-05",
+    });
+    expect(await status()).toEqual({ line: "pending", missing: 0 });
+    // Not filed, apply-by beyond the permit horizon: the same.
+    await db
+      .update(permit)
+      .set({ status: "not_started", applyBy: "2026-12-31", expectedDecisionOn: null })
+      .where(eq(permit.id, applied));
+    expect(await status()).toEqual({ line: "pending", missing: 0 });
+    // Granted as well: now complete.
+    await db.update(permit).set({ status: "granted", applyBy: null }).where(eq(permit.id, applied));
+    expect(await status()).toEqual({ line: "ok", missing: 0 });
   });
 
   it("is the Saturday and Sunday of the current week from Monday to Sunday, also on Sunday evening", async () => {

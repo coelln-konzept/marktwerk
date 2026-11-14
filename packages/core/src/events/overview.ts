@@ -190,6 +190,37 @@ export function missingPermits<T extends OverviewPermit>(
     });
 }
 
+/**
+ * The permit line of an event (Übersicht weekend box, UX-064), worst first:
+ * - `missing`: some needed permit is missing by the rule of "Was fehlt" ({@link missingPermits}).
+ * - `pending`: nothing needs the office yet, but not every needed permit covers the event: filed and waiting
+ *   for the authority, or not filed with its apply-by date beyond the permit horizon. Never "vollständig".
+ * - `ending`: every needed permit covers the event, but one ends before its last day.
+ * - `ok`: every needed permit covers the whole event (also when every linked permit is optional or
+ *   "nicht nötig").
+ * - `open`: no permit is linked to the event yet ("noch nicht geklärt", never "keine nötig").
+ */
+export type EventPermitLine = "missing" | "pending" | "ending" | "ok" | "open";
+
+/** {@link EventPermitLine} of one event from its linked (not archived) permits, and the "Was fehlt" count. */
+export function eventPermitLine(
+  permits: readonly OverviewPermit[],
+  startsOn: string,
+  today: string,
+  endsOn: string = startsOn,
+  horizonDays: number = PERMIT_HORIZON_DEFAULT_DAYS,
+): { line: EventPermitLine; missing: number } {
+  if (permits.length === 0) return { line: "open", missing: 0 };
+  const missing = missingPermits(permits, startsOn, today, endsOn, horizonDays).length;
+  if (missing > 0) return { line: "missing", missing };
+  const needed = neededPermits(permits);
+  if (needed.some((p) => !permitCoversEvent(p, startsOn, today, endsOn)))
+    return { line: "pending", missing: 0 };
+  if (needed.some((p) => p.validUntil !== null && p.validUntil < endsOn))
+    return { line: "ending", missing: 0 };
+  return { line: "ok", missing: 0 };
+}
+
 // ---------------------------------------------------------------------------------------------
 // Kernaufgaben
 

@@ -128,6 +128,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           nextEvents={overview.nextEvents}
           today={today}
           vorschauId={vorschauId}
+          marketToday={marketToday}
           className={marketToday ? "max-lg:order-first" : undefined}
         />
         <UpcomingPermitsCard

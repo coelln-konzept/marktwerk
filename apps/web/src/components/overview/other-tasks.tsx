@@ -37,6 +37,8 @@ function OtherTaskRow({
       data-row
       data-href={href}
       data-peek={href}
+      // Quick done opens the drawer instead of asking when subtasks are still open (R29); e2e reads it.
+      data-open-subtasks={task.openSubtasks > 0 ? task.openSubtasks : undefined}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter/Space (KeyboardRows)
       tabIndex={0}
       className={cn(
@@ -45,7 +47,14 @@ function OtherTaskRow({
       )}
     >
       {canWrite ? (
-        <TaskDoneButton task={{ id: task.id, title: task.title, status: "todo" }} />
+        <TaskDoneButton
+          task={{
+            id: task.id,
+            title: task.title,
+            status: "todo",
+            openSubtasks: task.openSubtasks,
+          }}
+        />
       ) : (
         <span
           title={t("kind.task")}

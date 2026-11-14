@@ -3,12 +3,14 @@ import {
   addDays,
   berlinDay,
   can,
+  type EventPermitLine,
   OPEN_STATUSES,
   pastEventCutoff,
   rankDue,
   resolveRelativeDue,
 } from "@marktwerk/core";
 import { upcomingWeekend } from "@marktwerk/core/dates/weekend";
+import { subtaskAggregates } from "@marktwerk/db";
 import { event, staffMember, task } from "@marktwerk/db/schema";
 import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { type ModuleHide, maskHealth } from "@/lib/modules";
@@ -32,29 +34,23 @@ export type WeekendMarket = {
    * parent overdue). Null for roles that may not read tasks.
    */
   checklist: (ChecklistProgress & { overdue: number }) | null;
-  /** Missing permits by the rule of "Was fehlt" (`missingPermitsByEvent`); 0 without `permit:read`. */
+  /** Missing permits by the rule of "Was fehlt" (`permitLinesByEvent`); 0 without `permit:read`. */
   permitsMissing: number;
   /**
-   * The permit line of the box (UX-064): `missing` (some missing, see `permitsMissing`), `ending` (all held,
-   * but one ends before the event does), `ok` (all held), `open` (no permit linked to the event yet: "noch
-   * nicht geklärt", never "keine nötig"). Null without `permit:read` and for finished events.
+   * The permit line of the box (UX-064, core `eventPermitLine`): `missing` (some missing, see
+   * `permitsMissing`), `pending` (none needs the office yet, but not all are in hand: filed and waiting, or
+   * not due yet), `ending` (all held, but one ends before the event does), `ok` (all cover the whole event),
+   * `open` (no permit linked to the event yet: "noch nicht geklärt", never "keine nötig"). Null without
+   * `permit:read` and for finished events.
    */
   permitStatus: WeekendPermitStatus | null;
 };
 
-export type WeekendPermitStatus = "missing" | "ending" | "ok" | "open";
+export type WeekendPermitStatus = EventPermitLine;
 
-/** The permit line of one event of the weekend box, from its permit health and the "Was fehlt" count. */
-export function weekendPermitStatus(
-  row: Pick<EventRow, "status" | "health">,
-  missing: number,
-): WeekendPermitStatus | null {
-  if (row.status === "completed" || row.status === "closed" || row.status === "cancelled")
-    return null;
-  if (missing > 0) return "missing";
-  const level = row.health.permits;
-  if (level === null) return "open";
-  return level === "ok" ? "ok" : "ending";
+/** Finished events get no permit line: nothing is left to get for them. */
+function isFinishedEvent(status: EventRow["status"]): boolean {
+  return status === "completed" || status === "closed" || status === "cancelled";
 }
 
 export type WeekendBlock = {
@@ -76,6 +72,8 @@ export type OtherTask = {
   assigneeName: string | null;
   /** Status "Wartet": what the task waits for. */
   waiting: { reason: string | null } | null;
+  /** Subtasks still open: a quick "Erledigt" opens the task's drawer instead (done gate, R29). */
+  openSubtasks: number;
 };
 
 /** Most tasks "Weitere Aufgaben" loads; the group shows a few and opens the rest in place. */
@@ -164,39 +162,38 @@ export async function getOverview(
   hide: ModuleHide = {},
 ): Promise<Overview> {
   const weekend = upcomingWeekend(today);
-  const [all, ranked, past, otherTasks] = await Promise.all([
+  const [all, dueItems, past, otherTasks] = await Promise.all([
     listEvents(actor, {}).then((rows) =>
       rows.map((r) => ({ ...r, health: maskHealth(r.health, hide) })),
     ),
-    listDueItems(actor, today, hide),
+    listDueItems(actor, today, hide).then(withWaiting),
     tasks.pastEventCleanup(actor, today),
     listOtherTasks(actor, today, hide),
   ]);
-  const dueItems = await withWaiting(ranked);
   const active = all.filter((e) => e.status !== "cancelled");
   const onWeekend = active.filter(
     (e) => e.startsOn <= weekend.sunday && e.endsOn >= weekend.saturday,
   );
   const next = onWeekend.length === 0 ? nextEventsAfter(active, weekend.sunday) : [];
   const shown = [...onWeekend, ...next];
-  const [progress, missing] = await Promise.all([
+  const [progress, lines] = await Promise.all([
     can(actor.role, "task", "read")
       ? tasks.checklistProgressByEvent(
           actor,
           shown.map((e) => e.id),
         )
       : new Map<string, ChecklistProgress>(),
-    permits.missingPermitsByEvent(actor, shown, today),
+    permits.permitLinesByEvent(actor, shown, today),
   ]);
   const readsPermits = can(actor.role, "permit", "read");
   const market = (row: EventRow): WeekendMarket => {
     const own = progress.get(row.id);
-    const permitsMissing = missing.get(row.id) ?? 0;
+    const permit = lines.get(row.id);
     return {
       row,
       checklist: own ? { ...own, overdue: row.reasons.tasksOverdue } : null,
-      permitsMissing,
-      permitStatus: readsPermits ? weekendPermitStatus(row, permitsMissing) : null,
+      permitsMissing: permit?.missing ?? 0,
+      permitStatus: readsPermits && permit && !isFinishedEvent(row.status) ? permit.line : null,
     };
   };
   const urgent = dueItems.filter((i) => i.urgency === "overdue" || i.urgency === "today");
@@ -241,7 +238,8 @@ async function withWaiting(items: DueItem[]): Promise<DueItem[]> {
  * "Weitere Aufgaben" (UX-013, default of UX audit round 1): the open tasks without a market and without a
  * Saison ("Aufgabe ohne Veranstaltung") that no due group shows: no due date, or due after the 7 days of
  * "Nächste Tage". Same scope as the due groups (`deadlineScope`: top-level tasks, field users and staff only
- * their own), snoozed ones stay out until their day. Due ones first (soonest first), then the undated ones
+ * their own), snoozed ones stay out until their day. A task with an overdue open subtask stays out too: the
+ * due groups show it under Überfällig whatever its own date (`tasks.dueItems`, ADR 0021). Due ones first (soonest first), then the undated ones
  * (newest first), at most {@link OTHER_TASKS_MAX}.
  */
 export async function listOtherTasks(
@@ -252,6 +250,7 @@ export async function listOtherTasks(
   if (!can(actor.role, "task", "read")) return [];
   // The same boundary as `tasks.dueItems`: due before this instant = in Überfällig, Heute or Nächste Tage.
   const until = resolveRelativeDue(addDays(today, 8), 0, "00:00");
+  const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
   const rows = await db
     .select({
       id: task.id,
@@ -261,6 +260,7 @@ export async function listOtherTasks(
       status: task.status,
       waitingReason: task.waitingReason,
       assigneeName: staffMember.displayName,
+      openSubtasks: sub.subtasksOpen,
     })
     .from(task)
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
@@ -272,6 +272,7 @@ export async function listOtherTasks(
         isNull(task.seasonId),
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         or(isNull(task.dueAt), gte(task.dueAt, until)),
+        sql`${sub.subtasksOverdue} = 0`,
       ),
     )
     .orderBy(sql`${task.dueAt} asc nulls last`, sql`${task.createdAt} desc`, asc(task.title))
@@ -283,6 +284,7 @@ export async function listOtherTasks(
     isKey: hide.keyTasks ? false : r.isKey,
     assigneeName: r.assigneeName,
     waiting: r.status === "waiting_external" ? { reason: r.waitingReason?.trim() || null } : null,
+    openSubtasks: r.openSubtasks,
   }));
 }
 

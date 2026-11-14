@@ -6,6 +6,7 @@ import {
   type LucideIcon,
   ShieldAlert,
   ShieldCheck,
+  ShieldEllipsis,
   ShieldQuestionMark,
 } from "lucide-react";
 import Link from "next/link";
@@ -71,6 +72,7 @@ function ChecklistStatus({ checklist, name }: { checklist: Checklist; name: stri
 /** The permit line of an event: colour + icon + text (UX-064). */
 const PERMIT_LOOK: Record<WeekendPermitStatus, { icon: LucideIcon; className: string }> = {
   missing: { icon: ShieldAlert, className: "font-medium text-status-critical" },
+  pending: { icon: ShieldEllipsis, className: "text-foreground-2" },
   ending: { icon: ShieldAlert, className: "font-medium text-status-warn" },
   ok: { icon: ShieldCheck, className: "text-status-ok" },
   open: { icon: ShieldQuestionMark, className: "text-foreground-2" },
@@ -91,8 +93,9 @@ function PermitStatus({ status, missing }: { status: WeekendPermitStatus; missin
 
 /**
  * One event of the box: name (opens the event), the eye for its Vorschau, date · Ort, the Checkliste status
- * and the permit line (UX-064): "N Genehmigungen fehlen" in red by the rule of "Was fehlt", else whether all
- * are there, one ends early, or none is entered yet ("noch nicht geklärt"). A J/K row like every other on the
+ * and the permit line (UX-064, core `eventPermitLine`): "N Genehmigungen fehlen" in red by the rule of "Was
+ * fehlt", else whether some are not in hand yet (filed and waiting, or not due), one ends early, all cover the
+ * event, or none is entered yet ("noch nicht geklärt"). A J/K row like every other on the
  * Übersicht (Enter opens the event, Space its Vorschau).
  */
 async function EventItem({
@@ -151,6 +154,7 @@ export async function WeekendCard({
   nextEvents,
   today,
   vorschauId,
+  marketToday = false,
   className,
 }: {
   weekend: WeekendMarket[];
@@ -158,6 +162,8 @@ export async function WeekendCard({
   nextEvents: WeekendMarket[];
   today: string;
   vorschauId?: string;
+  /** A market runs today: phones show the box first (the page sets the order); e2e reads the flag. */
+  marketToday?: boolean;
   className?: string;
 }) {
   const t = await getTranslations("overview.weekend");
@@ -168,6 +174,7 @@ export async function WeekendCard({
       title={t("title")}
       titleId="weekend-title"
       className={className}
+      data-market-today={marketToday || undefined}
       cardClassName="border-transparent bg-accent-soft p-1.5"
       actions={
         <Link href="/veranstaltungen" className={panelActionLink}>

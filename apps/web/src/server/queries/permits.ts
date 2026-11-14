@@ -4,13 +4,14 @@ import {
   countMissingPermits,
   DISPLAY_STATE_SEVERITY,
   daysBetween,
+  type EventPermitLine,
   eventPermitHealth,
+  eventPermitLine,
   type HealthLevel,
   isAnswerOverdue,
   isPermitHistory,
   isUnfiled,
   logbookDisplayState,
-  missingPermits,
   PERMIT_HORIZON_DEFAULT_DAYS,
   type PermitActionTier,
   type PermitDisplayState,
@@ -698,16 +699,19 @@ export async function permitSummaryByEvent(
 }
 
 /**
- * How many permits each event is missing, by the rule of the event Zusammenfassung's "Was fehlt"
- * (`missingPermits`: needed, not covering the event yet and needing action), one query for all events (the
- * Übersicht's weekend box). Without `permit:read` every event maps to 0, as "Was fehlt" shows no permits then.
+ * The permit line of each event (`eventPermitLine`, the Übersicht's weekend box, UX-064) with how many permits
+ * it is missing by the rule of the event Zusammenfassung's "Was fehlt" (`missingPermits`: needed, not covering
+ * the event yet and needing action), one query for all events. Without `permit:read` every event maps to
+ * "open" and 0, as "Was fehlt" shows no permits then (the caller shows no line).
  */
-export async function missingPermitsByEvent(
+export async function permitLinesByEvent(
   actor: Actor,
   events: { id: string; startsOn: string; endsOn: string }[],
   today: string,
-): Promise<Map<string, number>> {
-  const result = new Map<string, number>(events.map((e) => [e.id, 0]));
+): Promise<Map<string, { line: EventPermitLine; missing: number }>> {
+  const result = new Map<string, { line: EventPermitLine; missing: number }>(
+    events.map((e) => [e.id, { line: "open", missing: 0 }]),
+  );
   if (events.length === 0 || !can(actor.role, "permit", "read")) return result;
   const [rows, horizonDays] = await Promise.all([
     db
@@ -736,7 +740,7 @@ export async function missingPermitsByEvent(
   ]);
   for (const e of events) {
     const own = rows.filter((r) => r.eventId === e.id);
-    result.set(e.id, missingPermits(own, e.startsOn, today, e.endsOn, horizonDays).length);
+    result.set(e.id, eventPermitLine(own, e.startsOn, today, e.endsOn, horizonDays));
   }
   return result;
 }

@@ -280,7 +280,7 @@ permits at the bottom. No KPI strip, no season strip. Section titles sit outside
    marker and name (opens the event), the eye for its Vorschau, date · Ort, and the **status of its Checkliste**: a
    small meter plus "12 von 20 erledigt" (top-level tasks the person may see, done and skipped count as finished,
    cancelled ones not at all, like the Zusammenfassung), in red with the "!" and "· 3 überfällig" when tasks are
-   overdue, green with the tick when all are done, neutral otherwise ("Noch keine Aufgaben" without tasks). Below it, only when a required permit is missing, one red line with the shield icon: "1 Genehmigung fehlt" / "2 Genehmigungen fehlen" (the rule of "Was fehlt", core `missingPermits`; nothing without `permit:read`). The link
+   overdue, green with the tick when all are done, neutral otherwise ("Noch keine Aufgaben" without tasks). Below it the **permit line** (UX-064, core `eventPermitLine`; nothing without `permit:read` or for finished events), colour + shield icon + text, worst first: "1 Genehmigung fehlt" / "2 Genehmigungen fehlen" in red (the rule of "Was fehlt", core `missingPermits`) · "Noch nicht alle Genehmigungen erteilt" (neutral: none needs the office yet, but one is filed and waiting for the authority or not due yet; never "vollständig") · "Genehmigung läuft vor der Veranstaltung ab" (amber: all held, one ends before the last day) · "Genehmigungen vollständig" (green: every needed permit covers the whole event) · "Genehmigungen noch nicht geklärt" (no permit linked yet, never "keine nötig"). The link
    **"Alle Veranstaltungen"** sits next to the heading. No date-range line. When nothing is planned this weekend the
    same card shows **the next events** (the first one after the weekend and the others up to the end of its weekend,
    at most 4) under the line "An diesem Wochenende ist nichts geplant. Als Nächstes:". The former verdict (Im Plan ·
@@ -290,7 +290,15 @@ permits at the bottom. No KPI strip, no season strip. Section titles sit outside
    but inside the permit horizon; the shield in the info colour next to the heading, the same rows, snooze and J/K as
    elsewhere; empty → "Keine Genehmigungen in Sicht."
 5. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
-**Phone (390 px):** everything stacks: main panel, weekend box, permits; nothing scrolls sideways.
+**Phone (390 px):** everything stacks: main panel, weekend box, permits; a market running today moves the weekend box
+to the top (below 1024 px). Inside the main panel (below 768 px) **Heute comes first** and **Überfällig shrinks to one
+line** with its count and "Anzeigen" / "Ausblenden" (UX-006). The moves are CSS `order` only: DOM, Tab and J/K order
+stay Überfällig → Heute → … and main panel → weekend box, so once Überfällig is opened on a phone, J/K and Tab reach
+its rows before Heute (accepted, UX audit round 1). Nothing scrolls sideways.
+Last in the main panel, **Weitere Aufgaben** (UX-013): open tasks without a market or Saison that no group shows
+(undated, or due after Nächste Tage; a task with an overdue subtask stays in Überfällig), dated ones soonest first,
+then the undated ones newest first, at most 50, with the same Erledigt (opening the drawer while subtasks are open,
+R29) and Zurückstellen.
 In every list a market shows its first 3 items and a group its first 10 markets; **"+ N weitere bei …" / "+ N weitere
 Märkte" (or "+ N weitere Einträge" when rows without a market are among them) open the rest in place** (native disclosure, no navigation), drawn as a small bordered button with a chevron
 so it reads as clickable. Past 10 hidden rows of one market it **links to the market's Zusammenfassung** instead

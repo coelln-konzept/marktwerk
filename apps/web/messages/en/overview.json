@@ -63,6 +63,7 @@
       "permitsMissing": "{count, plural, one {# permit missing} other {# permits missing}}",
       "permits": {
         "ok": "Permits complete",
+        "pending": "Not all permits granted yet",
         "ending": "Permit expires before the event",
         "open": "Permits not settled yet"
       }

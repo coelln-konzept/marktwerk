@@ -63,6 +63,7 @@
       "permitsMissing": "{count, plural, one {# Genehmigung fehlt} other {# Genehmigungen fehlen}}",
       "permits": {
         "ok": "Genehmigungen vollständig",
+        "pending": "Noch nicht alle Genehmigungen erteilt",
         "ending": "Genehmigung läuft vor der Veranstaltung ab",
         "open": "Genehmigungen noch nicht geklärt"
       }
