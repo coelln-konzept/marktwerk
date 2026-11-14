@@ -254,7 +254,13 @@
       "tplShared": "gemeinsam genutzt",
       "tplDraft": "Entwurf",
       "tplMeta": "{kind} · {version} · {count, plural, one {# Aufgabe} other {# Aufgaben}}",
-      "codeTitle": "Kürzel"
+      "codeTitle": "Kürzel",
+      "new": "Neuer Markt",
+      "searchLabel": "Märkte durchsuchen",
+      "search": "Name, Kürzel, Ort oder Art",
+      "searchResult": "{count, plural, one {# Treffer} other {# Treffer}} für „{query}“",
+      "resetSearch": "Suche zurücksetzen",
+      "emptySearch": "Kein Markt passt zu dieser Suche."
     },
     "others": {
       "title": "Nicht verwendete Ablaufvorlagen",
