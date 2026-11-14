@@ -3,19 +3,49 @@ import Link from "next/link";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-/** Data table: sticky header, row height from the density token, tabular figures. */
-export function Table({ className, ...props }: React.ComponentProps<"table">) {
+/**
+ * Data table: sticky header, row height from the density token, tabular figures.
+ *
+ * `cards` (UX-003): below 640 px every row becomes a card and every cell a line "Label  value", so
+ * nothing needs a sideways scroll and row actions stay on screen. Give each `TD` its column name as
+ * `label` (cells without one, e.g. the title or the actions, span the card without a label); the header
+ * row is then hidden visually but stays for screen readers.
+ */
+export function Table({
+  className,
+  cards = false,
+  ...props
+}: React.ComponentProps<"table"> & { cards?: boolean }) {
   return (
     // relative: sr-only cells are absolutely positioned and would otherwise escape the scroller and
     // widen the whole page on phones.
-    <div className="relative overflow-x-auto">
-      <table className={cn("w-full border-collapse text-left", className)} {...props} />
+    <div className="relative overflow-x-auto" data-cards={cards ? "true" : undefined}>
+      <table
+        className={cn(
+          "w-full border-collapse text-left",
+          cards &&
+            "max-sm:block max-sm:[&>tbody]:flex max-sm:[&>tbody]:flex-col max-sm:[&>tbody]:gap-2",
+          className,
+        )}
+        {...props}
+      />
     </div>
   );
 }
 
+/** Classes that turn a table part into a card part below 640 px when the table has `cards`. */
+const CARDS = {
+  head: "max-sm:in-data-[cards=true]:sr-only",
+  row: "max-sm:in-data-[cards=true]:flex max-sm:in-data-[cards=true]:flex-col max-sm:in-data-[cards=true]:gap-1 max-sm:in-data-[cards=true]:rounded-lg max-sm:in-data-[cards=true]:border max-sm:in-data-[cards=true]:last:border-b max-sm:in-data-[cards=true]:bg-card max-sm:in-data-[cards=true]:p-3",
+  cell: "max-sm:in-data-[cards=true]:flex max-sm:in-data-[cards=true]:h-auto max-sm:in-data-[cards=true]:min-w-0 max-sm:in-data-[cards=true]:flex-wrap max-sm:in-data-[cards=true]:items-center max-sm:in-data-[cards=true]:gap-x-3 max-sm:in-data-[cards=true]:p-0",
+  label:
+    "max-sm:in-data-[cards=true]:before:w-28 max-sm:in-data-[cards=true]:before:shrink-0 max-sm:in-data-[cards=true]:before:text-muted-foreground max-sm:in-data-[cards=true]:before:text-tiny max-sm:in-data-[cards=true]:before:content-[attr(data-label)]",
+};
+
 export function THead({ className, ...props }: React.ComponentProps<"thead">) {
-  return <thead className={cn("sticky top-0 z-[2] bg-surface-2", className)} {...props} />;
+  return (
+    <thead className={cn("sticky top-0 z-[2] bg-surface-2", CARDS.head, className)} {...props} />
+  );
 }
 
 export type THSort = {
@@ -81,6 +111,7 @@ export function TR({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       className={cn(
         "group/row border-border-subtle border-b last:border-b-0 hover:bg-hover aria-[current=true]:bg-selected",
+        CARDS.row,
         className,
       )}
       {...props}
@@ -88,14 +119,35 @@ export function TR({ className, ...props }: React.ComponentProps<"tr">) {
   );
 }
 
-export function TD({ className, ...props }: React.ComponentProps<"td">) {
-  return <td className={cn("h-row px-3 py-(--cell-y) align-middle", className)} {...props} />;
+/** A cell; `label` is the column name shown in front of the value in card mode (see `Table`). */
+export function TD({
+  className,
+  label,
+  ...props
+}: React.ComponentProps<"td"> & { label?: string }) {
+  return (
+    <td
+      data-label={label}
+      className={cn(
+        "h-row px-3 py-(--cell-y) align-middle",
+        CARDS.cell,
+        label && CARDS.label,
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 /** Group row ("Überfällig 2"). */
 export function TGroup({ colSpan, children }: { colSpan: number; children: React.ReactNode }) {
   return (
-    <tr className="bg-sunken">
+    <tr
+      className={cn(
+        "bg-sunken",
+        "max-sm:in-data-[cards=true]:block max-sm:in-data-[cards=true]:rounded-md",
+      )}
+    >
       <th
         colSpan={colSpan}
         scope="colgroup"
@@ -112,7 +164,7 @@ export function RowActions({ className, ...props }: React.ComponentProps<"div">)
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1 opacity-50 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100",
+        "inline-flex items-center gap-1 opacity-50 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 max-sm:in-data-[cards=true]:flex-wrap max-sm:in-data-[cards=true]:opacity-100",
         className,
       )}
       {...props}
