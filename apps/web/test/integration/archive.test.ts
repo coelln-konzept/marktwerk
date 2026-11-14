@@ -120,6 +120,17 @@ describe("Archiv: Dokumente finden", () => {
     const removed = await listArchiveDocuments(owner, { ...base, removed: true });
     expect(removed.rows.map((r) => [r.fileName, r.canWrite])).toEqual([["scan-5.pdf", true]]);
     expect(removed.rows[0]?.archivedAt).not.toBeNull();
+    // The filters of "Entfernte" offer the Märkte and years of the removed documents.
+    const removedFacets = await archiveDocumentFacets(owner, { removed: true });
+    expect(removedFacets.years).toEqual([2025]);
+    expect(removedFacets.presets.map((p) => p.name)).toEqual(["Testflohmarkt"]);
+
+    // Accents fold to their own letter on both sides: typed as stored or without the marks.
+    await db
+      .insert(document)
+      .values(file(6, { venueId: cat.venue.id, caption: "Angebot Café René, Façade" }));
+    for (const q of ["café rené", "cafe rene", "CAFÉ", "facade"])
+      expect(await names({ ...base, q })).toEqual(["scan-6.pdf"]);
   });
 });
 
@@ -162,6 +173,7 @@ describe("Archiv: Aktivität, Betrifft", () => {
         diff: { name: "Alter Sprinter" },
       },
       { actorId: owner.id, action: "settings.update", entityType: "settings", entityId: null },
+      { actorId: owner.id, action: "season.create", entityType: "event_season", entityId: gone },
     ]);
     const { rows } = await listActivity(owner, { page: 1, size: 50 });
     const byAction = Object.fromEntries(rows.map((r) => [r.action, r.target]));
@@ -182,6 +194,11 @@ describe("Archiv: Aktivität, Betrifft", () => {
 
     const contacts = await listActivity(owner, { area: "contact", page: 1, size: 50 });
     expect(contacts.rows.map((r) => r.action)).toEqual(["contact.create"]);
+    // A Saison belongs to a Markt: "Märkte und Vorlagen", not "Veranstaltungen".
+    const templates = await listActivity(owner, { area: "template", page: 1, size: 50 });
+    expect(templates.rows.map((r) => r.action).sort()).toEqual(["preset.update", "season.create"]);
+    const events = await listActivity(owner, { area: "event", page: 1, size: 50 });
+    expect(events.rows.map((r) => r.action)).toEqual([]);
   });
 });
 

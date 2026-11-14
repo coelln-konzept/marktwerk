@@ -160,6 +160,13 @@ function linkOf(row: DocumentRow): DocumentLink {
   return link;
 }
 
+/** Documents on the same records as `link` (every link column of it equal); for the duplicate checks. */
+function sameLinkAs(link: DocumentLink): SQL[] {
+  return Object.entries(link).map(([key, value]) =>
+    eq(document[key as DocumentLinkKey], value as string),
+  );
+}
+
 const isForeignKeyViolation = (error: unknown) => {
   const code = (error as { code?: string; cause?: { code?: string } }) ?? {};
   return code.code === "23503" || code.cause?.code === "23503";
@@ -203,13 +210,10 @@ export async function createDocument(
   const storageKey = storageKeyFor(sha256, id, type.ext);
 
   // Same file on the same record twice (double tap, retry): refuse instead of storing a copy.
-  const sameLink = Object.entries(link).map(([key, value]) =>
-    eq(document[key as DocumentLinkKey], value as string),
-  );
   const [duplicate] = await db
     .select({ id: document.id, fileName: document.fileName })
     .from(document)
-    .where(and(eq(document.sha256, sha256), isNull(document.archivedAt), ...sameLink));
+    .where(and(eq(document.sha256, sha256), isNull(document.archivedAt), ...sameLinkAs(link)));
   if (duplicate) throw new DocumentInputError("duplicate", duplicate.fileName);
 
   await getStorage().put(storageKey, input.bytes);
@@ -302,8 +306,29 @@ export async function archiveDocument(
 export type DocumentUpdate = { fileName?: string; caption?: string | null; kind?: string };
 
 /**
+ * The extensions a document's name may end in: those of its content (`mimeType`, as sniffed on upload; the
+ * first is added when the name has none of them), else, for a type not sniffed here, whatever the current
+ * name ends in.
+ */
+function extensionsOf(row: DocumentRow): string[] {
+  const known = MIME_EXTENSIONS[row.mimeType];
+  if (known) return known;
+  const current = /\.([a-z0-9]{1,5})$/i.exec(row.fileName)?.[1];
+  return current ? [current.toLowerCase()] : [];
+}
+
+const MIME_EXTENSIONS: Record<string, string[]> = {
+  "application/pdf": ["pdf"],
+  "image/jpeg": ["jpg", "jpeg"],
+  "image/png": ["png"],
+  "image/heic": ["heic", "heif"],
+  "application/xml": ["xml"],
+};
+
+/**
  * Renames a document, sets its description or changes its kind (the bytes never change). The file extension
- * stays what the content is, so "Vertrag" becomes "Vertrag.pdf". Audited as `document.update` with the
+ * stays what the content is (`extensionsOf`), so a PDF renamed "Vertrag" or "Vertrag.v2" becomes
+ * "Vertrag.pdf" or "Vertrag.v2.pdf". Audited as `document.update` with the
  * changed fields; nothing changed writes nothing. An e-invoice (XML) keeps its kind.
  */
 export async function updateDocument(
@@ -323,11 +348,11 @@ export async function updateDocument(
 
     const next: Partial<Pick<DocumentRow, "fileName" | "caption" | "kind">> = {};
     if (input.fileName !== undefined) {
-      const ext = /\.([a-z0-9]{1,5})$/i.exec(row.fileName)?.[1] ?? "";
+      const [ext, ...aliases] = extensionsOf(row);
       const typed = safeFileName(input.fileName, "");
       if (typed === "") throw new DocumentInputError("empty_name");
       const fileName =
-        ext && !typed.toLowerCase().endsWith(`.${ext.toLowerCase()}`)
+        ext && ![ext, ...aliases].some((e) => typed.toLowerCase().endsWith(`.${e}`))
           ? `${typed.slice(0, 150 - ext.length - 1)}.${ext}`
           : typed;
       if (fileName !== row.fileName) next.fileName = fileName;
@@ -357,13 +382,24 @@ export async function updateDocument(
   });
 }
 
-/** Undo of `archiveDocument`. */
+/**
+ * Undo of `archiveDocument`. Refused as `duplicate` (with the live file's name) when the same file hangs on the
+ * same record again in the meantime (removed, uploaded anew, then restored), like `createDocument`.
+ */
 export async function restoreDocument(actor: Actor, id: string): Promise<{ fileName: string }> {
   if (!UUID.test(id)) throw new DocumentInputError("not_found");
   return db.transaction(async (tx) => {
     const [row] = await tx.select().from(document).where(eq(document.id, id)).for("update");
     if (!row?.archivedAt) throw new DocumentInputError("not_found");
-    if (!(await mayAccess(actor, linkOf(row), "write"))) forbidden();
+    const link = linkOf(row);
+    if (!(await mayAccess(actor, link, "write"))) forbidden();
+    const [duplicate] = await tx
+      .select({ fileName: document.fileName })
+      .from(document)
+      .where(
+        and(eq(document.sha256, row.sha256), isNull(document.archivedAt), ...sameLinkAs(link)),
+      );
+    if (duplicate) throw new DocumentInputError("duplicate", duplicate.fileName);
     await tx
       .update(document)
       .set({ archivedAt: null, archivedByStaffMemberId: null, archiveReason: null })

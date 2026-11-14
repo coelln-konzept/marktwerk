@@ -75,9 +75,12 @@ const HIDDEN_LINKS: Partial<Record<DocumentLinkKey, () => boolean>> = {
 const taskEvent = aliasedTable(event, "task_event");
 const archivedBy = aliasedTable(staffMember, "archived_by");
 
-/** Same folding as the Aussteller list and the command palette: "koln" finds "Köln", "muller" "Müller". */
+/**
+ * Umlauts and accents lose their marks and ß becomes s, the SQL twin of `foldWord`: "koln" finds "Köln",
+ * "muller" "Müller", "cafe" "Café". `translate()` maps character by character, so both strings have 20.
+ */
 function fold(column: unknown): SQL {
-  return sql`translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aousseeeaaaoooiiiuuuc')`;
+  return sql`translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aouseeeaaaoooiiiuuuc')`;
 }
 
 function foldWord(word: string): string {
@@ -256,15 +259,19 @@ export async function listArchiveDocuments(
 }
 
 /**
- * The choices of the Markt and Jahr filters: only Märkte and years that have live documents the person may
- * read, so no choice leads to an empty list.
+ * The choices of the Markt and Jahr filters: only Märkte and years that have documents the person may read in
+ * the list shown (live ones, or the removed ones with `removed`), so no choice leads to an empty list.
  */
 export async function archiveDocumentFacets(
   actor: Actor,
+  { removed = false }: { removed?: boolean } = {},
 ): Promise<{ presets: { id: string; name: string }[]; years: number[] }> {
   const scope = readableDocuments(actor);
   if (!scope) return { presets: [], years: [] };
-  const condition = and(...scope.where, isNull(document.archivedAt));
+  const condition = and(
+    ...scope.where,
+    removed ? isNotNull(document.archivedAt) : isNull(document.archivedAt),
+  );
   const [presets, years] = await Promise.all([
     withOwners(
       db
@@ -330,11 +337,18 @@ export const ACTIVITY_AREAS = [
 ] as const;
 export type ActivityArea = (typeof ACTIVITY_AREAS)[number];
 const AREA_TYPES: Record<ActivityArea, string[]> = {
-  event: ["event", "event_season", "next_time_note", "checklist"],
+  event: ["event", "checklist"],
   task: ["task"],
   permit: ["permit", "permit_requirement"],
   document: ["document"],
-  template: ["event_preset", "checklist_template", "template_version"],
+  // A Saison and a "Notiz fürs nächste Mal" belong to a Markt (their page is /vorlagen/<id>).
+  template: [
+    "event_preset",
+    "event_season",
+    "next_time_note",
+    "checklist_template",
+    "template_version",
+  ],
   venue: ["venue", "zone", "row", "location_agreement"],
   contact: ["contact"],
   company: ["vehicle", "vehicle_issue", "obligation"],

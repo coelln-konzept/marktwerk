@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useTransition } from "react";
 import { useShell } from "@/components/shell/shell-context";
 import { archiveDocumentAction, restoreDocumentAction } from "./actions";
+import { documentErrorText } from "./error-text";
 
 /** "Entfernen" next to a document: soft delete with an undo toast instead of a confirmation. */
 export function ArchiveDocumentButton({ id, fileName }: { id: string; fileName: string }) {
@@ -26,7 +27,7 @@ export function ArchiveDocumentButton({ id, fileName }: { id: string; fileName: 
           const undone = await restoreDocumentAction(id);
           if (undone.ok)
             showToast({ message: t("toast.restored", { name: undone.data.fileName }) });
-          else showError(t("toast.failed"));
+          else showError(documentErrorText(t, undone.error, undone.existing, "toast.failed"));
         },
       });
     });

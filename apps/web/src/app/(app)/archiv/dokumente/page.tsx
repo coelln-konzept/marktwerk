@@ -87,7 +87,7 @@ export default async function ArchiveDocumentsPage({
   const kindParam = param(sp.art);
   const kind = (KINDS as readonly string[]).includes(kindParam ?? "") ? kindParam : undefined;
   const removed = param(sp.entfernt) === "1";
-  const facets = await archiveDocumentFacets(actor);
+  const facets = await archiveDocumentFacets(actor, { removed });
   const marktParam = param(sp.markt);
   const presetId =
     marktParam && UUID.test(marktParam) && facets.presets.some((p) => p.id === marktParam)

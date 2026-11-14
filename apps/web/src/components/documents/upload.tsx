@@ -9,6 +9,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { documentErrorText } from "./error-text";
 
 /**
  * Which record the files belong to: one of the link columns of `document` (see DOCUMENT_LINKS in
@@ -107,10 +108,7 @@ export function DocumentUpload({
   const sentKind = kinds ? pickedKind : kind;
   const busy = progress !== null;
 
-  const errorText = (code: string, existing?: string) => {
-    if (code === "duplicate" && existing) return t("errors.duplicateOf", { name: existing });
-    return t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
-  };
+  const errorText = (code: string, existing?: string) => documentErrorText(t, code, existing);
 
   async function send(files: File[]) {
     if (files.length === 0 || busy) return;
@@ -213,9 +211,17 @@ export function DocumentUpload({
     </>
   );
 
+  // In a table cell (`compact`) everything stays as narrow as the button row, so the table does not widen.
   const progressView = progress && (
-    <div className="flex w-full min-w-0 max-w-96 flex-col gap-1">
-      <div className="flex items-center justify-between gap-2 text-small">
+    <div
+      className={cn("flex min-w-0 flex-col gap-1", compact ? "w-40 max-w-full" : "w-full max-w-96")}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2",
+          compact ? "text-tiny" : "text-small",
+        )}
+      >
         <span className="min-w-0 truncate text-muted-foreground">
           {progress.count > 1
             ? t("progressOf", {
@@ -236,14 +242,51 @@ export function DocumentUpload({
     </div>
   );
 
-  const cancelButton = busy && (
-    <Button size="sm" variant="outline" onClick={cancel}>
-      <X aria-hidden />
-      {t("cancel")}
-    </Button>
+  const cancelButton =
+    busy &&
+    (compact ? (
+      <Button
+        size="icon-sm"
+        variant="outline"
+        onClick={cancel}
+        aria-label={t("cancel")}
+        title={t("cancel")}
+      >
+        <X aria-hidden />
+      </Button>
+    ) : (
+      <Button size="sm" variant="outline" onClick={cancel}>
+        <X aria-hidden />
+        {t("cancel")}
+      </Button>
+    ));
+
+  const dismissButton = (
+    <button
+      type="button"
+      onClick={() => setFailures([])}
+      aria-label={t("dismissErrors")}
+      title={t("dismissErrors")}
+      className={cn(
+        "grid shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground touch:size-11",
+        compact ? "size-5" : "size-7",
+      )}
+    >
+      <X aria-hidden className={compact ? "size-3.5" : "size-4"} />
+    </button>
   );
 
-  const failureList = failures.length > 0 && (
+  // `compact` takes one file at a time: its reason as a narrow line under the button, no box.
+  const compactFailure = compact && failures.length > 0 && (
+    <span role="alert" className="inline-flex max-w-56 items-start gap-1 text-tiny">
+      <span className="min-w-0 break-words text-status-critical">
+        {failures.map((f) => f.message).join(" ")}
+      </span>
+      {dismissButton}
+    </span>
+  );
+
+  const failureList = !compact && failures.length > 0 && (
     <div
       role="alert"
       className="flex w-full min-w-0 max-w-xl items-start gap-2 rounded-lg border border-status-critical-dot/30 bg-status-critical-bg/40 p-2.5 text-small"
@@ -261,15 +304,7 @@ export function DocumentUpload({
           ))}
         </ul>
       </div>
-      <button
-        type="button"
-        onClick={() => setFailures([])}
-        aria-label={t("dismissErrors")}
-        title={t("dismissErrors")}
-        className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground touch:size-11"
-      >
-        <X aria-hidden className="size-4" />
-      </button>
+      {dismissButton}
     </div>
   );
 
@@ -291,7 +326,7 @@ export function DocumentUpload({
           {cancelButton}
         </span>
         {progressView}
-        {failureList}
+        {compactFailure}
       </span>
     );
   }

@@ -4,6 +4,7 @@ import { RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
 import { archiveDocumentAction, restoreDocumentAction } from "@/components/documents/actions";
+import { documentErrorText } from "@/components/documents/error-text";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 
@@ -21,7 +22,8 @@ export function RestoreDocumentButton({ id, fileName }: { id: string; fileName: 
     startTransition(async () => {
       const result = await restoreDocumentAction(id);
       if (!result.ok) {
-        showError(t("toast.failed"));
+        // Says why, e.g. that the same file hangs on the record again ("… schon als „x.pdf“").
+        showError(documentErrorText(t, result.error, result.existing, "toast.failed"));
         return;
       }
       showToast({

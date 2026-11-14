@@ -383,6 +383,50 @@ describe("removing documents (soft delete)", () => {
     expect((await audits("document.restore")).length).toBe(1);
   });
 
+  it("refuses to restore a file that hangs on the record again, naming the live copy", async () => {
+    const { paid, open } = await seedPayments();
+    const data = pdf("again");
+    const old = await createDocument(owner, {
+      fileName: "x.pdf",
+      bytes: data,
+      link: { installmentId: paid },
+    });
+    await archiveDocument(owner, old.id);
+    // Uploaded anew (another name), then the old one restored: two identical live files would hang there.
+    await createDocument(owner, {
+      fileName: "x-neu.pdf",
+      bytes: data,
+      link: { installmentId: paid },
+    });
+    let error: unknown;
+    try {
+      await restoreDocument(owner, old.id);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(DocumentInputError);
+    expect((error as DocumentInputError).code).toBe("duplicate");
+    expect((error as DocumentInputError).existing).toBe("x-neu.pdf");
+    const [row] = await db.select().from(document).where(eq(document.id, old.id));
+    expect(row?.archivedAt).not.toBeNull();
+    expect((await audits("document.restore")).length).toBe(0);
+
+    // The same file on another record is no duplicate.
+    const elsewhere = await createDocument(owner, {
+      fileName: "y.pdf",
+      bytes: pdf("elsewhere"),
+      link: { installmentId: open },
+    });
+    await archiveDocument(owner, elsewhere.id);
+    await createDocument(owner, {
+      fileName: "y.pdf",
+      bytes: pdf("elsewhere"),
+      link: { installmentId: paid },
+    });
+    await restoreDocument(owner, elsewhere.id);
+    expect((await readDocument(owner, elsewhere.id)).row.archivedAt).toBeNull();
+  });
+
   it("is forbidden without the write grant", async () => {
     const { paid } = await seedPayments();
     const created = await createDocument(owner, {
@@ -438,6 +482,28 @@ describe("editing documents", () => {
     await updateDocument(owner, created.id, { caption: "" });
     const [cleared] = await db.select().from(document).where(eq(document.id, created.id));
     expect(cleared?.caption).toBeNull();
+  });
+
+  it("takes the extension from the content, not from an odd or missing one in the name", async () => {
+    const { paid } = await seedPayments();
+    const odd = await createDocument(owner, {
+      fileName: "Vertrag.v2",
+      bytes: pdf("odd"),
+      link: { installmentId: paid },
+    });
+    expect((await updateDocument(owner, odd.id, { fileName: "Neu" })).fileName).toBe("Neu.pdf");
+    const bare = await createDocument(owner, {
+      fileName: "IMG_0001",
+      bytes: jpeg("bare"),
+      link: { installmentId: paid },
+    });
+    expect((await updateDocument(owner, bare.id, { fileName: "Kasse" })).fileName).toBe(
+      "Kasse.jpg",
+    );
+    // A known spelling of the same type stays as typed.
+    expect((await updateDocument(owner, bare.id, { fileName: "Kasse.JPEG" })).fileName).toBe(
+      "Kasse.JPEG",
+    );
   });
 
   it("refuses an empty name, unknown kinds and turning a file into an e-invoice; needs the write grant", async () => {
