@@ -644,9 +644,11 @@ test("Markt planen: Saturday and Sunday picked become one two-day event (switcha
     .check();
   await sheet.getByRole("button", { name: "Weiter" }).click();
   await sheet.getByRole("button", { name: "Einzeln anklicken" }).click();
-  // Start from nothing picked, then pick one Saturday and the Sunday after it.
-  const picked = sheet.locator("button[data-day][aria-pressed=true]");
-  while ((await picked.count()) > 0) await picked.first().click();
+  // Start from nothing picked (a market with a rhythm or past dates starts with its dates picked, also in
+  // months not shown), then pick one Saturday and the Sunday after it.
+  const clear = sheet.getByRole("button", { name: "Alle abwählen" });
+  if (await clear.isVisible()) await clear.click();
+  await expect(sheet.getByText("Noch keine Termine gewählt")).toBeVisible();
   // A free Saturday whose Sunday is free too (a day the place is taken, "Ort belegt", is not merged).
   const saturdays = sheet.locator(
     "button[data-day][aria-label^='Sa ']:not([disabled]):not([aria-label*='belegt'])",
@@ -675,6 +677,40 @@ test("Markt planen: Saturday and Sunday picked become one two-day event (switcha
   await merge.uncheck();
   await sheet.getByRole("button", { name: "Weiter" }).click();
   await expect(sheet.getByRole("button", { name: "2 Veranstaltungen anlegen" })).toBeVisible();
+});
+
+test("Markt planen: a market with a rhythm starts with its own dates picked, in its months only; a reload stays on step 2", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?erzeugen=1");
+  await page.waitForLoadState("networkidle");
+  const sheet = page.getByRole("dialog");
+  // Kerpen Bauernmarkt: 1st Sunday of May and of October (not May to October).
+  await sheet
+    .getByRole("radio", { name: /Kerpen Bauernmarkt/ })
+    .first()
+    .check();
+  await sheet.getByRole("button", { name: "Weiter" }).click();
+  await expect(sheet.getByText("Vorschlag aus dem Rhythmus des Markts")).toBeVisible();
+  await expect(sheet.getByText(/Sonntag im Monat, Mai und Oktober \d{4}/)).toBeVisible();
+  await expect(sheet.getByText("2 Termine gewählt")).toBeVisible();
+  const months = sheet.getByRole("group", { name: "Monate" });
+  await expect(months.getByRole("button", { name: "Mai" })).toHaveAttribute("aria-pressed", "true");
+  await expect(months.getByRole("button", { name: "Juni" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+
+  // The URL carries the market: a reload lands on step 2 again, with the same dates.
+  await expect(page).toHaveURL(/[?&]vorlage=/);
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(sheet.getByRole("group", { name: "Auswahl" })).toBeVisible();
+  await expect(sheet.getByText("2 Termine gewählt")).toBeVisible();
+
+  // "Alle abwählen" clears every picked date, in every month.
+  await sheet.getByRole("button", { name: "Alle abwählen" }).click();
+  await expect(sheet.getByText("Noch keine Termine gewählt")).toBeVisible();
 });
 
 test("Archiv: past events only, newest first; Als Vorlage speichern opens the prefilled market form", async ({

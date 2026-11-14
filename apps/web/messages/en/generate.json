@@ -18,10 +18,7 @@
       "every": "every",
       "position": "Which",
       "last": "every last",
-      "from": "from",
-      "to": "to",
-      "fromMonth": "First month",
-      "toMonth": "Last month",
+      "months": "Months",
       "year": "Year",
       "apply": "Apply",
       "replaces": "Replaces your {count, plural, one {# selected date} other {# selected dates}}.",
@@ -34,16 +31,19 @@
         "following": "{base} and the {days} after",
         "weekendEvery": "every weekend (Saturday and Sunday)",
         "weekendNth": "every {pos, select, last {last} 1 {1st} 2 {2nd} 3 {3rd} other {{pos}th}} weekend of the month (Saturday and Sunday)",
-        "months": "{rule}, {from} to {to} {year}"
+        "months": "{rule}, {from} to {to} {year}",
+        "monthList": "{rule}, {months} {year}"
       },
       "yields": "{count, plural, =0 {gives no dates} one {gives # date} other {gives # dates}}",
       "noWeekday": "Choose at least one weekday.",
+      "noMonth": "Choose at least one month.",
       "duration": "Starts on {day}: one event lasts {count, plural, one {# day} other {# days}} ({span}).",
       "otherStart": "So far the market started on {days}.",
       "pastLeftOut": "{count, plural, one {# past date left out} other {# past dates left out}}",
       "notApplied": "“Apply” puts the dates into the calendar.",
       "fromPast": "Suggested from the {count, plural, one {# date} other {# dates}} in {season}",
       "fromRhythm": "Suggested from the market's rhythm",
+      "rhythmLoose": "the rhythm means one of these days, this rule all of them in a row: check it, then “Apply”",
       "irregular": "the {season} dates follow no fixed rhythm: pick the days in the calendar or adjust the rule"
     },
     "weekShort": "CW",
@@ -59,6 +59,7 @@
     },
     "shiftHint": "+ click: same weekday in between",
     "summary": "{count, plural, =0 {No dates selected yet} one {# date selected} other {# dates selected}}",
+    "clearAll": "Clear all",
     "merge": {
       "label": "Merge consecutive days into one event",
       "result": "{count, plural, one {makes # event} other {makes # events}}"

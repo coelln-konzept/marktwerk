@@ -684,11 +684,13 @@ describe("listPresetsForGeneration: past dates for the Markt planen rule (UX-015
     ]);
     expect(rows.find((r) => r.id === cat.presets.flea.id)?.pastDates).toEqual([]);
     // What step 2 makes of them: "jeden 1. Freitag, April bis Juni".
-    expect(suggestPlanRule(row?.pastDates ?? [], festival.durationDays)).toMatchObject({
+    expect(
+      suggestPlanRule(row?.pastDates ?? [], festival.durationDays, "2026-11-14"),
+    ).toMatchObject({
       weekdays: [5],
       setPos: 1,
-      fromMonth: 4,
-      toMonth: 6,
+      months: [4, 5, 6],
+      regular: true,
     });
   });
 });
