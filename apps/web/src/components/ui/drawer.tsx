@@ -17,22 +17,100 @@ function openingPairs(closeHref: string): string[] {
 }
 
 /** The row or link that opens the record, for when the element focused at open time is gone. */
-function findOpener(pairs: string[]): HTMLElement | null {
+function findOpener(pairs: string[], near: HTMLElement | null): HTMLElement | null {
   for (const pair of pairs) {
     const escaped = pair.replace(/["\\]/g, "\\$&");
-    const hit = document.querySelector<HTMLElement>(
-      `[data-href*="${escaped}"], [data-peek*="${escaped}"], a[href*="${escaped}"]`,
+    const selector = `[data-href*="${escaped}"], [data-peek*="${escaped}"], a[href*="${escaped}"]`;
+    // The one next to the last click first (the card that was clicked, not a link to the same record in
+    // another list higher up the page), then the first visible one.
+    const hits = [...document.querySelectorAll<HTMLElement>(selector)].filter(
+      (el) => el.getClientRects().length > 0,
     );
+    const hit =
+      (near && hits.find((el) => el.contains(near) || near.contains(el))) ??
+      (near && hits.find((el) => el.closest("[data-row], [data-card], li")?.contains(near))) ??
+      hits[0];
     if (hit) return hit.closest<HTMLElement>("[data-row]") ?? hit;
   }
   return null;
 }
 
 /**
+ * The element last pressed with a pointer, for drawers opened by a click on something that does not take
+ * focus (a card, a row): `document.activeElement` is then <body> and says nothing.
+ */
+let lastPress: { el: HTMLElement; at: number } | null = null;
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.target instanceof HTMLElement) lastPress = { el: event.target, at: Date.now() };
+    },
+    true,
+  );
+}
+const recentPress = () =>
+  lastPress?.el.isConnected && Date.now() - lastPress.at < 10_000 ? lastPress.el : null;
+
+const FOCUSABLE = 'a[href], button, [data-row], [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Should this Escape close a drawer or Vorschau (UX-035, UX-053: Esc is handled once)? Not when something
+ * else already took it, when it comes from a toast (Esc there closes the toast), a listbox, a field with
+ * unsaved typing (`data-editing`), or while a menu or a modal dialog is open.
+ */
+export function escapeClosesOverlay(event: KeyboardEvent): boolean {
+  if (event.key !== "Escape" || event.defaultPrevented) return false;
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  if (target?.closest('[role=listbox], [role=status], [role=alert], [data-editing="true"]'))
+    return false;
+  // base-ui dialogs carry no aria-modal, so any dialog counts unless it says it is not modal (drawer, Vorschau).
+  return !document.querySelector(
+    '[role="menu"], [role="alertdialog"], [role="dialog"]:not([aria-modal="false"])',
+  );
+}
+
+/**
+ * While a drawer is open the tab says which record it shows (UX-035): "<Name> · <page title>". Reads the
+ * drawer's heading, so it follows a rename; the page title comes back when the drawer closes.
+ */
+export function useDrawerTitle(titleRef: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const heading = titleRef.current;
+    if (!heading) return;
+    // Next.js may write the page title after the drawer opened (streamed metadata of the navigation that
+    // opened it), so the page title is never cached: it is the current title without our prefix.
+    let prefix = "";
+    const pageTitle = () =>
+      prefix && document.title.startsWith(prefix)
+        ? document.title.slice(prefix.length)
+        : document.title;
+    const apply = () => {
+      const page = pageTitle();
+      const name = heading.textContent?.trim();
+      prefix = name ? `${name} · ` : "";
+      const next = `${prefix}${page}`;
+      if (page && document.title !== next) document.title = next;
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    const watch = { childList: true, subtree: true, characterData: true };
+    observer.observe(heading, watch);
+    observer.observe(document.head, watch);
+    return () => {
+      observer.disconnect();
+      const page = pageTitle();
+      if (page !== document.title) document.title = page;
+    };
+  }, [titleRef]);
+}
+
+/**
  * Focus handling shared by every drawer: remembers the element that opened it, moves focus to the close
  * link once per opened record (`recordKey`) and, when the drawer goes away, hands focus back. If the
- * opener is gone (list re-rendered), the row or link for the same record takes it, then `#main`, so focus
- * never falls to <body>.
+ * opener is gone (list re-rendered, record archived), the row or link for the same record takes it (the one
+ * next to the last click first), then `#main`, so focus never falls to <body>. A drawer opened by a click
+ * on a card or row that takes no focus returns focus to that card's link or row.
  */
 export function useDrawerFocus(
   closeRef: React.RefObject<HTMLElement | null>,
@@ -45,17 +123,18 @@ export function useDrawerFocus(
   // Declared first: the opener must be read before the close link takes focus.
   useEffect(() => {
     const active = document.activeElement;
+    const pressed = recentPress();
     const opener =
       active instanceof HTMLElement &&
       active !== document.body &&
       !closeRef.current?.contains(active)
         ? active
-        : null;
+        : (pressed?.closest<HTMLElement>(FOCUSABLE) ?? null);
     const pairs = openingPairs(hrefRef.current);
     return () => {
       const target =
-        (opener?.isConnected ? opener : null) ??
-        findOpener(pairs) ??
+        (opener?.isConnected && !opener.closest("[inert]") ? opener : null) ??
+        findOpener(pairs, pressed?.isConnected ? pressed : null) ??
         document.getElementById("main");
       target?.focus({ preventScroll: true });
     };
@@ -71,7 +150,7 @@ export function useDrawerFocus(
  * Detail drawer (UX concept §4): real work on one record while the list stays visible. Slides in from
  * the right, full width below 1024 px. Addressed by the URL (`?aufgabe=<id>`), so a copied link
  * reopens it; Esc or × closes (the URL is replaced, no history entry piles up) and focus goes back to
- * where it came from. A non-modal dialog (`aria-modal="false"`, like the Vorschau): the board behind it
+ * where it came from (see `useDrawerFocus`); the tab title names the record. A non-modal dialog (`aria-modal="false"`, like the Vorschau): the board behind it
  * stays usable.
  */
 export function Drawer({
@@ -96,16 +175,14 @@ export function Drawer({
   const router = useRouter();
   const closeRef = useRef<HTMLAnchorElement>(null);
   const titleId = useId();
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useDrawerTitle(titleRef);
   // The close URL changes with the record the drawer shows, so focus returns to × for each one.
   useDrawerFocus(closeRef, closeHref, closeHref);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      // Esc inside an open dialog or menu belongs to that.
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("[role=listbox]")) return;
-      if (document.querySelector('[role="menu"], [role="dialog"][aria-modal="true"]')) return;
+      if (!escapeClosesOverlay(event)) return;
       event.preventDefault();
       router.replace(closeHref as never, { scroll: false });
     }
@@ -133,14 +210,14 @@ export function Drawer({
               scroll={false}
               replace
               aria-label={t("close")}
-              className="grid size-8 place-items-center rounded-md hover:bg-hover"
+              className="grid size-8 place-items-center rounded-md hover:bg-hover tap:size-11"
             >
               <X aria-hidden className="size-4" />
             </Link>
           </span>
         </div>
         <div className="flex items-start justify-between gap-2">
-          <h2 id={titleId} className="font-semibold text-lg leading-snug">
+          <h2 ref={titleRef} id={titleId} className="font-semibold text-lg leading-snug">
             {title}
           </h2>
           {titleExtra}

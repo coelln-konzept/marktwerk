@@ -3,11 +3,11 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 const base =
-  "inline-flex min-h-8 items-center gap-2 whitespace-nowrap rounded-full border border-input bg-card px-3 font-medium text-small hover:bg-hover aria-[current=true]:border-foreground aria-[current=true]:bg-foreground aria-[current=true]:text-background";
+  "inline-flex min-h-8 tap:min-h-11 items-center gap-2 whitespace-nowrap rounded-full border border-input bg-card px-3 font-medium text-small hover:bg-hover aria-[current=true]:border-foreground aria-[current=true]:bg-foreground aria-[current=true]:text-background";
 
 function Count({ value }: { value: number }) {
   return (
-    <span className="tabular inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-neutral-bg px-1 font-semibold text-[11.5px] text-foreground-2 in-aria-[current=true]:bg-white/20 in-aria-[current=true]:text-inherit">
+    <span className="tabular inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-neutral-bg px-1 font-semibold text-micro text-foreground-2 in-aria-[current=true]:bg-white/20 in-aria-[current=true]:text-inherit">
       {value}
     </span>
   );

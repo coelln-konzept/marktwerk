@@ -253,7 +253,8 @@
     "label": "Nach Anfangsbuchstaben filtern",
     "all": "Alle",
     "other": "Ziffern und Sonstiges",
-    "none": "keine Einträge"
+    "none": "keine Einträge",
+    "toggle": "A–Z · {current}"
   },
   "picker": {
     "open": "Auswahl öffnen",
