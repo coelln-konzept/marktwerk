@@ -1,16 +1,33 @@
 import "server-only";
 import { can, type PermitStatus, permitDisplayState } from "@marktwerk/core";
 import {
+  appointment,
   auditLog,
+  checklist,
+  checklistTemplate,
+  contact,
   document,
   event,
   eventPreset,
+  eventSeason,
+  expense,
+  installment,
+  locationAgreement,
+  nextTimeNote,
+  notification,
+  obligation,
+  payable,
   permit,
+  permitRequirement,
   staffMember,
   task,
+  templateVersion,
   user,
   vehicle,
+  vehicleIssue,
   venue,
+  venueRow,
+  zone,
 } from "@marktwerk/db/schema";
 import {
   aliasedTable,
@@ -300,15 +317,32 @@ export type ArchiveDocument = {
 // Aktivität
 
 /** Areas to filter the activity by (the audit entry's entity type). */
-export const ACTIVITY_AREAS = ["event", "task", "permit", "document", "template"] as const;
+export const ACTIVITY_AREAS = [
+  "event",
+  "task",
+  "permit",
+  "document",
+  "template",
+  "venue",
+  "contact",
+  "company",
+  "appointment",
+] as const;
 export type ActivityArea = (typeof ACTIVITY_AREAS)[number];
 const AREA_TYPES: Record<ActivityArea, string[]> = {
-  event: ["event"],
+  event: ["event", "event_season", "next_time_note", "checklist"],
   task: ["task"],
   permit: ["permit", "permit_requirement"],
   document: ["document"],
   template: ["event_preset", "checklist_template", "template_version"],
+  venue: ["venue", "zone", "row", "location_agreement"],
+  contact: ["contact"],
+  company: ["vehicle", "vehicle_issue", "obligation"],
+  appointment: ["appointment"],
 };
+
+/** What an entry was about: a name and, when there is a page for it, a link. */
+export type ActivityTarget = { label: string; href?: string };
 
 export type ActivityEntry = {
   id: string;
@@ -322,11 +356,283 @@ export type ActivityEntry = {
   taskEventId: string | null;
   permitTitle: string | null;
   eventName: string | null;
+  /** The record's current name, else a name the entry itself carries (file name, title); null when neither. */
+  target: ActivityTarget | null;
 };
 
+type Named = { id: string; label: string | null; href?: string };
+
 /**
- * The company-wide activity: every audit entry, newest first, with who did it and the name of what it was about
- * (task, permit, event). Owner and manager only (`audit:read`); `area` narrows to one kind of record.
+ * Per entity type: the names (and pages) of the given records, in one query each. Only the types on the page
+ * are asked for. Records of hidden modules get a name but no link.
+ */
+const TARGETS: Record<string, (ids: string[]) => Promise<Named[]>> = {
+  contact: async (ids) =>
+    (
+      await db
+        .select({ id: contact.id, label: contact.name })
+        .from(contact)
+        .where(inArray(contact.id, ids))
+    ).map((r) => ({ ...r, href: `/kontakte?vorschau=${r.id}` })),
+  venue: async (ids) =>
+    (
+      await db.select({ id: venue.id, label: venue.name }).from(venue).where(inArray(venue.id, ids))
+    ).map((r) => ({ ...r, href: `/orte/${r.id}` })),
+  zone: async (ids) =>
+    (
+      await db
+        .select({ id: zone.id, zone: zone.name, venue: venue.name, venueId: zone.venueId })
+        .from(zone)
+        .innerJoin(venue, eq(venue.id, zone.venueId))
+        .where(inArray(zone.id, ids))
+    ).map((r) => ({ id: r.id, label: `${r.venue} · ${r.zone}`, href: `/orte/${r.venueId}` })),
+  row: async (ids) =>
+    (
+      await db
+        .select({ id: venueRow.id, row: venueRow.label, venue: venue.name, venueId: zone.venueId })
+        .from(venueRow)
+        .innerJoin(zone, eq(zone.id, venueRow.zoneId))
+        .innerJoin(venue, eq(venue.id, zone.venueId))
+        .where(inArray(venueRow.id, ids))
+    ).map((r) => ({ id: r.id, label: `${r.venue} · ${r.row}`, href: `/orte/${r.venueId}` })),
+  location_agreement: async (ids) =>
+    (
+      await db
+        .select({ id: locationAgreement.id, label: venue.name, venueId: locationAgreement.venueId })
+        .from(locationAgreement)
+        .innerJoin(venue, eq(venue.id, locationAgreement.venueId))
+        .where(inArray(locationAgreement.id, ids))
+    ).map((r) => ({ id: r.id, label: r.label, href: `/orte/${r.venueId}` })),
+  permit_requirement: async (ids) =>
+    (
+      await db
+        .select({
+          id: permitRequirement.id,
+          label: permitRequirement.title,
+          venueId: permitRequirement.venueId,
+        })
+        .from(permitRequirement)
+        .where(inArray(permitRequirement.id, ids))
+    ).map((r) => ({
+      id: r.id,
+      label: r.label,
+      href: `/orte/${r.venueId}/genehmigungen/${r.id}`,
+    })),
+  vehicle: async (ids) =>
+    (
+      await db
+        .select({ id: vehicle.id, label: vehicle.name })
+        .from(vehicle)
+        .where(inArray(vehicle.id, ids))
+    ).map((r) => ({ ...r, href: `/firma/fahrzeuge/${r.id}` })),
+  vehicle_issue: async (ids) =>
+    (
+      await db
+        .select({ id: vehicleIssue.id, title: vehicleIssue.title, vehicle: vehicle.name })
+        .from(vehicleIssue)
+        .innerJoin(vehicle, eq(vehicle.id, vehicleIssue.vehicleId))
+        .where(inArray(vehicleIssue.id, ids))
+    ).map((r) => ({ id: r.id, label: `${r.vehicle}: ${r.title}`, href: "/firma/maengel" })),
+  obligation: async (ids) =>
+    (
+      await db
+        .select({ id: obligation.id, label: obligation.title })
+        .from(obligation)
+        .where(inArray(obligation.id, ids))
+    ).map((r) => ({ ...r, href: `/firma/pflichten/${r.id}` })),
+  appointment: async (ids) =>
+    (
+      await db
+        .select({ id: appointment.id, label: appointment.title })
+        .from(appointment)
+        .where(inArray(appointment.id, ids))
+    ).map((r) => ({ ...r, href: `/kalender?vorschau=besprechung:${r.id}` })),
+  event_preset: async (ids) =>
+    (
+      await db
+        .select({ id: eventPreset.id, label: eventPreset.name })
+        .from(eventPreset)
+        .where(inArray(eventPreset.id, ids))
+    ).map((r) => ({ ...r, href: `/vorlagen/${r.id}` })),
+  event_season: async (ids) =>
+    (
+      await db
+        .select({
+          id: eventSeason.id,
+          name: eventPreset.name,
+          season: eventSeason.season,
+          presetId: eventSeason.presetId,
+        })
+        .from(eventSeason)
+        .innerJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
+        .where(inArray(eventSeason.id, ids))
+    ).map((r) => ({ id: r.id, label: `${r.name} ${r.season}`, href: `/vorlagen/${r.presetId}` })),
+  checklist_template: async (ids) =>
+    (
+      await db
+        .select({ id: checklistTemplate.id, label: checklistTemplate.name })
+        .from(checklistTemplate)
+        .where(inArray(checklistTemplate.id, ids))
+    ).map((r) => ({ ...r, href: `/vorlagen/ablauf/${r.id}` })),
+  template_version: async (ids) =>
+    (
+      await db
+        .select({
+          id: templateVersion.id,
+          label: checklistTemplate.name,
+          templateId: templateVersion.templateId,
+        })
+        .from(templateVersion)
+        .innerJoin(checklistTemplate, eq(checklistTemplate.id, templateVersion.templateId))
+        .where(inArray(templateVersion.id, ids))
+    ).map((r) => ({ id: r.id, label: r.label, href: `/vorlagen/ablauf/${r.templateId}` })),
+  next_time_note: async (ids) =>
+    (
+      await db
+        .select({ id: nextTimeNote.id, label: eventPreset.name, presetId: nextTimeNote.presetId })
+        .from(nextTimeNote)
+        .innerJoin(eventPreset, eq(eventPreset.id, nextTimeNote.presetId))
+        .where(inArray(nextTimeNote.id, ids))
+    ).map((r) => ({ id: r.id, label: r.label, href: `/vorlagen/${r.presetId}` })),
+  checklist: async (ids) =>
+    (
+      await db
+        .select({ id: checklist.id, label: checklist.name, eventId: checklist.eventId })
+        .from(checklist)
+        .where(inArray(checklist.id, ids))
+    ).map((r) => ({
+      id: r.id,
+      label: r.label,
+      href: r.eventId ? `/veranstaltungen/${r.eventId}` : undefined,
+    })),
+  document: async (ids) =>
+    db
+      .select({ id: document.id, label: document.fileName })
+      .from(document)
+      .where(inArray(document.id, ids)),
+  payable: async (ids) =>
+    (
+      await db
+        .select({ id: payable.id, label: payable.title })
+        .from(payable)
+        .where(inArray(payable.id, ids))
+    ).map((r) => ({
+      ...r,
+      href: isModuleHidden("finance") ? undefined : `/finanzen/posten/${r.id}`,
+    })),
+  installment: async (ids) =>
+    (
+      await db
+        .select({ id: installment.id, label: payable.title, payableId: installment.payableId })
+        .from(installment)
+        .innerJoin(payable, eq(payable.id, installment.payableId))
+        .where(inArray(installment.id, ids))
+    ).map((r) => ({
+      id: r.id,
+      label: r.label,
+      href: isModuleHidden("finance") ? undefined : `/finanzen/posten/${r.payableId}`,
+    })),
+  expense: async (ids) =>
+    db
+      .select({ id: expense.id, label: expense.description })
+      .from(expense)
+      .where(inArray(expense.id, ids)),
+  user: async (ids) =>
+    (
+      await db.select({ id: user.id, label: user.name }).from(user).where(inArray(user.id, ids))
+    ).map((r) => ({ ...r, href: "/einstellungen/benutzer" })),
+  staff_member: async (ids) =>
+    db
+      .select({ id: staffMember.id, label: staffMember.displayName })
+      .from(staffMember)
+      .where(inArray(staffMember.id, ids)),
+  notification: async (ids) =>
+    db
+      .select({ id: notification.id, label: notification.title })
+      .from(notification)
+      .where(inArray(notification.id, ids)),
+};
+
+type Diff = {
+  fileName?: unknown;
+  title?: unknown;
+  name?: unknown;
+  label?: unknown;
+  description?: unknown;
+  changes?: { name?: { to?: unknown }; title?: { to?: unknown }; fileName?: { to?: unknown } };
+};
+
+/** A name the entry carries itself, for records that are gone or have no name column. */
+function nameFromDiff(diff: unknown): string | null {
+  const d = (diff && typeof diff === "object" ? diff : {}) as Diff;
+  for (const value of [
+    d.changes?.fileName?.to,
+    d.changes?.name?.to,
+    d.changes?.title?.to,
+    d.fileName,
+    d.title,
+    d.name,
+    d.label,
+    d.description,
+  ])
+    if (typeof value === "string" && value.trim() !== "") return value;
+  return null;
+}
+
+type ActivityRow = Omit<ActivityEntry, "target" | "at"> & { at: Date };
+
+/**
+ * The id of the record an entry is about. User ids are text, so entries about a user keep it in the diff
+ * (`entity_id` is a uuid column).
+ */
+function recordId(r: ActivityRow): string | null {
+  if (r.entityId) return r.entityId;
+  const userId = (r.diff as { userId?: unknown } | null)?.userId;
+  return r.entityType === "user" && typeof userId === "string" ? userId : null;
+}
+
+/** Fills `target` for a page of entries (task, permit and event come with the main query). */
+async function withTargets(rows: ActivityRow[]): Promise<ActivityEntry[]> {
+  const idsByType = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const id = recordId(r);
+    if (!id || !TARGETS[r.entityType]) continue;
+    const set = idsByType.get(r.entityType) ?? new Set<string>();
+    set.add(id);
+    idsByType.set(r.entityType, set);
+  }
+  const found = new Map<string, ActivityTarget>();
+  await Promise.all(
+    [...idsByType].map(async ([type, ids]) => {
+      const resolve = TARGETS[type];
+      if (!resolve) return;
+      for (const n of await resolve([...ids]))
+        if (n.label) found.set(`${type}:${n.id}`, { label: n.label, href: n.href });
+    }),
+  );
+  return rows.map((r) => {
+    let target: ActivityTarget | null = null;
+    if (r.taskTitle)
+      target = {
+        label: r.taskTitle,
+        href: r.taskEventId ? `/veranstaltungen/${r.taskEventId}?aufgabe=${r.entityId}` : undefined,
+      };
+    else if (r.permitTitle)
+      target = { label: r.permitTitle, href: `/genehmigungen?genehmigung=${r.entityId}` };
+    else if (r.eventName) target = { label: r.eventName, href: `/veranstaltungen/${r.entityId}` };
+    else target = found.get(`${r.entityType}:${recordId(r)}`) ?? null;
+    if (!target) {
+      const label = nameFromDiff(r.diff);
+      target = label ? { label } : null;
+    }
+    return { ...r, at: r.at.toISOString(), target };
+  });
+}
+
+/**
+ * The company-wide activity: every audit entry, newest first, with who did it and what it was about (the
+ * record's name and page, see `TARGETS`). Owner and manager only (`audit:read`); `area` narrows to one kind
+ * of record.
  */
 export async function listActivity(
   actor: Actor,
@@ -363,10 +669,7 @@ export async function listActivity(
       .offset((filters.page - 1) * filters.size),
     db.select({ n: count() }).from(auditLog).where(condition),
   ]);
-  return {
-    rows: rows.map((r) => ({ ...r, at: r.at.toISOString() })),
-    total: totals?.n ?? 0,
-  };
+  return { rows: await withTargets(rows), total: totals?.n ?? 0 };
 }
 
 // ---------------------------------------------------------------------------------------------

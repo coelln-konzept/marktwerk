@@ -1,4 +1,4 @@
-import { document, event, permit } from "@marktwerk/db/schema";
+import { auditLog, contact, document, event, permit } from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
@@ -134,6 +134,54 @@ describe("Archiv: Aktivität", () => {
     expect(permits.rows.every((r) => r.entityType.startsWith("permit"))).toBe(true);
     const staff = await createActor("staff");
     expect(await listActivity(staff, { page: 1, size: 50 })).toEqual({ rows: [], total: 0 });
+  });
+});
+
+describe("Archiv: Aktivität, Betrifft", () => {
+  it("names and links the record of every entry, and falls back to the name in the entry", async () => {
+    const [person] = await db
+      .insert(contact)
+      .values({ kind: "authority", name: "Ordnungsamt Köln" })
+      .returning();
+    if (!person) throw new Error("contact");
+    const gone = "00000000-0000-4000-8000-000000000001";
+    await db.insert(auditLog).values([
+      { actorId: owner.id, action: "contact.create", entityType: "contact", entityId: person.id },
+      { actorId: owner.id, action: "venue.update", entityType: "venue", entityId: cat.venue.id },
+      {
+        actorId: owner.id,
+        action: "preset.update",
+        entityType: "event_preset",
+        entityId: cat.presets.flea.id,
+      },
+      {
+        actorId: owner.id,
+        action: "vehicle.archive",
+        entityType: "vehicle",
+        entityId: gone,
+        diff: { name: "Alter Sprinter" },
+      },
+      { actorId: owner.id, action: "settings.update", entityType: "settings", entityId: null },
+    ]);
+    const { rows } = await listActivity(owner, { page: 1, size: 50 });
+    const byAction = Object.fromEntries(rows.map((r) => [r.action, r.target]));
+    expect(byAction["contact.create"]).toEqual({
+      label: "Ordnungsamt Köln",
+      href: `/kontakte?vorschau=${person.id}`,
+    });
+    expect(byAction["venue.update"]).toEqual({
+      label: "Messeplatz Test",
+      href: `/orte/${cat.venue.id}`,
+    });
+    expect(byAction["preset.update"]).toEqual({
+      label: "Testflohmarkt",
+      href: `/vorlagen/${cat.presets.flea.id}`,
+    });
+    expect(byAction["vehicle.archive"]).toEqual({ label: "Alter Sprinter" });
+    expect(byAction["settings.update"]).toBeNull();
+
+    const contacts = await listActivity(owner, { area: "contact", page: 1, size: 50 });
+    expect(contacts.rows.map((r) => r.action)).toEqual(["contact.create"]);
   });
 });
 
