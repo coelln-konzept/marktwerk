@@ -9,13 +9,20 @@ import { formatDate } from "./format";
 /** Longest query we look at (words beyond the sixth are ignored). */
 const MAX_TOKENS = 6;
 
-/** "Köln" -> "koln", "Straße" -> "strase" (same as the `translate()` of the SQL side). */
+/**
+ * One spelling for the ways German words get typed: umlauts and accents lose their marks ("Köln" -> "koln"),
+ * the ASCII spellings fold the same way ("Koeln" -> "koln", "Huerth" -> "hurth"), and ß and ss become one s
+ * ("Straße", "Strasse" -> "strase"). Applied to the query and to the records alike, so a word that is not
+ * an umlaut ("Michael" -> "michal") still finds itself. `foldSql` in `server/search-core.ts` is the SQL twin.
+ */
 export function foldText(text: string): string {
   return text
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .replace(/ß/g, "s");
+    .replace(/ß/g, "s")
+    .replace(/([aou])e/g, "$1")
+    .replace(/ss/g, "s");
 }
 
 /** The words of a query, folded and without duplicates: "Flohmarkt  Bonn 2026" -> ["flohmarkt", "bonn", "2026"]. */

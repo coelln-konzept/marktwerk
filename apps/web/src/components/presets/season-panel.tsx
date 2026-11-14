@@ -5,9 +5,9 @@ import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { formatDateWithWeekday, formatWeek } from "@/lib/format";
-import type { MarketSeason, MarketSeasons } from "@/server/queries/seasons";
+import type { MarketSeason, MarketSeasons, MissingSeason } from "@/server/queries/seasons";
 import {
-  CreateSeasonButton,
+  CreateSeasonForm,
   ExpectedStartEditor,
   SeasonStatusMenu,
   SeasonSuggestion,
@@ -17,9 +17,9 @@ import {
 type Rights = { canWrite: boolean; canWriteTasks: boolean };
 
 /**
- * The Saison panels of the market page (research 13 §6.3, Fahrplan R12): the current year's season (or "Saison
- * anlegen" while it has no record) and the next year's once it exists. Seasons that are not closed come first, by
- * year, the closed ones after them (`orderSeasonPanels`).
+ * The Saison panels of the market page (research 13 §6.3, Fahrplan R12): one line on what a Saison is (UX-050),
+ * then the current year's season (or "Saison anlegen" while it has no record) and the next year's once it
+ * exists. Seasons that are not closed come first, by year, the closed ones after them (`orderSeasonPanels`).
  */
 export async function SeasonPanels({
   presetId,
@@ -32,6 +32,7 @@ export async function SeasonPanels({
   seasons: MarketSeasons;
   today: string;
 } & Rights) {
+  const t = await getTranslations("templates.season");
   const rights = { canWrite, canWriteTasks };
   const panels = orderSeasonPanels([
     {
@@ -43,8 +44,10 @@ export async function SeasonPanels({
       ? [{ season: seasons.next.season, status: seasons.next.status, record: seasons.next }]
       : []),
   ]);
+  const missing = seasons.current.missing ?? { hasDates: false, suggestedStart: null };
   return (
     <KeyboardRows className="flex flex-col gap-6">
+      <p className="m-0 -mb-4 text-small text-foreground-2">{t("intro")}</p>
       {panels.map((p) =>
         p.record ? (
           <SeasonPanel
@@ -59,6 +62,7 @@ export async function SeasonPanels({
             key={p.season}
             presetId={presetId}
             season={p.season}
+            missing={missing}
             canWrite={canWrite}
           />
         ),
@@ -70,10 +74,12 @@ export async function SeasonPanels({
 async function MissingSeasonPanel({
   presetId,
   season,
+  missing,
   canWrite,
 }: {
   presetId: string;
   season: number;
+  missing: MissingSeason;
   canWrite: boolean;
 }) {
   const t = await getTranslations("templates.season");
@@ -82,9 +88,22 @@ async function MissingSeasonPanel({
       <EmptyState
         icon={CalendarRange}
         title={t("missing.title", { season })}
-        hint={t("missing.hint")}
+        hint={
+          !canWrite
+            ? t("missing.hint")
+            : missing.hasDates
+              ? t("createForm.hasDates")
+              : t("createForm.hint")
+        }
       >
-        {canWrite && <CreateSeasonButton presetId={presetId} season={season} />}
+        {canWrite && (
+          <CreateSeasonForm
+            presetId={presetId}
+            season={season}
+            hasDates={missing.hasDates}
+            suggestedStart={missing.suggestedStart}
+          />
+        )}
       </EmptyState>
     </Panel>
   );
@@ -106,6 +125,11 @@ async function SeasonPanel({
   const { start, tasks } = season;
   // Client parts get only what they need (the task rows travel once).
   const ref = { id: season.id, season: season.season, status: season.status };
+  const statusRef = {
+    ...ref,
+    statusBlocks: season.statusBlocks,
+    openSeasonTasks: season.openSeasonTasks,
+  };
   const open = tasks?.open ?? [];
   const finished = tasks?.finished ?? [];
   const row = (task: (typeof open)[number]) => (
@@ -126,7 +150,7 @@ async function SeasonPanel({
       meta={
         tasks && season.status !== "closed" ? t("openCount", { count: open.length }) : undefined
       }
-      actions={<SeasonStatusMenu season={ref} canWrite={canWrite} />}
+      actions={<SeasonStatusMenu season={statusRef} canWrite={canWrite} />}
       cardClassName="overflow-hidden"
     >
       <div className="flex items-start gap-3 px-4 py-3">

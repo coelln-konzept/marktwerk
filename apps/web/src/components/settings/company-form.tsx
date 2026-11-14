@@ -12,6 +12,7 @@ import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
 import type { CompanySettings } from "@/server/queries/settings";
 import type { CompanyField, SettingsFieldError } from "@/server/services/settings";
 import { SELECT_CLASS } from "./select-class";
+import { UnsavedBar, useUnsavedGuard } from "./unsaved-guard";
 
 type Values = Pick<CompanySettings, CompanyField>;
 type Errors = Partial<Record<CompanyField, SettingsFieldError>>;
@@ -43,7 +44,8 @@ export type CompanyFormOptions = { bundeslaender: string[]; locales: string[] };
 
 /**
  * Company data form (owner, `settings:manage`). One page rather than a dialog: 15 fields in five sections.
- * Field errors from the server are shown next to the fields; saving shows a toast.
+ * Field errors from the server are shown next to the fields; saving shows a toast. Leaving with unsaved
+ * edits (a tab, the sidebar, reload) asks first: "Verwerfen" or "Weiter bearbeiten".
  */
 export function CompanyForm({
   initial,
@@ -71,8 +73,20 @@ export function CompanyForm({
   useEffect(() => {
     if (focusRequest) document.getElementById(`${formId}-${focusRequest.field}`)?.focus();
   }, [focusRequest, formId]);
-  const dirty =
-    !created || (Object.keys(values) as CompanyField[]).some((k) => values[k] !== saved[k]);
+  const changedFields = (Object.keys(values) as CompanyField[]).filter(
+    (k) => values[k] !== saved[k],
+  );
+  // Before the first save "Speichern" is always on (it creates the row); only real edits are guarded.
+  const dirty = !created || changedFields.length > 0;
+  const guard = useUnsavedGuard(changedFields.length > 0 && !pending);
+
+  /** "Weiter bearbeiten": back to the first field that differs from the saved data. */
+  function keepEditing() {
+    guard.clear();
+    const first = FIELD_ORDER.find((f) => changedFields.includes(f));
+    const el = first ? document.getElementById(`${formId}-${first}`) : null;
+    if (el && el.getClientRects().length > 0) el.focus();
+  }
 
   const set = <K extends CompanyField>(key: K, value: Values[K]) => {
     setValues((v) => ({ ...v, [key]: value }));
@@ -359,12 +373,16 @@ export function CompanyForm({
             {pending ? (
               t("saving")
             ) : justSaved && !dirty ? (
-              <span className="inline-flex items-center gap-1">
-                <Check aria-hidden className="size-3.5" />
+              // The toast already announces "gespeichert"; this mark is for the eyes only.
+              <span aria-hidden className="inline-flex items-center gap-1">
+                <Check className="size-3.5" />
                 {t("saved")}
               </span>
             ) : null}
           </span>
+          {created && changedFields.length > 0 && !pending && (
+            <span className="text-small text-status-warn">{t("unsaved.notice")}</span>
+          )}
           {(hasErrors || failed) && (
             <p role="alert" className="m-0 text-small text-status-critical">
               {failed ? t("failed") : t("errorSummary")}
@@ -372,6 +390,15 @@ export function CompanyForm({
           )}
         </PanelFooter>
       </Panel>
+      {guard.pendingHref && (
+        <UnsavedBar
+          href={guard.pendingHref}
+          message={t("unsaved.leave")}
+          discardLabel={t("unsaved.discard")}
+          keepLabel={t("unsaved.keepEditing")}
+          onKeep={keepEditing}
+        />
+      )}
     </form>
   );
 }

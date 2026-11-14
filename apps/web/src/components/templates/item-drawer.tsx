@@ -26,6 +26,7 @@ import {
   addItemAction,
   deleteItemAction,
   moveItemAction,
+  restoreItemsAction,
   updateItemAction,
 } from "@/app/(app)/vorlagen/ablauf/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
@@ -294,7 +295,13 @@ export function ItemDrawer({
     t.has(`anchors.${key}` as never) ? t(`anchors.${key}` as never) : key;
 
   const fields = toFields(form);
-  const issue = checkTemplateItem(fields)[0];
+  const issues = checkTemplateItem(fields);
+  const issue = issues[0];
+  // The offset is checked while typing ("abc", -9999), not only on "Speichern"; an empty field waits for saving.
+  const offsetIssue =
+    form.offsetDays.trim() === ""
+      ? undefined
+      : issues.find((i) => i.field === "offsetDays" && i.code === "invalid_offset");
   const dirty =
     editable &&
     JSON.stringify(fields) !== JSON.stringify(toFields(initialForm(item, newPhase, newScope)));
@@ -385,15 +392,17 @@ export function ItemDrawer({
     });
   }
 
-  /** Removes a child item; the toast puts it back at the same place (undo over a confirmation). */
+  /**
+   * Removes a child item; the toast puts it back at the same place with its own key, so the tasks of existing
+   * events still match it (undo over a confirmation).
+   */
   function removeChild(child: ItemView) {
     setChildError(null);
     const index = items.findIndex((i) => i.key === child.key);
     const beforeKey = items[index + 1]?.key ?? null;
     const afterKey = items[index - 1]?.key ?? null;
-    const { key, ...childFields } = child;
     startChildTransition(async () => {
-      const result = await deleteItemAction(versionId, key);
+      const result = await deleteItemAction(versionId, child.key);
       if (!result.ok) {
         setChildError(errorText(result.error));
         return;
@@ -402,7 +411,7 @@ export function ItemDrawer({
         message: t("drawer.children.removed", { title: child.title }),
         actionLabel: t("drawer.children.undo"),
         onAction: async () => {
-          const back = await addItemAction(versionId, childFields, afterKey, beforeKey);
+          const back = await restoreItemsAction(versionId, [child], afterKey, beforeKey);
           if (!back.ok) showErrorToast(errorText(back.error));
         },
       });
@@ -470,6 +479,15 @@ export function ItemDrawer({
         {error.text}
       </p>
     ) : null;
+
+  // The offset's message: the error of "Speichern" wins (announced at once), else the check while typing. One
+  // paragraph with one id, so the field's `aria-describedby` always points at it.
+  const offsetMessage =
+    error?.field === "offsetDays"
+      ? { text: error.text, alert: true }
+      : offsetIssue
+        ? { text: errorText(offsetIssue.code), alert: false }
+        : undefined;
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && !pending && close()}>
@@ -844,14 +862,23 @@ export function ItemDrawer({
                         value={form.offsetDays}
                         disabled={disabled}
                         className="tabular"
-                        aria-invalid={invalid("offsetDays")}
+                        aria-invalid={invalid("offsetDays") || offsetIssue !== undefined}
+                        aria-describedby={offsetMessage ? "item-offset-error" : undefined}
                         onChange={(e) => set({ offsetDays: e.target.value })}
                       />
                     </div>
                   </div>
                   {fieldError("anchorKey")}
-                  {fieldError("offsetDays")}
-                  {Number.isInteger(fields.offsetDays) && (
+                  {offsetMessage && (
+                    <p
+                      id="item-offset-error"
+                      role={offsetMessage.alert ? "alert" : undefined}
+                      className="text-small text-status-critical"
+                    >
+                      {offsetMessage.text}
+                    </p>
+                  )}
+                  {offsetIssue === undefined && Number.isInteger(fields.offsetDays) && (
                     <p className="tabular font-medium text-small" aria-live="polite">
                       {t("drawer.offsetNow", {
                         text: offsetText.full(fields.offsetDays, form.dayMode),

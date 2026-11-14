@@ -20,8 +20,10 @@ import {
   changeEventStatus,
   deleteEvent,
   type EventDeleteBlockers,
+  type EventDeleteInfo,
   EventLifecycleInputError,
   getEventDeleteInfo,
+  restoreCancelledEvent,
   revertEventStatus,
   updateEventNotes,
 } from "@/server/services/event-lifecycle";
@@ -35,7 +37,9 @@ export async function changeStatus(
   eventId: string,
   to: string,
   reason?: string,
-): Promise<ActionResult<{ from: string; to: string; previousReason: string | null }>> {
+): Promise<
+  ActionResult<{ from: string; to: string; previousReason: string | null; tasks: number }>
+> {
   await requirePermission("event", "write");
   const actor = await getActor();
   try {
@@ -52,19 +56,40 @@ export async function changeStatus(
   }
 }
 
+/** "Absage aufheben": back to the status before the cancellation, the cancelled tasks reopen. */
+export async function restoreCancelled(
+  eventId: string,
+): Promise<
+  ActionResult<{ from: string; to: string; previousReason: string | null; tasks: number }>
+> {
+  await requirePermission("event", "write");
+  const actor = await getActor();
+  try {
+    const data = await restoreCancelledEvent(actor, eventId);
+    refresh();
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof EventLifecycleInputError) {
+      refresh();
+      return { ok: false, error: error.code };
+    }
+    throw error;
+  }
+}
+
 /** Undo toast: back to the previous status. */
 export async function undoStatus(
   eventId: string,
   expected: string,
   previous: string,
   previousReason: string | null,
-): Promise<ActionResult<{ to: string }>> {
+): Promise<ActionResult<{ to: string; tasks: number }>> {
   await requirePermission("event", "write");
   const actor = await getActor();
   try {
     const data = await revertEventStatus(actor, eventId, expected, previous, previousReason);
     refresh();
-    return { ok: true, data: { to: data.to } };
+    return { ok: true, data: { to: data.to, tasks: data.tasks } };
   } catch (error) {
     if (error instanceof EventLifecycleInputError) {
       refresh();
@@ -234,9 +259,7 @@ export async function undoBasics(eventId: string, previous: EventBasics, saved: 
 }
 
 /** "Veranstaltung löschen": loads the name and what blocks the deletion before the dialog asks for the name. */
-export async function loadDeleteInfo(
-  eventId: string,
-): Promise<ActionResult<{ name: string; blockers: EventDeleteBlockers }>> {
+export async function loadDeleteInfo(eventId: string): Promise<ActionResult<EventDeleteInfo>> {
   await requirePermission("event", "delete");
   const actor = await getActor();
   try {

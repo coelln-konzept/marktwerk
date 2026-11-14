@@ -136,7 +136,7 @@ describe("deadline sweep: tasks", () => {
       severity: "info",
       subjectType: "task",
       subjectId: t.id,
-      link: `/board?detail=task:${t.id}`,
+      link: `/?aufgabe=${t.id}`,
     });
     expect(rows[0]?.title).toBe("Fällig in 2 Tagen: Plakate bestellen");
     expect(rows[0]?.dedupeKey).toBe(`task:${t.id}:due-3d:${daysFromNow(2).toISOString()}`);
@@ -212,7 +212,7 @@ describe("deadline sweep: tasks", () => {
       ["ben@test.local", "notification.immediate", "queued"],
     ]);
     expect(mails[1]?.subject).toContain("Eskaliert: Halteverbot aufstellen");
-    expect(mails[1]?.renderedText).toContain("http://localhost:3000/board?detail=task:");
+    expect(mails[1]?.renderedText).toContain("http://localhost:3000/?aufgabe=");
 
     // Nothing again on the next sweeps.
     expect(await deadlineSweep(db, NOW)).toMatchObject({ created: 0, escalated: 0, emails: 0 });
@@ -353,7 +353,7 @@ describe("deadline sweep: tasks", () => {
       reason: "overdue",
       subjectId: t.id,
       title: "Überfällig: Termine planen · Testflohmarkt · Saison 2027",
-      link: `/board?detail=task:${t.id}`,
+      link: `/?aufgabe=${t.id}`,
     });
     const [escalation] = await notificationsOf(benId);
     expect(escalation?.title).toBe(
@@ -582,7 +582,7 @@ describe("daily digest", () => {
     expect(mail?.renderedText).toContain(
       "Aufgabe: Termine planen · Testflohmarkt · Saison 2027 (fällig 20.10.2026)",
     );
-    expect(mail?.renderedText).toContain(`/board?detail=task:`);
+    expect(mail?.renderedText).toContain(`/?aufgabe=`);
   });
 
   it("sends nothing when there is nothing, and honours the opt-out", async () => {
