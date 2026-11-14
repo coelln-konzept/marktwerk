@@ -7,6 +7,7 @@ import {
   CircleAlert,
   Megaphone,
   Pin,
+  RefreshCw,
   ShieldAlert,
   XCircle,
 } from "lucide-react";
@@ -59,7 +60,9 @@ export function MoveDialog({
   const router = useRouter();
   const [date, setDate] = useState(startsOn);
   const [preview, setPreview] = useState<EventSchedulePreview | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ code: string; text: string } | null>(null);
+  // "Moved meanwhile, page refreshed": a note, not a field error; it stays while the preview loads again.
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, startLoading] = useTransition();
   const [pending, startTransition] = useTransition();
   const latest = useRef("");
@@ -71,6 +74,9 @@ export function MoveDialog({
       : t.has(`errors.${code}` as never)
         ? t(`errors.${code}` as never)
         : t("errors.generic");
+  const fail = (code: string) => setError({ code, text: errorText(code) });
+  /** Only a wrong date marks the field invalid; a failed request or a stale preview does not. */
+  const dateInvalid = error?.code === "out_of_range" || error?.code === "invalid_date";
 
   // Every time the dialog opens it starts from the current first day.
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when opening
@@ -79,6 +85,7 @@ export function MoveDialog({
     setDate(startsOn);
     setPreview(null);
     setError(null);
+    setNotice(null);
     latest.current = "";
   }, [open]);
 
@@ -86,12 +93,13 @@ export function MoveDialog({
   // for the picked date is loaded again against it (UX-046).
   // biome-ignore lint/correctness/useExhaustiveDependencies: react to a new first day only
   useEffect(() => {
-    if (open && latest.current) load(latest.current, { keepError: true });
+    if (open && latest.current) load(latest.current, { keepNotice: true });
   }, [startsOn]);
 
-  function load(next: string, options: { keepError?: boolean } = {}) {
+  function load(next: string, options: { keepNotice?: boolean } = {}) {
     setDate(next);
-    if (!options.keepError) setError(null);
+    setError(null);
+    if (!options.keepNotice) setNotice(null);
     latest.current = next;
     if (!next || next === startsOn) {
       setPreview(null);
@@ -100,7 +108,7 @@ export function MoveDialog({
     // A typo such as 9999 is answered here, without a server round trip (UX-041).
     if (!isEventDateInRange(next, todayIn())) {
       setPreview(null);
-      setError(errorText("out_of_range"));
+      fail("out_of_range");
       return;
     }
     startLoading(async () => {
@@ -108,12 +116,12 @@ export function MoveDialog({
       if (latest.current !== next) return; // a newer date was picked meanwhile
       if (!result.ok) {
         setPreview(null);
-        setError(errorText(result.error));
+        fail(result.error);
       } else if (result.data.from.startsOn !== startsOn) {
         // The preview was computed from another first day than this page shows: someone moved the
         // event. Refresh the page; the effect above loads the preview again from the new first day.
         setPreview(null);
-        setError(errorText("conflict"));
+        setNotice(errorText("conflict"));
         router.refresh();
       } else setPreview(result.data);
     });
@@ -125,9 +133,12 @@ export function MoveDialog({
     startTransition(async () => {
       const result = await moveToDate(eventId, to, startsOn);
       if (!result.ok) {
-        // A concurrent move: the old preview must not be confirmed again (the page refreshes).
-        if (result.error === "conflict") setPreview(null);
-        setError(errorText(result.error));
+        // A concurrent move: the old preview must not be confirmed again (the page refreshes and the
+        // preview loads again from the new first day, with this note kept).
+        if (result.error === "conflict") {
+          setPreview(null);
+          setNotice(errorText("conflict"));
+        } else fail(result.error);
         return;
       }
       onOpenChange(false);
@@ -207,16 +218,22 @@ export function MoveDialog({
             max={range.max}
             onChange={(e) => load(e.target.value)}
             className="tabular w-auto self-start"
-            aria-invalid={error ? true : undefined}
+            aria-invalid={dateInvalid || undefined}
             aria-describedby="move-status"
           />
         </div>
 
         <div id="move-status" aria-live="polite" className="flex flex-col gap-3">
           {loading && <p className="text-muted-foreground text-small">{t("loading")}</p>}
+          {notice && (
+            <p className="flex items-start gap-1.5 text-foreground-2 text-small">
+              <RefreshCw aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+              {notice}
+            </p>
+          )}
           {error && (
             <p role="alert" className="text-small text-status-critical">
-              {error}
+              {error.text}
             </p>
           )}
           {preview && !loading && (

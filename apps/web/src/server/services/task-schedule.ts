@@ -8,7 +8,7 @@ import {
 } from "@marktwerk/core";
 import { insertNotifications } from "@marktwerk/db";
 import { auditLog, notification, task } from "@marktwerk/db/schema";
-import { and, count, eq, inArray, isNotNull, like, notInArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull, notInArray, sql } from "drizzle-orm";
 import { formatDate } from "../../lib/format";
 import type { Actor } from "../actor";
 import type { db } from "../db";
@@ -94,14 +94,33 @@ export function shiftedTaskRecipients(
 const datesShiftedKeyPrefix = (eventId: string, from: string, to: string) =>
   `dates_shifted:${eventId}:${from}:${to}:`;
 
+/** The audit actions that count as a change of the event's dates (the revision in the notice key). */
+const DATE_CHANGE_ACTIONS = ["event.move", "event.update"];
+
 /**
- * Undo of a move (UX-046): removes the still unread `dates_shifted` notices of the move `from` → `to`, so
- * nobody is told twice about a move that did not stick. Returns whose notice was removed; read ones stay.
+ * Undo of a move (UX-046): removes the still unread `dates_shifted` notices of the move `from` → `to` that
+ * is being undone, so nobody is told twice about a move that did not stick. Only that move's notices go: the
+ * key carries the revision it was sent with (the number of date changes before it), so an earlier, separate
+ * move with the same dates keeps its notices. Returns whose notice was removed; read ones stay.
  */
 export async function retractDatesShifted(
-  tx: Pick<typeof db, "delete">,
+  tx: Pick<typeof db, "select" | "delete">,
   move: { id: string; from: string; to: string },
 ): Promise<Set<string>> {
+  const changes = await tx
+    .select({
+      action: auditLog.action,
+      from: sql<string | null>`${auditLog.diff} -> 'from' ->> 'startsOn'`,
+      to: sql<string | null>`${auditLog.diff} -> 'to' ->> 'startsOn'`,
+    })
+    .from(auditLog)
+    .where(and(eq(auditLog.entityId, move.id), inArray(auditLog.action, DATE_CHANGE_ACTIONS)))
+    .orderBy(asc(auditLog.at), asc(auditLog.id));
+  // The newest move from → to is the one being undone; its index is the revision it was announced with.
+  const revision = changes.findLastIndex(
+    (c) => c.action === "event.move" && c.from === move.from && c.to === move.to,
+  );
+  if (revision < 0) return new Set();
   const rows = await tx
     .delete(notification)
     .where(
@@ -109,7 +128,10 @@ export async function retractDatesShifted(
         eq(notification.reason, "dates_shifted"),
         eq(notification.subjectId, move.id),
         eq(notification.state, "unread"),
-        like(notification.dedupeKey, `${datesShiftedKeyPrefix(move.id, move.from, move.to)}%`),
+        eq(
+          notification.dedupeKey,
+          `${datesShiftedKeyPrefix(move.id, move.from, move.to)}${revision}`,
+        ),
       ),
     )
     .returning({ recipient: notification.recipientStaffMemberId });
@@ -139,12 +161,7 @@ export async function notifyDatesShifted(
   const [{ revision } = { revision: 0 }] = await tx
     .select({ revision: count() })
     .from(auditLog)
-    .where(
-      and(
-        eq(auditLog.entityId, current.id),
-        inArray(auditLog.action, ["event.move", "event.update"]),
-      ),
-    );
+    .where(and(eq(auditLog.entityId, current.id), inArray(auditLog.action, DATE_CHANGE_ACTIONS)));
   const key = `${datesShiftedKeyPrefix(current.id, current.startsOn, next.startsOn)}${revision}`;
   await insertNotifications(
     tx,

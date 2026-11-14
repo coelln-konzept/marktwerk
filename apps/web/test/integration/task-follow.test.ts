@@ -183,6 +183,24 @@ describe("anchor change → tasks follow", () => {
     expect(await db.select().from(notification)).toHaveLength(0);
   });
 
+  it("the undo takes back only the notices of the move it undoes, not of an earlier one with the same dates", async () => {
+    await moveEvent(owner, eventId, "2027-03-20", "2027-03-13");
+    await moveEvent(owner, eventId, "2027-03-13", "2027-03-20");
+    await moveEvent(owner, eventId, "2027-03-20", "2027-03-13");
+    const ids = async () =>
+      (
+        await db
+          .select({ id: notification.id })
+          .from(notification)
+          .orderBy(asc(notification.createdAt), asc(notification.id))
+      ).map((r) => r.id);
+    const before = await ids();
+    expect(before).toHaveLength(6);
+    await moveEvent(owner, eventId, "2027-03-13", "2027-03-20", { undo: true });
+    // The first two moves' notices stay; the third move's are gone and none are added.
+    expect((await ids()).sort()).toEqual(before.slice(0, 4).sort());
+  });
+
   it("the undo tells only those who already read the first notice", async () => {
     await moveEvent(owner, eventId, "2027-03-20", "2027-03-13");
     await db

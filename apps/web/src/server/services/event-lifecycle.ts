@@ -357,7 +357,13 @@ export async function revertEventStatus(
   });
 }
 
-/** The newest audit entry that set the event to "abgesagt" (a cancellation or an undo back to it). */
+/**
+ * The newest real cancellation of the event: the newest "event.status" entry that set it to "abgesagt" from
+ * another status (a cancellation, or an undo / re-cancel back to it). The migration backfill of 0012
+ * ({backfill: true, from: "cancelled", to: "cancelled"}) is skipped: it was written at migration time, so
+ * neither its date nor its `from` says anything about the cancellation itself. Null when there is none
+ * (older data).
+ */
 async function lastCancellation(x: Pick<typeof db, "select">, eventId: string) {
   const [last] = await x
     .select({ diff: auditLog.diff, at: auditLog.at })
@@ -367,13 +373,35 @@ async function lastCancellation(x: Pick<typeof db, "select">, eventId: string) {
         eq(auditLog.action, "event.status"),
         eq(auditLog.entityId, eventId),
         sql`${auditLog.diff} ->> 'to' = 'cancelled'`,
+        sql`${auditLog.diff} ->> 'from' is distinct from 'cancelled'`,
+        sql`not (${auditLog.diff} ? 'backfill')`,
       ),
     )
     .orderBy(desc(auditLog.at), desc(auditLog.id))
     .limit(1);
-  return last
-    ? { diff: (last.diff ?? {}) as { from?: unknown; cancelledTasks?: unknown }, at: last.at }
-    : null;
+  return last ? { from: (last.diff as { from?: unknown } | null)?.from, at: last.at } : null;
+}
+
+/**
+ * How many tasks the cancellation closed: `cancelledTasks` of the newest entry that records them, by the same
+ * rule as {@link reopenTasksOfEvent} (so the backfill counts for events cancelled before it). Null when no
+ * entry records them.
+ */
+async function lastCancelledTaskCount(x: Pick<typeof db, "select">, eventId: string) {
+  const [last] = await x
+    .select({ diff: auditLog.diff })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.action, "event.status"),
+        eq(auditLog.entityId, eventId),
+        sql`(${auditLog.diff} ? 'cancelledTasks' or ${auditLog.diff} ? 'reopenedTaskIds')`,
+      ),
+    )
+    .orderBy(desc(auditLog.at), desc(auditLog.id))
+    .limit(1);
+  const recorded = (last?.diff as { cancelledTasks?: unknown } | null)?.cancelledTasks;
+  return Array.isArray(recorded) ? recorded.length : null;
 }
 
 /**
@@ -391,7 +419,7 @@ export async function restoreCancelledEvent(
   return db.transaction(async (tx) => {
     const current = await lockEvent(tx, id);
     if (current.status !== "cancelled") throw new EventLifecycleInputError("conflict");
-    const to = statusBeforeCancel((await lastCancellation(tx, id))?.diff.from);
+    const to = statusBeforeCancel((await lastCancellation(tx, id))?.from);
     await tx.update(event).set({ status: to, cancelledReason: null }).where(eq(event.id, id));
     const cascade = await cascadeToTasks(tx, actor, current, "cancelled", to);
     await audit(tx, actor.id, [
@@ -414,20 +442,19 @@ export async function restoreCancelledEvent(
 export type EventCancellation = {
   /** The status "Absage aufheben" returns to. */
   restoresTo: EventStatus;
-  /** How many open tasks the cancellation closed (0 for older data without the record). */
-  tasks: number;
+  /** How many open tasks the cancellation closed; null for older data without the record. */
+  tasks: number | null;
+  /** When it was cancelled; null for older data without the record. */
   at: Date | null;
 };
 
 /** For the "Abgesagt" banner: when, how many tasks went with it and where "Absage aufheben" leads. */
 export async function getEventCancellation(eventId: string): Promise<EventCancellation> {
-  const last = await lastCancellation(db, eventId);
-  const recorded = last?.diff.cancelledTasks;
-  return {
-    restoresTo: statusBeforeCancel(last?.diff.from),
-    tasks: Array.isArray(recorded) ? recorded.length : 0,
-    at: last?.at ?? null,
-  };
+  const [last, tasks] = await Promise.all([
+    lastCancellation(db, eventId),
+    lastCancelledTaskCount(db, eventId),
+  ]);
+  return { restoresTo: statusBeforeCancel(last?.from), tasks, at: last?.at ?? null };
 }
 
 /** Free-text notes of an event. The audit entry records that they changed, not the text itself. */

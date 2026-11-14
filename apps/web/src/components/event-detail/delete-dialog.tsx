@@ -147,32 +147,34 @@ export function DeleteDialog({
 
           {blocked.length > 0 ? (
             <>
-              <AlertDialog.Description className="text-small">
-                {t("blockedIntro")}
+              {/* The whole warning is the description, so screen readers announce all of it. */}
+              <AlertDialog.Description render={<div />} className="flex flex-col gap-4 text-small">
+                <p>{t("blockedIntro")}</p>
+                <ul className="list-disc pl-5">
+                  {blocked.map(({ key, count }) => (
+                    <li key={key}>{t(key, { count })}</li>
+                  ))}
+                </ul>
+                <p className="text-muted-foreground">{t("blockedHint")}</p>
               </AlertDialog.Description>
-              <ul className="list-disc pl-5 text-small">
-                {blocked.map(({ key, count }) => (
-                  <li key={key}>{t(key, { count })}</li>
-                ))}
-              </ul>
-              <p className="text-muted-foreground text-small">{t("blockedHint")}</p>
               <div className="flex justify-end">
                 <AlertDialog.Close render={<Button />}>{t("cancel")}</AlertDialog.Close>
               </div>
             </>
           ) : (
             <>
-              <AlertDialog.Description className="text-small">
-                {losses.length > 0 ? t("lossesIntro") : t("description")}
+              {/* Intro, what is lost and the "cannot be undone" sentence form one description (a11y). */}
+              <AlertDialog.Description render={<div />} className="flex flex-col gap-2 text-small">
+                <p>{losses.length > 0 ? t("lossesIntro") : t("description")}</p>
+                {losses.length > 0 && (
+                  <ul className="list-disc pl-5">
+                    {losses.map((text) => (
+                      <li key={text}>{text}</li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-1 text-muted-foreground">{t("kept")}</p>
               </AlertDialog.Description>
-              {losses.length > 0 && (
-                <ul className="-mt-2 list-disc pl-5 text-small">
-                  {losses.map((text) => (
-                    <li key={text}>{text}</li>
-                  ))}
-                </ul>
-              )}
-              <p className="-mt-1 text-muted-foreground text-small">{t("kept")}</p>
               <form
                 noValidate
                 className="flex flex-col gap-4"

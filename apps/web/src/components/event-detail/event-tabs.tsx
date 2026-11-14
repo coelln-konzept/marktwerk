@@ -176,7 +176,7 @@ export function EventTabs({
                   aria-current={activeMore ? "page" : undefined}
                   className={cn(tabClass(activeMore !== undefined), "bg-transparent")}
                 >
-                  {/* The open sub-page names the button, so it is clear which of the three you are on. */}
+                  {/* The open sub-page names the button, so it is clear which of them you are on. */}
                   {activeMore ? (
                     <>
                       <span className="sr-only">{moreLabel}: </span>

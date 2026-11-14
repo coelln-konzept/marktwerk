@@ -275,13 +275,47 @@ describe("Absage aufheben (UX-049)", () => {
       .where(eq(event.id, eventId));
     expect(await getEventCancellation(eventId)).toEqual({
       restoresTo: "draft",
-      tasks: 0,
+      tasks: null,
       at: null,
     });
     expect((await restoreCancelledEvent(owner, eventId)).to).toBe("draft");
     await expect(restoreCancelledEvent(owner, eventId)).rejects.toMatchObject({
       code: "conflict",
     });
+  });
+
+  it("reads date and previous status from the real cancellation, not the 0012 backfill entry", async () => {
+    // Cancelled before 0012: the real entry knows the date and the status before, but no tasks.
+    const cancelledAt = new Date("2026-09-01T08:00:00Z");
+    await db
+      .update(event)
+      .set({ status: "cancelled", cancelledReason: "Sturm" })
+      .where(eq(event.id, eventId));
+    await db.insert(auditLog).values({
+      action: "event.status",
+      entityType: "event",
+      entityId: eventId,
+      diff: { from: "confirmed", to: "cancelled", reason: "Sturm" },
+      at: cancelledAt,
+    });
+    // The migration then writes {backfill, from: cancelled, to: cancelled, cancelledTasks} with its own date.
+    const file = new URL(
+      "../../../../packages/db/drizzle/0012_cancel_tasks_of_cancelled_events.sql",
+      import.meta.url,
+    );
+    await db.execute(sql.raw(readFileSync(file, "utf8")));
+    expect((await lastStatusAudit())?.diff).toMatchObject({ backfill: true });
+
+    expect(await getEventCancellation(eventId)).toEqual({
+      restoresTo: "confirmed",
+      tasks: 4,
+      at: cancelledAt,
+    });
+    expect(await restoreCancelledEvent(owner, eventId)).toMatchObject({
+      to: "confirmed",
+      tasks: 4,
+    });
+    expect(await status(t.prog as string)).toBe("in_progress");
   });
 
   it("is forbidden without event:write", async () => {

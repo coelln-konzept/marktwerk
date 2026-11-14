@@ -45,6 +45,13 @@ async function CancelledBanner({
 }) {
   const t = await getTranslations("eventDetail.cancelled");
   const tStatus = await getTranslations("status.event");
+  // Older data without the record says nothing about the tasks rather than claim none were open.
+  const taskText =
+    cancellation.tasks === null
+      ? null
+      : cancellation.tasks > 0
+        ? t("tasks", { count: cancellation.tasks })
+        : t("noTasks");
   return (
     <section
       aria-labelledby="cancelled-title"
@@ -61,10 +68,16 @@ async function CancelledBanner({
           {reason && (
             <p className="break-words text-foreground-2 text-small">{t("reason", { reason })}</p>
           )}
-          <p className="text-muted-foreground text-small">
-            {cancellation.tasks > 0 ? t("tasks", { count: cancellation.tasks }) : t("noTasks")}
-            {canRestore && ` ${t("restoreHint", { status: tStatus(cancellation.restoresTo) })}`}
-          </p>
+          {(taskText || canRestore) && (
+            <p className="text-muted-foreground text-small">
+              {[
+                taskText,
+                canRestore && t("restoreHint", { status: tStatus(cancellation.restoresTo) }),
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            </p>
+          )}
         </div>
       </div>
       {canRestore && <RestoreCancelledButton eventId={eventId} label={t("restore")} />}
