@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { Check, Plus, Trash2, UserMinus, UserRound } from "lucide-react";
+import { Check, LoaderCircle, Plus, Trash2, UserMinus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { useTaskActions } from "@/components/board/use-task-actions";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { StaffOption, SubtaskRow } from "@/server/queries/tasks";
+import type { QueuedSubtask } from "./drawer-logic";
 import { DueDateInput } from "./due-input";
 import { isTickFinished, TaskTick } from "./task-tick";
 
@@ -27,7 +28,8 @@ type Actions = ReturnType<typeof useTaskActions>;
  * tick, its title (opens the subtask's own drawer), due date, an overdue badge, the assignee and "Löschen".
  * Every change goes through the same actions as a task of its own, with an undo toast; finishing the last open
  * one offers to complete the parent ("Hauptaufgabe auch erledigen?", in `useTaskActions`). New subtasks are
- * added with Enter.
+ * added with Enter: the field empties at once and keeps the focus, the new row shows "wird angelegt …" until
+ * it is saved, and quick Enters queue up instead of being dropped (UX-021).
  */
 export function SubtaskList({
   subtasks,
@@ -42,6 +44,7 @@ export function SubtaskList({
   draft,
   onDraftChange,
   onAdd,
+  queued,
 }: {
   subtasks: SubtaskRow[];
   staff: StaffOption[];
@@ -49,18 +52,20 @@ export function SubtaskList({
   canWrite: boolean;
   canAssign: boolean;
   canDelete: boolean;
-  /** A save of the drawer is running (due-date fields and "+" wait for it). */
+  /** A save of the drawer is running (the due-date fields wait for it; adding does not). */
   pending: boolean;
   actions: Actions;
-  onSaveDue: (subtask: SubtaskRow, dueOn: string) => void;
+  onSaveDue: (subtask: SubtaskRow, dueOn: string | null) => void;
   /** The title being typed into "Unteraufgabe hinzufügen" (the drawer keeps it while it is open). */
   draft: string;
   onDraftChange: (value: string) => void;
   onAdd: (title: string) => void;
+  /** Subtasks typed in but not shown as saved rows yet. */
+  queued: QueuedSubtask[];
 }) {
   const t = useTranslations("tasks");
   const done = subtasks.filter((s) => isTickFinished(s.status)).length;
-  const total = subtasks.length;
+  const total = subtasks.length + queued.length;
 
   return (
     <section className="flex flex-col gap-2">
@@ -81,7 +86,7 @@ export function SubtaskList({
         </div>
       )}
       {total > 0 ? (
-        <ul className="m-0 flex list-none flex-col p-0">
+        <ul className="m-0 flex list-none flex-col p-0" aria-busy={queued.length > 0 || undefined}>
           {subtasks.map((item) => (
             <SubtaskItem
               key={item.id}
@@ -96,6 +101,20 @@ export function SubtaskList({
               onSaveDue={onSaveDue}
             />
           ))}
+          {queued.map((item) => (
+            <li
+              key={`queued-${item.key}`}
+              className="flex items-start gap-1.5 border-b py-1.5 text-muted-foreground last:border-b-0"
+            >
+              <span className="grid size-7 shrink-0 place-items-center touch:size-10">
+                <LoaderCircle aria-hidden className="size-4 animate-spin" />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5 pt-1">
+                <span className="font-medium text-small leading-snug">{item.title}</span>
+                <span className="text-tiny">{t("subtask.saving")}</span>
+              </span>
+            </li>
+          ))}
         </ul>
       ) : (
         !canWrite && <p className="m-0 text-muted-foreground text-small">{t("subtask.none")}</p>
@@ -106,8 +125,8 @@ export function SubtaskList({
           onSubmit={(e) => {
             e.preventDefault();
             const value = draft.trim();
-            // Enter again while the first one is saving must not add it twice.
-            if (value && !pending) onAdd(value);
+            // Every Enter with text adds one; saves queue up in the drawer (never dropped while one runs).
+            if (value) onAdd(value);
           }}
         >
           <Input
@@ -121,7 +140,7 @@ export function SubtaskList({
             type="submit"
             size="icon"
             aria-label={t("addSubtaskButton")}
-            disabled={pending || !draft.trim()}
+            disabled={!draft.trim()}
           >
             <Plus aria-hidden />
           </Button>
@@ -150,7 +169,7 @@ function SubtaskItem({
   canDelete: boolean;
   pending: boolean;
   actions: Actions;
-  onSaveDue: (subtask: SubtaskRow, dueOn: string) => void;
+  onSaveDue: (subtask: SubtaskRow, dueOn: string | null) => void;
 }) {
   const t = useTranslations("tasks");
   const tBoard = useTranslations("board");

@@ -122,6 +122,7 @@
       "reopened": "“{title}” reopened",
       "status": "“{title}”: {status}",
       "reverted": "Undone",
+      "revertedTitle": "Change to “{title}” undone",
       "undo": "Undo",
       "open": "Open",
       "snoozed": "“{title}” snoozed until {date}",

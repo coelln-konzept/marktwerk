@@ -143,7 +143,19 @@
     "cancel": "Abbrechen",
     "save": "Speichern",
     "saved": "Gespeichert",
+    "savedTitle": "„{title}“ gespeichert",
+    "dueCleared": "Fälligkeitsdatum von „{title}“ entfernt",
     "unchanged": "Nichts geändert",
+    "dueField": {
+      "incomplete": "Bitte das Datum vollständig angeben.",
+      "invalid": "Bitte ein gültiges Datum angeben (Jahr mit vier Ziffern)."
+    },
+    "deleted": {
+      "badge": "Gelöscht",
+      "restore": "Wiederherstellen",
+      "hint": "Die Aufgabe steht in keiner Liste mehr. Wiederherstellen holt sie mit ihrem alten Status zurück.",
+      "hintNoRestore": "Die Aufgabe steht in keiner Liste mehr."
+    },
     "hours": "Stunden",
     "nobody": "Niemand",
     "dueSetByHand": "von Hand gesetzt, folgt dem Veranstaltungstermin nicht mehr",
@@ -158,7 +170,9 @@
       "none": "Keine Unteraufgaben.",
       "dueAria": "Fällig am: „{title}“",
       "assignAria": "Zuweisen: „{title}“ (jetzt: {name})",
-      "deleteAria": "Unteraufgabe „{title}“ löschen"
+      "deleteAria": "Unteraufgabe „{title}“ löschen",
+      "saving": "wird angelegt …",
+      "addFailed": "„{title}“ wurde nicht angelegt. {reason}"
     },
     "feedback": {
       "title": "Wie war der Aufwand?",
