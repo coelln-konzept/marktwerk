@@ -209,30 +209,38 @@ above the edit form: the current calendar year (Berlin) and the next year's once
 makes it; archived records are left out). Seasons that are not closed come first, by year, closed ones after them
 (product owner 2026-11-13: in November a closed 2026 sits below 2027; `orderSeasonPanels`). Each is a `Panel` with
 its title outside the card (§6 "Section headings"), the open-task count as `meta` ("3 offen", left out on a closed
-season) and the status switch on the right.
+season) and the status switch on the right. One line above the sections says what a Saison is ("Eine Saison sammelt
+die Arbeit, die bei diesem Markt einmal im Jahr anfällt, …", UX-050).
 - **Status**: "Status: <badge> ⌄" (colour + icon + text, §7: In Planung · Termine stehen · Abgeschlossen) opens a menu
-  with all three in the order planning → dates_set → closed, the current one ticked. Every change is allowed
-  (`canChangeSeasonStatus`), applies at once and shows an undo toast ("Saison 2027: Termine stehen" · Rückgängig);
-  nothing switches by itself. When `suggestedSeasonStatus` has a next step, one line under the start offers it as a
-  button: "Die Termine sind angelegt. [Auf „Termine stehen“ setzen]" (planning with dates) or "Der letzte Termin ist
-  vorbei und keine Saisonaufgabe ist offen. [Saison abschließen]".
+  with all three in the order planning → dates_set → closed, each with a one-line meaning, the current one ticked.
+  A status that contradicts the season is disabled with its reason instead (`seasonStatusBlock`, UX audit round 1
+  default): "Termine stehen" needs a date, "Abgeschlossen" needs the last date over and no open season task. A change
+  applies at once and shows an undo toast ("Saison 2027: Termine stehen" · Rückgängig); nothing switches by itself.
+  Focus stays on the switch after a change (UX-030). When `suggestedSeasonStatus` has a next step, one line under
+  the start offers it as a button: "Die Termine sind angelegt. [Auf „Termine stehen“ setzen]" (planning with dates)
+  or "Der letzte Termin ist vorbei und keine Saisonaufgabe ist offen. [Saison abschließen]"; afterwards focus moves to
+  the status switch.
 - **Start** (first row of the card): with dates "Erster Termin Sa 27.03.2027 · KW 12" and "7 Termine, letzter am
   So 31.10.2027" (cancelled and archived events do not count); without dates "Erwartet ab So 09.05.2027" with
   "KW 18 · noch keine Termine. Mit dem ersten Termin gilt dessen Datum." and an **"Ändern"** button (decision
-  2026-11-13: editable on the market page) that turns the line into a date field with Speichern / Abbrechen (Esc).
-  The date must lie in the season's year (the error stays at the field); `season_start` and the open, not overridden
-  season tasks move with it; undo toast ("Saison 2027 erwartet ab … · 2 Aufgaben verschoben" · Rückgängig). Once the
-  season has dates the field is gone.
+  2026-11-13: editable on the market page) that turns the line into a date field with Speichern / Abbrechen (Esc);
+  closing it gives focus back to "Ändern". The date must lie in the season's year (the error stays at the field);
+  `season_start` and the open, not overridden season tasks move with it; undo toast ("Saison 2027 erwartet ab … ·
+  2 Aufgaben verschoben (+4 Unteraufgaben)" · Rückgängig: top-level tasks counted like the rows, subtasks apart).
+  Once the season has dates the field is gone.
 - **Tasks**: the season's top-level tasks, open ones first by due date (none last), each row with the shared tick
   (no question first: the row stays and moves to "Erledigt"; a second click reopens; `E` ticks the focused row),
   the title opening the task drawer in place (`?aufgabe=<id>`), the due badge with the date, "Zurückgestellt bis …"
   while snoozed, and the assignee (avatar + name, "Niemand zuständig" muted; shown here although the Team module is
   hidden, since the page's own form sets the market's default duties). Finished tasks (done, skipped) fold into
   "› Erledigt (n)". Empty: "Keine Saisonaufgaben. …"; all done: "Alle Saisonaufgaben erledigt".
-- **No record yet** for the current year: the section shows "Noch keine Saison 2026", a one-line explanation and
-  **"Saison anlegen"** (primary), which runs `ensureEventSeason` (the one path) and confirms with a plain toast
-  ("Saison 2026 angelegt · 3 Aufgaben").
-- Rules: `seasonStartInfo`, `canEditExpectedStart`, `expectedStartProblem`, `seasonTaskList`, `orderSeasonPanels` and `nextSeasonStatus` in
+- **No record yet** for the current year: the section shows "Noch keine Saison 2026" and, without dates, asks
+  **"Erwartet ab"** (date field, prefilled from last year's first date with "Vorschlag aus dem Vorjahr …", empty
+  without one; UX-009) next to **"Saison anlegen"** (primary); with dates it is the button alone. It runs
+  `ensureEventSeason` (the one path) and confirms with a plain toast ("Saison 2026 angelegt · 2 Aufgaben (+4
+  Unteraufgaben) · 1 davon war schon fällig und ist jetzt heute fällig": season tasks already overdue at creation are
+  due today, UX audit round 1 default). Focus moves to the new season's status switch.
+- Rules: `seasonStartInfo`, `canEditExpectedStart`, `expectedStartProblem`, `seasonTaskList`, `orderSeasonPanels`, `seasonStatusBlock`, `seasonDueOnCreate` and `nextSeasonStatus` in
   `packages/core/src/events/season.ts`; query `getMarketSeasons`; services `setSeasonStatus` and
   `setSeasonExpectedStart` (`event:write`, audit `season.status` / `season.expected_start`).
 

@@ -199,7 +199,7 @@
       "snoozedUntil": "Zurückgestellt bis {date}",
       "missing": {
         "title": "Noch keine Saison {season}",
-        "hint": "Die Saison sammelt die Arbeit, die einmal im Jahr anfällt, zum Beispiel Termine planen oder Genehmigungen beantragen."
+        "hint": "Die Saisonaufgaben richten sich nach dem ersten Termin."
       },
       "create": "Saison anlegen",
       "toast": {
@@ -207,7 +207,9 @@
         "expected": "Saison {season} erwartet ab {date}",
         "shifted": "{count, plural, one {# Aufgabe verschoben} other {# Aufgaben verschoben}}",
         "created": "Saison {season} angelegt · {count, plural, =0 {keine Aufgaben} one {# Aufgabe} other {# Aufgaben}}",
-        "undo": "Rückgängig"
+        "undo": "Rückgängig",
+        "subtasks": "+{count, plural, one {# Unteraufgabe} other {# Unteraufgaben}}",
+        "dueToday": "{count, plural, one {# davon war schon fällig und ist jetzt heute fällig} other {# davon waren schon fällig und sind jetzt heute fällig}}"
       },
       "errors": {
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
@@ -219,7 +221,28 @@
         "invalid_transition": "Die Saison hat diesen Status schon.",
         "invalid_date": "Bitte ein gültiges Datum eingeben.",
         "outside_season": "Bitte ein Datum im Jahr {season} wählen.",
-        "has_dates": "Die Saison hat schon Termine; ihr erster Termin ist der Saisonstart."
+        "has_dates": "Die Saison hat schon Termine; ihr erster Termin ist der Saisonstart.",
+        "no_dates": "Die Saison hat noch keine Termine. Bitte zuerst Termine anlegen.",
+        "not_over": "Die Saison läuft noch. Abschließen geht erst nach dem letzten Termin.",
+        "open_tasks": "Es sind noch Saisonaufgaben offen. Bitte sie zuerst erledigen oder überspringen."
+      },
+      "intro": "Eine Saison sammelt die Arbeit, die bei diesem Markt einmal im Jahr anfällt, zum Beispiel Termine planen oder die Genehmigung beantragen.",
+      "statusHint": {
+        "planning": "Die Termine stehen noch nicht fest.",
+        "dates_set": "Die Termine des Jahres sind angelegt.",
+        "closed": "Die Saison ist vorbei, nichts ist mehr offen."
+      },
+      "statusBlocked": {
+        "no_dates": "Geht erst, wenn die Saison Termine hat.",
+        "not_over": "Geht erst nach dem letzten Termin.",
+        "open_tasks": "{count, plural, one {Noch # Saisonaufgabe offen.} other {Noch # Saisonaufgaben offen.}}"
+      },
+      "createForm": {
+        "label": "Erwartet ab",
+        "hint": "Ab wann erwartest du den ersten Termin? Die Saisonaufgaben richten sich danach.",
+        "suggested": "Vorschlag aus dem Vorjahr: gleicher Wochentag, gleiche KW.",
+        "hasDates": "Die Saison hat schon Termine. Die Saisonaufgaben richten sich nach dem ersten.",
+        "required": "Bitte ein Datum eingeben."
       }
     }
   },

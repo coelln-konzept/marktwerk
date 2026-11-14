@@ -1,11 +1,17 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { addDays, DISTANCE_DAYS_MAX, SEASON_STATUSES, type SeasonStatus } from "@marktwerk/core";
+import {
+  addDays,
+  DISTANCE_DAYS_MAX,
+  SEASON_STATUSES,
+  type SeasonStatus,
+  type SeasonStatusBlock,
+} from "@marktwerk/core";
 import { AlarmClockOff, CalendarPlus, Check, ChevronDown, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useId, useOptimistic, useRef, useState, useTransition } from "react";
 import {
   createSeasonAction,
   setSeasonExpectedStartAction,
@@ -40,17 +46,56 @@ function useErrorText() {
   };
 }
 
+/**
+ * Task counts as the panel lists them (UX-009): top-level tasks, the subtasks apart ("2 Aufgaben (+4
+ * Unteraufgaben)"), so a toast never names more tasks than the panel shows.
+ */
+function useTaskCount() {
+  const t = useTranslations("templates.season.toast");
+  return (key: "shifted" | "created", tasks: number, subtasks: number, season = 0) => {
+    const text =
+      key === "created" ? t("created", { season, count: tasks }) : t(key, { count: tasks });
+    return subtasks > 0 ? `${text} (${t("subtasks", { count: subtasks })})` : text;
+  };
+}
+
+/** Id of a season's status switch: focus goes back there after changes that remove the control just used. */
+const statusTriggerId = (season: number) => `season-${season}-status`;
+
+/**
+ * Focus to move once a control appears that is not rendered yet ("Saison anlegen" swaps the empty panel for the
+ * season, UX-030): the new status switch takes it when it mounts.
+ */
+let focusOnMount: string | null = null;
+
+/** Moves focus to a season's status switch (it stays mounted while the panel re-renders). */
+function focusStatusTrigger(season: number) {
+  document.getElementById(statusTriggerId(season))?.focus({ preventScroll: true });
+}
+
+/** The season facts the status switch needs. */
+export type SeasonRef = {
+  id: string;
+  season: number;
+  status: SeasonStatus;
+  /** Why a status is refused (UX-050), per status. */
+  statusBlocks: Record<SeasonStatus, SeasonStatusBlock | null>;
+  openSeasonTasks: number;
+};
+
 /** The status change with its undo toast; the undo is the same call back (`expectedFrom` guards both). */
-function useSeasonStatusChange(season: { id: string; season: number; status: SeasonStatus }) {
+function useSeasonStatusChange(season: Pick<SeasonRef, "id" | "season" | "status">) {
   const t = useTranslations("templates.season");
   const errorText = useErrorText();
   const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
-  function change(to: SeasonStatus) {
+  function change(to: SeasonStatus, after?: () => void) {
+    if (pending) return;
     const from = season.status;
     startTransition(async () => {
       const result = await callAction(() => setSeasonStatusAction(season.id, to, from));
+      after?.();
       if (!result.ok) {
         showError(errorText(result.error, season.season));
         return;
@@ -72,17 +117,21 @@ function useSeasonStatusChange(season: { id: string; season: number; status: Sea
   return { change, pending };
 }
 
-/** "Status: <badge> ⌄": every status in the order planning → dates_set → closed, the current one ticked. */
-export function SeasonStatusMenu({
-  season,
-  canWrite,
-}: {
-  season: { id: string; season: number; status: SeasonStatus };
-  canWrite: boolean;
-}) {
+/**
+ * "Status: <badge> ⌄": every status in the order planning → dates_set → closed with what it means, the current
+ * one ticked; a status that contradicts the season's dates or tasks is disabled with the reason (UX-050). The
+ * trigger stays enabled while a change runs, so focus stays on it when the menu closes (UX-030).
+ */
+export function SeasonStatusMenu({ season, canWrite }: { season: SeasonRef; canWrite: boolean }) {
   const t = useTranslations("templates.season");
   const { change, pending } = useSeasonStatusChange(season);
   const ui = SEASON_STATUS_UI[season.status];
+  const triggerId = statusTriggerId(season.season);
+  useEffect(() => {
+    if (focusOnMount !== triggerId) return;
+    focusOnMount = null;
+    document.getElementById(triggerId)?.focus({ preventScroll: true });
+  }, [triggerId]);
   const badge = (
     <StatusBadge tone={ui.tone} icon={ui.icon}>
       {t(`status.${season.status}`)}
@@ -97,30 +146,43 @@ export function SeasonStatusMenu({
   return (
     <Menu.Root>
       <Menu.Trigger
+        id={triggerId}
         aria-label={t("statusChange", { status: t(`status.${season.status}`) })}
         aria-busy={pending}
-        disabled={pending}
-        className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 text-muted-foreground text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress data-[popup-open]:bg-hover"
+        className={cn(
+          "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 text-muted-foreground text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring data-[popup-open]:bg-hover",
+          pending && "cursor-progress",
+        )}
       >
         {t("statusLabel")}: {badge}
         <ChevronDown aria-hidden className="size-4" />
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
-          <Menu.Popup className="flex min-w-[220px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
+          <Menu.Popup className="flex w-[280px] max-w-[calc(100vw-2rem)] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden">
             {SEASON_STATUSES.map((status) => {
               const Icon = SEASON_STATUS_UI[status].icon;
               const on = status === season.status;
+              const block = on ? null : season.statusBlocks[status];
               return (
                 <Menu.Item
                   key={status}
-                  disabled={on}
+                  disabled={on || block !== null || pending}
                   onClick={() => change(status)}
-                  className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[highlighted]:bg-hover"
+                  className="flex min-h-8 cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-small outline-hidden data-[disabled]:cursor-default data-[highlighted]:bg-hover"
                 >
-                  <Icon aria-hidden className="size-4 text-muted-foreground" />
-                  {t(`status.${status}`)}
-                  {on && <Check aria-hidden className="ml-auto size-4" />}
+                  <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className={cn(block && "text-muted-foreground")}>
+                      {t(`status.${status}`)}
+                    </span>
+                    <span className="text-muted-foreground text-tiny">
+                      {block
+                        ? t(`statusBlocked.${block}`, { count: season.openSeasonTasks })
+                        : t(`statusHint.${status}`)}
+                    </span>
+                  </span>
+                  {on && <Check aria-hidden className="mt-0.5 ml-auto size-4 shrink-0" />}
                 </Menu.Item>
               );
             })}
@@ -136,7 +198,7 @@ export function SeasonSuggestion({
   season,
   to,
 }: {
-  season: { id: string; season: number; status: SeasonStatus };
+  season: Pick<SeasonRef, "id" | "season" | "status">;
   to: SeasonStatus;
 }) {
   const t = useTranslations("templates.season.suggest");
@@ -144,7 +206,13 @@ export function SeasonSuggestion({
   return (
     <p className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-border-subtle border-t px-4 py-2 text-small">
       <span className="text-foreground-2">{t(`${to}.hint`)}</span>
-      <Button size="sm" aria-busy={pending} disabled={pending} onClick={() => change(to)}>
+      <Button
+        size="sm"
+        aria-busy={pending}
+        disabled={pending}
+        // The suggestion goes away with the change: focus moves to the status it set (UX-030).
+        onClick={() => change(to, () => focusStatusTrigger(season.season))}
+      >
         {t(`${to}.action`)}
       </Button>
     </p>
@@ -168,20 +236,34 @@ export function ExpectedStartEditor({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const id = useId();
+  const taskCount = useTaskCount();
+  const editButton = useRef<HTMLButtonElement>(null);
+  // Closing the field (save, Abbrechen, Esc) gives focus back to "Ändern" (UX-030).
+  const returnFocus = useRef(false);
+  useEffect(() => {
+    if (editing || !returnFocus.current) return;
+    returnFocus.current = false;
+    editButton.current?.focus({ preventScroll: true });
+  }, [editing]);
+  const close = () => {
+    returnFocus.current = true;
+    setEditing(false);
+  };
 
-  const message = (date: string, shifted: number) => {
+  const message = (date: string, moved: { tasksShifted: number; subtasksShifted: number }) => {
     const text = t("toast.expected", {
       season: season.season,
       date: formatDateWithWeekday(date, locale),
     });
-    return shifted > 0 ? `${text} · ${t("toast.shifted", { count: shifted })}` : text;
+    if (moved.tasksShifted + moved.subtasksShifted === 0) return text;
+    return `${text} · ${taskCount("shifted", moved.tasksShifted, moved.subtasksShifted)}`;
   };
 
   function save() {
     const from = season.expectedStart;
     const to = value;
     if (to === from) {
-      setEditing(false);
+      close();
       return;
     }
     setError(null);
@@ -192,18 +274,18 @@ export function ExpectedStartEditor({
         if (["invalid_date", "outside_season"].includes(result.error))
           setError(errorText(result.error, season.season));
         else {
-          setEditing(false);
+          close();
           showError(errorText(result.error, season.season));
         }
         return;
       }
-      setEditing(false);
+      close();
       showToast({
-        message: message(to, result.data.tasksShifted),
+        message: message(to, result.data),
         actionLabel: t("toast.undo"),
         onAction: async () => {
           const undone = await callAction(() => setSeasonExpectedStartAction(season.id, from, to));
-          if (undone.ok) showToast({ message: message(from, undone.data.tasksShifted) });
+          if (undone.ok) showToast({ message: message(from, undone.data) });
           else showError(errorText(undone.error, season.season));
         },
       });
@@ -218,6 +300,7 @@ export function ExpectedStartEditor({
         </span>
         {canWrite && (
           <Button
+            ref={editButton}
             size="sm"
             variant="ghost"
             aria-label={t("start.editLabel", { season: season.season })}
@@ -245,7 +328,7 @@ export function ExpectedStartEditor({
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.stopPropagation();
-          setEditing(false);
+          close();
         }
       }}
     >
@@ -269,7 +352,7 @@ export function ExpectedStartEditor({
       <Button type="submit" variant="default" size="sm" aria-busy={pending} disabled={pending}>
         {t("start.save")}
       </Button>
-      <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
+      <Button type="button" size="sm" variant="ghost" onClick={close}>
         {t("start.cancel")}
       </Button>
       {error && (
@@ -285,28 +368,111 @@ export function ExpectedStartEditor({
   );
 }
 
-/** "Saison anlegen" while the market has no record for that year: the one path `ensureEventSeason`. */
-export function CreateSeasonButton({ presetId, season }: { presetId: string; season: number }) {
+/**
+ * "Saison anlegen" while the market has no record for that year: the one path `ensureEventSeason`. Without dates
+ * it asks for "Erwartet ab" (UX-009: no silent 1 January), prefilled from last year's first date when there is
+ * one; with dates the first one is the start and nothing is asked. The toast counts top-level tasks like the
+ * panel and says how many were already due and are due today instead. Focus moves to the new season's status.
+ */
+export function CreateSeasonForm({
+  presetId,
+  season,
+  hasDates,
+  suggestedStart,
+}: {
+  presetId: string;
+  season: number;
+  hasDates: boolean;
+  suggestedStart: string | null;
+}) {
   const t = useTranslations("templates.season");
   const errorText = useErrorText();
+  const taskCount = useTaskCount();
   const { showToast, showError } = useShell();
+  const [value, setValue] = useState(suggestedStart ?? "");
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  return (
-    <Button
-      variant="default"
-      aria-busy={pending}
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          const result = await callAction(() => createSeasonAction(presetId, season));
-          if (!result.ok) showError(errorText(result.error, season));
-          else showToast({ message: t("toast.created", { season, count: result.data.tasks }) });
-        })
+  const id = useId();
+
+  function create() {
+    if (!hasDates && value === "") {
+      setError(t("createForm.required"));
+      return;
+    }
+    setError(null);
+    focusOnMount = statusTriggerId(season);
+    startTransition(async () => {
+      const result = await callAction(() =>
+        createSeasonAction(presetId, season, hasDates ? undefined : value),
+      );
+      if (!result.ok) {
+        focusOnMount = null;
+        if (["invalid_date", "outside_season"].includes(result.error))
+          setError(errorText(result.error, season));
+        else showError(errorText(result.error, season));
+        return;
       }
+      const { topLevelTasks, subtasks, dueToday } = result.data;
+      const text = taskCount("created", topLevelTasks, subtasks, season);
+      showToast({
+        message: dueToday > 0 ? `${text} · ${t("toast.dueToday", { count: dueToday })}` : text,
+      });
+    });
+  }
+
+  if (hasDates)
+    return (
+      <Button variant="default" aria-busy={pending} disabled={pending} onClick={create}>
+        <CalendarPlus aria-hidden />
+        {t("create")}
+      </Button>
+    );
+
+  return (
+    <form
+      noValidate
+      className="flex flex-col items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        create();
+      }}
     >
-      <CalendarPlus aria-hidden />
-      {t("create")}
-    </Button>
+      <span className="flex flex-wrap items-center justify-center gap-2">
+        <label htmlFor={id} className="font-medium text-small">
+          {t("createForm.label")}
+        </label>
+        <Input
+          id={id}
+          type="date"
+          required
+          min={`${season}-01-01`}
+          max={`${season}-12-31`}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={
+            [suggestedStart ? `${id}-hint` : null, error ? `${id}-error` : null]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
+          className="w-auto"
+        />
+        <Button type="submit" variant="default" aria-busy={pending} disabled={pending}>
+          <CalendarPlus aria-hidden />
+          {t("create")}
+        </Button>
+      </span>
+      {suggestedStart && (
+        <span id={`${id}-hint`} className="text-muted-foreground text-small">
+          {t("createForm.suggested")}
+        </span>
+      )}
+      {error && (
+        <p id={`${id}-error`} role="alert" className="m-0 text-small text-status-critical">
+          {error}
+        </p>
+      )}
+    </form>
   );
 }
 
