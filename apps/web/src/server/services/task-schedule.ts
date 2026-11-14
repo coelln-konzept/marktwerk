@@ -31,13 +31,17 @@ export type ShiftOwner = { eventId: string } | { seasonId: string };
  * Anchor changes → tasks follow (data model principle 2): which open tasks of an event or a season get a new
  * due date when the named dates become `anchors`. Open = not done/skipped/cancelled; tasks whose date was
  * edited by hand (`due_overridden`) and tasks without an anchor rule stay, and so does a task whose anchor is
- * missing from `anchors`. A task keeps its time of day. Nothing is written.
+ * missing from `anchors`. With `changed`, only tasks on one of those anchors are recomputed: a task on an anchor
+ * that kept its date keeps its due date too (a season task set to today when its record was made late stays
+ * there until its own anchor moves, UX-009). A task keeps its time of day. Nothing is written.
  */
 export async function planTaskShift(
   x: Executor,
   owner: ShiftOwner,
   anchors: ReadonlyMap<string, string>,
+  changed?: ReadonlySet<string>,
 ): Promise<ShiftedTask[]> {
+  if (changed?.size === 0) return [];
   const rows = await x
     .select({
       id: task.id,
@@ -54,7 +58,7 @@ export async function planTaskShift(
       and(
         "eventId" in owner ? eq(task.eventId, owner.eventId) : eq(task.seasonId, owner.seasonId),
         eq(task.dueOverridden, false),
-        isNotNull(task.anchorKey),
+        changed ? inArray(task.anchorKey, [...changed]) : isNotNull(task.anchorKey),
         isNotNull(task.offsetDays),
         notInArray(task.status, [...CLOSED_TASK_STATUSES]),
       ),
@@ -189,8 +193,9 @@ export async function shiftTasks(
   tx: Executor,
   owner: ShiftOwner,
   anchors: ReadonlyMap<string, string>,
+  changed?: ReadonlySet<string>,
 ): Promise<ShiftedTask[]> {
-  const shifted = await planTaskShift(tx, owner, anchors);
+  const shifted = await planTaskShift(tx, owner, anchors, changed);
   for (const s of shifted) await tx.update(task).set({ dueAt: s.to }).where(eq(task.id, s.id));
   return shifted;
 }

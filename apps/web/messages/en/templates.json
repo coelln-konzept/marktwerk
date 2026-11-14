@@ -199,15 +199,18 @@
       "snoozedUntil": "Snoozed until {date}",
       "missing": {
         "title": "No season {season} yet",
-        "hint": "The season collects the work done once a year, such as planning the dates or applying for permits."
+        "hint": "The season tasks are due relative to the first date."
       },
       "create": "Create season",
       "toast": {
         "status": "Season {season}: {status}",
         "expected": "Season {season} expected from {date}",
-        "shifted": "{count, plural, one {# task moved} other {# tasks moved}}",
+        "shifted": "{count, plural, =0 {no tasks moved} one {# task moved} other {# tasks moved}}",
+        "subtasksShifted": "{count, plural, one {# subtask moved} other {# subtasks moved}}",
         "created": "Season {season} created · {count, plural, =0 {no tasks} one {# task} other {# tasks}}",
-        "undo": "Undo"
+        "undo": "Undo",
+        "subtasks": "+{count, plural, one {# subtask} other {# subtasks}}",
+        "dueToday": "{count, plural, one {# of them was already due and is now due today} other {# of them were already due and are now due today}}"
       },
       "errors": {
         "generic": "That didn't work. Please try again.",
@@ -219,7 +222,28 @@
         "invalid_transition": "The season already has this status.",
         "invalid_date": "Please enter a valid date.",
         "outside_season": "Please pick a date in {season}.",
-        "has_dates": "The season already has dates; its first date is the season start."
+        "has_dates": "The season already has dates; its first date is the season start.",
+        "no_dates": "The season has no dates yet. Please create dates first.",
+        "not_over": "The season is still running. It can be closed after the last date.",
+        "open_tasks": "Some season tasks are still open. Please finish or skip them first."
+      },
+      "intro": "A season collects the work this market needs once a year, such as planning the dates or applying for the permit.",
+      "statusHint": {
+        "planning": "The dates are not fixed yet.",
+        "dates_set": "The year's dates have been created.",
+        "closed": "The season is over, nothing is open any more."
+      },
+      "statusBlocked": {
+        "no_dates": "Only once the season has dates.",
+        "not_over": "Only after the last date.",
+        "open_tasks": "{count, plural, one {# season task still open.} other {# season tasks still open.}}"
+      },
+      "createForm": {
+        "label": "Expected from",
+        "hint": "When do you expect the first date? The season tasks are due relative to it.",
+        "suggested": "Suggested from last year: same weekday, same week.",
+        "hasDates": "The season already has dates. The season tasks are due relative to the first one.",
+        "required": "Please enter a date."
       }
     }
   },

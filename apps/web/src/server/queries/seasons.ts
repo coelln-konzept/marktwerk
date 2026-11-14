@@ -1,13 +1,19 @@
 import "server-only";
 import {
   berlinDay,
+  CLOSED_TASK_STATUSES,
   can,
   canEditExpectedStart,
+  expectedStartFromLastSeason,
   resolveRelativeDue,
+  SEASON_STATUSES,
   type SeasonStartInfo,
   type SeasonStatus,
+  type SeasonStatusBlock,
   seasonEnd,
+  seasonStart,
   seasonStartInfo,
+  seasonStatusBlock,
   seasonsToKeep,
   seasonTaskList,
   suggestedSeasonStatus,
@@ -16,7 +22,7 @@ import {
 import { isTopLevel, subtaskAggregates } from "@marktwerk/db";
 import { eventSeason, staffMember, task } from "@marktwerk/db/schema";
 import { seasonEventDates } from "@marktwerk/jobs/seasons";
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, ne, notInArray } from "drizzle-orm";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { visibleTasks } from "../task-scope";
@@ -45,13 +51,25 @@ export type MarketSeason = {
   canEditExpectedStart: boolean;
   /** The status the panel suggests switching to (never applied by itself). */
   suggestedStatus: SeasonStatus | null;
+  /** Why the status switch would refuse a status (UX-050), per status; null where it is possible. */
+  statusBlocks: Record<SeasonStatus, SeasonStatusBlock | null>;
+  /** Open top-level season tasks, whoever may see them (what "Abgeschlossen" waits for). */
+  openSeasonTasks: number;
   /** Null when the actor may not read tasks. Open first, then finished (`seasonTaskList`). */
   tasks: { open: SeasonTaskItem[]; finished: SeasonTaskItem[] } | null;
 };
 
+/** A year without a record ("Saison anlegen"): what the creation asks for (UX-009). */
+export type MissingSeason = {
+  /** The season has dates already: their first one is the start, nothing to ask. */
+  hasDates: boolean;
+  /** "Erwartet ab" from last season's first date (same weekday and week), null without one. */
+  suggestedStart: string | null;
+};
+
 export type MarketSeasons = {
-  /** The current calendar year (Berlin) and its record, null while it has none. */
-  current: { season: number; record: MarketSeason | null };
+  /** The current calendar year (Berlin) and its record, null while it has none (then `missing`). */
+  current: { season: number; record: MarketSeason | null; missing: MissingSeason | null };
   /** The next year's record, only once it exists. */
   next: MarketSeason | null;
 };
@@ -114,9 +132,30 @@ export async function getMarketSeasons(
             ),
           )
       : [];
+  // Unscoped: the status guard counts every open season task, not only the ones the actor sees.
+  const openCounts =
+    rows.length > 0
+      ? await db
+          .select({ seasonId: task.seasonId, n: count() })
+          .from(task)
+          .where(
+            and(
+              inArray(
+                task.seasonId,
+                rows.map((r) => r.id),
+              ),
+              isTopLevel(),
+              notInArray(task.status, [...CLOSED_TASK_STATUSES]),
+            ),
+          )
+          .groupBy(task.seasonId)
+      : [];
 
   const build = async (row: (typeof rows)[number]): Promise<MarketSeason> => {
     const events = await seasonEventDates(db, presetId, row.season);
+    const end = seasonEnd(events);
+    const openSeasonTasks = openCounts.find((c) => c.seasonId === row.id)?.n ?? 0;
+    const facts = { hasDates: end !== null, seasonEnd: end, today, openSeasonTasks };
     const items: SeasonTaskItem[] = taskRows
       .filter((t) => t.seasonId === row.id)
       .map((t) => ({
@@ -137,23 +176,35 @@ export async function getMarketSeasons(
       expectedStart: row.expectedStart,
       start: seasonStartInfo(events, row.expectedStart),
       canEditExpectedStart: canEditExpectedStart(events),
-      suggestedStatus: suggestedSeasonStatus({
-        status: row.status,
-        hasDates: seasonEnd(events) !== null,
-        // No "Termine planen" marker exists yet; the dates themselves count.
-        datesPlanned: false,
-        seasonEnd: seasonEnd(events),
-        today,
-        openSeasonTasks: tasks?.open.length ?? 0,
-      }),
+      // Suggestion and guard count the same tasks, so a suggested status is never refused.
+      suggestedStatus: suggestedSeasonStatus({ status: row.status, ...facts }),
+      statusBlocks: Object.fromEntries(
+        SEASON_STATUSES.map((s) => [s, seasonStatusBlock(s, facts)]),
+      ) as Record<SeasonStatus, SeasonStatusBlock | null>,
+      openSeasonTasks,
       tasks,
+    };
+  };
+
+  const missing = async (season: number): Promise<MissingSeason> => {
+    const last = await seasonEventDates(db, presetId, season - 1);
+    return {
+      hasDates: seasonEnd(await seasonEventDates(db, presetId, season)) !== null,
+      suggestedStart:
+        seasonEnd(last) === null
+          ? null
+          : expectedStartFromLastSeason(seasonStart(last, `${season - 1}-01-01`), season),
     };
   };
 
   const current = rows.find((r) => r.season === currentYear);
   const next = rows.find((r) => r.season === nextYear);
   return {
-    current: { season: currentYear, record: current ? await build(current) : null },
+    current: {
+      season: currentYear,
+      record: current ? await build(current) : null,
+      missing: current ? null : await missing(currentYear),
+    },
     next: next ? await build(next) : null,
   };
 }
