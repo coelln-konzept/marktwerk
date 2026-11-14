@@ -3,9 +3,11 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import {
+  findSimilarVenues,
   getVenue,
   getVenueForEdit,
   listLandownerOptions,
+  listLandownerTargets,
   listVenueOptions,
   listVenues,
 } from "@/server/queries/venues";
@@ -23,6 +25,7 @@ import {
   restoreRow,
   restoreVenue,
   restoreZone,
+  setVenueLandowner,
   updateRow,
   updateVenue,
   type VenueInput,
@@ -163,14 +166,38 @@ describe("createVenue", () => {
   });
 
   it("only takes a live landowner contact", async () => {
-    const authority = await landowner("Stadt Köln", "authority");
+    const supplier = await db
+      .insert(contact)
+      .values({ kind: "supplier", name: "Zeltverleih" })
+      .returning();
     const gone = await landowner("Alt");
     await db.update(contact).set({ archivedAt: new Date() }).where(eq(contact.id, gone.id));
-    for (const id of [authority.id, gone.id, "00000000-0000-4000-8000-000000000000"]) {
-      expect(await codeOf(createVenue(owner, venueInput({ landownerContactId: id })))).toBe(
+    for (const id of [supplier[0]?.id, gone.id, "00000000-0000-4000-8000-000000000000"]) {
+      expect(await codeOf(createVenue(owner, venueInput({ landownerContactId: id ?? null })))).toBe(
         "invalid_landowner",
       );
     }
+  });
+
+  it("lets a Behörde own a städtisches Ort, but not a private one (UX-056)", async () => {
+    const authority = await landowner("Liegenschaftsamt Köln", "authority");
+    const { id } = await createVenue(owner, venueInput({ landownerContactId: authority.id }));
+    const [row] = await db.select().from(venue).where(eq(venue.id, id));
+    expect(row?.landownerContactId).toBe(authority.id);
+    expect(
+      await codeOf(
+        createVenue(
+          owner,
+          venueInput({ name: "Hof", kind: "private", landownerContactId: authority.id }),
+        ),
+      ),
+    ).toBe("invalid_landowner");
+    // Switching the Ort to Privat while the Behörde stays entered is refused too.
+    expect(
+      await codeOf(
+        updateVenue(owner, id, venueInput({ kind: "private", landownerContactId: authority.id })),
+      ),
+    ).toBe("invalid_landowner");
   });
 
   it("needs venue:write", async () => {
@@ -565,9 +592,137 @@ describe("queries", () => {
     expect(await getVenueForEdit(id)).toBeNull();
   });
 
-  it("lists landowner contacts only", async () => {
+  it("lists Eigentümer and Behörden with their kind, nothing else", async () => {
     const a = await landowner("Bauer Anders");
-    await landowner("Stadt Köln", "authority");
-    expect((await listLandownerOptions()).map((o) => o.id)).toEqual([a.id]);
+    const city = await landowner("Stadt Köln", "authority");
+    await db.insert(contact).values({ kind: "supplier", name: "Zeltverleih" });
+    expect(await listLandownerOptions()).toEqual([
+      { id: a.id, name: "Bauer Anders", city: null, kind: "landowner" },
+      { id: city.id, name: "Stadt Köln", city: null, kind: "authority" },
+    ]);
+  });
+
+  it("lists active Orte with their Eigentümer as targets", async () => {
+    const a = await landowner("Bauer Anders");
+    const first = await createVenue(owner, venueInput({ name: "Acker", landownerContactId: a.id }));
+    const second = await createVenue(owner, venueInput({ name: "Burgplatz", kind: "private" }));
+    const gone = await createVenue(owner, venueInput({ name: "Alt" }));
+    await archiveVenue(owner, gone.id);
+    expect(await listLandownerTargets()).toEqual([
+      {
+        id: first.id,
+        name: "Acker",
+        city: "Köln",
+        kind: "municipal",
+        landownerId: a.id,
+        landownerName: "Bauer Anders",
+      },
+      {
+        id: second.id,
+        name: "Burgplatz",
+        city: "Köln",
+        kind: "private",
+        landownerId: null,
+        landownerName: null,
+      },
+    ]);
+  });
+});
+
+describe("findSimilarVenues (UX-028)", () => {
+  it("finds the same name however it is written, or the same street at the same PLZ", async () => {
+    const { id } = await createVenue(
+      owner,
+      venueInput({ name: "Köln – Rheinwiese", street: "Am Rhein 1" }),
+    );
+    expect(await findSimilarVenues({ name: "koeln - rheinwiese" })).toEqual([
+      { id, name: "Köln – Rheinwiese", city: "Köln", reason: "name" },
+    ]);
+    expect(
+      await findSimilarVenues({ name: "Wiese", street: "am rhein 1", postalCode: "50667" }),
+    ).toMatchObject([{ id, reason: "address" }]);
+    expect(
+      await findSimilarVenues({ name: "Wiese", street: "Am Rhein 1", postalCode: "50668" }),
+    ).toEqual([]);
+  });
+
+  it("skips the Ort being edited and archived ones, and needs something typed", async () => {
+    const { id } = await createVenue(owner, venueInput());
+    expect(await findSimilarVenues({ name: "Rheinwiese" }, id)).toEqual([]);
+    expect(await findSimilarVenues({ name: " " })).toEqual([]);
+    await archiveVenue(owner, id);
+    expect(await findSimilarVenues({ name: "Rheinwiese" })).toEqual([]);
+  });
+});
+
+describe("setVenueLandowner (UX-055)", () => {
+  it("enters the contact, audits it, reports the previous one and can be undone", async () => {
+    const old = await landowner("Bauer Anders");
+    const next = await landowner("Familie Müller");
+    const { id } = await createVenue(owner, venueInput({ landownerContactId: old.id }));
+
+    const result = await setVenueLandowner(owner, id, next.id);
+    expect(result).toEqual({
+      changed: true,
+      venueName: "Rheinwiese",
+      previous: { id: old.id, name: "Bauer Anders" },
+    });
+    expect((await getVenue(id))?.landownerId).toBe(next.id);
+    const [entry] = await auditsOf("venue.update");
+    expect(entry?.diff).toEqual({
+      changes: { landownerContactId: { from: old.id, to: next.id } },
+    });
+
+    // The undo toast puts the previous one back.
+    await setVenueLandowner(owner, id, old.id);
+    expect((await getVenue(id))?.landownerId).toBe(old.id);
+    // The same one again changes nothing and writes nothing.
+    expect(await setVenueLandowner(owner, id, old.id)).toMatchObject({ changed: false });
+    expect(await auditsOf("venue.update")).toHaveLength(2);
+    // null clears it (undo when there was none before).
+    await setVenueLandowner(owner, id, null);
+    expect((await getVenue(id))?.landownerId).toBeNull();
+  });
+
+  it("lets the undo put back a previous Eigentümer that was archived meanwhile", async () => {
+    const old = await landowner("Bauer Anders");
+    const next = await landowner("Familie Müller");
+    const { id } = await createVenue(owner, venueInput({ landownerContactId: old.id }));
+    await db.update(contact).set({ archivedAt: new Date() }).where(eq(contact.id, old.id));
+
+    await setVenueLandowner(owner, id, next.id);
+    // Without undoOf the archived one can't be newly entered …
+    expect(await codeOf(setVenueLandowner(owner, id, old.id))).toBe("invalid_landowner");
+    // … nor when the Eigentümer changed since (the undo is stale).
+    expect(await codeOf(setVenueLandowner(owner, id, old.id, old.id))).toBe("invalid_landowner");
+    // The undo of exactly this change puts it back.
+    await expect(setVenueLandowner(owner, id, old.id, next.id)).resolves.toMatchObject({
+      changed: true,
+    });
+    expect((await getVenue(id))?.landownerId).toBe(old.id);
+  });
+
+  it("still checks the kind on undo", async () => {
+    const authority = await landowner("Stadt Köln", "authority");
+    const next = await landowner("Familie Müller");
+    const { id } = await createVenue(owner, venueInput({ landownerContactId: authority.id }));
+    await setVenueLandowner(owner, id, next.id);
+    await db.update(venue).set({ kind: "private" }).where(eq(venue.id, id));
+    expect(await codeOf(setVenueLandowner(owner, id, authority.id, next.id))).toBe(
+      "invalid_landowner",
+    );
+  });
+
+  it("follows the form's rules and needs venue:write", async () => {
+    const authority = await landowner("Stadt Köln", "authority");
+    const { id: privat } = await createVenue(owner, venueInput({ kind: "private" }));
+    expect(await codeOf(setVenueLandowner(owner, privat, authority.id))).toBe("invalid_landowner");
+    expect(await codeOf(setVenueLandowner(owner, privat, "nope"))).toBe("invalid_landowner");
+    const { id: city } = await createVenue(owner, venueInput({ name: "Markt" }));
+    await expect(setVenueLandowner(owner, city, authority.id)).resolves.toMatchObject({
+      changed: true,
+    });
+    const staff = await createActor("staff");
+    await expect(setVenueLandowner(staff, city, null)).rejects.toSatisfy(isForbidden);
   });
 });
