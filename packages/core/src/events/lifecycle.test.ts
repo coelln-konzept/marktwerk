@@ -5,6 +5,7 @@ import {
   EVENT_STATUSES,
   isEventStatus,
   requiresReason,
+  statusBeforeCancel,
 } from "./lifecycle";
 
 describe("event lifecycle", () => {
@@ -49,5 +50,15 @@ describe("event lifecycle", () => {
     expect(isEventStatus("planned")).toBe(true);
     expect(isEventStatus("archived")).toBe(false);
     expect(isEventStatus(null)).toBe(false);
+  });
+
+  it("lifts a cancellation back to the status it came from, else to the draft", () => {
+    // Every status a cancellation can come from comes back as it was.
+    for (const from of EVENT_STATUSES.filter((s) => canTransition(s, "cancelled")))
+      expect(statusBeforeCancel(from)).toBe(from);
+    expect(statusBeforeCancel("live")).toBe("draft");
+    expect(statusBeforeCancel("cancelled")).toBe("draft");
+    expect(statusBeforeCancel(undefined)).toBe("draft");
+    expect(statusBeforeCancel(42)).toBe("draft");
   });
 });

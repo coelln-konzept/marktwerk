@@ -7,8 +7,8 @@ import {
   wallClockTime,
 } from "@marktwerk/core";
 import { insertNotifications } from "@marktwerk/db";
-import { auditLog, task } from "@marktwerk/db/schema";
-import { and, count, eq, inArray, isNotNull, notInArray } from "drizzle-orm";
+import { auditLog, notification, task } from "@marktwerk/db/schema";
+import { and, count, eq, inArray, isNotNull, like, notInArray } from "drizzle-orm";
 import { formatDate } from "../../lib/format";
 import type { Actor } from "../actor";
 import type { db } from "../db";
@@ -80,10 +80,46 @@ export async function planTaskShift(
   return shifted;
 }
 
+/** The staff members a `dates_shifted` notice goes to: assignees of moved tasks, never the actor. */
+export function shiftedTaskRecipients(
+  actor: Pick<Actor, "staffMemberId">,
+  shifted: ShiftedTask[],
+): string[] {
+  const ids = new Set<string>();
+  for (const s of shifted)
+    if (s.assigneeId && s.assigneeId !== actor.staffMemberId) ids.add(s.assigneeId);
+  return [...ids];
+}
+
+const datesShiftedKeyPrefix = (eventId: string, from: string, to: string) =>
+  `dates_shifted:${eventId}:${from}:${to}:`;
+
+/**
+ * Undo of a move (UX-046): removes the still unread `dates_shifted` notices of the move `from` → `to`, so
+ * nobody is told twice about a move that did not stick. Returns whose notice was removed; read ones stay.
+ */
+export async function retractDatesShifted(
+  tx: Pick<typeof db, "delete">,
+  move: { id: string; from: string; to: string },
+): Promise<Set<string>> {
+  const rows = await tx
+    .delete(notification)
+    .where(
+      and(
+        eq(notification.reason, "dates_shifted"),
+        eq(notification.subjectId, move.id),
+        eq(notification.state, "unread"),
+        like(notification.dedupeKey, `${datesShiftedKeyPrefix(move.id, move.from, move.to)}%`),
+      ),
+    )
+    .returning({ recipient: notification.recipientStaffMemberId });
+  return new Set(rows.flatMap((r) => (r.recipient ? [r.recipient] : [])));
+}
+
 /**
  * One grouped `dates_shifted` notification per assignee whose tasks moved (not for the person who made
- * the change). The key includes how often the event's dates were changed before, so a second move
- * back and forth is announced again while a repeated call of the same change is not.
+ * the change, nor for the people in `skip`). The key includes how often the event's dates were changed
+ * before, so a second move back and forth is announced again while a repeated call of the same change is not.
  */
 export async function notifyDatesShifted(
   tx: Pick<typeof db, "select" | "insert">,
@@ -91,10 +127,12 @@ export async function notifyDatesShifted(
   current: { id: string; name: string; startsOn: string },
   next: { startsOn: string },
   shifted: ShiftedTask[],
+  skip: ReadonlySet<string> = new Set(),
 ) {
+  const recipients = new Set(shiftedTaskRecipients(actor, shifted));
   const perPerson = new Map<string, number>();
   for (const s of shifted) {
-    if (!s.assigneeId || s.assigneeId === actor.staffMemberId) continue;
+    if (!s.assigneeId || !recipients.has(s.assigneeId) || skip.has(s.assigneeId)) continue;
     perPerson.set(s.assigneeId, (perPerson.get(s.assigneeId) ?? 0) + 1);
   }
   if (perPerson.size === 0) return;
@@ -107,7 +145,7 @@ export async function notifyDatesShifted(
         inArray(auditLog.action, ["event.move", "event.update"]),
       ),
     );
-  const key = `dates_shifted:${current.id}:${current.startsOn}:${next.startsOn}:${revision}`;
+  const key = `${datesShiftedKeyPrefix(current.id, current.startsOn, next.startsOn)}${revision}`;
   await insertNotifications(
     tx,
     [...perPerson].map(([recipientStaffMemberId, tasks]) => ({

@@ -4,18 +4,21 @@ import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { X } from "lucide-react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { loadDeleteInfo, removeEvent } from "@/app/(app)/veranstaltungen/[id]/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { EventDeleteBlockers } from "@/server/services/event-lifecycle";
+import { formatDateRangeYear } from "@/lib/format";
+import type { EventDeleteInfo } from "@/server/services/event-lifecycle";
 
-type Info = { name: string; blockers: EventDeleteBlockers };
+type Info = EventDeleteInfo;
 
 const BLOCKER_KEYS = ["payables", "expenses", "shifts", "documents"] as const;
+/** What goes with the event, in the order of the list (UX-061); a zero count is left out. */
+const LOSS_KEYS = ["tasks", "permitLinks", "duties", "checklists"] as const;
 
 /**
  * "Veranstaltung löschen" (product owner 2026-11-04): permanent, so a deliberate exception to "undo toasts
@@ -33,6 +36,7 @@ export function DeleteDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("eventDetail.delete");
+  const locale = useLocale();
   const { showToast } = useShell();
   const router = useRouter();
   const pathname = usePathname();
@@ -72,6 +76,16 @@ export function DeleteDialog({
     : [];
   const matches = info !== null && typed.trim() === info.name.trim();
   const isBlocked = blocked.length > 0;
+  // The name is often shared by every date of a market, so the dialog and the toast name the date too.
+  const when = info ? formatDateRangeYear(info.startsOn, info.endsOn, locale, "") : "";
+  const losses = info
+    ? [
+        ...LOSS_KEYS.filter((key) => info.losses[key] > 0).map((key) =>
+          t(`losses.${key}`, { count: info.losses[key] }),
+        ),
+        ...(info.losses.notes ? [t("losses.notes")] : []),
+      ]
+    : [];
 
   // Focus the name field once the check is through (and again after a failed submit re-enabled it).
   useEffect(() => {
@@ -91,14 +105,14 @@ export function DeleteDialog({
       }
       if (!result.ok) {
         if (result.error === "blocked" && result.blockers) {
-          setInfo({ name: info.name, blockers: result.blockers });
+          setInfo({ ...info, blockers: result.blockers });
           return;
         }
         setError(errorText(result.error));
         return;
       }
       onOpenChange(false);
-      showToast({ message: t("deleted", { name: result.data.name }) });
+      showToast({ message: t("deleted", { name: result.data.name, date: when }) });
       if (pathname.startsWith(`/veranstaltungen/${eventId}`)) router.push("/veranstaltungen");
       else if (searchParams.get("vorschau") === eventId) {
         // The Vorschau of the deleted event must not stay open (or linkable): same list URL without it.
@@ -116,8 +130,12 @@ export function DeleteDialog({
         <AlertDialog.Backdrop className="fixed inset-0 z-40 bg-scrim" />
         <AlertDialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100dvh-2rem)] w-[min(480px,calc(100%-2rem))] flex-col gap-4 overflow-y-auto rounded-xl border bg-card p-5 shadow-overlay outline-hidden">
           <div className="flex items-start justify-between gap-3">
-            <AlertDialog.Title className="font-semibold text-lg">
-              {isBlocked ? t("blockedTitle") : t("title")}
+            <AlertDialog.Title className="break-words font-semibold text-lg">
+              {isBlocked
+                ? t("blockedTitle")
+                : info
+                  ? t("titleNamed", { name: info.name, date: when })
+                  : t("title")}
             </AlertDialog.Title>
             <AlertDialog.Close
               aria-label={t("close")}
@@ -144,9 +162,17 @@ export function DeleteDialog({
             </>
           ) : (
             <>
-              <AlertDialog.Description className="text-muted-foreground text-small">
-                {t("description")}
+              <AlertDialog.Description className="text-small">
+                {losses.length > 0 ? t("lossesIntro") : t("description")}
               </AlertDialog.Description>
+              {losses.length > 0 && (
+                <ul className="-mt-2 list-disc pl-5 text-small">
+                  {losses.map((text) => (
+                    <li key={text}>{text}</li>
+                  ))}
+                </ul>
+              )}
+              <p className="-mt-1 text-muted-foreground text-small">{t("kept")}</p>
               <form
                 noValidate
                 className="flex flex-col gap-4"

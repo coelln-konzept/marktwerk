@@ -1,11 +1,16 @@
 import { readFileSync } from "node:fs";
-import { auditLog, task } from "@marktwerk/db/schema";
+import { auditLog, event, task } from "@marktwerk/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import { listDueItems } from "@/server/queries/overview";
-import { changeEventStatus, revertEventStatus } from "@/server/services/event-lifecycle";
+import {
+  changeEventStatus,
+  getEventCancellation,
+  restoreCancelledEvent,
+  revertEventStatus,
+} from "@/server/services/event-lifecycle";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 import { dueOn, getTask, insertEvent, insertTask, TODAY } from "../helpers/tasks";
 
@@ -212,5 +217,77 @@ describe("reopening", () => {
     expect(await status(t.block as string)).toBe("blocked");
     expect(await status(t.wait as string)).toBe("waiting_external");
     expect(await status(t.canc as string)).toBe("cancelled");
+  });
+});
+
+describe("Absage aufheben (UX-049)", () => {
+  it("counts the tasks a cancellation closes and an undo reopens", async () => {
+    const res = await changeEventStatus(owner, eventId, "cancelled", "Sturm");
+    expect(res).toMatchObject({ from: "planned", to: "cancelled", tasks: 4 });
+    const undone = await revertEventStatus(owner, eventId, "cancelled", "planned", null);
+    expect(undone).toEqual({ from: "cancelled", to: "planned", tasks: 4 });
+  });
+
+  it("goes back to the status before the cancellation and reopens the tasks, long after the toast", async () => {
+    await changeEventStatus(owner, eventId, "confirmed");
+    await changeEventStatus(owner, eventId, "cancelled", "Sturm");
+    expect(await getEventCancellation(eventId)).toMatchObject({
+      restoresTo: "confirmed",
+      tasks: 4,
+    });
+
+    const restored = await restoreCancelledEvent(owner, eventId);
+    expect(restored).toEqual({
+      from: "cancelled",
+      to: "confirmed",
+      previousReason: "Sturm",
+      tasks: 4,
+    });
+    const [row] = await db
+      .select({ status: event.status, reason: event.cancelledReason })
+      .from(event)
+      .where(eq(event.id, eventId));
+    expect(row).toEqual({ status: "confirmed", reason: null });
+    expect(await status(t.prog as string)).toBe("in_progress");
+    expect(await status(t.canc as string)).toBe("cancelled");
+    expect((await lastStatusAudit())?.diff).toMatchObject({
+      from: "cancelled",
+      to: "confirmed",
+      restored: true,
+    });
+
+    // The toast's undo cancels again, with the old reason and the same tasks.
+    await revertEventStatus(owner, eventId, "confirmed", "cancelled", restored.previousReason);
+    expect(await status(t.prog as string)).toBe("cancelled");
+    const [again] = await db
+      .select({ reason: event.cancelledReason })
+      .from(event)
+      .where(eq(event.id, eventId));
+    expect(again?.reason).toBe("Sturm");
+    // And lifting it once more still knows where to go back to.
+    expect((await restoreCancelledEvent(owner, eventId)).to).toBe("confirmed");
+  });
+
+  it("falls back to the draft without a record, and refuses an event that is not cancelled", async () => {
+    await db
+      .update(event)
+      .set({ status: "cancelled", cancelledReason: "alt" })
+      .where(eq(event.id, eventId));
+    expect(await getEventCancellation(eventId)).toEqual({
+      restoresTo: "draft",
+      tasks: 0,
+      at: null,
+    });
+    expect((await restoreCancelledEvent(owner, eventId)).to).toBe("draft");
+    await expect(restoreCancelledEvent(owner, eventId)).rejects.toMatchObject({
+      code: "conflict",
+    });
+  });
+
+  it("is forbidden without event:write", async () => {
+    await changeEventStatus(owner, eventId, "cancelled", "Sturm");
+    const staff = await createActor("staff");
+    const error = await restoreCancelledEvent(staff, eventId).catch((e) => e);
+    expect(String((error as { digest?: unknown })?.digest ?? "")).toContain("403");
   });
 });
