@@ -650,18 +650,18 @@ test("Markt planen: Saturday and Sunday picked become one two-day event (switcha
   const clear = sheet.getByRole("button", { name: "Alle abwählen" });
   if (await clear.isVisible()) await clear.click();
   await expect(sheet.getByText("Noch keine Termine gewählt")).toBeVisible();
-  // A free Saturday whose Sunday is free too (a day the place is taken, "Ort belegt", is not merged).
-  const saturdays = sheet.locator(
-    "button[data-day][aria-label^='Sa ']:not([disabled]):not([aria-label*='belegt'])",
-  );
+  // A free Saturday whose Sunday is free too: not a day the place is taken by another market ("Ort belegt")
+  // and not one this market already has ("schon geplant", skipped as "gibt es schon"; since UX-042 the
+  // market's own dates no longer count as "belegt"). Neither would be merged.
+  const free = ":not([disabled]):not([aria-label*='belegt']):not([aria-label*='schon geplant'])";
+  const saturdays = sheet.locator(`button[data-day][aria-label^='Sa ']${free}`);
   let sunday = "";
   for (let i = 5; i < (await saturdays.count()) && sunday === ""; i++) {
     const day = (await saturdays.nth(i).getAttribute("data-day")) as string;
     const next = new Date(`${day}T12:00:00Z`);
     next.setUTCDate(next.getUTCDate() + 1);
     const candidate = next.toISOString().slice(0, 10);
-    const free = `button[data-day='${candidate}']:not([disabled]):not([aria-label*='belegt'])`;
-    if ((await sheet.locator(free).count()) === 0) continue;
+    if ((await sheet.locator(`button[data-day='${candidate}']${free}`).count()) === 0) continue;
     await saturdays.nth(i).click();
     sunday = candidate;
   }
