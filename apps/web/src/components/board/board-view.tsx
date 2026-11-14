@@ -247,6 +247,11 @@ export function BoardView(props: Props) {
       cardsIn(tasksRef.current, column, lane, eventEndsOn),
     [eventEndsOn],
   );
+  // The kanban's column on phones (Columns): the first with open cards, fixed on the first render so the
+  // view never jumps by itself when that column empties; then the switch, or where a lifted card ends up.
+  const [phoneColumn, setPhoneColumn] = useState<BoardColumn>(
+    () => COLUMN_ORDER.find((c) => c !== "done" && cardsOf(c).length > 0) ?? "today",
+  );
 
   // After a drop the card sits in another list; give focus back to its grip.
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs after every change of the cards
@@ -309,6 +314,8 @@ export function BoardView(props: Props) {
   const cancelLift = useCallback(() => {
     if (!lift) return;
     focusAfter.current = lift.id;
+    const from = tasksRef.current.find((c) => c.id === lift.id)?.column;
+    if (from) setPhoneColumn(from);
     setLift(null);
     setLive(t("keys.cancelled"));
   }, [lift, t]);
@@ -317,6 +324,8 @@ export function BoardView(props: Props) {
     if (!lift) return;
     const task = tasksRef.current.find((c) => c.id === lift.id);
     setLift(null);
+    // On phones the column the card lands in shows, so its grip can take focus back.
+    setPhoneColumn(lift.column);
     if (!task) return;
     focusAfter.current = task.id;
     const others = cardsNow(lift.column, lift.lane).filter((c) => c.id !== lift.id);
@@ -479,7 +488,13 @@ export function BoardView(props: Props) {
               {props.layout === "ablauf" && props.eventStartsOn && eventEndsOn ? (
                 <AblaufList tasks={tasks} startsOn={props.eventStartsOn} endsOn={eventEndsOn} />
               ) : props.layout === "columns" ? (
-                <Columns cardsOf={cardsOf} lift={lift} eventEndsOn={eventEndsOn} />
+                <Columns
+                  cardsOf={cardsOf}
+                  lift={lift}
+                  eventEndsOn={eventEndsOn}
+                  picked={phoneColumn}
+                  onPick={setPhoneColumn}
+                />
               ) : (
                 <Swimlanes
                   tasks={tasks}
@@ -570,22 +585,28 @@ export function BoardView(props: Props) {
 
 /**
  * The four columns side by side; on phones one column at a time behind a wrapping switch with the counts
- * (UX-003: the 880 px strip needed a sideways scroll). While a card is lifted, its target column shows.
+ * (UX-003: the 880 px strip needed a sideways scroll). While a card is lifted, its own column (it stays
+ * there until the drop, with the focused grip that takes the keys) and the target column both show; the
+ * switch marks the target.
  */
 function Columns({
   cardsOf,
   lift,
   eventEndsOn,
+  picked,
+  onPick,
 }: {
   cardsOf: (column: BoardColumn) => BoardTask[];
   lift: Lift | null;
   eventEndsOn: string | null;
+  picked: BoardColumn;
+  onPick: (column: BoardColumn) => void;
 }) {
   const t = useTranslations("board");
-  const [picked, setPicked] = useState<BoardColumn | null>(null);
-  const firstWithCards =
-    COLUMN_ORDER.find((c) => c !== "done" && cardsOf(c).length > 0) ?? COLUMN_ORDER[0];
-  const shown = lift?.column ?? picked ?? firstWithCards;
+  const shown = lift?.column ?? picked;
+  const from = lift
+    ? COLUMN_ORDER.find((c) => cardsOf(c).some((task) => task.id === lift.id))
+    : undefined;
   return (
     <div className="flex flex-col gap-3">
       {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of toggle buttons, not a fieldset */}
@@ -601,7 +622,7 @@ function Columns({
               key={column}
               type="button"
               aria-pressed={active}
-              onClick={() => setPicked(column)}
+              onClick={() => onPick(column)}
               className={cn(
                 "inline-flex min-h-9 grow cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring",
                 active
@@ -632,7 +653,7 @@ function Columns({
             cards={cardsOf(column)}
             lift={lift}
             eventEndsOn={eventEndsOn}
-            className={column === shown ? undefined : "max-sm:hidden"}
+            className={column === shown || column === from ? undefined : "max-sm:hidden"}
           />
         ))}
       </div>
