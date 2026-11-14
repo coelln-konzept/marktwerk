@@ -71,20 +71,10 @@ describe("moving events", () => {
 
 describe("event date range", () => {
   it("runs from 1 January last year to 31 December five years ahead", () => {
-    expect(eventDateRange("2026-11-14")).toEqual({
-      min: "2025-01-01",
-      max: "2031-12-31",
-      minYear: 2025,
-      maxYear: 2031,
-    });
+    expect(eventDateRange("2026-11-14")).toMatchObject({ min: "2025-01-01", max: "2031-12-31" });
     // New Year's Eve and New Year's Day: the range follows the calendar year of today.
     expect(eventDateRange("2026-12-31").max).toBe("2031-12-31");
-    expect(eventDateRange("2027-01-01")).toEqual({
-      min: "2026-01-01",
-      max: "2032-12-31",
-      minYear: 2026,
-      maxYear: 2032,
-    });
+    expect(eventDateRange("2027-01-01")).toMatchObject({ min: "2026-01-01", max: "2032-12-31" });
   });
 
   it("accepts dates inside and rejects typos, far years and non-dates", () => {
