@@ -1,3 +1,4 @@
+import { isIsoDate } from "../dates/calendar";
 import { isInEventDateRange } from "./date-range";
 import type { EventStatus } from "./lifecycle";
 
@@ -51,10 +52,7 @@ export function canMoveEvent(status: EventStatus): boolean {
   return status === "draft" || status === "planned" || status === "confirmed";
 }
 
-/**
- * A valid ISO date inside `eventDateRange` (./date-range, UX-041), for input of unknown type such as a
- * form value.
- */
+/** A valid ISO date inside {@link eventDateRange} (the plannable years, UX-041; defined in ./date-range). */
 export function isEventDateInRange(date: unknown, today: string): date is string {
   return typeof date === "string" && isInEventDateRange(date, today);
 }
