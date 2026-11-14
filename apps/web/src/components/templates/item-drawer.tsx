@@ -10,6 +10,7 @@ import {
   normalizeCondition,
   PERMIT_TYPES,
   STANDARD_ANCHOR_KEYS,
+  TASK_CONTACT_ROLES,
   type TemplateItemFields,
 } from "@marktwerk/core";
 import { ArrowDown, ArrowUp, CornerLeftUp, Plus, Trash2, X } from "lucide-react";
@@ -67,6 +68,8 @@ type Form = {
   requiresAttachment: boolean;
   isKey: boolean;
   permitType: string;
+  /** Default contact of the task (Fahrplan R24): "" = none, else "authority" | "landowner". */
+  contactRole: string;
   /** Child item (ADR 0021): the key of its parent item; null = top-level. */
   parentKey: string | null;
   /** Child item: own anchor/offset/day mode/time instead of the parent's. */
@@ -102,6 +105,7 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
       requiresAttachment: false,
       isKey: false,
       permitType: "",
+      contactRole: "",
       parentKey: null,
       ownDue: false,
       eventTypeKeys: [],
@@ -126,6 +130,7 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
     requiresAttachment: item.requiresAttachment,
     isKey: item.isKey,
     permitType: item.permitType ?? "",
+    contactRole: item.contactRole ?? "",
     parentKey: item.parentKey,
     ownDue: item.ownDue,
     eventTypeKeys: item.condition?.eventTypeKeys ?? [],
@@ -159,6 +164,7 @@ function toFields(form: Form): TemplateItemFields {
     requiresAttachment: form.requiresAttachment,
     isKey: form.isKey,
     permitType: (form.permitType || null) as TemplateItemFields["permitType"],
+    contactRole: (form.contactRole || null) as TemplateItemFields["contactRole"],
     approverDutyRoleId: form.approverDutyRoleId || null,
     parentKey: form.parentKey,
     ownDue: form.ownDue,
@@ -184,6 +190,7 @@ function newChildFields(parent: ItemView, title: string): TemplateItemFields {
     requiresAttachment: false,
     isKey: false,
     permitType: null,
+    contactRole: null,
     condition: null,
   };
 }
@@ -888,6 +895,28 @@ export function ItemDrawer({
                   ))}
                 </select>
                 <p className="text-muted-foreground text-tiny">{t("drawer.permitTypeHint")}</p>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="item-contact" optional>
+                  {t("drawer.contactRole")}
+                </Label>
+                <select
+                  id="item-contact"
+                  className={SELECT_CLASS}
+                  value={form.contactRole}
+                  disabled={disabled}
+                  aria-invalid={invalid("contactRole")}
+                  onChange={(e) => set({ contactRole: e.target.value })}
+                >
+                  <option value="">{t("drawer.noContactRole")}</option>
+                  {TASK_CONTACT_ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {t(`drawer.contactRoles.${role}`)}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-muted-foreground text-tiny">{t("drawer.contactRoleHint")}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

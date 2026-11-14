@@ -160,7 +160,8 @@
       "evidence_missing": "„{title}“ kann noch nicht erledigt werden: {what}.",
       "not_undoable": "Das lässt sich nicht mehr rückgängig machen.",
       "conflict": "Die Aufgabe wurde inzwischen geändert. Rückgängig ist nicht mehr möglich.",
-      "invalid_parent": "Als Unteraufgabe geht das hier nicht (nur eine Ebene, gleiche Veranstaltung, Hauptaufgabe offen)."
+      "invalid_parent": "Als Unteraufgabe geht das hier nicht (nur eine Ebene, gleiche Veranstaltung, Hauptaufgabe offen).",
+      "invalid_contact": "Diesen Kontakt gibt es nicht mehr. Bitte einen anderen wählen."
     },
     "notify": {
       "legend": "Benachrichtigung senden an",

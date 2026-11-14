@@ -59,9 +59,15 @@ export function TaskActivity({ entries }: { entries: Entry[] }) {
         if (d.to === "done") return t("statusDone", { name });
         return t("status", { name, from: status(d.from), to: status(d.to) });
       case "task.update": {
-        const fields = Object.keys(d.after ?? {}).map((k) =>
-          tFields.has(k as never) ? tFields(k as never) : k,
-        );
+        // The contact (Fahrplan R24) is changed on its own in the drawer: said with its name.
+        const keys = Object.keys(d.after ?? {}).filter((k) => k !== "contactName");
+        if (keys.length === 1 && keys[0] === "contactId") {
+          const set = d.after?.contactName;
+          const was = d.before?.contactName;
+          if (typeof set === "string") return t("contactSet", { name, contact: set });
+          if (typeof was === "string") return t("contactRemoved", { name, contact: was });
+        }
+        const fields = keys.map((k) => (tFields.has(k as never) ? tFields(k as never) : k));
         return t("update", { name, fields: fields.join(", ") });
       }
       case "task.check":

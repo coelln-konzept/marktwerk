@@ -1,4 +1,5 @@
 import { PERMIT_TYPES, type PermitTypeKey } from "../permits/status";
+import { isTaskContactRole, type TaskContactRole } from "./contact";
 import { clockTime, type DayMode, MAX_OFFSET_DAYS } from "./due";
 
 export const TASK_PHASES = ["pre", "live", "post"] as const;
@@ -120,6 +121,11 @@ export type TemplateItemFields = {
   isKey: boolean;
   /** The permit this item applies for ("Gehört zur Genehmigung"); its task links to the event's permit of that type. */
   permitType: PermitTypeKey | null;
+  /**
+   * Default contact of the task (Fahrplan R24): "Behörde" or "Eigentümer" of the Ort, looked up when the task is made
+   * (`contactForRole`). Absent or null = none.
+   */
+  contactRole?: TaskContactRole | null;
   approverDutyRoleId: string | null;
   /**
    * Child item (ADR 0021): the `stable_key` of the item whose task this item's task becomes a subtask of; null =
@@ -144,6 +150,7 @@ export type ItemIssueCode =
   | "invalid_estimate"
   | "invalid_parent"
   | "invalid_permit_type"
+  | "invalid_contact_role"
   | "invalid_condition";
 
 export type ItemIssueField =
@@ -159,6 +166,7 @@ export type ItemIssueField =
   | "estimateMinutes"
   | "parentKey"
   | "permitType"
+  | "contactRole"
   | "condition";
 
 export type ItemIssue = { code: ItemIssueCode; field: ItemIssueField };
@@ -203,6 +211,8 @@ export function checkTemplateItem(item: TemplateItemFields): ItemIssue[] {
   if (typeof item.ownDue !== "boolean") add("invalid_parent", "parentKey");
   if (item.permitType !== null && !isOneOf(PERMIT_TYPES, item.permitType))
     add("invalid_permit_type", "permitType");
+  if (item.contactRole != null && !isTaskContactRole(item.contactRole))
+    add("invalid_contact_role", "contactRole");
   const c = item.condition;
   if (
     c !== null &&
