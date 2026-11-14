@@ -219,6 +219,11 @@ export type Logbook = {
   horizonDays: number;
   /** `filters.revealId` exists but the filters hide it: the page should show everything. */
   drawerHidden: boolean;
+  /**
+   * Orte with an upcoming event but no requirement and no permit: which permits they need is
+   * "noch nicht geklärt" (UX-011), never "keine Genehmigung nötig". Respects the Ort filter.
+   */
+  unclearVenues: { id: string; name: string; nextEventOn: string }[];
 };
 
 /** Everything the Genehmigungen page shows: permits with their derived state, filtered, plus counts. */
@@ -240,6 +245,7 @@ export async function listLogbook(
     notDue: 0,
     horizonDays: horizonDays ?? PERMIT_HORIZON_DEFAULT_DAYS,
     drawerHidden: false,
+    unclearVenues: [],
   };
   if (!can(actor.role, "permit", "read")) return empty;
   const horizon = horizonDays ?? (await getPermitHorizonDays());
@@ -342,7 +348,38 @@ export async function listLogbook(
     notDue: all.filter(notDue).length,
     horizonDays: horizon,
     drawerHidden,
+    unclearVenues: await listUnclearVenues(today, filters.venueId),
   };
+}
+
+/**
+ * Orte with an upcoming (not cancelled) event that have neither a requirement nor a permit yet: nobody
+ * has said which permits they need. A städtisches Ort without requirements is a missed permit waiting to
+ * happen (UX-011), so the Genehmigungen page names them with a link to add requirements.
+ */
+async function listUnclearVenues(
+  today: string,
+  venueId?: string,
+): Promise<{ id: string; name: string; nextEventOn: string }[]> {
+  const next = sql<string>`min(${event.startsOn})`;
+  const rows = await db
+    .select({ id: venue.id, name: venue.name, nextEventOn: next })
+    .from(venue)
+    .innerJoin(event, eq(event.venueId, venue.id))
+    .where(
+      and(
+        isNull(venue.archivedAt),
+        isNull(event.archivedAt),
+        ne(event.status, "cancelled"),
+        gte(event.endsOn, today),
+        venueId ? eq(venue.id, venueId) : undefined,
+        sql`not exists (select 1 from ${permitRequirement} r where r.venue_id = ${venue.id} and r.archived_at is null)`,
+        sql`not exists (select 1 from ${permit} p where p.venue_id = ${venue.id} and p.archived_at is null)`,
+      ),
+    )
+    .groupBy(venue.id, venue.name)
+    .orderBy(asc(venue.name));
+  return rows;
 }
 
 /**
@@ -397,6 +434,7 @@ export async function getPermit(actor: Actor, id: string, today: string) {
       cadence: permitRequirement.cadence,
       typicalFeeCents: permitRequirement.typicalFeeCents,
       leadTimeDays: permitRequirement.leadTimeDays,
+      expectedDecisionMd: permitRequirement.expectedDecisionMd,
     })
     .from(permit)
     .leftJoin(venue, eq(venue.id, permit.venueId))
@@ -525,6 +563,8 @@ export async function getPermit(actor: Actor, id: string, today: string) {
           cadence: row.cadence as Cadence,
           typicalFeeCents: row.typicalFeeCents,
           leadTimeDays: row.leadTimeDays as number,
+          /** "MM-DD" the authority usually decides on: prefills "Entscheidung erwartet bis". */
+          expectedDecisionMd: row.expectedDecisionMd,
         }
       : null,
     updatedAtIso: row.permit.updatedAt.toISOString(),

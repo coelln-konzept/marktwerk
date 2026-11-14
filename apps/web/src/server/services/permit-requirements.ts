@@ -69,9 +69,13 @@ function toInput(row: RequirementRow): RequirementInput {
   };
 }
 
-const optionalMonthDay = (value: unknown): string | null => {
+/** An optional "MM-DD"; a day the month does not have (31.02.) fails with the field's own code. */
+const optionalMonthDay = (
+  value: unknown,
+  code: "invalid_window_start" | "invalid_window_end" | "invalid_decision_day",
+): string | null => {
   if (value === null || value === undefined || value === "") return null;
-  if (!isMonthDay(value)) throw new PermitInputError("invalid_month_day");
+  if (!isMonthDay(value)) throw new PermitInputError(code);
   return value;
 };
 
@@ -94,6 +98,13 @@ async function checked(tx: Tx, input: RequirementInput): Promise<RequirementInpu
     throw new PermitInputError("invalid_fee");
   const notes = typeof input.notes === "string" ? input.notes.trim() : "";
   if (notes.length > MAX_NOTES) throw new PermitInputError("invalid_text");
+  // An Antragsfenster has both ends or none (UX audit UX-008).
+  const windowStart = optionalMonthDay(input.submissionWindowStartMd, "invalid_window_start");
+  const windowEnd = optionalMonthDay(input.submissionWindowEndMd, "invalid_window_end");
+  if (windowStart === null && windowEnd !== null)
+    throw new PermitInputError("incomplete_window_start");
+  if (windowStart !== null && windowEnd === null)
+    throw new PermitInputError("incomplete_window_end");
 
   let eventTypeId: string | null = null;
   if (input.eventTypeId) {
@@ -125,9 +136,9 @@ async function checked(tx: Tx, input: RequirementInput): Promise<RequirementInpu
     authorityContactId,
     cadence: input.cadence,
     leadTimeDays: input.leadTimeDays,
-    submissionWindowStartMd: optionalMonthDay(input.submissionWindowStartMd),
-    submissionWindowEndMd: optionalMonthDay(input.submissionWindowEndMd),
-    expectedDecisionMd: optionalMonthDay(input.expectedDecisionMd),
+    submissionWindowStartMd: windowStart,
+    submissionWindowEndMd: windowEnd,
+    expectedDecisionMd: optionalMonthDay(input.expectedDecisionMd, "invalid_decision_day"),
     typicalFeeCents: fee,
     deliverables: checkedDeliverables(input.deliverables ?? {}),
     notes: notes === "" ? null : notes,

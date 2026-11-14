@@ -77,5 +77,15 @@ describe("permitListGroup", () => {
 
   it("keeps permits no upcoming market asks for out of the groups", () => {
     expect(permitListGroup({ tier: "overdue", upcomingEvents: 0 })).toBe("other");
+    expect(permitListGroup({ tier: null, upcomingEvents: 0, state: "answer_overdue" })).toBe(
+      "other",
+    );
+  });
+
+  it("puts an overdue answer into its own group to chase the authority", () => {
+    expect(permitListGroup({ tier: null, upcomingEvents: 2, state: "answer_overdue" })).toBe(
+      "chase",
+    );
+    expect(permitListGroup({ tier: null, upcomingEvents: 2, state: "applied" })).toBe("other");
   });
 });

@@ -48,7 +48,9 @@ function tabStops(panel: HTMLElement): HTMLElement[] {
   );
 }
 
-function isActive(pathname: string, href: string) {
+function isActive(pathname: string, target: string) {
+  // An entry may link with a query (Genehmigungen → its work list); the page is what counts.
+  const href = target.split("?")[0] ?? target;
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 

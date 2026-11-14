@@ -1,8 +1,9 @@
 import "server-only";
 import { can } from "@marktwerk/core";
+import { similarVenueReason } from "@marktwerk/core/text/duplicates";
 import { matchesAllWords } from "@marktwerk/core/text/search";
 import { contact, event, eventType, venue, venueRow, zone } from "@marktwerk/db/schema";
-import { and, asc, count, desc, eq, gte, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 
@@ -82,6 +83,8 @@ export async function getVenue(id: string) {
       street: venue.street,
       postalCode: venue.postalCode,
       city: venue.city,
+      lat: venue.lat,
+      lng: venue.lng,
       capacityCm: venue.capacityCm,
       accessInfo: venue.accessInfo,
       landownerId: contact.id,
@@ -205,14 +208,91 @@ export async function getVenueForEdit(id: string) {
   return { ...row, rowLengthCm: rows?.lengthCm ?? 0 };
 }
 
-export type LandownerOption = { id: string; name: string; city: string | null };
+export type LandownerOption = {
+  id: string;
+  name: string;
+  city: string | null;
+  kind: "authority" | "landowner" | "supplier" | "service" | "other";
+};
 
-/** Landowner contacts to pick from; the venue's current one is always included. */
+/**
+ * Contacts that may be an Ort's Eigentümer: kind Eigentümer, plus Behörden, which only a städtisches Ort
+ * may pick (the form filters by the Ort's kind, `landownerKindsFor`). The venue's current one is always
+ * included.
+ */
 export async function listLandownerOptions(currentId?: string | null): Promise<LandownerOption[]> {
-  const live = and(eq(contact.kind, "landowner"), isNull(contact.archivedAt));
+  const live = and(inArray(contact.kind, ["landowner", "authority"]), isNull(contact.archivedAt));
   return db
-    .select({ id: contact.id, name: contact.name, city: contact.city })
+    .select({ id: contact.id, name: contact.name, city: contact.city, kind: contact.kind })
     .from(contact)
     .where(currentId && isUuid(currentId) ? or(live, eq(contact.id, currentId)) : live)
     .orderBy(asc(contact.name));
+}
+
+export type LandownerTarget = {
+  id: string;
+  name: string;
+  city: string;
+  kind: string;
+  landownerId: string | null;
+  landownerName: string | null;
+};
+
+/** Orte a contact can be entered at as Eigentümer ("Als Eigentümer bei Ort eintragen…", UX-055). */
+export async function listLandownerTargets(): Promise<LandownerTarget[]> {
+  return db
+    .select({
+      id: venue.id,
+      name: venue.name,
+      city: venue.city,
+      kind: venue.kind,
+      landownerId: contact.id,
+      landownerName: contact.name,
+    })
+    .from(venue)
+    .leftJoin(contact, eq(contact.id, venue.landownerContactId))
+    .where(isNull(venue.archivedAt))
+    .orderBy(asc(venue.name));
+}
+
+export type SimilarVenue = {
+  id: string;
+  name: string;
+  city: string;
+  reason: "name" | "address";
+};
+
+/**
+ * Active Orte that look like the one being typed (UX-028): the same name (ignoring case, spaces and
+ * umlauts), or the same street at the same postcode. `excludeId` is the Ort being edited. A hint only.
+ */
+export async function findSimilarVenues(
+  typed: { name?: string; street?: string; postalCode?: string },
+  excludeId?: string,
+  limit = 3,
+): Promise<SimilarVenue[]> {
+  if (!typed.name?.trim() && !typed.street?.trim()) return [];
+  const rows = await db
+    .select({
+      id: venue.id,
+      name: venue.name,
+      city: venue.city,
+      street: venue.street,
+      postalCode: venue.postalCode,
+    })
+    .from(venue)
+    .where(
+      and(
+        isNull(venue.archivedAt),
+        excludeId && isUuid(excludeId) ? ne(venue.id, excludeId) : undefined,
+      ),
+    )
+    .orderBy(asc(venue.name));
+  return rows
+    .flatMap(({ street, postalCode, ...row }) => {
+      const reason = similarVenueReason(typed, { name: row.name, street, postalCode });
+      return reason ? [{ ...row, reason }] : [];
+    })
+    .sort((a, b) => (a.reason === b.reason ? 0 : a.reason === "name" ? -1 : 1))
+    .slice(0, limit);
 }

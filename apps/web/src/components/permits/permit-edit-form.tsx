@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  isUnfiled,
+  type PermitDateField,
+  type PermitStatus,
+  permitDateIssues,
+} from "@marktwerk/core";
 import { Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useMemo, useState, useTransition } from "react";
@@ -12,6 +18,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { PermitPatch } from "@/server/services/permits";
+
+const DATE_FIELDS: readonly PermitDateField[] = [
+  "appliedAt",
+  "expectedDecisionOn",
+  "grantedAt",
+  "validFrom",
+  "validUntil",
+];
 
 export type PermitFormValues = {
   title: string;
@@ -35,6 +49,10 @@ const ERROR_FIELD: Record<string, keyof PermitFormValues> = {
   invalid_contact: "authorityContactId",
   invalid_staff: "responsibleStaffMemberId",
   invalid_period: "validUntil",
+  applied_in_future: "appliedAt",
+  decision_before_applied: "expectedDecisionOn",
+  granted_before_applied: "grantedAt",
+  granted_in_future: "grantedAt",
   invalid_conditions: "conditions",
   invalid_deliverables: "stickers",
   invalid_text: "notes",
@@ -50,6 +68,8 @@ const AUTHORITY_KINDS = ["authority"] as const;
  */
 export function PermitEditForm({
   permitId,
+  status,
+  today,
   initial,
   deliverables,
   contacts,
@@ -57,6 +77,9 @@ export function PermitEditForm({
   staff,
 }: {
   permitId: string;
+  status: PermitStatus;
+  /** Berlin `YYYY-MM-DD`. */
+  today: string;
   initial: PermitFormValues;
   /** The other received deliverables, kept untouched when the sticker count changes. */
   deliverables: Record<string, number | undefined>;
@@ -81,10 +104,29 @@ export function PermitEditForm({
   const fid = (name: string) => `${uid}-${name}`;
   const set = (name: keyof PermitFormValues) => (value: string) =>
     setValues((prev) => ({ ...prev, [name]: value }));
+  const errorId = fid("error");
   const invalid = (field: keyof PermitFormValues) =>
-    error?.field === field ? { "aria-invalid": true as const } : {};
+    error?.field === field ? { "aria-invalid": true as const, "aria-describedby": errorId } : {};
   const errorText = (code: string) =>
-    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
+    code === "failed"
+      ? typeof navigator !== "undefined" && !navigator.onLine
+        ? t("errors.offline")
+        : t("errors.server")
+      : t.has(`errors.${code}` as never)
+        ? t(`errors.${code}` as never)
+        : t("errors.generic");
+  /** The error sits under its field (UX-047); one without a field above the buttons. */
+  const fieldError = (field: keyof PermitFormValues) =>
+    error?.field === field ? (
+      <p id={errorId} role="alert" className="text-small text-status-critical">
+        {errorText(error.code)}
+      </p>
+    ) : null;
+
+  function fail(next: { field: keyof PermitFormValues | null; code: string }) {
+    setError(next);
+    if (next.field) document.getElementById(fid(next.field))?.focus();
+  }
 
   function toPatch(v: PermitFormValues): PermitPatch {
     const stickers = v.stickers.trim() === "" ? 0 : Number(v.stickers);
@@ -107,11 +149,21 @@ export function PermitEditForm({
   }
 
   function submit() {
+    // Dates that contradict each other are caught here, at the field, before saving (UX-008).
+    const patch = toPatch(values);
+    const changed = DATE_FIELDS.filter((key) => values[key] !== initial[key]);
+    const issue = permitDateIssues(patch, today, changed)[0];
+    if (issue) return fail({ field: issue.field, code: issue.code });
     setError(null);
     startTransition(async () => {
-      const result = await savePermitAction(permitId, toPatch(values));
-      if (!result.ok)
-        return setError({ field: ERROR_FIELD[result.error] ?? null, code: result.error });
+      let result: Awaited<ReturnType<typeof savePermitAction>>;
+      try {
+        result = await savePermitAction(permitId, patch);
+      } catch {
+        // No connection or a server error: the form stays open with everything typed (UX-007).
+        return setError({ field: null, code: "failed" });
+      }
+      if (!result.ok) return fail({ field: ERROR_FIELD[result.error] ?? null, code: result.error });
       setOpen(false);
       if (!result.data.changed) return showToast({ message: t("unchanged") });
       const { previous } = result.data;
@@ -119,9 +171,13 @@ export function PermitEditForm({
         message: t("saved"),
         actionLabel: t("undo"),
         onAction: async () => {
-          const undone = await savePermitAction(permitId, previous, true);
-          if (undone.ok) showToast({ message: t("savedUndone") });
-          else showError(errorText(undone.error));
+          try {
+            const undone = await savePermitAction(permitId, previous, true);
+            if (undone.ok) showToast({ message: t("savedUndone") });
+            else showError(errorText(undone.error));
+          } catch {
+            showError(errorText("failed"));
+          }
         },
       });
     });
@@ -143,21 +199,44 @@ export function PermitEditForm({
     );
   }
 
-  const text = (name: keyof PermitFormValues, label: string, type = "text", optional = true) => (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={fid(name)} optional={optional}>
-        {label}
-      </Label>
-      <Input
-        id={fid(name)}
-        type={type}
-        value={values[name]}
-        onChange={(e) => set(name)(e.target.value)}
-        className={type === "date" ? "tabular" : undefined}
-        {...invalid(name)}
-      />
-    </div>
-  );
+  // "Antrag bis" in the past while still to be filed: a hint, not an error (it may be late already).
+  const applyByPast =
+    isUnfiled(status) &&
+    values.applyBy !== "" &&
+    values.applyBy !== initial.applyBy &&
+    values.applyBy < today;
+  const text = (
+    name: keyof PermitFormValues,
+    label: string,
+    type = "text",
+    optional = true,
+    hint?: string,
+  ) => {
+    // The hint stands in for the error: it shows (and is announced) only while the field has none.
+    const showHint = hint && error?.field !== name;
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={fid(name)} optional={optional}>
+          {label}
+        </Label>
+        <Input
+          id={fid(name)}
+          type={type}
+          value={values[name]}
+          onChange={(e) => set(name)(e.target.value)}
+          className={type === "date" ? "tabular" : undefined}
+          {...invalid(name)}
+          {...(showHint ? { "aria-describedby": fid(`${name}-hint`) } : {})}
+        />
+        {fieldError(name)}
+        {showHint && (
+          <p id={fid(`${name}-hint`)} className="text-status-warn text-tiny">
+            {hint}
+          </p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <form
@@ -190,6 +269,7 @@ export function PermitEditForm({
             canCreate={canCreateContact}
             {...invalid("authorityContactId")}
           />
+          {fieldError("authorityContactId")}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={fid("responsibleStaffMemberId")} optional>
@@ -209,10 +289,17 @@ export function PermitEditForm({
               </option>
             ))}
           </select>
+          {fieldError("responsibleStaffMemberId")}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        {text("applyBy", t("form.applyBy"), "date")}
+        {text(
+          "applyBy",
+          t("form.applyBy"),
+          "date",
+          true,
+          applyByPast ? t("applyByPast") : undefined,
+        )}
         {text("appliedAt", t("form.appliedAt"), "date")}
         {text("expectedDecisionOn", t("form.decision"), "date")}
         {text("grantedAt", t("form.grantedAt"), "date")}
@@ -231,6 +318,7 @@ export function PermitEditForm({
           className={TEXTAREA_CLASS}
           {...invalid("conditions")}
         />
+        {fieldError("conditions")}
         <p className="text-muted-foreground text-tiny">{t("conditionsHint")}</p>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -246,8 +334,9 @@ export function PermitEditForm({
           className={TEXTAREA_CLASS}
           {...invalid("notes")}
         />
+        {fieldError("notes")}
       </div>
-      {error && (
+      {error && error.field === null && (
         <p role="alert" className="text-small text-status-critical">
           {errorText(error.code)}
         </p>

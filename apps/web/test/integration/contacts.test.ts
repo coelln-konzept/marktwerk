@@ -2,7 +2,12 @@ import { auditLog, contact, locationAgreement, venue } from "@marktwerk/db/schem
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
-import { getContact, listContactOptions, listContacts } from "@/server/queries/contacts";
+import {
+  findSimilarContacts,
+  getContact,
+  listContactOptions,
+  listContacts,
+} from "@/server/queries/contacts";
 import {
   archiveContact,
   ContactInputError,
@@ -307,5 +312,84 @@ describe("archiveContact / unarchiveContact", () => {
     expect((await listContacts()).letters).toEqual(["A", "O", "Z", "#"]);
     expect((await listContacts(undefined, "supplier", "O")).letters).toEqual(["A", "Z"]);
     expect((await listContacts("zeltbau", undefined, "A")).letters).toEqual(["Z"]);
+  });
+
+  it("sorts by name, Art or Stadt in both directions, empty towns last (UX-055)", async () => {
+    await db.insert(contact).values([
+      { kind: "supplier", name: "Zeltbau Zander", city: "Bonn" },
+      { kind: "authority", name: "Ordnungsamt Köln", city: "Köln" },
+      { kind: "landowner", name: "Bauer Anders", city: null },
+      { kind: "authority", name: "Ärztekammer", city: "Aachen" },
+    ]);
+    const names = async (by: "name" | "art" | "stadt", dir: "asc" | "desc") =>
+      (await listContacts(undefined, undefined, undefined, { by, dir })).rows.map((r) => r.name);
+    expect(await names("name", "asc")).toEqual([
+      "Ärztekammer",
+      "Bauer Anders",
+      "Ordnungsamt Köln",
+      "Zeltbau Zander",
+    ]);
+    expect(await names("name", "desc")).toEqual([
+      "Zeltbau Zander",
+      "Ordnungsamt Köln",
+      "Bauer Anders",
+      "Ärztekammer",
+    ]);
+    // Art in the order of the filter chips; ties by name.
+    expect(await names("art", "asc")).toEqual([
+      "Ärztekammer",
+      "Ordnungsamt Köln",
+      "Bauer Anders",
+      "Zeltbau Zander",
+    ]);
+    expect(await names("stadt", "asc")).toEqual([
+      "Ärztekammer",
+      "Zeltbau Zander",
+      "Ordnungsamt Köln",
+      "Bauer Anders",
+    ]);
+    expect(await names("stadt", "desc")).toEqual([
+      "Ordnungsamt Köln",
+      "Zeltbau Zander",
+      "Ärztekammer",
+      "Bauer Anders",
+    ]);
+  });
+});
+
+describe("findSimilarContacts (UX-028)", () => {
+  it("matches the name ignoring case, spaces and umlauts, or the phone or e-mail", async () => {
+    const { id } = await createContact(owner, valid);
+    const hit = { id, name: "Ordnungsamt Köln", kind: "authority", city: "Köln" };
+    expect(await findSimilarContacts({ name: "  ordnungsamt   KOELN " })).toEqual([
+      { ...hit, reason: "name" },
+    ]);
+    expect(await findSimilarContacts({ name: "Stadt", phone: "+49 221 123456" })).toEqual([
+      { ...hit, reason: "phone" },
+    ]);
+    expect(
+      await findSimilarContacts({ name: "Stadt", email: "Ordnungsamt@Stadt-Koeln.de" }),
+    ).toEqual([{ ...hit, reason: "email" }]);
+    expect(await findSimilarContacts({ name: "Bauer Anders", phone: "0221 999999" })).toEqual([]);
+  });
+
+  it("skips the contact being edited and archived ones", async () => {
+    const { id } = await createContact(owner, valid);
+    expect(await findSimilarContacts({ name: valid.name }, id)).toEqual([]);
+    await archiveContact(owner, id);
+    expect(await findSimilarContacts({ name: valid.name })).toEqual([]);
+    expect(await findSimilarContacts({ name: "" })).toEqual([]);
+  });
+
+  it("lists same names first and at most three", async () => {
+    await createContact(owner, { ...valid, name: "Stadt Bonn" });
+    for (const name of ["Ordnungsamt Köln", "Ordnungsamt-Köln", "Ordnungsamt Koeln"])
+      await createContact(owner, { ...valid, name, phone: "" });
+    const found = await findSimilarContacts({
+      name: "Ordnungsamt Köln",
+      phone: valid.phone,
+    });
+    expect(found).toHaveLength(3);
+    expect(found.every((c) => c.reason === "name")).toBe(true);
   });
 });

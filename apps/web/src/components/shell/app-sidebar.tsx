@@ -72,7 +72,9 @@ export async function AppSidebar({
       visible: can(r, "event", "read"),
     },
     {
-      href: "/genehmigungen",
+      // With something to do, the entry opens the work list (Jetzt zu tun, as a list): the badge's
+      // permits in one click, not the matrix (UX-047).
+      href: needsAction > 0 ? "/genehmigungen?fokus=fehlt&ansicht=liste" : "/genehmigungen",
       label: t("permits"),
       icon: <FileCheck2 />,
       badge: needsAction,

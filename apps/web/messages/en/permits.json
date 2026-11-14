@@ -83,6 +83,7 @@
     "sortedBy": "Sorted by “{column}”",
     "groups": {
       "now": "Apply now (by {date})",
+      "chase": "Answer overdue (follow up)",
       "later": "Apply later",
       "other": "Applied for and done"
     },
@@ -134,7 +135,8 @@
       "seasonHint": "Leave empty for multi-year.",
       "applyBy": "Apply by",
       "save": "Add",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "applyByPast": "This date is in the past."
     },
     "toast": {
       "created": "Permit added.",
@@ -146,7 +148,20 @@
     "needsAction": "To do now",
     "needsActionHint": "Application overdue or due in the next {days} days (all seasons). The same number shows in the sidebar.",
     "needsActionNote": "“To do now” and the number in the sidebar count applications that are overdue or due in the next {days} days.{notDue, plural, =0 {} one { One more is not due yet.} other { # more are not due yet.}}",
-    "scrollHint": "More columns to the right: scroll sideways"
+    "scrollHint": "More columns to the right: scroll sideways",
+    "decisionUnwatched": "not watched",
+    "decisionUnwatchedHint": "No date for the answer: the answer is not watched.",
+    "cellDecision": "answer by {date}",
+    "cellDetailDecision": "answer expected by {date}",
+    "legendDecision": "answer by 01.11. = applied, the authority is expected to decide by then",
+    "unclear": {
+      "title": "Permits not clarified yet",
+      "hint": "These venues have upcoming events, but nobody has recorded which permits they need.",
+      "state": "Not clarified yet",
+      "action": "Add requirements",
+      "actionNamed": "Add requirements for {venue}",
+      "next": "next event {date}"
+    }
   },
   "permitDrawer": {
     "label": "Permit",
@@ -157,13 +172,10 @@
     "flow": "Progress",
     "flowHint": "Next step",
     "noNextStep": "No further step possible.",
-    "steps": {
-      "not_started": "Not applied for yet"
-    },
     "moreSteps": "More steps",
     "back": "Back to “{status}”",
     "actions": {
-      "not_started": "Back to “Not applied for yet”",
+      "not_started": "Back to “Missing”",
       "preparing": "Set to in preparation",
       "applied": "Mark as applied",
       "granted": "Mark as granted",
@@ -272,18 +284,48 @@
       "invalid_status": "Unknown status.",
       "invalid_transition": "This status change is not possible.",
       "invalid_event": "This event cannot be linked.",
-      "conflict": "The status has changed in the meantime."
+      "conflict": "The status has changed in the meantime.",
+      "applied_in_future": "“Applied on” is in the future. Please check the date.",
+      "decision_before_applied": "The decision cannot come before the application. Please check the date.",
+      "granted_before_applied": "“Granted on” is before “Applied on”. Please check the date.",
+      "granted_in_future": "“Granted on” is in the future. Please check the date.",
+      "offline": "Not saved – no connection. Your input is still here.",
+      "offlineAction": "No connection. Nothing was changed.",
+      "server": "That did not work. Nothing was saved."
     },
     "documents": "Notice and documents",
     "documentsEmpty": "Nothing uploaded yet.",
-    "addDocument": "Add notice"
+    "addDocument": "Add notice",
+    "decisionUnwatched": "Answer is not watched",
+    "applyByPast": "This date is in the past.",
+    "step": {
+      "appliedTitle": "Applied",
+      "appliedAt": "Applied on",
+      "decision": "Decision expected by",
+      "decisionSuggested": "Suggested from the requirement (the decision usually comes around {date}).",
+      "decisionEmpty": "Leave empty: the answer is not watched.",
+      "grantedTitle": "Granted",
+      "grantedHint": "All optional, you can add it later.",
+      "reference": "Reference number",
+      "grantedAt": "Granted on",
+      "validFrom": "Valid from",
+      "validUntil": "Valid until",
+      "cancel": "Cancel"
+    },
+    "followUp": {
+      "open": "Followed up – new answer by …",
+      "openUnwatched": "Enter answer expected by …",
+      "label": "Answer expected by",
+      "save": "Save",
+      "saved": "Answer expected by {date}."
+    }
   },
   "requirements": {
     "title": "Permits and consents",
     "venuePermits": "Permits at this venue",
     "description": "What an event at this venue needs. New events create the missing permits and tasks from this on their own.",
     "add": "Add requirement",
-    "empty": "No requirements for this venue yet.",
+    "empty": "Not clarified yet which permits this venue needs.",
     "emptyHint": "Define which permits are needed here, how far ahead to apply and what they cost.",
     "caption": "Permit requirements at this venue",
     "cols": {
@@ -358,12 +400,17 @@
       "invalid_cadence": "Please choose a cadence.",
       "invalid_lead_time": "The lead time must be a whole number between 0 and 730 days.",
       "invalid_fee": "Please enter an amount like 120 or 120.50.",
-      "invalid_month_day": "Please enter day and month as DD.MM., e.g. 30.11.",
+      "invalid_month_day": "That day does not exist. Please enter it as DD.MM., e.g. 30.11.",
       "invalid_event_type": "This event type does not exist.",
       "invalid_contact": "This authority no longer exists.",
       "invalid_deliverables": "The count must be a whole number from 0.",
       "invalid_text": "The text is too long.",
-      "invalid_venue": "This venue no longer exists."
+      "invalid_venue": "This venue no longer exists.",
+      "invalid_window_start": "That day does not exist. Please enter it as DD.MM., e.g. 01.10.",
+      "invalid_window_end": "That day does not exist. Please enter it as DD.MM., e.g. 30.11.",
+      "invalid_decision_day": "That day does not exist. Please enter it as DD.MM., e.g. 15.01.",
+      "incomplete_window_start": "Please also enter the start of the application window, or clear both fields.",
+      "incomplete_window_end": "Please also enter the end of the application window, or clear both fields."
     }
   },
   "eventPermits": {
@@ -386,7 +433,7 @@
     "validityUntil": "until {until}",
     "open": "Open permit",
     "openNamed": "Open {title}",
-    "empty": "No permits for this event yet.",
+    "empty": "Permits not clarified yet.",
     "emptyHint": "No requirements are set up for {venue} yet. With requirements, the permits and their tasks are created automatically.",
     "emptyAction": "Set up requirements at the venue",
     "logbook": "All permits"

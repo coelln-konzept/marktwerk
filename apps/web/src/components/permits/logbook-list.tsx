@@ -1,17 +1,21 @@
 import {
+  isAnswerUnwatched,
   isUnfiled,
+  PERMIT_LIST_GROUPS,
   type PermitListGroup,
   type PermitSort,
   permitHorizonEnd,
   permitListGroup,
   sortPermits,
 } from "@marktwerk/core";
+import { EyeOff } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { DueBadge } from "@/components/ui/due-badge";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { Panel } from "@/components/ui/panel";
 import { Segments } from "@/components/ui/segmented-links";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { rowFocus, Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
 import { formatDate, formatDateShortYear, formatMoney, todayIn } from "@/lib/format";
 import { hrefWith } from "@/lib/url";
@@ -25,7 +29,9 @@ const SORT_LABELS = { antrag: "applyBy", ort: "venue", status: "status", markt: 
 
 /**
  * The detailed view: one table, by default sorted by "Antrag bis" and split into "Jetzt beantragen (bis …)",
- * "Später beantragen" and "Beantragt und erledigt" (what to file next is the office's real question).
+ * "Antwort überfällig (nachfragen)", "Später beantragen" and "Beantragt und erledigt" (what to file or
+ * chase next is the office's real question). A filed permit shows when its answer is expected and how
+ * late it is, or that nobody watches it (UX-047, UX-017).
  * Other sorts are flat. A row opens the permit drawer (Enter) or previews it (Space). Below `md` only
  * the permit with its state and deadline is shown: the other columns need more room than a phone has.
  */
@@ -53,18 +59,47 @@ export async function LogbookList({
   const sorted = sortPermits(rows, sort);
   const groups: { key: PermitListGroup | "all"; rows: LogbookRow[] }[] =
     sort === "antrag"
-      ? (["now", "later", "other"] as const)
-          .map((key) => ({ key, rows: sorted.filter((r) => permitListGroup(r) === key) }))
-          .filter((g) => g.rows.length > 0)
+      ? PERMIT_LIST_GROUPS.map((key) => ({
+          key,
+          rows: sorted.filter((r) => permitListGroup(r) === key),
+        })).filter((g) => g.rows.length > 0)
       : [{ key: "all", rows: sorted }];
   const groupLabel = (key: PermitListGroup | "all") =>
     key === "now"
       ? t("groups.now", {
           date: formatDateShortYear(permitHorizonEnd(today, horizonDays), locale, today),
         })
-      : key === "later"
-        ? t("groups.later")
-        : t("groups.other");
+      : key === "chase"
+        ? t("groups.chase")
+        : key === "later"
+          ? t("groups.later")
+          : t("groups.other");
+  /** "Antrag bis": with its urgency while still to be filed, otherwise as a plain date. */
+  const applyBy = (r: LogbookRow, unfiled: boolean) =>
+    !r.applyBy ? (
+      dash
+    ) : unfiled ? (
+      <DueBadge dueOn={r.applyBy} today={today} withDate />
+    ) : (
+      <span className="text-muted-foreground">{formatDateShortYear(r.applyBy, locale, today)}</span>
+    );
+  /** Filed: the expected answer with how late it is, or "nicht überwacht"; otherwise the plain date. */
+  const decision = (r: LogbookRow) =>
+    r.status === "applied" && r.expectedDecisionOn ? (
+      <DueBadge dueOn={r.expectedDecisionOn} today={today} withDate />
+    ) : isAnswerUnwatched(r) ? (
+      <span title={t("decisionUnwatchedHint")}>
+        <StatusBadge tone="warn" icon={EyeOff}>
+          {t("decisionUnwatched")}
+        </StatusBadge>
+      </span>
+    ) : r.expectedDecisionOn ? (
+      <span className="text-muted-foreground">
+        {formatDateShortYear(r.expectedDecisionOn, locale, today)}
+      </span>
+    ) : (
+      dash
+    );
 
   return (
     <div className="flex flex-col gap-3">
@@ -147,29 +182,35 @@ export async function LogbookList({
                               <DueBadge dueOn={r.applyBy} today={today} withDate />
                             </span>
                           )}
+                          {r.status === "applied" && (
+                            <span className="inline-flex items-center gap-1 text-tiny">
+                              <span className="text-muted-foreground">{t("cols.decision")}</span>
+                              {decision(r)}
+                            </span>
+                          )}
                         </div>
                       </TD>
                       <TD className="max-md:hidden">
                         <PermitStateBadge state={r.state} />
                       </TD>
                       <TD className="tabular whitespace-nowrap max-md:hidden">
-                        {r.applyBy ? (
-                          unfiled ? (
-                            <DueBadge dueOn={r.applyBy} today={today} withDate />
-                          ) : (
-                            <span className="text-muted-foreground">
-                              {formatDateShortYear(r.applyBy, locale, today)}
+                        {r.status === "applied" ? (
+                          <>
+                            {/* Filed: the date that matters now is the expected answer, not "Antrag bis".
+                                From 2xl it has its own column, so here it would show twice. */}
+                            <span className="flex flex-col items-start gap-0.5 2xl:hidden">
+                              <span className="text-muted-foreground text-tiny">
+                                {t("cols.decision")}
+                              </span>
+                              {decision(r)}
                             </span>
-                          )
+                            <span className="max-2xl:hidden">{applyBy(r, unfiled)}</span>
+                          </>
                         ) : (
-                          dash
+                          applyBy(r, unfiled)
                         )}
                       </TD>
-                      <TD className="tabular whitespace-nowrap max-2xl:hidden">
-                        {r.expectedDecisionOn
-                          ? formatDateShortYear(r.expectedDecisionOn, locale, today)
-                          : dash}
-                      </TD>
+                      <TD className="tabular whitespace-nowrap max-2xl:hidden">{decision(r)}</TD>
                       {/* May wrap ("01.01.2027 bis / 31.12.2027"): nowrap made the table wider than its panel at 1440 px. */}
                       <TD className="tabular min-w-28 max-md:hidden">
                         {r.validFrom && r.validUntil
