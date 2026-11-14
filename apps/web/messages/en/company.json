@@ -145,6 +145,7 @@
       "payableHint": "With a cost, a payment is created under Finance, due on the completion date (today at the earliest).",
       "savedWithPayable": "Marked as done. Next due: {next}. Payment created.",
       "kmBelow": "The vehicle was already at {km} km on {date}. Please enter the current reading.",
+      "kmBelowNoDate": "The vehicle is already at {km} km. Please enter the current reading.",
       "previewDate": "Next due: {date}",
       "previewKm": "Next due: at {km} km",
       "previewBoth": "Next due: {date} or at {km} km",
@@ -362,6 +363,7 @@
       "title": "Archived on {date}.",
       "vehicleNote": "The vehicle and its obligations are in no list and trigger no reminders.",
       "withVehicle": "This obligation was archived with its vehicle and comes back with it.",
+      "vehicleAlsoArchived": "This obligation was archived on its own, its vehicle later too. It does not come back with the vehicle: restore the vehicle first, then this obligation here.",
       "toVehicle": "Go to vehicle",
       "restore": "Restore",
       "archivedAgain": "Archived again."

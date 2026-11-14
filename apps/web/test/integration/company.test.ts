@@ -221,6 +221,30 @@ describe("vehicles", () => {
     });
   });
 
+  it("still edits a look-alike plate saved before UX-028 while its plate key stays the same", async () => {
+    // Saved under the old exact-match rule: the same plate twice, written differently.
+    const [legacy] = await db
+      .insert(vehicle)
+      .values([
+        { name: "Alt 1", plate: "KUX1000" },
+        { name: "Alt 2", plate: "K UX 1000" },
+      ])
+      .returning({ id: vehicle.id });
+    if (!legacy) throw new Error("no vehicle");
+    const legacyInput = vehicleInput({
+      name: "Alt 1",
+      plate: "KUX1000",
+      vin: null,
+      notes: "Neue Notiz",
+    });
+    expect(await updateVehicle(owner, legacy.id, legacyInput)).toEqual({ changed: true });
+    // Moving to another plate key still checks against the look-alikes.
+    await newVehicle({ plate: "K-AB 1", vin: null });
+    expect(await codeOf(updateVehicle(owner, legacy.id, { ...legacyInput, plate: "KAB 1" }))).toBe(
+      "plate_taken",
+    );
+  });
+
   it("updates, audits the changed fields and reports no change for identical input", async () => {
     const id = await newVehicle();
     expect(await updateVehicle(owner, id, vehicleInput())).toEqual({ changed: false });
@@ -964,19 +988,38 @@ describe("queries", () => {
     const vehicleId = await newVehicle();
     const own = await newObligation({ title: "Allein" });
     const withVehicle = await newObligation({ title: "HU", scope: "vehicle", vehicleId });
+    const before = await newObligation({ title: "UVV", scope: "vehicle", vehicleId });
     expect(await getObligation(own, TODAY)).toMatchObject({
       archived: false,
       archivedAt: null,
       vehicleArchived: false,
+      archivedWithVehicle: false,
     });
     await archiveObligation(owner, own);
+    // Archived on its own first, its vehicle a minute later: it does not come back with the vehicle.
+    await archiveObligation(owner, before);
+    vi.setSystemTime(new Date("2026-10-21T10:01:00+02:00"));
     await archiveVehicle(owner, vehicleId);
     const a = await getObligation(own, TODAY);
-    expect(a).toMatchObject({ archived: true, vehicleArchived: false });
+    expect(a).toMatchObject({ archived: true, vehicleArchived: false, archivedWithVehicle: false });
     expect(a?.archivedAt).toBeInstanceOf(Date);
     expect(await getObligation(withVehicle, TODAY)).toMatchObject({
       archived: true,
       vehicleArchived: true,
+      archivedWithVehicle: true,
+    });
+    expect(await getObligation(before, TODAY)).toMatchObject({
+      archived: true,
+      vehicleArchived: true,
+      archivedWithVehicle: false,
+    });
+    // And indeed: restoring the vehicle brings back only the one archived with it.
+    await restoreVehicle(owner, vehicleId);
+    expect(await getObligation(withVehicle, TODAY)).toMatchObject({ archived: false });
+    expect(await getObligation(before, TODAY)).toMatchObject({
+      archived: true,
+      vehicleArchived: false,
+      archivedWithVehicle: false,
     });
   });
 

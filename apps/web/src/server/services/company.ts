@@ -200,24 +200,31 @@ function cleanVehicle(input: VehicleInput, today: string): CleanVehicle {
   };
 }
 
+/**
+ * The pre-check behind "plate_taken" / "vin_taken". `checkPlate: false` skips the separator-blind plate
+ * comparison: an edit that keeps the plate's key must not fail on a look-alike saved before UX-028 (the
+ * exact-match unique index still guards real duplicates).
+ */
 async function checkVehicleUnique(
   tx: Tx,
   values: Pick<CleanVehicle, "plate" | "vin">,
-  exceptId?: string,
+  { exceptId, checkPlate = true }: { exceptId?: string; checkPlate?: boolean } = {},
 ) {
   const other = exceptId ? sql`${vehicle.id} <> ${exceptId}` : undefined;
   // Archived vehicles count too: the plate column is unique, and a sold van that comes back is restored.
-  const [plateClash] = await tx
-    .select({ id: vehicle.id })
-    .from(vehicle)
-    .where(
-      and(
-        sql`regexp_replace(${vehicle.plate}, '[[:space:]-]', '', 'g') = ${plateKey(values.plate)}`,
-        other,
-      ),
-    )
-    .limit(1);
-  if (plateClash) throw new CompanyInputError("plate_taken");
+  if (checkPlate) {
+    const [plateClash] = await tx
+      .select({ id: vehicle.id })
+      .from(vehicle)
+      .where(
+        and(
+          sql`regexp_replace(${vehicle.plate}, '[[:space:]-]', '', 'g') = ${plateKey(values.plate)}`,
+          other,
+        ),
+      )
+      .limit(1);
+    if (plateClash) throw new CompanyInputError("plate_taken");
+  }
   if (values.vin) {
     const [vinClash] = await tx
       .select({ id: vehicle.id })
@@ -282,7 +289,10 @@ export async function updateVehicle(
       // An unchanged odometer keeps its reading date unless the form sent a new one.
       if (next.odometerKm === current.odometerKm && !input.odometerRecordedOn)
         next.odometerRecordedOn = current.odometerRecordedOn;
-      await checkVehicleUnique(tx, next, id);
+      await checkVehicleUnique(tx, next, {
+        exceptId: id,
+        checkPlate: plateKey(next.plate) !== plateKey(current.plate),
+      });
       const changes: Record<string, { from: unknown; to: unknown }> = {};
       for (const field of VEHICLE_FIELDS) {
         if (current[field] !== next[field])

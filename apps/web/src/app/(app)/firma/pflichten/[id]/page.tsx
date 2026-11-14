@@ -34,7 +34,14 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
   const today = todayIn();
   const found = await getObligation(id, today);
   if (!found) notFound();
-  const { obligation: o, completions, archived, archivedAt, vehicleArchived } = found;
+  const {
+    obligation: o,
+    completions,
+    archived,
+    archivedAt,
+    vehicleArchived,
+    archivedWithVehicle,
+  } = found;
   const t = await getTranslations("company");
   const td = await getTranslations("company.obligation");
   const locale = await getLocale();
@@ -95,8 +102,10 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
           id={o.id}
           archivedOn={todayIn("Europe/Berlin", archivedAt)}
           canRestore={canWrite}
-          vehicleHref={
-            vehicleArchived && o.vehicleId ? `/firma/fahrzeuge/${o.vehicleId}` : undefined
+          vehicle={
+            vehicleArchived && o.vehicleId
+              ? { href: `/firma/fahrzeuge/${o.vehicleId}`, together: archivedWithVehicle }
+              : undefined
           }
         />
       )}

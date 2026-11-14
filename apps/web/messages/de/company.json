@@ -145,6 +145,7 @@
       "payableHint": "Mit Kosten wird unter Finanzen eine Zahlung angelegt, fällig am Erledigt-Datum (frühestens heute).",
       "savedWithPayable": "Erledigt eingetragen. Nächste Fälligkeit: {next}. Zahlung angelegt.",
       "kmBelow": "Das Fahrzeug stand am {date} schon bei {km} km. Bitte den aktuellen Stand eintragen.",
+      "kmBelowNoDate": "Das Fahrzeug steht schon bei {km} km. Bitte den aktuellen Stand eintragen.",
       "previewDate": "Danach fällig: {date}",
       "previewKm": "Danach fällig: bei {km} km",
       "previewBoth": "Danach fällig: {date} oder bei {km} km",
@@ -362,6 +363,7 @@
       "title": "Archiviert am {date}.",
       "vehicleNote": "Das Fahrzeug und seine Pflichten stehen in keiner Liste und lösen keine Erinnerungen aus.",
       "withVehicle": "Diese Pflicht wurde mit ihrem Fahrzeug archiviert und kommt mit ihm zurück.",
+      "vehicleAlsoArchived": "Diese Pflicht wurde einzeln archiviert, ihr Fahrzeug später ebenfalls. Sie kommt mit dem Fahrzeug nicht zurück: erst das Fahrzeug wiederherstellen, dann hier die Pflicht.",
       "toVehicle": "Zum Fahrzeug",
       "restore": "Wiederherstellen",
       "archivedAgain": "Wieder archiviert."

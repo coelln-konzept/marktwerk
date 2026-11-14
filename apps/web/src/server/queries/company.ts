@@ -164,8 +164,13 @@ export async function getObligation(
   archived: boolean;
   /** When it was archived (null while active). */
   archivedAt: Date | null;
-  /** It belongs to an archived vehicle: it comes back with the vehicle, not on its own. */
+  /** Its vehicle is archived (now). */
   vehicleArchived: boolean;
+  /**
+   * It was archived together with its vehicle (same `archived_at`): it comes back with the vehicle, not on its
+   * own. One archived on its own before its vehicle was archived does not (`restoreVehicle` leaves it archived).
+   */
+  archivedWithVehicle: boolean;
 } | null> {
   if (!isUuid(id)) return null;
   const [row] = await liveObligations().where(eq(obligation.id, id));
@@ -191,12 +196,18 @@ export async function getObligation(
     .leftJoin(staffMember, eq(staffMember.id, obligationCompletion.doneById))
     .where(eq(obligationCompletion.obligationId, id))
     .orderBy(desc(obligationCompletion.doneOn));
+  const archivedAt = archivedRow?.archivedAt ?? null;
+  const vehicleArchivedAt = archivedRow?.vehicleArchivedAt ?? null;
   return {
     obligation: withStatus(row, today),
     completions,
-    archived: archivedRow?.archivedAt != null,
-    archivedAt: archivedRow?.archivedAt ?? null,
-    vehicleArchived: archivedRow?.vehicleArchivedAt != null,
+    archived: archivedAt !== null,
+    archivedAt,
+    vehicleArchived: vehicleArchivedAt !== null,
+    archivedWithVehicle:
+      archivedAt !== null &&
+      vehicleArchivedAt !== null &&
+      archivedAt.getTime() === vehicleArchivedAt.getTime(),
   };
 }
 

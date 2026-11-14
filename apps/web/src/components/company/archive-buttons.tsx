@@ -63,23 +63,27 @@ export function ArchiveObligationButton({ id, title }: { id: string; title: stri
 /**
  * Banner on an archived vehicle or obligation (UX-060: an archived vehicle showed only an icon and could not
  * be brought back after the undo toast was gone): when it was archived and "Wiederherstellen". The restore
- * shows an undo toast that archives it again. An obligation archived together with its vehicle comes back
- * with the vehicle, so its banner links there instead.
+ * shows an undo toast that archives it again. An obligation of an archived vehicle links to the vehicle
+ * instead: one archived together with it comes back with it, one archived on its own before can only be
+ * restored once the vehicle is back.
  */
 export function ArchivedBanner({
   kind,
   id,
   archivedOn,
   canRestore,
-  vehicleHref,
+  vehicle,
 }: {
   kind: "vehicle" | "obligation";
   id: string;
   /** Berlin day it was archived ("YYYY-MM-DD"). */
   archivedOn: string;
   canRestore: boolean;
-  /** Obligation of an archived vehicle: where to restore it (the vehicle's page). */
-  vehicleHref?: string;
+  /**
+   * Obligation of an archived vehicle: the vehicle's page, and whether the two were archived together (then
+   * the obligation comes back with the vehicle).
+   */
+  vehicle?: { href: string; together: boolean };
 }) {
   const t = useTranslations("company");
   const tb = useTranslations("company.archived");
@@ -124,15 +128,15 @@ export function ArchivedBanner({
         <Archive aria-hidden className="mt-0.5 size-4 shrink-0" />
         <span>
           <span className="font-semibold">{tb("title", { date })}</span>{" "}
-          {vehicleHref
-            ? tb("withVehicle")
+          {vehicle
+            ? tb(vehicle.together ? "withVehicle" : "vehicleAlsoArchived")
             : kind === "vehicle"
               ? tb("vehicleNote")
               : t("obligation.archivedNote")}
         </span>
       </p>
-      {vehicleHref ? (
-        <Link href={vehicleHref as never} className={buttonVariants({ variant: "outline" })}>
+      {vehicle ? (
+        <Link href={vehicle.href as never} className={buttonVariants({ variant: "outline" })}>
           {tb("toVehicle")}
         </Link>
       ) : (

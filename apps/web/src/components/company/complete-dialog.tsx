@@ -102,10 +102,11 @@ export function CompleteButton({
   }
 
   function kmBelowText() {
-    return tc("kmBelow", {
-      km: formatNumber(target.currentKm ?? 0, locale, 0),
-      date: target.currentKmOn ? formatDate(target.currentKmOn, locale) : "",
-    });
+    const km = formatNumber(target.currentKm ?? 0, locale, 0);
+    // A reading without its date (odometer_recorded_on is nullable) gets the sentence without one.
+    return target.currentKmOn
+      ? tc("kmBelow", { km, date: formatDate(target.currentKmOn, locale) })
+      : tc("kmBelowNoDate", { km });
   }
 
   function fail(code: string) {
