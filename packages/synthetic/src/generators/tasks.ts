@@ -39,6 +39,8 @@ export const OVERDUE_LEFTOVERS = 1;
 const OVERDUE_WINDOW_DAYS = 10;
 /** The window grows by `OVERDUE_WINDOW_DAYS` up to this while it holds fewer than `OVERDUE_CURRENT` tasks. */
 const MAX_OVERDUE_WINDOW_DAYS = 30;
+/** Off-season fallback: upcoming tasks of the next this many days stay where they are ("Nächste Tage"). */
+const KEEP_AHEAD_DAYS = 14;
 /** Past-due permit tasks that still wait on an authority (their market is ahead), picked in `leaveSomeOverdue`. */
 const WAITING_PAST = 2;
 /** Markets that ended this many days ago or more count as past (`notOfPastEvent` in the app). */
@@ -606,7 +608,8 @@ function leaveSomeOverdue(rng: Rng, today: string, all: readonly Planned[]): voi
     current = ofCurrentMarket.filter((p) => p.dueDate >= windowStart);
   }
   // Off-season (November to March): hardly any work of a current market fell due recently, yet every view should
-  // still show a few overdue tasks. The nearest upcoming ones are moved a few days into the past instead.
+  // still show a few overdue tasks. The nearest upcoming ones are moved a few days into the past instead, but not
+  // those of the next two weeks: the Übersicht's "Nächste Tage" needs them.
   const missing = OVERDUE_CURRENT - Math.min(current.length, OVERDUE_CURRENT);
   if (missing > 0) {
     const upcoming = all
@@ -617,7 +620,7 @@ function leaveSomeOverdue(rng: Rng, today: string, all: readonly Planned[]): voi
           p.task.status !== "cancelled" &&
           p.task.category !== "permits" &&
           !p.filedPermit &&
-          p.dueDate >= today,
+          p.dueDate > addDays(today, KEEP_AHEAD_DAYS),
       )
       .sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0))
       .slice(0, missing);
