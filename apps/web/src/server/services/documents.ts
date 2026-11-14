@@ -56,10 +56,15 @@ export type DocumentError =
   | "unsupported_type"
   | "invalid_kind"
   | "duplicate"
+  | "empty_name"
   | "too_long";
 
 export class DocumentInputError extends Error {
-  constructor(readonly code: DocumentError) {
+  /** `existing`: on `duplicate`, the name of the file that already hangs on the record. */
+  constructor(
+    readonly code: DocumentError,
+    readonly existing?: string,
+  ) {
     super(code);
   }
 }
@@ -202,10 +207,10 @@ export async function createDocument(
     eq(document[key as DocumentLinkKey], value as string),
   );
   const [duplicate] = await db
-    .select({ id: document.id })
+    .select({ id: document.id, fileName: document.fileName })
     .from(document)
     .where(and(eq(document.sha256, sha256), isNull(document.archivedAt), ...sameLink));
-  if (duplicate) throw new DocumentInputError("duplicate");
+  if (duplicate) throw new DocumentInputError("duplicate", duplicate.fileName);
 
   await getStorage().put(storageKey, input.bytes);
   try {
@@ -291,6 +296,64 @@ export async function archiveDocument(
       },
     ]);
     return { fileName: row.fileName };
+  });
+}
+
+export type DocumentUpdate = { fileName?: string; caption?: string | null; kind?: string };
+
+/**
+ * Renames a document, sets its description or changes its kind (the bytes never change). The file extension
+ * stays what the content is, so "Vertrag" becomes "Vertrag.pdf". Audited as `document.update` with the
+ * changed fields; nothing changed writes nothing. An e-invoice (XML) keeps its kind.
+ */
+export async function updateDocument(
+  actor: Actor,
+  id: string,
+  input: DocumentUpdate,
+): Promise<{ fileName: string }> {
+  if (!UUID.test(id)) throw new DocumentInputError("not_found");
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(document)
+      .where(and(eq(document.id, id), isNull(document.archivedAt)))
+      .for("update");
+    if (!row) throw new DocumentInputError("not_found");
+    if (!(await mayAccess(actor, linkOf(row), "write"))) forbidden();
+
+    const next: Partial<Pick<DocumentRow, "fileName" | "caption" | "kind">> = {};
+    if (input.fileName !== undefined) {
+      const ext = /\.([a-z0-9]{1,5})$/i.exec(row.fileName)?.[1] ?? "";
+      const typed = safeFileName(input.fileName, "");
+      if (typed === "") throw new DocumentInputError("empty_name");
+      const fileName =
+        ext && !typed.toLowerCase().endsWith(`.${ext.toLowerCase()}`)
+          ? `${typed.slice(0, 150 - ext.length - 1)}.${ext}`
+          : typed;
+      if (fileName !== row.fileName) next.fileName = fileName;
+    }
+    if (input.caption !== undefined) {
+      const caption = (input.caption ?? "").trim() === "" ? null : (input.caption as string).trim();
+      if (caption !== null && caption.length > 500) throw new DocumentInputError("too_long");
+      if (caption !== row.caption) next.caption = caption;
+    }
+    if (input.kind !== undefined && input.kind !== row.kind) {
+      if (!(DOCUMENT_KINDS as readonly string[]).includes(input.kind))
+        throw new DocumentInputError("invalid_kind");
+      if (row.mimeType.includes("xml") || input.kind === "e_invoice_xml")
+        throw new DocumentInputError("invalid_kind");
+      next.kind = input.kind as DocumentKind;
+    }
+    if (Object.keys(next).length === 0) return { fileName: row.fileName };
+
+    await tx.update(document).set(next).where(eq(document.id, id));
+    const changes = Object.fromEntries(
+      Object.entries(next).map(([key, to]) => [key, { from: row[key as keyof typeof next], to }]),
+    );
+    await audit(tx, actor.id, [
+      { action: "document.update", entityType: "document", entityId: id, diff: { changes } },
+    ]);
+    return { fileName: next.fileName ?? row.fileName };
   });
 }
 

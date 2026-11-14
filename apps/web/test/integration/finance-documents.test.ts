@@ -19,6 +19,7 @@ import {
   DocumentInputError,
   readDocument,
   restoreDocument,
+  updateDocument,
 } from "@/server/services/documents";
 import { createExpense } from "@/server/services/expenses";
 import { createPayable, markInstallmentPaid } from "@/server/services/payables";
@@ -283,6 +284,18 @@ describe("uploading documents", () => {
         }),
       ),
     ).toBe("duplicate");
+    // The refusal names the file that already hangs there.
+    let existing: string | undefined;
+    try {
+      await createDocument(owner, {
+        fileName: "third.pdf",
+        bytes: pdf("dup"),
+        link: { installmentId: paid },
+      });
+    } catch (error) {
+      existing = (error as DocumentInputError).existing;
+    }
+    expect(existing).toBe("x.pdf");
   });
 
   it("needs the write grant of the linked record; reading needs the read grant", async () => {
@@ -384,6 +397,70 @@ describe("removing documents (soft delete)", () => {
       error = e;
     }
     expect(isForbidden(error)).toBe(true);
+  });
+});
+
+describe("editing documents", () => {
+  it("renames (keeping the extension), sets the description and the kind, and audits the change", async () => {
+    const { paid } = await seedPayments();
+    const created = await createDocument(owner, {
+      fileName: "scan_0001.pdf",
+      bytes: pdf("edit"),
+      link: { installmentId: paid },
+    });
+    const result = await updateDocument(owner, created.id, {
+      fileName: "  Quittung Toiletten ",
+      caption: " Oktober ",
+      kind: "invoice",
+    });
+    expect(result.fileName).toBe("Quittung Toiletten.pdf");
+    const [row] = await db.select().from(document).where(eq(document.id, created.id));
+    expect(row).toMatchObject({
+      fileName: "Quittung Toiletten.pdf",
+      caption: "Oktober",
+      kind: "invoice",
+    });
+    const [entry] = await audits("document.update");
+    expect(entry?.diff).toMatchObject({
+      changes: {
+        fileName: { from: "scan_0001.pdf", to: "Quittung Toiletten.pdf" },
+        caption: { from: null, to: "Oktober" },
+        kind: { from: "receipt", to: "invoice" },
+      },
+    });
+
+    // The same values again change nothing and write no second entry; an empty description clears it.
+    await updateDocument(owner, created.id, {
+      fileName: "Quittung Toiletten.pdf",
+      kind: "invoice",
+    });
+    expect((await audits("document.update")).length).toBe(1);
+    await updateDocument(owner, created.id, { caption: "" });
+    const [cleared] = await db.select().from(document).where(eq(document.id, created.id));
+    expect(cleared?.caption).toBeNull();
+  });
+
+  it("refuses an empty name, unknown kinds and turning a file into an e-invoice; needs the write grant", async () => {
+    const { paid } = await seedPayments();
+    const created = await createDocument(owner, {
+      fileName: "x.pdf",
+      bytes: pdf("edit2"),
+      link: { installmentId: paid },
+    });
+    expect(await code(updateDocument(owner, created.id, { fileName: "  " }))).toBe("empty_name");
+    expect(await code(updateDocument(owner, created.id, { kind: "bogus" }))).toBe("invalid_kind");
+    expect(await code(updateDocument(owner, created.id, { kind: "e_invoice_xml" }))).toBe(
+      "invalid_kind",
+    );
+    let error: unknown;
+    try {
+      await updateDocument(staff, created.id, { fileName: "y" });
+    } catch (e) {
+      error = e;
+    }
+    expect(isForbidden(error)).toBe(true);
+    await archiveDocument(owner, created.id);
+    expect(await code(updateDocument(owner, created.id, { fileName: "y" }))).toBe("not_found");
   });
 });
 

@@ -40,7 +40,7 @@ export function ArchiveDocumentButton({ id, fileName }: { id: string; fileName: 
       aria-label={t("remove", { name: fileName })}
       title={t("remove", { name: fileName })}
       onClick={archive}
-      className="grid size-6 cursor-pointer place-items-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground disabled:cursor-progress disabled:opacity-60"
+      className="grid size-7 cursor-pointer place-items-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground disabled:cursor-progress disabled:opacity-60 touch:size-11"
     >
       <Trash2 aria-hidden className="size-3.5" />
     </button>
