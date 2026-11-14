@@ -1,9 +1,10 @@
 "use client";
 
+import { businessDate, eventDateRange } from "@marktwerk/core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { createSingleEvent, undoCreateEvents } from "@/app/(app)/veranstaltungen/actions";
 import {
   EventFields,
@@ -19,10 +20,17 @@ import { Button } from "@/components/ui/button";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { VenueOption } from "@/server/queries/venues";
 
+/** Problems that belong to no field: the request itself failed (UX-007). */
+const REQUEST_CODES = ["offline", "server"];
+
 /**
  * "Neue Veranstaltung ohne Vorlage" (Einzeltermin): one page because it has ~9 fields (UX concept §4).
  * Shows the generation's hints (holidays, venue booked, weekend cap) before anything is created; they
  * never block. Creates a planned event with an empty team, then opens the event page; the toast offers undo.
+ *
+ * A problem shows at its field and takes the focus there; after a first failed save the fields are checked
+ * again on every change, so a fixed problem goes away at once. A lost connection or a server error keeps
+ * everything typed and offers "Erneut versuchen".
  */
 export function ManualEventForm({
   types,
@@ -34,26 +42,72 @@ export function ManualEventForm({
   initial: { venueId?: string; startsOn?: string };
 }) {
   const t = useTranslations("generate.single");
+  const tForm = useTranslations("events.manualForm");
   const locale = useLocale();
   const router = useRouter();
   const { showToast, showError } = useShell();
   const errorId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   const [value, setValue] = useState<EventFieldsValue>(() => initialFields(types, locale, initial));
   const [problem, setProblem] = useState<FieldProblem | null>(null);
+  const [attempted, setAttempted] = useState(false);
+  const [focusTick, setFocusTick] = useState(0);
   const [pending, startTransition] = useTransition();
+  // The plannable years (UX-041), from today in Berlin.
+  const [dateRange] = useState(() => eventDateRange(businessDate()));
+  const parseOptions = { needsVenue: true, needsStart: true, dateRange };
 
-  const errorText = (code: string) =>
-    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
+  const errorText = (code: string) => {
+    if (code === "date_out_of_range")
+      return tForm("errors.date_out_of_range", {
+        minYear: dateRange.minYear,
+        maxYear: dateRange.maxYear,
+      });
+    if (REQUEST_CODES.includes(code)) return tForm(`errors.${code}` as never);
+    return t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
+  };
   const days = Number(value.days);
+  const fieldProblem = problem && problem.field !== "form" ? problem : null;
+
+  // After a failed save the focus goes to the first marked field (its message is right below it).
+  useEffect(() => {
+    if (focusTick === 0) return;
+    formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, [focusTick]);
+
+  function change(next: EventFieldsValue) {
+    setValue(next);
+    // Live after the first attempt: a fixed field loses its message, the next problem shows.
+    if (attempted) {
+      const parsed = parseFields(next, parseOptions);
+      setProblem(parsed.ok ? null : parsed.problem);
+    }
+  }
+
+  function fail(next: FieldProblem) {
+    setAttempted(true);
+    setProblem(next);
+    setFocusTick((n) => n + 1);
+  }
 
   function submit() {
-    const parsed = parseFields(value, { needsVenue: true, needsStart: true });
-    if (!parsed.ok) return setProblem(parsed.problem);
+    const parsed = parseFields(value, parseOptions);
+    if (!parsed.ok) return fail(parsed.problem);
     setProblem(null);
     startTransition(async () => {
-      const result = await createSingleEvent(parsed.input);
+      let result: Awaited<ReturnType<typeof createSingleEvent>>;
+      try {
+        result = await createSingleEvent(parsed.input);
+      } catch (error) {
+        // Nothing typed is lost: the form stays as it is (UX-007).
+        const offline =
+          (typeof navigator !== "undefined" && navigator.onLine === false) ||
+          error instanceof TypeError;
+        setProblem({ field: "form", code: offline ? "offline" : "server" });
+        return;
+      }
       if (!result.ok) {
-        setProblem({ field: fieldOfCode(result.error), code: result.error });
+        fail({ field: fieldOfCode(result.error), code: result.error });
         return;
       }
       const { id, name } = result.data;
@@ -73,6 +127,7 @@ export function ManualEventForm({
 
   return (
     <form
+      ref={formRef}
       noValidate
       className="flex max-w-3xl flex-col gap-5"
       onSubmit={(e) => {
@@ -83,19 +138,34 @@ export function ManualEventForm({
       <div className="rounded-xl border bg-card p-5">
         <EventFields
           value={value}
-          onChange={setValue}
+          onChange={change}
           types={types}
           venues={venues}
           showStart
-          problem={problem}
+          problem={fieldProblem}
           errorId={errorId}
+          messageFor={(p) => errorText(p.code)}
+          dateRange={dateRange}
         />
       </div>
-      <ScheduleHints venueId={value.venueId} startsOn={value.startsOn} durationDays={days} />
-      {problem && (
-        <p id={errorId} role="alert" className="text-small text-status-critical">
-          {errorText(problem.code)}
-        </p>
+      <ScheduleHints
+        venueId={value.venueId}
+        startsOn={value.startsOn}
+        durationDays={days}
+        dateRange={dateRange}
+      />
+      {problem?.field === "form" && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-x-3 gap-y-2 text-small text-status-critical"
+        >
+          <p className="m-0">{errorText(problem.code)}</p>
+          {REQUEST_CODES.includes(problem.code) && (
+            <Button type="submit" size="sm" variant="outline" disabled={pending}>
+              {tForm("retry")}
+            </Button>
+          )}
+        </div>
       )}
       <p className="text-muted-foreground text-small">{t("note")}</p>
       <div className="flex flex-wrap justify-end gap-2">

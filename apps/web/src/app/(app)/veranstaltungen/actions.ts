@@ -1,7 +1,8 @@
 "use server";
 
-import { addDays } from "@marktwerk/core";
+import { addDays, clampToEventDateRange, isInEventDateRange, isIsoDate } from "@marktwerk/core";
 import { refresh } from "next/cache";
+import { todayIn } from "@/lib/format";
 import { getActor } from "@/server/actor";
 import { type GenerationPreview, previewGeneration } from "@/server/queries/generation-preview";
 import {
@@ -20,8 +21,11 @@ type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 /** Existing events around the months shown in "Markt planen", for markers and preview warnings. */
 export async function loadScheduleContext(from: string, to: string) {
   await requirePermission("event", "write");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return [];
-  return scheduledEventsBetween(addDays(from, -7), addDays(to, 7));
+  // Only inside the plannable years (UX-041): "9999-12-31" + 7 days would be year 10000, which Postgres
+  // rejects (HTTP 500 in the hints). Outside them there is nothing to find anyway.
+  const range = clampToEventDateRange(from, to, todayIn());
+  if (!range) return [];
+  return scheduledEventsBetween(addDays(range.from, -7), addDays(range.to, 7));
 }
 
 /**
@@ -65,6 +69,9 @@ export async function createSingleEvent(
 ): Promise<Result<{ id: string; name: string }>> {
   await requirePermission("event", "write");
   const actor = await getActor();
+  // A typo like 9999 or 0001 would create an event nobody finds again (UX-041).
+  if (isIsoDate(input.startsOn) && !isInEventDateRange(input.startsOn, todayIn()))
+    return { ok: false, error: "date_out_of_range" };
   try {
     const created = await createManualEvent(actor, input);
     refresh();
