@@ -50,6 +50,11 @@ export type GenerationPreview = {
   dates: DatePreview[];
   /** The market has no published template: new events start without tasks. */
   noTemplate: boolean;
+  /**
+   * The Ort has no permit requirements for this kind of market. That means "noch nicht geklärt", not "keine
+   * Genehmigung nötig" (UX-011).
+   */
+  noRequirements: boolean;
 };
 
 /** Same as the logbook fill: a deadline that is only a day means the end of that day. */
@@ -275,7 +280,7 @@ export async function previewGeneration(
         }
         dates.push({ startsOn, tasks, dueNow, permitsCovered, permitsNew });
       }
-      return { dates, noTemplate: versions.size === 0 };
+      return { dates, noTemplate: versions.size === 0, noRequirements: requirements.length === 0 };
     },
     { accessMode: "read only" },
   );

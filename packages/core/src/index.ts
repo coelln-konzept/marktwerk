@@ -25,6 +25,7 @@ export * from "./events/market-short-code";
 export * from "./events/next-time-notes";
 export * from "./events/overview";
 export * from "./events/past";
+export * from "./events/plan-rule";
 export * from "./events/preset";
 export * from "./events/rrule";
 export * from "./events/rrule-describe";
