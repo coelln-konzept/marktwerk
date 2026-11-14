@@ -2,16 +2,28 @@ import { can } from "@marktwerk/core";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { AssignVenue } from "@/components/contacts/assign-venue";
 import { ContactActions } from "@/components/contacts/contact-actions";
 import { ContactReach } from "@/components/contacts/contact-reach";
-import { addressLine, MailLink, PhoneLink } from "@/components/ui/phone";
+import { AddressLink, MailLink, PhoneLink } from "@/components/ui/phone";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
 import { getActor } from "@/server/actor";
 import { getContact } from "@/server/queries/contacts";
 import { ContactKindBadge } from "./kinds";
 
-/** Vorschau of one contact with all fields and the venues it owns. Has no detail page of its own. */
-export async function ContactVorschau({ id, closeHref }: { id: string; closeHref: string }) {
+/**
+ * Vorschau of one contact with all fields and the venues it owns. Has no detail page of its own.
+ * `liste` is the Kontakte list's query, which "Bearbeiten" carries along (UX-038).
+ */
+export async function ContactVorschau({
+  id,
+  closeHref,
+  liste = "",
+}: {
+  id: string;
+  closeHref: string;
+  liste?: string;
+}) {
   const contact = await getContact(id);
   if (!contact) return null;
   const t = await getTranslations("contacts");
@@ -24,7 +36,10 @@ export async function ContactVorschau({ id, closeHref }: { id: string; closeHref
       ...contact.agreements.map((a) => a.venueName),
     ]),
   ];
-  const address = addressLine(contact);
+  // A Behörde or Eigentümer can be entered at an Ort from here (UX-055).
+  const canAssign =
+    can(actor.role, "venue", "write") &&
+    (contact.kind === "landowner" || contact.kind === "authority");
   return (
     <Vorschau
       kind={t("vorschau.kind")}
@@ -37,13 +52,16 @@ export async function ContactVorschau({ id, closeHref }: { id: string; closeHref
           { label: t("vorschau.person"), value: contact.contactPerson ?? t("none") },
           {
             label: t("vorschau.phone"),
-            value: contact.phone ? <PhoneLink phone={contact.phone} /> : t("none"),
+            value: contact.phone ? <PhoneLink phone={contact.phone} icon /> : t("none"),
           },
           {
             label: t("vorschau.email"),
             value: contact.email ? <MailLink email={contact.email} /> : t("none"),
           },
-          { label: t("vorschau.address"), value: address || t("none") },
+          {
+            label: t("vorschau.address"),
+            value: <AddressLink place={contact} fallback={t("none")} />,
+          },
           {
             label: t("vorschau.notes"),
             value: contact.notes ? <span className="text-small">{contact.notes}</span> : t("none"),
@@ -74,6 +92,11 @@ export async function ContactVorschau({ id, closeHref }: { id: string; closeHref
               </li>
             ))}
           </ul>
+        )}
+        {canAssign && (
+          <div className="mt-2">
+            <AssignVenue contact={{ id: contact.id, name: contact.name, kind: contact.kind }} />
+          </div>
         )}
       </section>
       {contact.agreements.length > 0 && (
@@ -112,6 +135,7 @@ export async function ContactVorschau({ id, closeHref }: { id: string; closeHref
         id={contact.id}
         name={contact.name}
         closeHref={closeHref}
+        liste={liste}
         canWrite={can(actor.role, "contact", "write")}
         canArchive={can(actor.role, "contact", "delete")}
       />

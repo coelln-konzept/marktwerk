@@ -198,6 +198,10 @@ describe("month-days", () => {
   it("validates and clamps", () => {
     expect(isMonthDay("02-29")).toBe(true);
     expect(isMonthDay("13-01")).toBe(false);
+    expect(isMonthDay("02-30")).toBe(false);
+    expect(isMonthDay("02-31")).toBe(false);
+    expect(isMonthDay("04-31")).toBe(false);
+    expect(isMonthDay("12-31")).toBe(true);
     expect(isMonthDay("2-9")).toBe(false);
     expect(monthDayIn(2027, "02-29")).toBe("2027-02-28");
     expect(monthDayIn(2028, "02-29")).toBe("2028-02-29");

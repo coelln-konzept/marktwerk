@@ -7,13 +7,18 @@ import {
   canTransitionPermit,
   expectedDecisionAfter,
   isIsoDate,
+  isUnfiled,
   itemPermitType,
   PERMIT_STATUSES,
+  type PermitDateField,
+  type PermitDateIssueCode,
+  type PermitDates,
   type PermitSeasonRecord,
   type PermitStatus,
   permitCovers,
   permitCoversApplication,
   permitCoversSeveralEvents,
+  permitDateIssues,
   permitInstanceTitle,
   resolveRelativeDue,
   seasonApplyDuplicates,
@@ -84,7 +89,12 @@ export type PermitErrorCode =
   | "invalid_requirement"
   | "invalid_lead_time"
   | "invalid_fee"
-  | "invalid_month_day"
+  | "invalid_window_start"
+  | "invalid_window_end"
+  | "invalid_decision_day"
+  | "incomplete_window_start"
+  | "incomplete_window_end"
+  | PermitDateIssueCode
   | "invalid_cadence"
   | "invalid_event_type"
   | "conflict";
@@ -785,6 +795,22 @@ function checkedDate(value: unknown): string | null {
   return value;
 }
 
+/**
+ * Throws the first date issue (`permitDateIssues`) that touches one of the `changed` fields, with the
+ * issue's code so the form can mark the field. An undo only keeps the validity in order: it restores
+ * what was there before, even an older inconsistency.
+ */
+function assertPermitDates(dates: PermitDates, changed: readonly string[], undo = false) {
+  const fields = changed.filter((key): key is PermitDateField =>
+    ["appliedAt", "expectedDecisionOn", "grantedAt", "validFrom", "validUntil"].includes(key),
+  );
+  if (fields.length === 0) return;
+  const issue = permitDateIssues(dates, todayIn(), fields).find(
+    (i) => !undo || i.code === "invalid_period",
+  );
+  if (issue) throw new PermitInputError(issue.code);
+}
+
 function checkedText(value: unknown, max: number): string | null {
   if (value === null || value === undefined) return null;
   if (typeof value !== "string") throw new PermitInputError("invalid_text");
@@ -1137,10 +1163,13 @@ export async function updatePermit(
     }
     if (Object.keys(changes).length === 0) return { changed: false, previous: {} };
 
-    const validFrom = "validFrom" in next ? next.validFrom : current.validFrom;
-    const validUntil = "validUntil" in next ? next.validUntil : current.validUntil;
-    if (validFrom && validUntil && validUntil < validFrom)
-      throw new PermitInputError("invalid_period");
+    // Dates must fit together (UX-008). Only the changed fields are judged, so an old inconsistency
+    // never blocks an unrelated edit; the undo toast writes back what was there before.
+    assertPermitDates(
+      { ...current, ...(update as PermitDates) },
+      Object.keys(update) as PermitDateField[],
+      options.undo === true,
+    );
 
     const [updated] = await tx
       .update(permit)
@@ -1197,6 +1226,32 @@ export type PermitStatusState = {
   status: PermitStatus;
   appliedAt: string | null;
   grantedAt: string | null;
+  /** Set when the step also wrote these fields (beantragt / genehmigt with details); undo restores them. */
+  expectedDecisionOn?: string | null;
+  referenceNo?: string | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
+};
+
+/**
+ * What a person enters with a step (UX-017, UX-048): "Beantragt am" and "Entscheidung erwartet bis" when
+ * marking it applied; Aktenzeichen, "Erteilt am" and the validity when marking it granted. A field left
+ * out keeps its value; null / "" clears it (an empty expected decision = the answer is not watched).
+ * "Beantragt am" cannot be cleared this way: a filed permit has an application date (UX-008), so an empty
+ * one counts as left out.
+ */
+export type PermitStepDetails = {
+  appliedAt?: string | null;
+  expectedDecisionOn?: string | null;
+  referenceNo?: string | null;
+  grantedAt?: string | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
+};
+
+const STEP_FIELDS: Partial<Record<PermitStatus, readonly (keyof PermitStepDetails)[]>> = {
+  applied: ["appliedAt", "expectedDecisionOn"],
+  granted: ["referenceNo", "grantedAt", "validFrom", "validUntil"],
 };
 
 export const isPermitStatus = (value: unknown): value is PermitStatus =>
@@ -1231,6 +1286,7 @@ export async function setPermitStatus(
   actor: Actor,
   id: string,
   to: string,
+  details: PermitStepDetails = {},
 ): Promise<{
   changed: boolean;
   previous: PermitStatusState;
@@ -1238,6 +1294,16 @@ export async function setPermitStatus(
 }> {
   if (!can(actor.role, "permit", "write")) forbidden();
   if (!isPermitStatus(to)) throw new PermitInputError("invalid_status");
+  // Only the fields that belong to this step; anything else is ignored.
+  const step: PermitStepDetails = {};
+  for (const key of STEP_FIELDS[to] ?? []) {
+    if (!(key in details)) continue;
+    step[key] =
+      key === "referenceNo"
+        ? checkedText(details.referenceNo, MAX_REFERENCE)
+        : checkedDate(details[key]);
+  }
+  if (to === "applied" && step.appliedAt === null) delete step.appliedAt;
   return db.transaction(async (tx) => {
     const current = await lockPermit(tx, id);
     const previous: PermitStatusState = {
@@ -1245,17 +1311,28 @@ export async function setPermitStatus(
       appliedAt: current.appliedAt,
       grantedAt: current.grantedAt,
     };
+    for (const key of Object.keys(step) as (keyof PermitStepDetails)[])
+      (previous as Record<string, unknown>)[key] = current[key];
     if (current.status === to) return { changed: false, previous, closedTaskIds: [] };
     if (!canTransitionPermit(current.status, to)) throw new PermitInputError("invalid_transition");
 
     const today = todayIn();
-    const set: Partial<typeof permit.$inferInsert> = { status: to };
-    if (to === "applied" && !current.appliedAt) set.appliedAt = today;
-    if (to === "granted" && !current.grantedAt) set.grantedAt = today;
+    const set: Partial<typeof permit.$inferInsert> = { status: to, ...step };
+    // Today is the application date only when it is filed now: a step back from "Genehmigt" to
+    // "Beantragt" must not invent one (UX-008).
+    if (
+      to === "applied" &&
+      !("appliedAt" in step) &&
+      !current.appliedAt &&
+      (isUnfiled(current.status) || current.status === "rejected")
+    )
+      set.appliedAt = today;
+    if (to === "granted" && !("grantedAt" in step) && !current.grantedAt) set.grantedAt = today;
     // Back from "Genehmigt": the permit was not granted after all, "Erteilt am" would be stale (a
     // replaced permit keeps it: it was granted). Undo writes `previous.grantedAt` back.
     if (current.status === "granted" && to !== "granted" && to !== "superseded")
       set.grantedAt = null;
+    assertPermitDates({ ...current, ...(set as PermitDates) }, Object.keys(set));
     await tx.update(permit).set(set).where(eq(permit.id, id));
 
     let closedTaskIds: string[] = [];
@@ -1306,7 +1383,12 @@ export async function setPermitStatus(
         action: "permit.status",
         entityType: "permit",
         entityId: id,
-        diff: { from: current.status, to, closedTaskIds },
+        diff: {
+          from: current.status,
+          to,
+          closedTaskIds,
+          ...(Object.keys(step).length > 0 ? { details: step } : {}),
+        },
       },
     ]);
     if (to === "granted") await autoConfirmEventsOfPermit(tx, actor, id, "permit_status");
@@ -1330,14 +1412,19 @@ export async function restorePermitStatus(
   return db.transaction(async (tx) => {
     const current = await lockPermit(tx, id);
     if (current.status !== expected) throw new PermitInputError("conflict");
-    await tx
-      .update(permit)
-      .set({
-        status: previous.status,
-        appliedAt: checkedDate(previous.appliedAt),
-        grantedAt: checkedDate(previous.grantedAt),
-      })
-      .where(eq(permit.id, id));
+    const restore: Partial<typeof permit.$inferInsert> = {
+      status: previous.status,
+      appliedAt: checkedDate(previous.appliedAt),
+      grantedAt: checkedDate(previous.grantedAt),
+    };
+    // The fields the step wrote as well (beantragt / genehmigt with details).
+    if ("expectedDecisionOn" in previous)
+      restore.expectedDecisionOn = checkedDate(previous.expectedDecisionOn);
+    if ("validFrom" in previous) restore.validFrom = checkedDate(previous.validFrom);
+    if ("validUntil" in previous) restore.validUntil = checkedDate(previous.validUntil);
+    if ("referenceNo" in previous)
+      restore.referenceNo = checkedText(previous.referenceNo, MAX_REFERENCE);
+    await tx.update(permit).set(restore).where(eq(permit.id, id));
     const ids = closedTaskIds.filter(isUuid);
     let reopened: string[] = [];
     if (ids.length > 0) {
