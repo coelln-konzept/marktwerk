@@ -22,6 +22,7 @@ import {
 } from "@/components/contacts/contact-quick-create";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
+import { useSafeAction } from "@/components/shell/use-safe-action";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FORM_SECTION, FORM_SECTION_TITLE } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ export function VenueForm({
   const locale = useLocale();
   const router = useRouter();
   const { showToast } = useShell();
+  const safe = useSafeAction();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
   const uid = useId();
@@ -138,9 +140,11 @@ export function VenueForm({
       lng: lngValue,
     };
     startTransition(async () => {
-      const result = editing
-        ? await updateVenueAction(venueId, input)
-        : await createVenueAction(input);
+      const result = await safe(async () =>
+        editing ? await updateVenueAction(venueId, input) : await createVenueAction(input),
+      );
+      // Offline or a server error: the toast says so, the form keeps what was typed (UX-007).
+      if (!result) return;
       if (!result.ok) {
         fail(result.error);
         // Archived or gone while the form was open: nothing to edit any more.

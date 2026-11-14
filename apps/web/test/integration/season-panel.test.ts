@@ -341,11 +341,13 @@ describe("Saison anlegen (UX-009)", () => {
       ]);
     const planned = await tasksOf(season2027.id);
     expect(planned.byTitle("Termine planen").completedAt).not.toBeNull();
-    // The same entry as a tick (undoable), marked as automatic.
+    // The same entry as a tick (undoable), marked as automatic. In the order written (`at`, then the
+    // time-ordered id): without an order Postgres may return them in any order.
     const entries = await db
       .select()
       .from(auditLog)
-      .where(and(eq(auditLog.action, "task.status"), eq(auditLog.entityType, "task")));
+      .where(and(eq(auditLog.action, "task.status"), eq(auditLog.entityType, "task")))
+      .orderBy(auditLog.at, auditLog.id);
     expect(entries).toHaveLength(4);
     const parentEntry = entries.find((e) => e.entityId === planned.byTitle("Termine planen").id);
     expect(parentEntry?.diff).toMatchObject({

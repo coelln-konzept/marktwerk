@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
+import { backDelta } from "@/lib/history-back";
 
 const KEY = "marktwerk:pages";
 const MAX = 50;
@@ -49,9 +50,25 @@ export function useVisitedPages() {
   }, [pathname, search]);
 }
 
+/** The tab's session history (Navigation API), or null where the browser has none. */
+function sessionHistory(): { urls: (string | null)[]; index: number } | null {
+  const nav = (
+    window as {
+      navigation?: {
+        currentEntry: { index: number } | null;
+        entries: () => { url: string | null }[];
+      };
+    }
+  ).navigation;
+  if (!nav?.currentEntry) return null;
+  return { urls: nav.entries().map((e) => e.url), index: nav.currentEntry.index };
+}
+
 /**
  * "←" before the breadcrumb on pages below the sidebar level: back to the page you came from in this
- * tab (with its filters), or to the parent page when this one was opened directly.
+ * tab (with its filters), or to the parent page when this one was opened directly. When the browser
+ * history leads to that page it goes back there; otherwise it replaces this entry. It never pushes, so
+ * the browser's own Back does not bring this page up again (UX-065).
  */
 export function BackButton({ parentHref }: { parentHref: string }) {
   const t = useTranslations("topbar");
@@ -65,7 +82,13 @@ export function BackButton({ parentHref }: { parentHref: string }) {
       onClick={() => {
         const stack = read();
         const previous = stack.at(-1)?.path === pathname ? stack.at(-2) : stack.at(-1);
-        router.push((previous?.url ?? parentHref) as never);
+        const target = previous?.url ?? parentHref;
+        const history = sessionHistory();
+        const delta = history
+          ? backDelta(history.urls, history.index, new URL(target, window.location.href).pathname)
+          : null;
+        if (delta !== null) window.history.go(delta);
+        else router.replace(target as never);
       }}
       className="-ml-1 grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
     >

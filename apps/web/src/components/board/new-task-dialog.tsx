@@ -8,6 +8,7 @@ import { makeTask } from "@/app/(app)/board/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
+import { useSafeAction } from "@/components/shell/use-safe-action";
 import { createdTaskHref, DUE_MAX, DUE_MIN, dueProblem } from "@/components/task/drawer-logic";
 import { NotifyFields } from "@/components/task/notify-fields";
 import {
@@ -74,7 +75,8 @@ export function NewTaskButton({
   const tNotify = useTranslations("board.notify");
   const tDue = useTranslations("tasks.dueField");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, singleKeys } = useShell();
+  const safe = useSafeAction();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -202,16 +204,20 @@ export function NewTaskButton({
     if (problem) return fail(tNotify(`errors.${problem}`), "notify");
     setError(null);
     startTransition(async () => {
-      const result = await makeTask({
-        title,
-        eventId: forEvent || null,
-        dueOn: due || null,
-        estimateMinutes: minutes,
-        category,
-        description: description || null,
-        assigneeId: canAssign && assignee ? assignee : null,
-        notify: notifyInputOf(notify),
-      });
+      const result = await safe(() =>
+        makeTask({
+          title,
+          eventId: forEvent || null,
+          dueOn: due || null,
+          estimateMinutes: minutes,
+          category,
+          description: description || null,
+          assigneeId: canAssign && assignee ? assignee : null,
+          notify: notifyInputOf(notify),
+        }),
+      );
+      // Offline or a server error: the toast says so, the dialog keeps what was typed (UX-007).
+      if (!result) return;
       if (!result.ok) {
         setError({
           text: t.has(`errors.${result.error}` as never)
@@ -244,7 +250,9 @@ export function NewTaskButton({
         <Button variant={shortcut ? "default" : "outline"} onClick={() => openDialog()}>
           <Plus aria-hidden />
           {t("button")}
-          {shortcut && <Kbd className="border-white/40 bg-transparent text-inherit">C</Kbd>}
+          {shortcut && singleKeys && (
+            <Kbd className="border-white/40 bg-transparent text-inherit">C</Kbd>
+          )}
         </Button>
       )}
       <Modal open={open} onOpenChange={changeOpen} title={t("title")} closeLabel={t("cancel")}>

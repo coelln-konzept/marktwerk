@@ -11,6 +11,7 @@ import {
   undoPermitStatus,
 } from "@/app/(app)/genehmigungen/actions";
 import { useShell } from "@/components/shell/shell-context";
+import { useSafeAction } from "@/components/shell/use-safe-action";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,8 @@ export function PermitStatusFlow({
   const t = useTranslations("permitDrawer");
   const tState = useTranslations("permitStatus");
   const { showToast, showError } = useShell();
+  // Offline or a server error: an error toast instead of the error page (UX-007).
+  const safe = useSafeAction();
   const [pending, startTransition] = useTransition();
   const { primary, secondary, menu } = splitPermitTransitions(status);
   const none = !primary && secondary.length === 0 && menu.length === 0;
@@ -55,7 +58,8 @@ export function PermitStatusFlow({
 
   function move(to: PermitStatus) {
     startTransition(async () => {
-      const result = await changePermitStatus(permitId, to);
+      const result = await safe(() => changePermitStatus(permitId, to));
+      if (!result) return;
       if (!result.ok) return showError(errorText(result.error));
       const { changed, previous, closedTaskIds } = result.data;
       if (!changed) return showToast({ message: t("statusUnchanged", { status: label(to) }) });
@@ -77,7 +81,8 @@ export function PermitStatusFlow({
   // "Als ersetzt markieren" clicked again: valid again, with the same undo as every other change.
   function reinstate() {
     startTransition(async () => {
-      const result = await reinstatePermitAction(permitId);
+      const result = await safe(() => reinstatePermitAction(permitId));
+      if (!result) return;
       if (!result.ok) return showError(errorText(result.error));
       const { status: back } = result.data;
       showToast({
