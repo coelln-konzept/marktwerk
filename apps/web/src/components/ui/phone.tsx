@@ -1,5 +1,5 @@
-import { formatPhone } from "@marktwerk/core";
-import { Phone } from "lucide-react";
+import { formatPhone, type MapPlace, mapsSearchUrl } from "@marktwerk/core";
+import { MapPin, Phone } from "lucide-react";
 
 /**
  * Phone number as a tel: link with the readable German grouping ("+49 176 04069381"). Renders
@@ -30,6 +30,38 @@ export function MailLink({ email }: { email: string }) {
   return (
     <a href={`mailto:${email}`} className="break-all text-accent-soft-foreground hover:underline">
       {email}
+    </a>
+  );
+}
+
+/**
+ * The address as a link to the maps app (UX-016), opened in a new tab; stored coordinates are used when
+ * there are some. Without a town it stays plain text; without any address it renders `fallback`.
+ */
+export function AddressLink({
+  place,
+  fallback = null,
+  title,
+}: {
+  place: MapPlace;
+  fallback?: React.ReactNode;
+  /** Tooltip, e.g. "In Karte öffnen". */
+  title?: string;
+}) {
+  const text = addressLine(place);
+  const href = mapsSearchUrl(place);
+  if (!text) return <span className="text-faint-foreground">{fallback}</span>;
+  if (!href) return <span>{text}</span>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={title}
+      className="inline-flex items-start gap-1.5 text-accent-soft-foreground hover:underline"
+    >
+      <MapPin aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+      {text}
     </a>
   );
 }

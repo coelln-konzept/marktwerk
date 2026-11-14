@@ -1,17 +1,23 @@
 "use client";
 
 import { isValidEmail, normalizePhone } from "@marktwerk/core";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
-import { createContactAction, updateContactAction } from "@/app/(app)/kontakte/actions";
+import {
+  createContactAction,
+  similarContactsAction,
+  updateContactAction,
+} from "@/app/(app)/kontakte/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
+import { DiscardBar, useBeforeUnload } from "@/components/ui/leave-guard";
 import { Panel, PanelBody } from "@/components/ui/panel";
 import type { ContactInput } from "@/server/services/contacts";
+import { contactListHref } from "./list-context";
+import { SimilarHint, useSimilar } from "./similar-hint";
 
 const SELECT_CLASS =
   "flex min-h-(--control-h) w-full rounded-lg border border-input bg-card px-3 py-1 text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-1";
@@ -20,7 +26,7 @@ const TEXTAREA_CLASS =
 
 type FieldName = keyof ContactInput | "form";
 
-/** Which field an error code belongs to (for aria-invalid and the focus). */
+/** Which field an error code belongs to (for aria-invalid, the message under it and the focus). */
 const ERROR_FIELD: Record<string, FieldName> = {
   name_required: "name",
   invalid_kind: "kind",
@@ -43,47 +49,90 @@ const EMPTY: ContactInput = {
 /**
  * Create and edit form for a contact. Nine fields, so a page rather than a modal (UX concept §4:
  * modals up to 8 fields). `edit` carries the id and the `updatedAt` the form was loaded with, which the
- * service uses as the optimistic lock.
+ * service uses as the optimistic lock. `liste` is the Kontakte list's query (search, filters, sort):
+ * saving and "Abbrechen" return to that list (UX-038).
  */
 export function ContactForm({
   kinds,
   initial,
   edit,
+  liste = "",
 }: {
   kinds: { value: string; label: string }[];
   initial?: ContactInput;
   edit?: { id: string; updatedAt: string };
+  liste?: string;
 }) {
   const t = useTranslations("contacts.form");
   const tToast = useTranslations("contacts.toast");
+  const tKinds = useTranslations("contacts.kinds");
   const router = useRouter();
   const { showToast } = useShell();
   const [pending, startTransition] = useTransition();
-  const [values, setValues] = useState<ContactInput>(initial ?? EMPTY);
+  const start = initial ?? EMPTY;
+  const [values, setValues] = useState<ContactInput>(start);
   const [error, setError] = useState<{ field: FieldName; code: string } | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const uid = useId();
   const id = (field: string) => `${uid}-${field}`;
-  const backHref = edit ? `/kontakte?vorschau=${edit.id}` : "/kontakte";
+  const backHref = contactListHref(liste, edit?.id);
 
   const set = (field: keyof ContactInput) => (value: string) =>
     setValues((prev) => ({ ...prev, [field]: value }));
   const text = (field: keyof ContactInput) => values[field] ?? "";
 
+  // Unsaved changes (UX-002): the browser asks on close/reload, "Abbrechen" asks inline.
+  const dirty = (Object.keys(start) as (keyof ContactInput)[]).some(
+    (key) => (values[key] ?? "") !== (start[key] ?? ""),
+  );
+  useBeforeUnload(dirty && !pending);
+
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
-  const invalid = (field: FieldName) =>
-    error?.field === field
-      ? { "aria-invalid": true as const, "aria-describedby": id("error") }
-      : {};
+  const fieldError = (field: FieldName) => (error?.field === field ? error.code : null);
+  /** aria props of a field: invalid and described by its own message (plus its hint, if any). */
+  const describe = (field: FieldName, hint?: string) => {
+    const wrong = fieldError(field) !== null;
+    const ids = [wrong ? id(`${field}-error`) : null, hint ?? null].filter(Boolean).join(" ");
+    return {
+      ...(wrong ? { "aria-invalid": true as const } : {}),
+      ...(ids ? { "aria-describedby": ids } : {}),
+    };
+  };
+  /** The message under a field (UX-055: errors sit at the field, not at the end of the form). */
+  const errorFor = (field: FieldName) => {
+    const code = fieldError(field);
+    return code ? (
+      <p id={id(`${field}-error`)} className="text-small text-status-critical">
+        {errorText(code)}
+      </p>
+    ) : null;
+  };
 
   const phoneTyped = text("phone").trim();
   const phoneNormalized = phoneTyped ? normalizePhone(phoneTyped) : "";
   const showPhoneHint = phoneNormalized !== "" && phoneNormalized !== phoneTyped;
 
+  // "Ähnlicher Kontakt" while typing (UX-028): same name, phone or e-mail. Never blocks saving.
+  const typedName = text("name").trim();
+  const typedEmail = text("email").trim();
+  const similarKey =
+    typedName.length >= 3 || phoneTyped.length >= 6 || typedEmail.includes("@")
+      ? JSON.stringify([typedName, phoneTyped, typedEmail])
+      : null;
+  const similar = useSimilar(similarKey, () =>
+    similarContactsAction({ name: typedName, phone: phoneTyped, email: typedEmail }, edit?.id),
+  );
+
   function fail(code: string) {
     const field = ERROR_FIELD[code] ?? "form";
     setError({ field, code });
     if (field !== "form") document.getElementById(id(field))?.focus();
+  }
+
+  function cancel() {
+    if (dirty) setLeaving(true);
+    else router.push(backHref as never);
   }
 
   function submit() {
@@ -94,6 +143,7 @@ export function ContactForm({
     const email = text("email").trim();
     if (email !== "" && !isValidEmail(email)) return fail("invalid_email");
     setError(null);
+    setLeaving(false);
     const input: ContactInput = { ...values, phone: phoneNormalized };
     startTransition(async () => {
       const result = edit
@@ -106,7 +156,7 @@ export function ContactForm({
         router.push(backHref as never);
       } else {
         showToast({ message: tToast("created") });
-        router.push(`/kontakte?vorschau=${(result.data as { id: string }).id}` as never);
+        router.push(contactListHref(liste, (result.data as { id: string }).id) as never);
       }
     });
   }
@@ -129,7 +179,7 @@ export function ContactForm({
               value={values.kind}
               onChange={(e) => set("kind")(e.target.value)}
               className={SELECT_CLASS}
-              {...invalid("kind")}
+              {...describe("kind")}
             >
               {kinds.map((k) => (
                 <option key={k.value} value={k.value}>
@@ -137,6 +187,7 @@ export function ContactForm({
                 </option>
               ))}
             </select>
+            {errorFor("kind")}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={id("name")}>{t("name")}</Label>
@@ -148,9 +199,24 @@ export function ContactForm({
               placeholder={t("namePlaceholder")}
               value={text("name")}
               onChange={(e) => set("name")(e.target.value)}
-              {...invalid("name")}
+              {...describe("name", similar.length > 0 ? id("similar") : undefined)}
             />
+            {errorFor("name")}
           </div>
+          <SimilarHint
+            className="sm:col-span-2"
+            id={id("similar")}
+            title={t("similar.title", { count: similar.length })}
+            note={edit ? t("similar.noteEdit") : t("similar.note")}
+            items={similar.map((c) => ({
+              id: c.id,
+              href: `/kontakte?vorschau=${c.id}`,
+              label: c.name,
+              reason: [tKinds(c.kind), c.city, t(`similar.reason.${c.reason}`)]
+                .filter(Boolean)
+                .join(" · "),
+            }))}
+          />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={id("contactPerson")} optional>
               {t("contactPerson")}
@@ -179,9 +245,9 @@ export function ContactForm({
                 const typed = e.target.value.trim();
                 if (typed !== "") set("phone")(normalizePhone(typed));
               }}
-              aria-describedby={showPhoneHint ? id("phone-hint") : undefined}
-              {...invalid("phone")}
+              {...describe("phone", showPhoneHint ? id("phone-hint") : undefined)}
             />
+            {errorFor("phone")}
             <p id={id("phone-hint")} className="text-faint-foreground text-small">
               {showPhoneHint ? t("phoneNormalized", { value: phoneNormalized }) : t("phoneHint")}
             </p>
@@ -197,8 +263,9 @@ export function ContactForm({
               autoComplete="off"
               value={text("email")}
               onChange={(e) => set("email")(e.target.value)}
-              {...invalid("email")}
+              {...describe("email")}
             />
+            {errorFor("email")}
           </div>
         </PanelBody>
       </Panel>
@@ -269,8 +336,9 @@ export function ContactForm({
         </PanelBody>
       </Panel>
 
-      {error && (
-        <div id={id("error")} role="alert" className="flex flex-wrap items-center gap-3">
+      {/* Errors that belong to no single field (conflict, too long, server trouble). */}
+      {error?.field === "form" && (
+        <div role="alert" className="flex flex-wrap items-center gap-3">
           <p className="text-small text-status-critical">{errorText(error.code)}</p>
           {error.code === "conflict" && (
             <Button size="sm" onClick={() => window.location.reload()}>
@@ -280,13 +348,18 @@ export function ContactForm({
         </div>
       )}
 
+      {leaving && (
+        <DiscardBar
+          message={t("unsaved")}
+          discardLabel={t("discard")}
+          keepLabel={t("keepEditing")}
+          onDiscard={() => router.push(backHref as never)}
+          onKeep={() => setLeaving(false)}
+        />
+      )}
+
       <div className="flex flex-wrap justify-end gap-2">
-        <Link
-          href={backHref as never}
-          className="inline-flex min-h-8 items-center rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover"
-        >
-          {t("cancel")}
-        </Link>
+        <Button onClick={cancel}>{t("cancel")}</Button>
         <Button type="submit" variant="default" aria-busy={pending} disabled={pending}>
           {edit ? t("save") : t("create")}
         </Button>

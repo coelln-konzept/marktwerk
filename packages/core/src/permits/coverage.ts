@@ -8,8 +8,12 @@ import type { PermitCadence, PermitStatus } from "./status";
 
 const MONTH_DAY = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
 
+/** A real "MM-DD": the day exists in that month (31.02. does not; 29.02. does, in leap years). */
 export function isMonthDay(value: unknown): value is string {
-  return typeof value === "string" && MONTH_DAY.test(value);
+  if (typeof value !== "string" || !MONTH_DAY.test(value)) return false;
+  const [month, day] = value.split("-").map(Number) as [number, number];
+  // 2000 is a leap year: 29.02. is a valid month-day, `monthDayIn` moves it in other years.
+  return day <= daysInMonth(2000, month);
 }
 
 /** The date of a month-day in a year; 02-29 falls back to 28.02. in non-leap years. */

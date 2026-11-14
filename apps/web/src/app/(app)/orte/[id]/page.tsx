@@ -1,5 +1,5 @@
-import { can } from "@marktwerk/core";
-import { ArrowRight, Check, FileCheck2, Pencil } from "lucide-react";
+import { can, formatCoordinate, mapsRouteUrl } from "@marktwerk/core";
+import { ArrowRight, Check, FileCheck2, Navigation, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -19,7 +19,7 @@ import {
   PanelHeading,
   panelActionLink,
 } from "@/components/ui/panel";
-import { addressLine, MailLink, PhoneLink } from "@/components/ui/phone";
+import { AddressLink, MailLink, PhoneLink } from "@/components/ui/phone";
 import { rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { Facts } from "@/components/ui/vorschau";
 import { ArchiveVenueButton } from "@/components/venues/archive-button";
@@ -58,7 +58,8 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
     showPresets ? listPresets() : Promise.resolve([]),
   ]);
   const venuePresets = presets.filter((p) => p.venueId === id);
-  const address = addressLine(venue);
+  // "Route" opens directions in the maps app, to the coordinates when stored (UX-016).
+  const routeHref = mapsRouteUrl(venue);
 
   return (
     <Page crumbs={[{ label: t("title"), href: "/orte" }, { label: venue.name }]}>
@@ -90,15 +91,111 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
             <span>{venue.city}</span>
             <VenueKindBadge kind={venue.kind} label={t(`kinds.${venue.kind}`)} />
             <span className="tabular">
-              {td("facts", {
-                zones: venue.zones.length,
-                rows: venue.rowCount,
-                length: formatLength(venue.capacityCm ?? 0, locale),
-              })}
+              {/* No rows and no stored capacity: "Kapazität offen", not "0,00 m" (UX-056). */}
+              {venue.capacityCm
+                ? td("facts", {
+                    zones: venue.zones.length,
+                    rows: venue.rowCount,
+                    length: formatLength(venue.capacityCm, locale),
+                  })
+                : td("factsOpen", { zones: venue.zones.length, rows: venue.rowCount })}
             </span>
           </span>
         }
       />
+
+      {/* Address and access first (UX-016): on site this is what people open the Ort for. */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel
+          title={td("address")}
+          actions={
+            routeHref ? (
+              <a
+                href={routeHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "default" })}
+              >
+                <Navigation aria-hidden />
+                {td("route")}
+              </a>
+            ) : undefined
+          }
+        >
+          <PanelBody className="flex flex-col gap-3">
+            <Facts
+              items={[
+                {
+                  label: td("addressLabel"),
+                  value: <AddressLink place={venue} fallback={t("none")} title={td("openMap")} />,
+                },
+                ...(venue.lat !== null && venue.lng !== null
+                  ? [
+                      {
+                        label: td("coordinatesLabel"),
+                        value: (
+                          <span className="tabular">
+                            {formatCoordinate(venue.lat, locale)} /{" "}
+                            {formatCoordinate(venue.lng, locale)}
+                          </span>
+                        ),
+                      },
+                    ]
+                  : []),
+                {
+                  label: td("accessLabel"),
+                  value: venue.accessInfo ? (
+                    <span className="whitespace-pre-line">{venue.accessInfo}</span>
+                  ) : (
+                    <span className="text-muted-foreground">{td("noAccess")}</span>
+                  ),
+                },
+              ]}
+            />
+          </PanelBody>
+        </Panel>
+
+        <Panel title={td("owner")}>
+          <PanelBody>
+            {venue.landownerId ? (
+              <Facts
+                items={[
+                  {
+                    label: td("ownerLabel"),
+                    value: (
+                      <Link
+                        href={`/kontakte?vorschau=${venue.landownerId}` as never}
+                        className="font-semibold text-accent-soft-foreground hover:underline"
+                      >
+                        {venue.landownerName}
+                      </Link>
+                    ),
+                  },
+                  { label: td("personLabel"), value: venue.landownerPerson ?? t("none") },
+                  {
+                    label: td("phoneLabel"),
+                    value: venue.landownerPhone ? (
+                      <PhoneLink phone={venue.landownerPhone} icon />
+                    ) : (
+                      t("none")
+                    ),
+                  },
+                  {
+                    label: td("emailLabel"),
+                    value: venue.landownerEmail ? (
+                      <MailLink email={venue.landownerEmail} />
+                    ) : (
+                      t("none")
+                    ),
+                  },
+                ]}
+              />
+            ) : (
+              <p className="text-muted-foreground">{td("noOwner")}</p>
+            )}
+          </PanelBody>
+        </Panel>
+      </div>
 
       {can(actor.role, "permit", "read") && (
         <Link
@@ -190,67 +287,6 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
         )}
       </KeyboardRows>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title={td("address")}>
-          <PanelBody className="flex flex-col gap-3">
-            <Facts
-              items={[
-                { label: td("addressLabel"), value: address || t("none") },
-                {
-                  label: td("accessLabel"),
-                  value: venue.accessInfo ? (
-                    <span className="whitespace-pre-line">{venue.accessInfo}</span>
-                  ) : (
-                    <span className="text-muted-foreground">{td("noAccess")}</span>
-                  ),
-                },
-              ]}
-            />
-          </PanelBody>
-        </Panel>
-
-        <Panel title={td("owner")}>
-          <PanelBody>
-            {venue.landownerId ? (
-              <Facts
-                items={[
-                  {
-                    label: td("ownerLabel"),
-                    value: (
-                      <Link
-                        href={`/kontakte?vorschau=${venue.landownerId}` as never}
-                        className="font-semibold text-accent-soft-foreground hover:underline"
-                      >
-                        {venue.landownerName}
-                      </Link>
-                    ),
-                  },
-                  { label: td("personLabel"), value: venue.landownerPerson ?? t("none") },
-                  {
-                    label: td("phoneLabel"),
-                    value: venue.landownerPhone ? (
-                      <PhoneLink phone={venue.landownerPhone} />
-                    ) : (
-                      t("none")
-                    ),
-                  },
-                  {
-                    label: td("emailLabel"),
-                    value: venue.landownerEmail ? (
-                      <MailLink email={venue.landownerEmail} />
-                    ) : (
-                      t("none")
-                    ),
-                  },
-                ]}
-              />
-            ) : (
-              <p className="text-muted-foreground">{td("noOwner")}</p>
-            )}
-          </PanelBody>
-        </Panel>
-      </div>
-
       <section aria-labelledby="zones-title" className="flex flex-col gap-3">
         <PanelHeading
           id="zones-title"
@@ -271,16 +307,18 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
                   <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
                     <h3 className="font-semibold">{zone.name}</h3>
                     <span className="tabular text-muted-foreground text-small">
-                      {td("zoneSummary", {
-                        rows: zone.rows.length,
-                        length: formatLength(zone.lengthCm, locale),
-                      })}
+                      {zone.rows.length > 0
+                        ? td("zoneSummary", {
+                            rows: zone.rows.length,
+                            length: formatLength(zone.lengthCm, locale),
+                          })
+                        : td("zoneSummaryEmpty")}
                     </span>
                   </div>
                   {canWrite && (
                     <ZoneControls
                       venueId={venue.id}
-                      zone={{ id: zone.id, name: zone.name }}
+                      zone={{ id: zone.id, name: zone.name, rows: zone.rows }}
                       index={index}
                       count={venue.zones.length}
                     />
@@ -333,7 +371,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
                         {canWrite && (
                           <TD className="w-20 text-right">
                             <RowControls
-                              zone={{ id: zone.id, name: zone.name }}
+                              zone={{ id: zone.id, name: zone.name, rows: zone.rows }}
                               row={{
                                 id: row.id,
                                 label: row.label,

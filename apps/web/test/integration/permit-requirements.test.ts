@@ -98,8 +98,13 @@ describe("permit requirements", () => {
     await bad({ title: "  " }, "invalid_title");
     await bad({ leadTimeDays: -1 }, "invalid_lead_time");
     await bad({ leadTimeDays: 1.5 }, "invalid_lead_time");
-    await bad({ submissionWindowStartMd: "13-01" }, "invalid_month_day");
-    await bad({ expectedDecisionMd: "1-5" }, "invalid_month_day");
+    await bad({ submissionWindowStartMd: "13-01" }, "invalid_window_start");
+    await bad({ submissionWindowEndMd: "02-31" }, "invalid_window_end");
+    await bad({ expectedDecisionMd: "1-5" }, "invalid_decision_day");
+    await bad({ expectedDecisionMd: "02-30" }, "invalid_decision_day");
+    // An Antragsfenster has both ends or none.
+    await bad({ submissionWindowEndMd: null }, "incomplete_window_end");
+    await bad({ submissionWindowStartMd: null }, "incomplete_window_start");
     await bad({ typicalFeeCents: -5 }, "invalid_fee");
     await bad({ cadence: "weekly" as never }, "invalid_cadence");
     await bad({ category: "other" as never }, "invalid_category");

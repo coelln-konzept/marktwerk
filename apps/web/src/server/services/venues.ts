@@ -4,6 +4,7 @@ import {
   isBundesland,
   isPostalCode,
   MAX_LENGTH_CM,
+  mayOwnVenue,
   VENUE_NAME_MAX,
   venueNameFromAddress,
 } from "@marktwerk/core";
@@ -148,14 +149,27 @@ function cleanVenue(input: VenueInput): CleanVenue {
   };
 }
 
-/** Landowner must be a live contact of kind landowner (an archived one may stay where it already is). */
-async function checkLandowner(tx: Tx, contactId: string | null, current?: string | null) {
-  if (!contactId || contactId === current) return;
+/**
+ * The Eigentümer must be a live contact of a kind that may own this kind of Ort: an Eigentümer, or for a
+ * städtisches Ort also a Behörde (`mayOwnVenue`, UX-056). The one already entered may stay even when it
+ * was archived since, unless the Ort's kind changes to one it may not own. `restoring` is an undo putting
+ * back the one that was there just before: it may be archived too, but must still fit the kind.
+ */
+async function checkLandowner(
+  tx: Tx,
+  contactId: string | null,
+  venueKind: string,
+  current?: { contactId: string | null; venueKind: string },
+  restoring = false,
+) {
+  if (!contactId) return;
+  const unchanged = current?.contactId === contactId;
+  if (unchanged && current?.venueKind === venueKind) return;
   const [row] = await tx
     .select({ kind: contact.kind, archivedAt: contact.archivedAt })
     .from(contact)
     .where(eq(contact.id, contactId));
-  if (!row || row.archivedAt || row.kind !== "landowner")
+  if (!row || (!unchanged && !restoring && row.archivedAt) || !mayOwnVenue(row.kind, venueKind))
     throw new VenueInputError("invalid_landowner");
 }
 
@@ -189,7 +203,7 @@ export async function createVenue(actor: Actor, input: VenueInput): Promise<{ id
   if (!can(actor.role, "venue", "write")) forbidden();
   const values = cleanVenue(input);
   return db.transaction(async (tx) => {
-    await checkLandowner(tx, values.landownerContactId);
+    await checkLandowner(tx, values.landownerContactId, values.kind);
     const [row] = await tx.insert(venue).values(values).returning({ id: venue.id });
     if (!row) throw new Error("insert failed");
     await audit(tx, actor.id, [
@@ -210,7 +224,10 @@ export async function updateVenue(
   return db.transaction(async (tx) => {
     const current = await lockVenue(tx, id);
     const previous = snapshotOf(current);
-    await checkLandowner(tx, next.landownerContactId, previous.landownerContactId);
+    await checkLandowner(tx, next.landownerContactId, next.kind, {
+      contactId: previous.landownerContactId,
+      venueKind: previous.kind,
+    });
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     for (const field of VENUE_FIELDS) {
       if (previous[field] !== next[field])
@@ -222,6 +239,58 @@ export async function updateVenue(
       { action: "venue.update", entityType: "venue", entityId: id, diff: { changes } },
     ]);
     return { changed: true };
+  });
+}
+
+/**
+ * "Als Eigentümer bei Ort eintragen…" from a contact's Vorschau (UX-055): sets only the Ort's
+ * Eigentümer, with the same rules as the form. `contactId` null clears it. Audited as "venue.update"
+ * like a form edit. Returns the previous Eigentümer so the toast can offer to restore it.
+ *
+ * The undo passes `undoOf`, the contact it is undoing. While that one is still entered, the previous
+ * Eigentümer goes back even if it was archived meanwhile (it was allowed to stay, so it may return).
+ * If someone changed the Eigentümer in between, the undo follows the normal rules.
+ */
+export async function setVenueLandowner(
+  actor: Actor,
+  venueId: string,
+  contactId: string | null,
+  undoOf?: string,
+): Promise<{
+  changed: boolean;
+  venueName: string;
+  previous: { id: string; name: string } | null;
+}> {
+  if (!can(actor.role, "venue", "write")) forbidden();
+  if (contactId !== null && !UUID.test(contactId)) throw new VenueInputError("invalid_landowner");
+  return db.transaction(async (tx) => {
+    const current = await lockVenue(tx, venueId);
+    const from = current.landownerContactId;
+    const [previous] = from
+      ? await tx
+          .select({ id: contact.id, name: contact.name })
+          .from(contact)
+          .where(eq(contact.id, from))
+      : [];
+    const result = { venueName: current.name, previous: previous ?? null };
+    if (from === contactId) return { ...result, changed: false };
+    await checkLandowner(
+      tx,
+      contactId,
+      current.kind,
+      { contactId: from, venueKind: current.kind },
+      undoOf !== undefined && from === undoOf,
+    );
+    await tx.update(venue).set({ landownerContactId: contactId }).where(eq(venue.id, venueId));
+    await audit(tx, actor.id, [
+      {
+        action: "venue.update",
+        entityType: "venue",
+        entityId: venueId,
+        diff: { changes: { landownerContactId: { from, to: contactId } } },
+      },
+    ]);
+    return { ...result, changed: true };
   });
 }
 

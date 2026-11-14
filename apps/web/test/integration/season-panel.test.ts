@@ -1,6 +1,6 @@
 import { berlinDay } from "@marktwerk/core";
 import { auditLog, eventSeason, eventSeasonAnchor, task, templateItem } from "@marktwerk/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import { getMarketSeasons } from "@/server/queries/seasons";
@@ -341,14 +341,13 @@ describe("Saison anlegen (UX-009)", () => {
       ]);
     const planned = await tasksOf(season2027.id);
     expect(planned.byTitle("Termine planen").completedAt).not.toBeNull();
-    // The same entry as a tick (undoable), marked as automatic.
-    // In write order: one transaction shares one `at`, the ids (UUIDv7) are monotonic. Without an order the
-    // heap order is whatever free space earlier tests left.
+    // The same entry as a tick (undoable), marked as automatic. In write order: one transaction shares `at`,
+    // the time-ordered id breaks the tie (without an order Postgres may return them in any order).
     const entries = await db
       .select()
       .from(auditLog)
       .where(and(eq(auditLog.action, "task.status"), eq(auditLog.entityType, "task")))
-      .orderBy(auditLog.at, auditLog.id);
+      .orderBy(asc(auditLog.at), asc(auditLog.id));
     expect(entries).toHaveLength(4);
     const parentEntry = entries.find((e) => e.entityId === planned.byTitle("Termine planen").id);
     expect(parentEntry?.diff).toMatchObject({

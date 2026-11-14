@@ -87,7 +87,20 @@
         "conflict": "Someone else changed this contact in the meantime. Reload the page to see the current version.",
         "not_found": "This contact no longer exists.",
         "generic": "That didn't work. Please try again."
-      }
+      },
+      "similar": {
+        "title": "{count, plural, one {A similar contact exists} other {# similar contacts exist}}",
+        "note": "If it is a different one, you can still create it.",
+        "noteEdit": "If it is a different one, you can still save.",
+        "reason": {
+          "name": "same name",
+          "phone": "same phone number",
+          "email": "same email address"
+        }
+      },
+      "unsaved": "Unsaved changes",
+      "discard": "Discard",
+      "keepEditing": "Keep editing"
     },
     "toast": {
       "created": "Contact created.",
@@ -102,6 +115,28 @@
       "title": "New contact",
       "titleKind": "New {kind}",
       "description": "Just the essentials. Add the address and notes later on the contact."
+    },
+    "searchPlaceholder": "Name, city or phone",
+    "assign": {
+      "button": "Enter as landowner of a venue …",
+      "title": "Enter {name} as landowner",
+      "description": "Pick the venue this contact owns.",
+      "descriptionAuthority": "An authority can own a municipal venue, so only municipal venues are listed.",
+      "close": "Close",
+      "venue": "Venue",
+      "loading": "Loading venues …",
+      "placeholder": "Pick a venue",
+      "hint": "Venues this contact already owns are not listed.",
+      "noVenues": "No matching venue.",
+      "willReplace": "{previous} is entered now and will be replaced. You can undo this.",
+      "pickVenue": "Please pick a venue.",
+      "currentOwner": "{city} · now: {owner}",
+      "cancel": "Cancel",
+      "submit": "Enter",
+      "assigned": "{name} now owns “{venue}”.",
+      "replaced": "{name} now owns “{venue}” (instead of {previous}).",
+      "undo": "Undo",
+      "restored": "Landowner of “{venue}” restored."
     }
   }
 }

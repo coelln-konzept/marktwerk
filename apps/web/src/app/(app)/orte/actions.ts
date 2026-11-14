@@ -2,7 +2,11 @@
 
 import { refresh } from "next/cache";
 import { type Actor, getActor } from "@/server/actor";
-import { listLandownerOptions } from "@/server/queries/venues";
+import {
+  findSimilarVenues,
+  listLandownerOptions,
+  listLandownerTargets,
+} from "@/server/queries/venues";
 import {
   archiveVenue,
   createRow,
@@ -16,6 +20,7 @@ import {
   restoreRow,
   restoreVenue,
   restoreZone,
+  setVenueLandowner,
   updateRow,
   updateVenue,
   type VenueInput,
@@ -52,6 +57,46 @@ async function run<T>(
 export async function landownerOptionsAction() {
   await requirePermission("venue", "write");
   return listLandownerOptions();
+}
+
+/**
+ * "Ähnlicher Ort" while the form is typed (UX-028): Orte with the same name or street + PLZ. A hint;
+ * creating stays possible. `excludeId` is the Ort being edited.
+ */
+export async function similarVenuesAction(
+  typed: { name: string; street: string; postalCode: string },
+  excludeId?: string,
+) {
+  await requirePermission("venue", "write");
+  return findSimilarVenues(
+    {
+      name: String(typed.name ?? "").slice(0, 200),
+      street: String(typed.street ?? "").slice(0, 200),
+      postalCode: String(typed.postalCode ?? "").slice(0, 20),
+    },
+    excludeId,
+  );
+}
+
+/** The Orte to pick from in "Als Eigentümer bei Ort eintragen…" (loaded when the dialog opens). */
+export async function landownerTargetsAction() {
+  await requirePermission("venue", "write");
+  return listLandownerTargets();
+}
+
+/**
+ * "Als Eigentümer bei Ort eintragen…" and its undo (`contactId` = the previous one, or null; `undoOf` =
+ * the contact being undone).
+ */
+export async function setVenueLandownerAction(
+  venueId: string,
+  contactId: string | null,
+  undoOf?: string,
+) {
+  await requirePermission("venue", "write");
+  return run((actor) =>
+    setVenueLandowner(actor, venueId, contactId, typeof undoOf === "string" ? undoOf : undefined),
+  );
 }
 
 export async function createVenueAction(input: VenueInput) {
