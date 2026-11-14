@@ -505,7 +505,10 @@ export function ApplySheet({
                   {t("step2Heading")}
                 </h3>
                 {chosen.length === 0 && (
-                  <p className="flex items-start gap-2 rounded-lg bg-status-warn-bg px-3 py-2 text-small text-status-warn">
+                  <p
+                    role="status"
+                    className="flex items-start gap-2 rounded-lg bg-status-warn-bg px-3 py-2 text-small text-status-warn"
+                  >
                     <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
                     {t("nothingChosen")}
                   </p>

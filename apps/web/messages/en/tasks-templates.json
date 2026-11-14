@@ -339,7 +339,7 @@
       "irreversible": "Applying cannot be undone. Afterwards you change single tasks only in the event itself.",
       "step1Heading": "Step 1 of 2: choose events and seasons",
       "step2Heading": "Step 2 of 2: check the preview",
-      "nothingChosen": "Nothing is selected any more: the selection is out of date. Please go back and choose again."
+      "nothingChosen": "Nothing is selected any more: the selection is out of date. Go back and choose again."
     },
     "phases": {
       "pre": "Preparation",

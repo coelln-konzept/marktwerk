@@ -551,6 +551,63 @@ describe("draft items", () => {
     expect((await itemsOf(draftId)).map((i) => i.stableKey)).toEqual(["eins", "drei"]);
   });
 
+  it("takes only the item fields from the client and restores a child listed before its parent", async () => {
+    const { versionId: published } = await seedPublishedTemplate(owner, [
+      baseItem({ title: "Alt" }),
+    ]);
+    await addTemplateItem(owner, draftId, baseItem({ title: "Eins" }));
+    // Foreign keys in a row (a crafted server action payload) are dropped: the row lands in the draft, under
+    // its own key, at the given place.
+    const foreign = {
+      versionId: published,
+      stableKey: "anders",
+      id: crypto.randomUUID(),
+      sort: 99,
+    };
+    const forged = (fields: Parameters<typeof baseItem>[0], key: string) => ({
+      ...baseItem(fields),
+      ...foreign,
+      key,
+    });
+    expect(
+      await restoreTemplateItems(
+        owner,
+        draftId,
+        [
+          forged({ title: "Kind", parentKey: "vater", phase: "post", scope: "event" }, "kind"),
+          forged({ title: "Vater", phase: "live" }, "vater"),
+        ],
+        "eins",
+        null,
+      ),
+    ).toEqual({ keys: ["kind", "vater"] });
+    const after = await itemsOf(draftId);
+    expect(after.map((i) => [i.stableKey, i.parentKey, i.phase, i.sort])).toEqual([
+      ["eins", null, "pre", 0],
+      ["kind", "vater", "live", 1],
+      ["vater", null, "live", 2],
+    ]);
+    expect((await itemsOf(published)).map((i) => i.stableKey)).toEqual(["alt"]);
+    await addTemplateItem(owner, draftId, { ...baseItem({ title: "Zwei" }), ...foreign });
+    await updateTemplateItem(owner, draftId, "zwei", {
+      ...baseItem({ title: "Zwei" }),
+      ...foreign,
+    });
+    expect((await itemsOf(draftId)).map((i) => i.stableKey)).toEqual([
+      "eins",
+      "kind",
+      "vater",
+      "zwei",
+    ]);
+    expect((await itemsOf(published)).map((i) => i.stableKey)).toEqual(["alt"]);
+
+    // A key that is not a stable key is refused.
+    for (const key of ["", "Mit Leerzeichen", "x".repeat(201), "ä"])
+      expect(
+        await codeOf(restoreTemplateItems(owner, draftId, [{ ...baseItem(), key }], null, null)),
+      ).toBe("invalid_input");
+  });
+
   it("refuses to publish an empty draft", async () => {
     expect(await codeOf(publishDraft(owner, draftId))).toBe("empty");
   });

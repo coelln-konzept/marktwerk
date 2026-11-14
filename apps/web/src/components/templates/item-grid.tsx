@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   deleteItemAction,
   duplicateItemAction,
@@ -166,6 +166,19 @@ export function ItemGrid({
     );
   }
 
+  /**
+   * The rows as they are now: an undo can run long after its toast was made (the shell's undo history, Strg+Z), and
+   * must see the row as it is then, not as it was.
+   */
+  const latest = useRef(items);
+  useEffect(() => {
+    latest.current = items;
+  }, [items]);
+
+  /**
+   * Undo of "Duplizieren": the copy goes the way "Löschen" goes, with its own "Rückgängig". By the time of the undo
+   * the copy may have been edited or given child items, which would be lost with a bare delete.
+   */
   function duplicate(item: ItemView) {
     run(
       () => duplicateItemAction(versionId, item.key),
@@ -173,35 +186,45 @@ export function ItemGrid({
         showToast({
           message: t("menu.duplicated", { title: item.title }),
           actionLabel: t("menu.undo"),
-          onAction: undo(() => deleteItemAction(versionId, key)),
+          onAction: async () => {
+            const list = latest.current;
+            const copy = list.find((i) => i.key === key);
+            // Not on the page yet: the copy is as it was made, so nothing can be lost.
+            if (!copy) await undo(() => deleteItemAction(versionId, key))();
+            else await deleteWithUndo(copy, list);
+          },
         }),
     );
   }
 
   /**
-   * "Löschen" at once, with "Rückgängig" in the toast instead of a question first: the row and its child items
-   * (which go with it) come back with their own keys at the same place.
+   * Deletes a row, then shows "Rückgängig": the row and its child items (which go with it) come back with their own
+   * keys at the same place. `list` is the grid's rows the row is taken from.
    */
-  function remove(item: ItemView) {
-    const children = items.filter((i) => i.parentKey === item.key);
+  async function deleteWithUndo(item: ItemView, list: readonly ItemView[]) {
+    const children = list.filter((i) => i.parentKey === item.key);
     const gone = new Set([item.key, ...children.map((c) => c.key)]);
-    const index = items.indexOf(item);
-    const beforeKey = items.slice(index + 1).find((i) => !gone.has(i.key))?.key ?? null;
-    const afterKey = items.slice(0, index).findLast((i) => !gone.has(i.key))?.key ?? null;
-    run(
-      () => deleteItemAction(versionId, item.key),
-      () =>
-        showToast({
-          message:
-            children.length > 0
-              ? t("delete.doneChildren", { title: item.title, count: children.length })
-              : t("delete.done", { title: item.title }),
-          actionLabel: t("delete.undo"),
-          onAction: undo(() =>
-            restoreItemsAction(versionId, [item, ...children], afterKey, beforeKey),
-          ),
-        }),
-    );
+    const index = list.indexOf(item);
+    const beforeKey = list.slice(index + 1).find((i) => !gone.has(i.key))?.key ?? null;
+    const afterKey = list.slice(0, index).findLast((i) => !gone.has(i.key))?.key ?? null;
+    const result = await deleteItemAction(versionId, item.key);
+    if (!result.ok) {
+      showError(errorText(result.error));
+      return;
+    }
+    showToast({
+      message:
+        children.length > 0
+          ? t("delete.doneChildren", { title: item.title, count: children.length })
+          : t("delete.done", { title: item.title }),
+      actionLabel: t("delete.undo"),
+      onAction: undo(() => restoreItemsAction(versionId, [item, ...children], afterKey, beforeKey)),
+    });
+  }
+
+  /** "Löschen" at once, with "Rückgängig" in the toast instead of a question first. */
+  function remove(item: ItemView) {
+    startTransition(() => deleteWithUndo(item, items));
   }
 
   // The Saison section first (once per season), then every date by phase. In a draft the Saison section is always

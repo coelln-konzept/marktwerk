@@ -102,7 +102,11 @@ function assertShape(input: TemplateItemFields) {
   if (input === null || typeof input !== "object") throw new TemplateInputError("invalid_input");
 }
 
-/** Trims text and empties blank references; validation happens afterwards. */
+/**
+ * Trims text and empties blank references; validation happens afterwards. Only the fields of
+ * `TemplateItemFields` come through: the input arrives from a server action, and a foreign key (`versionId`,
+ * `stableKey`, `id`, `sort`) must never reach an insert or update of `template_item`.
+ */
 function normalizeItem(input: TemplateItemFields): TemplateItemFields {
   assertShape(input);
   const text = (value: string | null) => {
@@ -110,7 +114,18 @@ function normalizeItem(input: TemplateItemFields): TemplateItemFields {
     return trimmed === "" ? null : trimmed;
   };
   return {
-    ...input,
+    phase: input.phase,
+    category: input.category,
+    anchorKey: input.anchorKey,
+    offsetDays: input.offsetDays,
+    dayMode: input.dayMode,
+    priority: input.priority,
+    estimateMinutes: input.estimateMinutes,
+    requiresPhoto: input.requiresPhoto,
+    requiresNote: input.requiresNote,
+    requiresAttachment: input.requiresAttachment,
+    isKey: input.isKey,
+    ...(input.scope === undefined ? {} : { scope: input.scope }),
     title: typeof input.title === "string" ? input.title.trim().replace(/\s+/g, " ") : "",
     description: text(input.description),
     // An unparsable time stays as typed so that validation reports it.
@@ -688,11 +703,11 @@ export async function addTemplateItem(
     const [row] = await tx
       .insert(templateItem)
       .values({
+        ...values,
+        dueTime: values.dueTime,
         versionId: version.id,
         stableKey: key,
         sort: items.length,
-        ...values,
-        dueTime: values.dueTime,
       })
       .returning({ id: templateItem.id });
     if (!row) throw new Error("insert failed");
@@ -818,14 +833,20 @@ export async function deleteTemplateItem(
   });
 }
 
+/**
+ * A stable key as `uniqueItemKey` makes it (lowercase letters, digits, `_`; seeded data also uses `-`), at most
+ * 200 characters.
+ */
+const RESTORED_KEY = /^[a-z0-9][a-z0-9_-]{0,199}$/;
+
 /** A deleted row as the editor knows it, with its own stable key (undo of "Löschen"). */
 export type RestoredItem = TemplateItemFields & { key: string };
 
 /**
  * Undo of "Löschen" (row menu, the drawer's list of child items): puts deleted rows back with their own stable
  * keys, so the tasks of existing events still match them on the next apply. The rows go in the given order before
- * `beforeKey` (else after `afterKey`, else at the end); a child names its parent, which is in the draft or one of
- * the rows before it. A key that is taken again (a second undo, a new row with the same key) is refused.
+ * `beforeKey` (else after `afterKey`, else at the end); a child names its parent, which is in the draft or among
+ * the restored rows (in any order). A key that is taken again (a second undo, a new row with the same key) is refused.
  */
 export async function restoreTemplateItems(
   actor: Actor,
@@ -840,7 +861,7 @@ export async function restoreTemplateItems(
   const restoring = rows.map((row) => {
     assertShape(row);
     const { key, ...rest } = row;
-    if (typeof key !== "string" || key.trim() === "" || key.length > 200)
+    if (typeof key !== "string" || !RESTORED_KEY.test(key))
       throw new TemplateInputError("invalid_input");
     return { key, fields: normalizeItem(rest) };
   });
@@ -868,23 +889,32 @@ export async function restoreTemplateItems(
       phase: TemplateItemFields["phase"];
       scope: TemplateItemScope;
     }[] = items.map((i) => ({ stableKey: i.stableKey, phase: i.phase, scope: i.scope }));
-    const ids: string[] = [];
-    for (const r of restoring) {
+    // Parents first, whatever order the rows came in: a child takes its parent's phase and scope, and the
+    // foreign key needs the parent row. The place in the list follows the given order.
+    const restoringKeys = new Set(restoring.map((r) => r.key));
+    const isChildOfRestored = (r: (typeof restoring)[number]) =>
+      r.fields.parentKey !== null && restoringKeys.has(r.fields.parentKey);
+    const idByKey = new Map<string, string>();
+    for (const r of [
+      ...restoring.filter((r) => !isChildOfRestored(r)),
+      ...restoring.filter(isChildOfRestored),
+    ]) {
       const values = withParentPhase(r.fields, known, "event", r.key);
       const [row] = await tx
         .insert(templateItem)
         .values({
-          versionId: version.id,
-          stableKey: r.key,
-          sort: items.length + ids.length,
           ...values,
           dueTime: values.dueTime,
+          versionId: version.id,
+          stableKey: r.key,
+          sort: items.length + idByKey.size,
         })
         .returning({ id: templateItem.id });
       if (!row) throw new Error("insert failed");
       known.push({ stableKey: r.key, phase: values.phase, scope: values.scope });
-      ids.push(row.id);
+      idByKey.set(r.key, row.id);
     }
+    const ids = restoring.flatMap((r) => idByKey.get(r.key) ?? []);
     const order = items.map((i) => i.id);
     const before = beforeKey ? items.findIndex((i) => i.stableKey === beforeKey) : -1;
     const after = afterKey ? items.findIndex((i) => i.stableKey === afterKey) : -1;

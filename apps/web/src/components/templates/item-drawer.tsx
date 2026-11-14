@@ -480,6 +480,15 @@ export function ItemDrawer({
       </p>
     ) : null;
 
+  // The offset's message: the error of "Speichern" wins (announced at once), else the check while typing. One
+  // paragraph with one id, so the field's `aria-describedby` always points at it.
+  const offsetMessage =
+    error?.field === "offsetDays"
+      ? { text: error.text, alert: true }
+      : offsetIssue
+        ? { text: errorText(offsetIssue.code), alert: false }
+        : undefined;
+
   return (
     <Dialog.Root open onOpenChange={(open) => !open && !pending && close()}>
       <Dialog.Portal>
@@ -854,18 +863,20 @@ export function ItemDrawer({
                         disabled={disabled}
                         className="tabular"
                         aria-invalid={invalid("offsetDays") || offsetIssue !== undefined}
-                        aria-describedby={offsetIssue ? "item-offset-error" : undefined}
+                        aria-describedby={offsetMessage ? "item-offset-error" : undefined}
                         onChange={(e) => set({ offsetDays: e.target.value })}
                       />
                     </div>
                   </div>
                   {fieldError("anchorKey")}
-                  {offsetIssue && error?.field !== "offsetDays" ? (
-                    <p id="item-offset-error" className="text-small text-status-critical">
-                      {errorText(offsetIssue.code)}
+                  {offsetMessage && (
+                    <p
+                      id="item-offset-error"
+                      role={offsetMessage.alert ? "alert" : undefined}
+                      className="text-small text-status-critical"
+                    >
+                      {offsetMessage.text}
                     </p>
-                  ) : (
-                    fieldError("offsetDays")
                   )}
                   {offsetIssue === undefined && Number.isInteger(fields.offsetDays) && (
                     <p className="tabular font-medium text-small" aria-live="polite">
