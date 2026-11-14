@@ -605,6 +605,30 @@ function leaveSomeOverdue(rng: Rng, today: string, all: readonly Planned[]): voi
     const windowStart = addDays(today, -windowDays);
     current = ofCurrentMarket.filter((p) => p.dueDate >= windowStart);
   }
+  // Off-season (November to March): hardly any work of a current market fell due recently, yet every view should
+  // still show a few overdue tasks. The nearest upcoming ones are moved a few days into the past instead.
+  const missing = OVERDUE_CURRENT - Math.min(current.length, OVERDUE_CURRENT);
+  if (missing > 0) {
+    const upcoming = all
+      .filter(
+        (p) =>
+          p.owner.ahead &&
+          !finished(p.task) &&
+          p.task.status !== "cancelled" &&
+          p.task.category !== "permits" &&
+          !p.filedPermit &&
+          p.dueDate >= today,
+      )
+      .sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0))
+      .slice(0, missing);
+    upcoming.forEach((p, i) => {
+      p.dueDate = addDays(today, -2 * (i + 1));
+      p.task.dueAt = berlinInstant(p.dueDate, p.item.dueTime ?? "09:00");
+      p.task.status = rng.chance(0.3) ? "in_progress" : "todo";
+      p.task.rolloverCount = 2 * (i + 1);
+      p.task.lastRolledAt = berlinInstant(today, "00:05");
+    });
+  }
 
   const pastCutoff = addDays(today, -PAST_MARKET_DAYS);
   const planned = all
