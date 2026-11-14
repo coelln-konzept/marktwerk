@@ -77,8 +77,13 @@
       "markDone": "Mark done (on the card)",
       "openMenu": "Action menu (on the card)",
       "newTask": "New task",
-      "dropHere": "Drop here"
+      "dropHere": "Drop here",
+      "rowMove": "Next or previous row",
+      "rowOpen": "Open the task",
+      "rowTick": "Done or open again",
+      "rowMenu": "Action menu"
     },
+    "mobileColumns": "Column",
     "card": {
       "actions": "Actions for “{title}”",
       "grip": "Move “{title}”",

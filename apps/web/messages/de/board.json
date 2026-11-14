@@ -77,8 +77,13 @@
       "markDone": "Erledigt (auf der Karte)",
       "openMenu": "Aktionsmenü (auf der Karte)",
       "newTask": "Neue Aufgabe",
-      "dropHere": "Hier ablegen"
+      "dropHere": "Hier ablegen",
+      "rowMove": "Zeile wechseln",
+      "rowOpen": "Aufgabe öffnen",
+      "rowTick": "Erledigt oder wieder offen",
+      "rowMenu": "Aktionsmenü"
     },
+    "mobileColumns": "Spalte",
     "card": {
       "actions": "Aktionen für „{title}“",
       "grip": "„{title}“ verschieben",
