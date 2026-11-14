@@ -56,7 +56,8 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   const locale = await getLocale();
   const today = todayIn();
   const hour = berlinHour();
-  const part = hour < 11 ? "morning" : hour < 17 ? "day" : "evening";
+  // "Guten Abend" from 18:00 Berlin time (UX-064: it read as too early at 17:00).
+  const part = hour < 11 ? "morning" : hour < 18 ? "day" : "evening";
   const weekday = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "de-DE", {
     timeZone: "UTC",
     weekday: "long",
@@ -70,6 +71,10 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   const vorschauId = appointmentId ? undefined : vorschauParam;
   const taskId = param(sp.aufgabe);
   const canWrite = can(actor.role, "task", "write");
+  // A market running today comes first on phones, with Heute (UX-006); from 1024 px it stays top right.
+  const marketToday = overview.weekend.markets.some(
+    (m) => m.row.startsOn <= today && m.row.endsOn >= today,
+  );
 
   // The task drawer, as on the board; Esc or × returns to the row it was opened from.
   const closeHref = hrefWith("/", sp, { aufgabe: undefined });
@@ -107,10 +112,12 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         title={t(`greeting.${part}`, { name: actor.firstName })}
       />
       {/* One KeyboardRows around all sections: J/K walk the main panel, then the weekend box, then the
-          permits. Phones stack them in that order; from 1024 px the weekend box sits top right. */}
+          permits. Phones stack them in that order (a market running today moves its box to the top); from
+          1024 px the weekend box sits top right. */}
       <KeyboardRows className="grid items-start gap-x-6 gap-y-8 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_23rem]">
         <TodayCard
           due={overview.due}
+          otherTasks={overview.otherTasks}
           appointments={appointments}
           today={today}
           canSnooze={canWrite}
@@ -121,6 +128,8 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           nextEvents={overview.nextEvents}
           today={today}
           vorschauId={vorschauId}
+          marketToday={marketToday}
+          className={marketToday ? "max-lg:order-first" : undefined}
         />
         <UpcomingPermitsCard
           due={overview.due}
