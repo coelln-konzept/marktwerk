@@ -501,6 +501,31 @@ test("Kalender: Jahr shows twelve months with market dots; a dot opens the popov
   await page.emulateMedia({ media: "screen" });
 });
 
+/** The Genehmigung drawer: a non-modal dialog (`aria-modal="false"`, UX-035) with its own close link. */
+function permitDrawer(page: Page) {
+  return page
+    .locator('[role="dialog"][aria-modal="false"]')
+    .filter({ has: page.getByRole("link", { name: "Genehmigung schließen" }) });
+}
+
+/** "Ersetzt" comes with a renewal, not as the next step: it waits in the drawer's "Weitere Schritte" menu. */
+async function markSuperseded(page: Page) {
+  await permitDrawer(page).getByRole("button", { name: "Weitere Schritte" }).click();
+  await page.getByRole("menuitem", { name: "Als ersetzt markieren" }).click();
+}
+
+/** Valid (not superseded): no pressed toggle, and the menu offers "Als ersetzt markieren" again. */
+async function expectSupersedeOffered(page: Page) {
+  const drawer = permitDrawer(page);
+  await expect(drawer.getByRole("button", { name: "Als ersetzt markiert" })).toHaveCount(0);
+  await drawer.getByRole("button", { name: "Weitere Schritte" }).click();
+  await expect(page.getByRole("menuitem", { name: "Als ersetzt markieren" })).toBeVisible();
+  // Esc closes the menu, not the drawer.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(drawer).toBeVisible();
+}
+
 test('Permit: "Als ersetzt markieren" toggles back; the top bar\'s Rückgängig works after the toast is gone', async ({
   page,
 }) => {
@@ -508,17 +533,17 @@ test('Permit: "Als ersetzt markieren" toggles back; the top bar\'s Rückgängig 
   await page.goto("/genehmigungen?ansicht=liste&zeitraum=alle");
   const row = page.locator("[data-href*='genehmigung=']").filter({ hasText: "Genehmigt" }).first();
   await page.goto((await row.getAttribute("data-href")) as string);
-  const drawer = page.locator("aside[aria-labelledby]").last(); // the permit drawer
+  const drawer = permitDrawer(page);
   const undo = page.getByRole("button", { name: /^Rückgängig: |^Nichts zum Rückgängigmachen$/ });
   await page.waitForLoadState("networkidle");
 
-  await drawer.getByRole("button", { name: "Als ersetzt markieren" }).click();
+  await markSuperseded(page);
   const toggle = drawer.getByRole("button", { name: "Als ersetzt markiert" });
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   // Clicking it again makes the permit valid again.
   await toggle.click();
   await expect(page.getByText("Wieder gültig: Genehmigt")).toBeVisible();
-  await expect(drawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
+  await expectSupersedeOffered(page);
 
   // Let the toasts go, then undo from the top bar: the permit is superseded again …
   const closeToast = page.getByRole("button", { name: "Hinweis schließen" });
@@ -528,7 +553,7 @@ test('Permit: "Als ersetzt markieren" toggles back; the top bar\'s Rückgängig 
   await expect(drawer.getByRole("button", { name: "Als ersetzt markiert" })).toBeVisible();
   // … and once more (the first change), back to Genehmigt: the history holds both.
   await undo.click();
-  await expect(drawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
+  await expectSupersedeOffered(page);
 });
 
 test("Permit: a failed status change shows a red error toast (role=alert) that stays until closed", async ({
@@ -541,14 +566,14 @@ test("Permit: a failed status change shows a red error toast (role=alert) that s
   const row = page.locator("[data-href*='genehmigung=']").filter({ hasText: "Genehmigt" }).first();
   const href = (await row.getAttribute("data-href")) as string;
   await page.goto(href);
-  const drawer = page.locator("aside[aria-labelledby]").last();
+  const drawer = permitDrawer(page);
   await page.waitForLoadState("networkidle");
 
   const other = await context.newPage();
   await other.goto(href);
-  const otherDrawer = other.locator("aside[aria-labelledby]").last();
+  const otherDrawer = permitDrawer(other);
   await other.waitForLoadState("networkidle");
-  await otherDrawer.getByRole("button", { name: "Als ersetzt markieren" }).click();
+  await markSuperseded(other);
   await expect(otherDrawer.getByRole("button", { name: "Als ersetzt markiert" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -579,7 +604,7 @@ test("Permit: a failed status change shows a red error toast (role=alert) that s
   } finally {
     // Valid again, as the seed had it.
     await otherDrawer.getByRole("button", { name: "Als ersetzt markiert" }).click();
-    await expect(otherDrawer.getByRole("button", { name: "Als ersetzt markieren" })).toBeVisible();
+    await expectSupersedeOffered(other);
     await other.close();
   }
 });
@@ -799,9 +824,7 @@ test("Permit: an undo the server refuses shows a red error toast, never the succ
   const other = await context.newPage();
   await other.goto(`/genehmigungen?genehmigung=${id}`);
   await other.waitForLoadState("networkidle");
-  await other
-    .locator("aside[aria-labelledby]")
-    .last()
+  await permitDrawer(other)
     .getByRole("button", { name: "Aus den Genehmigungen entfernen" })
     .click();
   await expect(other.getByText(`„${title}“ entfernt.`)).toBeVisible();
