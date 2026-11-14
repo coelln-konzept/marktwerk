@@ -148,7 +148,8 @@ export const DATES_PLANNING_KEY = "saison_termine_planen";
 /**
  * Is this the season's "Termine planen" task? Only the Grundvorlage's item, by its stable key (it survives
  * versions, renames and the copy into a market's own template); an item someone wrote by hand is left alone, as
- * no marker says what it is for. "Markt planen" completes it when it creates the record (UX-009 default).
+ * no marker says what it is for. "Markt planen" completes it when it gives the season its first dates (UX-009
+ * default).
  */
 export function isDatesPlanningTask(t: { templateStableKey: string | null }): boolean {
   return t.templateStableKey === DATES_PLANNING_KEY;

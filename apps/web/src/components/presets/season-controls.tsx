@@ -11,7 +11,15 @@ import {
 import { AlarmClockOff, CalendarPlus, Check, ChevronDown, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useId, useOptimistic, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   createSeasonAction,
   setSeasonExpectedStartAction,
@@ -48,11 +56,14 @@ function useErrorText() {
 
 /**
  * Task counts as the panel lists them (UX-009): top-level tasks, the subtasks apart ("2 Aufgaben (+4
- * Unteraufgaben)"), so a toast never names more tasks than the panel shows.
+ * Unteraufgaben)"), so a toast never names more tasks than the panel shows. When only subtasks moved, it names
+ * them alone ("2 Unteraufgaben verschoben").
  */
 function useTaskCount() {
   const t = useTranslations("templates.season.toast");
   return (key: "shifted" | "created", tasks: number, subtasks: number, season = 0) => {
+    if (key === "shifted" && tasks === 0 && subtasks > 0)
+      return t("subtasksShifted", { count: subtasks });
     const text =
       key === "created" ? t("created", { season, count: tasks }) : t(key, { count: tasks });
     return subtasks > 0 ? `${text} (${t("subtasks", { count: subtasks })})` : text;
@@ -63,14 +74,31 @@ function useTaskCount() {
 const statusTriggerId = (season: number) => `season-${season}-status`;
 
 /**
- * Focus to move once a control appears that is not rendered yet ("Saison anlegen" swaps the empty panel for the
- * season, UX-030): the new status switch takes it when it mounts.
+ * The status switch that takes focus once the page shows the change (UX-030). Set before the action runs and
+ * applied after React committed the refreshed panels (`usePendingFocus`), not before: "Saison anlegen" swaps the
+ * empty panel for the season, a suggestion button goes away, and a status change can reorder the panels (closed
+ * seasons last, `orderSeasonPanels`), which moves the focused panel in the DOM and drops its focus.
  */
-let focusOnMount: string | null = null;
+let pendingFocus: string | null = null;
 
-/** Moves focus to a season's status switch (it stays mounted while the panel re-renders). */
-function focusStatusTrigger(season: number) {
-  document.getElementById(statusTriggerId(season))?.focus({ preventScroll: true });
+/** Asks for focus on a season's status switch after the coming commit; null withdraws it (the action failed). */
+function focusStatusAfterCommit(season: number | null) {
+  pendingFocus = season === null ? null : statusTriggerId(season);
+}
+
+/**
+ * Runs after every commit that mounts the switch or changes its status: takes the pending focus when it is this
+ * switch's and nothing else holds focus (a moved or removed element leaves it on the body).
+ */
+function usePendingFocus(triggerId: string, status: SeasonStatus) {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `status` is the trigger, a status change re-runs it.
+  useLayoutEffect(() => {
+    if (pendingFocus !== triggerId) return;
+    pendingFocus = null;
+    const active = document.activeElement;
+    if (active === null || active === document.body)
+      document.getElementById(triggerId)?.focus({ preventScroll: true });
+  }, [triggerId, status]);
 }
 
 /** The season facts the status switch needs. */
@@ -90,13 +118,15 @@ function useSeasonStatusChange(season: Pick<SeasonRef, "id" | "season" | "status
   const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
-  function change(to: SeasonStatus, after?: () => void) {
+  function change(to: SeasonStatus) {
     if (pending) return;
     const from = season.status;
+    // The panels may reorder or the control used may go away: focus returns to the switch after the commit.
+    focusStatusAfterCommit(season.season);
     startTransition(async () => {
       const result = await callAction(() => setSeasonStatusAction(season.id, to, from));
-      after?.();
       if (!result.ok) {
+        focusStatusAfterCommit(null);
         showError(errorText(result.error, season.season));
         return;
       }
@@ -127,11 +157,7 @@ export function SeasonStatusMenu({ season, canWrite }: { season: SeasonRef; canW
   const { change, pending } = useSeasonStatusChange(season);
   const ui = SEASON_STATUS_UI[season.status];
   const triggerId = statusTriggerId(season.season);
-  useEffect(() => {
-    if (focusOnMount !== triggerId) return;
-    focusOnMount = null;
-    document.getElementById(triggerId)?.focus({ preventScroll: true });
-  }, [triggerId]);
+  usePendingFocus(triggerId, season.status);
   const badge = (
     <StatusBadge tone={ui.tone} icon={ui.icon}>
       {t(`status.${season.status}`)}
@@ -211,7 +237,7 @@ export function SeasonSuggestion({
         aria-busy={pending}
         disabled={pending}
         // The suggestion goes away with the change: focus moves to the status it set (UX-030).
-        onClick={() => change(to, () => focusStatusTrigger(season.season))}
+        onClick={() => change(to)}
       >
         {t(`${to}.action`)}
       </Button>
@@ -400,13 +426,13 @@ export function CreateSeasonForm({
       return;
     }
     setError(null);
-    focusOnMount = statusTriggerId(season);
+    focusStatusAfterCommit(season);
     startTransition(async () => {
       const result = await callAction(() =>
         createSeasonAction(presetId, season, hasDates ? undefined : value),
       );
       if (!result.ok) {
-        focusOnMount = null;
+        focusStatusAfterCommit(null);
         if (["invalid_date", "outside_season"].includes(result.error))
           setError(errorText(result.error, season));
         else showError(errorText(result.error, season));

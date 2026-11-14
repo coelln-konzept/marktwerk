@@ -216,7 +216,8 @@ die Arbeit, die bei diesem Markt einmal im Jahr anfällt, …", UX-050).
   A status that contradicts the season is disabled with its reason instead (`seasonStatusBlock`, UX audit round 1
   default): "Termine stehen" needs a date, "Abgeschlossen" needs the last date over and no open season task. A change
   applies at once and shows an undo toast ("Saison 2027: Termine stehen" · Rückgängig); nothing switches by itself.
-  Focus stays on the switch after a change (UX-030). When `suggestedSeasonStatus` has a next step, one line under
+  Focus stays on the switch after a change, also when closing a season moves its panel below the next year's
+  (UX-030). When `suggestedSeasonStatus` has a next step, one line under
   the start offers it as a button: "Die Termine sind angelegt. [Auf „Termine stehen“ setzen]" (planning with dates)
   or "Der letzte Termin ist vorbei und keine Saisonaufgabe ist offen. [Saison abschließen]"; afterwards focus moves to
   the status switch.
@@ -226,8 +227,8 @@ die Arbeit, die bei diesem Markt einmal im Jahr anfällt, …", UX-050).
   2026-11-13: editable on the market page) that turns the line into a date field with Speichern / Abbrechen (Esc);
   closing it gives focus back to "Ändern". The date must lie in the season's year (the error stays at the field);
   `season_start` and the open, not overridden season tasks move with it; undo toast ("Saison 2027 erwartet ab … ·
-  2 Aufgaben verschoben (+4 Unteraufgaben)" · Rückgängig: top-level tasks counted like the rows, subtasks apart).
-  Once the season has dates the field is gone.
+  2 Aufgaben verschoben (+4 Unteraufgaben)" · Rückgängig: top-level tasks counted like the rows, subtasks apart;
+  "2 Unteraufgaben verschoben" when only subtasks moved). Once the season has dates the field is gone.
 - **Tasks**: the season's top-level tasks, open ones first by due date (none last), each row with the shared tick
   (no question first: the row stays and moves to "Erledigt"; a second click reopens; `E` ticks the focused row),
   the title opening the task drawer in place (`?aufgabe=<id>`), the due badge with the date, "Zurückgestellt bis …"

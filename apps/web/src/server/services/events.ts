@@ -29,7 +29,12 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { fillLogbookForEvents } from "./permits";
-import { ensureSeasonsTx, syncSeasonsTx } from "./seasons";
+import {
+  completeDatesPlanningTx,
+  ensureSeasonsTx,
+  seasonsWithoutDatesTx,
+  syncSeasonsTx,
+} from "./seasons";
 import { instantiateTemplatesForEvents } from "./task-instantiation";
 
 /** At most this many events per run (a full season of one preset is ~10). */
@@ -130,6 +135,16 @@ export async function instantiateEvents(
     ? await tx.select({ id: dutyRole.id, key: dutyRole.key }).from(dutyRole)
     : [];
   const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
+  // "Markt planen" that gives a season its first dates completes its "Termine planen" (UX-009), read before
+  // the insert.
+  const firstDates =
+    template.presetId && source !== "agreement"
+      ? await seasonsWithoutDatesTx(
+          tx,
+          template.presetId,
+          days.map((day) => Number((typeof day === "string" ? day : day.startsOn).slice(0, 4))),
+        )
+      : [];
 
   const created: CreatedEvent[] = [];
   for (const day of days) {
@@ -182,6 +197,11 @@ export async function instantiateEvents(
     const keys = seasons.map((season) => ({ presetId, season }));
     await ensureSeasonsTx(tx, actor, keys, source === "agreement" ? "agreement" : "markt_planen");
     await syncSeasonsTx(tx, actor, keys, "event_create");
+    await completeDatesPlanningTx(
+      tx,
+      actor,
+      firstDates.map((season) => ({ presetId, season })),
+    );
   }
   // M3: logbook fill for the new events (covering permits, missing ones + their tasks).
   await fillLogbookForEvents(

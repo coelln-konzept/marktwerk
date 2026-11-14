@@ -11,7 +11,7 @@ import {
   setSeasonExpectedStart,
   setSeasonStatus,
 } from "@/server/services/seasons";
-import { setTaskStatus } from "@/server/services/tasks";
+import { setTaskStatus, undoTaskChange } from "@/server/services/tasks";
 import { addTemplateItem, createDraft, publishDraft } from "@/server/services/templates";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 import { baseItem, seedPublishedTemplate } from "../helpers/templates";
@@ -113,6 +113,28 @@ describe("getMarketSeasons (market page Saison panel)", () => {
       id: created.id,
       openSeasonTasks: 2,
       statusBlocks: { planning: null, dates_set: "no_dates", closed: "open_tasks" },
+    });
+  });
+
+  it("counts the open season tasks a field user does not see", async () => {
+    await ensureEventSeason(owner, cat.presets.flea.id, 2027);
+    // Anna (market lead) sees her Termine planen; Saisonabschluss has nobody and stays hidden from her.
+    const field = {
+      ...(await createActor("field")),
+      staffMemberId: cat.staff.anna.id,
+    };
+    const record = (
+      await getMarketSeasons(
+        field,
+        cat.presets.flea.id,
+        "2027-06-01",
+        new Date("2027-06-01T10:00:00Z"),
+      )
+    ).current.record;
+    expect(record?.tasks?.open.map((t) => t.title)).toEqual(["Termine planen"]);
+    expect(record).toMatchObject({
+      openSeasonTasks: 2,
+      statusBlocks: { closed: "open_tasks" },
     });
   });
 
@@ -273,8 +295,8 @@ describe("Saison anlegen (UX-009)", () => {
     });
   });
 
-  it("completes the Grundvorlage's Termine planen when Markt planen creates the season", async () => {
-    // The Grundvorlage's key (the fixture's item is keyed by its title); the child is unhooked meanwhile.
+  /** Keys the fixture's "Termine planen" like the Grundvorlage's item, with "Rhythmus" as its subtask. */
+  async function useGrundvorlageKey() {
     await addSubtaskItem();
     await db
       .update(templateItem)
@@ -288,42 +310,105 @@ describe("Saison anlegen (UX-009)", () => {
       .update(templateItem)
       .set({ parentKey: "saison_termine_planen" })
       .where(eq(templateItem.title, "Rhythmus"));
+  }
 
-    // 2028 has its record before Markt planen: nothing is completed there.
+  const seasonRecord = async (season: number) => {
+    const [row] = await db
+      .select()
+      .from(eventSeason)
+      .where(and(eq(eventSeason.presetId, cat.presets.flea.id), eq(eventSeason.season, season)));
+    if (!row) throw new Error(`no season ${season}`);
+    return row;
+  };
+
+  const statusOf = async (seasonId: string) =>
+    (await tasksOf(seasonId)).rows
+      .map((r) => [r.title, r.status])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+
+  it("completes the Grundvorlage's Termine planen when Markt planen gives a season its first dates", async () => {
+    await useGrundvorlageKey();
+    // 2028 has its record before Markt planen, as the nightly job makes it: it is completed too.
     const existing = await ensureEventSeason(owner, cat.presets.flea.id, 2028);
     await createEventsFromPreset(owner, cat.presets.flea.id, ["2027-03-07", "2028-03-05"]);
 
-    const [season2027] = await db
-      .select()
-      .from(eventSeason)
-      .where(and(eq(eventSeason.presetId, cat.presets.flea.id), eq(eventSeason.season, 2027)));
-    if (!season2027) throw new Error("no season 2027");
+    const season2027 = await seasonRecord(2027);
+    for (const id of [season2027.id, existing.id])
+      expect(await statusOf(id)).toEqual([
+        ["Rhythmus", "done"],
+        ["Saisonabschluss", "todo"],
+        ["Termine planen", "done"],
+      ]);
     const planned = await tasksOf(season2027.id);
-    expect(
-      planned.rows
-        .map((r) => [r.title, r.status])
-        .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
-    ).toEqual([
-      ["Rhythmus", "done"],
-      ["Saisonabschluss", "todo"],
-      ["Termine planen", "done"],
-    ]);
     expect(planned.byTitle("Termine planen").completedAt).not.toBeNull();
+    // The same entry as a tick (undoable), marked as automatic.
     const entries = await db
       .select()
       .from(auditLog)
       .where(and(eq(auditLog.action, "task.status"), eq(auditLog.entityType, "task")));
-    expect(entries).toHaveLength(2);
-    expect(entries[0]?.diff).toEqual({
+    expect(entries).toHaveLength(4);
+    const parentEntry = entries.find((e) => e.entityId === planned.byTitle("Termine planen").id);
+    expect(parentEntry?.diff).toMatchObject({
       from: "todo",
       to: "done",
+      before: { status: "todo", completedAt: null },
+      after: { status: "done" },
       auto: true,
       reason: DATES_PLANNED_REASON,
     });
-    expect(entries[0]?.actorId).toBe(owner.id);
+    expect(parentEntry?.actorId).toBe(owner.id);
+    // Subtask before its parent.
+    const rhythmus = planned.byTitle("Rhythmus").id;
+    expect(entries.findIndex((e) => e.entityId === rhythmus)).toBeLessThan(
+      entries.findIndex((e) => e.entityId === parentEntry?.entityId),
+    );
 
-    const kept = await tasksOf(existing.id);
-    expect(kept.byTitle("Termine planen").status).toBe("todo");
+    // Undone, it stays open when Markt planen adds dates to a season that has some already.
+    const existingTermine = (await tasksOf(existing.id)).byTitle("Termine planen");
+    const existingEntry = entries.find((e) => e.entityId === existingTermine.id);
+    if (!existingEntry) throw new Error("no audit entry");
+    await undoTaskChange(owner, existingEntry.id);
+    await createEventsFromPreset(owner, cat.presets.flea.id, ["2028-06-04"]);
+    expect((await tasksOf(existing.id)).byTitle("Termine planen").status).toBe("todo");
+  });
+
+  it("leaves Termine planen open when it needs a photo", async () => {
+    await useGrundvorlageKey();
+    await db
+      .update(templateItem)
+      .set({ requiresPhoto: true })
+      .where(eq(templateItem.stableKey, "saison_termine_planen"));
+    await createEventsFromPreset(owner, cat.presets.flea.id, ["2027-03-07"]);
+    expect(await statusOf((await seasonRecord(2027)).id)).toEqual([
+      ["Rhythmus", "todo"],
+      ["Saisonabschluss", "todo"],
+      ["Termine planen", "todo"],
+    ]);
+    expect(await db.select().from(auditLog).where(eq(auditLog.action, "task.status"))).toEqual([]);
+  });
+
+  it("keeps a task set to today there while only another anchor moves", async () => {
+    vi.setSystemTime(new Date("2026-11-14T10:00:00+01:00"));
+    // Record made late by Markt planen: Termine planen (07.03.2027 − 240 days = 10.07.2026) is due today.
+    await createEventsFromPreset(owner, cat.presets.flea.id, ["2027-03-07", "2027-05-02"]);
+    const { id } = await seasonRecord(2027);
+    expect(dueDay((await tasksOf(id)).byTitle("Termine planen"))).toBe("2026-11-14");
+    expect(dueDay((await tasksOf(id)).byTitle("Saisonabschluss"))).toBe("2027-05-16");
+
+    // A date at the end moves only season_end: Saisonabschluss follows, Termine planen stays today.
+    await createEventsFromPreset(owner, cat.presets.flea.id, ["2027-09-05"]);
+    expect(dueDay((await tasksOf(id)).byTitle("Termine planen"))).toBe("2026-11-14");
+    expect(dueDay((await tasksOf(id)).byTitle("Saisonabschluss"))).toBe("2027-09-19");
+    const [anchorEntry] = await db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "season.anchors"), eq(auditLog.entityId, id)));
+    expect(anchorEntry?.diff).toMatchObject({ tasksShifted: 1 });
+
+    // Its own anchor moving recomputes it from the season's dates (21.02.2027 − 240 days = 26.06.2026): the
+    // clamp applies when the record is made, not to later changes.
+    await createEventsFromPreset(owner, cat.presets.flea.id, ["2027-02-21"]);
+    expect(dueDay((await tasksOf(id)).byTitle("Termine planen"))).toBe("2026-06-26");
   });
 });
 

@@ -12,7 +12,7 @@ import {
   seasonEnd,
   seasonStatusBlock,
 } from "@marktwerk/core";
-import { event, eventSeason, task } from "@marktwerk/db/schema";
+import { event, eventSeason, eventSeasonAnchor, task } from "@marktwerk/db/schema";
 import {
   type EnsuredSeason,
   ensureEventSeasonTx,
@@ -28,6 +28,7 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { planTaskShift, type ShiftedTask, shiftTasks } from "./task-schedule";
+import { completeTasksAuto } from "./tasks";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -110,63 +111,64 @@ export async function ensureEventSeason(
 export const DATES_PLANNED_REASON = "Termine mit „Markt planen“ angelegt";
 
 /**
- * "Markt planen" has just planned the dates of a season it created the record for (UX audit round 1 default,
- * UX-009): its open "Termine planen" task (`isDatesPlanningTask`) and that task's open subtasks are done. A task
- * that needs a photo or attachment stays open. Inside the caller's transaction; audited as `task.status`
- * (`auto: true`, reason {@link DATES_PLANNED_REASON}). Returns the ids completed.
+ * The seasons among `seasons` in which the market has no date yet (no non-cancelled, not archived event): read
+ * before "Markt planen" inserts its events, so `completeDatesPlanningTx` knows which seasons it gives their first
+ * dates.
  */
-async function completeDatesPlanningTx(tx: Tx, actor: Actor, seasonId: string): Promise<string[]> {
-  const rows = await tx
-    .select({
-      id: task.id,
-      parentTaskId: task.parentTaskId,
-      templateStableKey: task.templateStableKey,
-      status: task.status,
-      requiresPhoto: task.requiresPhoto,
-      requiresAttachment: task.requiresAttachment,
-    })
-    .from(task)
-    .where(and(eq(task.seasonId, seasonId), notInArray(task.status, [...CLOSED_TASK_STATUSES])))
-    .orderBy(task.id)
-    .for("update");
-  const now = new Date();
+export async function seasonsWithoutDatesTx(
+  tx: Pick<Tx, "select">,
+  presetId: string,
+  seasons: readonly number[],
+): Promise<number[]> {
+  const result: number[] = [];
+  for (const season of new Set(seasons))
+    if (seasonEnd(await seasonEventDates(tx, presetId, season)) === null) result.push(season);
+  return result;
+}
+
+/**
+ * "Markt planen" has just given these seasons their first dates (UX audit round 1 default, UX-009: "auto-complete
+ * 'Termine planen' when the wizard planned the dates", whether its record existed already, e.g. made by the
+ * nightly job, or was made by this run): each season's open "Termine planen" task (`isDatesPlanningTask`) and its
+ * open subtasks are done, the subtasks first. A group in which a task needs a photo or attachment stays open as a
+ * whole. Inside the caller's transaction, through the shared auto-completion (`completeTasksAuto`: same
+ * `task.status` audit entry as a tick, undoable, `auto: true`, reason {@link DATES_PLANNED_REASON}). Seasons
+ * without a record are skipped. Returns the ids completed.
+ */
+export async function completeDatesPlanningTx(
+  tx: Tx,
+  actor: Actor,
+  keys: readonly SeasonKey[],
+): Promise<string[]> {
   const completed: string[] = [];
-  for (const parent of rows.filter((r) => r.parentTaskId === null && isDatesPlanningTask(r))) {
-    // Subtasks first: a task with open subtasks is never done (ADR 0021).
-    const group = [...rows.filter((r) => r.parentTaskId === parent.id), parent];
-    if (group.some((r) => r.requiresPhoto || r.requiresAttachment)) continue;
-    for (const row of group) {
-      await tx
-        .update(task)
-        .set({
-          status: "done",
-          waitingReason: null,
-          skippedReason: null,
-          completedAt: now,
-          completedByStaffMemberId: actor.staffMemberId,
-          boardColumn: null,
-        })
-        .where(eq(task.id, row.id));
-      completed.push(row.id);
+  for (const key of uniqueSeasonKeys(keys)) {
+    const season = await activeSeason(tx, key);
+    if (!season) continue;
+    const rows = await tx
+      .select({
+        id: task.id,
+        parentTaskId: task.parentTaskId,
+        templateStableKey: task.templateStableKey,
+        requiresPhoto: task.requiresPhoto,
+        requiresAttachment: task.requiresAttachment,
+      })
+      .from(task)
+      .where(and(eq(task.seasonId, season.id), notInArray(task.status, [...CLOSED_TASK_STATUSES])))
+      .orderBy(task.id);
+    for (const parent of rows.filter((r) => r.parentTaskId === null && isDatesPlanningTask(r))) {
+      const subtasks = rows.filter((r) => r.parentTaskId === parent.id);
+      if ([parent, ...subtasks].some((r) => r.requiresPhoto || r.requiresAttachment)) continue;
+      // Subtasks first: a task with open subtasks is never done (ADR 0021).
+      const ids = [...subtasks.map((r) => r.id), parent.id];
+      completed.push(...(await completeTasksAuto(tx, actor, ids, DATES_PLANNED_REASON)));
     }
-    await audit(
-      tx,
-      actor.id,
-      group.map((row) => ({
-        action: "task.status",
-        entityType: "task",
-        entityId: row.id,
-        diff: { from: row.status, to: "done", auto: true, reason: DATES_PLANNED_REASON },
-      })),
-    );
   }
   return completed;
 }
 
 /**
  * Inside a caller's transaction that already checked `event:write` ("Markt planen", moving an event): the Saison
- * records of these (market, year) pairs exist afterwards. A record "Markt planen" creates (with the dates it just
- * planned) gets its "Termine planen" task done (`completeDatesPlanningTx`).
+ * records of these (market, year) pairs exist afterwards.
  */
 export async function ensureSeasonsTx(
   tx: Tx,
@@ -176,15 +178,8 @@ export async function ensureSeasonsTx(
 ): Promise<EnsuredSeason[]> {
   const today = todayIn();
   const result: EnsuredSeason[] = [];
-  for (const key of keys) {
-    const ensured = await ensureEventSeasonTx(tx, actor, key.presetId, key.season, {
-      today,
-      source,
-    });
-    if (source === "markt_planen" && ensured.created && ensured.tasks > 0)
-      await completeDatesPlanningTx(tx, actor, ensured.id);
-    result.push(ensured);
-  }
+  for (const key of keys)
+    result.push(await ensureEventSeasonTx(tx, actor, key.presetId, key.season, { today, source }));
   return result;
 }
 
@@ -244,7 +239,13 @@ export async function syncSeasonsTx(
     );
     const anchors = await writeSeasonAnchors(tx, row.id, next);
     if (Object.keys(anchors).length === 0) continue;
-    const shifted = await shiftTasks(tx, { seasonId: row.id }, anchorMap(next));
+    // Only the tasks on an anchor that moved: one clamped to today on an unchanged anchor stays there (UX-009).
+    const shifted = await shiftTasks(
+      tx,
+      { seasonId: row.id },
+      anchorMap(next),
+      new Set(Object.keys(anchors)),
+    );
     await audit(tx, actor.id, [
       {
         action: "season.anchors",
@@ -266,7 +267,8 @@ export async function syncSeasonsTx(
 
 /**
  * Preview for "Verschieben": which season tasks would get a new due date if the event had `next` as its days.
- * Same rules and shift plan as `syncSeasonsTx`; nothing is written. A season without a record has no tasks yet.
+ * Same rules and shift plan as `syncSeasonsTx` (only tasks on an anchor that would move); nothing is written. A
+ * season without a record has no tasks yet.
  */
 export async function planSeasonShiftForMove(
   x: Pick<typeof db, "select" | "update">,
@@ -302,7 +304,17 @@ export async function planSeasonShiftForMove(
     const dates: SeasonEventDates[] = others.filter((e) => e.id !== current.id);
     if (key.season === nextSeason) dates.push({ ...next, status: current.status });
     const anchors = seasonAnchors(dates, row.expectedStart);
-    shifted.push(...(await planTaskShift(x, { seasonId: row.id }, anchorMap(anchors))));
+    const stored = await x
+      .select({ key: eventSeasonAnchor.key, date: eventSeasonAnchor.date })
+      .from(eventSeasonAnchor)
+      .where(eq(eventSeasonAnchor.seasonId, row.id));
+    const old = new Map(stored.map((r) => [r.key, r.date]));
+    const changed = new Set(
+      Object.entries(anchors)
+        .filter(([key, date]) => (old.get(key) ?? null) !== date)
+        .map(([key]) => key),
+    );
+    shifted.push(...(await planTaskShift(x, { seasonId: row.id }, anchorMap(anchors), changed)));
   }
   return shifted;
 }
