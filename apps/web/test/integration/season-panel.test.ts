@@ -1,6 +1,6 @@
 import { berlinDay } from "@marktwerk/core";
 import { auditLog, eventSeason, eventSeasonAnchor, task, templateItem } from "@marktwerk/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import { getMarketSeasons } from "@/server/queries/seasons";
@@ -345,7 +345,9 @@ describe("Saison anlegen (UX-009)", () => {
     const entries = await db
       .select()
       .from(auditLog)
-      .where(and(eq(auditLog.action, "task.status"), eq(auditLog.entityType, "task")));
+      .where(and(eq(auditLog.action, "task.status"), eq(auditLog.entityType, "task")))
+      // Write order: without it Postgres may return them in (entity_type, entity_id) index order.
+      .orderBy(asc(auditLog.at), asc(auditLog.id));
     expect(entries).toHaveLength(4);
     const parentEntry = entries.find((e) => e.entityId === planned.byTitle("Termine planen").id);
     expect(parentEntry?.diff).toMatchObject({
