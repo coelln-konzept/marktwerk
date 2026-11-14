@@ -71,13 +71,15 @@ const FIELDS_OF: Record<ScheduleIssueCode, Field[]> = {
  * Zeitplan editor (ADR 0022): one row per window (Wer · Was · Tag · von–bis), add and remove rows. Plain
  * selects, inputs and buttons, so it works with the keyboard; adding a row focuses it, removing one moves
  * the focus to the next row (or "Zeile hinzufügen"). With `showErrors` (after a first save attempt) each
- * row shows its validateSchedule issue right below it, live while it is fixed.
+ * row shows its validateSchedule issue right below it, live while it is fixed. With `validateOnLeave`
+ * a row does so as soon as the focus has left it once (P3: warn while typing, not only on save).
  */
 export function ScheduleEditor({
   value,
   onChange,
   durationDays,
   showErrors,
+  validateOnLeave = false,
   idPrefix,
 }: {
   value: ScheduleDraftRow[];
@@ -85,13 +87,19 @@ export function ScheduleEditor({
   /** The event's or market's length in days (the day rules depend on it). */
   durationDays: number;
   showErrors: boolean;
+  validateOnLeave?: boolean;
   idPrefix: string;
 }) {
   const t = useTranslations("schedule");
   const [focusKey, setFocusKey] = useState<string | null>(null);
-  const issues = showErrors ? scheduleDraftIssues(value, durationDays) : [];
-  const rowIssue = (index: number) => issues.find((issue) => issue.row === index)?.code;
-  const listIssue = issues.find((issue) => issue.row === null)?.code;
+  // Rows the focus has left at least once (`validateOnLeave`).
+  const [left, setLeft] = useState<ReadonlySet<string>>(() => new Set());
+  const issues = showErrors || left.size > 0 ? scheduleDraftIssues(value, durationDays) : [];
+  const rowIssue = (index: number) =>
+    showErrors || left.has(value[index]?.key ?? "")
+      ? issues.find((issue) => issue.row === index)?.code
+      : undefined;
+  const listIssue = showErrors ? issues.find((issue) => issue.row === null)?.code : undefined;
   const full = value.length >= MAX_SCHEDULE_ROWS;
 
   useEffect(() => {
@@ -184,7 +192,15 @@ export function ScheduleEditor({
               />
             );
             return (
-              <li key={row.key} className="flex flex-col gap-1">
+              <li
+                key={row.key}
+                className="flex flex-col gap-1"
+                onBlur={(e) => {
+                  if (!validateOnLeave || left.has(row.key)) return;
+                  if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+                  setLeft((keys) => new Set(keys).add(row.key));
+                }}
+              >
                 <div className={grid}>
                   <NativeSelect
                     id={id(row.key, "audience")}
