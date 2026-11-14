@@ -89,7 +89,6 @@ export async function getVenue(id: string) {
       accessInfo: venue.accessInfo,
       landownerId: contact.id,
       landownerName: contact.name,
-      landownerKind: contact.kind,
       landownerPerson: contact.contactPerson,
       landownerPhone: contact.phoneE164,
       landownerEmail: contact.email,

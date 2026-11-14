@@ -98,6 +98,7 @@
         "discard": "Verwerfen",
         "keepEditing": "Weiter bearbeiten",
         "landownerKindMismatch": "Eine Behörde kann nur bei einem städtischen Ort Eigentümer sein.",
+        "landownerKindMismatchOther": "Dieser Kontakt ist nicht mehr als „Eigentümer“ eingetragen und kann deshalb hier nicht Eigentümer sein.",
         "landownerHintMunicipal": "Zur Auswahl stehen die Kontakte der Art „Eigentümer“ und „Behörde“."
       },
       "archive": {
@@ -180,7 +181,8 @@
         "invalid_lng": "Bitte den Längengrad als Zahl von −180 bis 180 angeben, z. B. 6,9603.",
         "lat_missing": "Bitte auch den Breitengrad angeben oder den Längengrad leeren.",
         "lng_missing": "Bitte auch den Längengrad angeben oder den Breitengrad leeren.",
-        "landowner_kind": "Eine Behörde kann nur bei einem städtischen Ort Eigentümer sein. Bitte einen anderen Eigentümer wählen oder die Art auf „Städtisch“ stellen."
+        "landowner_kind": "Eine Behörde kann nur bei einem städtischen Ort Eigentümer sein. Bitte einen anderen Eigentümer wählen oder die Art auf „Städtisch“ stellen.",
+        "landowner_kind_other": "Dieser Kontakt ist nicht mehr als „Eigentümer“ eingetragen. Bitte einen anderen Eigentümer wählen oder das Feld leeren."
       }
     },
     "vorschau": {

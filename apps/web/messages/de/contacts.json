@@ -120,7 +120,7 @@
     "assign": {
       "button": "Als Eigentümer bei Ort eintragen …",
       "title": "{name} als Eigentümer eintragen",
-      "description": "Wähle den Ort, dem dieser Kontakt gehört.",
+      "description": "Wähle den Ort, der diesem Kontakt gehört.",
       "descriptionAuthority": "Eine Behörde kann Eigentümer eines städtischen Ortes sein. Zur Auswahl stehen deshalb nur städtische Orte.",
       "close": "Schließen",
       "venue": "Ort",

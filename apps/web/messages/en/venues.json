@@ -98,6 +98,7 @@
         "discard": "Discard",
         "keepEditing": "Keep editing",
         "landownerKindMismatch": "An authority can only own a municipal venue.",
+        "landownerKindMismatchOther": "This contact is no longer of type landowner, so it cannot own this venue.",
         "landownerHintMunicipal": "You can pick from the contacts of type landowner or authority."
       },
       "archive": {
@@ -180,7 +181,8 @@
         "invalid_lng": "Please enter the longitude as a number from −180 to 180, e.g. 6.9603.",
         "lat_missing": "Please also enter the latitude, or clear the longitude.",
         "lng_missing": "Please also enter the longitude, or clear the latitude.",
-        "landowner_kind": "An authority can only own a municipal venue. Please pick another landowner or set the type to municipal."
+        "landowner_kind": "An authority can only own a municipal venue. Please pick another landowner or set the type to municipal.",
+        "landowner_kind_other": "This contact is no longer of type landowner. Please pick another landowner or clear the field."
       }
     },
     "vorschau": {

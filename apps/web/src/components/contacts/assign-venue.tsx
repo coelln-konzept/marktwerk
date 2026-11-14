@@ -1,7 +1,7 @@
 "use client";
 
 import { mayOwnVenue } from "@marktwerk/core";
-import { MapPinPlus } from "lucide-react";
+import { MapPinPlus, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useState, useTransition } from "react";
 import { landownerTargetsAction, setVenueLandownerAction } from "@/app/(app)/orte/actions";
@@ -72,8 +72,9 @@ export function AssignVenue({ contact }: { contact: { id: string; name: string; 
           : t("assigned", { venue: venueName, name: contact.name }),
         actionLabel: t("undo"),
         onAction: async () => {
+          // `undoOf`: the previous Eigentümer goes back even if it was archived meanwhile.
           const undone = await callAction(() =>
-            setVenueLandownerAction(venueId, previous?.id ?? null),
+            setVenueLandownerAction(venueId, previous?.id ?? null, contact.id),
           );
           if (undone.ok) showToast({ message: t("restored", { venue: venueName }) });
           else showError(errorText(undone.error));
@@ -122,7 +123,8 @@ export function AssignVenue({ contact }: { contact: { id: string; name: string; 
               {error ? (
                 <span className="text-status-critical">{error}</span>
               ) : picked?.landownerName ? (
-                <span className="text-status-warn">
+                <span className="flex items-center gap-1.5 text-status-warn">
+                  <TriangleAlert aria-hidden className="size-4 shrink-0" />
                   {t("willReplace", { previous: picked.landownerName })}
                 </span>
               ) : (

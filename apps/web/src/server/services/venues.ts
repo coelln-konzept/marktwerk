@@ -152,13 +152,15 @@ function cleanVenue(input: VenueInput): CleanVenue {
 /**
  * The Eigentümer must be a live contact of a kind that may own this kind of Ort: an Eigentümer, or for a
  * städtisches Ort also a Behörde (`mayOwnVenue`, UX-056). The one already entered may stay even when it
- * was archived since, unless the Ort's kind changes to one it may not own.
+ * was archived since, unless the Ort's kind changes to one it may not own. `restoring` is an undo putting
+ * back the one that was there just before: it may be archived too, but must still fit the kind.
  */
 async function checkLandowner(
   tx: Tx,
   contactId: string | null,
   venueKind: string,
   current?: { contactId: string | null; venueKind: string },
+  restoring = false,
 ) {
   if (!contactId) return;
   const unchanged = current?.contactId === contactId;
@@ -167,7 +169,7 @@ async function checkLandowner(
     .select({ kind: contact.kind, archivedAt: contact.archivedAt })
     .from(contact)
     .where(eq(contact.id, contactId));
-  if (!row || (!unchanged && row.archivedAt) || !mayOwnVenue(row.kind, venueKind))
+  if (!row || (!unchanged && !restoring && row.archivedAt) || !mayOwnVenue(row.kind, venueKind))
     throw new VenueInputError("invalid_landowner");
 }
 
@@ -242,14 +244,18 @@ export async function updateVenue(
 
 /**
  * "Als Eigentümer bei Ort eintragen…" from a contact's Vorschau (UX-055): sets only the Ort's
- * Eigentümer, with the same rules as the form. `contactId` null clears it, which is how the undo toast
- * puts the previous one back. Audited as "venue.update" like a form edit. Returns the previous
- * Eigentümer so the toast can offer to restore it.
+ * Eigentümer, with the same rules as the form. `contactId` null clears it. Audited as "venue.update"
+ * like a form edit. Returns the previous Eigentümer so the toast can offer to restore it.
+ *
+ * The undo passes `undoOf`, the contact it is undoing. While that one is still entered, the previous
+ * Eigentümer goes back even if it was archived meanwhile (it was allowed to stay, so it may return).
+ * If someone changed the Eigentümer in between, the undo follows the normal rules.
  */
 export async function setVenueLandowner(
   actor: Actor,
   venueId: string,
   contactId: string | null,
+  undoOf?: string,
 ): Promise<{
   changed: boolean;
   venueName: string;
@@ -268,10 +274,13 @@ export async function setVenueLandowner(
       : [];
     const result = { venueName: current.name, previous: previous ?? null };
     if (from === contactId) return { ...result, changed: false };
-    await checkLandowner(tx, contactId, current.kind, {
-      contactId: from,
-      venueKind: current.kind,
-    });
+    await checkLandowner(
+      tx,
+      contactId,
+      current.kind,
+      { contactId: from, venueKind: current.kind },
+      undoOf !== undefined && from === undoOf,
+    );
     await tx.update(venue).set({ landownerContactId: contactId }).where(eq(venue.id, venueId));
     await audit(tx, actor.id, [
       {

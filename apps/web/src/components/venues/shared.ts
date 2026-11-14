@@ -40,6 +40,7 @@ export function fieldOfVenueError(code: string): string | null {
       return "venue-lng";
     case "invalid_landowner":
     case "landowner_kind":
+    case "landowner_kind_other":
       return "venue-landowner";
     default:
       return null;

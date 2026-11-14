@@ -684,6 +684,35 @@ describe("setVenueLandowner (UX-055)", () => {
     expect((await getVenue(id))?.landownerId).toBeNull();
   });
 
+  it("lets the undo put back a previous Eigentümer that was archived meanwhile", async () => {
+    const old = await landowner("Bauer Anders");
+    const next = await landowner("Familie Müller");
+    const { id } = await createVenue(owner, venueInput({ landownerContactId: old.id }));
+    await db.update(contact).set({ archivedAt: new Date() }).where(eq(contact.id, old.id));
+
+    await setVenueLandowner(owner, id, next.id);
+    // Without undoOf the archived one can't be newly entered …
+    expect(await codeOf(setVenueLandowner(owner, id, old.id))).toBe("invalid_landowner");
+    // … nor when the Eigentümer changed since (the undo is stale).
+    expect(await codeOf(setVenueLandowner(owner, id, old.id, old.id))).toBe("invalid_landowner");
+    // The undo of exactly this change puts it back.
+    await expect(setVenueLandowner(owner, id, old.id, next.id)).resolves.toMatchObject({
+      changed: true,
+    });
+    expect((await getVenue(id))?.landownerId).toBe(old.id);
+  });
+
+  it("still checks the kind on undo", async () => {
+    const authority = await landowner("Stadt Köln", "authority");
+    const next = await landowner("Familie Müller");
+    const { id } = await createVenue(owner, venueInput({ landownerContactId: authority.id }));
+    await setVenueLandowner(owner, id, next.id);
+    await db.update(venue).set({ kind: "private" }).where(eq(venue.id, id));
+    expect(await codeOf(setVenueLandowner(owner, id, authority.id, next.id))).toBe(
+      "invalid_landowner",
+    );
+  });
+
   it("follows the form's rules and needs venue:write", async () => {
     const authority = await landowner("Stadt Köln", "authority");
     const { id: privat } = await createVenue(owner, venueInput({ kind: "private" }));

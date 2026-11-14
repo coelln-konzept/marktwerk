@@ -13,6 +13,7 @@ import {
   VENUE_NAME_MAX,
   venueNameFromAddress,
 } from "@marktwerk/core";
+import { TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useMemo, useState, useTransition } from "react";
@@ -107,7 +108,15 @@ export function VenueForm({
       hint:
         l.kind === "authority" ? [tKinds("authority"), l.hint].filter(Boolean).join(" · ") : l.hint,
     }));
-  const landownerMismatch = pickedLandowner !== null && !mayOwnVenue(pickedLandowner.kind, kind);
+  // As in the service: an Eigentümer that no longer fits (its Art was changed since) may stay while
+  // neither it nor the Ort's kind changes, so unrelated edits still save. Only a new pick or a new
+  // kind has to fit.
+  const landownerBlocked =
+    pickedLandowner !== null &&
+    !mayOwnVenue(pickedLandowner.kind, kind) &&
+    (landowner !== initial.landownerContactId || kind !== initial.kind);
+  const landownerKindCode =
+    pickedLandowner?.kind === "authority" ? "landowner_kind" : "landowner_kind_other";
   const [capacity, setCapacity] = useState(
     initial.capacityCm === null ? "" : formatMetres(initial.capacityCm, locale),
   );
@@ -171,7 +180,7 @@ export function VenueForm({
     if (city.trim() === "") return fail("invalid_city");
     const capacityText = capacity.trim();
     const capacityCm = capacityText === "" ? null : parseMetresToCm(capacityText);
-    if (landownerMismatch) return fail("landowner_kind");
+    if (landownerBlocked) return fail(landownerKindCode);
     if (capacityText !== "" && !capacityCm) return fail("invalid_capacity");
     // Each coordinate mistake gets its own message at its own field (UX-056).
     const latText = lat.trim();
@@ -430,20 +439,22 @@ export function VenueForm({
                   }}
                 />
                 {errorAt(f("landowner"))}
-                <p
-                  id={`${uid}-landowner`}
-                  className={
-                    landownerMismatch && error?.field !== f("landowner")
-                      ? "text-small text-status-warn"
-                      : hint
-                  }
-                >
-                  {landownerMismatch
-                    ? tf("landownerKindMismatch")
-                    : kind === "municipal"
-                      ? tf("landownerHintMunicipal")
-                      : tf("landownerHint")}
-                </p>
+                {/* While the error says it, the hint goes back to normal so it is not read twice. */}
+                {landownerBlocked && error?.field !== f("landowner") ? (
+                  <p
+                    id={`${uid}-landowner`}
+                    className="flex items-center gap-1.5 text-small text-status-warn"
+                  >
+                    <TriangleAlert aria-hidden className="size-4 shrink-0" />
+                    {landownerKindCode === "landowner_kind"
+                      ? tf("landownerKindMismatch")
+                      : tf("landownerKindMismatchOther")}
+                  </p>
+                ) : (
+                  <p id={`${uid}-landowner`} className={hint}>
+                    {kind === "municipal" ? tf("landownerHintMunicipal") : tf("landownerHint")}
+                  </p>
+                )}
               </div>
             </div>
           </fieldset>

@@ -84,10 +84,19 @@ export async function landownerTargetsAction() {
   return listLandownerTargets();
 }
 
-/** "Als Eigentümer bei Ort eintragen…" and its undo (`contactId` = the previous one, or null). */
-export async function setVenueLandownerAction(venueId: string, contactId: string | null) {
+/**
+ * "Als Eigentümer bei Ort eintragen…" and its undo (`contactId` = the previous one, or null; `undoOf` =
+ * the contact being undone).
+ */
+export async function setVenueLandownerAction(
+  venueId: string,
+  contactId: string | null,
+  undoOf?: string,
+) {
   await requirePermission("venue", "write");
-  return run((actor) => setVenueLandowner(actor, venueId, contactId));
+  return run((actor) =>
+    setVenueLandowner(actor, venueId, contactId, typeof undoOf === "string" ? undoOf : undefined),
+  );
 }
 
 export async function createVenueAction(input: VenueInput) {
