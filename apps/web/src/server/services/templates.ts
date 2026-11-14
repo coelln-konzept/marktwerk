@@ -90,6 +90,7 @@ export function itemFields(row: ItemRow): TemplateItemFields {
     requiresAttachment: row.requiresAttachment,
     isKey: row.isKey,
     permitType: row.permitType,
+    contactRole: row.contactRole,
     approverDutyRoleId: row.approverDutyRoleId,
     parentKey: row.parentKey,
     ownDue: row.ownDue,
@@ -136,6 +137,8 @@ function normalizeItem(input: TemplateItemFields): TemplateItemFields {
     parentKey: input.parentKey || null,
     ownDue: input.ownDue ?? false,
     permitType: input.permitType || null,
+    // Absent = unchanged on update (older callers, the grid), null on insert.
+    ...(input.contactRole === undefined ? {} : { contactRole: input.contactRole || null }),
     dutyRoleId: input.dutyRoleId || null,
     approverDutyRoleId: input.approverDutyRoleId || null,
     condition: input.condition ? normalizeCondition(input.condition) : null,

@@ -34,6 +34,7 @@ import {
 import { insertNotifications } from "@marktwerk/db";
 import {
   auditLog,
+  contact,
   document,
   event,
   eventDuty,
@@ -62,6 +63,7 @@ export type TaskError =
   | "evidence_missing"
   | "not_undoable"
   | "invalid_parent"
+  | "invalid_contact"
   | "conflict";
 
 export class TaskInputError extends Error {
@@ -1314,6 +1316,20 @@ const sameNotify = (a: NotifyInput, b: NotifyInput) =>
 // ---------------------------------------------------------------------------------------------
 // edit
 
+/** Names of contacts (for the audit entry) and whether each is live; ids that are no uuid count as unknown. */
+async function contactNames(
+  tx: Tx,
+  ids: (string | null)[],
+): Promise<Map<string, { name: string; live: boolean }>> {
+  const wanted = [...new Set(ids.filter((id): id is string => id !== null && UUID.test(id)))];
+  if (wanted.length === 0) return new Map();
+  const rows = await tx
+    .select({ id: contact.id, name: contact.name, archivedAt: contact.archivedAt })
+    .from(contact)
+    .where(inArray(contact.id, wanted));
+  return new Map(rows.map((r) => [r.id, { name: r.name, live: r.archivedAt === null }]));
+}
+
 export type TaskPatch = {
   title?: string;
   description?: string | null;
@@ -1327,6 +1343,11 @@ export type TaskPatch = {
   dueOn?: string | null;
   /** "Benachrichtigung senden an": channels and when. No channels clears the timing. */
   notify?: NotifyInput;
+  /**
+   * The contact the task is about (Fahrplan R24), null to remove it. Needs `contact` read; a new one must be a live
+   * contact. Not a content edit: it leaves `customized` alone (propagation never touches the contact).
+   */
+  contactId?: string | null;
   /**
    * Undo of a due-date edit: puts back the flags the edit set, so a date that followed the event date
    * keeps following it. Only honoured together with a `dueOn` change.
@@ -1417,17 +1438,31 @@ export async function updateTask(
         after.notify = { ...notify, userId: set.notifyUserId };
       }
     }
+    if (patch.contactId !== undefined) {
+      // Contact data is the office's (field users have no `contact` read): they can't link one either.
+      if (!can(actor.role, "contact", "read")) forbidden();
+      const next = patch.contactId || null;
+      if (next !== row.contactId) {
+        const names = await contactNames(tx, [row.contactId, next]);
+        if (next !== null && !names.get(next)?.live) throw new TaskInputError("invalid_contact");
+        set.contactId = next;
+        before.contactId = row.contactId;
+        after.contactId = next;
+        before.contactName = row.contactId ? (names.get(row.contactId)?.name ?? null) : null;
+        after.contactName = next ? (names.get(next)?.name ?? null) : null;
+      }
+    }
     // The moment is computed from the due date, so a relative timing cannot outlive it.
     if ("notify" in after || "dueOn" in after) {
       const hasDue = "dueOn" in after ? after.dueOn !== null : row.dueAt !== null;
       assertNotifyFits("notify" in after ? cleanNotify(patch.notify) : notifyOf(row), hasDue);
     }
 
-    const fields = Object.keys(after);
+    const fields = Object.keys(after).filter((f) => f !== "contactName");
     if (fields.length === 0) return { changed: false, fields };
-    // The notification preference is not a content edit: only that change leaves `customized` alone, so
-    // template propagation still updates the task.
-    if (fields.some((f) => f !== "notify")) set.customized = true;
+    // The notification preference and the contact are no content edits: changing only them leaves `customized`
+    // alone, so template propagation still updates the task.
+    if (fields.some((f) => f !== "notify" && f !== "contactId")) set.customized = true;
     const restore = patch.restoreFlags;
     if (restore && "dueOn" in after) {
       if (typeof restore.dueOverridden !== "boolean" || typeof restore.customized !== "boolean")

@@ -173,6 +173,13 @@
       "permitType": "Belongs to permit",
       "noPermitType": "None",
       "permitTypeHint": "Closes itself once this permit is applied for or granted for the event. Only for tasks that apply for a permit.",
+      "contactRole": "Contact of the task",
+      "noContactRole": "None",
+      "contactRoles": {
+        "authority": "Authority of the location",
+        "landowner": "Owner of the location"
+      },
+      "contactRoleHint": "New tasks get this contact from the event's location, e.g. for “Call the public order office”. Existing tasks stay as they are.",
       "isKey": "Key task",
       "isKeyHint": "Every market needs this task. It shows in the key-task overview and is emphasised more strongly when late.",
       "conditionLegend": "Only applies to",
@@ -401,6 +408,7 @@
       "invalid_estimate": "Please enter the effort in whole minutes.",
       "invalid_parent": "The parent row does not exist in this version or is a subtask itself (one level only).",
       "invalid_permit_type": "Please pick a permit type from the list.",
+      "invalid_contact_role": "Please choose a contact from the list.",
       "invalid_scope": "Please choose event or season.",
       "invalid_condition": "The condition is not valid.",
       "invalid_name": "Please enter a name (at most 120 characters).",

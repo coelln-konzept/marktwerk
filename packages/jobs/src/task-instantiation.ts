@@ -6,7 +6,9 @@
 import {
   applicableItems,
   type ConditionFacts,
+  type ContactContext,
   clockTime,
+  contactForRole,
   DEFAULT_TIME_ZONE,
   holidaysBetween,
   holidayWindow,
@@ -19,6 +21,7 @@ import {
 import {
   checklist,
   checklistTemplate,
+  contact,
   type Database,
   dutyRole,
   event,
@@ -29,13 +32,14 @@ import {
   eventSeason,
   eventSeasonAnchor,
   eventType,
+  permitRequirement,
   settings,
   task,
   templateItem,
   templateVersion,
   venue,
 } from "@marktwerk/db";
-import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { audit, type ServiceActor, type Tx } from "./audit";
 
 /** Rows are written in chunks so a season of events does not build one gigantic statement. */
@@ -91,7 +95,81 @@ type ContextBase = {
   anchors: Map<string, string>;
   /** duty_role.id → staff_member.id */
   duties: Map<string, string>;
+  /**
+   * The Ort's contacts (owner, the Behörden of its permit requirements) for items with a default contact role
+   * (Fahrplan R24). Absent (previews) = no contact is looked up.
+   */
+  contacts?: ContactContext;
 };
+
+/** Key of {@link loadContactContexts}: one Ort for one event type. */
+export const contactContextKey = (venueId: string, eventTypeKey: string) =>
+  `${venueId}|${eventTypeKey}`;
+
+/**
+ * What the Orte say about contacts (Fahrplan R24), per Ort and event type: the owner (live contact only, with its
+ * kind) and the live permit requirements for that event type or for every type, event-type-specific ones first,
+ * each with its Behörde when that is a live contact. Two queries, whatever the number of pairs. Used by the
+ * instantiation (default contact roles) and the task drawer ("Vorschlag: …").
+ */
+export async function loadContactContexts(
+  tx: Pick<Database, "select">,
+  pairs: readonly { venueId: string; eventTypeKey: string }[],
+): Promise<Map<string, ContactContext>> {
+  const result = new Map<string, ContactContext>();
+  const venueIds = [...new Set(pairs.map((p) => p.venueId))];
+  if (venueIds.length === 0) return result;
+  const owners = await tx
+    .select({ venueId: venue.id, id: contact.id, kind: contact.kind })
+    .from(venue)
+    .innerJoin(contact, and(eq(contact.id, venue.landownerContactId), isNull(contact.archivedAt)))
+    .where(inArray(venue.id, venueIds));
+  const requirements = await tx
+    .select({
+      venueId: permitRequirement.venueId,
+      eventTypeKey: eventType.key,
+      permitType: permitRequirement.permitType,
+      authorityId: contact.id,
+    })
+    .from(permitRequirement)
+    .leftJoin(eventType, eq(eventType.id, permitRequirement.eventTypeId))
+    .leftJoin(
+      contact,
+      and(eq(contact.id, permitRequirement.authorityContactId), isNull(contact.archivedAt)),
+    )
+    .where(and(inArray(permitRequirement.venueId, venueIds), isNull(permitRequirement.archivedAt)))
+    // Event-type-specific requirements first, then the general ones; stable within.
+    .orderBy(
+      desc(isNotNull(permitRequirement.eventTypeId)),
+      asc(permitRequirement.createdAt),
+      asc(permitRequirement.id),
+    );
+  const ownerOf = new Map(owners.map((o) => [o.venueId, { id: o.id, kind: o.kind }]));
+  for (const { venueId, eventTypeKey } of pairs) {
+    result.set(contactContextKey(venueId, eventTypeKey), {
+      venueOwner: ownerOf.get(venueId) ?? null,
+      requirements: requirements
+        .filter(
+          (r) =>
+            r.venueId === venueId && (r.eventTypeKey === null || r.eventTypeKey === eventTypeKey),
+        )
+        .map((r) => ({ permitType: r.permitType, authorityId: r.authorityId })),
+    });
+  }
+  return result;
+}
+
+/** Adds the Ort's contacts to contexts (one lookup for all of them). */
+async function withContacts<C extends ContextBase>(tx: Tx, contexts: C[]): Promise<C[]> {
+  const map = await loadContactContexts(
+    tx,
+    contexts.map((c) => c.facts),
+  );
+  return contexts.map((c) => ({
+    ...c,
+    contacts: map.get(contactContextKey(c.facts.venueId, c.facts.eventTypeKey)),
+  }));
+}
 
 /** An event: gets the template items with `scope = 'event'`. */
 export type EventContext = ContextBase & {
@@ -149,7 +227,7 @@ export async function loadEventContexts(tx: Tx, ids: string[]): Promise<EventCon
     dutiesOf.set(d.eventId, map);
   }
   const byId = new Map(events.map((e) => [e.id, e]));
-  return ids.flatMap((id) => {
+  const contexts = ids.flatMap((id) => {
     const e = byId.get(id);
     if (!e) return [];
     return [
@@ -166,6 +244,7 @@ export async function loadEventContexts(tx: Tx, ids: string[]): Promise<EventCon
       },
     ];
   });
+  return withContacts(tx, contexts);
 }
 
 /**
@@ -209,7 +288,7 @@ export async function loadSeasonContexts(tx: Tx, ids: string[]): Promise<SeasonC
       : [];
   const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
   const byId = new Map(seasons.map((s) => [s.id, s]));
-  return ids.flatMap((id) => {
+  const contexts = ids.flatMap((id) => {
     const s = byId.get(id);
     if (!s) return [];
     const duties = new Map<string, string>();
@@ -230,6 +309,7 @@ export async function loadSeasonContexts(tx: Tx, ids: string[]): Promise<SeasonC
       },
     ];
   });
+  return withContacts(tx, contexts);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -298,6 +378,8 @@ export type DesiredTask = PlanItem & {
   dayMode: "calendar" | "business";
   assigneeId: string | null;
   approverStaffMemberId: string | null;
+  /** The contact the item's default role points to at the Ort (Fahrplan R24), null = none. Set on new tasks only. */
+  contactId: string | null;
   sort: number;
 };
 
@@ -355,6 +437,10 @@ export function desiredTask(
     approverStaffMemberId: item.approverDutyRoleId
       ? (ev.duties.get(item.approverDutyRoleId) ?? null)
       : null,
+    contactId:
+      item.contactRole && ev.contacts
+        ? contactForRole(item.contactRole, ev.contacts, item.permitType)
+        : null,
     sort: item.sort,
     parentKey: item.parentKey,
   };
@@ -414,6 +500,7 @@ function taskValues(ev: InstantiationContext, checklistId: string, d: DesiredTas
     requiresNote: d.requiresNote,
     requiresAttachment: d.requiresAttachment,
     isKey: d.isKey,
+    contactId: d.contactId,
     approverStaffMemberId: d.approverStaffMemberId,
     // Keeps the template order inside a kanban column until someone moves cards around.
     boardSort: d.sort,

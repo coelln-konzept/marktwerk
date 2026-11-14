@@ -48,6 +48,12 @@ export const taskPriority = app.enum("task_priority", ["low", "normal", "high"])
 /** `calendar` counts every day, `business` skips weekends and NRW holidays (packages/core dates). */
 export const dayMode = app.enum("day_mode", ["calendar", "business"]);
 
+/**
+ * Who a template item's task is about (Fahrplan R24, gap G7): "Behörde" (the authority of the Ort's permit) or
+ * "Eigentümer" (the Ort's owner). Resolved to a contact when the task is made (core `contactForRole`).
+ */
+export const taskContactRole = app.enum("task_contact_role", ["authority", "landowner"]);
+
 /* ------------------------------------------------------------------------------------------------
  * Templates
  * --------------------------------------------------------------------------------------------- */
@@ -173,6 +179,11 @@ export const templateItem = app.table(
      * granted (UX pass 2026-10-22: no false "overdue" for permits that are already in).
      */
     permitType: permitType(),
+    /**
+     * Default contact of the item's task (Fahrplan R24): the instantiation looks up the Behörde or the Eigentümer of
+     * the event's Ort and sets `task.contact_id`; null = none. Propagation leaves existing tasks' contacts alone.
+     */
+    contactRole: taskContactRole(),
     /** Duty role whose holder has to approve before the task counts as done. */
     approverDutyRoleId: uuid().references(() => dutyRole.id, { onDelete: "set null" }),
     /**

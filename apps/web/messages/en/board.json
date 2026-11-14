@@ -160,7 +160,8 @@
       "evidence_missing": "“{title}” can't be marked done yet: {what}.",
       "not_undoable": "This can no longer be undone.",
       "invalid_parent": "That can't be a subtask here (one level only, same event, parent still open).",
-      "conflict": "The task has changed since. Undo is no longer possible."
+      "conflict": "The task has changed since. Undo is no longer possible.",
+      "invalid_contact": "This contact no longer exists. Please choose another one."
     },
     "notify": {
       "legend": "Send notification to",

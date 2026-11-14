@@ -1783,6 +1783,54 @@ test('Task drawer: subtasks are added with Enter, ticked off, and "Hauptaufgabe 
   await expect(drawer).toBeHidden();
 });
 
+test("Task drawer: a contact is picked, called from the drawer, removed and put back with Rückgängig", async ({
+  page,
+}) => {
+  // A fresh task of an event's Genehmigungen tab (a permit task, so the Ort's Behörde may be suggested).
+  await page.goto("/veranstaltungen");
+  const href = await page.locator("tbody tr[data-href]").first().getAttribute("data-href");
+  await page.goto(`${href}/genehmigungen`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Aufgabe", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Neue Aufgabe" });
+  const title = `E2E Amt anrufen ${Date.now()}`;
+  await dialog.getByLabel("Titel").fill(title);
+  await dialog.getByRole("button", { name: "Aufgabe anlegen" }).click();
+  await expect(page).toHaveURL(/[?&]aufgabe=/);
+  await page.waitForLoadState("networkidle");
+  const drawer = page.getByRole("dialog", { name: title });
+  const section = drawer.getByRole("region", { name: "Kontakt" });
+  await expect(section).toBeVisible();
+  const toasts = page.getByRole("region", { name: "Hinweise" });
+
+  // No contact yet: either a "Vorschlag: …" with "Anderen wählen", or "Kein Kontakt" with "Kontakt wählen".
+  await section.getByRole("button", { name: /^(Kontakt wählen|Anderen wählen)$/ }).click();
+  const picker = section.getByLabel("Kontakt suchen");
+  await expect(picker).toBeFocused();
+  await picker.press("ArrowDown");
+  const first = page.getByRole("option").first();
+  const name = ((await first.locator("span").first().textContent()) ?? "").trim();
+  await first.click();
+  await expect(toasts.getByText(`bei „${title}“ eingetragen`, { exact: false })).toBeVisible();
+  const open = section.getByRole("link", { name: "In Kontakte öffnen" });
+  await expect(open).toHaveAttribute("href", /\/kontakte\?vorschau=/);
+  await expect(section.getByText(name, { exact: true }).first()).toBeVisible();
+
+  // Remove it; Rückgängig brings it back.
+  await section.getByRole("button", { name: /^Kontakt „.*“ entfernen$/ }).click();
+  await expect(toasts.getByText(`Kontakt bei „${title}“ entfernt`)).toBeVisible();
+  await expect(open).toBeHidden();
+  await toasts
+    .locator("div.pointer-events-auto", { hasText: `Kontakt bei „${title}“ entfernt` })
+    .getByRole("button", { name: "Rückgängig" })
+    .click();
+  await expect(open).toBeVisible();
+
+  // Clean up: delete the throwaway task.
+  await drawer.getByRole("button", { name: `„${title}“ löschen` }).click();
+  await expect(drawer).toBeHidden();
+});
+
 test('Market page: the Saison panel shows its heading, its status (or "Saison anlegen") and its start', async ({
   page,
 }) => {
