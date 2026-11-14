@@ -734,19 +734,28 @@ test("Archiv: 50 rows per page with a pager; Aktivität, Alte Genehmigungen and 
   await expect(page.getByPlaceholder("Dateiname oder Beschreibung")).toBeVisible();
 });
 
-test("Ort page: events and markets are the first two boxes; Alle Veranstaltungen opens the filtered list", async ({
+test("Ort page: address first, then events and markets above the zones; Alle Veranstaltungen opens the filtered list", async ({
   page,
 }) => {
   await page.goto("/orte");
   await page.locator("tbody tr[data-href]").first().click();
   await expect(page).toHaveURL(/\/orte\/[0-9a-f-]{36}$/);
+  const address = page.getByRole("heading", { name: "Adresse & Zufahrt" });
+  const owner = page.getByRole("heading", { name: "Eigentümer & Ansprechpartner" });
   const events = page.getByRole("heading", { name: /^Veranstaltungen an diesem Ort/ });
   const markets = page.getByRole("heading", { name: /^Märkte an diesem Ort/ });
-  const address = page.getByRole("heading", { name: "Adresse & Zufahrt" });
+  const zones = page.getByRole("heading", { name: "Zonen & Reihen" });
+  await expect(address).toBeVisible();
+  await expect(owner).toBeVisible();
   await expect(events).toBeVisible();
   await expect(markets).toBeVisible();
-  // Above the address and zones.
-  expect((await events.boundingBox())?.y ?? 0).toBeLessThan((await address.boundingBox())?.y ?? 0);
+  await expect(zones).toBeVisible();
+  const y = async (l: typeof address) => (await l.boundingBox())?.y ?? Number.NaN;
+  // Address and Eigentümer come first (UX-016), then events and markets, all above the zones.
+  expect(await y(address)).toBeLessThan(await y(events));
+  expect(await y(owner)).toBeLessThan(await y(events));
+  expect(await y(events)).toBeLessThan(await y(zones));
+  expect(await y(markets)).toBeLessThan(await y(zones));
   await page.getByRole("link", { name: "Alle Veranstaltungen" }).click();
   await expect(page).toHaveURL(/\/veranstaltungen\?ort=[0-9a-f-]{36}&status=alle/);
 });
