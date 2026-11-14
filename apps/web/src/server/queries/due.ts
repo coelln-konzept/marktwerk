@@ -67,6 +67,11 @@ export type DueItem = {
    * how many open ones are overdue (they flag the task).
    */
   subtasks?: { done: number; total: number; open: number; overdue: number };
+  /**
+   * Tasks with the status "Wartet" (somebody else has to act), whatever their urgency, and what they wait for
+   * (`task.waiting_reason`). Set by the Übersicht (`getOverview`); the row says "Wartet auf <Grund>".
+   */
+  waiting?: { reason: string | null };
 };
 
 export const CALENDAR_LAYERS = [

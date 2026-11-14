@@ -92,14 +92,36 @@ test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the 
   await expect(page.getByRole("group", { name: "Filter" })).toHaveCount(0);
   await expect(page.getByText(/Aufwand =/)).toHaveCount(0);
 
-  // Phone (390 px): main panel, weekend box, permits stack in that order; nothing scrolls sideways.
+  // Phone (390 px): main panel, weekend box, permits stack in that order, except that a market running today
+  // moves the weekend box to the top (UX-006); nothing scrolls sideways.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const [dueY = 0, weekendY = 0, permitsY = 0] = await Promise.all(
     [due, weekend, permits].map(async (h) => (await h.boundingBox())?.y ?? 0),
   );
-  expect(dueY).toBeLessThan(weekendY);
-  expect(weekendY).toBeLessThan(permitsY);
+  const marketToday = (await page.locator("section[data-market-today]").count()) > 0;
+  if (marketToday) expect(weekendY).toBeLessThan(dueY);
+  else expect(dueY).toBeLessThan(weekendY);
+  expect(Math.max(dueY, weekendY)).toBeLessThan(permitsY);
+
+  // Phone: Heute comes first; Überfällig is one line with its count, its rows hidden until "Anzeigen".
+  const today = main.getByRole("heading", { level: 3, name: /^Heute\s*\d+$/ });
+  const overdueToggle = main.getByRole("button", { name: /^Überfällig\s*\d+/ });
+  await expect(today).toBeVisible();
+  await expect(overdueToggle).toBeVisible();
+  await expect(overdueToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(overdueToggle).toContainText("Anzeigen");
+  expect((await today.boundingBox())?.y ?? 0).toBeLessThan(
+    (await overdueToggle.boundingBox())?.y ?? 0,
+  );
+  const overdueRows = page.locator(`[id="${await overdueToggle.getAttribute("aria-controls")}"]`);
+  await expect(overdueRows).toBeHidden();
+  // The toggle is a client component: wait for hydration before clicking it.
+  await page.waitForLoadState("networkidle");
+  await overdueToggle.click();
+  await expect(overdueToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(overdueToggle).toContainText("Ausblenden");
+  await expect(overdueRows.locator("li[data-row]").first()).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
