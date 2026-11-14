@@ -1,7 +1,7 @@
 "use client";
 
 import { type AblaufPhase, addDays, daysBetween, groupAblauf, taskDueness } from "@marktwerk/core";
-import { AlarmClockOff, Camera } from "lucide-react";
+import { AlarmClockOff, Camera, FileX } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Fragment, useCallback, useState } from "react";
@@ -9,6 +9,7 @@ import { TaskTick, TickMark } from "@/components/task/task-tick";
 import { Avatar } from "@/components/ui/avatar";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { rowFocus } from "@/components/ui/table";
 import { formatDateShort, formatDateWeekdayDay } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
@@ -34,7 +35,8 @@ const BEFORE_RANGE: Partial<Record<AblaufPhase, [number, number | null]>> = {
  * list, single-line rows with aligned columns (tick, title, category, due, date, menu), grouped by phase
  * relative to the market day with sticky headers. Finished tasks stay in place and must read as done at a
  * glance: filled green tick, tinted row, struck-through dimmed title. Open ones keep an empty circle and
- * full-contrast text. Click a row (or Enter) for the drawer, J/K move, E ticks off or unticks; all changes
+ * full-contrast text. Click a row (or Enter / Space) for the drawer, J/K move, E ticks off or unticks, A opens
+ * the "⋯" menu; the list is one tab stop (KeyboardRows) and the footer's "Tastatur" lists these keys. All changes
  * go through the board's task actions (undo toasts).
  *
  * Subtasks (ADR 0021, D2-12) sit right under their parent, indented, whatever their own date; the parent shows
@@ -198,6 +200,8 @@ function AblaufRow({ task, parent }: { task: BoardTask; parent?: BoardTask }) {
       {...drag.listeners}
       data-row
       data-href={href}
+      // Space opens the drawer too instead of scrolling the page (UX-036); the drawer is on this page.
+      data-peek={href}
       data-task={task.id}
       data-subtask-of={parent?.id}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter/E (KeyboardRows)
@@ -252,6 +256,14 @@ function AblaufRow({ task, parent }: { task: BoardTask; parent?: BoardTask }) {
             overdue={task.subtasksOverdue}
           />
           {showStatus && <TaskStatusBadge status={task.status} reason={task.waitingReason} />}
+          {/* Neutral, like on the kanban card: the template dropped it, but it stays open (UX-045). */}
+          {task.removedFromTemplate && !finished && (
+            <span title={tTasks("removedFromTemplateHint")}>
+              <StatusBadge tone="neutral" icon={FileX}>
+                {tTasks("removedFromTemplate")}
+              </StatusBadge>
+            </span>
+          )}
           {task.snoozedUntil && !finished && (
             <span className="tabular inline-flex items-center gap-1 text-muted-foreground text-tiny">
               <AlarmClockOff aria-hidden className="size-3.5" />

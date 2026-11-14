@@ -1,11 +1,12 @@
 import { can } from "@marktwerk/core";
-import { Archive, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { ArchiveObligationButton } from "@/components/company/archive-buttons";
+import { ArchivedBanner, ArchiveObligationButton } from "@/components/company/archive-buttons";
 import { CompleteButton } from "@/components/company/complete-dialog";
+import { completeTargetOf } from "@/components/company/complete-target";
 import { KindIcon } from "@/components/company/kind-icon";
 import { DueCell, IntervalText, TargetCell } from "@/components/company/obligation-cells";
 import { ObligationStatusBadge } from "@/components/company/status";
@@ -33,7 +34,14 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
   const today = todayIn();
   const found = await getObligation(id, today);
   if (!found) notFound();
-  const { obligation: o, completions, archived } = found;
+  const {
+    obligation: o,
+    completions,
+    archived,
+    archivedAt,
+    vehicleArchived,
+    archivedWithVehicle,
+  } = found;
   const t = await getTranslations("company");
   const td = await getTranslations("company.obligation");
   const locale = await getLocale();
@@ -60,12 +68,8 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
           </span>
         }
         subtitle={
-          archived ? (
-            <span className="inline-flex items-center gap-1.5">
-              <Archive aria-hidden className="size-4" />
-              {td("archivedNote")}
-            </span>
-          ) : (
+          // An archived obligation says so in the banner below, with the way back.
+          archived ? undefined : (
             <ObligationStatusBadge
               status={o.status}
               dueOn={o.nextDueOn}
@@ -78,19 +82,7 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
         actions={
           canWrite && !archived ? (
             <>
-              <CompleteButton
-                variant="default"
-                today={today}
-                target={{
-                  id: o.id,
-                  title: o.title,
-                  kind: o.kind,
-                  intervalKm: o.intervalKm,
-                  onVehicle: o.scope === "vehicle",
-                  createsPayable: o.createsPayable,
-                  currentKm: o.currentKm,
-                }}
-              />
+              <CompleteButton variant="default" today={today} target={completeTargetOf(o)} />
               <Link
                 href={`/firma/pflichten/${o.id}/bearbeiten` as never}
                 className={buttonVariants({ variant: "outline" })}
@@ -103,6 +95,20 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
           ) : undefined
         }
       />
+
+      {archived && archivedAt && (
+        <ArchivedBanner
+          kind="obligation"
+          id={o.id}
+          archivedOn={todayIn("Europe/Berlin", archivedAt)}
+          canRestore={canWrite}
+          vehicle={
+            vehicleArchived && o.vehicleId
+              ? { href: `/firma/fahrzeuge/${o.vehicleId}`, together: archivedWithVehicle }
+              : undefined
+          }
+        />
+      )}
 
       <Panel title={td("facts")}>
         <PanelBody>

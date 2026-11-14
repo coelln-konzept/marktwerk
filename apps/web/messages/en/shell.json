@@ -117,6 +117,18 @@
     "resultsCount": "{count, plural, one {# result} other {# results}}",
     "showAll": "Show all {count}",
     "shownOf": "{shown} of {total}",
+    "showUpcoming": "Show current and upcoming ({count})",
+    "showListed": "Show in the list ({count})",
+    "emptyFor": "No results for “{query}”.",
+    "emptyHint": "Try fewer words or part of a name. The lists also filter by type and season; archived records are in the Archive.",
+    "fallbackGroup": "Keep looking",
+    "fallbacks": {
+      "event": "Open events",
+      "venue": "Open venues",
+      "contact": "Open contacts",
+      "vendor": "Open vendors",
+      "archive": "Open archive"
+    },
     "select": "select",
     "open": "open",
     "umlauts": "Accents don't matter: “koln” finds Köln",
@@ -146,7 +158,21 @@
       "appointment": "Create meeting",
       "issue": "Report defect",
       "settings": "Open settings",
-      "notifications": "Open notifications"
+      "notifications": "Open notifications",
+      "pages": {
+        "permits": "Open permits",
+        "permitsKeywords": "Permission application",
+        "venues": "Open venues",
+        "venuesKeywords": "Places locations",
+        "contacts": "Open contacts",
+        "contactsKeywords": "People phone",
+        "archive": "Open archive",
+        "archiveKeywords": "Past archived",
+        "duties": "Open obligations",
+        "dutiesKeywords": "Company vehicles defects",
+        "library": "Open templates",
+        "libraryKeywords": "Library markets"
+      }
     }
   },
   "shortcuts": {
@@ -253,7 +279,8 @@
     "label": "Filter by first letter",
     "all": "All",
     "other": "Digits and other",
-    "none": "no entries"
+    "none": "no entries",
+    "toggle": "A–Z · {current}"
   },
   "picker": {
     "open": "Open list",

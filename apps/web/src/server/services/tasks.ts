@@ -428,29 +428,33 @@ export async function setTaskStatus(
 export const PERMIT_COVERED_REASON = "Genehmigung beantragt/erteilt";
 
 /**
- * Completes open tasks because the permit they apply for is applied for or granted (the "beantragen" task
- * of a template item linked to a permit). Same state change and audit entry as `setTaskStatus(…, "done")`
- * (undoable like it, `auto: true`, reason {@link PERMIT_COVERED_REASON}), inside the caller's transaction
- * and without the task-scope check: the permit change is the actor's business, not the task list's. A task
- * that needs evidence (photo, open sub-steps) stays open. Returns the ids that were completed.
+ * Completes open tasks automatically, in the given order, because something outside the task list finished them
+ * (a permit applied for, "Markt planen" planning the dates). Same state change and audit entry as
+ * `setTaskStatus(…, "done")` (undoable like it, `auto: true` with `reason` and the `extra` fields), inside the
+ * caller's transaction and without the task-scope check: the trigger is the actor's business, not the task
+ * list's. A task that needs evidence (photo, open sub-steps) stays open. Returns the ids that were completed.
  */
-export async function completeTasksForPermit(
+export async function completeTasksAuto(
   tx: Tx,
   actor: Pick<Actor, "id" | "staffMemberId">,
-  permitId: string,
   taskIds: readonly string[],
+  reason: string,
+  extra: Record<string, unknown> = {},
   at?: TaskClock,
 ): Promise<string[]> {
   if (taskIds.length === 0) return [];
   const { now } = clock(at);
-  const rows = await tx
+  const found = await tx
     .select()
     .from(task)
     .where(and(inArray(task.id, [...taskIds]), inArray(task.status, [...OPEN_STATUSES])))
     .orderBy(task.id)
     .for("update");
+  const byId = new Map(found.map((r) => [r.id, r]));
   const completed: string[] = [];
-  for (const row of rows) {
+  for (const id of new Set(taskIds)) {
+    const row = byId.get(id);
+    if (!row) continue;
     const before = stateOf(row);
     let patch: Partial<TaskState>;
     try {
@@ -467,12 +471,27 @@ export async function completeTasksForPermit(
       before: diff.before,
       after: diff.after,
       auto: true,
-      reason: PERMIT_COVERED_REASON,
-      permitId,
+      reason,
+      ...extra,
     });
     completed.push(row.id);
   }
   return completed;
+}
+
+/**
+ * Completes open tasks because the permit they apply for is applied for or granted (the "beantragen" task
+ * of a template item linked to a permit): {@link completeTasksAuto} with reason {@link PERMIT_COVERED_REASON}.
+ */
+export async function completeTasksForPermit(
+  tx: Tx,
+  actor: Pick<Actor, "id" | "staffMemberId">,
+  permitId: string,
+  taskIds: readonly string[],
+  at?: TaskClock,
+): Promise<string[]> {
+  // Sorted like the lock order, so the audit entries keep their former order.
+  return completeTasksAuto(tx, actor, [...taskIds].sort(), PERMIT_COVERED_REASON, { permitId }, at);
 }
 
 /** Audit reason of a template apply task removed because its season permit has one already. */

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   canMoveEvent,
+  eventDateRange,
   isAnnounced,
   isClockTime,
+  isEventDateInRange,
   isHappening,
   normalizeClockTime,
   parseEuroCents,
@@ -64,6 +66,28 @@ describe("moving events", () => {
     );
     expect(isAnnounced("draft")).toBe(false);
     expect(isAnnounced("confirmed")).toBe(true);
+  });
+});
+
+describe("event date range", () => {
+  it("runs from 1 January last year to 31 December five years ahead", () => {
+    expect(eventDateRange("2026-11-14")).toEqual({ min: "2025-01-01", max: "2031-12-31" });
+    // New Year's Eve and New Year's Day: the range follows the calendar year of today.
+    expect(eventDateRange("2026-12-31").max).toBe("2031-12-31");
+    expect(eventDateRange("2027-01-01")).toEqual({ min: "2026-01-01", max: "2032-12-31" });
+  });
+
+  it("accepts dates inside and rejects typos, far years and non-dates", () => {
+    const today = "2026-11-14";
+    expect(isEventDateInRange("2025-01-01", today)).toBe(true);
+    expect(isEventDateInRange("2031-12-31", today)).toBe(true);
+    expect(isEventDateInRange("2024-12-31", today)).toBe(false);
+    expect(isEventDateInRange("2032-01-01", today)).toBe(false);
+    expect(isEventDateInRange("9999-12-31", today)).toBe(false);
+    expect(isEventDateInRange("0001-01-01", today)).toBe(false);
+    expect(isEventDateInRange("2026-02-30", today)).toBe(false);
+    expect(isEventDateInRange("", today)).toBe(false);
+    expect(isEventDateInRange(null, today)).toBe(false);
   });
 });
 

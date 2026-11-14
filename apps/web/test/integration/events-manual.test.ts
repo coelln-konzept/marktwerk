@@ -1,12 +1,20 @@
-import { defaultSchedule, type ScheduleRow } from "@marktwerk/core";
+import {
+  addDays,
+  clampToLookupRange,
+  defaultSchedule,
+  eventDateRange,
+  type ScheduleRow,
+} from "@marktwerk/core";
 import { auditLog, event, eventAnchor, eventDuty } from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { todayIn } from "@/lib/format";
 import { db } from "@/server/db";
 import {
   createManualEvent,
   EventInputError,
   type ManualEventInput,
+  scheduledEventsBetween,
   undoGeneratedEvents,
 } from "@/server/services/events";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -155,6 +163,18 @@ describe("createManualEvent (Einzeltermin)", () => {
       ["a fractional number of days", { durationDays: 1.5 }, "invalid_duration"],
       ["a malformed first day", { startsOn: "04.12.2026" }, "invalid_date"],
       ["a non-existent first day", { startsOn: "2026-02-30" }, "invalid_date"],
+      ["a typo far in the future (UX-041)", { startsOn: "9999-12-31" }, "date_out_of_range"],
+      ["a typo far in the past (UX-041)", { startsOn: "0001-01-01" }, "date_out_of_range"],
+      [
+        "the day after the last plannable year",
+        { startsOn: addDays(eventDateRange(todayIn()).max, 1) },
+        "date_out_of_range",
+      ],
+      [
+        "the day before the first plannable year",
+        { startsOn: addDays(eventDateRange(todayIn()).min, -1) },
+        "date_out_of_range",
+      ],
       ["a time that isn't one", { schedule: [visitors("8", "25:00")] }, "invalid_schedule"],
       ["opening after closing", { schedule: [visitors("17:00", "16:00")] }, "invalid_schedule"],
       [
@@ -195,6 +215,16 @@ describe("createManualEvent (Einzeltermin)", () => {
     });
   });
 
+  it("accepts the first and the last day of the plannable years", async () => {
+    const { min, max } = eventDateRange(todayIn());
+    await expect(createManualEvent(owner, { ...input(), startsOn: min })).resolves.toMatchObject({
+      startsOn: min,
+    });
+    await expect(createManualEvent(owner, { ...input(), startsOn: max })).resolves.toMatchObject({
+      startsOn: max,
+    });
+  });
+
   it("accepts an early tear-down on the last morning when the event lasts several days", async () => {
     await expect(
       createManualEvent(owner, {
@@ -216,5 +246,32 @@ describe("createManualEvent (Einzeltermin)", () => {
     );
     expect(isForbidden(error)).toBe(true);
     expect(await counts()).toEqual({ events: 0, audit: 0 });
+  });
+});
+
+/** The look-up behind the Zeitplan hints (`loadScheduleContext`): clamped, then ± a week. */
+const lookUp = (from: string, to: string) => {
+  const range = clampToLookupRange(from, to);
+  return range
+    ? scheduledEventsBetween(addDays(range.from, -7), addDays(range.to, 7))
+    : Promise.resolve([]);
+};
+
+describe("schedule context look-up (UX-041)", () => {
+  it("answers for a typed year 9999 instead of failing in Postgres", async () => {
+    await expect(lookUp("9999-12-01", "9999-12-31")).resolves.toEqual([]);
+    await expect(lookUp("9998-12-01", "9999-12-31")).resolves.toEqual([]);
+    await expect(lookUp("0001-01-01", "0001-01-31")).resolves.toEqual([]);
+  });
+
+  it("still finds events outside the plannable years (agreements, Markt planen)", async () => {
+    const created = await createManualEvent(owner, input());
+    await db
+      .update(event)
+      .set({ startsOn: "2035-06-10", endsOn: "2035-06-10" })
+      .where(eq(event.id, created.id));
+    await expect(lookUp("2035-06-01", "2035-06-30")).resolves.toMatchObject([
+      { id: created.id, startsOn: "2035-06-10" },
+    ]);
   });
 });

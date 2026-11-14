@@ -10,7 +10,8 @@
       "needsAction": "{count} fällig oder überfällig",
       "soon": "{count} bald fällig",
       "openIssues": "{count} offen",
-      "criticalIssues": "{count} kritisch"
+      "criticalIssues": "{count} kritisch",
+      "dueMissing": "{count} ohne Fälligkeit"
     },
     "none": "–",
     "undo": "Rückgängig",
@@ -20,7 +21,8 @@
       "ok": "in Ordnung",
       "soon": "bald fällig",
       "due": "heute fällig",
-      "overdue": "überfällig"
+      "overdue": "überfällig",
+      "missing": "Fälligkeit fehlt"
     },
     "statusDetail": {
       "inKm": "in {km} km",
@@ -141,7 +143,15 @@
       "nextKm": "{km} km",
       "nextBoth": "{date} oder {km} km",
       "payableHint": "Mit Kosten wird unter Finanzen eine Zahlung angelegt, fällig am Erledigt-Datum (frühestens heute).",
-      "savedWithPayable": "Erledigt eingetragen. Nächste Fälligkeit: {next}. Zahlung angelegt."
+      "savedWithPayable": "Erledigt eingetragen. Nächste Fälligkeit: {next}. Zahlung angelegt.",
+      "kmBelow": "Das Fahrzeug stand am {date} schon bei {km} km. Bitte den aktuellen Stand eintragen.",
+      "kmBelowNoDate": "Das Fahrzeug steht schon bei {km} km. Bitte den aktuellen Stand eintragen.",
+      "previewDate": "Danach fällig: {date}",
+      "previewKm": "Danach fällig: bei {km} km",
+      "previewBoth": "Danach fällig: {date} oder bei {km} km",
+      "previewNone": "Danach keine weitere Fälligkeit (einmalig).",
+      "previewNeedsKm": "Die nächste Fälligkeit nach Kilometern ergibt sich aus dem Kilometerstand.",
+      "previewHistory": "Liegt vor dem letzten Eintrag: kommt nur in den Verlauf, die Fälligkeit bleibt."
     },
     "form": {
       "newTitle": "Pflicht anlegen",
@@ -177,7 +187,8 @@
       "save": "Speichern",
       "created": "„{title}“ angelegt.",
       "saved": "„{title}“ gespeichert.",
-      "unchanged": "Nichts geändert."
+      "unchanged": "Nichts geändert.",
+      "dueMissingHint": "Ohne nächste Fälligkeit gibt es keine Erinnerung. Die Pflicht steht dann als „Fälligkeit fehlt“ in der Liste."
     },
     "vehicles": {
       "title": "Fahrzeuge",
@@ -203,7 +214,8 @@
       "issuesNone": "keine offen",
       "issuesOpen": "{count} offen",
       "issuesCritical": "{count} kritisch",
-      "asOf": "Stand {date}"
+      "asOf": "Stand {date}",
+      "missingCount": "{count} ohne Fälligkeit"
     },
     "vehicle": {
       "back": "Alle Fahrzeuge",
@@ -338,12 +350,23 @@
       "saved": "Mangel gemeldet.",
       "photoStage": "Mangel gemeldet. Hänge jetzt ein Foto an, wenn du eins hast.",
       "photoAdd": "Foto hinzufügen",
-      "done": "Fertig"
+      "done": "Fertig",
+      "titleRequired": "Bitte kurz beschreiben, was kaputt ist (höchstens 120 Zeichen).",
+      "withdrawn": "Meldung zurückgenommen."
     },
     "resolveDialog": {
       "title": "Mangel als behoben eintragen",
       "note": "Was wurde gemacht?",
       "save": "Als behoben eintragen"
+    },
+    "archived": {
+      "title": "Archiviert am {date}.",
+      "vehicleNote": "Das Fahrzeug und seine Pflichten stehen in keiner Liste und lösen keine Erinnerungen aus.",
+      "withVehicle": "Diese Pflicht wurde mit ihrem Fahrzeug archiviert und kommt mit ihm zurück.",
+      "vehicleAlsoArchived": "Diese Pflicht wurde einzeln archiviert, ihr Fahrzeug später ebenfalls. Sie kommt mit dem Fahrzeug nicht zurück: erst das Fahrzeug wiederherstellen, dann hier die Pflicht.",
+      "toVehicle": "Zum Fahrzeug",
+      "restore": "Wiederherstellen",
+      "archivedAgain": "Wieder archiviert."
     },
     "errors": {
       "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
@@ -376,7 +399,8 @@
       "future_date": "Das Datum liegt in der Zukunft.",
       "km_required": "Für diese Pflicht brauchst du den Kilometerstand.",
       "checker_required": "Trage ein, wer kontrolliert hat.",
-      "already_done_on": "Für diesen Tag ist schon ein Eintrag vorhanden."
+      "already_done_on": "Für diesen Tag ist schon ein Eintrag vorhanden.",
+      "fieldsToCheck": "{count, plural, one {Bitte das markierte Feld prüfen.} other {Bitte die # markierten Felder prüfen.}}"
     }
   }
 }

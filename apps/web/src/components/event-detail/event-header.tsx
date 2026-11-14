@@ -1,5 +1,6 @@
-import { can, canMoveEvent, daysBetween, isHappening } from "@marktwerk/core";
-import { CalendarDays, MapPin } from "lucide-react";
+import { berlinDay, can, canMoveEvent, daysBetween, isHappening } from "@marktwerk/core";
+import { allowedTransitions } from "@marktwerk/core/events/lifecycle";
+import { CalendarDays, CircleX, MapPin } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventStatusBadge } from "@/components/events/event-status";
@@ -7,20 +8,82 @@ import { formatVisitorHours } from "@/components/schedule/schedule-format";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatDateWithWeekday, formatWeek, todayIn } from "@/lib/format";
+import { formatDate, formatDateWithWeekday, formatWeek, todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { BOOKING_FLAG_ICONS } from "@/lib/status";
 import type { Actor } from "@/server/actor";
 import { listLinkedDocuments } from "@/server/queries/documents";
 import { listEventTypeOptions } from "@/server/queries/event-form";
+import { countOpenEventTasks } from "@/server/queries/event-overview";
 import type { EventDetail } from "@/server/queries/events";
 import { getEventMoney } from "@/server/queries/finance";
 import { listEventPermits } from "@/server/queries/permits";
 import { eventTaskSummary } from "@/server/queries/tasks";
 import { listVenueOptions } from "@/server/queries/venues";
+import { type EventCancellation, getEventCancellation } from "@/server/services/event-lifecycle";
 import { BookingMenu } from "./booking-menu";
 import { EventActions } from "./event-actions";
 import { type EventTab, EventTabs } from "./event-tabs";
+import { RestoreCancelledButton } from "./status-menu";
+
+/**
+ * "Abgesagt" on every tab of a cancelled event (UX-049): when and why, how many tasks went with it, and
+ * "Absage aufheben", which leads back to the status before the cancellation (also after the toast is gone).
+ */
+async function CancelledBanner({
+  eventId,
+  reason,
+  cancellation,
+  canRestore,
+  locale,
+}: {
+  eventId: string;
+  reason: string | null;
+  cancellation: EventCancellation;
+  canRestore: boolean;
+  locale: string;
+}) {
+  const t = await getTranslations("eventDetail.cancelled");
+  const tStatus = await getTranslations("status.event");
+  // Older data without the record says nothing about the tasks rather than claim none were open.
+  const taskText =
+    cancellation.tasks === null
+      ? null
+      : cancellation.tasks > 0
+        ? t("tasks", { count: cancellation.tasks })
+        : t("noTasks");
+  return (
+    <section
+      aria-labelledby="cancelled-title"
+      className="flex flex-col gap-2 rounded-xl border border-border bg-status-neutral-bg px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+    >
+      <div className="flex min-w-0 gap-2.5">
+        <CircleX aria-hidden className="mt-0.5 size-5 shrink-0 text-status-neutral" />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h2 id="cancelled-title" className="font-semibold">
+            {cancellation.at
+              ? t("titleOn", { date: formatDate(berlinDay(cancellation.at), locale) })
+              : t("title")}
+          </h2>
+          {reason && (
+            <p className="break-words text-foreground-2 text-small">{t("reason", { reason })}</p>
+          )}
+          {(taskText || canRestore) && (
+            <p className="text-muted-foreground text-small">
+              {[
+                taskText,
+                canRestore && t("restoreHint", { status: tStatus(cancellation.restoresTo) }),
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            </p>
+          )}
+        </div>
+      </div>
+      {canRestore && <RestoreCancelledButton eventId={eventId} label={t("restore")} />}
+    </section>
+  );
+}
 
 /**
  * Header of the event page: name, type, status and the "…" menu · date and venue · tabs. Health is shown
@@ -69,6 +132,12 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
     : null;
   const documentCount =
     (await listLinkedDocuments(actor, "eventId", [event.id])).get(event.id)?.length ?? 0;
+  const cancelled = event.status === "cancelled";
+  const cancellation = cancelled ? await getEventCancellation(event.id) : null;
+  const openTasks =
+    canWrite && allowedTransitions(event.status).includes("cancelled")
+      ? await countOpenEventTasks(actor, event.id)
+      : undefined;
   const BookingIcon = event.bookingOpen ? BOOKING_FLAG_ICONS.open : BOOKING_FLAG_ICONS.notOpen;
 
   const dateLine = multiDay
@@ -92,7 +161,10 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
       label: t("tabs.board"),
       count: {
         text: tBoard("tab.openShort", { count: tasks.open }),
+        // Phones get bare numbers, so the strip does not run off the screen (UX-039).
+        short: String(tasks.open),
         alert: tasks.overdue > 0 ? tBoard("tab.overdue", { count: tasks.overdue }) : undefined,
+        alertShort: tasks.overdue > 0 ? String(tasks.overdue) : undefined,
         sr:
           tasks.overdue > 0
             ? tBoard("tab.openOverdue", { open: tasks.open, overdue: tasks.overdue })
@@ -141,9 +213,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
           },
         ]
       : []),
-  ];
-
-  const more: EventTab[] = [
+    // Bescheide and Pläne are looked up often: a tab of its own with the count, not hidden in "Mehr" (UX-039).
     {
       key: "documents",
       href: `${base}/dokumente`,
@@ -153,6 +223,9 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
           ? { text: String(documentCount), sr: t("documents.count", { count: documentCount }) }
           : undefined,
     },
+  ];
+
+  const more: EventTab[] = [
     { key: "notes", href: `${base}/notizen`, label: t("tabs.notes") },
     ...(can(actor.role, "audit", "read")
       ? [{ key: "history", href: `${base}/verlauf`, label: t("tabs.history") }]
@@ -197,6 +270,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
               startsOn={event.startsOn}
               canMove={canMoveEvent(event.status)}
               canDelete={can(actor.role, "event", "delete")}
+              openTasks={openTasks}
               venues={venues}
               types={types}
               basics={{
@@ -248,6 +322,16 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
             </li>
           )}
         </ul>
+      )}
+
+      {cancellation && (
+        <CancelledBanner
+          eventId={event.id}
+          reason={event.cancelledReason}
+          cancellation={cancellation}
+          canRestore={canWrite}
+          locale={locale}
+        />
       )}
 
       <EventTabs tabs={tabs} more={more} moreLabel={t("tabs.more")} label={t("tabs.label")} />

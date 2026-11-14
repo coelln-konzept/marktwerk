@@ -3,7 +3,7 @@
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import type { EventStatus } from "@marktwerk/core/events/lifecycle";
-import { ArrowRight, ChevronDown, ListChecks, OctagonAlert, X } from "lucide-react";
+import { ArrowRight, ChevronDown, ListChecks, OctagonAlert, Undo2, X } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -24,6 +24,8 @@ export const eventPopover = Popover.createHandle<string>();
 
 /** Statuses the popover offers (no Verschieben, no Absagen: those stay on the event page). */
 const POPOVER_STATUSES: readonly EventStatus[] = ["draft", "planned", "confirmed"];
+const MENU_ITEM =
+  "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover";
 
 /** Elements inside a list row that do their own thing; a click on them never opens the popover. */
 const INTERACTIVE =
@@ -270,7 +272,7 @@ function EventPopoverBody({
   openRef: React.RefObject<HTMLAnchorElement | null>;
 }) {
   const t = useTranslations("kalenderPage.eventPopover");
-  const tStatus = useTranslations("status.event");
+  const tActions = useTranslations("eventDetail.status.actions");
   const tSchedule = useTranslations("schedule");
   const locale = useLocale();
   const change = useStatusChange({
@@ -279,6 +281,8 @@ function EventPopoverBody({
     status: preview.status,
   });
   const targets = canWrite ? change.targets.filter((to) => POPOVER_STATUSES.includes(to)) : [];
+  // A cancelled event offers "Absage aufheben" instead of the bare way back to the draft (UX-049).
+  const canRestore = canWrite && change.canRestore;
 
   // The open popover is linkable: `?vorschau=veranstaltung:<id>` (replaced, no history entry).
   useEffect(() => {
@@ -337,7 +341,7 @@ function EventPopoverBody({
         </Link>
       )}
       <div className="flex items-center justify-between gap-2 border-border-subtle border-t pt-3">
-        {targets.length > 0 ? (
+        {targets.length > 0 || canRestore ? (
           <Menu.Root>
             <Menu.Trigger
               aria-busy={change.pending || undefined}
@@ -353,16 +357,19 @@ function EventPopoverBody({
                   data-event-popover
                   className="flex min-w-[180px] flex-col rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-pop outline-hidden"
                 >
+                  {canRestore && (
+                    <Menu.Item onClick={change.restore} className={MENU_ITEM}>
+                      <Undo2 aria-hidden className="size-4 text-muted-foreground" />
+                      {tActions("restore")}
+                    </Menu.Item>
+                  )}
+                  {/* Verb first (UX-034), the same wording as the "…" menu on the event page. */}
                   {targets.map((to) => {
                     const Icon = EVENT_STATUS[to].icon;
                     return (
-                      <Menu.Item
-                        key={to}
-                        onClick={() => change.choose(to)}
-                        className="flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[highlighted]:bg-hover"
-                      >
+                      <Menu.Item key={to} onClick={() => change.choose(to)} className={MENU_ITEM}>
                         <Icon aria-hidden className="size-4 text-muted-foreground" />
-                        {tStatus(to)}
+                        {tActions(to)}
                       </Menu.Item>
                     );
                   })}

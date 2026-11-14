@@ -147,7 +147,8 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
       urgency,
       href: t.eventId
         ? `/veranstaltungen/${t.eventId}/board?detail=task:${t.id}`
-        : `/board?detail=task:${t.id}`,
+        : // A task without an event opens on the Übersicht: the global board is hidden (UX-052).
+          `/?aufgabe=${t.id}`,
       context: taskContextName(t),
     });
   }
