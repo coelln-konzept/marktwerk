@@ -1697,7 +1697,9 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   await expect(group.getByRole("link", { name })).toHaveCount(0);
   await toastUndo(page).click();
   // The undo's confirmation names the change it took back and replaces its toast (UX-031).
-  await expect(page.getByText(`Rückgängig gemacht: Besprechung „${name}“ archiviert`)).toBeVisible();
+  await expect(
+    page.getByText(`Rückgängig gemacht: Besprechung „${name}“ archiviert`),
+  ).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();
 
   // Leave nothing behind (the undo's "Rückgängig gemacht: …" toast may still be showing).
