@@ -52,9 +52,9 @@ export function canMoveEvent(status: EventStatus): boolean {
   return status === "draft" || status === "planned" || status === "confirmed";
 }
 
-/** A valid ISO date inside {@link eventDateRange} (last year to five years ahead, UX-041). */
+/** A valid ISO date inside {@link eventDateRange} (the plannable years, UX-041; defined in ./date-range). */
 export function isEventDateInRange(date: unknown, today: string): date is string {
-  return isIsoDate(date) && isInEventDateRange(date, today);
+  return typeof date === "string" && isInEventDateRange(date, today);
 }
 
 /** Already announced: moving it needs a word to vendors, so the preview warns. */
