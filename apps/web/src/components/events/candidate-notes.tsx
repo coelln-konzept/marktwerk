@@ -1,9 +1,16 @@
 "use client";
 
 import type { CandidateCheck, Holiday } from "@marktwerk/core";
-import { CalendarClock, CalendarRange, Loader2, TriangleAlert, XCircle } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarRange,
+  CopyCheck,
+  Loader2,
+  TriangleAlert,
+  XCircle,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { todayIn } from "@/lib/format";
+import { formatDate, formatDateRange, todayIn } from "@/lib/format";
 import { quietHoursValues } from "@/lib/holidays";
 import { cn } from "@/lib/utils";
 
@@ -60,13 +67,28 @@ export function candidateWarningCount(c: CandidateCheck): number {
 export function CandidateNotes({
   check,
   state = "ready",
+  sameMarket = [],
 }: {
   check: CandidateCheck;
   state?: "ready" | "loading" | "error";
+  /** Dates of the same market the candidate overlaps (UX-028): a warning, nothing is blocked. */
+  sameMarket?: { id: string; startsOn: string; endsOn: string }[];
 }) {
   const t = useTranslations("generate");
   const locale = useLocale();
-  const count = candidateWarningCount(check);
+  const count = candidateWarningCount(check) + sameMarket.length;
+  // The other date opens in a new tab, so what was picked here stays (UX-042).
+  const eventLink = (id: string) => (chunks: React.ReactNode) => (
+    <a
+      href={`/veranstaltungen/${id}`}
+      target="_blank"
+      rel="noopener"
+      className="underline underline-offset-2 hover:text-foreground"
+    >
+      {chunks}
+      <span className="sr-only"> {t("warn.newTab")}</span>
+    </a>
+  );
   return (
     <ul className="flex flex-col gap-0.5 text-small">
       {isPastCandidate(check) && (
@@ -87,10 +109,27 @@ export function CandidateNotes({
             {locale === "en" ? w.nameEn : w.nameDe}
           </li>
         ))}
+      {sameMarket.map((e) => (
+        <li key={e.id} className="flex items-start gap-1 text-status-warn">
+          <CopyCheck aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            {t.rich("warn.sameMarket", {
+              date: formatDateRange(e.startsOn, e.endsOn, locale),
+              link: eventLink(e.id),
+            })}
+          </span>
+        </li>
+      ))}
       {check.venueConflicts.map((v) => (
-        <li key={v.id} className="flex items-center gap-1 text-status-critical">
-          <XCircle aria-hidden className="size-3.5 shrink-0" />
-          {t("warn.venue", { name: v.name })}
+        <li key={v.id} className="flex items-start gap-1 text-status-critical">
+          <XCircle aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            {t.rich("warn.venue", {
+              name: v.name,
+              date: formatDate(v.startsOn, locale),
+              link: eventLink(v.id),
+            })}
+          </span>
         </li>
       ))}
       {check.overlapsCandidate && (

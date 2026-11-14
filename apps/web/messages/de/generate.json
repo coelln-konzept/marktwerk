@@ -17,15 +17,34 @@
     "rule": {
       "every": "jeden",
       "position": "Welcher",
-      "last": "letzten",
-      "weekday": "Wochentag",
+      "last": "jeden letzten",
       "from": "von",
       "to": "bis",
       "fromMonth": "Erster Monat",
       "toMonth": "Letzter Monat",
       "year": "Jahr",
       "apply": "Übernehmen",
-      "replaces": "Ersetzt deine {count, plural, one {# gewählten Termin} other {# gewählten Termine}}."
+      "replaces": "Ersetzt deine {count, plural, one {# gewählten Termin} other {# gewählten Termine}}.",
+      "nth": "jeden {pos}.",
+      "weekdays": "Wochentage",
+      "and": "und",
+      "words": {
+        "every": "jeden {day}",
+        "nth": "jeden {pos, select, last {letzten} other {{pos}.}} {day} im Monat",
+        "following": "{base} und den {days} danach",
+        "weekendEvery": "jedes Wochenende (Samstag und Sonntag)",
+        "weekendNth": "jedes {pos, select, last {letzte} other {{pos}.}} Wochenende im Monat (Samstag und Sonntag)",
+        "months": "{rule}, {from} bis {to} {year}"
+      },
+      "yields": "{count, plural, =0 {ergibt keine Termine} one {ergibt # Termin} other {ergibt # Termine}}",
+      "noWeekday": "Wähle mindestens einen Wochentag.",
+      "duration": "Beginn am {day}: eine Veranstaltung dauert {count, plural, one {# Tag} other {# Tage}} ({span}).",
+      "otherStart": "Bisher begann der Markt am {days}.",
+      "pastLeftOut": "{count, plural, one {# vergangener Termin ausgelassen} other {# vergangene Termine ausgelassen}}",
+      "notApplied": "Mit „Übernehmen“ kommen die Termine in den Kalender.",
+      "fromPast": "Vorschlag aus {count, plural, one {dem # Termin} other {den # Terminen}} {season}",
+      "fromRhythm": "Vorschlag aus dem Rhythmus des Markts",
+      "irregular": "die Termine {season} folgen keinem festen Rhythmus: wähle die Tage im Kalender oder passe die Regel an"
     },
     "weekShort": "KW",
     "weekdaysShort": "Mo,Di,Mi,Do,Fr,Sa,So",
@@ -34,7 +53,9 @@
     "legend": {
       "selected": "gewählt",
       "holiday": "Feiertag NRW",
-      "venueBusy": "Ort bereits belegt"
+      "venueBusy": "Ort bereits belegt",
+      "span": "weitere Tage der Veranstaltung",
+      "own": "schon geplant (dieser Markt)"
     },
     "shiftHint": "+ Klick: gleiche Wochentage dazwischen",
     "summary": "{count, plural, =0 {Noch keine Termine gewählt} one {# Termin gewählt} other {# Termine gewählt}}",
@@ -52,12 +73,14 @@
     },
     "warn": {
       "holiday": "{name} (Feiertag)",
-      "venue": "Ort belegt: {name}",
+      "venue": "Ort belegt: <link>{name} am {date}</link>",
       "overlap": "überschneidet sich mit einem anderen gewählten Termin",
       "none": "keine Hinweise",
       "past": "liegt in der Vergangenheit – alle Aufgaben wären sofort überfällig",
       "checking": "wird geprüft …",
-      "unchecked": "konnte nicht geprüft werden"
+      "unchecked": "konnte nicht geprüft werden",
+      "sameMarket": "Dieser Markt ist dann schon geplant: <link>{date}</link>",
+      "newTab": "(öffnet in neuem Tab)"
     },
     "remove": "{date} entfernen",
     "previewNote": "Hinweise blockieren nichts: du entscheidest.",
@@ -141,9 +164,10 @@
     "keysHint": "Pfeiltasten: Tag wählen · Bild auf/ab: Monat · Leertaste: an/aus",
     "skippedCount": "{count} gibt es schon",
     "allExist": "Alle gewählten Termine gibt es schon. Mit „Doch anlegen“ legst du einzelne trotzdem an.",
-    "createWithSkipped": "{count} neue · {skipped} gibt es schon",
     "day": {
-      "busy": "Ort belegt"
+      "busy": "Ort belegt",
+      "span": "weiterer Tag der Veranstaltung",
+      "own": "schon geplant (dieser Markt)"
     },
     "context": {
       "loading": "Belegung wird geladen …",
@@ -155,7 +179,9 @@
       "addedAgain": "Wird trotzdem angelegt",
       "addAnyway": "Doch anlegen",
       "skip": "Doch nicht",
-      "detail": "„{name}“ ist an diesem Tag schon angelegt. Der Termin wird übersprungen."
+      "detail": "„{name}“ ist an diesem Tag schon angelegt. Der Termin wird übersprungen.",
+      "group": "{count, plural, one {# Termin gibt es schon} other {# Termine gibt es schon}}",
+      "groupLabel": "Termine, die es schon gibt"
     },
     "preview": {
       "tasks": "{count, plural, one {# Aufgabe} other {# Aufgaben}}",
@@ -164,8 +190,12 @@
       "permitsNone": "Keine Genehmigungen nötig",
       "loading": "Aufgaben und Genehmigungen werden berechnet …",
       "failed": "Aufgaben und Genehmigungen konnten nicht berechnet werden. Du kannst trotzdem anlegen.",
-      "noTemplate": "Dieser Markt hat keine veröffentlichte Aufgabenvorlage: die Termine starten ohne Aufgaben."
-    }
+      "noTemplate": "Dieser Markt hat keine veröffentlichte Aufgabenvorlage: die Termine starten ohne Aufgaben.",
+      "newList": "Neue Termine",
+      "permitsUnknown": "Genehmigungen: noch nicht geklärt",
+      "noRequirements": "Für {venue} sind noch keine Genehmigungen hinterlegt. Ob welche nötig sind, ist noch nicht geklärt. <link>Anforderungen am Ort anlegen</link>"
+    },
+    "createNone": "Nichts anzulegen"
   },
   "holidayNotes": {
     "quiet": "Stiller Feiertag – Märkte meist nicht erlaubt ({kind, select, allDay {ganztägig} from {ab {from} Uhr} other {{from}–{until} Uhr}})",

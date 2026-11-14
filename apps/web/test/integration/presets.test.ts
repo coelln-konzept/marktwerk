@@ -1,10 +1,24 @@
-import { defaultSchedule, type ScheduleRow, scheduleFromTimes } from "@marktwerk/core";
-import { auditLog, event, eventPreset, eventType, staffMember, venue } from "@marktwerk/db/schema";
+import {
+  defaultSchedule,
+  type ScheduleRow,
+  scheduleFromTimes,
+  suggestPlanRule,
+} from "@marktwerk/core";
+import {
+  auditLog,
+  event,
+  eventPreset,
+  eventType,
+  permitRequirement,
+  staffMember,
+  venue,
+} from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { previewGeneration } from "@/server/queries/generation-preview";
 import { getMarketShortCodes } from "@/server/queries/market-short-codes";
-import { listPresets } from "@/server/queries/presets";
+import { listPresets, listPresetsForGeneration } from "@/server/queries/presets";
 import { createEventsFromPreset } from "@/server/services/events";
 import {
   createPreset,
@@ -642,6 +656,58 @@ describe("existing events", () => {
       pricePerMCents: 1200,
       bookingFeeCents: 500,
     });
+  });
+});
+
+describe("listPresetsForGeneration: past dates for the Markt planen rule (UX-015)", () => {
+  it("lists the market's held dates of the last two years, without cancelled and future ones", async () => {
+    const festival = cat.presets.festival;
+    // A Fr–So market (3 days) on the first Friday of the month.
+    const created = await createEventsFromPreset(owner, festival.id, [
+      "2024-05-03",
+      "2026-04-03",
+      "2026-05-01",
+      "2026-06-05",
+      "2026-07-03",
+      "2027-04-02",
+    ]);
+    const cancelled = created.find((c) => c.startsOn === "2026-07-03");
+    if (!cancelled) throw new Error("not created");
+    await db.update(event).set({ status: "cancelled" }).where(eq(event.id, cancelled.id));
+
+    const rows = await listPresetsForGeneration("2026-11-14");
+    const row = rows.find((r) => r.id === festival.id);
+    expect(row?.pastDates).toEqual([
+      { startsOn: "2026-04-03", endsOn: "2026-04-05" },
+      { startsOn: "2026-05-01", endsOn: "2026-05-03" },
+      { startsOn: "2026-06-05", endsOn: "2026-06-07" },
+    ]);
+    expect(rows.find((r) => r.id === cat.presets.flea.id)?.pastDates).toEqual([]);
+    // What step 2 makes of them: "jeden 1. Freitag, April bis Juni".
+    expect(suggestPlanRule(row?.pastDates ?? [], festival.durationDays)).toMatchObject({
+      weekdays: [5],
+      setPos: 1,
+      fromMonth: 4,
+      toMonth: 6,
+    });
+  });
+});
+
+describe("previewGeneration: an Ort without requirements (UX-011)", () => {
+  it("says so, so step 3 shows 'noch nicht geklärt' instead of 'keine Genehmigungen nötig'", async () => {
+    const before = await previewGeneration(cat.presets.flea.id, ["2027-04-04"]);
+    expect(before.noRequirements).toBe(true);
+
+    await db.insert(permitRequirement).values({
+      venueId: cat.venue.id,
+      category: "city",
+      permitType: "market_permit",
+      title: "Marktgenehmigung",
+      cadence: "per_season",
+      leadTimeDays: 120,
+    });
+    const after = await previewGeneration(cat.presets.flea.id, ["2027-04-04"]);
+    expect(after.noRequirements).toBe(false);
   });
 });
 
