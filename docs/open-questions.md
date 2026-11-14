@@ -206,6 +206,8 @@
    - **Undated tasks** (UX-013): a "Weitere Aufgaben" group on the Übersicht; search opens tasks in the drawer instead of the hidden board.
    - **Long Übersicht groups** (UX-006): each group shows about 5 rows plus "+ N weitere"; on phones Heute comes first.
    - **Template apply** (UX-012/019): stays irreversible for now, but step 2 says so plainly; the double-click that skipped the preview is fixed.
+   - **Saison created late** (UX-009): when a Saison record is made (Saison anlegen, Markt planen, the nightly job), open season tasks whose due date has already passed are due today instead (the toast says how many); they keep following the season's dates afterwards, so a later "Erwartet ab" or date change recomputes them. "Markt planen" that creates the record completes its "Termine planen" with its subtasks (only the Grundvorlage item, stable key `saison_termine_planen`; not when it needs a photo or attachment; audited as automatic). "Saison anlegen" asks for "Erwartet ab" (prefilled from last year's first date, empty without one) instead of silently taking 1 January; with dates it asks nothing. Toasts count top-level tasks like the panel, subtasks apart ("2 Aufgaben (+4 Unteraufgaben)").
+   - **Saison status guard** (UX-050): "Termine stehen" needs at least one date; "Abgeschlossen" needs the last date to be over and no open season task (a season without dates can be closed once nothing is open); "In Planung" always works. The status menu shows each status's meaning and disables impossible ones with the reason; the service refuses them too.
 
 ## Open: client (next meeting / workshop)
 **Timeline workshop (top priority, feeds M2)**

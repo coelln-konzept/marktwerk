@@ -1,7 +1,7 @@
 import { checklist, eventSeason, task, templateItem } from "@marktwerk/db/schema";
 import { eventSeasons } from "@marktwerk/jobs";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import { createEventsFromPreset } from "@/server/services/events";
 import { ensureEventSeason } from "@/server/services/seasons";
@@ -23,9 +23,12 @@ let versionId: string;
 
 /**
  * One template that describes the whole market (research 13 §6.1): season work (Termine planen with two
- * subtasks, one on its own date; a close-out item on season_end) next to an event item (Aufbau).
+ * subtasks, one on its own date; a close-out item on season_end) next to an event item (Aufbau). Today is early
+ * in 2026, before the due dates here (a record created later sets past ones to today, UX-009).
  */
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-03-02T10:00:00+01:00"));
   await resetDatabase();
   cat = await seedCatalogue();
   owner = await createActor("owner");
@@ -71,6 +74,10 @@ beforeEach(async () => {
   );
   await publishDraft(owner, draft.versionId, "Unteraufgaben");
   versionId = draft.versionId;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 afterAll(async () => {

@@ -1,14 +1,18 @@
 import "server-only";
 import {
+  CLOSED_TASK_STATUSES,
   can,
   canChangeSeasonStatus,
   expectedStartProblem,
+  isDatesPlanningTask,
   isSeasonStatus,
   type SeasonEventDates,
   type SeasonStatus,
   seasonAnchors,
+  seasonEnd,
+  seasonStatusBlock,
 } from "@marktwerk/core";
-import { event, eventSeason } from "@marktwerk/db/schema";
+import { event, eventSeason, task } from "@marktwerk/db/schema";
 import {
   type EnsuredSeason,
   ensureEventSeasonTx,
@@ -17,7 +21,7 @@ import {
   uniqueSeasonKeys,
   writeSeasonAnchors,
 } from "@marktwerk/jobs/seasons";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "../../lib/format";
 import type { Actor } from "../actor";
@@ -34,36 +38,135 @@ export class SeasonInputError extends Error {}
 /** A market's season: (preset, calendar year). */
 export type SeasonKey = { presetId: string; season: number };
 
+/** How a "Saison anlegen" toast counts (UX-009): top-level tasks as the panel lists them, subtasks apart. */
+export type CreatedSeason = EnsuredSeason & {
+  /** Top-level season tasks (the panel's rows). */
+  topLevelTasks: number;
+  subtasks: number;
+  /** Top-level tasks whose due date had already passed and that are due today instead. */
+  dueToday: number;
+};
+
+/** Top-level and subtask counts of a season's tasks, and how many of `clampedIds` are top-level. */
+async function createdCounts(
+  tx: Tx,
+  seasonId: string,
+  clampedIds: readonly string[],
+): Promise<Pick<CreatedSeason, "topLevelTasks" | "subtasks" | "dueToday">> {
+  const rows = await tx
+    .select({ id: task.id, parentTaskId: task.parentTaskId })
+    .from(task)
+    .where(and(eq(task.seasonId, seasonId), notInArray(task.status, ["cancelled"])));
+  const clamped = new Set(clampedIds);
+  const top = rows.filter((r) => r.parentTaskId === null);
+  return {
+    topLevelTasks: top.length,
+    subtasks: rows.length - top.length,
+    dueToday: top.filter((r) => clamped.has(r.id)).length,
+  };
+}
+
 /**
  * `ensureEventSeason(presetId, season)` (research 13 §6.2): makes sure the market has its Saison record for that
  * year. Permission check → transaction → `ensureEventSeasonTx` (the one path, @marktwerk/jobs: record, anchors,
- * season items, audit `season.create`). Idempotent: an existing record is returned unchanged.
+ * season items, overdue ones due today, audit `season.create`). Idempotent: an existing record is returned
+ * unchanged. `expectedStart` is the "Erwartet ab" asked for in "Saison anlegen" (UX-009); it must be a date in
+ * the season's year (`invalid_date`, `outside_season`), and is left out when the season has dates already.
  */
 export async function ensureEventSeason(
   actor: Actor,
   presetId: string,
   season: number,
-): Promise<EnsuredSeason> {
+  expectedStart?: string,
+): Promise<CreatedSeason> {
   if (!can(actor.role, "event", "write")) forbidden();
   if (!UUID.test(presetId)) throw new SeasonInputError("preset_not_found");
   if (!Number.isInteger(season) || season < 1900 || season > 9999)
     throw new SeasonInputError("invalid_season");
+  if (expectedStart !== undefined) {
+    // Only the date itself: whether the season has dates is decided below (they win over the guess).
+    const problem =
+      typeof expectedStart === "string"
+        ? expectedStartProblem(expectedStart, season, [])
+        : "invalid_date";
+    if (problem) throw new SeasonInputError(problem);
+  }
   return db.transaction(async (tx) => {
     const preset = await tx.query.eventPreset.findFirst({
       where: (p, { eq }) => eq(p.id, presetId),
       columns: { id: true },
     });
     if (!preset) throw new SeasonInputError("preset_not_found");
-    return ensureEventSeasonTx(tx, actor, presetId, season, {
+    const ensured = await ensureEventSeasonTx(tx, actor, presetId, season, {
       today: todayIn(),
       source: "manual",
+      ...(expectedStart !== undefined ? { expectedStart } : {}),
     });
+    return { ...ensured, ...(await createdCounts(tx, ensured.id, ensured.clampedTaskIds)) };
   });
+}
+
+/** Audit reason of a "Termine planen" task completed by "Markt planen" (stored German, like the permit one). */
+export const DATES_PLANNED_REASON = "Termine mit „Markt planen“ angelegt";
+
+/**
+ * "Markt planen" has just planned the dates of a season it created the record for (UX audit round 1 default,
+ * UX-009): its open "Termine planen" task (`isDatesPlanningTask`) and that task's open subtasks are done. A task
+ * that needs a photo or attachment stays open. Inside the caller's transaction; audited as `task.status`
+ * (`auto: true`, reason {@link DATES_PLANNED_REASON}). Returns the ids completed.
+ */
+async function completeDatesPlanningTx(tx: Tx, actor: Actor, seasonId: string): Promise<string[]> {
+  const rows = await tx
+    .select({
+      id: task.id,
+      parentTaskId: task.parentTaskId,
+      templateStableKey: task.templateStableKey,
+      status: task.status,
+      requiresPhoto: task.requiresPhoto,
+      requiresAttachment: task.requiresAttachment,
+    })
+    .from(task)
+    .where(and(eq(task.seasonId, seasonId), notInArray(task.status, [...CLOSED_TASK_STATUSES])))
+    .orderBy(task.id)
+    .for("update");
+  const now = new Date();
+  const completed: string[] = [];
+  for (const parent of rows.filter((r) => r.parentTaskId === null && isDatesPlanningTask(r))) {
+    // Subtasks first: a task with open subtasks is never done (ADR 0021).
+    const group = [...rows.filter((r) => r.parentTaskId === parent.id), parent];
+    if (group.some((r) => r.requiresPhoto || r.requiresAttachment)) continue;
+    for (const row of group) {
+      await tx
+        .update(task)
+        .set({
+          status: "done",
+          waitingReason: null,
+          skippedReason: null,
+          completedAt: now,
+          completedByStaffMemberId: actor.staffMemberId,
+          boardColumn: null,
+        })
+        .where(eq(task.id, row.id));
+      completed.push(row.id);
+    }
+    await audit(
+      tx,
+      actor.id,
+      group.map((row) => ({
+        action: "task.status",
+        entityType: "task",
+        entityId: row.id,
+        diff: { from: row.status, to: "done", auto: true, reason: DATES_PLANNED_REASON },
+      })),
+    );
+  }
+  return completed;
 }
 
 /**
  * Inside a caller's transaction that already checked `event:write` ("Markt planen", moving an event): the Saison
- * records of these (market, year) pairs exist afterwards.
+ * records of these (market, year) pairs exist afterwards. A record "Markt planen" creates (with the dates it just
+ * planned) gets its "Termine planen" task done (`completeDatesPlanningTx`).
  */
 export async function ensureSeasonsTx(
   tx: Tx,
@@ -73,8 +176,15 @@ export async function ensureSeasonsTx(
 ): Promise<EnsuredSeason[]> {
   const today = todayIn();
   const result: EnsuredSeason[] = [];
-  for (const key of keys)
-    result.push(await ensureEventSeasonTx(tx, actor, key.presetId, key.season, { today, source }));
+  for (const key of keys) {
+    const ensured = await ensureEventSeasonTx(tx, actor, key.presetId, key.season, {
+      today,
+      source,
+    });
+    if (source === "markt_planen" && ensured.created && ensured.tasks > 0)
+      await completeDatesPlanningTx(tx, actor, ensured.id);
+    result.push(ensured);
+  }
   return result;
 }
 
@@ -215,11 +325,27 @@ async function lockSeason(tx: Tx, seasonId: string) {
   return row;
 }
 
+/** Open top-level tasks of a season (all of them, whoever may see them): what "Abgeschlossen" waits for. */
+async function openSeasonTaskCount(x: Pick<typeof db, "select">, seasonId: string) {
+  const [row] = await x
+    .select({ n: count() })
+    .from(task)
+    .where(
+      and(
+        eq(task.seasonId, seasonId),
+        isNull(task.parentTaskId),
+        notInArray(task.status, [...CLOSED_TASK_STATUSES]),
+      ),
+    );
+  return row?.n ?? 0;
+}
+
 /**
  * Manual status switch on the market page (research 13 §6.2: planning → dates_set → closed, undo toast; nothing
- * changes it automatically). Every change between two statuses is allowed (`canChangeSeasonStatus`), so the undo
- * is the same call back. `expectedFrom` is the status the page showed: a different one is a `conflict` (someone
- * else changed it). Permission → transaction → audit `season.status` {from, to}.
+ * changes it automatically). A status that contradicts the season's dates or tasks is refused with its reason
+ * (`seasonStatusBlock`: `no_dates`, `not_over`, `open_tasks`; UX-050); the undo is the same call back.
+ * `expectedFrom` is the status the page showed: a different one is a `conflict` (someone else changed it).
+ * Permission → transaction → audit `season.status` {from, to}.
  */
 export async function setSeasonStatus(
   actor: Actor,
@@ -234,6 +360,15 @@ export async function setSeasonStatus(
     if (expectedFrom !== undefined && row.status !== expectedFrom)
       throw new SeasonInputError("conflict");
     if (!canChangeSeasonStatus(row.status, to)) throw new SeasonInputError("invalid_transition");
+    const events = await seasonEventDates(tx, row.presetId, row.season);
+    const end = seasonEnd(events);
+    const block = seasonStatusBlock(to, {
+      hasDates: end !== null,
+      seasonEnd: end,
+      today: todayIn(),
+      openSeasonTasks: to === "closed" ? await openSeasonTaskCount(tx, row.id) : 0,
+    });
+    if (block) throw new SeasonInputError(block);
     await tx
       .update(eventSeason)
       .set({ status: to, updatedAt: new Date() })
@@ -262,7 +397,14 @@ export async function setSeasonExpectedStart(
   seasonId: string,
   date: string,
   expectedFrom?: string,
-): Promise<{ from: string; to: string; changed: boolean; tasksShifted: number }> {
+): Promise<{
+  from: string;
+  to: string;
+  changed: boolean;
+  /** Top-level tasks that moved (the panel's rows); `subtasksShifted` counts the subtasks apart (UX-009). */
+  tasksShifted: number;
+  subtasksShifted: number;
+}> {
   if (!can(actor.role, "event", "write")) forbidden();
   return db.transaction(async (tx) => {
     const row = await lockSeason(tx, seasonId);
@@ -275,7 +417,7 @@ export async function setSeasonExpectedStart(
     );
     if (problem) throw new SeasonInputError(problem);
     if (row.expectedStart === date)
-      return { from: date, to: date, changed: false, tasksShifted: 0 };
+      return { from: date, to: date, changed: false, tasksShifted: 0, subtasksShifted: 0 };
     await tx
       .update(eventSeason)
       .set({ expectedStart: date, updatedAt: new Date() })
@@ -294,11 +436,22 @@ export async function setSeasonExpectedStart(
       [{ presetId: row.presetId, season: row.season }],
       "expected_start",
     );
+    const shiftedIds = sync?.shifted.map((s) => s.id) ?? [];
+    const subtasksShifted =
+      shiftedIds.length === 0
+        ? 0
+        : ((
+            await tx
+              .select({ n: count() })
+              .from(task)
+              .where(and(inArray(task.id, shiftedIds), isNotNull(task.parentTaskId)))
+          )[0]?.n ?? 0);
     return {
       from: row.expectedStart,
       to: date,
       changed: true,
-      tasksShifted: sync?.shifted.length ?? 0,
+      tasksShifted: shiftedIds.length - subtasksShifted,
+      subtasksShifted,
     };
   });
 }
