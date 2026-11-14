@@ -1,10 +1,10 @@
 import { can, isPermitSort, type PermitDisplayState } from "@marktwerk/core";
-import { Building2, SearchX } from "lucide-react";
+import { Building2, CircleHelp, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { FilterPanel } from "@/components/permits/filter-panel";
 import { LogbookList } from "@/components/permits/logbook-list";
 import { LogbookMatrix } from "@/components/permits/logbook-matrix";
@@ -14,10 +14,11 @@ import { Page, PageHeader } from "@/components/shell/page";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit";
 import { buttonVariants } from "@/components/ui/button";
 import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
-import { Panel } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
 import { EmptyState } from "@/components/ui/states";
-import { todayIn } from "@/lib/format";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatDateShortYear, todayIn } from "@/lib/format";
 import { PERMIT_STATE_ORDER } from "@/lib/permit-status";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
@@ -62,6 +63,7 @@ export default async function PermitsPage({ searchParams }: PageProps<"/genehmig
   const t = await getTranslations("logbook");
   const tState = await getTranslations("permitStatus");
   const tCat = await getTranslations("permitCategories");
+  const locale = await getLocale();
   const today = todayIn();
   const canWrite = can(actor.role, "permit", "write");
   // Every Ort, not only those with permits already: a first permit for a new Ort starts here (UT2-01).
@@ -100,8 +102,11 @@ export default async function PermitsPage({ searchParams }: PageProps<"/genehmig
     { venueId, category, season, state, focus, revealId: drawerId },
     today,
   );
-  // A link to a permit the filters hide (Übersicht, Kalender, notification): show everything.
-  if (logbook.drawerHidden) {
+  // A link to a permit the default view hides (Übersicht, Kalender, notification): show everything.
+  // Filters the person chose stay: a save that moves the open permit out of them (marked applied
+  // under "Jetzt zu tun") must not reset the page to every season (UX-047). The drawer stays open.
+  const chosenFilters = Boolean(venueId || category || state || focus || seasonParam);
+  if (logbook.drawerHidden && !chosenFilters) {
     redirect(
       hrefWith(PATH, sp, {
         saison: "alle",
@@ -270,6 +275,46 @@ export default async function PermitsPage({ searchParams }: PageProps<"/genehmig
         </div>
       </FilterPanel>
 
+      {/* Orte nobody has said anything about: "noch nicht geklärt", never "keine nötig" (UX-011). The
+          matrix shows them as rows; the list and the empty states get this panel. */}
+      {logbook.unclearVenues.length > 0 &&
+        !state &&
+        !focus &&
+        (view === "liste" || logbook.rows.length === 0) && (
+          <Panel title={t("unclear.title")} titleId="unclear-venues-title">
+            <PanelBody className="flex flex-col gap-2">
+              <p className="m-0 text-muted-foreground text-small">{t("unclear.hint")}</p>
+              <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+                {logbook.unclearVenues.map((v) => (
+                  <li key={v.id} className="flex flex-wrap items-center gap-2 text-small">
+                    <Link
+                      href={`/orte/${v.id}` as never}
+                      className="font-semibold hover:text-accent-soft-foreground hover:underline"
+                    >
+                      {v.name}
+                    </Link>
+                    <StatusBadge tone="warn" icon={CircleHelp}>
+                      {t("unclear.state")}
+                    </StatusBadge>
+                    <span className="text-muted-foreground text-tiny">
+                      {t("unclear.next", {
+                        date: formatDateShortYear(v.nextEventOn, locale, today),
+                      })}
+                    </span>
+                    <Link
+                      href={`/orte/${v.id}/genehmigungen/neu` as never}
+                      aria-label={t("unclear.actionNamed", { venue: v.name })}
+                      className="font-medium text-accent-soft-foreground hover:underline"
+                    >
+                      {t("unclear.action")}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </PanelBody>
+          </Panel>
+        )}
+
       {logbook.total === 0 && !filtered ? (
         <Panel>
           <EmptyState icon={Building2} title={t("empty")} hint={t("emptyHint")}>
@@ -296,7 +341,13 @@ export default async function PermitsPage({ searchParams }: PageProps<"/genehmig
           horizonDays={logbook.horizonDays}
         />
       ) : (
-        <LogbookMatrix rows={logbook.rows} path={PATH} sp={sp} selectedId={drawerId} />
+        <LogbookMatrix
+          rows={logbook.rows}
+          path={PATH}
+          sp={sp}
+          selectedId={drawerId}
+          unclearVenues={state || focus ? [] : logbook.unclearVenues}
+        />
       )}
 
       {view === "liste" && logbook.rows.length > 0 && (
