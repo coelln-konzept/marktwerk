@@ -4,6 +4,7 @@ import {
   auditLog,
   document,
   event,
+  eventPreset,
   permit,
   staffMember,
   task,
@@ -19,17 +20,19 @@ import {
   eq,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lt,
   or,
   type SQL,
   sql,
 } from "drizzle-orm";
+import type { PgSelect } from "drizzle-orm/pg-core";
 import { isModuleHidden } from "@/lib/modules";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { DOCUMENT_LINK_KEYS, type DocumentLinkKey, documentLinkScope } from "../services/documents";
-import { canReadDocuments } from "./documents";
+import { canReadDocuments, canWriteDocuments } from "./documents";
 
 /*
  * The Archiv's sections beyond past events (decision 2026-11-03): every document, the company-wide activity and
@@ -53,23 +56,38 @@ const HIDDEN_LINKS: Partial<Record<DocumentLinkKey, () => boolean>> = {
 };
 
 const taskEvent = aliasedTable(event, "task_event");
+const archivedBy = aliasedTable(staffMember, "archived_by");
 
+/** Same folding as the Aussteller list and the command palette: "koln" finds "Köln", "muller" "Müller". */
+function fold(column: unknown): SQL {
+  return sql`translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aousseeeaaaoooiiiuuuc')`;
+}
+
+function foldWord(word: string): string {
+  return word
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/ß/g, "s");
+}
+
+/** The event a document belongs to: its own, or that of its task. */
+const ownerEventId = sql`coalesce(${document.eventId}, ${task.eventId})`;
+/** The Markt (event preset) of that event. */
+const ownerPresetId = sql`coalesce(${event.presetId}, ${taskEvent.presetId})`;
 /**
- * Every live document the person may read, newest first, with what it belongs to (event, permit, venue, task,
- * vehicle …). `q` searches the file name and caption; `kind` narrows to one document kind.
- * Field users get the download's rule (`readDocument`): every link of the document must be one they may read, and
- * its event or task one they can see (`documentLinkScope`). Office roles see every document of a readable kind.
+ * The year a document is filed under: the season of its event (so the papers of Nippes 2025 stay 2025 even
+ * when uploaded in January), else the permit's season, else the year it was uploaded (Berlin time).
  */
-export async function listArchiveDocuments(
-  actor: Actor,
-  filters: { q?: string; kind?: string; page: number; size: number },
-): Promise<Paged<ArchiveDocument>> {
+const documentYear = sql<number>`coalesce(${event.season}, ${taskEvent.season}, ${permit.season}, extract(year from ${document.createdAt} at time zone 'Europe/Berlin')::int)`;
+
+/** The documents the actor may read at all (role grants, hidden modules, field users' row scope). */
+function readableDocuments(actor: Actor): { where: (SQL | undefined)[]; writable: SQL } | null {
   const readable = DOCUMENT_LINK_KEYS.filter(
     (key) => canReadDocuments(actor, key) && !HIDDEN_LINKS[key]?.(),
   );
-  if (readable.length === 0) return { rows: [], total: 0 };
+  if (readable.length === 0) return null;
   const where: (SQL | undefined)[] = [
-    isNull(document.archivedAt),
     or(...readable.map((key) => sql`${document[key]} is not null`)),
   ];
   const scoped = readable.flatMap((key) => {
@@ -80,51 +98,172 @@ export async function listArchiveDocuments(
     const unreadable = DOCUMENT_LINK_KEYS.filter((key) => !readable.includes(key));
     where.push(...unreadable.map((key) => isNull(document[key])), ...scoped);
   }
-  if (filters.q) {
-    const pattern = like(filters.q);
-    where.push(or(ilike(document.fileName, pattern), ilike(document.caption, pattern)));
+  // Removing and restoring need the write grant of every link (the service checks it again).
+  const unwritable = DOCUMENT_LINK_KEYS.filter((key) => !canWriteDocuments(actor, key));
+  const writable =
+    unwritable.length === 0
+      ? sql`true`
+      : sql`(${and(...unwritable.map((key) => isNull(document[key])))})`;
+  return { where, writable };
+}
+
+/**
+ * The owner records of a document, for search, filters and "Gehört zu". Keeps the caller's select type: the
+ * selected columns of these tables are declared nullable where they are read.
+ */
+function withOwners<T extends PgSelect>(query: T): T {
+  return query
+    .leftJoin(task, eq(task.id, document.taskId))
+    .leftJoin(event, eq(event.id, document.eventId))
+    .leftJoin(taskEvent, eq(taskEvent.id, task.eventId))
+    .leftJoin(eventPreset, sql`${eventPreset.id} = ${ownerPresetId}`)
+    .leftJoin(permit, eq(permit.id, document.permitId))
+    .leftJoin(venue, eq(venue.id, document.venueId))
+    .leftJoin(vehicle, eq(vehicle.id, document.vehicleId)) as unknown as T;
+}
+
+export type ArchiveDocumentFilters = {
+  q?: string;
+  kind?: string;
+  /** Markt (event preset) id. */
+  presetId?: string;
+  year?: number;
+  /** The removed documents instead of the live ones (to restore them). */
+  removed?: boolean;
+  page: number;
+  size: number;
+};
+
+/**
+ * Every document the person may read, newest first, with what it belongs to (event with its dates, permit,
+ * venue, task, vehicle …). `q` searches word by word, umlauts folded, in the file name, the description and
+ * the names of what it belongs to (event, Markt, task, permit, Ort, vehicle and plate): "Nippes Vertrag" finds
+ * the contract of the Nippes market. `kind`, `presetId` (Markt) and `year` (see `documentYear`) narrow it.
+ * `removed` lists the removed documents instead, newest removal first, for "Wiederherstellen".
+ * Field users get the download's rule (`readDocument`): every link of the document must be one they may read, and
+ * its event or task one they can see (`documentLinkScope`). Office roles see every document of a readable kind.
+ */
+export async function listArchiveDocuments(
+  actor: Actor,
+  filters: ArchiveDocumentFilters,
+): Promise<Paged<ArchiveDocument>> {
+  const scope = readableDocuments(actor);
+  if (!scope) return { rows: [], total: 0 };
+  const where = [
+    ...scope.where,
+    filters.removed ? isNotNull(document.archivedAt) : isNull(document.archivedAt),
+  ];
+  const words = (filters.q ?? "")
+    .split(/\s+/)
+    .filter((w) => w !== "")
+    .slice(0, 6);
+  for (const word of words) {
+    const pattern = like(foldWord(word));
+    where.push(
+      or(
+        ...[
+          document.fileName,
+          document.caption,
+          event.name,
+          taskEvent.name,
+          eventPreset.name,
+          task.title,
+          permit.title,
+          venue.name,
+          vehicle.name,
+          vehicle.plate,
+        ].map((column) => sql`${fold(column)} like ${pattern}`),
+      ),
+    );
   }
   if (filters.kind) where.push(sql`${document.kind}::text = ${filters.kind}`);
+  if (filters.presetId) where.push(sql`${ownerPresetId} = ${filters.presetId}`);
+  if (filters.year) where.push(sql`${documentYear} = ${filters.year}`);
   const condition = and(...where);
 
   const [rows, [totals]] = await Promise.all([
-    db
-      .select({
-        id: document.id,
-        kind: document.kind,
-        fileName: document.fileName,
-        sizeBytes: document.sizeBytes,
-        caption: document.caption,
-        createdAt: document.createdAt,
-        uploadedByName: staffMember.displayName,
-        eventId: sql<string | null>`coalesce(${document.eventId}, ${task.eventId})`,
-        eventName: sql<string | null>`coalesce(${event.name}, ${taskEvent.name})`,
-        permitId: document.permitId,
-        permitTitle: permit.title,
-        venueId: document.venueId,
-        venueName: venue.name,
-        taskId: document.taskId,
-        taskTitle: task.title,
-        vehicleId: document.vehicleId,
-        vehicleName: vehicle.name,
-      })
-      .from(document)
-      .leftJoin(staffMember, eq(staffMember.id, document.uploadedByStaffMemberId))
-      .leftJoin(event, eq(event.id, document.eventId))
-      .leftJoin(task, eq(task.id, document.taskId))
-      .leftJoin(taskEvent, eq(taskEvent.id, task.eventId))
-      .leftJoin(permit, eq(permit.id, document.permitId))
-      .leftJoin(venue, eq(venue.id, document.venueId))
-      .leftJoin(vehicle, eq(vehicle.id, document.vehicleId))
+    withOwners(
+      db
+        .select({
+          id: document.id,
+          kind: document.kind,
+          fileName: document.fileName,
+          sizeBytes: document.sizeBytes,
+          caption: document.caption,
+          createdAt: document.createdAt,
+          uploadedByName: staffMember.displayName,
+          archivedAt: document.archivedAt,
+          archivedByName: archivedBy.displayName,
+          canWrite: sql<boolean>`${scope.writable}`,
+          eventId: sql<string | null>`${ownerEventId}`,
+          eventName: sql<string | null>`coalesce(${event.name}, ${taskEvent.name})`,
+          eventStartsOn: sql<
+            string | null
+          >`coalesce(${event.startsOn}, ${taskEvent.startsOn})::text`,
+          eventEndsOn: sql<string | null>`coalesce(${event.endsOn}, ${taskEvent.endsOn})::text`,
+          presetName: eventPreset.name,
+          permitId: document.permitId,
+          permitTitle: permit.title,
+          permitSeason: permit.season,
+          venueId: document.venueId,
+          venueName: venue.name,
+          taskId: document.taskId,
+          taskTitle: task.title,
+          vehicleId: document.vehicleId,
+          vehicleName: vehicle.name,
+        })
+        .from(document)
+        .leftJoin(staffMember, eq(staffMember.id, document.uploadedByStaffMemberId))
+        .leftJoin(archivedBy, eq(archivedBy.id, document.archivedByStaffMemberId))
+        .$dynamic(),
+    )
       .where(condition)
-      .orderBy(desc(document.createdAt), desc(document.id))
+      .orderBy(
+        ...(filters.removed ? [desc(document.archivedAt)] : []),
+        desc(document.createdAt),
+        desc(document.id),
+      )
       .limit(filters.size)
       .offset((filters.page - 1) * filters.size),
-    db.select({ n: count() }).from(document).where(condition),
+    withOwners(db.select({ n: count() }).from(document).$dynamic()).where(condition),
   ]);
   return {
-    rows: rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    rows: rows.map((r) => ({
+      ...r,
+      canWrite: r.canWrite === true,
+      createdAt: r.createdAt.toISOString(),
+      archivedAt: r.archivedAt?.toISOString() ?? null,
+    })),
     total: totals?.n ?? 0,
+  };
+}
+
+/**
+ * The choices of the Markt and Jahr filters: only Märkte and years that have live documents the person may
+ * read, so no choice leads to an empty list.
+ */
+export async function archiveDocumentFacets(
+  actor: Actor,
+): Promise<{ presets: { id: string; name: string }[]; years: number[] }> {
+  const scope = readableDocuments(actor);
+  if (!scope) return { presets: [], years: [] };
+  const condition = and(...scope.where, isNull(document.archivedAt));
+  const [presets, years] = await Promise.all([
+    withOwners(
+      db
+        .selectDistinct({ presetId: eventPreset.id, presetName: eventPreset.name })
+        .from(document)
+        .$dynamic(),
+    ).where(and(condition, isNotNull(eventPreset.id))),
+    withOwners(db.selectDistinct({ year: documentYear }).from(document).$dynamic()).where(
+      condition,
+    ),
+  ]);
+  return {
+    presets: presets
+      .map((p) => ({ id: String(p.presetId), name: String(p.presetName) }))
+      .sort((a, b) => a.name.localeCompare(b.name, "de")),
+    years: years.map((y) => Number(y.year)).sort((a, b) => b - a),
   };
 }
 
@@ -136,10 +275,19 @@ export type ArchiveDocument = {
   caption: string | null;
   createdAt: string;
   uploadedByName: string | null;
+  /** Set on removed documents (`removed: true`). */
+  archivedAt: string | null;
+  archivedByName: string | null;
+  /** Whether the person may remove or restore it (write grant of every link). */
+  canWrite: boolean;
   eventId: string | null;
   eventName: string | null;
+  eventStartsOn: string | null;
+  eventEndsOn: string | null;
+  presetName: string | null;
   permitId: string | null;
   permitTitle: string | null;
+  permitSeason: number | null;
   venueId: string | null;
   venueName: string | null;
   taskId: string | null;

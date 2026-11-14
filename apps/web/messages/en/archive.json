@@ -39,7 +39,7 @@
       "notFound": "This event no longer exists."
     },
     "documents": {
-      "search": "File name or description",
+      "search": "File, market, place …",
       "kind": "Kind",
       "kindAll": "All kinds",
       "caption": "All documents, newest first",
@@ -48,7 +48,9 @@
         "kind": "Kind",
         "for": "Belongs to",
         "by": "Uploaded",
-        "size": "Size"
+        "size": "Size",
+        "removed": "Removed",
+        "actions": "Action"
       },
       "empty": "No documents found.",
       "reset": "Reset filters",
@@ -56,7 +58,22 @@
       "byOn": "{name} · {date}",
       "onlyDate": "{date}",
       "task": "Task: {title}",
-      "none": "–"
+      "none": "–",
+      "searchLabel": "Search",
+      "market": "Market",
+      "marketAll": "All markets",
+      "year": "Year",
+      "yearAll": "All years",
+      "count": "{count, plural, =0 {No documents} one {# document} other {# documents}}",
+      "countRemoved": "{count, plural, =0 {No removed documents} one {# removed document} other {# removed documents}}",
+      "showRemoved": "Show removed",
+      "showLive": "Current documents",
+      "removedHint": "Removed documents are not deleted. Restored, they are attached to their record again.",
+      "captionRemoved": "Removed documents, most recently removed first",
+      "emptyRemoved": "No removed documents.",
+      "restore": "Restore",
+      "restoreFor": "Restore “{name}”",
+      "season": "Season {season}"
     },
     "activity": {
       "area": "Area",

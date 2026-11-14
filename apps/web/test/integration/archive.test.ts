@@ -1,8 +1,13 @@
-import { document, permit } from "@marktwerk/db/schema";
+import { document, event, permit } from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
-import { listActivity, listArchiveDocuments, listOldPermits } from "@/server/queries/archive";
+import {
+  archiveDocumentFacets,
+  listActivity,
+  listArchiveDocuments,
+  listOldPermits,
+} from "@/server/queries/archive";
 import { createEventsFromPreset } from "@/server/services/events";
 import { createPermit, setPermitStatus } from "@/server/services/permits";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -55,6 +60,66 @@ describe("Archiv: Dokumente", () => {
     expect(page2.rows).toHaveLength(1);
     const found = await listArchiveDocuments(owner, { q: "datei-1", page: 1, size: 50 });
     expect(found.rows.map((r) => r.fileName)).toEqual(["datei-1.pdf"]);
+  });
+});
+
+describe("Archiv: Dokumente finden", () => {
+  it("searches what a file belongs to (umlauts folded), filters by Markt and year, and lists removed ones", async () => {
+    const [nippes] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2025-06-07"]);
+    const [fest] = await createEventsFromPreset(owner, cat.presets.festival.id, ["2026-05-02"]);
+    if (!nippes || !fest) throw new Error("events");
+    await db.update(event).set({ name: "Trödelmarkt Nippes" }).where(eq(event.id, nippes.id));
+    const season = await newPermit("Sondernutzung Rhein");
+    const file = (n: number, link: Partial<typeof document.$inferInsert>) => ({
+      fileName: `scan-${n}.pdf`,
+      mimeType: "application/pdf",
+      sizeBytes: 10,
+      sha256: String(n).padStart(64, "0"),
+      storageKey: `test/find/${n}`,
+      ...link,
+    });
+    await db
+      .insert(document)
+      .values([
+        file(1, { eventId: nippes.id, createdAt: new Date("2026-01-10T10:00:00Z") }),
+        file(2, { eventId: fest.id, caption: "Lageplan" }),
+        file(3, { permitId: season.id }),
+        file(4, { venueId: cat.venue.id, createdAt: new Date("2024-03-01T10:00:00Z") }),
+        file(5, { eventId: nippes.id, archivedAt: new Date() }),
+      ]);
+    const names = async (filters: Parameters<typeof listArchiveDocuments>[1]) =>
+      (await listArchiveDocuments(owner, filters)).rows.map((r) => r.fileName).sort();
+    const base = { page: 1, size: 50 };
+
+    // Owner names, word by word, without umlauts: the event, the Markt, the permit, the Ort.
+    expect(await names({ ...base, q: "trodel nippes" })).toEqual(["scan-1.pdf"]);
+    expect(await names({ ...base, q: "Teststadtfest" })).toEqual(["scan-2.pdf"]);
+    expect(await names({ ...base, q: "lageplan" })).toEqual(["scan-2.pdf"]);
+    expect(await names({ ...base, q: "Rhein" })).toEqual(["scan-3.pdf"]);
+    expect(await names({ ...base, q: "messeplatz" })).toEqual(["scan-4.pdf"]);
+    expect(await names({ ...base, q: "nippes rhein" })).toEqual([]);
+
+    // Markt and year: the event's season, else the permit's, else the upload year.
+    expect(await names({ ...base, presetId: cat.presets.flea.id })).toEqual(["scan-1.pdf"]);
+    expect(await names({ ...base, year: 2025 })).toEqual(["scan-1.pdf"]);
+    expect(await names({ ...base, year: 2026 })).toEqual(["scan-2.pdf", "scan-3.pdf"]);
+    expect(await names({ ...base, year: 2024 })).toEqual(["scan-4.pdf"]);
+
+    const facets = await archiveDocumentFacets(owner);
+    expect(facets.years).toEqual([2026, 2025, 2024]);
+    expect(facets.presets.map((p) => p.name)).toEqual(["Testflohmarkt", "Teststadtfest"]);
+
+    const [nippesRow] = (await listArchiveDocuments(owner, { ...base, q: "scan-1" })).rows;
+    expect(nippesRow).toMatchObject({
+      eventName: "Trödelmarkt Nippes",
+      eventStartsOn: "2025-06-07",
+      eventEndsOn: "2025-06-07",
+      presetName: "Testflohmarkt",
+    });
+
+    const removed = await listArchiveDocuments(owner, { ...base, removed: true });
+    expect(removed.rows.map((r) => [r.fileName, r.canWrite])).toEqual([["scan-5.pdf", true]]);
+    expect(removed.rows[0]?.archivedAt).not.toBeNull();
   });
 });
 

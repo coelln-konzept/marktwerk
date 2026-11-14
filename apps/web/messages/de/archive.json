@@ -39,7 +39,7 @@
       "notFound": "Diese Veranstaltung gibt es nicht mehr."
     },
     "documents": {
-      "search": "Dateiname oder Beschreibung",
+      "search": "Datei, Markt, Ort …",
       "kind": "Art",
       "kindAll": "Alle Arten",
       "caption": "Alle Dokumente, neueste zuerst",
@@ -48,7 +48,9 @@
         "kind": "Art",
         "for": "Gehört zu",
         "by": "Hochgeladen",
-        "size": "Größe"
+        "size": "Größe",
+        "removed": "Entfernt",
+        "actions": "Aktion"
       },
       "empty": "Keine Dokumente gefunden.",
       "reset": "Filter zurücksetzen",
@@ -56,7 +58,22 @@
       "byOn": "{name} · {date}",
       "onlyDate": "{date}",
       "task": "Aufgabe: {title}",
-      "none": "–"
+      "none": "–",
+      "searchLabel": "Suche",
+      "market": "Markt",
+      "marketAll": "Alle Märkte",
+      "year": "Jahr",
+      "yearAll": "Alle Jahre",
+      "count": "{count, plural, =0 {Keine Dokumente} one {# Dokument} other {# Dokumente}}",
+      "countRemoved": "{count, plural, =0 {Keine entfernten Dokumente} one {# entferntes Dokument} other {# entfernte Dokumente}}",
+      "showRemoved": "Entfernte anzeigen",
+      "showLive": "Aktuelle Dokumente",
+      "removedHint": "Entfernte Dokumente sind nicht gelöscht. Wiederhergestellt hängen sie wieder an ihrem Eintrag.",
+      "captionRemoved": "Entfernte Dokumente, zuletzt entfernte zuerst",
+      "emptyRemoved": "Keine entfernten Dokumente.",
+      "restore": "Wiederherstellen",
+      "restoreFor": "„{name}“ wiederherstellen",
+      "season": "Saison {season}"
     },
     "activity": {
       "area": "Bereich",
