@@ -122,6 +122,7 @@
       "reopened": "„{title}“ wieder geöffnet",
       "status": "„{title}“: {status}",
       "reverted": "Rückgängig gemacht",
+      "revertedTitle": "Änderung an „{title}“ rückgängig gemacht",
       "undo": "Rückgängig",
       "open": "Öffnen",
       "snoozed": "„{title}“ zurückgestellt bis {date}",
