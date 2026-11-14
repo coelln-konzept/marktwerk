@@ -403,13 +403,33 @@
       "invalid_form": "Die Anfrage war unvollständig.",
       "too_long": "Die Beschreibung ist zu lang.",
       "forbidden": "Dafür fehlt dir die Berechtigung.",
-      "unauthorized": "Bitte neu anmelden."
+      "unauthorized": "Bitte neu anmelden.",
+      "duplicateOf": "Diese Datei hängt hier schon als „{name}“.",
+      "empty_name": "Bitte einen Namen eingeben."
     },
     "toast": {
       "removed": "{name} entfernt.",
       "restored": "{name} wiederhergestellt.",
       "undo": "Rückgängig",
-      "failed": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      "failed": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+      "saved": "{name} gespeichert."
+    },
+    "storedSome": "{stored} gespeichert, {failed} nicht gespeichert.",
+    "cancelled": "Hochladen abgebrochen.",
+    "cancel": "Abbrechen",
+    "progressOf": "Datei {index} von {count}: {name}",
+    "progressLabel": "Fortschritt: {name}",
+    "failedTitle": "{count, plural, one {# Datei nicht gespeichert} other {# Dateien nicht gespeichert}}",
+    "dismissErrors": "Hinweis schließen",
+    "edit": {
+      "open": "Bearbeiten: {name}",
+      "title": "Dokument bearbeiten",
+      "name": "Name",
+      "caption": "Beschreibung",
+      "captionPlaceholder": "z. B. Bescheid vom Ordnungsamt",
+      "kind": "Art",
+      "save": "Speichern",
+      "cancel": "Abbrechen"
     }
   },
   "eventMoney": {

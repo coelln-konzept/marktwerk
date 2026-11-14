@@ -3,10 +3,17 @@ import { Check, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { LiveSearch } from "@/components/archive/live-search";
 import { TagList } from "@/components/people/duty-tags";
 import { VendorVorschau } from "@/components/people/vendor-vorschau";
 import { Page, PageHeader } from "@/components/shell/page";
-import { FilterBar, FilterChip, FilterChips, FilterGroup } from "@/components/ui/filter-bar";
+import {
+  FilterBar,
+  FilterChip,
+  FilterChips,
+  FilterDisclosure,
+  FilterGroup,
+} from "@/components/ui/filter-bar";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { LetterFilter } from "@/components/ui/letter-filter";
 import { Panel } from "@/components/ui/panel";
@@ -72,33 +79,20 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
     hrefWith(PATH, sp, { seite: undefined, vorschau: undefined, ...patch });
   const pageHref = (n: number) =>
     hrefWith(PATH, sp, { seite: n === 1 ? undefined : n, vorschau: undefined });
-  const none = <span className="text-faint-foreground">{t("noValue")}</span>;
+  // On phones an empty cell would only add a dash to the card.
+  const none = <span className="text-faint-foreground max-sm:hidden">{t("noValue")}</span>;
 
-  return (
-    <Page crumbs={[{ label: tNav("vendors") }]}>
-      <PageHeader
-        title={t("title")}
-        subtitle={t("subtitle", { count: formatNumber(imported, locale, 0) })}
-      />
-
-      <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
-        {category && <input type="hidden" name="kategorie" value={category} />}
-        {regular && <input type="hidden" name="stamm" value="1" />}
-        {car && <input type="hidden" name="auto" value="1" />}
-        {letter && <input type="hidden" name="buchstabe" value={letter} />}
-        <label className="sr-only" htmlFor="q">
-          {t("search")}
-        </label>
-        <input
-          id="q"
-          name="q"
-          type="search"
-          defaultValue={q}
-          placeholder={t("search")}
-          className="min-h-(--control-h) w-full rounded-lg border border-input bg-card px-3 sm:w-80"
-        />
-      </form>
-
+  const activeSummary =
+    [
+      category ? tCat(category as never) : null,
+      regular ? t("regular") : null,
+      car ? t("withCar") : null,
+      letter ?? null,
+    ]
+      .filter(Boolean)
+      .join(", ") || null;
+  const filterControls = (
+    <>
       <FilterBar>
         <FilterGroup label={t("categories")} wide>
           <FilterChips>
@@ -132,12 +126,44 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
           </FilterChips>
         </FilterGroup>
       </FilterBar>
-
       <LetterFilter
         active={letter}
         available={letters}
         hrefFor={(l) => withFilter({ buchstabe: l })}
       />
+    </>
+  );
+
+  return (
+    <Page crumbs={[{ label: tNav("vendors") }]}>
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle", { count: formatNumber(imported, locale, 0) })}
+      />
+
+      <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
+        {category && <input type="hidden" name="kategorie" value={category} />}
+        {regular && <input type="hidden" name="stamm" value="1" />}
+        {car && <input type="hidden" name="auto" value="1" />}
+        {letter && <input type="hidden" name="buchstabe" value={letter} />}
+        <label className="sr-only" htmlFor="q">
+          {t("search")}
+        </label>
+        <LiveSearch
+          id="q"
+          defaultValue={q}
+          placeholder={t("searchShort")}
+          className="w-full sm:w-80"
+        />
+      </form>
+
+      {/* Phones: the chips and the A–Z strip sit behind one "Filter" button, so the list starts on the first screen. */}
+      <div className="sm:hidden">
+        <FilterDisclosure label={t("filterButton")} summary={activeSummary}>
+          <div className="flex flex-col gap-3">{filterControls}</div>
+        </FilterDisclosure>
+      </div>
+      <div className="contents max-sm:hidden">{filterControls}</div>
 
       <Panel className="overflow-hidden">
         {rows.length === 0 ? (
@@ -151,9 +177,9 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
           </EmptyState>
         ) : (
           <KeyboardRows>
-            <Table>
+            <Table className="max-sm:block">
               <caption className="sr-only">{t("caption", { page, pages })}</caption>
-              <THead>
+              <THead className="max-sm:sr-only">
                 <tr>
                   <TH>{t("cols.name")}</TH>
                   <TH>{t("cols.categories")}</TH>
@@ -161,7 +187,7 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
                   <TH>{t("cols.regular")}</TH>
                 </tr>
               </THead>
-              <tbody>
+              <tbody className="max-sm:block">
                 {rows.map((v) => {
                   const peek = hrefWith(PATH, sp, { vorschau: v.id });
                   return (
@@ -172,9 +198,12 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
                       data-href={peek}
                       data-peek={peek}
                       aria-current={vorschauId === v.id}
-                      className={rowFocus}
+                      className={cn(
+                        rowFocus,
+                        "max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-3 max-sm:gap-y-1 max-sm:px-3 max-sm:py-2.5",
+                      )}
                     >
-                      <TD className="min-w-44">
+                      <TD className="min-w-44 max-sm:h-auto max-sm:basis-full max-sm:p-0">
                         <Link
                           href={peek as never}
                           scroll={false}
@@ -189,14 +218,16 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
                           </span>
                         )}
                       </TD>
-                      <TD>
+                      <TD className="max-sm:h-auto max-sm:p-0">
                         <TagList
                           items={v.categories.map((c) => tCat(c as never))}
                           empty={t("noValue")}
                         />
                       </TD>
-                      <TD className="whitespace-nowrap">{v.city ?? none}</TD>
-                      <TD>
+                      <TD className="whitespace-nowrap max-sm:h-auto max-sm:p-0 max-sm:text-small">
+                        {v.city ?? none}
+                      </TD>
+                      <TD className="max-sm:h-auto max-sm:p-0">
                         {v.isRegular ? (
                           <span className="inline-flex flex-col items-start gap-0.5 whitespace-nowrap">
                             <StatusBadge tone="info" icon={Check}>
