@@ -102,7 +102,7 @@ describe("taskRollover", () => {
     const [note] = await mails("rolled_over");
     expect(note).toMatchObject({
       recipientStaffMemberId: cat.staff.anna.id,
-      link: `/board?aufgabe=${t.id}`,
+      link: `/?aufgabe=${t.id}`,
       body: "Die Aufgabe (Testflohmarkt · Saison 2027) wurde jetzt 3× übertragen und ist noch offen.",
     });
     const [escalation] = await mails("escalated");
@@ -157,7 +157,7 @@ describe("taskRollover", () => {
     });
     await taskRollover(db, nightOf("2026-10-21"));
     expect((await getTask(t.id)).rolloverCount).toBe(1);
-    expect((await mails("rolled_over"))[0]?.link).toBe(`/board?aufgabe=${t.id}`);
+    expect((await mails("rolled_over"))[0]?.link).toBe(`/?aufgabe=${t.id}`);
   });
 
   it("counts a task once per Berlin day, however often the job runs", async () => {

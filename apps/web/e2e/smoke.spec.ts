@@ -1158,7 +1158,7 @@ test("Board: two views, the category filter sits behind Filter, no Team/Finanzen
   await expect(chips.getByRole("link", { name: /^Team/ })).toHaveCount(0);
   await expect(chips.getByRole("link", { name: /^Finanzen/ })).toHaveCount(0);
   await chips.getByRole("link", { name: /^Genehmigungen/ }).click();
-  await expect(page).toHaveURL(/kategorie=permits/);
+  await expect(page).toHaveURL(/kategorie=genehmigungen/);
   await expect(page.getByText(/Filter: Genehmigungen/)).toBeVisible();
 });
 
@@ -1446,8 +1446,10 @@ test("Checkliste: Unteraufgabe von … nests a task under another, Aus Hauptaufg
   const child = page.locator(`li[data-task="${childId}"]`);
   const title = ((await child.locator("a").first().textContent()) ?? "").trim();
 
-  // Menu › Unteraufgabe von … › the first task offered.
+  // Menu › Unteraufgabe von … › the first task offered. No "Verschieben nach …": the Checkliste has no
+  // columns to move to (UX-024).
   await child.getByRole("button", { name: `Aktionen für „${title}“` }).click();
+  await expect(page.getByRole("menuitem", { name: /^Verschieben nach/ })).toHaveCount(0);
   await page.getByRole("menuitem", { name: "Unteraufgabe von …" }).click();
   const dialog = page.getByRole("dialog", { name: "Unteraufgabe von …" });
   const option = dialog
