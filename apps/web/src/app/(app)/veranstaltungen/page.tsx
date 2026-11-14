@@ -9,6 +9,7 @@ import { EventVorschau } from "@/components/events/event-vorschau";
 import { FilterToggle } from "@/components/events/filter-toggle";
 import { GenerateSheet } from "@/components/events/generate-sheet";
 import { LiveSearchInput } from "@/components/events/live-search-input";
+import { PagingMore } from "@/components/events/paging-more";
 import { SearchHotkey } from "@/components/events/search-hotkey";
 import { Page, PageHeader } from "@/components/shell/page";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit";
@@ -100,7 +101,8 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
     ? (sortParam as SortKey)
     : "datum";
   const sortDir: "asc" | "desc" = param(sp.richtung) === "ab" ? "desc" : "asc";
-  const q = param(sp.q)?.slice(0, 100);
+  // Trimmed once: Enter on a box of spaces sends `?q=+++`, which must read as no search at all.
+  const q = param(sp.q)?.trim().slice(0, 100) || undefined;
   // "Ohne Genehmigung" (from the Übersicht KPI): upcoming planned events whose permits are not all
   // granted. It looks across seasons, like the KPI does.
   const openPermits = param(sp.genehmigung) === "offen";
@@ -182,7 +184,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
   // seasons or with another status ("Auch passend: …", with a link to all of them).
   const narrowing = { typeKey, venueId, q: filters.q, qMode };
   const hints = !justCreated && !openPermits;
-  const [cancelledCount, allMatches, pastMatches] = await Promise.all([
+  const [cancelledCount, allMatches, pastMatches, literalMatches, typoMatches] = await Promise.all([
     !hidesCancelled
       ? 0
       : withCancelled
@@ -192,7 +194,13 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
     hints && q && upcomingOnly && !seasonPicked
       ? countEvents(actor, { ...narrowing, endedBefore: today })
       : 0,
+    // Typo matching includes every literal match; the hint only when it adds a row to this view.
+    hints && qMode === "typos"
+      ? countEvents(actor, { ...filters, ...narrowing, qMode: "words" })
+      : 0,
+    hints && qMode === "typos" ? countEvents(actor, { ...filters, ...narrowing }) : 0,
   ]);
+  const typoOnly = typoMatches > literalMatches;
   const hiddenMatches = Math.max(0, allMatches - rows.length);
   const hiddenCancelled = withCancelled ? 0 : cancelledCount;
   const sortBy = (key: SortKey) => ({
@@ -370,7 +378,7 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
                 </FilterChips>
               </FilterGroup>
             )}
-            {cancelledCount > 0 && (
+            {(withCancelled || cancelledCount > 0) && (
               <FilterGroup label={t("cancelled.label")}>
                 <FilterChips>
                   <FilterChip
@@ -419,13 +427,13 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
         </p>
       )}
 
-      {q && hints && (hiddenMatches > 0 || qMode === "typos") && (
+      {q && hints && (hiddenMatches > 0 || typoOnly) && (
         <p
           role="status"
           className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-status-info-bg px-3 py-2 text-status-info"
         >
           <History aria-hidden className="size-4 shrink-0" />
-          {qMode === "typos" && <span>{t("alsoMatching.typos", { q })}</span>}
+          {typoOnly && <span>{t("alsoMatching.typos", { q })}</span>}
           {hiddenMatches > 0 && (
             <>
               <span>
@@ -527,19 +535,20 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
         )}
       </Panel>
 
-      {rows.length > pageRows.length && (
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-small">
-          <span className="tabular">
-            {t("paging.shown", { shown: pageRows.length, total: rows.length })}
-          </span>
-          <Link
-            href={hrefWith(PATH, sp, { anzahl: limit + PAGE_SIZE, vorschau: undefined }) as never}
-            scroll={false}
-            className="inline-flex min-h-8 items-center rounded-lg border border-input bg-card px-3 font-medium text-foreground hover:bg-hover"
-          >
-            {t("paging.more", { count: Math.min(PAGE_SIZE, rows.length - pageRows.length) })}
-          </Link>
-        </p>
+      {/* Stays once every row is shown, so the focus of the last "weitere anzeigen" has a place to go. */}
+      {rows.length > PAGE_SIZE && (
+        <PagingMore
+          shownText={t("paging.shown", { shown: pageRows.length, total: rows.length })}
+          allText={t("paging.all", { total: rows.length })}
+          moreText={t("paging.more", {
+            count: Math.min(PAGE_SIZE, rows.length - pageRows.length),
+          })}
+          moreHref={
+            rows.length > pageRows.length
+              ? hrefWith(PATH, sp, { anzahl: limit + PAGE_SIZE, vorschau: undefined })
+              : null
+          }
+        />
       )}
 
       <SearchHotkey inputId="q" />

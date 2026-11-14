@@ -63,7 +63,8 @@
     },
     "paging": {
       "shown": "{shown} von {total} Terminen",
-      "more": "{count, plural, one {# weiteren Termin anzeigen} other {# weitere Termine anzeigen}}"
+      "more": "{count, plural, one {# weiteren Termin anzeigen} other {# weitere Termine anzeigen}}",
+      "all": "Alle {total} Termine angezeigt"
     },
     "manualForm": {
       "errors": {

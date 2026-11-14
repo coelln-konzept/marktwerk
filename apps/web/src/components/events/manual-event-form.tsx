@@ -146,6 +146,7 @@ export function ManualEventForm({
           errorId={errorId}
           messageFor={(p) => errorText(p.code)}
           dateRange={dateRange}
+          validateScheduleOnLeave
         />
       </div>
       <ScheduleHints

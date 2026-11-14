@@ -5,6 +5,7 @@ import {
   defaultSchedule,
   endsOnFor,
   groupConsecutiveDates,
+  isInEventDateRange,
   isIsoDate,
   MAX_PRICE_CENTS,
   parseSchedule,
@@ -25,6 +26,7 @@ import {
 } from "@marktwerk/db/schema";
 import { and, eq, gte, inArray, isNull, lte, ne } from "drizzle-orm";
 import { forbidden } from "next/navigation";
+import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
@@ -316,6 +318,9 @@ export async function createManualEvent(
 ): Promise<CreatedEvent> {
   if (!can(actor.role, "event", "write")) forbidden();
   const days = validateDates([input.startsOn]);
+  // A typo like 9999 or 0001 would create an event nobody finds again (UX-041).
+  if (!isInEventDateRange(input.startsOn, todayIn()))
+    throw new EventInputError("date_out_of_range");
   const template = await manualTemplate(input);
   const [created] = await db.transaction((tx) =>
     instantiateEvents(tx, actor, template, days, "manual"),

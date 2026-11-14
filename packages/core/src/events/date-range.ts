@@ -34,16 +34,20 @@ export function isInEventDateRange(date: string, today: string): boolean {
 }
 
 /**
- * `from`–`to` cut down to the allowed range (for look-ups around a typed date), or null when nothing of it
- * is left or a bound is not a date.
+ * The days a look-up of existing events may span: four-digit years with room for the ± a week the hints
+ * add, so "9999-12-31" + 7 days never reaches year 10000, which Postgres rejects (UX-041). Wider than
+ * `eventDateRange` on purpose: "Markt planen" and agreements generate dates outside the plannable
+ * years, and their hints must still see what is there.
  */
-export function clampToEventDateRange(
-  from: string,
-  to: string,
-  today: string,
-): { from: string; to: string } | null {
+export const LOOKUP_DATE_RANGE = { min: "1000-01-01", max: "9998-12-31" } as const;
+
+/**
+ * `from`–`to` cut down to `LOOKUP_DATE_RANGE`, or null when nothing of it is left or a bound is not a
+ * date.
+ */
+export function clampToLookupRange(from: string, to: string): { from: string; to: string } | null {
   if (!isIsoDate(from) || !isIsoDate(to)) return null;
-  const { min, max } = eventDateRange(today);
+  const { min, max } = LOOKUP_DATE_RANGE;
   const lo = from < min ? min : from;
   const hi = to > max ? max : to;
   return lo <= hi ? { from: lo, to: hi } : null;

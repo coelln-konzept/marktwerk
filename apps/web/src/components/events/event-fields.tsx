@@ -190,6 +190,7 @@ export function EventFields({
   canCreateVenue = true,
   messageFor,
   dateRange,
+  validateScheduleOnLeave = false,
 }: {
   value: EventFieldsValue;
   onChange: (next: EventFieldsValue) => void;
@@ -209,6 +210,8 @@ export function EventFields({
   messageFor?: (problem: FieldProblem) => string;
   /** Limits the date picker of "Erster Tag" (the plannable years, UX-041). */
   dateRange?: { min: string; max: string };
+  /** Zeitplan rows show their issue once the focus has left them (opt-in, see `ScheduleEditor`). */
+  validateScheduleOnLeave?: boolean;
 }) {
   const t = useTranslations("generate.single");
   const locale = useLocale();
@@ -315,7 +318,7 @@ export function EventFields({
           onChange={(schedule) => set({ schedule })}
           durationDays={Number(value.days)}
           showErrors={showScheduleErrors}
-          validateOnLeave
+          validateOnLeave={validateScheduleOnLeave}
           idPrefix={id("schedule")}
         />
         {message("schedule")}

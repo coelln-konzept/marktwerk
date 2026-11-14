@@ -63,7 +63,8 @@
     },
     "paging": {
       "shown": "{shown} of {total} dates",
-      "more": "{count, plural, one {Show # more date} other {Show # more dates}}"
+      "more": "{count, plural, one {Show # more date} other {Show # more dates}}",
+      "all": "All {total} dates shown"
     },
     "manualForm": {
       "errors": {
