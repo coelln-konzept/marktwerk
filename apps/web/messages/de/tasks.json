@@ -148,13 +148,16 @@
     "unchanged": "Nichts geändert",
     "dueField": {
       "incomplete": "Bitte das Datum vollständig angeben.",
-      "invalid": "Bitte ein gültiges Datum angeben (Jahr mit vier Ziffern)."
+      "invalid": "Bitte ein Datum zwischen 2000 und 2099 angeben."
     },
+    "dueRequiredByNotify": "Die Benachrichtigung richtet sich nach diesem Datum. Bitte zuerst die Benachrichtigung ändern.",
     "deleted": {
       "badge": "Gelöscht",
       "restore": "Wiederherstellen",
       "hint": "Die Aufgabe steht in keiner Liste mehr. Wiederherstellen holt sie mit ihrem alten Status zurück.",
-      "hintNoRestore": "Die Aufgabe steht in keiner Liste mehr."
+      "hintNoRestore": "Die Aufgabe steht in keiner Liste mehr.",
+      "eventBadge": "Mit der Veranstaltung abgesagt",
+      "eventHint": "Die Veranstaltung ist abgesagt, darum steht die Aufgabe in keiner Liste mehr. Wird sie wieder angesetzt, kommen ihre offenen Aufgaben zurück."
     },
     "hours": "Stunden",
     "nobody": "Niemand",

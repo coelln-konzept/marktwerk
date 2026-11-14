@@ -3,6 +3,8 @@
  * components so they can be tested without a browser.
  */
 
+import { checkNotifySetting, type NotifyChannel, type NotifyTiming } from "@marktwerk/core";
+
 /** Earliest and latest due date the date fields take (a native date field otherwise accepts year 31022). */
 export const DUE_MIN = "2000-01-01";
 export const DUE_MAX = "2099-12-31";
@@ -47,17 +49,50 @@ export function createdTaskHref({
   return `${pathname}?${params.toString()}`;
 }
 
-/** A subtask typed into "Unteraufgabe hinzufügen" whose save may still be running; `id` once it is saved. */
-export type QueuedSubtask = { key: number; title: string; id: string | null };
+/**
+ * A subtask typed into "Unteraufgabe hinzufügen" whose save may still be running; `id` once it is saved.
+ * `parentId` is the task it was typed into: the drawer stays mounted when another task opens in it, so a
+ * queued row must not show up under that one.
+ */
+export type QueuedSubtask = { key: number; parentId: string; title: string; id: string | null };
 
 /**
- * The queued subtasks still to show as "wird angelegt …": those not saved yet, and saved ones whose row has
- * not arrived with the refreshed task yet (so nothing flickers away in between).
+ * The queued subtasks to show under `parentId` as "wird angelegt …": those not saved yet, and saved ones
+ * whose row has not arrived with the refreshed task yet (so nothing flickers away in between).
  */
 export function pendingSubtasks(
   queued: QueuedSubtask[],
+  parentId: string,
   savedIds: Iterable<string>,
 ): QueuedSubtask[] {
   const saved = new Set(savedIds);
-  return queued.filter((q) => q.id === null || !saved.has(q.id));
+  return queued.filter((q) => q.parentId === parentId && (q.id === null || !saved.has(q.id)));
+}
+
+/**
+ * What stays in the queue while `parentId` is open with the subtasks `savedIds`: its own pending ones, and
+ * those of another task only while their save is still running (a saved one has nothing left to show).
+ */
+export function keptSubtasks(
+  queued: QueuedSubtask[],
+  parentId: string,
+  savedIds: Iterable<string>,
+): QueuedSubtask[] {
+  const mine = new Set(pendingSubtasks(queued, parentId, savedIds));
+  return queued.filter((q) => mine.has(q) || (q.parentId !== parentId && q.id === null));
+}
+
+/**
+ * Whether the due date can be cleared without breaking the task's notification: a relative timing ("am
+ * Fälligkeitstag", "1 Tag vorher", …) is computed from the due date, so the server refuses to clear it
+ * (`invalid_notify`). Only `on_create` and `custom` stand without a date.
+ */
+export function notifyNeedsDue(notify: {
+  channels: NotifyChannel[];
+  timing: NotifyTiming | null;
+  at: string | null;
+}): boolean {
+  const setting = { ...notify, at: notify.at ? new Date(notify.at) : null };
+  // A setting that is fine with a date and refused without one depends on it.
+  return checkNotifySetting(setting, true) === null && checkNotifySetting(setting, false) !== null;
 }

@@ -2,13 +2,16 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createdTaskHref,
   dueProblem,
+  keptSubtasks,
+  notifyNeedsDue,
   pendingSubtasks,
   type QueuedSubtask,
 } from "@/components/task/drawer-logic";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import { getTaskDetail } from "@/server/queries/tasks";
-import { createTask, deleteTask, restoreTask, updateTask } from "@/server/services/tasks";
+import { changeEventStatus } from "@/server/services/event-lifecycle";
+import { deleteTask, restoreTask, TaskInputError, updateTask } from "@/server/services/tasks";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 import { getTask, insertEvent, insertTask } from "../helpers/tasks";
 
@@ -57,15 +60,49 @@ describe("createdTaskHref", () => {
 
 describe("pendingSubtasks", () => {
   const queued: QueuedSubtask[] = [
-    { key: 1, title: "Eins", id: "a" },
-    { key: 2, title: "Zwei", id: "b" },
-    { key: 3, title: "Drei", id: null },
+    { key: 1, parentId: "p", title: "Eins", id: "a" },
+    { key: 2, parentId: "p", title: "Zwei", id: "b" },
+    { key: 3, parentId: "p", title: "Drei", id: null },
   ];
 
   it("shows unsaved ones and saved ones whose row has not arrived yet (UX-021)", () => {
-    expect(pendingSubtasks(queued, ["a"]).map((q) => q.title)).toEqual(["Zwei", "Drei"]);
-    expect(pendingSubtasks(queued, ["a", "b"]).map((q) => q.title)).toEqual(["Drei"]);
-    expect(pendingSubtasks(queued, [])).toHaveLength(3);
+    expect(pendingSubtasks(queued, "p", ["a"]).map((q) => q.title)).toEqual(["Zwei", "Drei"]);
+    expect(pendingSubtasks(queued, "p", ["a", "b"]).map((q) => q.title)).toEqual(["Drei"]);
+    expect(pendingSubtasks(queued, "p", [])).toHaveLength(3);
+  });
+
+  it("shows nothing typed into another task once that one is no longer open", () => {
+    expect(pendingSubtasks(queued, "other", [])).toEqual([]);
+  });
+});
+
+describe("keptSubtasks", () => {
+  it("keeps another task's rows only while their save is running", () => {
+    const queued: QueuedSubtask[] = [
+      { key: 1, parentId: "a", title: "A saved", id: "s1" },
+      { key: 2, parentId: "a", title: "A saving", id: null },
+      { key: 3, parentId: "b", title: "B saved, row there", id: "s2" },
+      { key: 4, parentId: "b", title: "B saved, row not yet", id: "s3" },
+    ];
+    // Task B is open now and its refreshed rows hold s2.
+    expect(keptSubtasks(queued, "b", ["s2"]).map((q) => q.key)).toEqual([2, 4]);
+  });
+});
+
+describe("notifyNeedsDue", () => {
+  const email = ["email" as const];
+
+  it("is true for a timing counted from the due date, so clearing it is refused at the field", () => {
+    expect(notifyNeedsDue({ channels: email, timing: "due_day", at: null })).toBe(true);
+    expect(notifyNeedsDue({ channels: email, timing: "before_7d", at: null })).toBe(true);
+  });
+
+  it("is false without a notification and for timings that stand without a date", () => {
+    expect(notifyNeedsDue({ channels: [], timing: null, at: null })).toBe(false);
+    expect(notifyNeedsDue({ channels: email, timing: "on_create", at: null })).toBe(false);
+    expect(
+      notifyNeedsDue({ channels: email, timing: "custom", at: "2026-11-20T08:00:00.000Z" }),
+    ).toBe(false);
   });
 });
 
@@ -106,21 +143,41 @@ describe("task drawer services", () => {
     expect(row).toMatchObject({ dueOverridden: false, customized: false });
   });
 
-  it("keeps every subtask of quick adds, in the order typed (UX-021)", async () => {
-    const parent = await insertTask({ title: "Aufbau", eventId });
-    // The drawer queues the saves: one after another, never two at once and none skipped.
-    for (const title of ["Zelte", "Tische", "Kabel"])
-      await createTask(owner, { title, parentId: parent.id });
-    const detail = await getTaskDetail(owner, parent.id, "2026-11-01");
-    expect(detail?.subtasks.map((s) => s.title)).toEqual(["Zelte", "Tische", "Kabel"]);
+  it("refuses to clear a due date a relative notification is timed from (why the field blocks it)", async () => {
+    const t = await insertTask({
+      title: "Schilder",
+      eventId,
+      dueAt: new Date("2026-11-10T09:00:00Z"),
+      notifyChannels: ["email"],
+      notifyTiming: "before_1d",
+    });
+    const refused = await updateTask(owner, t.id, { dueOn: null }).then(
+      () => null,
+      (error: unknown) => (error instanceof TaskInputError ? error.code : error),
+    );
+    expect(refused).toBe("invalid_notify");
+    expect((await getTask(t.id)).dueAt?.toISOString().slice(0, 10)).toBe("2026-11-10");
+    expect((await getTaskDetail(owner, t.id, "2026-11-01"))?.notify).toMatchObject({
+      timing: "before_1d",
+    });
   });
 
-  it("still opens a deleted task, shown as deleted, and restores it (UX-060)", async () => {
-    const t = await insertTask({ title: "Schilder", eventId });
-    await deleteTask(owner, t.id);
-    const deleted = await getTaskDetail(owner, t.id, "2026-11-01");
-    expect(deleted?.status).toBe("cancelled");
-    await restoreTask(owner, t.id);
-    expect((await getTaskDetail(owner, t.id, "2026-11-01"))?.status).toBe("todo");
+  it("tells a deleted task from one cancelled with its event (UX-060)", async () => {
+    const deleted = await insertTask({ title: "Schilder", eventId });
+    await deleteTask(owner, deleted.id);
+    expect(await getTaskDetail(owner, deleted.id, "2026-11-01")).toMatchObject({
+      status: "cancelled",
+      eventCancelled: false,
+    });
+    await restoreTask(owner, deleted.id);
+    expect((await getTaskDetail(owner, deleted.id, "2026-11-01"))?.status).toBe("todo");
+
+    const withEvent = await insertTask({ title: "Kasse", eventId, status: "in_progress" });
+    await changeEventStatus(owner, eventId, "cancelled", "Unwetter");
+    // No "Wiederherstellen" for it: it comes back with the event.
+    expect(await getTaskDetail(owner, withEvent.id, "2026-11-01")).toMatchObject({
+      status: "cancelled",
+      eventCancelled: true,
+    });
   });
 });

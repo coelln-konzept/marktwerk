@@ -55,7 +55,7 @@ export function SubtaskList({
   /** A save of the drawer is running (the due-date fields wait for it; adding does not). */
   pending: boolean;
   actions: Actions;
-  onSaveDue: (subtask: SubtaskRow, dueOn: string | null) => void;
+  onSaveDue: (subtask: SubtaskRow, dueOn: string | null) => Promise<boolean>;
   /** The title being typed into "Unteraufgabe hinzufügen" (the drawer keeps it while it is open). */
   draft: string;
   onDraftChange: (value: string) => void;
@@ -169,7 +169,7 @@ function SubtaskItem({
   canDelete: boolean;
   pending: boolean;
   actions: Actions;
-  onSaveDue: (subtask: SubtaskRow, dueOn: string | null) => void;
+  onSaveDue: (subtask: SubtaskRow, dueOn: string | null) => Promise<boolean>;
 }) {
   const t = useTranslations("tasks");
   const tBoard = useTranslations("board");

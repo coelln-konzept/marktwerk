@@ -49,7 +49,7 @@ import { formatEstimate, REASON_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { StaffOption, SubtaskRow, TaskDetail } from "@/server/queries/tasks";
 import type { NotifyInput } from "@/server/services/tasks";
-import { pendingSubtasks, type QueuedSubtask } from "./drawer-logic";
+import { keptSubtasks, notifyNeedsDue, pendingSubtasks, type QueuedSubtask } from "./drawer-logic";
 import { DueDateInput } from "./due-input";
 import type { NotifyRecipient } from "./notify-fields";
 import { NotifySection } from "./notify-section";
@@ -168,11 +168,21 @@ export function TaskDrawer({
   const titleRef = useRef<HTMLInputElement>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const focusEditButton = useRef(false);
+  const doneButtonRef = useRef<HTMLButtonElement>(null);
+  const restoring = useRef(false);
+  // The task the drawer shows now: it stays mounted when another task opens in it (a subtask link, the
+  // parent link, another row), so a subtask save that finishes later must not touch that one's field.
+  const shown = useRef({ id: task.id, open: isOpen });
+  useEffect(() => {
+    shown.current = { id: task.id, open: isOpen };
+  }, [task.id, isOpen]);
   const uid = useId();
 
   const finished = task.status === "done" || task.status === "skipped";
-  // A deleted task (status `cancelled`) says so and can only be restored (UX-060).
+  // A deleted task (status `cancelled`) says so and can only be restored (UX-060). One cancelled together
+  // with its event comes back with the event, not by "Wiederherstellen" (that would make it a lone Offen).
   const deleted = task.status === "cancelled";
+  const canRestore = canDelete && !task.eventCancelled;
   const writable = canWrite && !deleted;
   const ref = { id: task.id, title: task.title, status: task.status };
 
@@ -184,35 +194,39 @@ export function TaskDrawer({
     patch: Parameters<typeof editTask>[1],
     undo?: Parameters<typeof editTask>[1],
     target: { id: string; title: string } = task,
-  ) {
+  ): Promise<boolean> {
     // Every toast names the task it is about (UX-031); a renamed task by its new title.
     const named = patch.title?.trim() || target.title;
     const message =
       patch.dueOn === null ? t("dueCleared", { title: named }) : t("savedTitle", { title: named });
-    startTransition(async () => {
-      const result = await callAction(() => editTask(target.id, patch));
-      if (!result.ok) {
-        showError(actions.errorText(result.error));
-        return;
-      }
-      if (!result.data.changed) {
-        showToast({ message: t("unchanged") });
-        return;
-      }
-      if (!undo) {
-        showToast({ message });
-        return;
-      }
-      showToast({
-        message,
-        actionLabel: tToast("undo"),
-        onAction: async () => {
-          const back = await callAction(() => editTask(target.id, undo));
-          if (back.ok) showToast({ message: tToast("revertedTitle", { title: target.title }) });
-          else showError(actions.errorText(back.error));
-        },
-      });
-    });
+    // Resolves to whether it was saved, so a field can show the saved value again after a refusal.
+    return new Promise((resolve) =>
+      startTransition(async () => {
+        const result = await callAction(() => editTask(target.id, patch));
+        resolve(result.ok);
+        if (!result.ok) {
+          showError(actions.errorText(result.error));
+          return;
+        }
+        if (!result.data.changed) {
+          showToast({ message: t("unchanged") });
+          return;
+        }
+        if (!undo) {
+          showToast({ message });
+          return;
+        }
+        showToast({
+          message,
+          actionLabel: tToast("undo"),
+          onAction: async () => {
+            const back = await callAction(() => editTask(target.id, undo));
+            if (back.ok) showToast({ message: tToast("revertedTitle", { title: target.title }) });
+            else showError(actions.errorText(back.error));
+          },
+        });
+      }),
+    );
   }
 
   /** While Team is hidden the recipient is whoever set the notification (the signed-in user by default). */
@@ -252,13 +266,13 @@ export function TaskDrawer({
 
   /**
    * Due date of this task or a subtask (`DueDateInput` commits once per value; null = the field was cleared,
-   * saved as "Kein Datum" with undo); undo restores the flags.
+   * saved as "Kein Datum" with undo); undo restores the flags. Resolves to whether it was saved.
    */
   function saveDue(
     target: Pick<SubtaskRow, "id" | "title" | "dueOn" | "dueOverridden" | "customized">,
     value: string | null,
-  ) {
-    save(
+  ): Promise<boolean> {
+    return save(
       { dueOn: value },
       {
         dueOn: target.dueOn,
@@ -272,33 +286,36 @@ export function TaskDrawer({
    * "Unteraufgabe hinzufügen" (Enter): the field empties at once and keeps the focus for the next one; the
    * new row shows "wird angelegt …" until it is saved. The saves run one after another in the order typed,
    * outside the drawer's own pending state, so quick Enters are never lost (UX-021). A failed one says so and
-   * comes back into the field if it is empty.
+   * comes back into the field if it is empty and its task is still the one open.
    */
   function addSubtask(value: string) {
     const key = ++queueKey.current;
+    const parentId = task.id;
     setNewItem("");
-    setQueued((list) => [...list, { key, title: value, id: null }]);
+    setQueued((list) => [...list, { key, parentId, title: value, id: null }]);
     queue.current = queue.current.then(async () => {
-      const result = await callAction(() => newSubtask(task.id, value));
+      const result = await callAction(() => newSubtask(parentId, value));
       if (result.ok) {
         const { id } = result.data;
         setQueued((list) => list.map((q) => (q.key === key ? { ...q, id } : q)));
         return;
       }
       setQueued((list) => list.filter((q) => q.key !== key));
-      setNewItem((draft) => (draft === "" ? value : draft));
+      if (shown.current.id === parentId && shown.current.open)
+        setNewItem((draft) => (draft === "" ? value : draft));
       showError(t("subtask.addFailed", { title: value, reason: actions.errorText(result.error) }));
     });
   }
 
-  // A saved subtask leaves the queue once its row has arrived with the refreshed task.
+  // A saved subtask leaves the queue once its row has arrived with the refreshed task; one of another task
+  // once it is saved (it shows with that task when it opens again).
   useEffect(() => {
     const saved = task.subtasks.map((s) => s.id);
     setQueued((list) => {
-      const left = pendingSubtasks(list, saved);
+      const left = keptSubtasks(list, task.id, saved);
       return left.length === list.length ? list : left;
     });
-  }, [task.subtasks]);
+  }, [task.id, task.subtasks]);
 
   /** Opens the title and description editor; its title field takes the focus. */
   function startEditing() {
@@ -345,6 +362,14 @@ export function TaskDrawer({
     focusEditButton.current = false;
     editButtonRef.current?.focus();
   }, [editing]);
+
+  // "Wiederherstellen" disappears with the restore: the focus moves on to the Erledigt toggle instead of
+  // falling to the page (UX-060).
+  useEffect(() => {
+    if (deleted || !restoring.current) return;
+    restoring.current = false;
+    doneButtonRef.current?.focus();
+  }, [deleted]);
 
   /** Optimistic close: drop the drawer and the URL parameter now; the opener gets its focus back. */
   const close = useCallback(() => {
@@ -431,17 +456,28 @@ export function TaskDrawer({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge tone="critical" icon={Trash2}>
-          {t("deleted.badge")}
+          {task.eventCancelled ? t("deleted.eventBadge") : t("deleted.badge")}
         </StatusBadge>
-        {canDelete && (
-          <Button size="sm" disabled={actions.pending} onClick={() => actions.restore(ref)}>
+        {canRestore && (
+          <Button
+            size="sm"
+            disabled={actions.pending}
+            onClick={() => {
+              restoring.current = true;
+              actions.restore(ref);
+            }}
+          >
             <RotateCcw aria-hidden />
             {t("deleted.restore")}
           </Button>
         )}
       </div>
       <p className="m-0 text-muted-foreground text-small">
-        {canDelete ? t("deleted.hint") : t("deleted.hintNoRestore")}
+        {task.eventCancelled
+          ? t("deleted.eventHint")
+          : canRestore
+            ? t("deleted.hint")
+            : t("deleted.hintNoRestore")}
       </p>
     </div>
   );
@@ -450,6 +486,7 @@ export function TaskDrawer({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <button
+          ref={doneButtonRef}
           type="button"
           aria-pressed={finished}
           disabled={!writable}
@@ -691,6 +728,7 @@ export function TaskDrawer({
                 id={`${uid}-due`}
                 value={task.dueOn}
                 pending={pending}
+                clearBlocked={notifyNeedsDue(task.notify) ? t("dueRequiredByNotify") : null}
                 onCommit={(value) => saveDue(task, value)}
               />
             ) : (
@@ -958,6 +996,7 @@ export function TaskDrawer({
             onAdd={addSubtask}
             queued={pendingSubtasks(
               queued,
+              task.id,
               task.subtasks.map((s) => s.id),
             )}
           />

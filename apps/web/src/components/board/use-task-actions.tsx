@@ -155,7 +155,10 @@ export function useTaskActions({
           what: evidenceText(result.detail, result.count),
         });
         // Its drawer is already open (the refusal came from there): no "Öffnen" that leads nowhere (UX-068).
-        const open = new URLSearchParams(window.location.search).get("aufgabe") === task.id;
+        // Same test as the drawer's own: `?aufgabe=<id>` or `?detail=task:<id>`.
+        const params = new URLSearchParams(window.location.search);
+        const open =
+          params.get("aufgabe") === task.id || params.get("detail") === `task:${task.id}`;
         if (open) {
           showError(message);
           return;
