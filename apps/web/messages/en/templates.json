@@ -254,7 +254,13 @@
       "tplShared": "shared",
       "tplDraft": "draft",
       "tplMeta": "{kind} · {version} · {count, plural, one {# task} other {# tasks}}",
-      "codeTitle": "Short code"
+      "codeTitle": "Short code",
+      "new": "New market",
+      "searchLabel": "Search markets",
+      "search": "Name, code, venue or type",
+      "searchResult": "{count, plural, one {# match} other {# matches}} for “{query}”",
+      "resetSearch": "Clear search",
+      "emptySearch": "No market matches this search."
     },
     "others": {
       "title": "Unused timeline templates",
