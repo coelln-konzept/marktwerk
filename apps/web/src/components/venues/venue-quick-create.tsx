@@ -2,17 +2,24 @@
 
 import {
   isPostalCode,
+  landownerKindsFor,
+  mayOwnVenue,
   VENUE_KINDS,
   type VenueKindKey,
   venueNameFromAddress,
 } from "@marktwerk/core";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useMemo, useState, useTransition } from "react";
-import { createVenueAction, landownerOptionsAction } from "@/app/(app)/orte/actions";
+import {
+  createVenueAction,
+  landownerOptionsAction,
+  similarVenuesAction,
+} from "@/app/(app)/orte/actions";
 import {
   ContactQuickCreate,
   type CreatedContact,
 } from "@/components/contacts/contact-quick-create";
+import { SimilarHint, useSimilar } from "@/components/contacts/similar-hint";
 import { VenueNeedsDialog } from "@/components/permits/venue-needs-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,7 +85,9 @@ export function VenueQuickCreate({
     void callAction(async () => ({ ok: true as const, data: await landownerOptionsAction() })).then(
       (result) => {
         if (live && result.ok)
-          setLandowners(result.data.map((l) => ({ id: l.id, label: l.name, hint: l.city })));
+          setLandowners(
+            result.data.map((l) => ({ id: l.id, label: l.name, hint: l.city, kind: l.kind })),
+          );
       },
     );
     return () => {
@@ -87,7 +96,24 @@ export function VenueQuickCreate({
   }, [open, text]);
 
   const derived = venueNameFromAddress(city, street);
-  const options = useMemo(() => landowners, [landowners]);
+  // A städtisches Ort may also belong to a Behörde (UX-056).
+  const options = useMemo(
+    () => landowners.filter((l) => mayOwnVenue(l.kind ?? "landowner", kind)),
+    [landowners, kind],
+  );
+  // "Ähnlicher Ort" (UX-028), as in the full form: a hint, creating stays possible.
+  const typedName = name.trim() || derived;
+  const similar = useSimilar(
+    open && (typedName.length >= 3 || (street.trim() !== "" && postalCode.trim().length === 5))
+      ? JSON.stringify([typedName, street.trim(), postalCode.trim()])
+      : null,
+    () =>
+      similarVenuesAction({
+        name: typedName,
+        street: street.trim(),
+        postalCode: postalCode.trim(),
+      }),
+  );
 
   const fieldOf = (code: string) =>
     ({
@@ -182,7 +208,13 @@ export function VenueQuickCreate({
               id={id("kind")}
               value={kind}
               className={SELECT_CLASS}
-              onChange={(e) => setKind(e.target.value as VenueKindKey)}
+              onChange={(e) => {
+                const next = e.target.value as VenueKindKey;
+                setKind(next);
+                // An Eigentümer that may not own this kind of Ort (a Behörde for Privat) is dropped.
+                const picked = landowners.find((l) => l.id === landowner);
+                if (picked && !mayOwnVenue(picked.kind ?? "landowner", next)) setLandowner(null);
+              }}
             >
               {VENUE_KINDS.map((k) => (
                 <option key={k} value={k}>
@@ -234,6 +266,16 @@ export function VenueQuickCreate({
             />
           </div>
         </div>
+        <SimilarHint
+          title={t("similar.title", { count: similar.length })}
+          note={t("similar.note")}
+          items={similar.map((v) => ({
+            id: v.id,
+            href: `/orte/${v.id}`,
+            label: v.name,
+            reason: [v.city, t(`similar.reason.${v.reason}`)].filter(Boolean).join(" · "),
+          }))}
+        />
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={id("landowner")} optional>
             {t("landowner")}
@@ -253,7 +295,7 @@ export function VenueQuickCreate({
             open={newLandowner !== null}
             onOpenChange={(next) => !next && setNewLandowner(null)}
             name={newLandowner ?? ""}
-            kinds={["landowner"]}
+            kinds={landownerKindsFor(kind)}
             onCreated={(created) => {
               setLandowners((prev) => [...prev, created]);
               setLandowner(created.id);

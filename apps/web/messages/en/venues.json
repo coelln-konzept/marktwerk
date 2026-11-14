@@ -84,7 +84,22 @@
         "save": "Save",
         "created": "“{name}” created.",
         "saved": "“{name}” saved.",
-        "unchanged": "No changes."
+        "unchanged": "No changes.",
+        "similar": {
+          "title": "{count, plural, one {A similar venue exists} other {# similar venues exist}}",
+          "note": "If it is a different venue, you can still create it.",
+          "noteEdit": "If it is a different venue, you can still save.",
+          "reason": {
+            "name": "same name",
+            "address": "same street and postcode"
+          }
+        },
+        "unsaved": "Unsaved changes",
+        "discard": "Discard",
+        "keepEditing": "Keep editing",
+        "landownerKindMismatch": "An authority can only own a municipal venue.",
+        "landownerKindMismatchOther": "This contact is no longer of type landowner, so it cannot own this venue.",
+        "landownerHintMunicipal": "You can pick from the contacts of type landowner or authority."
       },
       "archive": {
         "button": "Archive",
@@ -136,7 +151,11 @@
         "saved": "Row “{row}” saved.",
         "unchanged": "No changes.",
         "deleted": "Row “{row}” deleted.",
-        "restored": "Row “{row}” is back."
+        "restored": "Row “{row}” is back.",
+        "addedNext": "“{row}” added. On to the next row.",
+        "duplicateLabel": "“{row}” already exists in this zone.",
+        "metresHintPrefilled": "in metres; length and depth of the last row are filled in",
+        "submitAddMore": "Add and next"
       },
       "errors": {
         "generic": "That didn't work. Please try again.",
@@ -157,7 +176,13 @@
         "invalid_row_label": "Please enter a label (at most 40 characters).",
         "invalid_length": "Please enter the length in metres, e.g. 12.5 (greater than 0).",
         "invalid_depth": "Please enter the depth in metres, e.g. 3 or 3.5 (greater than 0).",
-        "invalid_car_slots": "Please enter a whole number from 0 to 999."
+        "invalid_car_slots": "Please enter a whole number from 0 to 999.",
+        "invalid_lat": "Please enter the latitude as a number from −90 to 90, e.g. 50.9375.",
+        "invalid_lng": "Please enter the longitude as a number from −180 to 180, e.g. 6.9603.",
+        "lat_missing": "Please also enter the latitude, or clear the longitude.",
+        "lng_missing": "Please also enter the longitude, or clear the latitude.",
+        "landowner_kind": "An authority can only own a municipal venue. Please pick another landowner or set the type to municipal.",
+        "landowner_kind_other": "This contact is no longer of type landowner. Please pick another landowner or clear the field."
       }
     },
     "vorschau": {
@@ -171,7 +196,8 @@
       "capacity": "Capacity",
       "landowner": "Landowner",
       "nextEvents": "Next events",
-      "noEvents": "No upcoming events."
+      "noEvents": "No upcoming events.",
+      "zonesSummaryOpen": "{zones, plural, one {# zone} other {# zones}} · {rows, plural, one {# row} other {# rows}} · capacity open"
     },
     "detail": {
       "kind": "Venue",
@@ -215,11 +241,17 @@
       "eventStatus": "Status",
       "presets": "Markets at this venue",
       "noPresets": "There is no market for this venue.",
-      "presetInactive": "inactive"
+      "presetInactive": "inactive",
+      "factsOpen": "{zones, plural, one {# zone} other {# zones}} · {rows, plural, one {# row} other {# rows}} · capacity open",
+      "route": "Directions",
+      "openMap": "Open in maps",
+      "coordinatesLabel": "Coordinates",
+      "zoneSummaryEmpty": "No rows yet"
     },
     "quick": {
       "title": "New location",
       "description": "Address and type are enough. Add zones, rows and access later on the location's page."
-    }
+    },
+    "searchPlaceholder": "Name, city or street"
   }
 }
