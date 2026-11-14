@@ -1,4 +1,14 @@
-import { ArrowRight, CircleAlert, CircleCheck, ListChecks, ShieldAlert } from "lucide-react";
+import {
+  ArrowRight,
+  CircleAlert,
+  CircleCheck,
+  ListChecks,
+  type LucideIcon,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldEllipsis,
+  ShieldQuestionMark,
+} from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -7,7 +17,7 @@ import { Panel, panelActionLink } from "@/components/ui/panel";
 import { rowFocus } from "@/components/ui/table";
 import { formatDateRangeYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { WeekendMarket } from "@/server/queries/overview";
+import type { WeekendMarket, WeekendPermitStatus } from "@/server/queries/overview";
 import { PeekLink } from "./peek-link";
 
 type Checklist = NonNullable<WeekendMarket["checklist"]>;
@@ -59,9 +69,34 @@ function ChecklistStatus({ checklist, name }: { checklist: Checklist; name: stri
   );
 }
 
+/** The permit line of an event: colour + icon + text (UX-064). */
+const PERMIT_LOOK: Record<WeekendPermitStatus, { icon: LucideIcon; className: string }> = {
+  missing: { icon: ShieldAlert, className: "font-medium text-status-critical" },
+  pending: { icon: ShieldEllipsis, className: "text-foreground-2" },
+  ending: { icon: ShieldAlert, className: "font-medium text-status-warn" },
+  ok: { icon: ShieldCheck, className: "text-status-ok" },
+  open: { icon: ShieldQuestionMark, className: "text-foreground-2" },
+};
+
+function PermitStatus({ status, missing }: { status: WeekendPermitStatus; missing: number }) {
+  const t = useTranslations("overview.weekend");
+  const { icon: Icon, className } = PERMIT_LOOK[status];
+  return (
+    <span className={cn("inline-flex items-center gap-1 text-small", className)}>
+      <Icon aria-hidden className="size-3.5 shrink-0" />
+      <span className="tabular">
+        {status === "missing" ? t("permitsMissing", { count: missing }) : t(`permits.${status}`)}
+      </span>
+    </span>
+  );
+}
+
 /**
  * One event of the box: name (opens the event), the eye for its Vorschau, date · Ort, the Checkliste status
- * and, only when some are missing, "N Genehmigungen fehlen" in red (the rule of "Was fehlt"). A J/K row like every other on the Übersicht (Enter opens the event, Space its Vorschau).
+ * and the permit line (UX-064, core `eventPermitLine`): "N Genehmigungen fehlen" in red by the rule of "Was
+ * fehlt", else whether some are not in hand yet (filed and waiting, or not due), one ends early, all cover the
+ * event, or none is entered yet ("noch nicht geklärt"). A J/K row like every other on the
+ * Übersicht (Enter opens the event, Space its Vorschau).
  */
 async function EventItem({
   market,
@@ -73,8 +108,7 @@ async function EventItem({
   selected: boolean;
 }) {
   const locale = await getLocale();
-  const t = await getTranslations("overview.weekend");
-  const { row, checklist, permitsMissing } = market;
+  const { row, checklist, permitsMissing, permitStatus } = market;
   const href = `/veranstaltungen/${row.id}`;
   return (
     <li
@@ -103,19 +137,15 @@ async function EventItem({
         {row.venueName && <> · {row.venueName}</>}
       </span>
       {checklist && <ChecklistStatus checklist={checklist} name={row.name} />}
-      {permitsMissing > 0 && (
-        <span className="inline-flex items-center gap-1 font-medium text-small text-status-critical">
-          <ShieldAlert aria-hidden className="size-3.5 shrink-0" />
-          <span className="tabular">{t("permitsMissing", { count: permitsMissing })}</span>
-        </span>
-      )}
+      {permitStatus && <PermitStatus status={permitStatus} missing={permitsMissing} />}
     </li>
   );
 }
 
 /**
  * "Dieses Wochenende" (decision 2026-11-13): an information box, not a task list. A tinted card without row
- * lines that names the weekend's events (name, date, Ort) with how far each Checkliste is, and links to all
+ * lines that names the weekend's events (name, date, Ort) with how far each Checkliste is and where its
+ * permits stand, and links to all
  * events. With nothing planned this weekend it shows the next events instead, with one line saying so. The
  * tasks themselves live in "Heute & nächste Tage".
  */
@@ -124,6 +154,7 @@ export async function WeekendCard({
   nextEvents,
   today,
   vorschauId,
+  marketToday = false,
   className,
 }: {
   weekend: WeekendMarket[];
@@ -131,6 +162,8 @@ export async function WeekendCard({
   nextEvents: WeekendMarket[];
   today: string;
   vorschauId?: string;
+  /** A market runs today: phones show the box first (the page sets the order); e2e reads the flag. */
+  marketToday?: boolean;
   className?: string;
 }) {
   const t = await getTranslations("overview.weekend");
@@ -141,6 +174,7 @@ export async function WeekendCard({
       title={t("title")}
       titleId="weekend-title"
       className={className}
+      data-market-today={marketToday || undefined}
       cardClassName="border-transparent bg-accent-soft p-1.5"
       actions={
         <Link href="/veranstaltungen" className={panelActionLink}>

@@ -92,14 +92,36 @@ test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the 
   await expect(page.getByRole("group", { name: "Filter" })).toHaveCount(0);
   await expect(page.getByText(/Aufwand =/)).toHaveCount(0);
 
-  // Phone (390 px): main panel, weekend box, permits stack in that order; nothing scrolls sideways.
+  // Phone (390 px): main panel, weekend box, permits stack in that order, except that a market running today
+  // moves the weekend box to the top (UX-006); nothing scrolls sideways.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const [dueY = 0, weekendY = 0, permitsY = 0] = await Promise.all(
     [due, weekend, permits].map(async (h) => (await h.boundingBox())?.y ?? 0),
   );
-  expect(dueY).toBeLessThan(weekendY);
-  expect(weekendY).toBeLessThan(permitsY);
+  const marketToday = (await page.locator("section[data-market-today]").count()) > 0;
+  if (marketToday) expect(weekendY).toBeLessThan(dueY);
+  else expect(dueY).toBeLessThan(weekendY);
+  expect(Math.max(dueY, weekendY)).toBeLessThan(permitsY);
+
+  // Phone: Heute comes first; Überfällig is one line with its count, its rows hidden until "Anzeigen".
+  const today = main.getByRole("heading", { level: 3, name: /^Heute\s*\d+$/ });
+  const overdueToggle = main.getByRole("button", { name: /^Überfällig\s*\d+/ });
+  await expect(today).toBeVisible();
+  await expect(overdueToggle).toBeVisible();
+  await expect(overdueToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(overdueToggle).toContainText("Anzeigen");
+  expect((await today.boundingBox())?.y ?? 0).toBeLessThan(
+    (await overdueToggle.boundingBox())?.y ?? 0,
+  );
+  const overdueRows = page.locator(`[id="${await overdueToggle.getAttribute("aria-controls")}"]`);
+  await expect(overdueRows).toBeHidden();
+  // The toggle is a client component: wait for hydration before clicking it.
+  await page.waitForLoadState("networkidle");
+  await overdueToggle.click();
+  await expect(overdueToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(overdueToggle).toContainText("Ausblenden");
+  await expect(overdueRows.locator("li[data-row]").first()).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -792,7 +814,12 @@ test("Archiv: 50 rows per page with a pager; Aktivität, Alte Genehmigungen and 
   await expect(page).toHaveURL(/genehmigung=/);
 
   await page.goto("/archiv/dokumente");
-  await expect(page.getByPlaceholder("Dateiname oder Beschreibung")).toBeVisible();
+  // The search covers file, owner (event, Markt, Ort …) and description; Art, Markt and Jahr narrow it.
+  await expect(page.getByLabel("Suche", { exact: true })).toHaveAttribute(
+    "placeholder",
+    "Datei, Markt, Ort …",
+  );
+  await expect(page.getByLabel("Art", { exact: true })).toBeVisible();
 });
 
 test("Ort page: address first, then events and markets above the zones; Alle Veranstaltungen opens the filtered list", async ({
@@ -875,8 +902,11 @@ test("Permit: an undo the server refuses shows a red error toast, never the succ
   await expect(other.getByText(`„${title}“ entfernt.`)).toBeVisible();
   await other.close();
 
-  // The top bar's Rückgängig runs the toast's own undo, without racing the toast's 8 s.
-  await page.getByRole("button", { name: /^Rückgängig: Genehmigung angelegt\./ }).click();
+  // The top bar's Rückgängig runs the toast's own undo, without racing the toast's 8 s. Its name ends with
+  // the key hint; the toast's own button is named "Rückgängig: Genehmigung angelegt." (UX-031).
+  await page
+    .getByRole("button", { name: "Rückgängig: Genehmigung angelegt. (Strg+Z)", exact: true })
+    .click();
   const region = page.getByRole("region", { name: "Hinweise" });
   const toast = region
     .getByRole("alert")
@@ -1666,12 +1696,15 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   await expect(page.getByText(`Besprechung „${name}“ archiviert`)).toBeVisible();
   await expect(group.getByRole("link", { name })).toHaveCount(0);
   await toastUndo(page).click();
-  await expect(page.getByText(`Besprechung „${name}“ wiederhergestellt`)).toBeVisible();
+  // The undo's confirmation names the change it took back and replaces its toast (UX-031).
+  await expect(
+    page.getByText(`Rückgängig gemacht: Besprechung „${name}“ archiviert`),
+  ).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();
 
-  // Leave nothing behind.
+  // Leave nothing behind (the undo's "Rückgängig gemacht: …" toast may still be showing).
   await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
-  await expect(page.getByText(`Besprechung „${name}“ archiviert`)).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ archiviert`, { exact: true })).toBeVisible();
 });
 
 /** The id of a Besprechung, read from its link in the Übersicht's "Besprechungen heute" group. */
