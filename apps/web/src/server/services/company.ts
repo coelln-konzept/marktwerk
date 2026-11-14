@@ -8,6 +8,7 @@ import {
   rollForward,
 } from "@marktwerk/core";
 import {
+  document,
   obligation,
   obligationCompletion,
   staffMember,
@@ -147,7 +148,16 @@ const VEHICLE_FIELDS = [
   "notes",
 ] as const satisfies readonly (keyof CleanVehicle)[];
 
-const normalizePlate = (value: string) => squash(value).toUpperCase();
+/** "k - mw  123" → "K-MW 123": upper case, single spaces, no spaces around the hyphen. */
+const normalizePlate = (value: string) =>
+  squash(value)
+    .toUpperCase()
+    .replace(/\s*-\s*/g, "-");
+/**
+ * The plate without separators ("KMW123"): the same plate typed with or without spaces and hyphens is the same
+ * vehicle (UX-028: "KUX1000" and "K UX 1000" were both saved).
+ */
+const plateKey = (value: string) => normalizePlate(value).replace(/[\s-]/g, "");
 
 function cleanVehicle(input: VehicleInput, today: string): CleanVehicle {
   const name = squash(input.name);
@@ -195,16 +205,27 @@ async function checkVehicleUnique(
   values: Pick<CleanVehicle, "plate" | "vin">,
   exceptId?: string,
 ) {
-  const clash = (column: typeof vehicle.plate | typeof vehicle.vin, value: string) =>
-    tx
+  const other = exceptId ? sql`${vehicle.id} <> ${exceptId}` : undefined;
+  // Archived vehicles count too: the plate column is unique, and a sold van that comes back is restored.
+  const [plateClash] = await tx
+    .select({ id: vehicle.id })
+    .from(vehicle)
+    .where(
+      and(
+        sql`regexp_replace(${vehicle.plate}, '[[:space:]-]', '', 'g') = ${plateKey(values.plate)}`,
+        other,
+      ),
+    )
+    .limit(1);
+  if (plateClash) throw new CompanyInputError("plate_taken");
+  if (values.vin) {
+    const [vinClash] = await tx
       .select({ id: vehicle.id })
       .from(vehicle)
-      .where(and(eq(column, value), exceptId ? sql`${vehicle.id} <> ${exceptId}` : undefined))
+      .where(and(eq(vehicle.vin, values.vin), other))
       .limit(1);
-  if ((await clash(vehicle.plate, values.plate)).length > 0)
-    throw new CompanyInputError("plate_taken");
-  if (values.vin && (await clash(vehicle.vin, values.vin)).length > 0)
-    throw new CompanyInputError("vin_taken");
+    if (vinClash) throw new CompanyInputError("vin_taken");
+  }
 }
 
 /** Maps the unique violation of a racing insert/update to the same codes as the pre-check. */
@@ -655,7 +676,9 @@ const scheduleOf = (row: typeof obligation.$inferSelect): ObligationSchedule => 
  * "Erledigt": records the completion and rolls the next due date/km forward from the interval
  * (`rollForward` in @marktwerk/core: whichever of date and km comes first stays a target of its own).
  * A completion dated before the last one is recorded for the history but leaves the schedule alone.
- * A km reading above the vehicle's odometer raises the odometer. Audited as "obligation.complete".
+ * A km reading above the vehicle's odometer raises the odometer; one below it is refused (`odometer_lower`,
+ * the same rule as "Kilometerstand eintragen") unless the completion is dated before that reading.
+ * Audited as "obligation.complete".
  *
  * When the obligation has `createsPayable` and a cost was given, the payable is created in the same
  * transaction through the payables service (`createPayableIn`): linked via `payable.obligation_id`, scope and
@@ -694,6 +717,20 @@ export async function completeObligation(
       );
     if (same) throw new CompanyInputError("already_done_on");
 
+    // The vehicle's reading: a completion on or after the day it was read cannot have fewer km (UX-067).
+    const [v] =
+      current.vehicleId && doneKm !== null
+        ? await tx.select().from(vehicle).where(eq(vehicle.id, current.vehicleId)).for("update")
+        : [];
+    if (
+      v &&
+      doneKm !== null &&
+      v.odometerKm !== null &&
+      doneKm < v.odometerKm &&
+      (v.odometerRecordedOn === null || doneOn >= v.odometerRecordedOn)
+    )
+      throw new CompanyInputError("odometer_lower");
+
     const previous = scheduleOf(current);
     const isNewest = current.lastDoneOn === null || doneOn >= current.lastDoneOn;
     const rolled = isNewest
@@ -730,13 +767,8 @@ export async function completeObligation(
 
     // A reading taken at completion also updates the vehicle (never lowers it).
     let odometer: CompletionResult["odometer"] = null;
-    if (current.vehicleId && doneKm !== null) {
-      const [v] = await tx
-        .select()
-        .from(vehicle)
-        .where(eq(vehicle.id, current.vehicleId))
-        .for("update");
-      if (v && (v.odometerKm === null || doneKm > v.odometerKm)) {
+    if (v && doneKm !== null) {
+      if (v.odometerKm === null || doneKm > v.odometerKm) {
         const before = { odometerKm: v.odometerKm, odometerRecordedOn: v.odometerRecordedOn };
         const after = { odometerKm: doneKm, odometerRecordedOn: doneOn };
         await tx.update(vehicle).set(after).where(eq(vehicle.id, v.id));
@@ -958,6 +990,45 @@ export async function reportVehicleIssue(actor: Actor, input: IssueInput): Promi
       },
     ]);
     return row;
+  });
+}
+
+/**
+ * Undo toast of "Mangel melden" (UX-067: a report made by mistake could not be taken back). Removes the issue
+ * while it is still untouched: status "offen" and no photo attached; otherwise `conflict` and nothing changes.
+ * Audited as "vehicle_issue.report_undo" with what was removed.
+ */
+export async function withdrawVehicleIssue(actor: Actor, issueId: string): Promise<void> {
+  if (!can(actor.role, "company", "write")) forbidden();
+  if (!UUID.test(issueId)) throw new CompanyInputError("not_found");
+  await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(vehicleIssue)
+      .where(eq(vehicleIssue.id, issueId))
+      .for("update");
+    if (!current) throw new CompanyInputError("not_found");
+    if (current.status !== "open") throw new CompanyInputError("conflict");
+    const [photo] = await tx
+      .select({ id: document.id })
+      .from(document)
+      .where(eq(document.vehicleIssueId, issueId))
+      .limit(1);
+    if (photo) throw new CompanyInputError("conflict");
+    await tx.delete(vehicleIssue).where(eq(vehicleIssue.id, issueId));
+    await audit(tx, actor.id, [
+      {
+        action: "vehicle_issue.report_undo",
+        entityType: "vehicle_issue",
+        entityId: issueId,
+        diff: {
+          vehicleId: current.vehicleId,
+          title: current.title,
+          severity: current.severity,
+          reportedBy: current.reportedByStaffMemberId,
+        },
+      },
+    ]);
   });
 }
 

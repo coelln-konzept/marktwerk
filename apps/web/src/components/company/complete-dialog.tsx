@@ -1,6 +1,6 @@
 "use client";
 
-import { parseCostCents, parseWholeNumber } from "@marktwerk/core";
+import { parseCostCents, parseWholeNumber, rollForward } from "@marktwerk/core";
 import { Check } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { formatDate, formatNumber } from "@/lib/format";
+import { FieldError, FormErrorSummary, useFieldErrors } from "./field-errors";
 import { useErrorText } from "./shared";
 
 export type CompleteTarget = {
@@ -25,6 +26,28 @@ export type CompleteTarget = {
   /** Completing with a cost also creates a payable (Zahlung) that is due on the completion date. */
   createsPayable: boolean;
   currentKm: number | null;
+  /** Day of that odometer reading: a completion on or after it cannot have fewer km. */
+  currentKmOn: string | null;
+  /** Schedule, for the preview of the next due date (`rollForward`, the same rule as the server). */
+  intervalMonths: number | null;
+  nextDueOn: string | null;
+  nextDueKm: number | null;
+  leadDays: number;
+  lastDoneOn: string | null;
+};
+
+const ORDER = ["doneOn", "km", "checker", "cost", "notes"] as const;
+
+const FIELD_OF: Record<string, string> = {
+  invalid_date: "doneOn",
+  future_date: "doneOn",
+  already_done_on: "doneOn",
+  km_required: "km",
+  invalid_odometer: "km",
+  odometer_lower: "km",
+  invalid_cost: "cost",
+  checker_required: "checker",
+  invalid_text: "notes",
 };
 
 /**
@@ -56,10 +79,17 @@ export function CompleteButton({
   const [cost, setCost] = useState("");
   const [checker, setChecker] = useState("");
   const [notes, setNotes] = useState("");
-  const [error, setError] = useState<{ field: string | null; text: string } | null>(null);
 
   const isCheck = target.kind === "licence_check";
   const f = (key: string) => `complete-${target.id}-${key}`;
+  const { errors, show, clear, invalid } = useFieldErrors(f);
+
+  /** A reading below the vehicle's known odometer, dated on or after that reading (UX-067). */
+  const belowOdometer = (doneKm: number | null) =>
+    doneKm !== null &&
+    target.currentKm !== null &&
+    doneKm < target.currentKm &&
+    (target.currentKmOn === null || doneOn >= target.currentKmOn);
 
   function openDialog() {
     setDoneOn(today);
@@ -67,33 +97,40 @@ export function CompleteButton({
     setCost("");
     setChecker("");
     setNotes("");
-    setError(null);
+    clear();
     setOpen(true);
   }
 
+  function kmBelowText() {
+    return tc("kmBelow", {
+      km: formatNumber(target.currentKm ?? 0, locale, 0),
+      date: target.currentKmOn ? formatDate(target.currentKmOn, locale) : "",
+    });
+  }
+
   function fail(code: string) {
-    const field =
-      code === "invalid_date" || code === "future_date" || code === "already_done_on"
-        ? "doneOn"
-        : code === "km_required" || code === "invalid_odometer"
-          ? "km"
-          : code === "invalid_cost"
-            ? "cost"
-            : code === "checker_required"
-              ? "checker"
-              : null;
-    setError({ field, text: errorText(code) });
-    if (field) document.getElementById(f(field))?.focus();
+    const field = FIELD_OF[code] ?? "form";
+    show({ [field]: code === "odometer_lower" ? kmBelowText() : errorText(code) }, ORDER);
   }
 
   function submit() {
-    setError(null);
+    clear();
+    // Every wrong field is answered on the spot, at the field; the first one gets the focus.
+    const found: Record<string, string> = {};
+    if (!doneOn) found.doneOn = errorText("invalid_date");
+    else if (doneOn > today) found.doneOn = errorText("future_date");
     const kmText = km.trim();
     const doneKm = kmText === "" ? null : parseWholeNumber(kmText);
-    if (kmText !== "" && doneKm === null) return fail("invalid_odometer");
+    if (target.onVehicle) {
+      if (kmText !== "" && doneKm === null) found.km = errorText("invalid_odometer");
+      else if (kmText === "" && target.intervalKm !== null) found.km = errorText("km_required");
+      else if (belowOdometer(doneKm)) found.km = kmBelowText();
+    }
+    if (isCheck && checker.trim() === "") found.checker = errorText("checker_required");
     const costText = cost.trim();
     const costCents = costText === "" ? null : parseCostCents(costText);
-    if (costText !== "" && costCents === null) return fail("invalid_cost");
+    if (costText !== "" && costCents === null) found.cost = errorText("invalid_cost");
+    if (Object.keys(found).length > 0) return show(found, ORDER);
 
     startTransition(async () => {
       const result = await completeObligationAction(target.id, {
@@ -131,8 +168,40 @@ export function CompleteButton({
     });
   }
 
-  const invalid = (field: string) =>
-    error?.field === field ? { "aria-invalid": true as const, "aria-describedby": f("error") } : {};
+  // What "Erledigt" will set as the next due date, live while typing (the same rule the server applies).
+  const previewKm = km.trim() === "" ? null : parseWholeNumber(km.trim());
+  const preview =
+    doneOn && doneOn <= today
+      ? target.lastDoneOn !== null && doneOn < target.lastDoneOn
+        ? { nextDueOn: target.nextDueOn, nextDueKm: target.nextDueKm, history: true }
+        : {
+            ...rollForward({
+              intervalMonths: target.intervalMonths,
+              intervalKm: target.intervalKm,
+              nextDueOn: target.nextDueOn,
+              leadDays: target.leadDays,
+              doneOn,
+              doneKm: target.onVehicle ? previewKm : null,
+            }),
+            history: false,
+          }
+      : null;
+  const previewText = preview
+    ? preview.history
+      ? tc("previewHistory")
+      : preview.nextDueOn && preview.nextDueKm !== null
+        ? tc("previewBoth", {
+            date: formatDate(preview.nextDueOn, locale),
+            km: formatNumber(preview.nextDueKm, locale, 0),
+          })
+        : preview.nextDueOn
+          ? tc("previewDate", { date: formatDate(preview.nextDueOn, locale) })
+          : preview.nextDueKm !== null
+            ? tc("previewKm", { km: formatNumber(preview.nextDueKm, locale, 0) })
+            : target.intervalKm !== null
+              ? tc("previewNeedsKm")
+              : tc("previewNone")
+    : null;
 
   return (
     <>
@@ -174,6 +243,7 @@ export function CompleteButton({
                 className="tabular"
                 {...invalid("doneOn")}
               />
+              <FieldError id={f("doneOn")} text={errors.doneOn} />
             </div>
             {target.onVehicle && (
               <div className="flex flex-col gap-1.5">
@@ -193,6 +263,7 @@ export function CompleteButton({
                     {tc("kmUnit")}
                   </span>
                 </div>
+                <FieldError id={f("km")} text={errors.km} />
               </div>
             )}
             {isCheck && (
@@ -207,6 +278,7 @@ export function CompleteButton({
                   onChange={(e) => setChecker(e.target.value)}
                   {...invalid("checker")}
                 />
+                <FieldError id={f("checker")} text={errors.checker} />
                 <p className="text-faint-foreground text-small">{tc("checkerHint")}</p>
               </div>
             )}
@@ -228,6 +300,7 @@ export function CompleteButton({
                   €
                 </span>
               </div>
+              <FieldError id={f("cost")} text={errors.cost} />
             </div>
             {target.onVehicle && <p className="text-faint-foreground text-small">{tc("kmHint")}</p>}
             {target.createsPayable && (
@@ -245,11 +318,21 @@ export function CompleteButton({
               maxLength={2000}
               className={TEXTAREA_CLASS}
               onChange={(e) => setNotes(e.target.value)}
+              {...invalid("notes")}
             />
+            <FieldError id={f("notes")} text={errors.notes} />
           </div>
-          <p id={f("error")} role="alert" className="min-h-5 text-small text-status-critical">
-            {error?.text}
-          </p>
+          {previewText && (
+            <p
+              aria-live="polite"
+              className="rounded-lg bg-sunken px-3 py-2 text-foreground-2 text-small"
+            >
+              {previewText}
+            </p>
+          )}
+          <div className="min-h-5">
+            <FormErrorSummary errors={errors} />
+          </div>
           <div className="flex justify-end gap-2">
             <Button disabled={pending} onClick={() => setOpen(false)}>
               {t("cancel")}

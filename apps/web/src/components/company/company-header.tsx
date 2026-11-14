@@ -26,8 +26,17 @@ export async function CompanyHeader({
           level: "critical",
           sr: t("tabs.needsAction", { count: counts.needsAction }),
         }
-      : counts.soon > 0
-        ? { text: String(counts.soon), level: "warn", sr: t("tabs.soon", { count: counts.soon }) }
+      : counts.soon + counts.dueMissing > 0
+        ? {
+            text: String(counts.soon + counts.dueMissing),
+            level: "warn",
+            sr: [
+              counts.soon > 0 ? t("tabs.soon", { count: counts.soon }) : null,
+              counts.dueMissing > 0 ? t("tabs.dueMissing", { count: counts.dueMissing }) : null,
+            ]
+              .filter(Boolean)
+              .join(", "),
+          }
         : undefined;
   const issueCount: EventTab["count"] =
     counts.openIssues > 0

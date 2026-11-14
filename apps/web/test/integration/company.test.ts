@@ -45,6 +45,7 @@ import {
   updateObligation,
   updateVehicle,
   type VehicleInput,
+  withdrawVehicleIssue,
 } from "@/server/services/company";
 import { markInstallmentPaid } from "@/server/services/payables";
 import { createActor, resetDatabase } from "../helpers/fixtures";
@@ -198,6 +199,26 @@ describe("vehicles", () => {
         ),
       ),
     ).toBe("future_date");
+  });
+
+  it("normalises plates and treats the same plate with other spaces or hyphens as taken (UX-028)", async () => {
+    const id = await newVehicle({ plate: "k - mw  123", vin: null });
+    const [row] = await db.select().from(vehicle).where(eq(vehicle.id, id));
+    expect(row?.plate).toBe("K-MW 123");
+    for (const plate of ["KMW123", "k mw 123", "K-MW-123", "kmw 123"])
+      expect(await codeOf(createVehicle(owner, vehicleInput({ plate, vin: null })))).toBe(
+        "plate_taken",
+      );
+    // An archived vehicle keeps its plate (it can be restored).
+    await archiveVehicle(owner, id);
+    expect(await codeOf(createVehicle(owner, vehicleInput({ plate: "KMW 123", vin: null })))).toBe(
+      "plate_taken",
+    );
+    // Its own plate typed differently is no clash when editing.
+    await restoreVehicle(owner, id);
+    expect(await updateVehicle(owner, id, vehicleInput({ plate: "K MW 123", vin: null }))).toEqual({
+      changed: true,
+    });
   });
 
   it("updates, audits the changed fields and reports no change for identical input", async () => {
@@ -413,7 +434,8 @@ describe("completing an obligation", () => {
     expect(v).toMatchObject({ odometerKm: 91_400, odometerRecordedOn: "2026-10-20" });
   });
 
-  it("does not lower the odometer when the reading is below it", async () => {
+  it("refuses a reading below the odometer on or after its date, like Kilometerstand eintragen (UX-067)", async () => {
+    // Read 95.000 km on 1 October.
     const vehicleId = await newVehicle({ odometerKm: 95_000 });
     const id = await newObligation({
       scope: "vehicle",
@@ -422,10 +444,25 @@ describe("completing an obligation", () => {
       intervalKm: 10_000,
       nextDueOn: null,
     });
-    const result = await completeObligation(owner, id, done({ doneKm: 94_000 }));
+    expect(await codeOf(completeObligation(owner, id, done({ doneKm: 100 })))).toBe(
+      "odometer_lower",
+    );
+    expect(
+      await codeOf(completeObligation(owner, id, done({ doneOn: "2026-10-01", doneKm: 94_000 }))),
+    ).toBe("odometer_lower");
+    expect(await completionsOf(id)).toHaveLength(0);
+    // Dated before that reading it is history: recorded, and the odometer stays where it is.
+    const result = await completeObligation(
+      owner,
+      id,
+      done({ doneOn: "2026-09-15", doneKm: 94_000 }),
+    );
     expect(result.odometer).toBeNull();
     const [v] = await db.select().from(vehicle).where(eq(vehicle.id, vehicleId));
     expect(v?.odometerKm).toBe(95_000);
+    // The same reading as the odometer is fine.
+    await completeObligation(owner, id, done({ doneKm: 95_000 }));
+    expect(await completionsOf(id)).toHaveLength(2);
   });
 
   it("rolls date and km together, whichever comes first stays a target of its own", async () => {
@@ -643,6 +680,41 @@ describe("vehicle issues", () => {
     expect(await db.select().from(vehicleIssue)).toHaveLength(0);
   });
 
+  it("withdraws a report made by mistake while it is untouched, audited (UX-067)", async () => {
+    const vehicleId = await newVehicle();
+    const report = () =>
+      reportVehicleIssue(owner, {
+        vehicleId,
+        title: "Falsch",
+        description: null,
+        severity: "major",
+      });
+    const { id } = await report();
+    await withdrawVehicleIssue(owner, id);
+    expect(await db.select().from(vehicleIssue)).toHaveLength(0);
+    const [entry] = await auditsOf("vehicle_issue.report_undo");
+    expect(entry).toMatchObject({ entityId: id, diff: { title: "Falsch", severity: "major" } });
+    expect(await codeOf(withdrawVehicleIssue(owner, id))).toBe("not_found");
+
+    // Once someone works on it, or a photo hangs on it, the toast no longer takes it back.
+    const started = await report();
+    await setVehicleIssueStatus(owner, started.id, "in_progress");
+    expect(await codeOf(withdrawVehicleIssue(owner, started.id))).toBe("conflict");
+    const withPhoto = await report();
+    await db.insert(document).values({
+      fileName: "foto.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 10,
+      sha256: "b".repeat(64),
+      storageKey: "test/foto.jpg",
+      vehicleIssueId: withPhoto.id,
+    });
+    expect(await codeOf(withdrawVehicleIssue(owner, withPhoto.id))).toBe("conflict");
+    expect(await db.select().from(vehicleIssue)).toHaveLength(2);
+    const staff = await createActor("staff");
+    expect(isForbidden(await withdrawVehicleIssue(staff, withPhoto.id).catch((e) => e))).toBe(true);
+  });
+
   it("moves open -> in repair -> fixed with who and when, and back", async () => {
     const vehicleId = await newVehicle();
     const { id } = await reportVehicleIssue(owner, {
@@ -805,6 +877,107 @@ describe("queries", () => {
         tone: "warn",
       },
     ]);
+  });
+
+  it("shows an obligation without any target as missing, not ok, and counts it (UX-022)", async () => {
+    const vehicleId = await newVehicle();
+    const missing = await newObligation({
+      title: "HU ohne Datum",
+      scope: "vehicle",
+      vehicleId,
+      nextDueOn: null,
+    });
+    const later = await newObligation({ title: "Spät", nextDueOn: "2027-06-30" });
+    const soon = await newObligation({ title: "Bald", nextDueOn: "2026-11-02" });
+    // A one-off duty that was done has nothing left to be due.
+    const oneOff = await newObligation({
+      title: "Einmalig",
+      intervalMonths: null,
+      nextDueOn: "2026-10-01",
+    });
+    await completeObligation(owner, oneOff, {
+      doneOn: "2026-10-20",
+      doneKm: null,
+      costCents: null,
+      checkerName: null,
+      notes: null,
+    });
+
+    const rows = await listObligations(TODAY);
+    expect(rows.map((r) => [r.id, r.status])).toEqual([
+      [soon, "soon"],
+      [missing, "missing"],
+      [later, "ok"],
+      [oneOff, "ok"],
+    ]);
+    expect(await companyCounts(TODAY)).toMatchObject({ needsAction: 0, soon: 1, dueMissing: 1 });
+    const [v] = await listVehicles(TODAY);
+    expect(v).toMatchObject({ worstStatus: "missing" });
+    expect(v?.statusCounts).toMatchObject({ missing: 1, ok: 0 });
+    // It has no date for the Übersicht or the Kalender.
+    expect((await dueItems(owner, TODAY)).map((i) => i.id)).toEqual([soon]);
+  });
+
+  it("puts open kritisch and erheblich defects on the Übersicht (UX-023)", async () => {
+    const vehicleId = await newVehicle();
+    const report = (title: string, severity: string) =>
+      reportVehicleIssue(owner, { vehicleId, title, description: null, severity });
+    const critical = await report("Bremse defekt", "critical");
+    const major = await report("Licht kaputt", "major");
+    await report("Kratzer", "minor");
+    const repairing = await report("Reifen platt", "critical");
+    await setVehicleIssueStatus(owner, repairing.id, "in_progress");
+    const archivedVehicle = await newVehicle({ plate: "K-MW 999", vin: null });
+    await reportVehicleIssue(owner, {
+      vehicleId: archivedVehicle,
+      title: "Alt",
+      description: null,
+      severity: "critical",
+    });
+    await archiveVehicle(owner, archivedVehicle);
+
+    const staff = await createActor("staff");
+    expect(await dueItems(staff, TODAY)).toEqual([
+      {
+        kind: "issue",
+        id: critical.id,
+        title: "Bremse defekt · K-MW 123",
+        dueOn: TODAY,
+        urgency: "overdue",
+        href: `/firma/fahrzeuge/${vehicleId}#vehicle-issues`,
+        meta: "Transporter 1",
+      },
+      {
+        kind: "issue",
+        id: major.id,
+        title: "Licht kaputt · K-MW 123",
+        dueOn: TODAY,
+        urgency: "today",
+        href: `/firma/fahrzeuge/${vehicleId}#vehicle-issues`,
+        meta: "Transporter 1",
+      },
+    ]);
+    expect(await dueItems(await createActor("field"), TODAY)).toEqual([]);
+  });
+
+  it("tells an archived obligation when it was archived and whether its vehicle went with it", async () => {
+    const vehicleId = await newVehicle();
+    const own = await newObligation({ title: "Allein" });
+    const withVehicle = await newObligation({ title: "HU", scope: "vehicle", vehicleId });
+    expect(await getObligation(own, TODAY)).toMatchObject({
+      archived: false,
+      archivedAt: null,
+      vehicleArchived: false,
+    });
+    await archiveObligation(owner, own);
+    await archiveVehicle(owner, vehicleId);
+    const a = await getObligation(own, TODAY);
+    expect(a).toMatchObject({ archived: true, vehicleArchived: false });
+    expect(a?.archivedAt).toBeInstanceOf(Date);
+    expect(await getObligation(withVehicle, TODAY)).toMatchObject({
+      archived: true,
+      vehicleArchived: true,
+    });
   });
 
   it("returns nothing for a role without company:read", async () => {

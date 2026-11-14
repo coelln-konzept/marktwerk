@@ -3,8 +3,9 @@ import {
   can,
   huIntervalMonths,
   LEGAL_KEYS,
-  OBLIGATION_STATUS_ORDER,
-  type ObligationStatus,
+  OBLIGATION_DISPLAY_ORDER,
+  type ObligationDisplayStatus,
+  obligationDueMissing,
   obligationStatus,
 } from "@marktwerk/core";
 import {
@@ -55,7 +56,10 @@ export type ObligationRow = {
   notes: string | null;
   /** Odometer of the vehicle (vehicle obligations), the basis for km targets. */
   currentKm: number | null;
-  status: ObligationStatus;
+  /** Day of that odometer reading. */
+  currentKmOn: string | null;
+  /** The reminder status, or `missing` ("Fälligkeit fehlt") when the obligation has no target at all. */
+  status: ObligationDisplayStatus;
   daysLeft: number | null;
   kmLeft: number | null;
   trigger: "date" | "km" | null;
@@ -82,10 +86,11 @@ const obligationSelect = {
   lastDoneOn: obligation.lastDoneOn,
   notes: obligation.notes,
   currentKm: vehicle.odometerKm,
+  currentKmOn: vehicle.odometerRecordedOn,
 };
 
-const SEVERITY = Object.fromEntries(OBLIGATION_STATUS_ORDER.map((s, i) => [s, i])) as Record<
-  ObligationStatus,
+const SEVERITY = Object.fromEntries(OBLIGATION_DISPLAY_ORDER.map((s, i) => [s, i])) as Record<
+  ObligationDisplayStatus,
   number
 >;
 
@@ -93,16 +98,16 @@ function withStatus(
   row: Omit<ObligationRow, "status" | "daysLeft" | "kmLeft" | "trigger">,
   today: string,
 ): ObligationRow {
-  return {
-    ...row,
-    ...obligationStatus({
-      nextDueOn: row.nextDueOn,
-      nextDueKm: row.nextDueKm,
-      leadDays: row.leadDays,
-      today,
-      currentKm: row.currentKm,
-    }),
-  };
+  const computed = obligationStatus({
+    nextDueOn: row.nextDueOn,
+    nextDueKm: row.nextDueKm,
+    leadDays: row.leadDays,
+    today,
+    currentKm: row.currentKm,
+  });
+  // Without a date or km target nothing would ever remind: "Fälligkeit fehlt" instead of "in Ordnung" (UX-022).
+  const status: ObligationDisplayStatus = obligationDueMissing(row) ? "missing" : computed.status;
+  return { ...row, ...computed, status };
 }
 
 /** Worst first, then by date (without date last), then by title. */
@@ -153,13 +158,22 @@ export type CompletionRow = {
 export async function getObligation(
   id: string,
   today: string,
-): Promise<{ obligation: ObligationRow; completions: CompletionRow[]; archived: boolean } | null> {
+): Promise<{
+  obligation: ObligationRow;
+  completions: CompletionRow[];
+  archived: boolean;
+  /** When it was archived (null while active). */
+  archivedAt: Date | null;
+  /** It belongs to an archived vehicle: it comes back with the vehicle, not on its own. */
+  vehicleArchived: boolean;
+} | null> {
   if (!isUuid(id)) return null;
   const [row] = await liveObligations().where(eq(obligation.id, id));
   if (!row) return null;
   const [archivedRow] = await db
-    .select({ archivedAt: obligation.archivedAt })
+    .select({ archivedAt: obligation.archivedAt, vehicleArchivedAt: vehicle.archivedAt })
     .from(obligation)
+    .leftJoin(vehicle, eq(vehicle.id, obligation.vehicleId))
     .where(eq(obligation.id, id));
   const completions = await db
     .select({
@@ -181,6 +195,8 @@ export async function getObligation(
     obligation: withStatus(row, today),
     completions,
     archived: archivedRow?.archivedAt != null,
+    archivedAt: archivedRow?.archivedAt ?? null,
+    vehicleArchived: archivedRow?.vehicleArchivedAt != null,
   };
 }
 
@@ -198,16 +214,17 @@ export type VehicleRow = {
   odometerRecordedOn: string | null;
   insurer: string | null;
   /** Count of this vehicle's obligations per status. */
-  statusCounts: Record<ObligationStatus, number>;
-  worstStatus: ObligationStatus;
+  statusCounts: Record<ObligationDisplayStatus, number>;
+  worstStatus: ObligationDisplayStatus;
   openIssues: number;
   criticalIssues: number;
 };
 
-const emptyCounts = (): Record<ObligationStatus, number> => ({
+const emptyCounts = (): Record<ObligationDisplayStatus, number> => ({
   overdue: 0,
   due: 0,
   soon: 0,
+  missing: 0,
   ok: 0,
 });
 
@@ -244,7 +261,7 @@ export async function listVehicles(today: string): Promise<VehicleRow[]> {
     return {
       ...v,
       statusCounts,
-      worstStatus: OBLIGATION_STATUS_ORDER.find((s) => statusCounts[s] > 0) ?? "ok",
+      worstStatus: OBLIGATION_DISPLAY_ORDER.find((s) => statusCounts[s] > 0) ?? "ok",
       openIssues: mine.length,
       criticalIssues: mine.filter((i) => i.severity === "critical").length,
     };
@@ -370,6 +387,8 @@ export type CompanyCounts = {
   needsAction: number;
   /** Obligations "bald" (within their lead time). */
   soon: number;
+  /** Obligations without any due date or km target ("Fälligkeit fehlt"). */
+  dueMissing: number;
   openIssues: number;
   criticalIssues: number;
 };
@@ -385,6 +404,7 @@ export async function companyCounts(today: string): Promise<CompanyCounts> {
   return {
     needsAction: obligations.filter((o) => o.status === "overdue" || o.status === "due").length,
     soon: obligations.filter((o) => o.status === "soon").length,
+    dueMissing: obligations.filter((o) => o.status === "missing").length,
     openIssues: issues.length,
     criticalIssues: issues.filter((i) => i.severity === "critical").length,
   };
@@ -429,7 +449,13 @@ export function huFor(grossWeightKg: number | null, legal: LegalIntervals): numb
 // Übersicht and Kalender
 
 const SOON_DAYS = 7;
-const TONE = { overdue: "critical", due: "warn", soon: "warn", ok: "neutral" } as const;
+const TONE = {
+  overdue: "critical",
+  due: "warn",
+  soon: "warn",
+  missing: "warn",
+  ok: "neutral",
+} as const;
 
 const obligationHref = (id: string) => `/firma/pflichten/${id}`;
 
@@ -443,7 +469,7 @@ const obligationHref = (id: string) => `/firma/pflichten/${id}`;
  */
 export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> {
   if (!can(actor.role, "company", "read")) return [];
-  const rows = await listObligations(today);
+  const [rows, issues] = await Promise.all([listObligations(today), openSeriousIssues()]);
   const items: DueItem[] = [];
   for (const o of rows) {
     let urgency: DueItem["urgency"];
@@ -464,7 +490,49 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       assigneeName: o.responsibleName,
     });
   }
+  // Open defects that keep a vehicle off the road (kritisch) or need a workshop soon (erheblich) are things to
+  // act on now (UX-023): kritisch under "Überfällig", erheblich under "Heute", both dated today. Once someone
+  // sets "In Reparatur" they leave the list; geringe Mängel stay in Firma › Mängel.
+  for (const i of issues) {
+    items.push({
+      kind: "issue",
+      id: i.id,
+      title: `${i.title} · ${i.vehiclePlate}`,
+      dueOn: today,
+      urgency: i.severity === "critical" ? "overdue" : "today",
+      href: `/firma/fahrzeuge/${i.vehicleId}#vehicle-issues`,
+      meta: i.vehicleName,
+    });
+  }
   return items.sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+}
+
+/** Open (not yet in repair) kritisch and erheblich defects of active vehicles, worst first. */
+async function openSeriousIssues() {
+  const rows = await db
+    .select({
+      id: vehicleIssue.id,
+      vehicleId: vehicleIssue.vehicleId,
+      vehicleName: vehicle.name,
+      vehiclePlate: vehicle.plate,
+      title: vehicleIssue.title,
+      severity: vehicleIssue.severity,
+      reportedAt: vehicleIssue.reportedAt,
+    })
+    .from(vehicleIssue)
+    .innerJoin(vehicle, eq(vehicle.id, vehicleIssue.vehicleId))
+    .where(
+      and(
+        eq(vehicleIssue.status, "open"),
+        inArray(vehicleIssue.severity, ["critical", "major"]),
+        isNull(vehicle.archivedAt),
+      ),
+    );
+  return rows.sort(
+    (a, b) =>
+      SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] ||
+      a.reportedAt.getTime() - b.reportedAt.getTime(),
+  );
 }
 
 /** Due dates in [from, to] for the Kalender layer "Pflichten". Empty for roles without `company:read`. */
