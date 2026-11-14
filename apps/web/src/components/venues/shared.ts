@@ -32,8 +32,14 @@ export function fieldOfVenueError(code: string): string | null {
     case "invalid_capacity":
       return "venue-capacity";
     case "invalid_coordinates":
+    case "invalid_lat":
+    case "lat_missing":
       return "venue-lat";
+    case "invalid_lng":
+    case "lng_missing":
+      return "venue-lng";
     case "invalid_landowner":
+    case "landowner_kind":
       return "venue-landowner";
     default:
       return null;

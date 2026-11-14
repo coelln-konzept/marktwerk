@@ -84,7 +84,21 @@
         "save": "Speichern",
         "created": "„{name}“ angelegt.",
         "saved": "„{name}“ gespeichert.",
-        "unchanged": "Keine Änderungen."
+        "unchanged": "Keine Änderungen.",
+        "similar": {
+          "title": "{count, plural, one {Ähnlicher Ort vorhanden} other {# ähnliche Orte vorhanden}}",
+          "note": "Ist es ein anderer Ort, kannst du ihn trotzdem anlegen.",
+          "noteEdit": "Ist es ein anderer Ort, kannst du trotzdem speichern.",
+          "reason": {
+            "name": "gleicher Name",
+            "address": "gleiche Straße und PLZ"
+          }
+        },
+        "unsaved": "Ungespeicherte Änderungen",
+        "discard": "Verwerfen",
+        "keepEditing": "Weiter bearbeiten",
+        "landownerKindMismatch": "Eine Behörde kann nur bei einem städtischen Ort Eigentümer sein.",
+        "landownerHintMunicipal": "Zur Auswahl stehen die Kontakte der Art „Eigentümer“ und „Behörde“."
       },
       "archive": {
         "button": "Archivieren",
@@ -136,7 +150,11 @@
         "saved": "Reihe „{row}“ gespeichert.",
         "unchanged": "Keine Änderungen.",
         "deleted": "Reihe „{row}“ gelöscht.",
-        "restored": "Reihe „{row}“ wiederhergestellt."
+        "restored": "Reihe „{row}“ wiederhergestellt.",
+        "addedNext": "„{row}“ hinzugefügt. Weiter mit der nächsten Reihe.",
+        "duplicateLabel": "„{row}“ gibt es in dieser Zone schon.",
+        "metresHintPrefilled": "in Metern; Länge und Tiefe der letzten Reihe sind vorausgefüllt",
+        "submitAddMore": "Hinzufügen und weitere"
       },
       "errors": {
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
@@ -157,7 +175,12 @@
         "invalid_row_label": "Bitte eine Bezeichnung angeben (höchstens 40 Zeichen).",
         "invalid_length": "Bitte die Länge in Metern angeben, z. B. 12,5 (größer als 0).",
         "invalid_depth": "Bitte die Tiefe in Metern angeben, z. B. 3 oder 3,5 (größer als 0).",
-        "invalid_car_slots": "Bitte eine ganze Zahl von 0 bis 999 angeben."
+        "invalid_car_slots": "Bitte eine ganze Zahl von 0 bis 999 angeben.",
+        "invalid_lat": "Bitte den Breitengrad als Zahl von −90 bis 90 angeben, z. B. 50,9375.",
+        "invalid_lng": "Bitte den Längengrad als Zahl von −180 bis 180 angeben, z. B. 6,9603.",
+        "lat_missing": "Bitte auch den Breitengrad angeben oder den Längengrad leeren.",
+        "lng_missing": "Bitte auch den Längengrad angeben oder den Breitengrad leeren.",
+        "landowner_kind": "Eine Behörde kann nur bei einem städtischen Ort Eigentümer sein. Bitte einen anderen Eigentümer wählen oder die Art auf „Städtisch“ stellen."
       }
     },
     "vorschau": {
@@ -171,7 +194,8 @@
       "capacity": "Kapazität",
       "landowner": "Eigentümer",
       "nextEvents": "Nächste Veranstaltungen",
-      "noEvents": "Keine kommenden Veranstaltungen."
+      "noEvents": "Keine kommenden Veranstaltungen.",
+      "zonesSummaryOpen": "{zones, plural, one {# Zone} other {# Zonen}} · {rows, plural, one {# Reihe} other {# Reihen}} · Kapazität offen"
     },
     "detail": {
       "kind": "Ort",
@@ -215,11 +239,17 @@
       "eventStatus": "Status",
       "presets": "Märkte an diesem Ort",
       "noPresets": "Für diesen Ort gibt es keinen Markt.",
-      "presetInactive": "inaktiv"
+      "presetInactive": "inaktiv",
+      "factsOpen": "{zones, plural, one {# Zone} other {# Zonen}} · {rows, plural, one {# Reihe} other {# Reihen}} · Kapazität offen",
+      "route": "Route",
+      "openMap": "In Karte öffnen",
+      "coordinatesLabel": "Koordinaten",
+      "zoneSummaryEmpty": "Noch keine Reihen"
     },
     "quick": {
       "title": "Ort anlegen",
       "description": "Adresse und Art reichen. Zonen, Reihen und Zufahrt ergänzt du später auf der Seite des Ortes."
-    }
+    },
+    "searchPlaceholder": "Name, Stadt oder Straße"
   }
 }
