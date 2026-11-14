@@ -178,6 +178,18 @@
 - **UX-D16 Season rollover:** "Saison fortschreiben" per market (last year's dates moved to the same weekday, combined preview) instead of planning 17 markets one by one?
 - **UX-D17 Template apply and overdue tasks:** when a new template version would create tasks already overdue, create them (today), skip them, or choose in the preview?
 
+**R26 remaining gaps (2026-11-14, plan in [research 14](research/14-remaining-gaps-plan.md); G10 parked): not built until decided. Recommendation first**
+- **Q1 Bringto shape (G8):** (rec.) its own list per market plus extra rows per date · subtasks of "Bringto einladen" in the market template · wait for M12 inventory?
+- **Q2 Bringto ticks (G8):** (rec.) not now (print it; "eingeladen"/"zurück" come with M12) · an "eingeladen" tick per row and date now?
+- **Q3 Who edits the market's Bringto (G8):** (rec.) owner/manager on the market page, everyone on a date's extra rows · everyone everywhere? *Jerome:* a photo of today's list for the seed?
+- **Q4 Nachtwache facts (G11, Jerome):** own staff or a security firm? Hours, people per night, other multi-day markets (Rudolfplatz, Kerpen Weintage)?
+- **Q5 Night tasks (G11):** (rec.) template rows that repeat "jede Nacht" / "jeden Markttag" (also fixes the middle day of 3-day markets) · one "Nachtwache organisieren" task with hand-made subtasks · wait for shift planning (M7)?
+- **Q6 When a timed task turns red (G12):** (rec.) day-based as today, the time shown ("Heute · bis 08:00") · red from the time on?
+- **Q7 Reminder per template row (G12):** (rec.) "Erinnerung N Tage vorher" replaces the priority defaults for that row (plus the 1-day reminder) · adds to them · only the task's notify setting? Hours unit in the editor: (rec.) no, days + time · an hours helper?
+- **Q8 What "bereit" means (G13, Jerome):** (assumed) bestätigt, set by hand before the permits are in · our geplant, with dates starting as Entwurf until agreed · buchbar (Phase 2)?
+- **Q9 Status step (G13):** (rec.) ticking the task sets the status (undo), and setting the status ticks the task · the task only offers a button · wording only?
+- **Q10 Order:** (rec.) G12 → G13 → G8 → G11 · G8 first?
+
 ## Assumed during the Phase 1 integration (confirm or change)
 1. **"Heute fällig" order:** overdue, then today, then this week; inside a group permits > instalments (money) >
    tasks > hours > obligations, then oldest date first (Überfällig by market since 2026-10-28, see Decided) (`packages/core/src/deadlines/due-ranking.ts`). The list shows
