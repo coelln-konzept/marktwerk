@@ -242,6 +242,8 @@ export function TaskDrawer({
       if (event.key !== "Escape" || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest("[role=listbox]")) return;
+      // Esc on a toast closes that toast only (UX-053); this capture handler runs before the toast's.
+      if (target?.closest("[data-toast-region]")) return;
       if (document.querySelector('[role="menu"], [role="dialog"][aria-modal="true"]')) return;
       event.preventDefault();
       if (hasDraft && target?.matches("input, textarea")) {

@@ -53,15 +53,27 @@
     "failedTitle": "Something went wrong",
     "failedHint": "The page could not be loaded or a change did not go through. Please try again.",
     "retry": "Try again",
-    "network": "No connection to the server. Please try again."
+    "network": "No connection to the server. Please try again.",
+    "server": "That didn't work. Nothing was saved. Please try again.",
+    "networkKept": "Not saved: no connection. Your input is still here, please try again in a moment.",
+    "serverKept": "That didn't work, nothing was saved. Your input is still here, please try again.",
+    "offlineTitle": "No connection",
+    "offlineHint": "The page loads as soon as the connection is back.",
+    "offlinePage": "No connection: this page can't be loaded right now."
   },
   "states": {
-    "loading": "Loading …"
+    "loading": "Loading …",
+    "saving": "Saving …",
+    "offline": "No connection. You can keep reading; saving and changing pages work again once the connection is back.",
+    "online": "Connection is back"
   },
   "toasts": {
     "region": "Notices",
     "close": "Close notice",
-    "undoKey": "Ctrl Z"
+    "undoKey": "Ctrl Z",
+    "action": "{action}: {what}",
+    "undone": "Undone: {what}",
+    "nothingToUndo": "Nothing to undo"
   },
   "language": {
     "label": "Language",
@@ -82,7 +94,8 @@
     },
     "signOut": "Sign out",
     "settings": "Settings",
-    "shortcuts": "Keyboard shortcuts"
+    "shortcuts": "Keyboard shortcuts",
+    "singleKeys": "Single-key shortcuts"
   },
   "topbar": {
     "menu": "Open navigation",
@@ -175,7 +188,9 @@
       "today": "Jump to today",
       "month": "Month view",
       "list": "List view"
-    }
+    },
+    "singleKeys": "Single-key shortcuts",
+    "singleKeysHint": "Off: J, K, E, C, T and the other single keys do nothing. Ctrl K and Ctrl Z keep working."
   },
   "vorschau": {
     "label": "Preview",

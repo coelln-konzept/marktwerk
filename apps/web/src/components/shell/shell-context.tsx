@@ -3,13 +3,24 @@
 import { useTranslations } from "next-intl";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type ConfirmOptions, useConfirm } from "@/components/ui/confirm";
+import { failureCode } from "@/lib/call-action";
 import type { Creatable } from "@/lib/creatable";
-import { UI_STATE_COOKIES, writeUiState } from "@/lib/ui-state";
+import { isSingleCharacterKey, OWN_KEYS } from "@/lib/single-keys";
+import { pushToast } from "@/lib/toast-stack";
+import { readUiStateClient, UI_STATE_COOKIES, writeUiState } from "@/lib/ui-state";
 
 export type Toast = {
   message: string;
-  /** `error`: red, announced at once, stays until closed. Default `success`: polite, 8 s. */
-  tone?: "success" | "error";
+  /**
+   * `error`: red, announced at once, stays until closed. Default `success`: polite, 8 s. `info`: a neutral
+   * note that nothing happened ("Nichts zum Rückgängigmachen"), polite, 8 s.
+   */
+  tone?: "success" | "error" | "info";
+  /**
+   * What the toast is about (e.g. `task:<id>`): a newer toast with the same key replaces this one, so one
+   * object never has two toasts. Toasts with the same words replace each other anyway.
+   */
+  key?: string;
   actionLabel?: string;
   onAction?: () => void | Promise<void>;
   /**
@@ -23,7 +34,7 @@ export type Toast = {
 export type ToastEntry = { id: number; toast: Toast };
 
 /** A change that can still be taken back, after its toast is gone (the top bar's "Rückgängig", Strg+Z). */
-export type UndoEntry = { id: number; message: string; at: number };
+export type UndoEntry = { id: number; message: string; at: number; key?: string };
 
 type Shell = {
   navOpen: boolean;
@@ -54,8 +65,18 @@ type Shell = {
   lastUndo: UndoEntry | null;
   /** Takes back the newest change of the history (the top bar's button and Strg+Z). */
   undoLast: () => Promise<void>;
-  /** One app-wide confirmation dialog (`ui/confirm`), for actions that ask first (e.g. "Erledigt" where the task leaves the list). */
+  /**
+   * One app-wide confirmation dialog (`ui/confirm`), for actions that ask first ("Erledigt" where the task
+   * leaves the list, decision D1). The change is reversible (undo toast), so the focus starts on the
+   * confirm button and Enter confirms (UX-037); pass `initialFocus: "cancel"` for anything else.
+   */
   confirm: (options: ConfirmOptions) => Promise<boolean>;
+  /**
+   * Single-key shortcuts (J/K, E, A, C, T/M/L, ?, /) are on (default). Off: a character key without Strg/⌘/Alt
+   * outside a field does nothing (UX-054, WCAG 2.1.4); Strg+K and Strg+Z keep working. Per browser (cookie).
+   */
+  singleKeys: boolean;
+  setSingleKeys: (on: boolean) => void;
 };
 
 /** Toasts that are not errors stay 8 s (UX concept §6: 5–8 s); hover and focus pause the clock. */
@@ -93,6 +114,29 @@ function isEditable(target: EventTarget | null) {
   return !(field instanceof HTMLInputElement && NON_TEXT_INPUTS.has(field.type));
 }
 
+/**
+ * Single-key shortcuts turned off (UX-054): a character key outside a field or a typeahead widget stops
+ * here, before any page handler sees it (window, capture phase). Installed when this module loads, so it
+ * is in place before any component's key handler, also during hydration; it reads the cookie that
+ * `setSingleKeys` writes, so it needs no React state.
+ */
+function blockSingleKeys(event: KeyboardEvent) {
+  if (!readUiStateClient(UI_STATE_COOKIES.singleKeysOff)) return;
+  if (!isSingleCharacterKey(event)) return;
+  const target = event.target;
+  if (target instanceof HTMLElement && (target.isContentEditable || target.closest(OWN_KEYS)))
+    return;
+  event.stopImmediatePropagation();
+}
+if (typeof window !== "undefined") {
+  // One listener, also when the module is evaluated again (Fast Refresh).
+  const holder = window as { __marktwerkSingleKeys?: (event: KeyboardEvent) => void };
+  if (holder.__marktwerkSingleKeys)
+    window.removeEventListener("keydown", holder.__marktwerkSingleKeys, true);
+  holder.__marktwerkSingleKeys = blockSingleKeys;
+  window.addEventListener("keydown", blockSingleKeys, true);
+}
+
 const ShellContext = createContext<Shell | null>(null);
 
 /** Client state of the app shell: mobile navigation and the command palette (Ctrl+K; ⌘K on a Mac). */
@@ -100,11 +144,14 @@ export function ShellProvider({
   children,
   creatable = [],
   sidebarHidden: initialSidebarHidden = false,
+  singleKeys: initialSingleKeys = true,
 }: {
   children: React.ReactNode;
   creatable?: readonly Creatable[];
   /** From the `navHidden` UI-state cookie, so the first render is already right. */
   sidebarHidden?: boolean;
+  /** From the `singleKeysOff` UI-state cookie. */
+  singleKeys?: boolean;
 }) {
   const [navOpen, setNavOpen] = useState(false);
   const [sidebarHidden, setSidebarHiddenState] = useState(initialSidebarHidden);
@@ -112,9 +159,19 @@ export function ShellProvider({
     setSidebarHiddenState(hidden);
     writeUiState(UI_STATE_COOKIES.navHidden, hidden);
   }, []);
+  const [singleKeys, setSingleKeysState] = useState(initialSingleKeys);
+  const setSingleKeys = useCallback((on: boolean) => {
+    setSingleKeysState(on);
+    writeUiState(UI_STATE_COOKIES.singleKeysOff, !on);
+  }, []);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const { confirm, dialog } = useConfirm();
+  const { confirm: ask, dialog } = useConfirm();
+  const confirm = useCallback(
+    (options: ConfirmOptions) => ask({ initialFocus: "confirm", ...options }),
+    [ask],
+  );
   const tErrors = useTranslations("errors");
+  const tToasts = useTranslations("toasts");
   const [toasts, setToasts] = useState<readonly ToastEntry[]>([]);
   const [busyToastIds, setBusyToastIds] = useState<ReadonlySet<number>>(new Set());
   const nextToastId = useRef(0);
@@ -151,27 +208,39 @@ export function ShellProvider({
     );
   }, []);
 
-  const showToast = useCallback((toast: Toast) => {
-    const id = ++nextToastId.current;
-    if (isUndoable(toast) && toast.onAction) {
-      const run = toast.onAction;
-      const now = Date.now();
-      setUndoHistory((current) =>
-        [
-          ...current.filter((e) => now - e.at < UNDO_MS),
-          { id, message: toast.message, at: now, run },
-        ].slice(-UNDO_MAX),
-      );
-    }
-    setToasts((current) => {
-      // The same error twice (five ticks while offline) is shown once, as the newest.
-      const rest =
-        toast.tone === "error"
-          ? current.filter((e) => !(e.toast.tone === "error" && e.toast.message === toast.message))
-          : current;
-      return [...rest, { id, toast }].slice(-TOAST_MAX);
-    });
-  }, []);
+  /**
+   * While an undo runs: what it takes back. The undo's own "Rückgängig gemacht" toast then names the
+   * change ("Rückgängig gemacht: „Plakate“ erledigt") and replaces the toast it undid (UX-031).
+   */
+  const undoingRef = useRef<{ message: string; key?: string } | null>(null);
+
+  const showToast = useCallback(
+    (given: Toast) => {
+      const undoing = undoingRef.current;
+      const toast: Toast =
+        undoing && given.tone !== "error" && !given.onAction
+          ? {
+              ...given,
+              message: tToasts("undone", { what: undoing.message }),
+              key: undoing.key ?? given.key,
+            }
+          : given;
+      const id = ++nextToastId.current;
+      if (isUndoable(toast) && toast.onAction) {
+        const run = toast.onAction;
+        const now = Date.now();
+        setUndoHistory((current) =>
+          [
+            ...current.filter((e) => now - e.at < UNDO_MS),
+            { id, message: toast.message, key: toast.key, at: now, run },
+          ].slice(-UNDO_MAX),
+        );
+      }
+      // The same toast twice (five ticks while offline) or a newer one about the same object: shown once.
+      setToasts((current) => pushToast(current, { id, toast }, TOAST_MAX));
+    },
+    [tToasts],
+  );
 
   const showError = useCallback(
     (message: string, options?: Omit<Toast, "message" | "tone">) =>
@@ -181,7 +250,11 @@ export function ShellProvider({
 
   /** Runs an action by its toast id, from the toast or from the undo history (the toast may be gone). */
   const runAction = useCallback(
-    async (id: number, action: (() => void | Promise<void>) | undefined) => {
+    async (
+      id: number,
+      action: (() => void | Promise<void>) | undefined,
+      undo?: { message: string; key?: string },
+    ) => {
       if (!action || busyRef.current.has(id)) return;
       const setBusy = (on: boolean) => {
         const next = new Set(busyRef.current);
@@ -195,12 +268,14 @@ export function ShellProvider({
       // toast that can still be undone.
       dismissToastById(id);
       forgetUndo(id);
+      undoingRef.current = undo ?? null;
       try {
         await action();
-      } catch {
-        // An action that throws (offline) must not crash the page; say so instead.
-        showError(tErrors("network"));
+      } catch (error) {
+        // An action that throws (offline, a 500) must not crash the page; say so instead.
+        showError(tErrors(failureCode(error)));
       } finally {
+        undoingRef.current = null;
         setBusy(false);
       }
     },
@@ -208,7 +283,14 @@ export function ShellProvider({
   );
 
   const runToastAction = useCallback(
-    (id: number) => runAction(id, toastsRef.current.find((e) => e.id === id)?.toast.onAction),
+    (id: number) => {
+      const toast = toastsRef.current.find((e) => e.id === id)?.toast;
+      return runAction(
+        id,
+        toast?.onAction,
+        toast && isUndoable(toast) ? { message: toast.message, key: toast.key } : undefined,
+      );
+    },
     [runAction],
   );
 
@@ -217,10 +299,12 @@ export function ShellProvider({
     const newest = undoRef.current.findLast((e) => now - e.at < UNDO_MS);
     if (!newest) {
       if (undoRef.current.length > 0) setUndoHistory([]);
+      // Strg+Z with nothing to take back says so instead of doing nothing (UX-031).
+      showToast({ message: tToasts("nothingToUndo"), tone: "info", key: "undo:none" });
       return;
     }
-    await runAction(newest.id, newest.run);
-  }, [runAction]);
+    await runAction(newest.id, newest.run, { message: newest.message, key: newest.key });
+  }, [runAction, showToast, tToasts]);
 
   const lastUndo = useMemo(() => {
     const newest = undoHistory.at(-1);
@@ -239,7 +323,6 @@ export function ShellProvider({
       // the focus. Works after the toast has gone, like the top bar's button.
       if (mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "z") {
         if (event.defaultPrevented || event.repeat || isEditable(event.target)) return;
-        if (undoRef.current.length === 0) return;
         event.preventDefault();
         void undoLast();
       }
@@ -267,6 +350,8 @@ export function ShellProvider({
       lastUndo,
       undoLast,
       confirm,
+      singleKeys,
+      setSingleKeys,
     }),
     [
       navOpen,
@@ -284,6 +369,8 @@ export function ShellProvider({
       lastUndo,
       undoLast,
       confirm,
+      singleKeys,
+      setSingleKeys,
     ],
   );
   return (

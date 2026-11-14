@@ -53,15 +53,27 @@
     "failedTitle": "Hier ist etwas schiefgelaufen",
     "failedHint": "Die Seite konnte nicht geladen werden oder eine Änderung ist nicht angekommen. Bitte versuche es noch einmal.",
     "retry": "Erneut versuchen",
-    "network": "Keine Verbindung zum Server. Bitte versuche es noch einmal."
+    "network": "Keine Verbindung zum Server. Bitte versuche es noch einmal.",
+    "server": "Das hat nicht geklappt. Nichts wurde gespeichert. Bitte versuche es noch einmal.",
+    "networkKept": "Nicht gespeichert: keine Verbindung. Deine Eingaben sind noch da, bitte versuche es gleich noch einmal.",
+    "serverKept": "Das hat nicht geklappt, nichts wurde gespeichert. Deine Eingaben sind noch da, bitte versuche es noch einmal.",
+    "offlineTitle": "Keine Verbindung",
+    "offlineHint": "Die Seite lädt, sobald die Verbindung wieder da ist.",
+    "offlinePage": "Keine Verbindung: Diese Seite kann gerade nicht geladen werden."
   },
   "states": {
-    "loading": "Lädt …"
+    "loading": "Lädt …",
+    "saving": "Wird gespeichert …",
+    "offline": "Keine Verbindung. Du kannst weiterlesen; Speichern und Seitenwechsel gehen wieder, sobald die Verbindung zurück ist.",
+    "online": "Verbindung wieder da"
   },
   "toasts": {
     "region": "Hinweise",
     "close": "Hinweis schließen",
-    "undoKey": "Strg Z"
+    "undoKey": "Strg Z",
+    "action": "{action}: {what}",
+    "undone": "Rückgängig gemacht: {what}",
+    "nothingToUndo": "Nichts zum Rückgängigmachen"
   },
   "language": {
     "label": "Sprache",
@@ -82,7 +94,8 @@
     },
     "signOut": "Abmelden",
     "settings": "Einstellungen",
-    "shortcuts": "Tastenkürzel"
+    "shortcuts": "Tastenkürzel",
+    "singleKeys": "Tastenkürzel mit einzelnen Tasten"
   },
   "topbar": {
     "menu": "Navigation öffnen",
@@ -175,7 +188,9 @@
       "today": "Zu heute springen",
       "month": "Monatsansicht",
       "list": "Listenansicht"
-    }
+    },
+    "singleKeys": "Tastenkürzel mit einzelnen Tasten",
+    "singleKeysHint": "Aus: J, K, E, C, T und die anderen einzelnen Tasten tun nichts. Strg K und Strg Z gehen weiter."
   },
   "vorschau": {
     "label": "Vorschau",
