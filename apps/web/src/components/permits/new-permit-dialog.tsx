@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { VenuePicker } from "@/components/venues/venue-picker";
+import { todayIn } from "@/lib/format";
 import { PERMIT_TYPE_KEYS } from "@/lib/permit-status";
 
 type Field = "venue" | "title" | "season" | "apply";
@@ -96,6 +97,8 @@ export function NewPermitDialog({
 
   // "+ Neu › Genehmigung" in the top bar links here with ?neu=1.
   useOpenOnNew(openDialog);
+
+  const applyByPast = applyBy !== "" && applyBy < todayIn();
 
   function submit() {
     setError(null);
@@ -254,7 +257,14 @@ export function NewPermitDialog({
                 onChange={(e) => setApplyBy(e.target.value)}
                 className="tabular"
                 aria-invalid={error === "invalid_date" || undefined}
+                aria-describedby={applyByPast ? `${uid}-apply-past` : undefined}
               />
+              {/* A hint, not an error: the deadline may simply be missed already (UX-008). */}
+              {applyByPast && (
+                <p id={`${uid}-apply-past`} className="text-status-warn text-tiny">
+                  {t("form.applyByPast")}
+                </p>
+              )}
             </div>
           </div>
           {error && (

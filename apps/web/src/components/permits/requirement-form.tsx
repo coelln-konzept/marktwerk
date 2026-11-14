@@ -59,7 +59,11 @@ const ERROR_FIELD: Record<string, Field> = {
   invalid_cadence: "cadence",
   invalid_lead_time: "leadTimeDays",
   invalid_fee: "fee",
-  invalid_month_day: "windowStart",
+  invalid_window_start: "windowStart",
+  invalid_window_end: "windowEnd",
+  invalid_decision_day: "decision",
+  incomplete_window_start: "windowStart",
+  incomplete_window_end: "windowEnd",
   invalid_event_type: "eventType",
   invalid_contact: "authority",
   invalid_deliverables: "stickers",
@@ -150,6 +154,9 @@ export function RequirementForm({
     if (start === undefined) return fail("windowStart", "invalid_month_day");
     if (end === undefined) return fail("windowEnd", "invalid_month_day");
     if (decisionMd === undefined) return fail("decision", "invalid_month_day");
+    // An Antragsfenster has both ends or none (UX-008).
+    if (start === null && end !== null) return fail("windowStart", "incomplete_window_start");
+    if (start !== null && end === null) return fail("windowEnd", "incomplete_window_end");
     const cents = parseMoneyToCents(fee);
     if (Number.isNaN(cents)) return fail("fee", "invalid_fee");
     const count = stickers.trim() === "" ? 0 : Number(stickers);
@@ -212,6 +219,12 @@ export function RequirementForm({
         {label}
       </Label>
       {control}
+      {/* The error sits at its field (UX-008); one without a field stays above the buttons. */}
+      {error?.field === name && (
+        <p id={fid("error")} role="alert" className="text-small text-status-critical">
+          {errorText(error.code)}
+        </p>
+      )}
       {hint && <p className="text-muted-foreground text-tiny">{hint}</p>}
     </div>
   );
@@ -426,7 +439,7 @@ export function RequirementForm({
         </PanelBody>
       </Panel>
 
-      {error && (
+      {error?.field === "form" && (
         <p id={fid("error")} role="alert" className="text-small text-status-critical">
           {errorText(error.code)}
         </p>
