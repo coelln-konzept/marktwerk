@@ -64,9 +64,14 @@ export function focusNeighbourRow(from: HTMLElement | null): boolean {
   return true;
 }
 
+/** Marks the tick of a row (an open task's "Erledigt" button): E on the focused row presses it. */
+export const ROW_TICK = "data-row-tick";
+
 /**
- * Keyboard support for list rows (UX concept §6): J/K or ↑/↓ move, Space opens the Vorschau,
- * Enter opens the record (the Vorschau when the row has no `data-href`). Rows opt in with `data-row`, `data-href` and `data-peek`.
+ * Keyboard support for list rows (UX concept §6): J/K or ↑/↓ move, Space opens the Vorschau (the record
+ * when the row has none, so Space never scrolls the page away from a row), Enter opens the record (the
+ * Vorschau when the row has no `data-href`), E presses the row's tick (`data-row-tick`, when it has one and
+ * no handler of its own took E). Rows opt in with `data-row`, `data-href` and `data-peek`.
  * A mouse click anywhere in an element with `data-href` opens it, too (no `data-row` needed).
  *
  * The rows of one list are ONE tab stop (roving tabindex): only the active row (the one focused last,
@@ -168,7 +173,8 @@ export function KeyboardRows({
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const row = (event.target as HTMLElement).closest<HTMLElement>(ROW);
-    if (!row || (event.target as HTMLElement) !== row) return;
+    // A row's own handler (E on a task row, …) comes first.
+    if (!row || (event.target as HTMLElement) !== row || event.defaultPrevented) return;
     const rows = visibleRows(ref.current ?? document);
     const index = rows.indexOf(row);
     const key = event.key;
@@ -181,6 +187,17 @@ export function KeyboardRows({
     } else if (key === " " && row.dataset.peek) {
       event.preventDefault();
       router.replace(row.dataset.peek as never, { scroll: false });
+    } else if (key === " " && row.dataset.href) {
+      // No Vorschau for this row: Space opens it like Enter instead of scrolling the page.
+      event.preventDefault();
+      open(row.dataset.href);
+    } else if (key === "e" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const tick = [...row.querySelectorAll<HTMLButtonElement>(`[${ROW_TICK}]`)].find(
+        (el) => el.closest(ROW) === row && !el.disabled,
+      );
+      if (!tick) return;
+      event.preventDefault();
+      tick.click();
     } else if (key === "Enter" && row.dataset.href) {
       event.preventDefault();
       open(row.dataset.href);

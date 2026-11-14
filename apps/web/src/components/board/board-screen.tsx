@@ -14,7 +14,7 @@ import {
 import { EmptyState } from "@/components/ui/states";
 import { formatWeek, todayIn } from "@/lib/format";
 import { isModuleHidden } from "@/lib/modules";
-import { filterCategories } from "@/lib/task-ui";
+import { categoryFromSlug, filterCategories, TASK_CATEGORY_SLUGS } from "@/lib/task-ui";
 import { hrefWith, param } from "@/lib/url";
 import type { Actor } from "@/server/actor";
 import { getKeyTaskMatrix, getReadinessList } from "@/server/queries/board-overview";
@@ -97,7 +97,8 @@ export async function BoardScreen({
   const scope = scopeParam && scopeKeys.includes(scopeParam) ? scopeParam : defaultScope;
   const scopeUrlKey = eventMode ? "filter" : "tab";
   const categories = filterCategories();
-  const category = categories.find((c) => c === param(sp.kategorie));
+  const categoryParam = categoryFromSlug(param(sp.kategorie));
+  const category = categories.find((c) => c === categoryParam);
   const horizonParam = param(sp.zeitraum);
   const horizon = horizonParam === "woche" || horizonParam === "alle" ? horizonParam : "14";
   const horizonDays =
@@ -225,7 +226,7 @@ export async function BoardScreen({
                       .map((c) => (
                         <FilterChip
                           key={c}
-                          href={href({ kategorie: c })}
+                          href={href({ kategorie: TASK_CATEGORY_SLUGS[c] })}
                           active={category === c}
                           count={categoryCounts[c] ?? 0}
                         >
@@ -325,7 +326,7 @@ export async function BoardScreen({
                   .map((c) => (
                     <FilterChip
                       key={c}
-                      href={href({ kategorie: c })}
+                      href={href({ kategorie: TASK_CATEGORY_SLUGS[c] })}
                       active={category === c}
                       count={byCategory.get(c) ?? 0}
                     >

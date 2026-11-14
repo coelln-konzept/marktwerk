@@ -19,6 +19,7 @@ import type tasks from "../../messages/de/tasks.json";
 import type tasksTemplates from "../../messages/de/tasks-templates.json";
 import type team from "../../messages/de/team.json";
 import type templates from "../../messages/de/templates.json";
+import type ui from "../../messages/de/ui.json";
 import type vendors from "../../messages/de/vendors.json";
 import type venues from "../../messages/de/venues.json";
 import type { Locale } from "./config";
@@ -46,7 +47,8 @@ type Messages = typeof shell &
   typeof tasks &
   typeof permits &
   typeof notifications &
-  typeof appointments;
+  typeof appointments &
+  typeof ui;
 
 declare module "next-intl" {
   interface AppConfig {

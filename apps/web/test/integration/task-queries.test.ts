@@ -693,7 +693,7 @@ describe("season tasks (research 13 §6.3, R13)", () => {
       eventId: null,
       eventColor: "petrol",
       eventTypeKey: "flea",
-      href: `/board?aufgabe=${t.id}`,
+      href: `/?aufgabe=${t.id}`,
       season: { id: season.id, ...label(presetId, true) },
     });
     expect(items.find((i) => i.title === "Aufbau")?.season).toBeNull();
@@ -701,7 +701,7 @@ describe("season tasks (research 13 §6.3, R13)", () => {
     const calendar = await calendarItems(owner, "2026-10-01", "2026-10-31", TODAY);
     expect(calendar.find((i) => i.id === t.id)).toMatchObject({
       tone: "critical",
-      href: `/board?aufgabe=${t.id}`,
+      href: `/?aufgabe=${t.id}`,
       season: label(presetId, true),
     });
 
@@ -715,7 +715,7 @@ describe("season tasks (research 13 §6.3, R13)", () => {
     expect(await getTaskDetail(owner, t.id)).toMatchObject({
       eventId: null,
       season: { id: season.id, ...label(presetId, true) },
-      link: `/board?aufgabe=${t.id}`,
+      link: `/?aufgabe=${t.id}`,
     });
     // Staff may not open the market page: the label stays, the link goes.
     const anna = asStaff(await createActor("staff"), cat.staff.anna);

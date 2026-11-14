@@ -10,7 +10,8 @@
       "needsAction": "{count} due or overdue",
       "soon": "{count} due soon",
       "openIssues": "{count} open",
-      "criticalIssues": "{count} critical"
+      "criticalIssues": "{count} critical",
+      "dueMissing": "{count} without a due date"
     },
     "none": "–",
     "undo": "Undo",
@@ -20,7 +21,8 @@
       "ok": "on track",
       "soon": "due soon",
       "due": "due today",
-      "overdue": "overdue"
+      "overdue": "overdue",
+      "missing": "No due date"
     },
     "statusDetail": {
       "inKm": "in {km} km",
@@ -141,7 +143,15 @@
       "nextKm": "{km} km",
       "nextBoth": "{date} or {km} km",
       "payableHint": "With a cost, a payment is created under Finance, due on the completion date (today at the earliest).",
-      "savedWithPayable": "Marked as done. Next due: {next}. Payment created."
+      "savedWithPayable": "Marked as done. Next due: {next}. Payment created.",
+      "kmBelow": "The vehicle was already at {km} km on {date}. Please enter the current reading.",
+      "kmBelowNoDate": "The vehicle is already at {km} km. Please enter the current reading.",
+      "previewDate": "Next due: {date}",
+      "previewKm": "Next due: at {km} km",
+      "previewBoth": "Next due: {date} or at {km} km",
+      "previewNone": "No further due date (one-off).",
+      "previewNeedsKm": "The next due mileage follows from the odometer reading.",
+      "previewHistory": "Before the last entry: it only goes into the history, the due date stays."
     },
     "form": {
       "newTitle": "Add obligation",
@@ -177,7 +187,8 @@
       "save": "Save",
       "created": "“{title}” added.",
       "saved": "“{title}” saved.",
-      "unchanged": "Nothing changed."
+      "unchanged": "Nothing changed.",
+      "dueMissingHint": "Without a next due date there is no reminder. The obligation then shows as “No due date” in the list."
     },
     "vehicles": {
       "title": "Vehicles",
@@ -203,7 +214,8 @@
       "issuesNone": "none open",
       "issuesOpen": "{count} open",
       "issuesCritical": "{count} critical",
-      "asOf": "as of {date}"
+      "asOf": "as of {date}",
+      "missingCount": "{count} without a due date"
     },
     "vehicle": {
       "back": "All vehicles",
@@ -338,12 +350,23 @@
       "saved": "Defect reported.",
       "photoStage": "Issue reported. Attach a photo now if you have one.",
       "photoAdd": "Add photo",
-      "done": "Done"
+      "done": "Done",
+      "titleRequired": "Please describe briefly what is broken (at most 120 characters).",
+      "withdrawn": "Report withdrawn."
     },
     "resolveDialog": {
       "title": "Mark defect as fixed",
       "note": "What was done?",
       "save": "Mark as fixed"
+    },
+    "archived": {
+      "title": "Archived on {date}.",
+      "vehicleNote": "The vehicle and its obligations are in no list and trigger no reminders.",
+      "withVehicle": "This obligation was archived with its vehicle and comes back with it.",
+      "vehicleAlsoArchived": "This obligation was archived on its own, its vehicle later too. It does not come back with the vehicle: restore the vehicle first, then this obligation here.",
+      "toVehicle": "Go to vehicle",
+      "restore": "Restore",
+      "archivedAgain": "Archived again."
     },
     "errors": {
       "generic": "That didn't work. Please try again.",
@@ -376,7 +399,8 @@
       "future_date": "The date is in the future.",
       "km_required": "This obligation needs the odometer reading.",
       "checker_required": "Enter who did the check.",
-      "already_done_on": "There is already an entry for this day."
+      "already_done_on": "There is already an entry for this day.",
+      "fieldsToCheck": "{count, plural, one {Please check the marked field.} other {Please check the # marked fields.}}"
     }
   }
 }

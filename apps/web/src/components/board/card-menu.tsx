@@ -31,8 +31,9 @@ const item =
 const subTrigger = cn(item, "justify-between data-[popup-open]:bg-hover");
 
 /**
- * The "⋯" menu of a card: *Zuweisen an…*, *Verschieben nach…*, *Status*, *Erledigt* (UX concept §6, drag
- * alternatives). Everything a drag could do is here, so the board never depends on a pointer.
+ * The "⋯" menu of a card or Checkliste row: *Zuweisen an…*, *Verschieben nach…* (kanban only), *Status*,
+ * *Erledigt* (UX concept §6, drag alternatives). Everything a drag could do is here, so the board never depends
+ * on a pointer.
  */
 export function CardMenu({
   task,
@@ -51,6 +52,7 @@ export function CardMenu({
     canWrite,
     canAssign,
     canDelete,
+    hasColumns,
     actions,
     askReason,
     askSnoozeDate,
@@ -138,7 +140,8 @@ export function CardMenu({
               </Menu.SubmenuRoot>
             )}
 
-            {canWrite && (
+            {/* Only where the columns are on screen; the Checkliste changes the due date in the drawer. */}
+            {canWrite && hasColumns && (
               <Menu.SubmenuRoot>
                 <Menu.SubmenuTrigger className={subTrigger}>
                   {t("menu.move")}

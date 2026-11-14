@@ -43,6 +43,37 @@
     "created": {
       "banner": "{count, plural, one {# neu angelegter Termin} other {# neu angelegte Termine}}",
       "showAll": "Alle Termine anzeigen"
+    },
+    "subtitleAll": "Alle Saisons · {count} Termine · {planned} geplant",
+    "emptySearch": "Keine Treffer für „{q}“ in dieser Ansicht.",
+    "cancelled": {
+      "label": "Abgesagte",
+      "chip": "{count} abgesagt",
+      "show": "Abgesagte Termine in der Liste zeigen",
+      "hide": "Abgesagte Termine wieder ausblenden",
+      "shown": "mit abgesagten"
+    },
+    "alsoMatching": {
+      "past": "Auch passend: {count, plural, one {# vergangener Termin} other {# vergangene Termine}}.",
+      "cancelled": "Auch passend: {count, plural, one {# abgesagter Termin} other {# abgesagte Termine}}.",
+      "pastCancelled": "Auch passend: {past, plural, one {# vergangener} other {# vergangene}} und {cancelled, plural, one {# abgesagter Termin} other {# abgesagte Termine}}.",
+      "other": "Auch passend: {count, plural, one {# Termin} other {# Termine}} in anderen Saisons oder mit anderem Status.",
+      "showAll": "Alle {count} Treffer anzeigen",
+      "typos": "Auch ähnliche Schreibweisen von „{q}“."
+    },
+    "paging": {
+      "shown": "{shown} von {total} Terminen",
+      "more": "{count, plural, one {# weiteren Termin anzeigen} other {# weitere Termine anzeigen}}",
+      "all": "Alle {total} Termine angezeigt"
+    },
+    "manualForm": {
+      "errors": {
+        "date_out_of_range": "Bitte einen Tag in den Jahren {minYear} bis {maxYear} wählen.",
+        "offline": "Nicht gespeichert – keine Verbindung. Deine Eingaben sind noch da.",
+        "server": "Das hat nicht geklappt. Nichts wurde gespeichert, deine Eingaben sind noch da."
+      },
+      "retry": "Erneut versuchen",
+      "hintsOutOfRange": "Keine Hinweise: geplant wird in den Jahren {minYear} bis {maxYear}."
     }
   },
   "eventPage": {

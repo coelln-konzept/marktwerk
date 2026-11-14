@@ -7,7 +7,7 @@ import type { PermitDisplayState } from "@marktwerk/core";
  * file can be imported from client components too.
  */
 
-export const DUE_KINDS = ["task", "permit", "installment", "hours", "obligation"] as const;
+export const DUE_KINDS = ["task", "permit", "installment", "hours", "issue", "obligation"] as const;
 export type DueKind = (typeof DUE_KINDS)[number];
 
 /**
