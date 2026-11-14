@@ -290,6 +290,7 @@
       "granted_before_applied": "“Granted on” is before “Applied on”. Please check the date.",
       "granted_in_future": "“Granted on” is in the future. Please check the date.",
       "offline": "Not saved – no connection. Your input is still here.",
+      "offlineAction": "No connection. Nothing was changed.",
       "server": "That did not work. Nothing was saved."
     },
     "documents": "Notice and documents",

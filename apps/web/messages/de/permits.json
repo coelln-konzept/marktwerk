@@ -290,6 +290,7 @@
       "granted_before_applied": "„Erteilt am“ liegt vor „Beantragt am“. Bitte das Datum prüfen.",
       "granted_in_future": "„Erteilt am“ liegt in der Zukunft. Bitte das Datum prüfen.",
       "offline": "Nicht gespeichert – keine Verbindung. Deine Eingaben sind noch da.",
+      "offlineAction": "Keine Verbindung. Nichts wurde geändert.",
       "server": "Das hat nicht geklappt. Nichts wurde gespeichert."
     },
     "documents": "Bescheid und Unterlagen",

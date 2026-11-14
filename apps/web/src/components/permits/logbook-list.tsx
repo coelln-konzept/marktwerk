@@ -74,6 +74,15 @@ export async function LogbookList({
         : key === "later"
           ? t("groups.later")
           : t("groups.other");
+  /** "Antrag bis": with its urgency while still to be filed, otherwise as a plain date. */
+  const applyBy = (r: LogbookRow, unfiled: boolean) =>
+    !r.applyBy ? (
+      dash
+    ) : unfiled ? (
+      <DueBadge dueOn={r.applyBy} today={today} withDate />
+    ) : (
+      <span className="text-muted-foreground">{formatDateShortYear(r.applyBy, locale, today)}</span>
+    );
   /** Filed: the expected answer with how late it is, or "nicht überwacht"; otherwise the plain date. */
   const decision = (r: LogbookRow) =>
     r.status === "applied" && r.expectedDecisionOn ? (
@@ -186,23 +195,19 @@ export async function LogbookList({
                       </TD>
                       <TD className="tabular whitespace-nowrap max-md:hidden">
                         {r.status === "applied" ? (
-                          // Filed: the date that matters now is the expected answer, not "Antrag bis".
-                          <span className="flex flex-col items-start gap-0.5">
-                            <span className="text-muted-foreground text-tiny">
-                              {t("cols.decision")}
+                          <>
+                            {/* Filed: the date that matters now is the expected answer, not "Antrag bis".
+                                From 2xl it has its own column, so here it would show twice. */}
+                            <span className="flex flex-col items-start gap-0.5 2xl:hidden">
+                              <span className="text-muted-foreground text-tiny">
+                                {t("cols.decision")}
+                              </span>
+                              {decision(r)}
                             </span>
-                            {decision(r)}
-                          </span>
-                        ) : r.applyBy ? (
-                          unfiled ? (
-                            <DueBadge dueOn={r.applyBy} today={today} withDate />
-                          ) : (
-                            <span className="text-muted-foreground">
-                              {formatDateShortYear(r.applyBy, locale, today)}
-                            </span>
-                          )
+                            <span className="max-2xl:hidden">{applyBy(r, unfiled)}</span>
+                          </>
                         ) : (
-                          dash
+                          applyBy(r, unfiled)
                         )}
                       </TD>
                       <TD className="tabular whitespace-nowrap max-2xl:hidden">{decision(r)}</TD>

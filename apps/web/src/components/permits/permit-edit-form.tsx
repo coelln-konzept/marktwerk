@@ -211,23 +211,32 @@ export function PermitEditForm({
     type = "text",
     optional = true,
     hint?: string,
-  ) => (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={fid(name)} optional={optional}>
-        {label}
-      </Label>
-      <Input
-        id={fid(name)}
-        type={type}
-        value={values[name]}
-        onChange={(e) => set(name)(e.target.value)}
-        className={type === "date" ? "tabular" : undefined}
-        {...invalid(name)}
-      />
-      {fieldError(name)}
-      {hint && error?.field !== name && <p className="text-status-warn text-tiny">{hint}</p>}
-    </div>
-  );
+  ) => {
+    // The hint stands in for the error: it shows (and is announced) only while the field has none.
+    const showHint = hint && error?.field !== name;
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={fid(name)} optional={optional}>
+          {label}
+        </Label>
+        <Input
+          id={fid(name)}
+          type={type}
+          value={values[name]}
+          onChange={(e) => set(name)(e.target.value)}
+          className={type === "date" ? "tabular" : undefined}
+          {...invalid(name)}
+          {...(showHint ? { "aria-describedby": fid(`${name}-hint`) } : {})}
+        />
+        {fieldError(name)}
+        {showHint && (
+          <p id={fid(`${name}-hint`)} className="text-status-warn text-tiny">
+            {hint}
+          </p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <form

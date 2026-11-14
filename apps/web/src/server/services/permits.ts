@@ -1237,6 +1237,8 @@ export type PermitStatusState = {
  * What a person enters with a step (UX-017, UX-048): "Beantragt am" and "Entscheidung erwartet bis" when
  * marking it applied; Aktenzeichen, "Erteilt am" and the validity when marking it granted. A field left
  * out keeps its value; null / "" clears it (an empty expected decision = the answer is not watched).
+ * "Beantragt am" cannot be cleared this way: a filed permit has an application date (UX-008), so an empty
+ * one counts as left out.
  */
 export type PermitStepDetails = {
   appliedAt?: string | null;
@@ -1301,6 +1303,7 @@ export async function setPermitStatus(
         ? checkedText(details.referenceNo, MAX_REFERENCE)
         : checkedDate(details[key]);
   }
+  if (to === "applied" && step.appliedAt === null) delete step.appliedAt;
   return db.transaction(async (tx) => {
     const current = await lockPermit(tx, id);
     const previous: PermitStatusState = {

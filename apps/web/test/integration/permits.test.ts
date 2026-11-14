@@ -431,6 +431,23 @@ describe("permit status flow", () => {
     expect(row?.status).toBe("applied");
   });
 
+  it("keeps the application date when the step sends an empty one", async () => {
+    const today = todayIn();
+    // Filed now: an empty "Beantragt am" counts as left out, so today is stamped.
+    const p = await newPermit();
+    const applied = await setPermitStatus(owner, p.id, "applied", { appliedAt: null });
+    expect(applied.previous).not.toHaveProperty("expectedDecisionOn");
+    let [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({ status: "applied", appliedAt: today });
+
+    // A date already on the permit is not cleared by an empty one.
+    const q = await newPermit();
+    await updatePermit(owner, q.id, { appliedAt: addDays(today, -3) });
+    await setPermitStatus(owner, q.id, "applied", { appliedAt: "" });
+    [row] = await db.select().from(permit).where(eq(permit.id, q.id));
+    expect(row).toMatchObject({ status: "applied", appliedAt: addDays(today, -3) });
+  });
+
   it("does not invent an application date when stepping back from granted", async () => {
     const p = await newPermit();
     // Held without applying (a permit that simply exists).

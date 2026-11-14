@@ -12,7 +12,7 @@ import {
 } from "@marktwerk/core";
 import { Check, Circle, CircleDot, Ellipsis } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import {
   changePermitStatus,
   reinstatePermitAction,
@@ -48,6 +48,13 @@ export type PermitFlowDates = {
 
 /** The step a small inline form asks details for before it is saved. */
 type StepForm = "applied" | "granted" | "followUp";
+
+/** The field that takes focus when a step form opens. */
+const FIRST_FIELD: Record<StepForm, "appliedAt" | "referenceNo" | "expectedDecisionOn"> = {
+  applied: "appliedAt",
+  granted: "referenceNo",
+  followUp: "expectedDecisionOn",
+};
 type Values = {
   appliedAt: string;
   expectedDecisionOn: string;
@@ -105,6 +112,10 @@ export function PermitStatusFlow({
   const [form, setForm] = useState<StepForm | null>(null);
   const [values, setValues] = useState<Values>(() => blankValues(dates));
   const [error, setError] = useState<{ field: FieldName | null; code: string } | null>(null);
+  // The decision date the requirement suggested when the form opened (null: none was used).
+  const [suggested, setSuggested] = useState<string | null>(null);
+  // The button that opened the step form: focus goes back there when it closes.
+  const opener = useRef<"primary" | "followUp" | null>(null);
   const { primary, secondary, menu } = splitPermitTransitions(status);
   const none = !primary && secondary.length === 0 && menu.length === 0;
   const index = (STEPS as readonly PermitStatus[]).indexOf(status);
@@ -119,10 +130,11 @@ export function PermitStatusFlow({
     isBack(to) ? t("back", { status: label(to) }) : t(`actions.${to}` as never);
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
-  // A failed request (no connection, server error) must not take the page down (UX-007).
-  const failedText = () =>
+  // A failed request (no connection, server error) must not take the page down (UX-007). Only the step
+  // form keeps what was typed; a plain status change has nothing to keep.
+  const failedText = (inForm = false) =>
     typeof navigator !== "undefined" && !navigator.onLine
-      ? t("errors.offline")
+      ? t(inForm ? "errors.offline" : "errors.offlineAction")
       : t("errors.server");
   const watchFollowUp = status === "applied" && (answerOverdue || !dates.expectedDecisionOn);
 
@@ -170,15 +182,49 @@ export function PermitStatusFlow({
 
   function open(which: StepForm) {
     const next = blankValues(dates);
+    let suggestion: string | null = null;
     if (which === "applied") {
       next.appliedAt = dates.appliedAt ?? today;
-      next.expectedDecisionOn = suggestedDecision(next.appliedAt, dates, typicalDecisionMd);
+      const prefill = decisionPrefill(next.appliedAt, dates, typicalDecisionMd);
+      next.expectedDecisionOn = prefill.value;
+      suggestion = prefill.suggested ? prefill.value : null;
     }
     if (which === "granted") next.grantedAt = dates.grantedAt ?? today;
     if (which === "followUp") next.expectedDecisionOn = addDays(today, FOLLOW_UP_DAYS);
+    opener.current = which === "followUp" ? "followUp" : "primary";
     setValues(next);
+    setSuggested(suggestion);
     setError(null);
     setForm(which);
+  }
+
+  // Focus moves into the form when it opens (its first field), and back to the button that opened it
+  // when it closes, so Esc right away closes the form and not the drawer, and keyboard users stay put.
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (form) {
+      wasOpen.current = true;
+      document.getElementById(`${uid}-${FIRST_FIELD[form]}`)?.focus();
+      return;
+    }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    // After a step the opener may be gone (a new status has other buttons): then the first step button.
+    const back =
+      (opener.current && document.getElementById(`${uid}-open-${opener.current}`)) ||
+      document.getElementById(`${uid}-open-primary`) ||
+      document.querySelector<HTMLElement>(`[data-flow-actions="${uid}"] button`);
+    back?.focus();
+    opener.current = null;
+  }, [form, uid]);
+
+  /** "Beantragt am" changed: a decision date still holding the untouched suggestion follows it. */
+  function changeAppliedAt(appliedAt: string) {
+    if (suggested === null || values.expectedDecisionOn !== suggested || appliedAt === "")
+      return setValues((prev) => ({ ...prev, appliedAt }));
+    const next = expectedDecisionAfter(appliedAt, typicalDecisionMd) ?? "";
+    setSuggested(next === "" ? null : next);
+    setValues((prev) => ({ ...prev, appliedAt, expectedDecisionOn: next }));
   }
 
   /** The same checks as the service, at the field, before anything is sent (UX-008). */
@@ -316,7 +362,11 @@ export function PermitStatusFlow({
           id={`${uid}-${name}`}
           type={opts.type ?? "date"}
           value={values[name]}
-          onChange={(e) => setValues((prev) => ({ ...prev, [name]: e.target.value }))}
+          onChange={(e) =>
+            name === "appliedAt"
+              ? changeAppliedAt(e.target.value)
+              : setValues((prev) => ({ ...prev, [name]: e.target.value }))
+          }
           className={(opts.type ?? "date") === "date" ? "tabular" : undefined}
           aria-invalid={marked || undefined}
           aria-describedby={
@@ -368,6 +418,8 @@ export function PermitStatusFlow({
             hint: (
               <>
                 {typicalDecisionMd &&
+                  suggested !== null &&
+                  values.expectedDecisionOn === suggested &&
                   `${t("step.decisionSuggested", { date: dayMonthInput(typicalDecisionMd) })} `}
                 {t("step.decisionEmpty")}
               </>
@@ -390,7 +442,7 @@ export function PermitStatusFlow({
         field("expectedDecisionOn", t("followUp.label"), { hint: t("step.decisionEmpty") })}
       {error && error.field === null && (
         <p role="alert" className="text-small text-status-critical">
-          {error.code === "failed" ? failedText() : errorText(error.code)}
+          {error.code === "failed" ? failedText(true) : errorText(error.code)}
         </p>
       )}
       <div className="flex flex-wrap justify-end gap-2">
@@ -466,9 +518,10 @@ export function PermitStatusFlow({
         ) : none ? (
           <p className="text-muted-foreground text-small">{t("noNextStep")}</p>
         ) : (
-          <div className="flex flex-wrap items-center gap-2">
+          <div data-flow-actions={uid} className="flex flex-wrap items-center gap-2">
             {primary && (
               <Button
+                id={`${uid}-open-primary`}
                 size="sm"
                 variant="default"
                 disabled={pending}
@@ -480,6 +533,7 @@ export function PermitStatusFlow({
             )}
             {watchFollowUp && (
               <Button
+                id={`${uid}-open-followUp`}
                 size="sm"
                 variant="outline"
                 disabled={pending}
@@ -544,14 +598,16 @@ function blankValues(dates: PermitFlowDates): Values {
 
 /**
  * "Entscheidung erwartet bis" when marking a permit applied: the date already on the permit if it does
- * not lie before the application, otherwise the requirement's usual decision day after it; else empty.
+ * not lie before the application, otherwise the requirement's usual decision day after it (`suggested`);
+ * else empty.
  */
-function suggestedDecision(
+function decisionPrefill(
   appliedAt: string,
   dates: PermitFlowDates,
   typicalDecisionMd: string | null,
-): string {
+): { value: string; suggested: boolean } {
   if (dates.expectedDecisionOn && dates.expectedDecisionOn >= appliedAt)
-    return dates.expectedDecisionOn;
-  return expectedDecisionAfter(appliedAt, typicalDecisionMd) ?? "";
+    return { value: dates.expectedDecisionOn, suggested: false };
+  const value = expectedDecisionAfter(appliedAt, typicalDecisionMd) ?? "";
+  return { value, suggested: value !== "" };
 }
