@@ -49,7 +49,12 @@
         "obligations": "Fahrzeuge & Pflichten",
         "shifts": "Schichten",
         "appointments": "Besprechungen"
-      }
+      },
+      "changedOff": "Aus: {names}",
+      "changedOn": "An: {names}",
+      "changedNarrow": "Eingegrenzt: {names}",
+      "markets": "Märkte",
+      "marketsHint": "Gilt auch für die Jahresansicht. Wird nicht gespeichert."
     },
     "gridCaption": "Kalender {month}",
     "listCaption": "Veranstaltungen, Fristen und Feiertage, {from} bis {to}",
@@ -87,7 +92,12 @@
       "open": "{title}, Monat oder Jahr wählen",
       "prevYear": "Vorheriges Jahr",
       "nextYear": "Nächstes Jahr",
-      "today": "Heute"
+      "today": "Heute",
+      "typed": "Datum oder Monat",
+      "typedPlaceholder": "z. B. 14.3.2027 oder 3.2027",
+      "go": "Zeigen",
+      "errorInvalid": "Bitte ein Datum wie 14.3.2027 oder einen Monat wie 3.2027 eingeben.",
+      "errorRange": "Bitte ein Jahr von {min} bis {max} wählen."
     },
     "emptyList": "In diesen sechs Wochen ist nichts eingetragen.",
     "emptyListHint": "Über „Ebenen“ änderst du die Auswahl, oder blättere mit › weiter.",
@@ -136,6 +146,17 @@
       "count": "{count, plural, =0 {kein Termin} one {# Termin} other {# Termine}}",
       "hiddenCount": "{count, plural, one {# Markt ausgeblendet} other {# Märkte ausgeblendet}}",
       "empty": "Für diese Auswahl gibt es in diesem Jahr keine Termine."
+    },
+    "rangeClamped": "Der Kalender reicht von {min} bis {max}. Gezeigt wird das nächstliegende Ende.",
+    "dayAria": "{day}, {n, plural, =0 {nichts eingetragen} one {# Eintrag} other {# Einträge}}",
+    "addAppointmentShort": "Besprechung anlegen",
+    "emptyDay": "Nichts eingetragen.",
+    "gridKeys": "Im Monat: <k>←</k> <k>→</k> <k>↑</k> <k>↓</k> wählen einen Tag · <k>Enter</k> zu seinen Einträgen",
+    "gridKeysAdd": "Im Monat: <k>←</k> <k>→</k> <k>↑</k> <k>↓</k> wählen einen Tag · <k>Enter</k> zu seinen Einträgen · <k>N</k> Besprechung anlegen",
+    "gone": {
+      "event": "Veranstaltung",
+      "title": "Gibt es nicht mehr",
+      "text": "Dieser Eintrag wurde gelöscht oder archiviert, oder der Link stimmt nicht."
     }
   }
 }

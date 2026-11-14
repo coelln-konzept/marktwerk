@@ -930,9 +930,18 @@ export async function calendarItems(
     )
     .orderBy(desc(permit.applyBy));
   const items: CalendarItem[] = [];
+  const horizon = rows.length > 0 ? await getPermitHorizonDays() : PERMIT_HORIZON_DEFAULT_DAYS;
   for (const r of rows) {
     const where = r.venueName ? ` · ${r.venueName}` : "";
     const href = `/genehmigungen?genehmigung=${r.id}`;
+    // The permit's state as the logbook shows it ("Noch nicht fällig", "Antwort überfällig", …), for the
+    // badge of the Kalender's Liste (UX-051).
+    const derived = permitDisplayState(r, today);
+    const permitState = logbookDisplayState(
+      derived,
+      permitActionTier({ state: derived, applyBy: r.applyBy }, today, horizon),
+      { expectedDecisionOn: r.expectedDecisionOn, today },
+    );
     if (isUnfiled(r.status) && r.applyBy && r.applyBy >= from && r.applyBy <= to) {
       const days = daysBetween(today, r.applyBy);
       items.push({
@@ -941,6 +950,7 @@ export async function calendarItems(
         date: r.applyBy,
         title: `Antrag: ${r.title}${where}`,
         href,
+        permitState,
         tone: days < 0 ? "critical" : days <= 7 ? "warn" : "neutral",
       });
     }
@@ -951,6 +961,7 @@ export async function calendarItems(
         date: r.expectedDecisionOn,
         title: `Entscheidung erwartet: ${r.title}${where}`,
         href,
+        permitState,
         tone: "neutral",
       });
     }
@@ -966,6 +977,7 @@ export async function calendarItems(
         date: r.validUntil,
         title: `Läuft ab: ${r.title}${where}`,
         href,
+        permitState,
         tone: "warn",
       });
     }
