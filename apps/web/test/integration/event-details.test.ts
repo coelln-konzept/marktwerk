@@ -3,8 +3,10 @@ import {
   auditLog,
   event,
   eventAnchor,
+  eventPermit,
   eventPreset,
   eventType,
+  permit,
   task,
   venue,
 } from "@marktwerk/db/schema";
@@ -206,6 +208,7 @@ describe("moving an event", () => {
       from: "2026-12-04",
       to: "2027-01-08",
       tasksShifted: 0,
+      seasonTasksShifted: 0,
     });
     expect(await load(id)).toMatchObject({
       startsOn: "2027-01-08",
@@ -239,6 +242,73 @@ describe("moving an event", () => {
     await expect(moveEvent(owner, id, "2026-11-28", "2026-11-21")).rejects.toMatchObject({
       code: "not_movable",
     });
+  });
+
+  it("answers far years with out_of_range instead of a crash; the undo may go back anyway (UX-041)", async () => {
+    const id = await oneEvent();
+    for (const date of ["9999-12-31", "0001-01-01", "2040-05-01"]) {
+      await expect(previewEventMove(owner, id, date)).rejects.toMatchObject({
+        code: "out_of_range",
+      });
+      await expect(moveEvent(owner, id, date, "2026-11-14")).rejects.toMatchObject({
+        code: "out_of_range",
+      });
+    }
+    await expect(previewEventMove(owner, id, "2026-02-30")).rejects.toMatchObject({
+      code: "invalid_date",
+    });
+    expect((await load(id)).startsOn).toBe("2026-11-14");
+
+    // An old event (a year that is now outside the range) can still be moved back by the undo toast.
+    await db
+      .update(event)
+      .set({ startsOn: "2020-06-06", endsOn: "2020-06-06", season: 2020 })
+      .where(eq(event.id, id));
+    await moveEvent(owner, id, "2026-12-05", "2020-06-06");
+    await expect(
+      moveEvent(owner, id, "2020-06-06", "2026-12-05", { undo: true }),
+    ).resolves.toMatchObject({ changed: true, to: "2020-06-06" });
+  });
+
+  it("names the permits still to apply for, whose Antrag bis does not move (UX-D3 open)", async () => {
+    const id = await oneEvent();
+    const permits = await db
+      .insert(permit)
+      .values(
+        (
+          [
+            ["Halteverbot", "not_started", "2026-10-20"],
+            ["Marktgenehmigung", "preparing", "2026-09-30"],
+            ["Wasser", "applied", "2026-10-01"],
+            ["Plakate", "not_started", null],
+          ] as const
+        ).map(([title, status, applyBy]) => ({
+          venueId: cat.venue.id,
+          season: 2026,
+          category: "city" as const,
+          permitType: "market_permit" as const,
+          title,
+          status,
+          applyBy,
+        })),
+      )
+      .returning();
+    await db.insert(eventPermit).values(permits.map((p) => ({ eventId: id, permitId: p.id })));
+
+    const preview = await previewEventMove(owner, id, "2026-11-21");
+    expect(preview.permitsKept.map((p) => [p.title, p.applyBy])).toEqual([
+      ["Marktgenehmigung", "2026-09-30"],
+      ["Halteverbot", "2026-10-20"],
+    ]);
+    // A change of length keeps the first day, so the permits are not named there.
+    expect((await previewEventSchedule(owner, id, { durationDays: 2 })).permitsKept).toEqual([]);
+    await moveEvent(owner, id, "2026-11-21", "2026-11-14");
+    expect((await db.select().from(permit).orderBy(permit.title)).map((p) => p.applyBy)).toEqual([
+      "2026-10-20",
+      "2026-09-30",
+      null,
+      "2026-10-01",
+    ]);
   });
 
   it("is forbidden for staff", async () => {
