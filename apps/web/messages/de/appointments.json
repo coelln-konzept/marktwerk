@@ -2,7 +2,7 @@
   "appointments": {
     "title": "Neue Besprechung",
     "editTitle": "Besprechung bearbeiten",
-    "description": "Eine Besprechung mit Datum, Ort und Ansprechpartner. Er ist keine Aufgabe.",
+    "description": "Eine Besprechung mit Datum, Ort und Ansprechpartner. Sie ist keine Aufgabe.",
     "name": "Name",
     "namePlaceholder": "z. B. Ortstermin Rheinwiese",
     "date": "Datum",
@@ -38,10 +38,10 @@
     "cancel": "Abbrechen",
     "loading": "Lädt …",
     "toast": {
-      "created": "Besprechung angelegt",
-      "saved": "Besprechung gespeichert",
+      "created": "Besprechung „{title}“ angelegt",
+      "saved": "Besprechung „{title}“ gespeichert",
       "undo": "Rückgängig",
-      "createdUndone": "Besprechung entfernt"
+      "createdUndone": "Besprechung „{title}“ entfernt"
     },
     "errors": {
       "title_required": "Gib der Besprechung einen Namen.",
@@ -78,8 +78,8 @@
       "openContact": "In Kontakte öffnen",
       "edit": "Bearbeiten",
       "archive": "Archivieren",
-      "archived": "Besprechung archiviert",
-      "restored": "Besprechung wiederhergestellt",
+      "archived": "Besprechung „{title}“ archiviert",
+      "restored": "Besprechung „{title}“ wiederhergestellt",
       "failed": "Das hat nicht geklappt. Versuche es noch einmal.",
       "timeRange": "{from}–{to} Uhr",
       "timeFrom": "ab {from} Uhr",

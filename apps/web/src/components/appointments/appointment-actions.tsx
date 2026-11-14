@@ -50,12 +50,12 @@ export function AppointmentActions({
       }
       router.replace(closeHref as never, { scroll: false });
       showToast({
-        message: t("archived"),
+        message: t("archived", { title }),
         actionLabel: tToast("undo"),
         onAction: async () => {
           const undone = await guardedCall(() => restoreAppointmentAction(id));
           if (undone.ok) router.replace(reopenHref as never, { scroll: false });
-          if (undone.ok) showToast({ message: t("restored") });
+          if (undone.ok) showToast({ message: t("restored", { title }) });
           else showError(t("failed"));
         },
       });

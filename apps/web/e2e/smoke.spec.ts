@@ -1561,11 +1561,12 @@ test('"+ Neu" › Besprechung: name and today, saved with a toast; the dialog cl
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   await expect(dialog.getByLabel("Datum")).not.toHaveValue("");
   await dialog.getByRole("button", { name: "Anlegen" }).click();
-  await expect(page.getByText("Besprechung angelegt")).toBeVisible();
+  // The toast names the Besprechung (UX-031), so two in a row stay apart.
+  await expect(page.getByText(`Besprechung „${name}“ angelegt`)).toBeVisible();
   await expect(dialog).toBeHidden();
   await expect(page).not.toHaveURL(/neu=besprechung/);
   await toastUndo(page).click(); // leaves no appointment behind
-  await expect(page.getByText("Besprechung entfernt")).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ entfernt`)).toBeVisible();
 });
 
 test("Kalender: a day's + opens the Besprechung dialog with that date", async ({ page }) => {
@@ -1594,7 +1595,7 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   await dialog.getByLabel("E-Mail").fill("e2e.kontakt@example.com");
   await dialog.getByLabel("Als Kontakt speichern").uncheck(); // stays on the Besprechung, no Kontakte entry left over
   await dialog.getByRole("button", { name: "Anlegen" }).click();
-  await expect(page.getByText("Besprechung angelegt")).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ angelegt`)).toBeVisible();
   await expect(dialog).toBeHidden();
 
   // Übersicht: first group of "Heute & nächste Tage", all-day Besprechungen first.
@@ -1626,15 +1627,15 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   // Archive from the Vorschau: gone from the Übersicht, back with the undo.
   await page.goto("/?vorschau=besprechung:" + (await appointmentId(page, name)));
   await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
-  await expect(page.getByText("Besprechung archiviert")).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ archiviert`)).toBeVisible();
   await expect(group.getByRole("link", { name })).toHaveCount(0);
   await toastUndo(page).click();
-  await expect(page.getByText("Besprechung wiederhergestellt")).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ wiederhergestellt`)).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();
 
   // Leave nothing behind.
   await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
-  await expect(page.getByText("Besprechung archiviert")).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ archiviert`)).toBeVisible();
 });
 
 /** The id of a Besprechung, read from its link in the Übersicht's "Besprechungen heute" group. */

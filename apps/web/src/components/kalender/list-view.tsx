@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment } from "react";
 import { EventStatusBadge } from "@/components/events/event-status";
+import { PermitStateBadge } from "@/components/permits/permit-state-badge";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
@@ -370,6 +371,9 @@ export async function CalendarList({
                       </DeadlineGroup>
                     ) : null;
                     const badge = tone === "warn" || tone === "critical";
+                    // A single permit shows its state like the logbook (UX-051), next to the urgency.
+                    const permitState = summary ? undefined : item.permitState;
+                    const status = badge || permitState !== undefined;
                     return (
                       <TR
                         key={`${day}-${item.id}`}
@@ -381,7 +385,7 @@ export async function CalendarList({
                         {events.length + dayAppointments.length + i === 0 && dateCell}
                         {/* A calm deadline has no badge: its text takes the empty status column (on a phone the
                             title was hyphenated over half a dozen lines), on wide screens the empty Ort column. */}
-                        <TD colSpan={badge ? undefined : 2}>
+                        <TD colSpan={status ? undefined : 2}>
                           {summary ?? (
                             <Link
                               href={item.href as never}
@@ -396,17 +400,22 @@ export async function CalendarList({
                             {item.kindLabel && !item.group ? ` · ${item.kindLabel}` : ""}
                           </span>
                         </TD>
-                        {badge ? (
+                        {status ? (
                           <>
                             <TD className="hidden @3xl:table-cell" />
                             <TD>
-                              {/* Only urgent deadlines get a state; a calm one is no "Geplant" (UT-11 #3). */}
-                              <StatusBadge
-                                tone={tone}
-                                icon={tone === "critical" ? OctagonAlert : Clock}
-                              >
-                                {t(`tone.${tone}`)}
-                              </StatusBadge>
+                              <span className="flex flex-wrap gap-1">
+                                {permitState && <PermitStateBadge state={permitState} />}
+                                {/* Only urgent deadlines get an urgency; a calm one is no "Geplant" (UT-11 #3). */}
+                                {badge && (
+                                  <StatusBadge
+                                    tone={tone}
+                                    icon={tone === "critical" ? OctagonAlert : Clock}
+                                  >
+                                    {t(`tone.${tone}`)}
+                                  </StatusBadge>
+                                )}
+                              </span>
                             </TD>
                           </>
                         ) : (

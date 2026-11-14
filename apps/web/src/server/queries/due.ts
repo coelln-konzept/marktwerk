@@ -1,3 +1,5 @@
+import type { PermitDisplayState } from "@marktwerk/core";
+
 /**
  * Shapes every module feeds into the Übersicht ("Heute fällig") and the Kalender (layers). Each module
  * exports `dueItems(actor, today)` and `calendarItems(actor, from, to)` from its own query file and
@@ -89,4 +91,6 @@ export type CalendarItem = {
   tone?: "ok" | "warn" | "critical" | "neutral";
   /** Tasks layer: a season task's market and season (shown after the title, "<Markt> · Saison <Jahr>"). */
   season?: TaskSeason | null;
+  /** Permits layer: the permit's state as the logbook shows it (badge in the Kalender's Liste). */
+  permitState?: PermitDisplayState;
 };
