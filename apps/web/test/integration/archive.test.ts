@@ -1,8 +1,13 @@
-import { document, permit } from "@marktwerk/db/schema";
+import { auditLog, contact, document, event, permit } from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
-import { listActivity, listArchiveDocuments, listOldPermits } from "@/server/queries/archive";
+import {
+  archiveDocumentFacets,
+  listActivity,
+  listArchiveDocuments,
+  listOldPermits,
+} from "@/server/queries/archive";
 import { createEventsFromPreset } from "@/server/services/events";
 import { createPermit, setPermitStatus } from "@/server/services/permits";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -58,6 +63,77 @@ describe("Archiv: Dokumente", () => {
   });
 });
 
+describe("Archiv: Dokumente finden", () => {
+  it("searches what a file belongs to (umlauts folded), filters by Markt and year, and lists removed ones", async () => {
+    const [nippes] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2025-06-07"]);
+    const [fest] = await createEventsFromPreset(owner, cat.presets.festival.id, ["2026-05-02"]);
+    if (!nippes || !fest) throw new Error("events");
+    await db.update(event).set({ name: "Trödelmarkt Nippes" }).where(eq(event.id, nippes.id));
+    const season = await newPermit("Sondernutzung Rhein");
+    const file = (n: number, link: Partial<typeof document.$inferInsert>) => ({
+      fileName: `scan-${n}.pdf`,
+      mimeType: "application/pdf",
+      sizeBytes: 10,
+      sha256: String(n).padStart(64, "0"),
+      storageKey: `test/find/${n}`,
+      ...link,
+    });
+    await db
+      .insert(document)
+      .values([
+        file(1, { eventId: nippes.id, createdAt: new Date("2026-01-10T10:00:00Z") }),
+        file(2, { eventId: fest.id, caption: "Lageplan" }),
+        file(3, { permitId: season.id }),
+        file(4, { venueId: cat.venue.id, createdAt: new Date("2024-03-01T10:00:00Z") }),
+        file(5, { eventId: nippes.id, archivedAt: new Date() }),
+      ]);
+    const names = async (filters: Parameters<typeof listArchiveDocuments>[1]) =>
+      (await listArchiveDocuments(owner, filters)).rows.map((r) => r.fileName).sort();
+    const base = { page: 1, size: 50 };
+
+    // Owner names, word by word, without umlauts: the event, the Markt, the permit, the Ort.
+    expect(await names({ ...base, q: "trodel nippes" })).toEqual(["scan-1.pdf"]);
+    expect(await names({ ...base, q: "Teststadtfest" })).toEqual(["scan-2.pdf"]);
+    expect(await names({ ...base, q: "lageplan" })).toEqual(["scan-2.pdf"]);
+    expect(await names({ ...base, q: "Rhein" })).toEqual(["scan-3.pdf"]);
+    expect(await names({ ...base, q: "messeplatz" })).toEqual(["scan-4.pdf"]);
+    expect(await names({ ...base, q: "nippes rhein" })).toEqual([]);
+
+    // Markt and year: the event's season, else the permit's, else the upload year.
+    expect(await names({ ...base, presetId: cat.presets.flea.id })).toEqual(["scan-1.pdf"]);
+    expect(await names({ ...base, year: 2025 })).toEqual(["scan-1.pdf"]);
+    expect(await names({ ...base, year: 2026 })).toEqual(["scan-2.pdf", "scan-3.pdf"]);
+    expect(await names({ ...base, year: 2024 })).toEqual(["scan-4.pdf"]);
+
+    const facets = await archiveDocumentFacets(owner);
+    expect(facets.years).toEqual([2026, 2025, 2024]);
+    expect(facets.presets.map((p) => p.name)).toEqual(["Testflohmarkt", "Teststadtfest"]);
+
+    const [nippesRow] = (await listArchiveDocuments(owner, { ...base, q: "scan-1" })).rows;
+    expect(nippesRow).toMatchObject({
+      eventName: "Trödelmarkt Nippes",
+      eventStartsOn: "2025-06-07",
+      eventEndsOn: "2025-06-07",
+      presetName: "Testflohmarkt",
+    });
+
+    const removed = await listArchiveDocuments(owner, { ...base, removed: true });
+    expect(removed.rows.map((r) => [r.fileName, r.canWrite])).toEqual([["scan-5.pdf", true]]);
+    expect(removed.rows[0]?.archivedAt).not.toBeNull();
+    // The filters of "Entfernte" offer the Märkte and years of the removed documents.
+    const removedFacets = await archiveDocumentFacets(owner, { removed: true });
+    expect(removedFacets.years).toEqual([2025]);
+    expect(removedFacets.presets.map((p) => p.name)).toEqual(["Testflohmarkt"]);
+
+    // Accents fold to their own letter on both sides: typed as stored or without the marks.
+    await db
+      .insert(document)
+      .values(file(6, { venueId: cat.venue.id, caption: "Angebot Café René, Façade" }));
+    for (const q of ["café rené", "cafe rene", "CAFÉ", "facade"])
+      expect(await names({ ...base, q })).toEqual(["scan-6.pdf"]);
+  });
+});
+
 describe("Archiv: Aktivität", () => {
   it("shows every audit entry newest first for owner and manager, nothing for staff", async () => {
     const created = await newPermit("Sonderfall");
@@ -69,6 +145,60 @@ describe("Archiv: Aktivität", () => {
     expect(permits.rows.every((r) => r.entityType.startsWith("permit"))).toBe(true);
     const staff = await createActor("staff");
     expect(await listActivity(staff, { page: 1, size: 50 })).toEqual({ rows: [], total: 0 });
+  });
+});
+
+describe("Archiv: Aktivität, Betrifft", () => {
+  it("names and links the record of every entry, and falls back to the name in the entry", async () => {
+    const [person] = await db
+      .insert(contact)
+      .values({ kind: "authority", name: "Ordnungsamt Köln" })
+      .returning();
+    if (!person) throw new Error("contact");
+    const gone = "00000000-0000-4000-8000-000000000001";
+    await db.insert(auditLog).values([
+      { actorId: owner.id, action: "contact.create", entityType: "contact", entityId: person.id },
+      { actorId: owner.id, action: "venue.update", entityType: "venue", entityId: cat.venue.id },
+      {
+        actorId: owner.id,
+        action: "preset.update",
+        entityType: "event_preset",
+        entityId: cat.presets.flea.id,
+      },
+      {
+        actorId: owner.id,
+        action: "vehicle.archive",
+        entityType: "vehicle",
+        entityId: gone,
+        diff: { name: "Alter Sprinter" },
+      },
+      { actorId: owner.id, action: "settings.update", entityType: "settings", entityId: null },
+      { actorId: owner.id, action: "season.create", entityType: "event_season", entityId: gone },
+    ]);
+    const { rows } = await listActivity(owner, { page: 1, size: 50 });
+    const byAction = Object.fromEntries(rows.map((r) => [r.action, r.target]));
+    expect(byAction["contact.create"]).toEqual({
+      label: "Ordnungsamt Köln",
+      href: `/kontakte?vorschau=${person.id}`,
+    });
+    expect(byAction["venue.update"]).toEqual({
+      label: "Messeplatz Test",
+      href: `/orte/${cat.venue.id}`,
+    });
+    expect(byAction["preset.update"]).toEqual({
+      label: "Testflohmarkt",
+      href: `/vorlagen/${cat.presets.flea.id}`,
+    });
+    expect(byAction["vehicle.archive"]).toEqual({ label: "Alter Sprinter" });
+    expect(byAction["settings.update"]).toBeNull();
+
+    const contacts = await listActivity(owner, { area: "contact", page: 1, size: 50 });
+    expect(contacts.rows.map((r) => r.action)).toEqual(["contact.create"]);
+    // A Saison belongs to a Markt: "Märkte und Vorlagen", not "Veranstaltungen".
+    const templates = await listActivity(owner, { area: "template", page: 1, size: 50 });
+    expect(templates.rows.map((r) => r.action).sort()).toEqual(["preset.update", "season.create"]);
+    const events = await listActivity(owner, { area: "event", page: 1, size: 50 });
+    expect(events.rows.map((r) => r.action)).toEqual([]);
   });
 });
 
