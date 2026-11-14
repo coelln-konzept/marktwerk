@@ -8,6 +8,7 @@ import {
   type ObligationPreset,
   parseWholeNumber,
 } from "@marktwerk/core";
+import { CalendarX2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -21,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
 import { cn } from "@/lib/utils";
+import { FieldError, FormErrorSummary, useFieldErrors } from "./field-errors";
 import { SELECT_CLASS, useErrorText } from "./shared";
 
 export type ObligationFormValues = {
@@ -61,6 +63,22 @@ const FIELD_OF: Record<string, string> = {
   invalid_text: "notes",
 };
 
+/** Field order of the form: the first field with an error gets the focus. */
+const ORDER = [
+  "title",
+  "kind",
+  "scope",
+  "vehicle",
+  "venue",
+  "intervalMonths",
+  "intervalKm",
+  "nextDueOn",
+  "nextDueKm",
+  "leadDays",
+  "responsible",
+  "notes",
+] as const;
+
 /**
  * "Pflicht anlegen" and "Pflicht bearbeiten": a page, because an obligation has more than eight fields
  * (UX concept §4). Presets fill kind, interval and lead time; the HU interval follows the vehicle's gross
@@ -95,7 +113,8 @@ export function ObligationForm({
   const [pending, startTransition] = useTransition();
   const uid = useId();
   const editing = obligationId !== undefined;
-  const [error, setError] = useState<{ field: string | null; text: string } | null>(null);
+  const f = (key: string) => `${uid}-${key}`;
+  const { errors, show, clear, invalid } = useFieldErrors(f);
 
   const [presetKey, setPresetKey] = useState("");
   const [titleAuto, setTitleAuto] = useState(false);
@@ -171,12 +190,6 @@ export function ObligationForm({
     if (titleAuto) setTitle(presetTitle(preset, id));
   }
 
-  function fail(code: string, field?: string) {
-    const target = field ?? FIELD_OF[code] ?? null;
-    setError({ field: target, text: errorText(code) });
-    if (target) document.getElementById(`${uid}-${target}`)?.focus();
-  }
-
   function whole(text: string): number | null | undefined {
     const value = text.trim();
     if (value === "") return null;
@@ -184,21 +197,25 @@ export function ObligationForm({
   }
 
   function submit() {
-    setError(null);
-    // Required fields are answered on the spot (no round trip), in field order; the first wrong field
-    // gets the focus.
-    if (title.trim() === "") return fail("title_required");
-    if (scope === "vehicle" && vehicleId === "") return fail("invalid_vehicle");
-    if (scope === "venue" && venueId === "") return fail("invalid_venue");
+    clear();
+    // Every wrong field is answered on the spot, at the field (no round trip); the first one gets the focus.
+    const found: Record<string, string> = {};
+    if (title.trim() === "") found.title = errorText("title_required");
+    if (scope === "vehicle" && vehicleId === "") found.vehicle = errorText("invalid_vehicle");
+    if (scope === "venue" && venueId === "") found.venue = errorText("invalid_venue");
     const intervalMonths = whole(months);
-    if (intervalMonths === undefined) return fail("invalid_interval", "intervalMonths");
+    if (intervalMonths === undefined || intervalMonths === 0)
+      found.intervalMonths = errorText("invalid_interval");
     const intervalKm = whole(km);
-    if (intervalKm === undefined) return fail("invalid_interval", "intervalKm");
+    if (scope === "vehicle" && (intervalKm === undefined || intervalKm === 0))
+      found.intervalKm = errorText("invalid_interval");
     const nextDueKm = whole(dueKm);
-    if (nextDueKm === undefined) return fail("invalid_due", "nextDueKm");
+    if (scope === "vehicle" && nextDueKm === undefined) found.nextDueKm = errorText("invalid_due");
     const lead = whole(leadDays);
-    if (lead === undefined || lead === null) return fail("invalid_lead_days");
-    if (responsible === "") return fail("responsible_required");
+    if (lead === undefined || lead === null || lead > 365)
+      found.leadDays = errorText("invalid_lead_days");
+    if (responsible === "") found.responsible = errorText("responsible_required");
+    if (Object.keys(found).length > 0) return show(found, ORDER);
 
     const input = {
       kind,
@@ -206,11 +223,11 @@ export function ObligationForm({
       scope,
       vehicleId: scope === "vehicle" ? vehicleId || null : null,
       venueId: scope === "venue" ? venueId || null : null,
-      intervalMonths,
-      intervalKm: scope === "vehicle" ? intervalKm : null,
+      intervalMonths: intervalMonths ?? null,
+      intervalKm: scope === "vehicle" ? (intervalKm ?? null) : null,
       nextDueOn: dueOn || null,
-      nextDueKm: scope === "vehicle" ? nextDueKm : null,
-      leadDays: lead,
+      nextDueKm: scope === "vehicle" ? (nextDueKm ?? null) : null,
+      leadDays: lead ?? 0,
       responsibleStaffMemberId: responsible,
       createsPayable,
       notes: notes || null,
@@ -220,7 +237,8 @@ export function ObligationForm({
         ? await updateObligationAction(obligationId, input)
         : await createObligationAction(input);
       if (!result.ok) {
-        fail(result.error);
+        const field = FIELD_OF[result.error] ?? "form";
+        show({ [field]: errorText(result.error) }, ORDER);
         if (result.error === "not_found" && editing) router.push("/firma/pflichten" as never);
         return;
       }
@@ -234,12 +252,16 @@ export function ObligationForm({
     });
   }
 
-  const f = (key: string) => `${uid}-${key}`;
-  const invalid = (field: string) =>
-    error?.field === field ? { "aria-invalid": true as const } : {};
   const cell = "flex flex-col gap-1.5";
   const hint = "text-faint-foreground text-small";
-  const backHref = editing ? `/firma/pflichten/${obligationId}` : "/firma/pflichten";
+  // Abbrechen goes back to where the person started: the obligation, the vehicle it was started from, or the list.
+  const backHref = editing
+    ? `/firma/pflichten/${obligationId}`
+    : initial.vehicleId
+      ? `/firma/fahrzeuge/${initial.vehicleId}`
+      : "/firma/pflichten";
+  // Without a date or km target the obligation never reminds anybody ("Fälligkeit fehlt", UX-022).
+  const dueMissing = dueOn === "" && (scope !== "vehicle" || dueKm.trim() === "");
 
   return (
     <form
@@ -295,6 +317,7 @@ export function ObligationForm({
                   }}
                   {...invalid("title")}
                 />
+                <FieldError id={f("title")} text={errors.title} />
               </div>
               <div className={cn(cell, "sm:col-span-2")}>
                 <Label htmlFor={f("kind")}>{tf("kind")}</Label>
@@ -311,6 +334,7 @@ export function ObligationForm({
                     </option>
                   ))}
                 </select>
+                <FieldError id={f("kind")} text={errors.kind} />
               </div>
               <div className={cn(cell, "sm:col-span-2")}>
                 <Label htmlFor={f("scope")}>{tf("scope")}</Label>
@@ -327,6 +351,7 @@ export function ObligationForm({
                     </option>
                   ))}
                 </select>
+                <FieldError id={f("scope")} text={errors.scope} />
               </div>
               {scope === "vehicle" && (
                 <div className={cn(cell, "sm:col-span-4")}>
@@ -345,6 +370,7 @@ export function ObligationForm({
                       </option>
                     ))}
                   </select>
+                  <FieldError id={f("vehicle")} text={errors.vehicle} />
                 </div>
               )}
               {scope === "venue" && (
@@ -364,6 +390,7 @@ export function ObligationForm({
                       </option>
                     ))}
                   </select>
+                  <FieldError id={f("venue")} text={errors.venue} />
                 </div>
               )}
             </div>
@@ -381,10 +408,9 @@ export function ObligationForm({
                   value={months}
                   inputMode="numeric"
                   autoComplete="off"
-                  aria-describedby={f("intervalMonths-hint")}
                   className="tabular"
                   onChange={(e) => setMonths(e.target.value)}
-                  {...invalid("intervalMonths")}
+                  {...invalid("intervalMonths", f("intervalMonths-hint"))}
                 />
                 <p id={f("intervalMonths-hint")} className={hint}>
                   {preset?.legal && !editing
@@ -395,6 +421,7 @@ export function ObligationForm({
                       : tf("legalMissing")
                     : tf("intervalMonthsHint")}
                 </p>
+                <FieldError id={f("intervalMonths")} text={errors.intervalMonths} />
               </div>
               {scope === "vehicle" && (
                 <div className={cell}>
@@ -406,14 +433,14 @@ export function ObligationForm({
                     value={km}
                     inputMode="numeric"
                     autoComplete="off"
-                    aria-describedby={f("intervalKm-hint")}
                     className="tabular"
                     onChange={(e) => setKm(e.target.value)}
-                    {...invalid("intervalKm")}
+                    {...invalid("intervalKm", f("intervalKm-hint"))}
                   />
                   <p id={f("intervalKm-hint")} className={hint}>
                     {tf("intervalKmHint")}
                   </p>
+                  <FieldError id={f("intervalKm")} text={errors.intervalKm} />
                 </div>
               )}
               <div className={cell}>
@@ -426,8 +453,9 @@ export function ObligationForm({
                   value={dueOn}
                   className="tabular"
                   onChange={(e) => setDueOn(e.target.value)}
-                  {...invalid("nextDueOn")}
+                  {...invalid("nextDueOn", dueMissing ? f("due-missing") : undefined)}
                 />
+                <FieldError id={f("nextDueOn")} text={errors.nextDueOn} />
               </div>
               {scope === "vehicle" && (
                 <div className={cell}>
@@ -441,8 +469,9 @@ export function ObligationForm({
                     autoComplete="off"
                     className="tabular"
                     onChange={(e) => setDueKm(e.target.value)}
-                    {...invalid("nextDueKm")}
+                    {...invalid("nextDueKm", dueMissing ? f("due-missing") : undefined)}
                   />
+                  <FieldError id={f("nextDueKm")} text={errors.nextDueKm} />
                 </div>
               )}
               <div className={cell}>
@@ -457,8 +486,18 @@ export function ObligationForm({
                   onChange={(e) => setLeadDays(e.target.value)}
                   {...invalid("leadDays")}
                 />
+                <FieldError id={f("leadDays")} text={errors.leadDays} />
               </div>
             </div>
+            {dueMissing && (
+              <p
+                id={f("due-missing")}
+                className="mt-3 flex items-start gap-1.5 text-small text-status-warn"
+              >
+                <CalendarX2 aria-hidden className="mt-0.5 size-4 shrink-0" />
+                {tf("dueMissingHint")}
+              </p>
+            )}
           </fieldset>
 
           <fieldset className={FORM_SECTION}>
@@ -480,6 +519,7 @@ export function ObligationForm({
                     </option>
                   ))}
                 </select>
+                <FieldError id={f("responsible")} text={errors.responsible} />
               </div>
               <label className="flex items-start gap-2 self-end pb-2 text-body">
                 <input
@@ -503,14 +543,13 @@ export function ObligationForm({
                   onChange={(e) => setNotes(e.target.value)}
                   {...invalid("notes")}
                 />
+                <FieldError id={f("notes")} text={errors.notes} />
               </div>
             </div>
           </fieldset>
         </PanelBody>
         <PanelFooter className="justify-between">
-          <p role="alert" className="min-w-0 flex-1 text-small text-status-critical">
-            {error?.text}
-          </p>
+          <FormErrorSummary errors={errors} />
           <div className="flex items-center gap-2">
             <Link href={backHref as never} className={buttonVariants({ variant: "outline" })}>
               {t("cancel")}
