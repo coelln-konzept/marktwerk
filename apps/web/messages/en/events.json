@@ -43,6 +43,36 @@
     "created": {
       "banner": "{count, plural, one {# newly created event} other {# newly created events}}",
       "showAll": "Show all events"
+    },
+    "subtitleAll": "All seasons · {count} dates · {planned} planned",
+    "emptySearch": "No matches for “{q}” in this view.",
+    "cancelled": {
+      "label": "Cancelled",
+      "chip": "{count} cancelled",
+      "show": "Show cancelled dates in the list",
+      "hide": "Hide cancelled dates again",
+      "shown": "with cancelled"
+    },
+    "alsoMatching": {
+      "past": "Also matching: {count, plural, one {# past date} other {# past dates}}.",
+      "cancelled": "Also matching: {count, plural, one {# cancelled date} other {# cancelled dates}}.",
+      "pastCancelled": "Also matching: {past, plural, one {# past} other {# past}} and {cancelled, plural, one {# cancelled date} other {# cancelled dates}}.",
+      "other": "Also matching: {count, plural, one {# date} other {# dates}} in other seasons or with another status.",
+      "showAll": "Show all {count} matches",
+      "typos": "Similar spellings of “{q}” included."
+    },
+    "paging": {
+      "shown": "{shown} of {total} dates",
+      "more": "{count, plural, one {Show # more date} other {Show # more dates}}"
+    },
+    "manualForm": {
+      "errors": {
+        "date_out_of_range": "Please pick a day in the years {minYear} to {maxYear}.",
+        "offline": "Not saved – no connection. Your input is still here.",
+        "server": "That didn't work. Nothing was saved, your input is still here."
+      },
+      "retry": "Try again",
+      "hintsOutOfRange": "No hints: dates are planned in the years {minYear} to {maxYear}."
     }
   },
   "eventPage": {
