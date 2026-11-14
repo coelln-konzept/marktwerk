@@ -11,6 +11,7 @@ import {
   splitPermitTransitions,
 } from "@marktwerk/core";
 import { Check, Circle, CircleDot, Ellipsis } from "lucide-react";
+import { unstable_rethrow } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import {
@@ -23,6 +24,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { callAction, NETWORK_ERROR } from "@/lib/call-action";
 import { formatDate } from "@/lib/format";
 import { dayMonthInput } from "@/lib/month-day";
 import { cn } from "@/lib/utils";
@@ -128,13 +130,19 @@ export function PermitStatusFlow({
   // A step back in the flow reads "Zurück auf „Beantragt“", a step forward "Als … markieren".
   const actionLabel = (to: PermitStatus) =>
     isBack(to) ? t("back", { status: label(to) }) : t(`actions.${to}` as never);
+  // A failed request (no connection, server error) must not take the page down (UX-007). Plain status
+  // changes and undos go through `callAction` (pending bar, a redirect to /login passes through) and
+  // answer `network` / `server` like any other error code; a plain change has nothing to keep.
   const errorText = (code: string) =>
-    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
-  // A failed request (no connection, server error) must not take the page down (UX-007). Only the step
-  // form keeps what was typed; a plain status change has nothing to keep.
-  const failedText = (inForm = false) =>
+    code === NETWORK_ERROR
+      ? t("errors.offlineAction")
+      : t.has(`errors.${code}` as never)
+        ? t(`errors.${code}` as never)
+        : t("errors.generic");
+  // Only the step form keeps what was typed.
+  const formFailedText = () =>
     typeof navigator !== "undefined" && !navigator.onLine
-      ? t(inForm ? "errors.offline" : "errors.offlineAction")
+      ? t("errors.offline")
       : t("errors.server");
   const watchFollowUp = status === "applied" && (answerOverdue || !dates.expectedDecisionOn);
 
@@ -143,13 +151,11 @@ export function PermitStatusFlow({
       message,
       actionLabel: t("undo"),
       onAction: async () => {
-        try {
-          const undone = await undoPermitStatus(permitId, to, data.previous, data.closedTaskIds);
-          if (undone.ok) showToast({ message: t("reverted") });
-          else showError(errorText(undone.error));
-        } catch {
-          showError(failedText());
-        }
+        const undone = await callAction(() =>
+          undoPermitStatus(permitId, to, data.previous, data.closedTaskIds),
+        );
+        if (undone.ok) showToast({ message: t("reverted") });
+        else showError(errorText(undone.error));
       },
     });
   }
@@ -167,12 +173,7 @@ export function PermitStatusFlow({
     // Forward to "Beantragt" or "Genehmigt": ask for the step's details first.
     if ((to === "applied" || to === "granted") && !isBack(to)) return open(to);
     startTransition(async () => {
-      let result: Awaited<ReturnType<typeof changePermitStatus>>;
-      try {
-        result = await changePermitStatus(permitId, to);
-      } catch {
-        return showError(failedText());
-      }
+      const result = await callAction(() => changePermitStatus(permitId, to));
       if (!result.ok) return showError(errorText(result.error));
       if (!result.data.changed)
         return showToast({ message: t("statusUnchanged", { status: label(to) }) });
@@ -280,13 +281,9 @@ export function PermitStatusFlow({
               : `${t("saved")} ${t("decisionUnwatched")}.`,
             actionLabel: t("undo"),
             onAction: async () => {
-              try {
-                const undone = await savePermitAction(permitId, previous, true);
-                if (undone.ok) showToast({ message: t("savedUndone") });
-                else showError(errorText(undone.error));
-              } catch {
-                showError(failedText());
-              }
+              const undone = await callAction(() => savePermitAction(permitId, previous, true));
+              if (undone.ok) showToast({ message: t("savedUndone") });
+              else showError(errorText(undone.error));
             },
           });
           return;
@@ -311,7 +308,9 @@ export function PermitStatusFlow({
           return showToast({ message: t("statusUnchanged", { status: label(which) }) });
         const unwatched = which === "applied" && details.expectedDecisionOn === null;
         undoToast(statusMessage(which, result.data, unwatched), which, result.data);
-      } catch {
+      } catch (err) {
+        // A redirect to /login (session expired) is not a failure.
+        unstable_rethrow(err);
         // No connection or a server error: the form stays open with what was typed.
         setError({ field: null, code: "failed" });
       }
@@ -321,25 +320,16 @@ export function PermitStatusFlow({
   // "Als ersetzt markieren" clicked again: valid again, with the same undo as every other change.
   function reinstate() {
     startTransition(async () => {
-      let result: Awaited<ReturnType<typeof reinstatePermitAction>>;
-      try {
-        result = await reinstatePermitAction(permitId);
-      } catch {
-        return showError(failedText());
-      }
+      const result = await callAction(() => reinstatePermitAction(permitId));
       if (!result.ok) return showError(errorText(result.error));
       const { status: back } = result.data;
       showToast({
         message: t("reinstated", { status: label(back) }),
         actionLabel: t("undo"),
         onAction: async () => {
-          try {
-            const undone = await changePermitStatus(permitId, "superseded");
-            if (undone.ok) showToast({ message: t("reverted") });
-            else showError(errorText(undone.error));
-          } catch {
-            showError(failedText());
-          }
+          const undone = await callAction(() => changePermitStatus(permitId, "superseded"));
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -442,7 +432,7 @@ export function PermitStatusFlow({
         field("expectedDecisionOn", t("followUp.label"), { hint: t("step.decisionEmpty") })}
       {error && error.field === null && (
         <p role="alert" className="text-small text-status-critical">
-          {error.code === "failed" ? failedText(true) : errorText(error.code)}
+          {error.code === "failed" ? formFailedText() : errorText(error.code)}
         </p>
       )}
       <div className="flex flex-wrap justify-end gap-2">

@@ -9,6 +9,12 @@ export type ConfirmOptions = {
   description: string;
   confirmLabel: string;
   cancelLabel: string;
+  /**
+   * Where the focus starts. `confirm` for a reversible change (Enter confirms, UX-037: "Ja, erledigt");
+   * `cancel` (default) leaves it on the dialog's first control, so Enter never applies something hard
+   * to take back.
+   */
+  initialFocus?: "confirm" | "cancel";
 };
 
 /**
@@ -47,7 +53,12 @@ export function useConfirm() {
     >
       <div className="flex justify-end gap-2">
         <Button onClick={() => close(false)}>{options?.cancelLabel}</Button>
-        <Button variant="default" onClick={() => close(true)}>
+        <Button
+          variant="default"
+          // The dialog's starting point, in place of Base UI's default (its first control).
+          autoFocus={options?.initialFocus === "confirm"}
+          onClick={() => close(true)}
+        >
           {options?.confirmLabel}
         </Button>
       </div>

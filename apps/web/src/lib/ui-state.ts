@@ -10,10 +10,17 @@ export const UI_STATE_COOKIES = {
   navHidden: "mw_nav_hidden",
   /** "1" = the Kalender "Ebenen" panel is open (default: collapsed). */
   calendarLayers: "mw_kal_ebenen",
+  /** "1" = single-key shortcuts (J/K, E, C, T …) are turned off (default: on; UX-054, WCAG 2.1.4). */
+  singleKeysOff: "mw_keys_off",
 } as const;
 
 /** Client only: remembers a UI state for a year. */
 export function writeUiState(name: string, open: boolean): void {
   // biome-ignore lint/suspicious/noDocumentCookie: cookieStore is not available in every supported browser
   document.cookie = `${name}=${open ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
+}
+
+/** Client only: true when the UI state is set ("1"), from a cookie string (default: `document.cookie`). */
+export function readUiStateClient(name: string, cookie: string = document.cookie): boolean {
+  return cookie.split(/;\s*/).includes(`${name}=1`);
 }

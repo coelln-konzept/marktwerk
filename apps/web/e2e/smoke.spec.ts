@@ -875,8 +875,11 @@ test("Permit: an undo the server refuses shows a red error toast, never the succ
   await expect(other.getByText(`„${title}“ entfernt.`)).toBeVisible();
   await other.close();
 
-  // The top bar's Rückgängig runs the toast's own undo, without racing the toast's 8 s.
-  await page.getByRole("button", { name: /^Rückgängig: Genehmigung angelegt\./ }).click();
+  // The top bar's Rückgängig runs the toast's own undo, without racing the toast's 8 s. Its name ends with
+  // the key hint; the toast's own button is named "Rückgängig: Genehmigung angelegt." (UX-031).
+  await page
+    .getByRole("button", { name: "Rückgängig: Genehmigung angelegt. (Strg+Z)", exact: true })
+    .click();
   const region = page.getByRole("region", { name: "Hinweise" });
   const toast = region
     .getByRole("alert")
@@ -1666,12 +1669,13 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   await expect(page.getByText(`Besprechung „${name}“ archiviert`)).toBeVisible();
   await expect(group.getByRole("link", { name })).toHaveCount(0);
   await toastUndo(page).click();
-  await expect(page.getByText(`Besprechung „${name}“ wiederhergestellt`)).toBeVisible();
+  // The undo's confirmation names the change it took back and replaces its toast (UX-031).
+  await expect(page.getByText(`Rückgängig gemacht: Besprechung „${name}“ archiviert`)).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();
 
-  // Leave nothing behind.
+  // Leave nothing behind (the undo's "Rückgängig gemacht: …" toast may still be showing).
   await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
-  await expect(page.getByText(`Besprechung „${name}“ archiviert`)).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ archiviert`, { exact: true })).toBeVisible();
 });
 
 /** The id of a Besprechung, read from its link in the Übersicht's "Besprechungen heute" group. */
