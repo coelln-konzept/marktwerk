@@ -115,8 +115,8 @@ export async function eventSearchMode(actor: Actor, q: string): Promise<EventSea
 }
 
 /**
- * How many rows `listEvents` returns for these filters, without loading them (no health, no rows): the
- * list's "N abgesagt" and "Auch passend" hints, and the command palette's "anzeigen" link count.
+ * How many rows `listEvents` returns for these filters, without loading them: the list's "N abgesagt" and "Auch
+ * passend" hints, and the command palette's "anzeigen" count (the events its link really opens).
  */
 export async function countEvents(actor: Actor, filters: EventFilters): Promise<number> {
   const [row] = await db
