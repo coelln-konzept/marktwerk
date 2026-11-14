@@ -9,6 +9,7 @@ import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
 import { useSafeAction } from "@/components/shell/use-safe-action";
+import { createdTaskHref, DUE_MAX, DUE_MIN, dueProblem } from "@/components/task/drawer-logic";
 import { NotifyFields } from "@/components/task/notify-fields";
 import {
   NO_NOTIFY,
@@ -26,12 +27,11 @@ import { formatDateShortYear, formatMonth } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { TASK_CATEGORIES } from "@/lib/task-ui";
 import type { EventOption, NotifySelf, StaffOption } from "@/server/queries/tasks";
-import { useDrawerHrefs } from "./use-task-actions";
 
 type Category = (typeof TASK_CATEGORIES)[number];
 
 /** The one error shown in the form: its text and the field it is about (that field gets focus). */
-type FormError = { text: string; field: "title" | "hours" | "notify" | null };
+type FormError = { text: string; field: "title" | "due" | "hours" | "notify" | null };
 
 /**
  * "+ Aufgabe" (shortcut C): a manual task on an event or without one. Seven fields, so a modal
@@ -73,13 +73,13 @@ export function NewTaskButton({
   const t = useTranslations("tasks.create");
   const tCat = useTranslations("tasks.categories");
   const tNotify = useTranslations("board.notify");
+  const tDue = useTranslations("tasks.dueField");
   const locale = useLocale();
   const { showToast, singleKeys } = useShell();
   const safe = useSafeAction();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const drawer = useDrawerHrefs();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<FormError | null>(null);
@@ -92,6 +92,7 @@ export function NewTaskButton({
   const [description, setDescription] = useState("");
   const [notify, setNotify] = useState<NotifyFormValue>(NO_NOTIFY);
   const titleRef = useRef<HTMLInputElement>(null);
+  const dueRef = useRef<HTMLInputElement>(null);
   const hoursRef = useRef<HTMLInputElement>(null);
   const whenRef = useRef<HTMLSelectElement>(null);
   const uid = useId();
@@ -178,11 +179,13 @@ export function NewTaskButton({
     setError({ text, field });
     (field === "title"
       ? titleRef
-      : field === "hours"
-        ? hoursRef
-        : field === "notify"
-          ? whenRef
-          : null
+      : field === "due"
+        ? dueRef
+        : field === "hours"
+          ? hoursRef
+          : field === "notify"
+            ? whenRef
+            : null
     )?.current?.focus();
   }
 
@@ -190,6 +193,12 @@ export function NewTaskButton({
     event.preventDefault();
     const minutes = hours.trim() === "" ? 0 : Math.round(Number(hours.replace(",", ".")) * 60);
     if (!title.trim()) return fail(t("errors.title_required"), "title");
+    // A half-typed date reads as empty: say so instead of saving the task without a date (UX-001).
+    const dueField = dueRef.current;
+    const dueWrong = dueField
+      ? dueProblem({ value: dueField.value, badInput: dueField.validity.badInput })
+      : null;
+    if (dueWrong) return fail(tDue(dueWrong), "due");
     if (!Number.isFinite(minutes) || minutes < 0) return fail(t("errors.hours_invalid"), "hours");
     const problem = notifyProblemOf(notify, due !== "");
     if (problem) return fail(tNotify(`errors.${problem}`), "notify");
@@ -221,13 +230,14 @@ export function NewTaskButton({
       setOpen(false);
       reset();
       showToast({ message: t("created", { title: title.trim() }) });
-      router.push(
-        (openPath
-          ? `${openPath}?aufgabe=${result.data.id}`
-          : urlOnly && forEvent
-            ? `/veranstaltungen/${forEvent}?aufgabe=${result.data.id}`
-            : drawer.open(result.data.id)) as never,
-      );
+      // The new task opens without the request that opened the dialog (`neu=1`), and a dialog opened by
+      // "+ Neu" gives up its history entry: neither reload nor Back opens "Neue Aufgabe" again (UX-004).
+      const target =
+        urlOnly && forEvent && !openPath
+          ? `/veranstaltungen/${forEvent}?aufgabe=${result.data.id}`
+          : createdTaskHref({ pathname, search: params, taskId: result.data.id, openPath });
+      if (urlOnly) router.replace(target as never, { scroll: false });
+      else router.push(target as never);
     });
   }
 
@@ -291,11 +301,15 @@ export function NewTaskButton({
                 {t("fields.due")}
               </Label>
               <Input
+                ref={dueRef}
                 id={`${uid}-due`}
                 type="date"
+                min={DUE_MIN}
+                max={DUE_MAX}
                 value={due}
                 onChange={(e) => {
                   setDue(e.target.value);
+                  if (error?.field === "due") setError(null);
                   // A relative timing needs a due date: clearing it resets the "Wann" choice.
                   if (
                     e.target.value === "" &&
@@ -304,7 +318,12 @@ export function NewTaskButton({
                   )
                     setNotify({ ...notify, timing: "" });
                 }}
-                aria-describedby={pastDue ? `${uid}-due-hint` : undefined}
+                aria-invalid={error?.field === "due" || undefined}
+                aria-describedby={
+                  [error?.field === "due" && `${uid}-error`, pastDue && `${uid}-due-hint`]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
               />
               {pastDue && (
                 <p

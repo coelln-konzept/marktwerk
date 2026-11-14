@@ -5,16 +5,27 @@
  */
 import {
   berlinDay,
+  CLOSED_TASK_STATUSES,
+  dueInstantFor,
   expectedStartFromLastSeason,
   initialSeasonStatus,
   type SeasonAnchorKey,
   type SeasonEventDates,
   type SeasonStatus,
   seasonAnchors,
+  seasonDueOnCreate,
   seasonsToKeep,
+  wallClockTime,
 } from "@marktwerk/core";
-import { type Database, event, eventPreset, eventSeason, eventSeasonAnchor } from "@marktwerk/db";
-import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
+import {
+  type Database,
+  event,
+  eventPreset,
+  eventSeason,
+  eventSeasonAnchor,
+  task,
+} from "@marktwerk/db";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, notInArray } from "drizzle-orm";
 import { audit, type ServiceActor, type Tx } from "./audit";
 import { instantiateTemplatesForSeasons, loadDueDefaults } from "./task-instantiation";
 
@@ -107,18 +118,57 @@ export type EnsuredSeason = {
   id: string;
   created: boolean;
   status: SeasonStatus;
-  /** Season tasks created (0 for an existing record). */
+  /** Season tasks created, subtasks included (0 for an existing record). */
   tasks: number;
+  /** Season tasks whose due date had already passed and that were set to today (empty for an existing record). */
+  clampedTaskIds: string[];
 };
+
+/**
+ * A record created late (UX audit round 1 default, UX-009): its open season tasks whose due date has already
+ * passed are due today instead (`seasonDueOnCreate`), keeping their time of day. They still follow the season's
+ * dates (not `due_overridden`): a later "Erwartet ab" or date change recomputes them from the anchors like every
+ * other task. Returns the tasks moved.
+ */
+async function clampOverdueSeasonTasks(tx: Tx, seasonId: string, today: string): Promise<string[]> {
+  const { defaultDueTime, timeZone } = await loadDueDefaults(tx);
+  const rows = await tx
+    .select({ id: task.id, dueAt: task.dueAt })
+    .from(task)
+    .where(
+      and(
+        eq(task.seasonId, seasonId),
+        isNotNull(task.dueAt),
+        notInArray(task.status, [...CLOSED_TASK_STATUSES]),
+      ),
+    );
+  const clamped: string[] = [];
+  for (const row of rows) {
+    if (!row.dueAt) continue;
+    const dueOn = berlinDay(row.dueAt, timeZone);
+    if (seasonDueOnCreate(dueOn, today) === dueOn) continue;
+    const dueAt = dueInstantFor(
+      today,
+      wallClockTime(row.dueAt, timeZone),
+      defaultDueTime,
+      timeZone,
+    );
+    await tx.update(task).set({ dueAt }).where(eq(task.id, row.id));
+    clamped.push(row.id);
+  }
+  return clamped;
+}
 
 /**
  * THE one path that creates a Saison record (research 13 §6.2), inside the caller's transaction; idempotent: an
  * existing record (archived ones included) is returned as it is. A new record gets
- * - `expected_start` = last season's first date moved to the same weekday and ISO week, or 1 January;
+ * - `expected_start` = the date the caller asked for ("Saison anlegen", already checked), else last season's
+ *   first date moved to the same weekday and ISO week, or 1 January;
  * - the anchors `season_start` / `season_end` from the season's events (`seasonAnchors`);
  * - the status from its dates (`initialSeasonStatus`: planning, dates_set, or closed when already over);
  * - its season items, instantiated through the event path with a season context, unless it is created closed
- *   (a season that is over has nothing left to prepare, and its overdue tasks would only be noise);
+ *   (a season that is over has nothing left to prepare, and its overdue tasks would only be noise); open ones
+ *   whose due date has already passed are due today (`clampOverdueSeasonTasks`, UX-009);
  * - an audit entry `season.create` (actor = the user, or null for the job).
  * Existing records are not re-instantiated: template changes never reach them automatically (propagation, R14).
  */
@@ -127,7 +177,7 @@ export async function ensureEventSeasonTx(
   actor: ServiceActor,
   presetId: string,
   season: number,
-  options: { today: string; source: SeasonSource },
+  options: { today: string; source: SeasonSource; expectedStart?: string },
 ): Promise<EnsuredSeason> {
   const find = async () => {
     const [row] = await tx
@@ -136,13 +186,19 @@ export async function ensureEventSeasonTx(
       .where(and(eq(eventSeason.presetId, presetId), eq(eventSeason.season, season)));
     return row;
   };
+  const kept = (row: { id: string; status: SeasonStatus }): EnsuredSeason => ({
+    id: row.id,
+    created: false,
+    status: row.status,
+    tasks: 0,
+    clampedTaskIds: [],
+  });
   const existing = await find();
-  if (existing) return { id: existing.id, created: false, status: existing.status, tasks: 0 };
+  if (existing) return kept(existing);
 
-  const expectedStart = expectedStartFromLastSeason(
-    await firstDateOf(tx, presetId, season - 1),
-    season,
-  );
+  const expectedStart =
+    options.expectedStart ??
+    expectedStartFromLastSeason(await firstDateOf(tx, presetId, season - 1), season);
   const events = await seasonEventDates(tx, presetId, season);
   const status = initialSeasonStatus(events, options.today);
   const [row] = await tx
@@ -154,7 +210,7 @@ export async function ensureEventSeasonTx(
     // Created concurrently (job and "Markt planen" at the same moment): use that one.
     const other = await find();
     if (!other) throw new Error("event_season insert failed");
-    return { id: other.id, created: false, status: other.status, tasks: 0 };
+    return kept(other);
   }
   const anchors = seasonAnchors(events, expectedStart);
   await writeSeasonAnchors(tx, row.id, anchors);
@@ -162,6 +218,8 @@ export async function ensureEventSeasonTx(
     status === "closed"
       ? { checklists: 0, tasks: 0 }
       : await instantiateTemplatesForSeasons(tx, actor, [row.id]);
+  const clampedTaskIds =
+    instantiated.tasks > 0 ? await clampOverdueSeasonTasks(tx, row.id, options.today) : [];
   await audit(tx, actor.id, [
     {
       action: "season.create",
@@ -175,10 +233,11 @@ export async function ensureEventSeasonTx(
         anchors,
         source: options.source,
         tasks: instantiated.tasks,
+        ...(clampedTaskIds.length > 0 ? { tasksDueToday: clampedTaskIds.length } : {}),
       },
     },
   ]);
-  return { id: row.id, created: true, status, tasks: instantiated.tasks };
+  return { id: row.id, created: true, status, tasks: instantiated.tasks, clampedTaskIds };
 }
 
 /**

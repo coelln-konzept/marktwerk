@@ -96,8 +96,8 @@ export function initialSeasonStatus(
 }
 
 /**
- * Manual status change (research 13 §6.2: "manual switch, undo toast"; no automatic change). Every change between
- * two different statuses is allowed, so each one can be undone.
+ * Manual status change (research 13 §6.2: "manual switch, undo toast"; no automatic change): any other known
+ * status. Whether the season's dates and tasks allow it is `seasonStatusBlock`.
  */
 export function canChangeSeasonStatus(from: SeasonStatus, to: SeasonStatus): boolean {
   return isSeasonStatus(from) && isSeasonStatus(to) && from !== to;
@@ -107,21 +107,60 @@ export type SeasonStatusFacts = {
   status: SeasonStatus;
   /** The season has at least one non-cancelled event. */
   hasDates: boolean;
-  /** The "Termine planen" work is done (decided by the caller). */
-  datesPlanned: boolean;
   /** Anchor `season_end` (null without dates). */
   seasonEnd: string | null;
   today: string;
-  /** Open (not done / skipped / cancelled) tasks of the season. */
+  /** Open (not done / skipped / cancelled) top-level tasks of the season. */
   openSeasonTasks: number;
 };
 
+/** Why a season may not be switched to a status: it would contradict its dates or its tasks (UX-050). */
+export type SeasonStatusBlock = "no_dates" | "not_over" | "open_tasks";
+
+/**
+ * Guard against contradictory statuses (UX audit round 1 default, UX-050): "Termine stehen" needs at least one
+ * date; "Abgeschlossen" needs the last date to be over (a season without dates can be closed) and no open season
+ * task. "In Planung" is always possible. Null when the switch is fine.
+ */
+export function seasonStatusBlock(
+  to: SeasonStatus,
+  facts: Omit<SeasonStatusFacts, "status">,
+): SeasonStatusBlock | null {
+  if (to === "dates_set" && !facts.hasDates) return "no_dates";
+  if (to === "closed") {
+    if (facts.seasonEnd !== null && facts.seasonEnd >= facts.today) return "not_over";
+    if (facts.openSeasonTasks > 0) return "open_tasks";
+  }
+  return null;
+}
+
+/**
+ * Season tasks of a record created late (UX audit round 1 default, UX-009): a due date that has already passed
+ * when the record is made becomes today, so a new season does not start with overdue work. Other dates stay.
+ */
+export function seasonDueOnCreate(dueOn: string, today: string): string {
+  return dueOn < today ? today : dueOn;
+}
+
+/** Stable key of the Grundvorlage's "Termine planen" season item (synthetic dictionary, copied into markets). */
+export const DATES_PLANNING_KEY = "saison_termine_planen";
+
+/**
+ * Is this the season's "Termine planen" task? Only the Grundvorlage's item, by its stable key (it survives
+ * versions, renames and the copy into a market's own template); an item someone wrote by hand is left alone, as
+ * no marker says what it is for. "Markt planen" completes it when it gives the season its first dates (UX-009
+ * default).
+ */
+export function isDatesPlanningTask(t: { templateStableKey: string | null }): boolean {
+  return t.templateStableKey === DATES_PLANNING_KEY;
+}
+
 /**
  * The status the UI offers to switch to (never applied automatically): `planning` → `dates_set` once the dates
- * are planned or exist; `dates_set` → `closed` after the last day when no season task is open any more.
+ * exist; `dates_set` → `closed` after the last day when no season task is open any more.
  */
 export function suggestedSeasonStatus(facts: SeasonStatusFacts): SeasonStatus | null {
-  if (facts.status === "planning" && (facts.hasDates || facts.datesPlanned)) return "dates_set";
+  if (facts.status === "planning" && facts.hasDates) return "dates_set";
   if (
     facts.status === "dates_set" &&
     facts.seasonEnd !== null &&

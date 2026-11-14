@@ -14,6 +14,8 @@ import {
   duplicateTemplateItem,
   moveTemplateItem,
   publishDraft,
+  type RestoredItem,
+  restoreTemplateItems,
   setTemplateArchived,
   setTemplatePresets,
   type TemplateInput,
@@ -38,7 +40,11 @@ async function run<T>(work: (actor: Actor) => Promise<T>): Promise<TemplateActio
   } catch (error) {
     if (error instanceof TemplateInputError) {
       // The page may show an outdated state (another person published or deleted): show it again.
-      if (["not_found", "version_not_found", "not_draft", "draft_exists"].includes(error.code))
+      if (
+        ["not_found", "version_not_found", "not_draft", "draft_exists", "item_exists"].includes(
+          error.code,
+        )
+      )
         refresh();
       return { ok: false, error: error.code, field: error.field, key: error.key };
     }
@@ -99,6 +105,16 @@ export async function updateItemAction(versionId: string, key: string, fields: T
 
 export async function deleteItemAction(versionId: string, key: string) {
   return run((actor) => deleteTemplateItem(actor, versionId, key));
+}
+
+/** Undo of "Löschen": the rows come back with their own keys. */
+export async function restoreItemsAction(
+  versionId: string,
+  rows: RestoredItem[],
+  afterKey: string | null,
+  beforeKey: string | null,
+) {
+  return run((actor) => restoreTemplateItems(actor, versionId, rows, afterKey, beforeKey));
 }
 
 export async function moveItemAction(versionId: string, key: string, direction: "up" | "down") {

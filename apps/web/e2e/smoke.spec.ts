@@ -187,7 +187,7 @@ test("Team and Finanzen are hidden: no navigation entries, direct visits do not 
   }
 });
 
-test("Event page: no Team and Geld tabs, Dokumente/Notizen/Verlauf sit under Mehr", async ({
+test("Event page: no Team and Geld tabs, Dokumente is a tab, Notizen/Verlauf sit under Mehr", async ({
   page,
 }) => {
   await page.goto("/veranstaltungen?saison=2026");
@@ -198,7 +198,8 @@ test("Event page: no Team and Geld tabs, Dokumente/Notizen/Verlauf sit under Meh
   await expect(tabs.getByRole("link", { name: "Checkliste" })).toBeVisible();
   await expect(tabs.getByRole("link", { name: /^Team/ })).toHaveCount(0);
   await expect(tabs.getByRole("link", { name: /^Geld/ })).toHaveCount(0);
-  // Dokumente, Notizen and Verlauf are not tabs of their own any more.
+  // Dokumente is a tab of its own (UX-039); Notizen and Verlauf are not.
+  await expect(tabs.getByRole("link", { name: /^Dokumente/ })).toBeVisible();
   await expect(tabs.getByRole("link", { name: /^Notizen/ })).toHaveCount(0);
 
   // Direct visits to the hidden tabs land on the Überblick.
@@ -208,7 +209,7 @@ test("Event page: no Team and Geld tabs, Dokumente/Notizen/Verlauf sit under Meh
   }
 });
 
-test("Event page: the Mehr menu opens Notizen and Dokumente, each on its own URL", async ({
+test("Event page: the Mehr menu opens Notizen and Verlauf, each on its own URL", async ({
   page,
 }) => {
   await page.goto("/veranstaltungen?saison=2026");
@@ -222,7 +223,7 @@ test("Event page: the Mehr menu opens Notizen and Dokumente, each on its own URL
   await more.focus();
   await page.keyboard.press("Enter");
   const menu = page.getByRole("menu");
-  for (const entry of ["Dokumente", "Notizen"])
+  for (const entry of ["Notizen", "Verlauf"])
     await expect(menu.getByRole("menuitem", { name: new RegExp(`^${entry}`) })).toBeVisible();
   await menu.getByRole("menuitem", { name: /^Notizen/ }).click();
   await expect(page).toHaveURL(new RegExp(`${href}/notizen$`));
@@ -806,8 +807,11 @@ test("Permit: an undo the server refuses shows a red error toast, never the succ
   await expect(other.getByText(`„${title}“ entfernt.`)).toBeVisible();
   await other.close();
 
-  // The top bar's Rückgängig runs the toast's own undo, without racing the toast's 8 s.
-  await page.getByRole("button", { name: /^Rückgängig: Genehmigung angelegt\./ }).click();
+  // The top bar's Rückgängig runs the toast's own undo, without racing the toast's 8 s. Its name ends with
+  // the key hint; the toast's own button is named "Rückgängig: Genehmigung angelegt." (UX-031).
+  await page
+    .getByRole("button", { name: "Rückgängig: Genehmigung angelegt. (Strg+Z)", exact: true })
+    .click();
   const region = page.getByRole("region", { name: "Hinweise" });
   const toast = region
     .getByRole("alert")
@@ -1158,7 +1162,7 @@ test("Board: two views, the category filter sits behind Filter, no Team/Finanzen
   await expect(chips.getByRole("link", { name: /^Team/ })).toHaveCount(0);
   await expect(chips.getByRole("link", { name: /^Finanzen/ })).toHaveCount(0);
   await chips.getByRole("link", { name: /^Genehmigungen/ }).click();
-  await expect(page).toHaveURL(/kategorie=permits/);
+  await expect(page).toHaveURL(/kategorie=genehmigungen/);
   await expect(page.getByText(/Filter: Genehmigungen/)).toBeVisible();
 });
 
@@ -1446,8 +1450,10 @@ test("Checkliste: Unteraufgabe von … nests a task under another, Aus Hauptaufg
   const child = page.locator(`li[data-task="${childId}"]`);
   const title = ((await child.locator("a").first().textContent()) ?? "").trim();
 
-  // Menu › Unteraufgabe von … › the first task offered.
+  // Menu › Unteraufgabe von … › the first task offered. No "Verschieben nach …": the Checkliste has no
+  // columns to move to (UX-024).
   await child.getByRole("button", { name: `Aktionen für „${title}“` }).click();
+  await expect(page.getByRole("menuitem", { name: /^Verschieben nach/ })).toHaveCount(0);
   await page.getByRole("menuitem", { name: "Unteraufgabe von …" }).click();
   const dialog = page.getByRole("dialog", { name: "Unteraufgabe von …" });
   const option = dialog
@@ -1594,12 +1600,13 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   await expect(page.getByText("Besprechung archiviert")).toBeVisible();
   await expect(group.getByRole("link", { name })).toHaveCount(0);
   await toastUndo(page).click();
-  await expect(page.getByText("Besprechung wiederhergestellt")).toBeVisible();
+  // The undo's confirmation names the change it took back and replaces its toast (UX-031).
+  await expect(page.getByText("Rückgängig gemacht: Besprechung archiviert")).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();
 
-  // Leave nothing behind.
+  // Leave nothing behind (the undo's "Rückgängig gemacht: …" toast may still be showing).
   await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
-  await expect(page.getByText("Besprechung archiviert")).toBeVisible();
+  await expect(page.getByText("Besprechung archiviert", { exact: true })).toBeVisible();
 });
 
 /** The id of a Besprechung, read from its link in the Übersicht's "Besprechungen heute" group. */
@@ -1629,7 +1636,10 @@ test("Veranstaltung löschen: the button stays disabled until the exact name is 
 
   await page.getByRole("button", { name: `Weitere Aktionen für ${name}` }).click();
   await page.getByRole("menuitem", { name: "Veranstaltung löschen" }).click();
-  const dialog = page.getByRole("alertdialog", { name: "Veranstaltung endgültig löschen?" });
+  // The title names the event and its date (UX-061): the name alone is shared by all dates of a market.
+  const dialog = page.getByRole("alertdialog", {
+    name: `„${name}“ am Sa 17.05.2031 endgültig löschen?`,
+  });
   await expect(dialog).toBeVisible();
   const remove = dialog.getByRole("button", { name: "Endgültig löschen" });
   const input = dialog.getByLabel(/Zum Bestätigen den Namen/);
@@ -1643,7 +1653,7 @@ test("Veranstaltung löschen: the button stays disabled until the exact name is 
   await remove.click();
 
   await expect(page).toHaveURL(/\/veranstaltungen$/);
-  await expect(page.getByText(`„${name}“ gelöscht.`)).toBeVisible();
+  await expect(page.getByText(`„${name}“ (Sa 17.05.2031) gelöscht.`)).toBeVisible();
   await expect(page.getByText(name, { exact: true })).toHaveCount(0);
   await page.goto(eventUrl); // the page is gone (streamed 404: the status is 200, the event is not shown)
   await expect(page.getByRole("heading", { level: 1, name })).toHaveCount(0);

@@ -17,6 +17,16 @@ import { getDisplayPreferences } from "@/server/preferences";
 import type { SearchHit } from "@/server/search-core";
 import { getUiState } from "@/server/ui-state";
 
+/** The pages Strg+K opens by name, with the permission their page asks for (message key `pages.<key>`). */
+const PAGE_COMMANDS = [
+  { key: "permits", href: "/genehmigungen", resource: "permit" },
+  { key: "venues", href: "/orte", resource: "venue" },
+  { key: "contacts", href: "/kontakte", resource: "contact" },
+  { key: "archive", href: "/archiv", resource: "event" },
+  { key: "duties", href: "/firma", resource: "company" },
+  { key: "library", href: "/einstellungen/bibliothek", resource: "template" },
+] as const;
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const actor = await getActor();
   const { theme, density } = await getDisplayPreferences();
@@ -59,6 +69,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : []),
     { kind: "action", title: t("calendar"), href: "/kalender" },
     { kind: "action", title: t("events"), href: "/veranstaltungen" },
+    // One "öffnen" command per page of the sidebar (and the Bibliothek), so Strg+K reaches each of them.
+    ...PAGE_COMMANDS.filter((p) => roleCan(actor.role, p.resource, "read")).map(
+      ({ key, href }) => ({
+        kind: "action" as const,
+        title: t(`pages.${key}`),
+        href,
+        keywords: [t(`pages.${key}Keywords`)],
+      }),
+    ),
     // "Händler" and "Beschicker" are what other tools call the Aussteller: they find this entry, too.
     ...(roleCan(actor.role, "vendor", "read")
       ? [

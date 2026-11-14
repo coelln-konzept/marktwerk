@@ -46,6 +46,8 @@ export function OdometerButton({
   function submit() {
     const value = parseWholeNumber(km.trim());
     if (value === null) return setError(errorText("invalid_odometer"));
+    // The same check as the server (and as "Erledigt …"): a reading never goes below the stored one.
+    if (currentKm !== null && value < currentKm) return setError(errorText("odometer_lower"));
     setError(null);
     startTransition(async () => {
       const result = await recordOdometerAction(vehicleId, value, on || null);

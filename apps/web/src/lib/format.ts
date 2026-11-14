@@ -3,6 +3,16 @@ import { isoWeek } from "@marktwerk/core";
 /*
  * German-first formats (UX concept §8): 16.05.2026 · Sa 16.05. · 14:30 Uhr · 1.234,56 € · 4,50 m · KW 20.
  * Business dates are "YYYY-MM-DD" strings; they are formatted in UTC so no time zone can shift the day.
+ *
+ * Which date format where (UX-040, one rule for every screen):
+ * - Lists, cards, chips, matrix cells: `formatDateShortYear` → "Sa 16.05.", with the year only when it is
+ *   not the current one ("Sa 16.05.2027"); ranges: `formatDateRangeYear`.
+ * - A list that spans years on purpose (archive "Alle Jahre", history): `formatDateWithWeekday` for every
+ *   row → "Sa 16.05.2026", so the year never comes and goes between rows.
+ * - Drawers, detail pages, Vorschau facts: `formatDateWithWeekday` → "Sa 16.05.2026".
+ * - Date inputs: `DateField` (components/ui/date-field.tsx) shows "Sa 16.05.2026" and the KW.
+ * `formatDate` ("16.05.2026", no weekday) is for running text and exports only; "bis 06.10." style labels
+ * use the list format after the word ("bis Di 06.10.").
  */
 
 const tag = (locale: string) => (locale === "en" ? "en-GB" : "de-DE");

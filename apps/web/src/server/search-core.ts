@@ -1,8 +1,18 @@
 import "server-only";
-import { can, formatPhone, OPEN_STATUSES, taskLink } from "@marktwerk/core";
+import {
+  can,
+  formatPhone,
+  OPEN_STATUSES,
+  type PermitDisplayState,
+  permitDisplayState,
+  type TaskStatusKey,
+  taskLink,
+} from "@marktwerk/core";
 import {
   contact,
   event,
+  eventPreset,
+  eventType,
   payable,
   permit,
   staffMember,
@@ -11,9 +21,9 @@ import {
   vendor,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, inArray, isNull, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { formatDateShortYear, formatWeek } from "@/lib/format";
+import { formatDateShortYear, formatWeek, todayIn } from "@/lib/format";
 import {
   escapeLike,
   escapeRegex,
@@ -24,10 +34,15 @@ import {
   transpositions,
   typoTolerant,
 } from "@/lib/search-query";
+import type { EventStatus } from "@/lib/status";
 import { type Actor, visibleEvents } from "./actor";
 import { db } from "./db";
+import { listContacts } from "./queries/contacts";
 import type { TaskSeason } from "./queries/due";
+import { countEvents } from "./queries/events";
 import { seasonContext, toTaskSeason } from "./queries/season-context";
+import { listVendors } from "./queries/vendors";
+import { listVenues } from "./queries/venues";
 import { visibleTasks } from "./task-scope";
 
 export type SearchHit = {
@@ -46,6 +61,10 @@ export type SearchHit = {
   subtitle?: string;
   /** A season task's market and season: the palette adds "<Markt> · Saison <Jahr>" to the subtitle. */
   season?: TaskSeason;
+  /** A permit's season (year): the palette adds "Saison <Jahr>", so the same permit of two years differs. */
+  seasonYear?: number;
+  /** The record's state, shown as a badge (colour + icon + text) next to the hit. */
+  status?: SearchStatus;
   href: string;
   /**
    * How well the hit matches, 0 (best) to 3 (see `scoreMatch`), 4 = only found as a typo; groups are ranked
@@ -56,30 +75,92 @@ export type SearchHit = {
   keywords?: string[];
 };
 
-/** Per kind of record: how many records match in total (the hits are only the first few) and the list page that shows them all. */
-export type SearchResult = {
-  hits: SearchHit[];
-  groups: Partial<Record<SearchHit["kind"], { total: number; href?: string }>>;
+export type SearchStatus =
+  | { kind: "event"; key: EventStatus }
+  | { kind: "task"; key: TaskStatusKey }
+  | { kind: "permit"; key: PermitDisplayState };
+
+/**
+ * One kind's group: how many records match in total (the hits are only the first few), the list page with
+ * the same query (`href`), how many rows that page shows (`listed`; missing = not counted) and whether it
+ * shows only current and upcoming events (`upcoming`).
+ */
+export type SearchGroup = { total: number; href?: string; listed?: number; upcoming?: boolean };
+
+/** A list offered when nothing matches. */
+export type SearchFallback = {
+  kind: "event" | "venue" | "contact" | "vendor" | "archive";
+  href: string;
 };
 
-/** Folds umlauts and accents so "koln" finds "Köln" and "muller" finds "Müller". */
-function fold(column: SQL | unknown): SQL {
-  return sql`translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aousseeeaaaoooiiiuuuc')`;
+export type SearchResult = {
+  hits: SearchHit[];
+  groups: Partial<Record<SearchHit["kind"], SearchGroup>>;
+  /** Only when nothing matches: the lists the person may open to look further. */
+  fallbacks?: SearchFallback[];
+};
+
+/**
+ * SQL twin of `foldText` (`lib/search-query.ts`): umlauts and accents lose their marks, the ASCII spellings
+ * fold the same way and ß/ss become one s, so "koln", "koeln" and "Köln" all find "Köln" and "strasse" finds
+ * "Straße". List pages that search like the palette use this on their columns and `foldText` on the query.
+ */
+export function foldSql(column: SQL | unknown): SQL {
+  return sql`replace(regexp_replace(translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aousseeeaaaoooiiiuuuc'), '([aou])e', '\\1', 'g'), 'ss', 's')`;
 }
+
+const fold = foldSql;
 
 const LIMIT = 6;
 
 /** Words that also find the vendors ("Händler", "Beschicker" are what the old tools call Aussteller). */
 const VENDOR_ALIASES = "aussteller beschicker handler haendler";
 
-/** Where the full list of a kind lives (these pages understand `?q=`). */
-const LIST_PAGES: Partial<Record<SearchHit["kind"], string>> = {
-  event: "/veranstaltungen",
-  contact: "/kontakte",
-  vendor: "/aussteller",
-  venue: "/orte",
-  payable: "/finanzen",
+/** Longest query the list pages take from `?q=` (they cut it there, so the count does too). */
+const LIST_QUERY_MAX = 100;
+
+/**
+ * Where the full list of a kind lives (these pages understand `?q=`) and how many rows that page shows for
+ * the query, counted by the page's own query so "Alle N anzeigen" never promises more than the list holds.
+ * `upcoming`: the list leaves out past and cancelled events by default.
+ */
+const LIST_PAGES: Partial<
+  Record<
+    SearchHit["kind"],
+    { path: string; count?: (actor: Actor, q: string) => Promise<number>; upcoming?: boolean }
+  >
+> = {
+  event: {
+    path: "/veranstaltungen",
+    count: (actor, q) => countEvents(actor, { status: "active", from: todayIn(), q }),
+    upcoming: true,
+  },
+  contact: { path: "/kontakte", count: async (_, q) => (await listContacts(q)).total },
+  vendor: { path: "/aussteller", count: async (_, q) => (await listVendors({ q }, 1)).total },
+  venue: {
+    path: "/orte",
+    count: async (actor, q) => (await listVenues(actor, todayIn(), q)).length,
+  },
+  payable: { path: "/finanzen" },
 };
+
+/** The lists offered when nothing matches (with the permission their page asks for). */
+const FALLBACK_LISTS: { kind: SearchFallback["kind"]; href: string; can: (a: Actor) => boolean }[] =
+  [
+    { kind: "event", href: "/veranstaltungen", can: (a) => can(a.role, "event", "read") },
+    { kind: "venue", href: "/orte", can: (a) => can(a.role, "venue", "read") },
+    { kind: "contact", href: "/kontakte", can: (a) => can(a.role, "contact", "read") },
+    { kind: "vendor", href: "/aussteller", can: (a) => can(a.role, "vendor", "read") },
+    { kind: "archive", href: "/archiv", can: (a) => can(a.role, "event", "read") },
+  ];
+
+/**
+ * Where a task hit opens: an event's task in the event's Checkliste drawer (as everywhere), a task without an
+ * event (season and standalone tasks) in the drawer on the Übersicht, not on the hidden global Board.
+ */
+function searchTaskLink(taskId: string, eventId: string | null): string {
+  return eventId ? taskLink(taskId, eventId) : `/?aufgabe=${taskId}`;
+}
 
 /** Lower is better: 0 to 3 as in `scoreMatch`, 4 = only found as a typo (see `matcher`). */
 const TYPO_SCORE = 4;
@@ -141,9 +222,19 @@ function matcher(
   return {
     where: (byPhone ? or(words, byPhone) : words) as SQL,
     score: sql`${scoreExpr}`.mapWith(Number).as("score"),
-    /** For `order by`: the score, then (typos only) the closest first. */
+    /**
+     * For `order by`: the score, then (typos only) the closest first and, among equally close ones, those
+     * whose title comes closest (the other fields, e.g. an event's type, are the same for many rows).
+     */
     rank: typos
-      ? [scoreExpr, sql`${sql.join(typoWords.map(closeness), sql` + `)} desc`]
+      ? [
+          scoreExpr,
+          sql`${sql.join(typoWords.map(closeness), sql` + `)} desc`,
+          sql`${sql.join(
+            typoWords.map((t) => sql`app.word_similarity(${t}, ${title})`),
+            sql` + `,
+          )} desc`,
+        ]
       : [scoreExpr],
     // All matches, those that are not just a fragment inside a word, and those found only as a typo.
     total: sql`count(*) over ()`.mapWith(Number).as("total"),
@@ -207,16 +298,22 @@ export async function searchAs(
     ) => matcher(tokens, primary, extras, phone, fuzzy);
 
     if (can(actor.role, "event", "read")) {
+      // The market's name and the kind of event count too: "flohmarkt" finds the flea markets whose
+      // Termine are only called after the place ("Altstadt").
       const m = match(event.name, [
         venue.city,
         venue.name,
         sql`to_char(${event.startsOn}, 'DD.MM.YYYY')`,
+        eventPreset.name,
+        eventType.nameDe,
+        eventType.nameEn,
       ]);
       const result = await db
         .select({
           id: event.id,
           name: event.name,
           startsOn: event.startsOn,
+          status: event.status,
           city: venue.city,
           score: m.score,
           total: m.total,
@@ -225,6 +322,8 @@ export async function searchAs(
         })
         .from(event)
         .innerJoin(venue, sql`${venue.id} = ${event.venueId}`)
+        .innerJoin(eventType, eq(eventType.id, event.eventTypeId))
+        .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
         .where(and(visibleEvents(actor), m.where))
         // Best match first; then upcoming, then the most recent past ones.
         .orderBy(
@@ -241,6 +340,7 @@ export async function searchAs(
           title: r.name,
           // The year only when it is not the running one: 2026 and 2027 dates of one market look alike.
           subtitle: `${r.city} · ${formatDateShortYear(r.startsOn, locale)} · ${formatWeek(r.startsOn, locale)}`,
+          status: { kind: "event", key: r.status },
           href: `/veranstaltungen/${r.id}`,
           score: r.score,
         });
@@ -279,7 +379,8 @@ export async function searchAs(
         .leftJoin(event, sql`${event.id} = ${task.eventId}`)
         .leftJoin(sc, eq(sc.seasonId, task.seasonId))
         .leftJoin(parentTask, eq(parentTask.id, task.parentTaskId))
-        .where(and(visibleTasks(actor), m.where))
+        // A deleted task (status `cancelled`) is gone from every list; "Wiederherstellen" lives in the Verlauf.
+        .where(and(visibleTasks(actor), ne(task.status, "cancelled"), m.where))
         // Best match first; then open tasks, then the most recently finished ones.
         .orderBy(
           ...m.rank,
@@ -306,7 +407,8 @@ export async function searchAs(
             ]
               .filter(Boolean)
               .join(" › ") || undefined,
-          href: taskLink(r.id, r.eventId),
+          status: { kind: "task", key: r.status },
+          href: searchTaskLink(r.id, r.eventId),
           score: r.score,
         });
       }
@@ -318,6 +420,9 @@ export async function searchAs(
           id: permit.id,
           title: permit.title,
           venueName: venue.name,
+          season: permit.season,
+          status: permit.status,
+          validUntil: permit.validUntil,
           score: m.score,
           total: m.total,
           strong: m.strong,
@@ -326,16 +431,20 @@ export async function searchAs(
         .from(permit)
         .leftJoin(venue, sql`${venue.id} = ${permit.venueId}`)
         .where(and(isNull(permit.archivedAt), m.where))
-        .orderBy(...m.rank, asc(permit.title))
+        // Same title in several seasons: the newest season first.
+        .orderBy(...m.rank, asc(permit.title), sql`${permit.season} desc nulls last`)
         .limit(LIMIT);
       const { rows, total, weak, typos } = settle(result);
       record("permit", total, weak, typos);
+      const today = todayIn();
       for (const r of rows) {
         hits.push({
           kind: "permit",
           // Permit titles carry the date as written by the generator ("… – 2026-04-18").
           title: formatIsoDates(r.title, locale),
           subtitle: r.venueName ?? undefined,
+          ...(r.season != null ? { seasonYear: r.season } : {}),
+          status: { kind: "permit", key: permitDisplayState(r, today) },
           href: `/genehmigungen?genehmigung=${r.id}`,
           score: r.score,
         });
@@ -527,12 +636,25 @@ export async function searchAs(
   const anyStrong = found.some((f) => !f.weak);
   const shown = found.filter((f) => !anyStrong || !f.weak);
   const groups: SearchResult["groups"] = {};
-  for (const f of shown) {
-    const path = f.typos ? undefined : LIST_PAGES[f.kind];
-    groups[f.kind] = {
-      total: f.total,
-      href: path ? `${path}?q=${encodeURIComponent(trimmed)}` : undefined,
-    };
-  }
-  return { hits: hits.filter((h) => groups[h.kind]), groups };
+  const listQuery = trimmed.slice(0, LIST_QUERY_MAX);
+  await Promise.all(
+    shown.map(async (f) => {
+      const list = f.typos ? undefined : LIST_PAGES[f.kind];
+      const group: SearchGroup = { total: f.total };
+      groups[f.kind] = group;
+      if (!list) return;
+      group.href = `${list.path}?q=${encodeURIComponent(listQuery)}`;
+      if (list.upcoming) group.upcoming = true;
+      // Only counted when the palette shows fewer hits than match, i.e. when it offers the link.
+      if (list.count && f.total > LIMIT) group.listed = await list.count(actor, listQuery);
+    }),
+  );
+  const visible = hits.filter((h) => groups[h.kind]);
+  if (visible.length > 0) return { hits: visible, groups };
+  return { hits: [], groups, fallbacks: fallbacksFor(actor) };
+}
+
+/** The lists the person may open when nothing matches. */
+function fallbacksFor(actor: Actor): SearchFallback[] {
+  return FALLBACK_LISTS.filter((l) => l.can(actor)).map(({ kind, href }) => ({ kind, href }));
 }

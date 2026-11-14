@@ -1,3 +1,5 @@
+import { isIsoDate } from "../dates/calendar";
+import { eventDateRange } from "./date-range";
 import type { EventStatus } from "./lifecycle";
 
 /**
@@ -48,6 +50,13 @@ export function parseEuroCents(input: string): number | null {
 /** An event can be moved to another date until it runs (decided 2026-10-21). */
 export function canMoveEvent(status: EventStatus): boolean {
   return status === "draft" || status === "planned" || status === "confirmed";
+}
+
+/** A valid ISO date inside {@link eventDateRange} (UX-041; the range lives in `./date-range`). */
+export function isEventDateInRange(date: unknown, today: string): date is string {
+  if (!isIsoDate(date)) return false;
+  const { min, max } = eventDateRange(today);
+  return date >= min && date <= max;
 }
 
 /** Already announced: moving it needs a word to vendors, so the preview warns. */

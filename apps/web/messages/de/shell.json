@@ -130,6 +130,18 @@
     "resultsCount": "{count, plural, one {# Treffer} other {# Treffer}}",
     "showAll": "Alle {count} anzeigen",
     "shownOf": "{shown} von {total}",
+    "showUpcoming": "Aktuelle und kommende anzeigen ({count})",
+    "showListed": "In der Liste anzeigen ({count})",
+    "emptyFor": "Keine Treffer für „{query}“.",
+    "emptyHint": "Weniger Wörter oder nur einen Teil des Namens versuchen. Die Listen filtern auch nach Art und Saison, Archiviertes steht im Archiv.",
+    "fallbackGroup": "Weitersuchen",
+    "fallbacks": {
+      "event": "Veranstaltungen öffnen",
+      "venue": "Orte öffnen",
+      "contact": "Kontakte öffnen",
+      "vendor": "Aussteller öffnen",
+      "archive": "Archiv öffnen"
+    },
     "select": "auswählen",
     "open": "öffnen",
     "umlauts": "Umlaute egal: „koln“ findet Köln",
@@ -159,7 +171,21 @@
       "appointment": "Besprechung anlegen",
       "issue": "Mangel melden",
       "settings": "Einstellungen öffnen",
-      "notifications": "Benachrichtigungen öffnen"
+      "notifications": "Benachrichtigungen öffnen",
+      "pages": {
+        "permits": "Genehmigungen öffnen",
+        "permitsKeywords": "Erlaubnis Antrag",
+        "venues": "Orte öffnen",
+        "venuesKeywords": "Plätze Standorte",
+        "contacts": "Kontakte öffnen",
+        "contactsKeywords": "Ansprechpartner Telefon",
+        "archive": "Archiv öffnen",
+        "archiveKeywords": "Vergangene Archiviert",
+        "duties": "Pflichten öffnen",
+        "dutiesKeywords": "Firma Fahrzeuge Mängel",
+        "library": "Vorlagen öffnen",
+        "libraryKeywords": "Bibliothek Märkte"
+      }
     }
   },
   "shortcuts": {
@@ -268,7 +294,8 @@
     "label": "Nach Anfangsbuchstaben filtern",
     "all": "Alle",
     "other": "Ziffern und Sonstiges",
-    "none": "keine Einträge"
+    "none": "keine Einträge",
+    "toggle": "A–Z · {current}"
   },
   "picker": {
     "open": "Auswahl öffnen",

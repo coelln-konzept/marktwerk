@@ -6,6 +6,7 @@ import {
   expectedStartFromLastSeason,
   expectedStartProblem,
   initialSeasonStatus,
+  isDatesPlanningTask,
   isSeasonAnchorKey,
   isSeasonStatus,
   nextSeasonStatus,
@@ -13,9 +14,11 @@ import {
   SEASON_ANCHOR_KEYS,
   SEASON_STATUSES,
   seasonAnchors,
+  seasonDueOnCreate,
   seasonEnd,
   seasonStart,
   seasonStartInfo,
+  seasonStatusBlock,
   seasonsToKeep,
   seasonTaskList,
   suggestedSeasonStatus,
@@ -195,21 +198,37 @@ describe("season status", () => {
     expect(canChangeSeasonStatus("planning", "open" as never)).toBe(false);
   });
 
-  it("suggests dates_set once the dates exist or the dates were planned", () => {
+  it("suggests dates_set once the dates exist, never without them", () => {
     const base = { seasonEnd: null, today: "2026-11-13", openSeasonTasks: 2 };
-    expect(
-      suggestedSeasonStatus({ ...base, status: "planning", hasDates: false, datesPlanned: false }),
-    ).toBeNull();
-    expect(
-      suggestedSeasonStatus({ ...base, status: "planning", hasDates: true, datesPlanned: false }),
-    ).toBe("dates_set");
-    expect(
-      suggestedSeasonStatus({ ...base, status: "planning", hasDates: false, datesPlanned: true }),
-    ).toBe("dates_set");
+    expect(suggestedSeasonStatus({ ...base, status: "planning", hasDates: false })).toBeNull();
+    expect(suggestedSeasonStatus({ ...base, status: "planning", hasDates: true })).toBe(
+      "dates_set",
+    );
+  });
+
+  it("blocks statuses that contradict the dates or the tasks", () => {
+    const today = "2026-11-13";
+    const none = { hasDates: false, seasonEnd: null, today, openSeasonTasks: 0 };
+    const over = { hasDates: true, seasonEnd: "2026-10-04", today, openSeasonTasks: 0 };
+    const running = { hasDates: true, seasonEnd: "2026-11-13", today, openSeasonTasks: 0 };
+    // "Termine stehen" needs a date.
+    expect(seasonStatusBlock("dates_set", none)).toBe("no_dates");
+    expect(seasonStatusBlock("dates_set", over)).toBeNull();
+    // "Abgeschlossen": not before the last day is over (the last day itself still runs), not with open tasks.
+    expect(seasonStatusBlock("closed", running)).toBe("not_over");
+    expect(seasonStatusBlock("closed", { ...running, seasonEnd: "2027-03-07" })).toBe("not_over");
+    expect(seasonStatusBlock("closed", over)).toBeNull();
+    expect(seasonStatusBlock("closed", { ...over, openSeasonTasks: 1 })).toBe("open_tasks");
+    // A season without (or with only cancelled) dates can be closed once nothing is open.
+    expect(seasonStatusBlock("closed", none)).toBeNull();
+    expect(seasonStatusBlock("closed", { ...none, openSeasonTasks: 2 })).toBe("open_tasks");
+    // Back to planning always works.
+    expect(seasonStatusBlock("planning", { ...running, openSeasonTasks: 3 })).toBeNull();
+    expect(seasonStatusBlock("planning", none)).toBeNull();
   });
 
   it("suggests closed only after the last day with no open season task", () => {
-    const base = { status: "dates_set" as const, hasDates: true, datesPlanned: true };
+    const base = { status: "dates_set" as const, hasDates: true };
     expect(
       suggestedSeasonStatus({
         ...base,
@@ -398,5 +417,28 @@ describe("seasonTaskList", () => {
     const input = [task("B", "todo", "2027-02-01"), task("A", "todo", "2027-01-01")];
     seasonTaskList(input);
     expect(input.map((t) => t.title)).toEqual(["B", "A"]);
+  });
+});
+
+describe("seasonDueOnCreate", () => {
+  it("moves a date that has already passed to today and keeps the others", () => {
+    expect(seasonDueOnCreate("2026-07-10", "2026-11-13")).toBe("2026-11-13");
+    expect(seasonDueOnCreate("2025-05-01", "2026-11-13")).toBe("2026-11-13");
+    // Today and later stay (due today is not overdue).
+    expect(seasonDueOnCreate("2026-11-13", "2026-11-13")).toBe("2026-11-13");
+    expect(seasonDueOnCreate("2027-03-07", "2026-11-13")).toBe("2027-03-07");
+    // Across the DST change and the year end it is plain calendar-day order.
+    expect(seasonDueOnCreate("2026-10-25", "2026-10-26")).toBe("2026-10-26");
+    expect(seasonDueOnCreate("2026-12-31", "2027-01-01")).toBe("2027-01-01");
+  });
+});
+
+describe("isDatesPlanningTask", () => {
+  it("knows the Grundvorlage item by its stable key only", () => {
+    expect(isDatesPlanningTask({ templateStableKey: "saison_termine_planen" })).toBe(true);
+    expect(isDatesPlanningTask({ templateStableKey: "saison_genehmigung" })).toBe(false);
+    // A hand-written item (key from its title) or a task without an item is left alone.
+    expect(isDatesPlanningTask({ templateStableKey: "termine_planen" })).toBe(false);
+    expect(isDatesPlanningTask({ templateStableKey: null })).toBe(false);
   });
 });
