@@ -2,19 +2,25 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useState, useTransition } from "react";
-import { createContactAction } from "@/app/(app)/kontakte/actions";
+import { createContactAction, similarContactsAction } from "@/app/(app)/kontakte/actions";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { QuickCreateDialog } from "@/components/ui/quick-create-dialog";
 import { callAction, NETWORK_ERROR } from "@/lib/call-action";
+import { SimilarHint, useSimilar } from "./similar-hint";
 
 /** The contact kinds (database enum `contact_kind`). */
 export const CONTACT_KINDS = ["authority", "landowner", "supplier", "service", "other"] as const;
 export type ContactKindKey = (typeof CONTACT_KINDS)[number];
 
 /** A contact just created in place, ready to be added to a picker's options and selected. */
-export type CreatedContact = { id: string; label: string; hint: string | null };
+export type CreatedContact = {
+  id: string;
+  label: string;
+  hint: string | null;
+  kind?: ContactKindKey;
+};
 
 /**
  * "+ Neu" of a contact picker (user test 2, UT2-07): name, kind, phone and e-mail only, stacked on the form
@@ -75,6 +81,15 @@ export function ContactQuickCreate({
   const invalid = (field: string) =>
     error?.field === field ? { "aria-invalid": true as const } : {};
 
+  // "Ähnlicher Kontakt" (UX-028), as in the full form: a hint, saving stays possible.
+  const typedName = name.trim();
+  const similar = useSimilar(
+    open && (typedName.length >= 3 || phone.trim().length >= 6 || email.includes("@"))
+      ? JSON.stringify([typedName, phone.trim(), email.trim()])
+      : null,
+    () => similarContactsAction({ name: typedName, phone: phone.trim(), email: email.trim() }),
+  );
+
   function submit() {
     if (name.trim() === "") {
       setError({ code: "name_required", field: `${uid}-name` });
@@ -92,7 +107,12 @@ export function ContactQuickCreate({
         if (field) document.getElementById(field)?.focus();
         return;
       }
-      onCreated({ id: result.data.id, label: name.trim().replace(/\s+/g, " "), hint: null });
+      onCreated({
+        id: result.data.id,
+        label: name.trim().replace(/\s+/g, " "),
+        hint: null,
+        kind,
+      });
       onOpenChange(false);
     });
   }
@@ -123,6 +143,18 @@ export function ContactQuickCreate({
           {...invalid(`${uid}-name`)}
         />
       </div>
+      <SimilarHint
+        title={t("similar.title", { count: similar.length })}
+        note={t("similar.note")}
+        items={similar.map((c) => ({
+          id: c.id,
+          href: `/kontakte?vorschau=${c.id}`,
+          label: c.name,
+          reason: [tKinds(c.kind), c.city, t(`similar.reason.${c.reason}`)]
+            .filter(Boolean)
+            .join(" · "),
+        }))}
+      />
       {kinds.length > 1 && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${uid}-kind`}>{t("kind")}</Label>

@@ -341,12 +341,12 @@ describe("Saison anlegen (UX-009)", () => {
       ]);
     const planned = await tasksOf(season2027.id);
     expect(planned.byTitle("Termine planen").completedAt).not.toBeNull();
-    // The same entry as a tick (undoable), marked as automatic.
+    // The same entry as a tick (undoable), marked as automatic. In write order: one transaction shares `at`,
+    // the time-ordered id breaks the tie (without an order Postgres may return them in any order).
     const entries = await db
       .select()
       .from(auditLog)
       .where(and(eq(auditLog.action, "task.status"), eq(auditLog.entityType, "task")))
-      // Write order: without it Postgres may return them in (entity_type, entity_id) index order.
       .orderBy(asc(auditLog.at), asc(auditLog.id));
     expect(entries).toHaveLength(4);
     const parentEntry = entries.find((e) => e.entityId === planned.byTitle("Termine planen").id);

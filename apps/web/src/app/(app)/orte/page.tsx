@@ -7,6 +7,7 @@ import { VenueVorschau } from "@/components/catalogue/venue-vorschau";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { LiveSearch } from "@/components/ui/live-search";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { RowActions, rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
@@ -64,19 +65,8 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
         }
       />
 
-      <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
-        <label className="sr-only" htmlFor="q">
-          {t("search")}
-        </label>
-        <input
-          id="q"
-          name="q"
-          type="search"
-          defaultValue={q}
-          placeholder={t("search")}
-          className="min-h-(--control-h) w-72 max-w-full rounded-lg border border-input bg-card px-3"
-        />
-      </form>
+      {/* Searches while typing and keeps ?q= in the URL (UX-038). */}
+      <LiveSearch label={t("search")} placeholder={t("searchPlaceholder")} />
 
       <Panel className="overflow-hidden">
         {rows.length === 0 ? (

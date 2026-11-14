@@ -88,11 +88,13 @@ export function splitPermitTransitions(status: PermitStatus): {
     .filter((to) => (order(to) ?? -1) > current)
     .sort((a, b) => (order(a) as number) - (order(b) as number));
   const backward = next.filter((to) => (order(to) ?? Number.POSITIVE_INFINITY) < current);
-  const outcomes = next.filter((to) => order(to) === undefined && to !== "not_required");
+  // "Ersetzt" happens with a renewal, not as the next step: it waits in the menu next to "nicht nötig".
+  const quiet = (to: PermitStatus) => to === "not_required" || to === "superseded";
+  const outcomes = next.filter((to) => order(to) === undefined && !quiet(to));
   return {
     primary: forward[0] ?? null,
     secondary: [...forward.slice(1), ...outcomes],
-    menu: [...backward, ...next.filter((to) => to === "not_required")],
+    menu: [...backward, ...next.filter(quiet)],
   };
 }
 
@@ -222,6 +224,68 @@ export function isAnswerOverdue(
     permit.expectedDecisionOn != null &&
     permit.expectedDecisionOn < today
   );
+}
+
+/**
+ * Filed (Beantragt) without a date the authority is expected to decide by: nothing tells the office when
+ * to chase, so the drawer and the list say "Antwort wird nicht überwacht" (UX audit UX-017).
+ */
+export function isAnswerUnwatched(permit: {
+  status: PermitStatus;
+  expectedDecisionOn?: string | null;
+}): boolean {
+  return permit.status === "applied" && permit.expectedDecisionOn == null;
+}
+
+/** The dates of a permit that must fit together (`permitDateIssues`). */
+export type PermitDates = {
+  appliedAt?: string | null;
+  expectedDecisionOn?: string | null;
+  grantedAt?: string | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
+};
+export type PermitDateField = keyof PermitDates;
+export type PermitDateIssueCode =
+  | "applied_in_future"
+  | "decision_before_applied"
+  | "granted_before_applied"
+  | "granted_in_future"
+  | "invalid_period";
+export type PermitDateIssue = { code: PermitDateIssueCode; field: PermitDateField };
+
+/**
+ * Dates of one permit that contradict each other or today (UX audit UX-008): applied in the future, a
+ * decision expected before the application, granted before it was applied for or in the future, valid
+ * until before valid from. Each issue names the field to mark. `only` limits the check to issues that
+ * touch the given fields (the ones a person just changed), so an old inconsistency never blocks an
+ * unrelated edit. Dates are Berlin `YYYY-MM-DD`; a missing date never is an issue.
+ */
+export function permitDateIssues(
+  dates: PermitDates,
+  today: string,
+  only?: readonly PermitDateField[],
+): PermitDateIssue[] {
+  const { appliedAt, expectedDecisionOn, grantedAt, validFrom, validUntil } = dates;
+  const touched = (...fields: PermitDateField[]) =>
+    only === undefined || fields.some((f) => only.includes(f));
+  const issues: PermitDateIssue[] = [];
+  if (appliedAt && appliedAt > today && touched("appliedAt"))
+    issues.push({ code: "applied_in_future", field: "appliedAt" });
+  if (
+    appliedAt &&
+    expectedDecisionOn &&
+    expectedDecisionOn < appliedAt &&
+    touched("appliedAt", "expectedDecisionOn")
+  )
+    issues.push({ code: "decision_before_applied", field: "expectedDecisionOn" });
+  if (appliedAt && grantedAt && grantedAt < appliedAt && touched("appliedAt", "grantedAt"))
+    issues.push({ code: "granted_before_applied", field: "grantedAt" });
+  if (grantedAt && grantedAt > today && touched("grantedAt"))
+    issues.push({ code: "granted_in_future", field: "grantedAt" });
+  if (validFrom && validUntil && validUntil < validFrom && touched("validFrom", "validUntil"))
+    issues.push({ code: "invalid_period", field: "validUntil" });
+  return issues;
 }
 
 /** Within this many days of the event a permit that is not granted yet is critical. */

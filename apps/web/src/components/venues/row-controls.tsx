@@ -2,20 +2,21 @@
 
 import { Pencil, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { deleteRowAction, restoreRowAction } from "@/app/(app)/orte/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { RowActions } from "@/components/ui/table";
-import { RowDialog, type RowValues } from "./row-dialog";
+import { RowDialog, type RowValues, type ZoneRef } from "./row-dialog";
 import { useErrorText } from "./shared";
 
 /** Edit and delete buttons at the end of a row; delete shows an undo toast instead of asking. */
-export function RowControls({ row, zone }: { row: RowValues; zone: { id: string; name: string } }) {
+export function RowControls({ row, zone }: { row: RowValues; zone: ZoneRef }) {
   const t = useTranslations("venues.manage");
   const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [open, setOpen] = useState(false);
+  const editButton = useRef<HTMLButtonElement>(null);
   const [pending, startTransition] = useTransition();
 
   function remove() {
@@ -40,6 +41,7 @@ export function RowControls({ row, zone }: { row: RowValues; zone: { id: string;
   return (
     <RowActions>
       <Button
+        ref={editButton}
         size="icon-sm"
         variant="ghost"
         aria-label={t("row.edit", { row: row.label })}
@@ -57,7 +59,13 @@ export function RowControls({ row, zone }: { row: RowValues; zone: { id: string;
       >
         <Trash2 aria-hidden />
       </Button>
-      <RowDialog open={open} onOpenChange={setOpen} zone={zone} row={row} />
+      <RowDialog
+        open={open}
+        onOpenChange={setOpen}
+        zone={zone}
+        row={row}
+        returnFocus={editButton}
+      />
     </RowActions>
   );
 }

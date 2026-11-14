@@ -288,6 +288,50 @@ describe("logbook query", () => {
     expect((await getPermit(owner, today.id, TODAY))?.state).toBe("applied");
     expect((await getPermit(owner, today.id, "2026-10-22"))?.state).toBe("answer_overdue");
   });
+
+  it("names an Ort with upcoming events but no requirements as 'noch nicht geklärt' (UX-011)", async () => {
+    await makeEvent("2026-12-06", "Advent");
+    await makeEvent("2026-11-08", "Herbst");
+    // A past event does not count.
+    await makeEvent("2026-09-01", "Sommer");
+    const unclear = (await listLogbook(owner, { season: "upcoming" }, TODAY)).unclearVenues;
+    expect(unclear).toEqual([
+      { id: cat.venue.id, name: cat.venue.name, nextEventOn: "2026-11-08" },
+    ]);
+    // The Ort filter narrows it.
+    expect(
+      (await listLogbook(owner, { venueId: "11111111-1111-4111-8111-111111111111" }, TODAY))
+        .unclearVenues,
+    ).toEqual([]);
+
+    // A requirement (or a permit) settles it.
+    await db.insert(permitRequirement).values({
+      venueId: cat.venue.id,
+      category: "city",
+      permitType: "water",
+      title: "Wasser",
+      cadence: "per_event",
+      leadTimeDays: 14,
+    });
+    expect((await listLogbook(owner, {}, TODAY)).unclearVenues).toEqual([]);
+  });
+
+  it("gives the drawer the requirement's usual decision day for the 'beantragt' step", async () => {
+    const [req] = await db
+      .insert(permitRequirement)
+      .values({
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "market_permit",
+        title: "Marktgenehmigung",
+        cadence: "per_season",
+        leadTimeDays: 120,
+        expectedDecisionMd: "01-15",
+      })
+      .returning();
+    const p = await makePermit({ requirementId: req?.id ?? null });
+    expect((await getPermit(owner, p.id, TODAY))?.requirement?.expectedDecisionMd).toBe("01-15");
+  });
 });
 
 describe("event permits and health", () => {
