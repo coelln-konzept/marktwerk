@@ -11,6 +11,7 @@ import {
   CornerDownRight,
   FileText,
   Filter,
+  Landmark,
   ListChecks,
   MoreHorizontal,
   Paperclip,
@@ -21,14 +22,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   deleteItemAction,
   duplicateItemAction,
   moveItemAction,
+  restoreItemsAction,
 } from "@/app/(app)/vorlagen/ablauf/actions";
 import { useShell } from "@/components/shell/shell-context";
-import { useConfirm } from "@/components/ui/confirm";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { rowFocus, Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
@@ -83,7 +84,9 @@ const MENU_ITEM =
  * line each with
  * category, anchor + offset, role, time, priority, effort and evidence; child items (ADR 0021) are indented
  * right under their parent ("3.1"). A row opens the editor drawer (`?zeile=<key>`); in the draft each row has
- * a menu (up, down among its siblings, duplicate, delete) instead of dragging.
+ * a menu (up, down among its siblings, duplicate, delete) instead of dragging. Each of these shows a toast with
+ * "Rückgängig" (UX concept: undo instead of asking first); a deleted row comes back with its own key. Rows that
+ * belong to a permit carry a chip, and "Nur Aufgaben mit Genehmigung" narrows the grid to them.
  * Published and retired versions are shown read-only.
  */
 export function ItemGrid({
@@ -103,12 +106,16 @@ export function ItemGrid({
   selectedKey: string | undefined;
 }) {
   const t = useTranslations("taskTemplates");
+  const tPermitTypes = useTranslations("permitTypes");
   const offsetText = useOffsetText();
   const roleName = new Map(roles.map((r) => [r.id, r.name]));
   const titleOf = new Map(items.map((i) => [i.key, i.title]));
   const { showToast, showError } = useShell();
-  const { confirm, dialog } = useConfirm();
   const [pending, startTransition] = useTransition();
+  const permitRows = items.filter((i) => i.permitType !== null).length;
+  const [onlyPermits, setOnlyPermits] = useState(false);
+  // The filter only applies while there is something to filter (the last permit row may have gone).
+  const filtering = onlyPermits && permitRows > 0;
 
   const href = (key: string) => `${baseHref}&zeile=${encodeURIComponent(key)}`;
   const anchorName = (key: string) =>
@@ -124,27 +131,77 @@ export function ItemGrid({
       : t("units.hoursMinutes", { h: Math.floor(n / 60), m: n % 60 });
   }
 
-  function run(work: () => Promise<{ ok: boolean; error?: string }>, message?: string) {
+  type Result<T> = { ok: true; data: T } | { ok: false; error: string };
+
+  /** Runs a row action; a failure is an error toast, a success calls `done` (which shows the undo toast). */
+  function run<T>(work: () => Promise<Result<T>>, done?: (data: T) => void) {
     startTransition(async () => {
       const result = await work();
-      if (!result.ok) showError(errorText(result.error ?? "generic"));
-      else if (message) showToast({ message });
+      if (!result.ok) showError(errorText(result.error));
+      else done?.(result.data);
     });
   }
 
-  async function remove(item: ItemView) {
-    const children = items.filter((i) => i.parentKey === item.key).length;
-    const ok = await confirm({
-      title: t("delete.title", { title: item.title }),
-      description:
-        children > 0
-          ? t("delete.descriptionChildren", { count: children })
-          : t("delete.description"),
-      confirmLabel: t("delete.confirm"),
-      cancelLabel: t("delete.cancel"),
-    });
-    if (ok)
-      run(() => deleteItemAction(versionId, item.key), t("delete.done", { title: item.title }));
+  /** The undo of a toast: a failure shows as an error toast. */
+  const undo =
+    <T,>(work: () => Promise<Result<T>>) =>
+    async () => {
+      const result = await work();
+      if (!result.ok) showError(errorText(result.error));
+    };
+
+  function move(item: ItemView, direction: "up" | "down") {
+    run(
+      () => moveItemAction(versionId, item.key, direction),
+      ({ moved }) => {
+        if (!moved) return;
+        showToast({
+          message: t("menu.moved", { title: item.title }),
+          actionLabel: t("menu.undo"),
+          onAction: undo(() =>
+            moveItemAction(versionId, item.key, direction === "up" ? "down" : "up"),
+          ),
+        });
+      },
+    );
+  }
+
+  function duplicate(item: ItemView) {
+    run(
+      () => duplicateItemAction(versionId, item.key),
+      ({ key }) =>
+        showToast({
+          message: t("menu.duplicated", { title: item.title }),
+          actionLabel: t("menu.undo"),
+          onAction: undo(() => deleteItemAction(versionId, key)),
+        }),
+    );
+  }
+
+  /**
+   * "Löschen" at once, with "Rückgängig" in the toast instead of a question first: the row and its child items
+   * (which go with it) come back with their own keys at the same place.
+   */
+  function remove(item: ItemView) {
+    const children = items.filter((i) => i.parentKey === item.key);
+    const gone = new Set([item.key, ...children.map((c) => c.key)]);
+    const index = items.indexOf(item);
+    const beforeKey = items.slice(index + 1).find((i) => !gone.has(i.key))?.key ?? null;
+    const afterKey = items.slice(0, index).findLast((i) => !gone.has(i.key))?.key ?? null;
+    run(
+      () => deleteItemAction(versionId, item.key),
+      () =>
+        showToast({
+          message:
+            children.length > 0
+              ? t("delete.doneChildren", { title: item.title, count: children.length })
+              : t("delete.done", { title: item.title }),
+          actionLabel: t("delete.undo"),
+          onAction: undo(() =>
+            restoreItemsAction(versionId, [item, ...children], afterKey, beforeKey),
+          ),
+        }),
+    );
   }
 
   // The Saison section first (once per season), then every date by phase. In a draft the Saison section is always
@@ -179,6 +236,20 @@ export function ItemGrid({
   let topCount = 0;
   return (
     <>
+      {permitRows > 0 && (
+        <div className="flex flex-wrap items-center gap-3 border-border-subtle border-b px-4 py-2">
+          <label className="flex min-h-(--control-h) cursor-pointer items-center gap-2 font-medium text-small">
+            <input
+              type="checkbox"
+              className="size-4 accent-(--primary)"
+              checked={onlyPermits}
+              onChange={(e) => setOnlyPermits(e.target.checked)}
+            />
+            <Landmark aria-hidden className="size-4 text-muted-foreground" />
+            {t("grid.onlyPermits", { count: permitRows })}
+          </label>
+        </div>
+      )}
       <KeyboardRows>
         <Table>
           <caption className="sr-only">{t("grid.caption")}</caption>
@@ -201,14 +272,17 @@ export function ItemGrid({
             </tr>
           </THead>
           {sections.map((section) => {
-            const { rows, tops } = sectionRows(items, section.inSection, topCount);
+            const { rows: allRows, tops } = sectionRows(items, section.inSection, topCount);
             topCount += tops;
+            // The filter keeps the numbers of the whole version, so "3.1" stays "3.1".
+            const rows = filtering ? allRows.filter((r) => r.item.permitType !== null) : allRows;
+            if (filtering && rows.length === 0) return null;
             const total = rows.reduce((sum, r) => sum + r.item.estimateMinutes, 0);
             return (
               <tbody key={section.key}>
                 <TGroup colSpan={10}>
-                  {section.label} · {t("grid.count", { count: tops })}
-                  {rows.length > tops && (
+                  {section.label} · {t("grid.count", { count: filtering ? rows.length : tops })}
+                  {!filtering && rows.length > tops && (
                     <> · {t("grid.children", { count: rows.length - tops })}</>
                   )}
                   {total > 0 && isModuleVisible("estimates") && <> · {minutes(total)}</>}
@@ -280,6 +354,12 @@ export function ItemGrid({
                               <span className="sr-only">
                                 {t("grid.children", { count: children })}
                               </span>
+                            </span>
+                          )}
+                          {item.permitType && (
+                            <span className="inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-full bg-status-neutral-bg px-1.5 font-medium text-foreground-2">
+                              <Landmark aria-hidden className="size-3" />
+                              {t("grid.permit", { type: tPermitTypes(item.permitType) })}
                             </span>
                           )}
                           {conditionText && (
@@ -406,9 +486,7 @@ export function ItemGrid({
                                     <Menu.Item
                                       className={MENU_ITEM}
                                       disabled={indexInSiblings <= 0}
-                                      onClick={() =>
-                                        run(() => moveItemAction(versionId, item.key, "up"))
-                                      }
+                                      onClick={() => move(item, "up")}
                                     >
                                       <ArrowUp
                                         aria-hidden
@@ -419,9 +497,7 @@ export function ItemGrid({
                                     <Menu.Item
                                       className={MENU_ITEM}
                                       disabled={indexInSiblings === siblings.length - 1}
-                                      onClick={() =>
-                                        run(() => moveItemAction(versionId, item.key, "down"))
-                                      }
+                                      onClick={() => move(item, "down")}
                                     >
                                       <ChevronDown
                                         aria-hidden
@@ -431,12 +507,7 @@ export function ItemGrid({
                                     </Menu.Item>
                                     <Menu.Item
                                       className={MENU_ITEM}
-                                      onClick={() =>
-                                        run(
-                                          () => duplicateItemAction(versionId, item.key),
-                                          t("menu.duplicated", { title: item.title }),
-                                        )
-                                      }
+                                      onClick={() => duplicate(item)}
                                     >
                                       <Copy aria-hidden className="size-4 text-muted-foreground" />
                                       {t("menu.duplicate")}
@@ -459,7 +530,7 @@ export function ItemGrid({
                     </TR>
                   );
                 })}
-                {editable && (
+                {editable && !filtering && (
                   <tr className="border-border-subtle border-b last:border-b-0">
                     <td colSpan={10} className="px-3 py-1">
                       <Link
@@ -478,7 +549,6 @@ export function ItemGrid({
           })}
         </Table>
       </KeyboardRows>
-      {dialog}
     </>
   );
 }

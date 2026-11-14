@@ -8,6 +8,7 @@ import {
   ChevronRight,
   CircleAlert,
   CircleCheck,
+  Info,
   Lock,
   Minus,
   Plus,
@@ -18,7 +19,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { type ReactNode, useState, useTransition } from "react";
+import { type ReactNode, useEffect, useRef, useState, useTransition } from "react";
 import { applyVersionAction } from "@/app/(app)/vorlagen/ablauf/actions";
 import { EventStatusBadge } from "@/components/events/event-status";
 import { useShell } from "@/components/shell/shell-context";
@@ -30,6 +31,9 @@ import type { EventStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import type { ApplyEventPlan, ApplySeasonPlan } from "@/server/services/template-propagation";
 import { dateOfInstant } from "./labels";
+
+/** "Anwenden" ignores clicks this long after the step changed (the second click of a double click). */
+const STEP_GUARD_MS = 400;
 
 /** One row of the list: an event, or a Saison record ("<Markt> · Saison 2027"). */
 type Target = {
@@ -52,6 +56,12 @@ type Target = {
  * records (research 13 §6.2) stand above the events and take only the rows for the whole season; events take the
  * rows of every date. The list shows only targets with changes by default (a season has 50+ events, most of them
  * unchanged), dates carry the year when it is not the current one.
+ *
+ * Applying cannot be undone (open questions, UX audit round 1), so step 2 says so, and the step change guards
+ * against running through: "Weiter zur Vorschau" and "Auf … anwenden" are different buttons (own keys), focus moves
+ * to the new step's heading, and a click on "Anwenden" right after the switch (the second click of a double
+ * click) is ignored. A selection that went stale (another tab applied the same target) drops out of the counts;
+ * when the server refuses it, the sheet goes back to step 1.
  */
 export function ApplySheet({
   templateId,
@@ -82,6 +92,16 @@ export function ApplySheet({
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const stepHeading = useRef<HTMLHeadingElement>(null);
+  /** When the step last changed: "Anwenden" ignores clicks for a moment after it. */
+  const stepChangedAt = useRef(0);
+  const shownStep = useRef(step);
+  useEffect(() => {
+    if (shownStep.current === step) return;
+    shownStep.current = step;
+    stepChangedAt.current = Date.now();
+    stepHeading.current?.focus();
+  }, [step]);
 
   const seasonTargets: Target[] = seasons.map((s) => {
     const label = t("seasonLabel", { name: s.name, season: s.season });
@@ -108,6 +128,7 @@ export function ApplySheet({
   });
   const all = [...seasonTargets, ...eventTargets];
 
+  // Only targets that are still in the list count: after a refresh one may be gone (applied in another tab).
   const chosen = all.filter((x) => selected.has(x.key));
   const chosenEvents = chosen.flatMap((x) => ("eventId" in x.plan ? [x.plan.eventId] : []));
   const chosenSeasons = chosen.flatMap((x) => ("seasonId" in x.plan ? [x.plan.seasonId] : []));
@@ -170,10 +191,19 @@ export function ApplySheet({
   }
 
   function apply() {
+    if (Date.now() - stepChangedAt.current < STEP_GUARD_MS) {
+      // The second click of a double click: ignored, and focus goes back to the heading, so an Enter
+      // right after does not apply either.
+      stepHeading.current?.focus();
+      return;
+    }
+    if (chosen.length === 0) return;
     setError(null);
     startTransition(async () => {
       const result = await applyVersionAction(templateId, chosenEvents, chosenSeasons);
       if (!result.ok) {
+        // A target stopped qualifying: back to the list (refreshed by the action) to check the selection.
+        if (result.error === "not_applicable") setStep(1);
         setError(
           t.has(`errors.${result.error}` as never)
             ? t(`errors.${result.error}` as never)
@@ -374,6 +404,18 @@ export function ApplySheet({
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
             {step === 1 && (
               <>
+                <h3 ref={stepHeading} tabIndex={-1} className="sr-only">
+                  {t("step1Heading")}
+                </h3>
+                {error && (
+                  <p
+                    role="alert"
+                    className="flex items-start gap-2 rounded-lg bg-status-critical-bg px-3 py-2 text-small text-status-critical"
+                  >
+                    <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                    {error}
+                  </p>
+                )}
                 <p className="rounded-lg bg-status-info-bg px-3 py-2 text-small text-status-info">
                   {t("intro")}
                 </p>
@@ -413,7 +455,7 @@ export function ApplySheet({
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="flex flex-col">
-                        <strong>{t("selected", { count: selected.size })}</strong>
+                        <strong>{t("selected", { count: chosen.length })}</strong>
                         <span className="text-muted-foreground text-tiny">
                           {t("listCount", { shown: shown.length, total: all.length })}
                           {hiddenUnchanged > 0 && (
@@ -435,7 +477,7 @@ export function ApplySheet({
                         </Button>
                         <Button
                           size="sm"
-                          disabled={selected.size === 0}
+                          disabled={chosen.length === 0}
                           onClick={() => setSelected(new Set())}
                         >
                           {t("clear")}
@@ -459,6 +501,15 @@ export function ApplySheet({
 
             {step === 2 && (
               <>
+                <h3 ref={stepHeading} tabIndex={-1} className="sr-only">
+                  {t("step2Heading")}
+                </h3>
+                {chosen.length === 0 && (
+                  <p className="flex items-start gap-2 rounded-lg bg-status-warn-bg px-3 py-2 text-small text-status-warn">
+                    <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                    {t("nothingChosen")}
+                  </p>
+                )}
                 <p className="text-small">
                   {parts(totals)
                     ? t("previewIntro", {
@@ -587,8 +638,12 @@ export function ApplySheet({
                   ))}
                 </ul>
                 <p className="flex items-start gap-2 text-muted-foreground text-small">
-                  <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                  <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
                   {t("rules")}
+                </p>
+                <p className="flex items-start gap-2 rounded-lg bg-status-warn-bg px-3 py-2 font-medium text-small text-status-warn">
+                  <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                  {t("irreversible")}
                 </p>
                 {error && (
                   <p role="alert" className="text-small text-status-critical">
@@ -609,12 +664,27 @@ export function ApplySheet({
                   {t("back")}
                 </Button>
               )}
+              {/* Own keys: React must not reuse the "Weiter" button as "Anwenden" (a double click would apply). */}
               {step === 1 ? (
-                <Button variant="default" disabled={selected.size === 0} onClick={() => setStep(2)}>
+                <Button
+                  key="next"
+                  variant="default"
+                  disabled={chosen.length === 0}
+                  onClick={() => {
+                    setError(null);
+                    setStep(2);
+                  }}
+                >
                   {t("next")}
                 </Button>
               ) : (
-                <Button variant="default" aria-busy={pending} disabled={pending} onClick={apply}>
+                <Button
+                  key="confirm"
+                  variant="default"
+                  aria-busy={pending}
+                  disabled={pending || chosen.length === 0}
+                  onClick={apply}
+                >
                   {t("confirm", {
                     targets: targets(chosenEvents.length, chosenSeasons.length),
                   })}
