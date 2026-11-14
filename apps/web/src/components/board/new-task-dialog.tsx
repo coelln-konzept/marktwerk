@@ -74,7 +74,7 @@ export function NewTaskButton({
   const tCat = useTranslations("tasks.categories");
   const tNotify = useTranslations("board.notify");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, singleKeys } = useShell();
   const safe = useSafeAction();
   const router = useRouter();
   const pathname = usePathname();
@@ -240,7 +240,9 @@ export function NewTaskButton({
         <Button variant={shortcut ? "default" : "outline"} onClick={() => openDialog()}>
           <Plus aria-hidden />
           {t("button")}
-          {shortcut && <Kbd className="border-white/40 bg-transparent text-inherit">C</Kbd>}
+          {shortcut && singleKeys && (
+            <Kbd className="border-white/40 bg-transparent text-inherit">C</Kbd>
+          )}
         </Button>
       )}
       <Modal open={open} onOpenChange={changeOpen} title={t("title")} closeLabel={t("cancel")}>

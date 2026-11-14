@@ -229,19 +229,26 @@ export function useTaskActions({
    * The one rule for every way a task gets done here (UX-037): the "Erledigt" button, E, the "⋯" menu,
    * "Verschieben nach → Erledigt" and a drag into the Erledigt column. Open subtasks open the drawer
    * (R29); with `confirmDone` it asks first (decision D1), focus on "Ja, erledigt"; else `go` runs.
+   * Resolves to whether `go` ran, so a caller announces a move only once it happens.
    */
   const whenDone = useCallback(
-    (task: TaskRef, go: () => void) => {
+    async (task: TaskRef, go: () => void): Promise<boolean> => {
       // A parent with open subtasks can't be done yet (ADR 0021 done gate): no question the server would
       // refuse anyway; its drawer opens on the subtasks with a short hint (R29).
-      if ((task.openSubtasks ?? 0) > 0) return openForSubtasks(task);
-      if (!confirmDone) return go();
-      void confirm({
-        title: t("confirmDone.title"),
-        description: t("confirmDone.description", { title: task.title }),
-        confirmLabel: t("confirmDone.confirm"),
-        cancelLabel: t("confirmDone.cancel"),
-      }).then((ok) => ok && go());
+      if ((task.openSubtasks ?? 0) > 0) {
+        openForSubtasks(task);
+        return false;
+      }
+      const ok =
+        !confirmDone ||
+        (await confirm({
+          title: t("confirmDone.title"),
+          description: t("confirmDone.description", { title: task.title }),
+          confirmLabel: t("confirmDone.confirm"),
+          cancelLabel: t("confirmDone.cancel"),
+        }));
+      if (ok) go();
+      return ok;
     },
     [t, confirmDone, confirm, openForSubtasks],
   );
@@ -267,8 +274,9 @@ export function useTaskActions({
     [apply, showUndo, fail, offerParent],
   );
 
+  /** Resolves to whether the move ran (false: "Abbrechen" in the question, or open subtasks). */
   const move = useCallback(
-    (task: TaskRef, column: BoardColumn, afterId: string | null) => {
+    (task: TaskRef, column: BoardColumn, afterId: string | null): Promise<boolean> => {
       const go = () =>
         run(
           { kind: "move", id: task.id, column, afterId },
@@ -278,8 +286,9 @@ export function useTaskActions({
             ? t("toast.done", { title: task.title })
             : t("toast.moved", { title: task.title, column: t(`columns.${column}`) }),
         );
-      if (movesIntoDone(task, column)) whenDone(task, go);
-      else go();
+      if (movesIntoDone(task, column)) return whenDone(task, go);
+      go();
+      return Promise.resolve(true);
     },
     [run, whenDone, scopeEventId, t],
   );
@@ -354,7 +363,7 @@ export function useTaskActions({
             },
           });
         });
-      if (movesIntoDone(task, column)) whenDone(task, go);
+      if (movesIntoDone(task, column)) void whenDone(task, go);
       else go();
     },
     [apply, staff, scopeEventId, fail, showToast, showError, t, errorText, whenDone],
@@ -378,7 +387,7 @@ export function useTaskActions({
               : t("toast.status", { title: task.title, status: tTasks(`status.${status}`) }),
         );
       if (status !== "done") return go();
-      whenDone(task, go);
+      void whenDone(task, go);
     },
     [run, t, tTasks, whenDone],
   );

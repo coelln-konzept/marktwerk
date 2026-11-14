@@ -13,6 +13,7 @@ import {
 import { Keyboard } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState } from "react";
+import { useShell } from "@/components/shell/shell-context";
 import { SnoozeDialog } from "@/components/task/snooze";
 import { Avatar } from "@/components/ui/avatar";
 import { Kbd } from "@/components/ui/kbd";
@@ -37,6 +38,8 @@ const DONE_COLLAPSED = 5;
  * otherwise put over a thousand cards (55k DOM nodes) on the page.
  */
 const COLUMN_CAP = 30;
+/** Rows of the keyboard help that are single-key shortcuts (hidden while those are off). */
+const SINGLE_KEY_ROWS = new Set(["e", "a", "c"]);
 const MORE_BUTTON =
   "cursor-pointer rounded-md px-1.5 py-1 text-left font-medium text-muted-foreground text-small hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring";
 
@@ -151,6 +154,7 @@ type Props = {
 export function BoardView(props: Props) {
   const t = useTranslations("board");
   const locale = useLocale();
+  const { singleKeys } = useShell();
   const { today, staff } = props;
   // Top-level tasks and subtasks in one optimistic list, so nesting, lifting out and ticking a subtask show at
   // once; the views get the top-level tasks and the subtasks per parent.
@@ -318,16 +322,28 @@ export function BoardView(props: Props) {
     const task = tasksRef.current.find((c) => c.id === lift.id);
     setLift(null);
     if (!task) return;
-    focusAfter.current = task.id;
     const others = cardsNow(lift.column, lift.lane).filter((c) => c.id !== lift.id);
     const afterId = lift.index > 0 ? (others[lift.index - 1]?.id ?? null) : null;
     const original = cardsNow(task.column, lift.lane).findIndex((c) => c.id === task.id);
-    if (lift.column === task.column && lift.index === original) {
+    const stayed = () => {
       setLive(t("keys.cancelled"));
+      // After the card is back in its place (the lift's re-render), not on the next change of the cards.
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>(`[data-grip="${task.id}"]`)?.focus(),
+      );
+    };
+    if (lift.column === task.column && lift.index === original) {
+      stayed();
       return;
     }
-    actions.move(task, lift.column, afterId);
-    setLive(t("keys.dropped", { title: task.title, column: columnName(lift.column) }));
+    // Into "Erledigt" the move may ask first: announce it (and move the focus with the card) only once
+    // it runs; "Abbrechen" leaves the card where it was and says so.
+    const column = lift.column;
+    void actions.move(task, column, afterId).then((moved) => {
+      if (!moved) return stayed();
+      focusAfter.current = task.id;
+      setLive(t("keys.dropped", { title: task.title, column: columnName(column) }));
+    });
   }, [lift, cardsNow, actions, t, columnName]);
 
   const askReason = useCallback(
@@ -508,12 +524,15 @@ export function BoardView(props: Props) {
                     ["a", t("keys.openMenu"), <Kbd key="k6">A</Kbd>],
                     ["c", t("keys.newTask"), <Kbd key="k7">C</Kbd>],
                   ] as const
-                ).map(([key, label, kbd]) => (
-                  <div key={key} className="contents">
-                    <dd className="m-0 text-right">{kbd}</dd>
-                    <dt>{label}</dt>
-                  </div>
-                ))}
+                )
+                  // E, A and C are single keys: not listed while they are off (UX-054).
+                  .filter(([key]) => singleKeys || !SINGLE_KEY_ROWS.has(key))
+                  .map(([key, label, kbd]) => (
+                    <div key={key} className="contents">
+                      <dd className="m-0 text-right">{kbd}</dd>
+                      <dt>{label}</dt>
+                    </div>
+                  ))}
               </dl>
             </details>
           </div>

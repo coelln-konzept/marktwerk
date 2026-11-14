@@ -1,5 +1,6 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { failureCode, NETWORK_ERROR, trackPending } from "@/lib/call-action";
@@ -22,6 +23,8 @@ export function useSafeAction() {
       try {
         return await trackPending(call);
       } catch (error) {
+        // A redirect (session expired: `requirePermission` → /login) or notFound is not a failure.
+        unstable_rethrow(error);
         console.warn("Server action failed", error);
         showError(t(failureCode(error) === NETWORK_ERROR ? "networkKept" : "serverKept"), {
           key: "action-failure",

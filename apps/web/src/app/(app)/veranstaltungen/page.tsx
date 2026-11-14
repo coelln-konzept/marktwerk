@@ -249,7 +249,6 @@ export default async function EventsPage({ searchParams }: PageProps<"/veranstal
           type="search"
           defaultValue={q}
           placeholder={t("search")}
-          aria-keyshortcuts="/"
           className="min-h-(--control-h) w-64 rounded-lg border border-input bg-card px-3 max-sm:w-full"
         />
         <FilterToggle label={t("filter")} summary={filterSummary || null}>

@@ -210,15 +210,23 @@ export function ShellProvider({
 
   /**
    * While an undo runs: what it takes back. The undo's own "Rückgängig gemacht" toast then names the
-   * change ("Rückgängig gemacht: „Plakate“ erledigt") and replaces the toast it undid (UX-031).
+   * change ("Rückgängig gemacht: „Plakate“ erledigt") and replaces the toast it undid (UX-031). Only the
+   * first plain toast is that one: the flag is cleared once used, and a toast with a key of its own
+   * ("Verbindung wieder da", `connection`) is about something else and stays as it is.
    */
   const undoingRef = useRef<{ message: string; key?: string } | null>(null);
 
   const showToast = useCallback(
     (given: Toast) => {
       const undoing = undoingRef.current;
+      const isUndoResult =
+        undoing !== null &&
+        given.tone !== "error" &&
+        !given.onAction &&
+        (given.key === undefined || given.key === undoing.key);
+      if (isUndoResult) undoingRef.current = null;
       const toast: Toast =
-        undoing && given.tone !== "error" && !given.onAction
+        undoing && isUndoResult
           ? {
               ...given,
               message: tToasts("undone", { what: undoing.message }),
@@ -268,14 +276,16 @@ export function ShellProvider({
       // toast that can still be undone.
       dismissToastById(id);
       forgetUndo(id);
-      undoingRef.current = undo ?? null;
+      const undoing = undo ? { ...undo } : null;
+      undoingRef.current = undoing;
       try {
         await action();
       } catch (error) {
         // An action that throws (offline, a 500) must not crash the page; say so instead.
         showError(tErrors(failureCode(error)));
       } finally {
-        undoingRef.current = null;
+        // Unless a later undo has started meanwhile (its toast is still to come).
+        if (undoingRef.current === undoing) undoingRef.current = null;
         setBusy(false);
       }
     },

@@ -1,3 +1,5 @@
+import { unstable_rethrow } from "next/navigation";
+
 /** What `callAction` returns when the call itself failed: no answer (offline) or a broken one (5xx). */
 export type NetworkFailure = { ok: false; error: "network" | "server" };
 
@@ -52,6 +54,8 @@ export async function callAction<R extends { ok: boolean }>(
   try {
     return await trackPending(call);
   } catch (error) {
+    // Next's own control flow (a redirect to /login when the session expired, notFound) passes through.
+    unstable_rethrow(error);
     // The cause is only useful in the console; the person gets the network or server message.
     console.warn("Server action failed", error);
     return { ok: false, error: failureCode(error) };

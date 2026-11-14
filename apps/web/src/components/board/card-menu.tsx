@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useShell } from "@/components/shell/shell-context";
 import { useSnoozePresets } from "@/components/task/snooze";
 import { Avatar } from "@/components/ui/avatar";
 import { Kbd } from "@/components/ui/kbd";
@@ -59,6 +60,8 @@ export function CardMenu({
     today,
   } = useBoard();
   const tSnooze = useTranslations("tasks.snooze");
+  // The A and E hints are single keys on the card: not shown while those are off (UX-054).
+  const { singleKeys } = useShell();
   const presets = useSnoozePresets(today);
   const finished = task.status === "done" || task.status === "skipped";
 
@@ -92,7 +95,7 @@ export function CardMenu({
                 <Menu.SubmenuTrigger className={subTrigger}>
                   {t("menu.assign")}
                   <span className="flex items-center gap-1">
-                    <Kbd>A</Kbd>
+                    {singleKeys && <Kbd>A</Kbd>}
                     <ChevronRight aria-hidden className="size-4 text-muted-foreground" />
                   </span>
                 </Menu.SubmenuTrigger>
@@ -287,7 +290,7 @@ export function CardMenu({
                 ) : (
                   <Menu.Item className={item} onClick={() => actions.setStatus(task, "done")}>
                     {t("menu.done")}
-                    <Kbd className="ml-auto">E</Kbd>
+                    {singleKeys && <Kbd className="ml-auto">E</Kbd>}
                   </Menu.Item>
                 )}
               </>

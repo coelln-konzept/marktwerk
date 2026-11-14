@@ -3,7 +3,7 @@
 import { TriangleAlert, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useOnline } from "@/components/shell/connection-guard";
 import { Topbar } from "@/components/shell/topbar";
 import { Panel } from "@/components/ui/panel";
@@ -21,12 +21,17 @@ export default function AppError({ error, retry }: { error: unknown; retry: () =
   useEffect(() => {
     console.error(error);
   }, [error]);
+  // Retries on the change of `online` itself, not from an own `online` listener: `useOnline` re-renders
+  // on that event first, and the effect cleanup would remove such a listener before the browser calls it.
+  const wasOffline = useRef(!online);
   useEffect(() => {
     if (!online) {
-      const retryOnline = () => retry();
-      window.addEventListener("online", retryOnline, { once: true });
-      return () => window.removeEventListener("online", retryOnline);
+      wasOffline.current = true;
+      return;
     }
+    if (!wasOffline.current) return;
+    wasOffline.current = false;
+    retry();
   }, [online, retry]);
   const title = online ? t("failedTitle") : t("offlineTitle");
   return (
