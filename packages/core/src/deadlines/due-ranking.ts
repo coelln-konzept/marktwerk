@@ -12,12 +12,12 @@
  *      first), then items without a market;
  *   4. only in "Überfällig" (UX audit round 1, UX-006): then the oldest due date first, so a row four weeks
  *      late does not hide behind one that is a day late;
- *   5. then by kind: Genehmigungen > Raten (Geld) > Aufgaben > Stunden > Pflichten
+ *   5. then by kind: Genehmigungen > Raten (Geld) > Aufgaben > Stunden > Mängel > Pflichten
  *      (a missed permit or a late payment costs money or the event; an open task rarely does);
  *   6. then the oldest due date first, then the title (stable, alphabetical).
  */
 
-export type RankableDueKind = "task" | "permit" | "installment" | "hours" | "obligation";
+export type RankableDueKind = "task" | "permit" | "installment" | "hours" | "issue" | "obligation";
 export type RankableUrgency = "overdue" | "today" | "soon" | "upcoming" | "waiting";
 
 /** Lower = more important. */
@@ -26,7 +26,8 @@ export const DUE_KIND_PRIORITY: Record<RankableDueKind, number> = {
   installment: 1,
   task: 2,
   hours: 3,
-  obligation: 4,
+  issue: 4,
+  obligation: 5,
 };
 
 const URGENCY_PRIORITY: Record<RankableUrgency, number> = {
@@ -98,7 +99,7 @@ export function splitByRows<T>(
   return [entries.slice(0, count), entries.slice(count)];
 }
 
-/** Filter chips of "Heute fällig": one per kind plus "Alle". Obligations are the chip "Firma". */
+/** Filter chips of "Heute fällig": one per kind plus "Alle". Obligations and vehicle defects are the chip "Firma". */
 export const DUE_FILTERS = ["all", "money", "permits", "hours", "tasks", "company"] as const;
 export type DueFilter = (typeof DUE_FILTERS)[number];
 
@@ -107,6 +108,7 @@ const FILTER_OF_KIND: Record<RankableDueKind, Exclude<DueFilter, "all">> = {
   permit: "permits",
   hours: "hours",
   task: "tasks",
+  issue: "company",
   obligation: "company",
 };
 

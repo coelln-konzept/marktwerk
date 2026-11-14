@@ -1,6 +1,6 @@
 import { auditLog, eventSeason, eventSeasonAnchor, task } from "@marktwerk/db/schema";
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import { moveEvent, previewEventMove } from "@/server/services/event-details";
 import {
@@ -15,8 +15,13 @@ import { baseItem, seedPublishedTemplate } from "../helpers/templates";
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
 let owner: Awaited<ReturnType<typeof createActor>>;
 
-/** Season work on season_start (−240 days) and season_end (+14 days), next to one event item. */
+/**
+ * Season work on season_start (−240 days) and season_end (+14 days), next to one event item. Today is early in
+ * 2026, before every due date here: a record created later would set past ones to today (UX-009).
+ */
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-03-02T10:00:00+01:00"));
   await resetDatabase();
   cat = await seedCatalogue();
   owner = await createActor("owner");
@@ -40,6 +45,10 @@ beforeEach(async () => {
     ],
     { presetIds: [cat.presets.flea.id] },
   );
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 afterAll(async () => {

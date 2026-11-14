@@ -9,6 +9,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { cn } from "@/lib/utils";
 import { useErrorText } from "./shared";
 
 type Status = "open" | "in_progress" | "resolved";
@@ -29,10 +30,13 @@ export function IssueActions({
   issueId,
   title,
   status,
+  touch = false,
 }: {
   issueId: string;
   title: string;
   status: Status;
+  /** Phone cards: full-size buttons that share the row (44 px targets). */
+  touch?: boolean;
 }) {
   const t = useTranslations("company");
   const ti = useTranslations("company.issues");
@@ -71,13 +75,16 @@ export function IssueActions({
 
   return (
     <>
-      <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span
+        className={cn("inline-flex flex-wrap items-center gap-1.5", touch && "flex w-full gap-2")}
+      >
         {NEXT[status].map((to) => {
           const Icon = ICON[to];
           return (
             <Button
               key={to}
-              size="sm"
+              size={touch ? "default" : "sm"}
+              className={touch ? "min-h-11 flex-1" : undefined}
               disabled={pending}
               aria-label={ti("actFor", { action: ti(`act.${to}`), title })}
               onClick={() => {

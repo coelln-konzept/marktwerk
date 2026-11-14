@@ -64,10 +64,11 @@ function inDays(days: number): string {
   return `in ${days} Tagen`;
 }
 
+/** A task without an event opens on the Übersicht: the global board is hidden (UX-052). */
 function taskLink(t: { id: string; eventId: string | null }): string {
   return t.eventId
     ? `/veranstaltungen/${t.eventId}/board?detail=task:${t.id}`
-    : `/board?detail=task:${t.id}`;
+    : `/?aufgabe=${t.id}`;
 }
 
 /**

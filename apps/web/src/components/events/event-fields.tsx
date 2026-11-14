@@ -99,6 +99,7 @@ export function fieldOfCode(code: string): string {
       return "venue";
     case "invalid_date":
     case "no_dates":
+    case "date_out_of_range":
       return "start";
     case "invalid_duration":
       return "days";
@@ -125,11 +126,15 @@ export type ParsedFields = {
 /**
  * Client-side check of the typed values (the service checks again); the Zeitplan comes back with its
  * times normalised. A Zeitplan issue is `invalid_schedule` on the field "schedule"; the editor shows
- * which rows.
+ * which rows. With `dateRange`, a first day outside it is `date_out_of_range` (UX-041: 9999, 0001).
  */
 export function parseFields(
   value: EventFieldsValue,
-  options: { needsVenue: boolean; needsStart: boolean },
+  options: {
+    needsVenue: boolean;
+    needsStart: boolean;
+    dateRange?: { min: string; max: string };
+  },
 ): { ok: true; input: ParsedFields } | { ok: false; problem: FieldProblem } {
   const fail = (field: string, code: string) => ({ ok: false as const, problem: { field, code } });
   const name = value.name.trim();
@@ -137,6 +142,9 @@ export function parseFields(
   if (!value.eventTypeId) return fail("type", "invalid_event_type");
   if (options.needsVenue && !value.venueId) return fail("venue", "invalid_venue");
   if (options.needsStart && !isIsoDate(value.startsOn)) return fail("start", "invalid_date");
+  const range = options.dateRange;
+  if (options.needsStart && range && (value.startsOn < range.min || value.startsOn > range.max))
+    return fail("start", "date_out_of_range");
   const durationDays = Number(value.days);
   if (!/^\d{1,2}$/.test(value.days.trim()) || durationDays < 1 || durationDays > MAX_EVENT_DAYS)
     return fail("days", "invalid_duration");
@@ -167,7 +175,8 @@ const SELECT_CLASS =
 /**
  * The fields of a single event: name, type, venue (optional), first day (optional), number of days,
  * the Zeitplan (rows with 24-hour text times, like "Eckdaten bearbeiten") and the prices. Controlled; the parent
- * owns the value and the problem to show.
+ * owns the value and the problem to show. With `messageFor` the problem's text sits right below its field
+ * (with the id `errorId`); without it the parent shows it.
  */
 export function EventFields({
   value,
@@ -179,6 +188,9 @@ export function EventFields({
   errorId,
   idPrefix = "ef",
   canCreateVenue = true,
+  messageFor,
+  dateRange,
+  validateScheduleOnLeave = false,
 }: {
   value: EventFieldsValue;
   onChange: (next: EventFieldsValue) => void;
@@ -194,6 +206,12 @@ export function EventFields({
    * may write venues too.
    */
   canCreateVenue?: boolean;
+  /** The text of a problem, shown at its field. */
+  messageFor?: (problem: FieldProblem) => string;
+  /** Limits the date picker of "Erster Tag" (the plannable years, UX-041). */
+  dateRange?: { min: string; max: string };
+  /** Zeitplan rows show their issue once the focus has left them (opt-in, see `ScheduleEditor`). */
+  validateScheduleOnLeave?: boolean;
 }) {
   const t = useTranslations("generate.single");
   const locale = useLocale();
@@ -202,6 +220,12 @@ export function EventFields({
     problem?.field === field ? { "aria-invalid": true as const, "aria-describedby": errorId } : {};
   const id = (field: string) => `${idPrefix}-${field}`;
   const showScheduleErrors = problem?.field === "schedule";
+  const message = (field: string) =>
+    messageFor && problem?.field === field ? (
+      <p id={errorId} className="m-0 text-small text-status-critical">
+        {messageFor(problem)}
+      </p>
+    ) : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -217,6 +241,7 @@ export function EventFields({
             onChange={(e) => set({ name: e.target.value })}
             {...invalid("name")}
           />
+          {message("name")}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={id("type")}>{t("type")}</Label>
@@ -233,6 +258,7 @@ export function EventFields({
               </option>
             ))}
           </select>
+          {message("type")}
         </div>
         {venues && (
           <div className="flex flex-col gap-1.5">
@@ -247,6 +273,7 @@ export function EventFields({
               invalid={problem?.field === "venue"}
               describedBy={problem?.field === "venue" ? errorId : undefined}
             />
+            {message("venue")}
           </div>
         )}
         {showStart && (
@@ -257,10 +284,13 @@ export function EventFields({
               type="date"
               required
               value={value.startsOn}
+              min={dateRange?.min}
+              max={dateRange?.max}
               onChange={(e) => set({ startsOn: e.target.value })}
               className="tabular"
               {...invalid("start")}
             />
+            {message("start")}
           </div>
         )}
         <div className="flex flex-col gap-1.5">
@@ -277,6 +307,7 @@ export function EventFields({
             className="tabular"
             {...invalid("days")}
           />
+          {message("days")}
         </div>
       </div>
 
@@ -287,8 +318,10 @@ export function EventFields({
           onChange={(schedule) => set({ schedule })}
           durationDays={Number(value.days)}
           showErrors={showScheduleErrors}
+          validateOnLeave={validateScheduleOnLeave}
           idPrefix={id("schedule")}
         />
+        {message("schedule")}
       </fieldset>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -308,6 +341,7 @@ export function EventFields({
               {t("perMeter")}
             </span>
           </div>
+          {message("price")}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={id("fee")}>{t("fee")}</Label>
@@ -325,6 +359,7 @@ export function EventFields({
               €
             </span>
           </div>
+          {message("fee")}
         </div>
       </div>
     </div>

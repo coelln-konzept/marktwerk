@@ -37,9 +37,10 @@ describe("rankDue", () => {
     expect(ranked.map((i) => i.urgency)).toEqual(["soon", "soon", "upcoming"]);
   });
 
-  it("orders kinds inside a group: permits, instalments, tasks, hours, obligations", () => {
+  it("orders kinds inside a group: permits, instalments, tasks, hours, defects, obligations", () => {
     const ranked = rank([
       item("obligation", "today", "2026-10-21"),
+      item("issue", "today", "2026-10-21"),
       item("hours", "today", "2026-10-21"),
       item("task", "today", "2026-10-21"),
       item("installment", "today", "2026-10-21"),
@@ -50,6 +51,7 @@ describe("rankDue", () => {
       "installment",
       "task",
       "hours",
+      "issue",
       "obligation",
     ]);
   });
@@ -162,6 +164,7 @@ describe("filters", () => {
   it("maps kinds to chips and counts them", () => {
     expect(dueFilterOf("installment")).toBe("money");
     expect(dueFilterOf("obligation")).toBe("company");
+    expect(dueFilterOf("issue")).toBe("company");
     expect(
       countByDueFilter([{ kind: "task" }, { kind: "task" }, { kind: "permit" }, { kind: "hours" }]),
     ).toEqual({ all: 4, money: 0, permits: 1, hours: 1, tasks: 2, company: 0 });

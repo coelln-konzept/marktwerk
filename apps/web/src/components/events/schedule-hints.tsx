@@ -3,6 +3,7 @@
 import {
   type CandidateCheck,
   checkCandidates,
+  type EventDateRange,
   endsOnFor,
   isIsoDate,
   type ScheduledEvent,
@@ -12,7 +13,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { loadScheduleContext } from "@/app/(app)/veranstaltungen/actions";
 import { CandidateNotes } from "@/components/events/candidate-notes";
-import { formatDateRange } from "@/lib/format";
+import { formatDateRangeYear, formatWeek } from "@/lib/format";
 import type { ScheduleContextEvent } from "@/server/services/events";
 
 export type ScheduleContextState = "idle" | "loading" | "ready" | "error";
@@ -66,16 +67,25 @@ export function ScheduleHints({
   venueId,
   startsOn,
   durationDays,
+  dateRange,
 }: {
   venueId: string;
   startsOn: string;
   durationDays: number;
+  /** The plannable years: a day outside them gets no look-up, only a note (UX-041). */
+  dateRange?: EventDateRange;
 }) {
   const t = useTranslations("generate.single");
+  const tForm = useTranslations("events.manualForm");
   const locale = useLocale();
+  const outOfRange =
+    dateRange !== undefined &&
+    isIsoDate(startsOn) &&
+    (startsOn < dateRange.min || startsOn > dateRange.max);
   const valid =
     venueId !== "" &&
     isIsoDate(startsOn) &&
+    !outOfRange &&
     Number.isInteger(durationDays) &&
     durationDays >= 1 &&
     durationDays <= 14;
@@ -103,7 +113,10 @@ export function ScheduleHints({
       {check && endsOn ? (
         <>
           <p className="tabular text-foreground-2 text-small">
-            {formatDateRange(check.startsOn, endsOn, locale)}
+            {/* Always with the year and KW: "Sa 05.01." alone hides a mistyped year (UX-041). A `today`
+                in year 0 makes formatDateRangeYear append it. */}
+            {formatDateRangeYear(check.startsOn, endsOn, locale, "0000-01-01")} ·{" "}
+            {formatWeek(check.startsOn, locale)}
           </p>
           <CandidateNotes check={check} state={notesState} />
           {state === "error" && (
@@ -116,6 +129,10 @@ export function ScheduleHints({
             </button>
           )}
         </>
+      ) : outOfRange && dateRange ? (
+        <p className="text-muted-foreground text-small">
+          {tForm("hintsOutOfRange", { minYear: dateRange.minYear, maxYear: dateRange.maxYear })}
+        </p>
       ) : (
         <p className="text-muted-foreground text-small">{t("hintsPending")}</p>
       )}

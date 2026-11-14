@@ -29,6 +29,11 @@ export type BoardContextValue = {
   showEvent: boolean;
   /** Cards can be lifted and moved with the keyboard (not in the grouped list). */
   liftable: boolean;
+  /**
+   * The board shows kanban columns, so "Verschieben nach …" means something. The Checkliste has none: a move
+   * there changed a column nobody sees and the row stayed put (UX-024).
+   */
+  hasColumns: boolean;
   actions: BoardActions;
   lift: Lift | null;
   pick: (task: BoardTask) => void;

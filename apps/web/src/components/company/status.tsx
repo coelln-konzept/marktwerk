@@ -1,6 +1,7 @@
-import type { ObligationStatus } from "@marktwerk/core";
+import type { ObligationDisplayStatus } from "@marktwerk/core";
 import {
   CalendarClock,
+  CalendarX2,
   Check,
   CircleAlert,
   CircleDot,
@@ -17,11 +18,13 @@ import { useDueText } from "@/components/ui/due-badge";
 import { StatusBadge, type Tone } from "@/components/ui/status-badge";
 import { formatNumber } from "@/lib/format";
 
-const OBLIGATION: Record<ObligationStatus, { tone: Tone; icon: LucideIcon }> = {
+const OBLIGATION: Record<ObligationDisplayStatus, { tone: Tone; icon: LucideIcon }> = {
   overdue: { tone: "critical", icon: CircleAlert },
   due: { tone: "warn", icon: CalendarClock },
   // "bald fällig" is amber with the clock like every other upcoming deadline (not the violet waiting hourglass).
   soon: { tone: "warn", icon: Clock },
+  // No date and no km target: nothing will ever remind, so it is not "in Ordnung" (UX-022).
+  missing: { tone: "warn", icon: CalendarX2 },
   ok: { tone: "ok", icon: Check },
 };
 
@@ -38,7 +41,7 @@ export function ObligationStatusBadge({
   kmLeft,
   trigger,
 }: {
-  status: ObligationStatus;
+  status: ObligationDisplayStatus;
   /** Next due date; with `today` it gives the words for the date trigger. */
   dueOn: string | null;
   today: string;
@@ -52,7 +55,7 @@ export function ObligationStatusBadge({
 
   let label = t(`status.${status}`);
   let detail: string | null = null;
-  if (status !== "ok") {
+  if (status !== "ok" && status !== "missing") {
     if (trigger === "km" && kmLeft !== null) {
       detail =
         kmLeft < 0

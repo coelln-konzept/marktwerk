@@ -43,15 +43,29 @@
         "reason_required": "Bitte einen Grund für die Absage angeben.",
         "conflict": "Der Status wurde zwischenzeitlich geändert. Nichts zurückgesetzt.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      },
+      "restored": "Absage aufgehoben: wieder {to}",
+      "tasksCancelled": "{count, plural, one {# Aufgabe mit abgesagt} other {# Aufgaben mit abgesagt}}",
+      "tasksReopened": "{count, plural, one {# Aufgabe wieder offen} other {# Aufgaben wieder offen}}",
+      "actions": {
+        "draft": "Auf Entwurf setzen",
+        "planned": "Auf geplant setzen",
+        "confirmed": "Bestätigen",
+        "live": "Als laufend markieren",
+        "completed": "Abschließen",
+        "closed": "Als abgerechnet markieren",
+        "cancelled": "Absagen …",
+        "restore": "Absage aufheben"
       }
     },
     "cancel": {
       "title": "Veranstaltung absagen",
-      "description": "„{name}“ wird als abgesagt markiert. Offene Aufgaben werden mit abgesagt. Der Grund erscheint im Verlauf; du kannst die Absage direkt danach rückgängig machen.",
+      "description": "„{name}“ wird als abgesagt markiert. Offene Aufgaben werden mit abgesagt. Der Grund erscheint im Verlauf; „Absage aufheben“ holt alles jederzeit zurück.",
       "reason": "Grund der Absage",
       "placeholder": "z. B. Genehmigung nicht erteilt, Wetterwarnung …",
       "submit": "Absagen",
-      "cancel": "Nicht absagen"
+      "cancel": "Nicht absagen",
+      "descriptionCount": "„{name}“ wird als abgesagt markiert. {count, plural, =0 {Es sind keine Aufgaben offen.} one {Die # offene Aufgabe wird mit abgesagt.} other {Die # offenen Aufgaben werden mit abgesagt.}} Der Grund erscheint im Verlauf; „Absage aufheben“ holt alles jederzeit zurück."
     },
     "overview": {
       "dates": {
@@ -196,7 +210,10 @@
       "readOnly": "Du kannst die Notizen lesen, aber nicht ändern.",
       "tooLong": "Die Notizen sind zu lang (höchstens {max} Zeichen).",
       "failed": "Das Speichern hat nicht geklappt. Bitte noch einmal versuchen.",
-      "chars": "{count} Zeichen"
+      "chars": "{count} Zeichen",
+      "unsaved": "Nicht gespeichert",
+      "draftRestored": "Nicht gespeicherter Text wiederhergestellt.",
+      "discard": "Verwerfen"
     },
     "history": {
       "title": "Verlauf",
@@ -247,7 +264,12 @@
       "restoreAria": "„{title}“ wiederherstellen (wieder offen)",
       "taskDeleted": "Aufgabe gelöscht: {title}",
       "taskRestored": "Aufgabe wiederhergestellt: {title}",
-      "restoreDeletedAria": "„{title}“ wiederherstellen"
+      "restoreDeletedAria": "„{title}“ wiederherstellen",
+      "statusRestored": "Absage aufgehoben: {from} → {to}",
+      "tasksCancelled": "{count, plural, one {# Aufgabe mit abgesagt} other {# Aufgaben mit abgesagt}}",
+      "tasksReopened": "{count, plural, one {# Aufgabe wieder offen} other {# Aufgaben wieder offen}}",
+      "tasksShifted": "{count, plural, one {# Aufgabe verschoben} other {# Aufgaben verschoben}}",
+      "seasonTasksShifted": "{count, plural, one {# Saisonaufgabe verschoben} other {# Saisonaufgaben verschoben}}"
     },
     "facts": {
       "edit": "Bearbeiten",
@@ -319,13 +341,13 @@
       "open": "Veranstaltung löschen",
       "title": "Veranstaltung endgültig löschen?",
       "blockedTitle": "Veranstaltung kann nicht gelöscht werden",
-      "description": "Die Veranstaltung und alles, was nur zu ihr gehört – Aufgaben, Checkliste, Notizen, Genehmigungs-Verknüpfungen, Zuständigkeiten – werden dauerhaft gelöscht. Das lässt sich nicht rückgängig machen.",
+      "description": "Die Veranstaltung wird dauerhaft gelöscht.",
       "typeName": "Zum Bestätigen den Namen der Veranstaltung eingeben:",
       "submit": "Endgültig löschen",
       "cancel": "Abbrechen",
       "close": "Schließen",
       "loading": "Wird geprüft …",
-      "deleted": "„{name}“ gelöscht.",
+      "deleted": "„{name}“ ({date}) gelöscht.",
       "blockedIntro": "Diese Veranstaltung kann nicht gelöscht werden, weil noch Folgendes daran hängt:",
       "blockedHint": "Du kannst die Veranstaltung stattdessen absagen oder zuerst entfernen, was daran hängt.",
       "payables": "{count, plural, one {# Zahlung} other {# Zahlungen}}",
@@ -337,7 +359,17 @@
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
         "blocked": "Diese Veranstaltung kann nicht gelöscht werden, weil noch etwas daran hängt.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
-      }
+      },
+      "titleNamed": "„{name}“ am {date} endgültig löschen?",
+      "lossesIntro": "Mit der Veranstaltung wird dauerhaft gelöscht:",
+      "losses": {
+        "tasks": "{count, plural, one {# Aufgabe} other {# Aufgaben}} mit Unteraufgaben und Kommentaren",
+        "permitLinks": "{count, plural, one {# Verknüpfung zu einer Genehmigung} other {# Verknüpfungen zu Genehmigungen}}",
+        "duties": "{count, plural, one {# Zuständigkeit} other {# Zuständigkeiten}}",
+        "checklists": "{count, plural, one {# Checkliste} other {# Checklisten}}",
+        "notes": "die Notizen"
+      },
+      "kept": "Das lässt sich nicht rückgängig machen. Die Genehmigungen selbst und „Fürs nächste Mal“ bleiben."
     },
     "move": {
       "open": "Verschieben",
@@ -362,7 +394,8 @@
         "not_movable": "Diese Veranstaltung läuft schon oder ist vorbei und kann nicht mehr verschoben werden.",
         "conflict": "Die Veranstaltung wurde zwischenzeitlich verschoben. Die Seite wurde aktualisiert.",
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
-        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+        "out_of_range": "Bitte ein Datum zwischen {from} und {to} wählen."
       },
       "tasksShifting": "{count, plural, =0 {Keine Aufgabe verschiebt sich.} one {1 Aufgabe verschiebt sich.} other {# Aufgaben verschieben sich.}}",
       "tasksShiftingNote": "Erledigte Aufgaben und von Hand gesetzte Fälligkeiten bleiben.",
@@ -371,7 +404,20 @@
       "tasksCaption": "Aufgaben mit bisherigem und neuem Fälligkeitstag",
       "task": "Aufgabe",
       "overdueShort": "Überfällig",
-      "overdueAfter": "{count, plural, one {# Aufgabe wäre danach überfällig.} other {# Aufgaben wären danach überfällig.}}"
+      "overdueAfter": "{count, plural, one {# Aufgabe wäre danach überfällig.} other {# Aufgaben wären danach überfällig.}}",
+      "movedSeasonTasks": "{count, plural, one {1 Saisonaufgabe verschoben} other {# Saisonaufgaben verschoben}}",
+      "tasksKept": "{count, plural, one {# offene Aufgabe bleibt} other {# offene Aufgaben bleiben}} am alten Tag: {detail}. Erledigte bleiben sowieso.",
+      "keptManual": "{count} von Hand gesetzt",
+      "keptNoRule": "{count} ohne Regel",
+      "keptAfterEnd": "{count, plural, one {# Aufgabe, die bleibt, ist dann erst nach dem Termin fällig.} other {# Aufgaben, die bleiben, sind dann erst nach dem Termin fällig.}}",
+      "seasonShifting": "{count, plural, one {1 Saisonaufgabe verschiebt sich.} other {# Saisonaufgaben verschieben sich.}}",
+      "seasonShiftingNote": "Der erste oder letzte Termin der Saison ändert sich.",
+      "seasonShow": "{count, plural, one {# Saisonaufgabe anzeigen} other {# Saisonaufgaben anzeigen}}",
+      "seasonCaption": "Saisonaufgaben mit bisherigem und neuem Fälligkeitstag",
+      "notified": "Benachrichtigt {count, plural, one {wird} other {werden}}: {names}.",
+      "notifiedNobody": "Niemand wird benachrichtigt: die Aufgaben sind niemand anderem zugewiesen.",
+      "permitsKept": "{count, plural, one {„Antrag bis“ verschiebt sich nicht:} other {„Antrag bis“ verschiebt sich bei # Genehmigungen nicht:}}",
+      "permitKept": "{title} ({date})"
     },
     "happening": {
       "title": "Die Veranstaltung läuft gerade",
@@ -429,6 +475,15 @@
       "readOnly": "Du kannst Dokumente ansehen, aber nicht hinzufügen.",
       "count": "{count, plural, one {# Dokument} other {# Dokumente}}",
       "kind": "Art"
+    },
+    "cancelled": {
+      "title": "Abgesagt",
+      "titleOn": "Abgesagt am {date}",
+      "reason": "Grund: {reason}",
+      "tasks": "{count, plural, one {# offene Aufgabe wurde mit abgesagt.} other {# offene Aufgaben wurden mit abgesagt.}}",
+      "noTasks": "Es waren keine Aufgaben offen.",
+      "restoreHint": "„Absage aufheben“ setzt die Veranstaltung wieder auf „{status}“, abgesagte Aufgaben sind dann wieder offen.",
+      "restore": "Absage aufheben"
     }
   },
   "nextTimeNotes": {
