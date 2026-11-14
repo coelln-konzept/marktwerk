@@ -204,7 +204,7 @@ describe("searchAs", () => {
     await insertTask({ title: "Termine planen", eventId: foreignEvent });
     const hits = (await search(owner, "termine planen")).filter((h) => h.kind === "task");
     expect(hits).toHaveLength(2);
-    expect(hits.find((h) => h.href === `/board?aufgabe=${t.id}`)?.season).toEqual({
+    expect(hits.find((h) => h.href === `/?aufgabe=${t.id}`)?.season).toEqual({
       id: season.id,
       year: 2027,
       presetId: cat.presets.flea.id,
@@ -215,10 +215,10 @@ describe("searchAs", () => {
     const byMarket = (await search(owner, "termine testflohmarkt")).filter(
       (h) => h.kind === "task",
     );
-    expect(byMarket.map((h) => h.href)).toEqual([`/board?aufgabe=${t.id}`]);
+    expect(byMarket.map((h) => h.href)).toEqual([`/?aufgabe=${t.id}`]);
     expect(
       (await search(owner, "termine 2027")).filter((h) => h.kind === "task").map((h) => h.href),
-    ).toEqual([`/board?aufgabe=${t.id}`]);
+    ).toEqual([`/?aufgabe=${t.id}`]);
     // Staff find it too, without the link to the market page.
     expect(
       (await search(staff, "termine testflohmarkt")).find((h) => h.kind === "task")?.season?.href,
