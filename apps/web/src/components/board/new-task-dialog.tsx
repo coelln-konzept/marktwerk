@@ -8,6 +8,7 @@ import { makeTask } from "@/app/(app)/board/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
+import { useSafeAction } from "@/components/shell/use-safe-action";
 import { NotifyFields } from "@/components/task/notify-fields";
 import {
   NO_NOTIFY,
@@ -74,6 +75,7 @@ export function NewTaskButton({
   const tNotify = useTranslations("board.notify");
   const locale = useLocale();
   const { showToast } = useShell();
+  const safe = useSafeAction();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -193,16 +195,20 @@ export function NewTaskButton({
     if (problem) return fail(tNotify(`errors.${problem}`), "notify");
     setError(null);
     startTransition(async () => {
-      const result = await makeTask({
-        title,
-        eventId: forEvent || null,
-        dueOn: due || null,
-        estimateMinutes: minutes,
-        category,
-        description: description || null,
-        assigneeId: canAssign && assignee ? assignee : null,
-        notify: notifyInputOf(notify),
-      });
+      const result = await safe(() =>
+        makeTask({
+          title,
+          eventId: forEvent || null,
+          dueOn: due || null,
+          estimateMinutes: minutes,
+          category,
+          description: description || null,
+          assigneeId: canAssign && assignee ? assignee : null,
+          notify: notifyInputOf(notify),
+        }),
+      );
+      // Offline or a server error: the toast says so, the dialog keeps what was typed (UX-007).
+      if (!result) return;
       if (!result.ok) {
         setError({
           text: t.has(`errors.${result.error}` as never)

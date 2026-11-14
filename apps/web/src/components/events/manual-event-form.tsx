@@ -15,6 +15,7 @@ import {
 } from "@/components/events/event-fields";
 import { ScheduleHints } from "@/components/events/schedule-hints";
 import { useShell } from "@/components/shell/shell-context";
+import { useSafeAction } from "@/components/shell/use-safe-action";
 import { Button } from "@/components/ui/button";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { VenueOption } from "@/server/queries/venues";
@@ -37,6 +38,7 @@ export function ManualEventForm({
   const locale = useLocale();
   const router = useRouter();
   const { showToast, showError } = useShell();
+  const safe = useSafeAction();
   const errorId = useId();
   const [value, setValue] = useState<EventFieldsValue>(() => initialFields(types, locale, initial));
   const [problem, setProblem] = useState<FieldProblem | null>(null);
@@ -51,7 +53,9 @@ export function ManualEventForm({
     if (!parsed.ok) return setProblem(parsed.problem);
     setProblem(null);
     startTransition(async () => {
-      const result = await createSingleEvent(parsed.input);
+      const result = await safe(() => createSingleEvent(parsed.input));
+      // Offline or a server error: the toast says so, the form keeps what was typed (UX-007).
+      if (!result) return;
       if (!result.ok) {
         setProblem({ field: fieldOfCode(result.error), code: result.error });
         return;
