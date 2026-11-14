@@ -295,3 +295,17 @@ export async function getPresetSource(actor: Actor, id: string) {
 }
 
 export type PresetSource = NonNullable<Awaited<ReturnType<typeof getPresetSource>>>;
+
+/**
+ * How many rows `listEvents` returns for these filters, without loading them: the command palette says how
+ * many events its "anzeigen" link really opens on the list page.
+ */
+export async function countEvents(actor: Actor, filters: EventFilters): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(event)
+    .innerJoin(eventType, eq(eventType.id, event.eventTypeId))
+    .innerJoin(venue, eq(venue.id, event.venueId))
+    .where(where(actor, filters));
+  return row?.n ?? 0;
+}

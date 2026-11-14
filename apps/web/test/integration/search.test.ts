@@ -1,4 +1,5 @@
-import { contact, permit } from "@marktwerk/db/schema";
+import { contact, event, permit, venue } from "@marktwerk/db/schema";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
@@ -6,6 +7,7 @@ import { searchAs } from "@/server/search-core";
 import { createVehicle } from "@/server/services/company";
 import { createPayable } from "@/server/services/payables";
 import { archivePermit } from "@/server/services/permits";
+import { deleteTask } from "@/server/services/tasks";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 import { asStaff, insertEvent, insertSeason, insertTask } from "../helpers/tasks";
 
@@ -204,7 +206,7 @@ describe("searchAs", () => {
     await insertTask({ title: "Termine planen", eventId: foreignEvent });
     const hits = (await search(owner, "termine planen")).filter((h) => h.kind === "task");
     expect(hits).toHaveLength(2);
-    expect(hits.find((h) => h.href === `/board?aufgabe=${t.id}`)?.season).toEqual({
+    expect(hits.find((h) => h.href === `/?aufgabe=${t.id}`)?.season).toEqual({
       id: season.id,
       year: 2027,
       presetId: cat.presets.flea.id,
@@ -215,10 +217,10 @@ describe("searchAs", () => {
     const byMarket = (await search(owner, "termine testflohmarkt")).filter(
       (h) => h.kind === "task",
     );
-    expect(byMarket.map((h) => h.href)).toEqual([`/board?aufgabe=${t.id}`]);
+    expect(byMarket.map((h) => h.href)).toEqual([`/?aufgabe=${t.id}`]);
     expect(
       (await search(owner, "termine 2027")).filter((h) => h.kind === "task").map((h) => h.href),
-    ).toEqual([`/board?aufgabe=${t.id}`]);
+    ).toEqual([`/?aufgabe=${t.id}`]);
     // Staff find it too, without the link to the market page.
     expect(
       (await search(staff, "termine testflohmarkt")).find((h) => h.kind === "task")?.season?.href,
@@ -228,6 +230,111 @@ describe("searchAs", () => {
   it("an archived permit is not found", async () => {
     await archivePermit(owner, permitId);
     expect(kinds(await search(owner, "wassergenehmigung"))).not.toContain("permit");
+  });
+
+  it("finds umlauts typed as ae/oe/ue and ß typed as ss, and the other way round (UX-014)", async () => {
+    await db.update(venue).set({ street: "Hauptstraße 5" }).where(eq(venue.id, cat.venue.id));
+    await insertTask({ title: "Trödelmarkt Hürth vorbereiten" });
+    await insertTask({ title: "Mueller anrufen" });
+    const titles = async (q: string, kind: string) =>
+      (await search(owner, q)).filter((h) => h.kind === kind).map((h) => h.title);
+    expect(await titles("koeln plakate", "task")).toEqual(await titles("köln plakate", "task"));
+    // Both test events are at the venue in Köln.
+    expect(await titles("Koeln", "event")).toEqual(["Brüsseler Platz Markt", "Fremder Markt"]);
+    expect(await titles("bruesseler", "event")).toEqual(["Brüsseler Platz Markt"]);
+    expect(await titles("troedelmarkt huerth", "task")).toEqual(["Trödelmarkt Hürth vorbereiten"]);
+    expect(await titles("Müller", "task")).toEqual(["Mueller anrufen"]);
+    expect(await titles("hauptstrasse", "venue")).toEqual(["Messeplatz Test"]);
+    // As typed, not as a typo: the list link stays.
+    const koeln = await searchAs(owner, "de", "koeln");
+    expect(koeln.hits.every((h) => (h.score ?? 0) < 4)).toBe(true);
+  });
+
+  it("leaves out deleted tasks and opens tasks without an event on the Übersicht (UX-060, UX-013)", async () => {
+    await deleteTask(owner, ownTask);
+    const tasks = (await search(owner, "plakate")).filter((h) => h.kind === "task");
+    expect(tasks.map((h) => h.title).sort()).toEqual([
+      "Plakate für Köln aufhängen",
+      "Plakate ohne Event",
+    ]);
+    const standalone = tasks.find((h) => h.title === "Plakate ohne Event");
+    expect(standalone?.href).toMatch(/^\/\?aufgabe=[0-9a-f-]{36}$/);
+  });
+
+  it("shows season and state, so same-named hits differ (UX-066)", async () => {
+    await db.insert(permit).values([
+      {
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "market_fixing",
+        title: "Festsetzung Wilhelmplatz",
+        season: 2026,
+        status: "granted",
+      },
+      {
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "market_fixing",
+        title: "Festsetzung Wilhelmplatz",
+        season: 2027,
+      },
+    ]);
+    const permits = (await search(owner, "festsetzung")).filter((h) => h.kind === "permit");
+    expect(permits.map((h) => [h.seasonYear, h.status])).toEqual([
+      [2027, { kind: "permit", key: "missing" }],
+      [2026, { kind: "permit", key: "granted" }],
+    ]);
+    const hits = await search(owner, "plakate köln drucken");
+    expect(hits.find((h) => h.kind === "task")?.status).toEqual({ kind: "task", key: "todo" });
+    expect((await search(owner, "brüsseler")).find((h) => h.kind === "event")?.status).toEqual({
+      kind: "event",
+      key: "planned",
+    });
+  });
+
+  it("says how many rows the linked list shows: it leaves out past events (UX-066)", async () => {
+    for (let i = 1; i <= 4; i++) {
+      await insertEvent(cat, `Altstadt ${i}`, `2025-0${i}-07`);
+      await insertEvent(cat, `Altstadt ${i + 4}`, `2027-0${i}-07`);
+    }
+    expect((await searchAs(owner, "de", "altstadt")).groups.event).toEqual({
+      total: 8,
+      href: "/veranstaltungen?q=altstadt",
+      upcoming: true,
+      listed: 4,
+    });
+    for (let i = 1; i <= 7; i++)
+      await db.insert(contact).values({ kind: "other", name: `Amt ${i}` });
+    expect((await searchAs(owner, "de", "amt")).groups.contact).toEqual({
+      total: 7,
+      href: "/kontakte?q=amt",
+      listed: 7,
+    });
+  });
+
+  it("finds events by their market's name and their type (UX-066)", async () => {
+    const altstadt = await insertEvent(cat, "Altstadt", "2027-03-07");
+    await db.update(event).set({ presetId: cat.presets.flea.id }).where(eq(event.id, altstadt.id));
+    expect(
+      (await search(owner, "testflohmarkt")).filter((h) => h.kind === "event").map((h) => h.title),
+    ).toEqual(["Altstadt"]);
+    // Every test event is a Flohmarkt (the type), none of them says so in its name.
+    expect(
+      (await search(owner, "flohmarkt")).filter((h) => h.kind === "event").map((h) => h.title),
+    ).toHaveLength(3);
+  });
+
+  it("offers the lists to look further in when nothing matches", async () => {
+    const none = await searchAs(owner, "de", "qqxyzw");
+    expect(none.hits).toEqual([]);
+    expect(none.fallbacks?.map((f) => f.kind)).toEqual([
+      "event",
+      "venue",
+      "contact",
+      "vendor",
+      "archive",
+    ]);
+    expect((await searchAs(owner, "de", "koln")).fallbacks).toBeUndefined();
   });
 });
 
@@ -239,12 +346,13 @@ describe("searchAs with typos (pg_trgm)", () => {
 
   it("finds 'Flohmarkt' for 'Flomarkt' and 'Bonn' for 'bnon', below every literal match", async () => {
     const flo = await searchAs(owner, "de", "Flomarkt");
-    expect(flo.hits.filter((h) => h.kind === "event").map((h) => h.title)).toEqual([
+    // Every test event is a Flohmarkt (its type counts); the one with it in the title comes first.
+    expect(flo.hits.filter((h) => h.kind === "event").map((h) => h.title)[0]).toBe(
       "Flohmarkt Bonn Rheinaue",
-    ]);
+    );
     expect(flo.hits.every((h) => h.score === 4)).toBe(true);
     // The list page doesn't allow for typos: no "show all" link that would come up empty.
-    expect(flo.groups.event).toEqual({ total: 1, href: undefined });
+    expect(flo.groups.event).toEqual({ total: 3, href: undefined });
 
     const bnon = await search(owner, "bnon");
     expect(bnon.filter((h) => h.kind === "event").map((h) => h.title)).toEqual([
@@ -272,7 +380,11 @@ describe("searchAs with typos (pg_trgm)", () => {
     ).toEqual(["Flomarkt Beuel"]);
     const bonn = await searchAs(owner, "de", "bonn");
     expect(bonn.hits.every((h) => (h.score ?? 3) < 4)).toBe(true);
-    expect(bonn.groups.event).toEqual({ total: 1, href: "/veranstaltungen?q=bonn" });
+    expect(bonn.groups.event).toEqual({
+      total: 1,
+      href: "/veranstaltungen?q=bonn",
+      upcoming: true,
+    });
     // The title that starts with the query still comes first.
     expect((await search(owner, "flohmarkt bonn"))[0]).toMatchObject({
       title: "Flohmarkt Bonn Rheinaue",
