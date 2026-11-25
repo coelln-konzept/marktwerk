@@ -64,6 +64,8 @@ export type DueItem = {
   /** Permits can belong to several events (the upcoming ones they are required for). */
   eventIds?: string[];
   assigneeName?: string | null;
+  /** Pflichten for the whole company (no vehicle, no Ort): the row says "Ganze Firma" where others name theirs. */
+  companyWide?: boolean;
   /**
    * Tasks with subtasks (ADR 0021): progress, how many are still open (the tick then opens the drawer, R29) and
    * how many open ones are overdue (they flag the task).
