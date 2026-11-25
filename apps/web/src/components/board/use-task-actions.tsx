@@ -27,6 +27,11 @@ import { useNestProblemText } from "./nesting";
  */
 type TaskRef = Pick<BoardTask, "id" | "title" | "status"> & { openSubtasks?: number };
 
+/** A move into "Erledigt" completes the task (a card already finished just changes place). */
+function movesIntoDone(task: TaskRef, column: BoardColumn): boolean {
+  return column === "done" && task.status !== "done" && task.status !== "skipped";
+}
+
 /** What the board shows immediately, before the server has answered. */
 export type OptimisticPatch =
   | { kind: "move"; id: string; column: BoardColumn; afterId: string | null }
@@ -122,15 +127,21 @@ export function useTaskActions({
     [tTasks],
   );
 
-  /** The change's toast with "Rückgängig"; the confirmation of the undo names the task too (UX-031). */
+  /**
+   * The change's toast with "Rückgängig"; the confirmation of the undo names the task too. A newer toast
+   * about the same task replaces this one (UX-031).
+   */
   const showUndo = useCallback(
-    (message: string, auditId: string | null, title: string) => {
+    (message: string, auditId: string | null, task: { id: string; title: string }) => {
+      const key = `task:${task.id}`;
+      const { title } = task;
       if (!auditId) {
-        showToast({ message });
+        showToast({ message, key });
         return;
       }
       showToast({
         message,
+        key,
         actionLabel: t("toast.undo"),
         onAction: async () => {
           const result = await callAction(() => undoChange(auditId));
@@ -186,6 +197,7 @@ export function useTaskActions({
       const ref: TaskRef = { id: parent.id, title: parent.title, status: "todo" };
       showToast({
         message: t("toast.parentReady", { title: parent.title }),
+        key: `task:${parent.id}:parent`,
         actionLabel: t("toast.completeParent"),
         undoable: false,
         onAction: () =>
@@ -195,11 +207,7 @@ export function useTaskActions({
               const result = await callAction(() => setStatusAction(parent.id, "done"));
               if (result.ok) {
                 if (result.data.changed)
-                  showUndo(
-                    t("toast.done", { title: parent.title }),
-                    result.data.auditId,
-                    parent.title,
-                  );
+                  showUndo(t("toast.done", { title: parent.title }), result.data.auditId, parent);
               } else fail(result, ref);
               resolve();
             }),
@@ -226,6 +234,34 @@ export function useTaskActions({
     [router, drawer, showToast, t, evidenceText],
   );
 
+  /**
+   * The one rule for every way a task gets done here (UX-037): the "Erledigt" button, E, the "⋯" menu,
+   * "Verschieben nach → Erledigt" and a drag into the Erledigt column. Open subtasks open the drawer
+   * (R29); with `confirmDone` it asks first (decision D1), focus on "Ja, erledigt"; else `go` runs.
+   * Resolves to whether `go` ran, so a caller announces a move only once it happens.
+   */
+  const whenDone = useCallback(
+    async (task: TaskRef, go: () => void): Promise<boolean> => {
+      // A parent with open subtasks can't be done yet (ADR 0021 done gate): no question the server would
+      // refuse anyway; its drawer opens on the subtasks with a short hint (R29).
+      if ((task.openSubtasks ?? 0) > 0) {
+        openForSubtasks(task);
+        return false;
+      }
+      const ok =
+        !confirmDone ||
+        (await confirm({
+          title: t("confirmDone.title"),
+          description: t("confirmDone.description", { title: task.title }),
+          confirmLabel: t("confirmDone.confirm"),
+          cancelLabel: t("confirmDone.cancel"),
+        }));
+      if (ok) go();
+      return ok;
+    },
+    [t, confirmDone, confirm, openForSubtasks],
+  );
+
   const run = useCallback(
     (
       patch: OptimisticPatch | null,
@@ -237,7 +273,7 @@ export function useTaskActions({
         if (patch) apply?.(patch);
         const result = await callAction(call);
         if (result.ok) {
-          if (result.data.changed) showUndo(success, result.data.auditId, task.title);
+          if (result.data.changed) showUndo(success, result.data.auditId, task);
           if (result.data.parentReady) offerParent(result.data.parentReady);
           return;
         }
@@ -247,17 +283,23 @@ export function useTaskActions({
     [apply, showUndo, fail, offerParent],
   );
 
+  /** Resolves to whether the move ran (false: "Abbrechen" in the question, or open subtasks). */
   const move = useCallback(
-    (task: TaskRef, column: BoardColumn, afterId: string | null) =>
-      run(
-        { kind: "move", id: task.id, column, afterId },
-        task,
-        () => moveCard(task.id, column, { after: afterId }, { eventId: scopeEventId ?? null }),
-        column === "done"
-          ? t("toast.done", { title: task.title })
-          : t("toast.moved", { title: task.title, column: t(`columns.${column}`) }),
-      ),
-    [run, scopeEventId, t],
+    (task: TaskRef, column: BoardColumn, afterId: string | null): Promise<boolean> => {
+      const go = () =>
+        run(
+          { kind: "move", id: task.id, column, afterId },
+          task,
+          () => moveCard(task.id, column, { after: afterId }, { eventId: scopeEventId ?? null }),
+          column === "done"
+            ? t("toast.done", { title: task.title })
+            : t("toast.moved", { title: task.title, column: t(`columns.${column}`) }),
+        );
+      if (movesIntoDone(task, column)) return whenDone(task, go);
+      go();
+      return Promise.resolve(true);
+    },
+    [run, whenDone, scopeEventId, t],
   );
 
   const assign = useCallback(
@@ -287,49 +329,53 @@ export function useTaskActions({
   const moveAndAssign = useCallback(
     (task: TaskRef, column: BoardColumn, afterId: string | null, staffMemberId: string | null) => {
       const person = staff.find((s) => s.id === staffMemberId) ?? null;
-      startTransition(async () => {
-        apply?.({ kind: "move", id: task.id, column, afterId });
-        apply?.({
-          kind: "assign",
-          id: task.id,
-          assigneeId: person?.id ?? null,
-          assigneeName: person?.displayName ?? null,
-        });
-        const moved = await callAction(() =>
-          moveCard(task.id, column, { after: afterId }, { eventId: scopeEventId ?? null }),
-        );
-        if (!moved.ok) return fail(moved, task);
-        const assigned = await callAction(() => assignCard(task.id, staffMemberId));
-        if (!assigned.ok) return fail(assigned, task);
-        const audits = [assigned.data.auditId, moved.data.auditId].filter((id) => id !== null);
-        const message = person
-          ? t("toast.assignedMoved", {
-              title: task.title,
-              name: person.displayName,
-              column: t(`columns.${column}`),
-            })
-          : t("toast.unassignedMoved", { title: task.title, column: t(`columns.${column}`) });
-        if (audits.length === 0) return;
-        showToast({
-          message,
-          actionLabel: t("toast.undo"),
-          onAction: async () => {
-            // newest change first, so each undo still finds the state it expects
-            let failure: string | null = null;
-            for (const auditId of audits) {
-              const result = await callAction(() => undoChange(auditId));
-              if (!result.ok) {
-                failure = result.error;
-                break;
+      const go = () =>
+        startTransition(async () => {
+          apply?.({ kind: "move", id: task.id, column, afterId });
+          apply?.({
+            kind: "assign",
+            id: task.id,
+            assigneeId: person?.id ?? null,
+            assigneeName: person?.displayName ?? null,
+          });
+          const moved = await callAction(() =>
+            moveCard(task.id, column, { after: afterId }, { eventId: scopeEventId ?? null }),
+          );
+          if (!moved.ok) return fail(moved, task);
+          const assigned = await callAction(() => assignCard(task.id, staffMemberId));
+          if (!assigned.ok) return fail(assigned, task);
+          const audits = [assigned.data.auditId, moved.data.auditId].filter((id) => id !== null);
+          const message = person
+            ? t("toast.assignedMoved", {
+                title: task.title,
+                name: person.displayName,
+                column: t(`columns.${column}`),
+              })
+            : t("toast.unassignedMoved", { title: task.title, column: t(`columns.${column}`) });
+          if (audits.length === 0) return;
+          showToast({
+            message,
+            key: `task:${task.id}`,
+            actionLabel: t("toast.undo"),
+            onAction: async () => {
+              // newest change first, so each undo still finds the state it expects
+              let failure: string | null = null;
+              for (const auditId of audits) {
+                const result = await callAction(() => undoChange(auditId));
+                if (!result.ok) {
+                  failure = result.error;
+                  break;
+                }
               }
-            }
-            if (failure) showError(errorText(failure));
-            else showToast({ message: t("toast.revertedTitle", { title: task.title }) });
-          },
+              if (failure) showError(errorText(failure));
+              else showToast({ message: t("toast.revertedTitle", { title: task.title }) });
+            },
+          });
         });
-      });
+      if (movesIntoDone(task, column)) void whenDone(task, go);
+      else go();
     },
-    [apply, staff, scopeEventId, fail, showToast, showError, t, errorText],
+    [apply, staff, scopeEventId, fail, showToast, showError, t, errorText, whenDone],
   );
 
   const setStatus = useCallback(
@@ -350,18 +396,9 @@ export function useTaskActions({
               : t("toast.status", { title: task.title, status: tTasks(`status.${status}`) }),
         );
       if (status !== "done") return go();
-      // A parent with open subtasks can't be done yet (ADR 0021 done gate): no question the server would
-      // refuse anyway; its drawer opens on the subtasks with a short hint (R29).
-      if ((task.openSubtasks ?? 0) > 0) return openForSubtasks(task);
-      if (!confirmDone) return go();
-      void confirm({
-        title: t("confirmDone.title"),
-        description: t("confirmDone.description", { title: task.title }),
-        confirmLabel: t("confirmDone.confirm"),
-        cancelLabel: t("confirmDone.cancel"),
-      }).then((ok) => ok && go());
+      void whenDone(task, go);
     },
-    [run, t, tTasks, confirmDone, confirm, openForSubtasks],
+    [run, t, tTasks, whenDone],
   );
 
   /** "Zurückstellen": hides the task from due lists until `until`; the toast offers undo. */
@@ -433,7 +470,7 @@ export function useTaskActions({
               ? t("toast.unnestedFrom", { title: task.title, parent: from.title })
               : t("toast.unnested", { title: task.title }),
           result.data.auditId,
-          task.title,
+          task,
         );
       });
     },

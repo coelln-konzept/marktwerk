@@ -87,7 +87,7 @@ function NewMenu() {
   const t = useTranslations("topbar");
   const pathname = usePathname();
   const search = useSearchParams();
-  const { creatable } = useShell();
+  const { creatable, singleKeys } = useShell();
   const [open, setOpen] = useState(false);
   const venueId = VENUE_PAGE.exec(pathname)?.[1];
   const eventId = EVENT_PAGE.exec(pathname)?.[1];
@@ -190,7 +190,7 @@ function NewMenu() {
   return (
     <Menu.Root open={open} onOpenChange={setOpen}>
       <Menu.Trigger
-        aria-keyshortcuts="C"
+        aria-keyshortcuts={singleKeys ? "C" : undefined}
         className="inline-flex min-h-8 cursor-pointer items-center gap-2 rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover data-[popup-open]:bg-hover"
       >
         <Plus aria-hidden className="size-4" />
@@ -209,9 +209,11 @@ function NewMenu() {
                 {entry.label}
               </Menu.LinkItem>
             ))}
-            <p className="mt-1 flex items-center gap-1.5 border-border-subtle border-t px-2 pt-2 pb-1 text-muted-foreground text-tiny touch:hidden">
-              <Kbd>C</Kbd> {t("newKey")}
-            </p>
+            {singleKeys && (
+              <p className="mt-1 flex items-center gap-1.5 border-border-subtle border-t px-2 pt-2 pb-1 text-muted-foreground text-tiny touch:hidden">
+                <Kbd>C</Kbd> {t("newKey")}
+              </p>
+            )}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

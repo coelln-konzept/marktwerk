@@ -12,6 +12,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { LOCALES } from "@/i18n/config";
 import { authClient } from "@/lib/auth-client";
 import { DEV_AUTO_LOGIN_OPT_OUT } from "@/server/dev-auto-login";
+import { useShell } from "./shell-context";
 import { SHORTCUTS_EVENT } from "./shortcuts-dialog";
 
 const item =
@@ -39,6 +40,7 @@ export function ProfileMenu({
   const locale = useLocale();
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const { singleKeys, setSingleKeys } = useShell();
 
   const themeLabel = (value: string) => t(`theme.${value as "system" | "light" | "dark"}`);
 
@@ -136,8 +138,22 @@ export function ProfileMenu({
             >
               <Keyboard aria-hidden className="size-4 text-muted-foreground" />
               {t("shortcuts")}
-              <Kbd className="ml-auto touch:hidden">?</Kbd>
+              {singleKeys && <Kbd className="ml-auto touch:hidden">?</Kbd>}
             </Menu.Item>
+            {/* WCAG 2.1.4 (UX-054): J/K, E, C, T … can be turned off; Strg+K and Strg+Z stay. */}
+            <Menu.CheckboxItem
+              checked={singleKeys}
+              onCheckedChange={setSingleKeys}
+              closeOnClick={false}
+              className={item}
+            >
+              <span className="w-4">
+                <Menu.CheckboxItemIndicator>
+                  <Check className="size-4" />
+                </Menu.CheckboxItemIndicator>
+              </span>
+              {t("singleKeys")}
+            </Menu.CheckboxItem>
             <Menu.Item
               className={item}
               onClick={async () => {

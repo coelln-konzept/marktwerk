@@ -5,6 +5,8 @@ import { AppointmentDialog } from "@/components/appointments/appointment-dialog"
 import { APPOINTMENT_PARAM } from "@/components/appointments/appointment-params";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { CommandPalette } from "@/components/shell/command-palette";
+import { ConnectionGuard } from "@/components/shell/connection-guard";
+import { PendingBar } from "@/components/shell/pending-bar";
 import { ShellProvider } from "@/components/shell/shell-context";
 import { ShortcutsDialog } from "@/components/shell/shortcuts-dialog";
 import { ToastRegion } from "@/components/shell/toast-region";
@@ -93,7 +95,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : []),
   ];
   return (
-    <ShellProvider creatable={creatable} sidebarHidden={await getUiState("navHidden")}>
+    <ShellProvider
+      creatable={creatable}
+      sidebarHidden={await getUiState("navHidden")}
+      singleKeys={!(await getUiState("singleKeysOff"))}
+    >
+      <Suspense>
+        <PendingBar />
+      </Suspense>
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:rounded-lg focus:bg-card focus:px-3 focus:py-2 focus:font-medium focus:shadow-pop"
@@ -113,6 +122,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <CommandPalette actions={actions} />
       <ShortcutsDialog />
       <ToastRegion />
+      <ConnectionGuard />
     </ShellProvider>
   );
 }

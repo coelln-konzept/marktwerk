@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { Kbd } from "@/components/ui/kbd";
+import { useShell } from "./shell-context";
 
 /** Fired by the profile menu ("Tastenkürzel") to open the overview without a key. */
 export const SHORTCUTS_EVENT = "marktwerk:shortcuts";
@@ -49,9 +50,13 @@ const GROUPS = [
   },
 ] as const;
 
-/** `?` (Shift+ß on a German keyboard) opens the overview of keyboard shortcuts. */
+/**
+ * `?` (Shift+ß on a German keyboard) opens the overview of keyboard shortcuts. It also turns the
+ * single-key shortcuts off and on (UX-054, the same switch as in the profile menu).
+ */
 export function ShortcutsDialog() {
   const t = useTranslations("shortcuts");
+  const { singleKeys, setSingleKeys } = useShell();
   const [open, setOpen] = useState(false);
   const openerRef = useRef<HTMLElement | null>(null);
 
@@ -109,6 +114,18 @@ export function ShortcutsDialog() {
           <Dialog.Description className="text-muted-foreground text-small">
             {t("hint")}
           </Dialog.Description>
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border-subtle px-3 py-2">
+            <input
+              type="checkbox"
+              checked={singleKeys}
+              onChange={(event) => setSingleKeys(event.target.checked)}
+              className="mt-0.5 size-4 shrink-0 cursor-pointer accent-primary"
+            />
+            <span className="flex flex-col">
+              <span className="font-medium">{t("singleKeys")}</span>
+              <span className="text-muted-foreground text-small">{t("singleKeysHint")}</span>
+            </span>
+          </label>
           {GROUPS.map((group) => (
             <section key={group.id} aria-labelledby={`shortcuts-${group.id}`}>
               <h3
