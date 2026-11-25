@@ -41,8 +41,6 @@ function authorityKey(spec: RequirementSpec, blueprint: VenueBlueprint): string 
     case "landowner":
       if (!blueprint.landownerKey) throw new Error(`${blueprint.key}: landowner OK without owner`);
       return blueprint.landownerKey;
-    case "supplier":
-      return "dixi";
     case "music":
       return "musikrechte";
   }
@@ -128,7 +126,6 @@ const TURNAROUND_DAYS: Record<PermitType, number> = {
   signage: 21,
   no_parking: 14,
   traffic_order: 21,
-  toilets: 14,
   landowner_ok: 30,
   gema: 7,
   other: 14,
@@ -147,7 +144,7 @@ const LATE_EXAMPLES = 2;
 /** Only permits whose apply-by passed this recently may become a late example. */
 const LATE_WINDOW_DAYS = 30;
 /** Late examples come from permits no template task applies for, so no done task contradicts them. */
-const LATE_TYPES: readonly PermitType[] = ["no_parking", "toilets", "traffic_order"];
+const LATE_TYPES: readonly PermitType[] = ["no_parking", "traffic_order"];
 /** Applied permits whose expected decision has passed without an answer: the authority is late. */
 export const DECISION_OVERDUE = 2;
 const DECISION_OVERDUE_TYPES: readonly PermitType[] = [
@@ -249,7 +246,6 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
   /** The Ordnungsbehördliche Erlaubnis of each Ort and season, for its Festsetzung and Ausschank. */
   const marketPermitBy = new Map<string, Permit>();
 
-  const typeKeyById = new Map(ctx.eventTypes.map((type) => [type.id, type.key]));
   const blueprintByVenueId = new Map(
     ctx.venues.map((venue) => [venue.id, ctx.venueBlueprintByName.get(venue.name)]),
   );
@@ -308,10 +304,12 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
         return permit;
       };
       const link = (permit: Permit, event: Event) => {
-        const required = !(
-          requirement.permitType === "toilets" && typeKeyById.get(event.eventTypeId) === "food_wine"
-        );
-        eventPermits.push({ id: rng.uuid(), eventId: event.id, permitId: permit.id, required });
+        eventPermits.push({
+          id: rng.uuid(),
+          eventId: event.id,
+          permitId: permit.id,
+          required: true,
+        });
       };
 
       if (requirement.cadence === "per_season") {

@@ -922,25 +922,34 @@ describe("templates and subtasks (ADR 0021)", () => {
     }
   });
 
-  it("never has a done task with open subtasks, and open parents have some subtasks done", () => {
-    const children = new Map<string, Task[]>();
-    for (const task of data.tasks)
-      if (task.parentTaskId)
-        children.set(task.parentTaskId, [...(children.get(task.parentTaskId) ?? []), task]);
-    let openParentsWithDone = 0;
-    for (const task of data.tasks) {
-      const subs = children.get(task.id) ?? [];
-      if (subs.length === 0) continue;
-      if (task.status === "done") {
-        expect(subs.filter(open)).toEqual([]);
-        for (const sub of subs)
-          expect((sub.completedAt ?? "") <= (task.completedAt ?? "")).toBe(true);
+  it(
+    "never has a done task with open subtasks, and open parents have some subtasks done",
+    () => {
+      // Whether an open parent with subtasks exists on a given day is chance (the default date is in the autumn,
+      // with few markets ahead), so the mid-season dataset is checked as well.
+      let openParentsWithDone = 0;
+      for (const d of [data, generateDataset({ referenceDate: "2027-07-01" })]) {
+        const children = new Map<string, Task[]>();
+        for (const task of d.tasks)
+          if (task.parentTaskId)
+            children.set(task.parentTaskId, [...(children.get(task.parentTaskId) ?? []), task]);
+        for (const task of d.tasks) {
+          const subs = children.get(task.id) ?? [];
+          if (subs.length === 0) continue;
+          if (task.status === "done") {
+            expect(subs.filter(open)).toEqual([]);
+            for (const sub of subs)
+              expect((sub.completedAt ?? "") <= (task.completedAt ?? "")).toBe(true);
+          }
+          if (task.status === "cancelled")
+            for (const sub of subs) expect(sub.status).toBe("cancelled");
+          if (open(task) && subs.some((sub) => sub.status === "done")) openParentsWithDone += 1;
+        }
       }
-      if (task.status === "cancelled") for (const sub of subs) expect(sub.status).toBe("cancelled");
-      if (open(task) && subs.some((sub) => sub.status === "done")) openParentsWithDone += 1;
-    }
-    expect(openParentsWithDone).toBeGreaterThan(0);
-  });
+      expect(openParentsWithDone).toBeGreaterThan(0);
+    },
+    TIMEOUT,
+  );
 });
 
 /* ----------------------------------------------------------------- permits */
@@ -1087,8 +1096,6 @@ describe("permits per market (research 13 §4)", () => {
     const schausteller = permitsOf("hoffnungsthal", "other");
     expect(schausteller).toHaveLength(events.length);
     expect(schausteller[0]?.title).toMatch(/Schaustellerliste/);
-    // school toilets instead of a toilet contract
-    expect(permitsOf("hoffnungsthal", "toilets")).toEqual([]);
 
     expect(permitsOf("riehler-guertel", "no_parking").length).toBeGreaterThan(0);
     expect(permitsOf("riehler-guertel", "signage").length).toBeGreaterThan(0);
@@ -1112,7 +1119,8 @@ describe("permits per market (research 13 §4)", () => {
   it("has next season's permits mostly not decided yet, with a couple of overdue decisions", () => {
     const next = data.permits.filter((p) => p.season === SEASON + 1);
     const statuses = new Set(next.map((p) => p.status));
-    for (const status of ["not_started", "preparing", "applied"] as const)
+    // The city's season applications are in (filed in September), the rest still to do.
+    for (const status of ["not_started", "applied"] as const)
       expect(statuses.has(status), status).toBe(true);
     expect(next.filter((p) => p.status === "granted").length).toBeLessThan(next.length / 2);
     const overdue = data.permits.filter(
@@ -1227,7 +1235,6 @@ describe("recurring work on three levels (ADR 0024)", () => {
       "water",
       "landowner_ok",
       "signage",
-      "toilets",
       "traffic_order",
     ] as const)
       expect([...cadences(type)], type).toEqual(["per_season"]);
@@ -1236,6 +1243,18 @@ describe("recurring work on three levels (ADR 0024)", () => {
     expect(title("market_permit")).toBe("Ordnungsbehördliche Erlaubnis");
     expect(title("catering")).toBe("Ausschankgenehmigung");
     expect(title("no_parking")).toBe("Halteverbot (PVBT)");
+  });
+
+  it("books toilets as company work (a Pflicht), never as a permit of an Ort", () => {
+    const types = new Set<string>([
+      ...data.permitRequirements.map((r) => r.permitType),
+      ...data.permits.map((p) => p.permitType),
+    ]);
+    expect(types.has("toilets")).toBe(false);
+    const pflicht = data.obligations.filter(
+      (o) => o.scope === "company" && o.title === "Toiletten für die Saison buchen",
+    );
+    expect(pflicht).toHaveLength(1);
   });
 
   it("gives Orte with drinks the Ausschankgenehmigung and plays GEMA only where there is music", () => {

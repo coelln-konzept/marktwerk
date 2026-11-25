@@ -472,9 +472,9 @@
         "label": "Posters",
         "hint": "Posters with the city's stickers, once per season"
       },
-      "toilets": {
-        "label": "Toilets",
-        "hint": "Toilet trailer or facility, once per season"
+      "catering": {
+        "label": "Alcohol licence",
+        "hint": "Serving drinks at the market, from the city, once per season"
       }
     },
     "removing": "Will be removed from the venue: {list}",

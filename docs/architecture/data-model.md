@@ -319,8 +319,10 @@ erDiagram
   season** (`per_season`): `market_permit` (titled **"Ordnungsbehördliche Erlaubnis"**, formerly "Marktgenehmigung
   (Sondernutzung)"), `market_fixing` (Festsetzung), `catering` (**Ausschankgenehmigung**, where drinks are served),
   `water` (Standrohr, rented for the season), `landowner_ok` (private ground, in addition to the city's Festsetzung),
-  `signage`, `traffic_order`, `toilets`. The city's three (Erlaubnis, Festsetzung, Ausschank) are applied for
-  together, about six months before the season starts on 1 March.)*
+  `signage`, `traffic_order`. The city's three (Erlaubnis, Festsetzung, Ausschank) are applied for together, about
+  six months before the season starts on 1 March. **Toilets are no permit of an Ort**: booking them for all markets
+  is company work at the start of the year, the Pflicht "Toiletten für die Saison buchen" (Fahrplan SAI6); the
+  "Was braucht dieser Ort?" dialog no longer offers them and offers the Ausschankgenehmigung as an extra instead.)*
   *(ADR 0024, migration 0025: one permit per Ort (requirement) and season for a cadence covering several dates; it
   covers every market at the Ort (shared Orte are handled by hand: R27's per-market split and `permit.season_id`
   are gone). Single-date permits are titled "<requirement> – <date>", the others by the requirement. The nightly job

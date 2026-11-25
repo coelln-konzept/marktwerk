@@ -472,9 +472,9 @@
         "label": "Plakatierung",
         "hint": "Plakate mit Aufklebern der Stadt, einmal je Saison"
       },
-      "toilets": {
-        "label": "Toiletten",
-        "hint": "Toilettenwagen oder Anlage, einmal je Saison"
+      "catering": {
+        "label": "Ausschankgenehmigung",
+        "hint": "Getränkeausschank am Markt, von der Stadt, einmal je Saison"
       }
     },
     "removing": "Wird beim Ort entfernt: {list}",

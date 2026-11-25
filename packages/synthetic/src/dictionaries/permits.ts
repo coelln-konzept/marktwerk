@@ -61,11 +61,6 @@ export const PERMIT_TYPE_BLUEPRINTS: Record<PermitType, PermitTypeBlueprint> = {
       "Zufahrt für Rettungsfahrzeuge freihalten.",
     ],
   },
-  toilets: {
-    permitType: "toilets",
-    titleDe: "Toilettenanlage (Rahmenvertrag)",
-    conditions: ["Mindestens eine barrierefreie Toilette je Standort."],
-  },
   landowner_ok: {
     permitType: "landowner_ok",
     titleDe: "Einverständnis Grundstückseigentümer",
@@ -92,8 +87,8 @@ export const PERMIT_TYPE_BLUEPRINTS: Record<PermitType, PermitTypeBlueprint> = {
   },
 };
 
-/** Who issues a permit: the city (Ordnungsamt), its traffic office, the water supplier, the landowner, a supplier. */
-export type PermitAuthority = "city" | "traffic" | "water" | "landowner" | "supplier" | "music";
+/** Who issues a permit: the city (Ordnungsamt), its traffic office, the water supplier, the landowner, GEMA. */
+export type PermitAuthority = "city" | "traffic" | "water" | "landowner" | "music";
 
 /** The authority collects applications in a window and decides on a fixed day (Köln Altstadt, the stadium). */
 export interface SubmissionWindow {
@@ -128,8 +123,9 @@ export interface RequirementSpec {
  * - per date (`per_event`): Halteverbot (PVBT), GEMA, the Hoffnungsthal Schaustellerliste;
  * - per Ort and season: the city's Ordnungsbehördliche Erlaubnis, Festsetzung and Ausschankgenehmigung (one
  *   application per season, about six months before the season starts in March), on private ground the owner's
- *   agreement, and Standrohr, Plakatierung, Sperrung, toilets;
- * - company work per year is a Pflicht, not a permit (generators/money.ts).
+ *   agreement, and Standrohr, Plakatierung, Sperrung;
+ * - company work per year is a Pflicht, not a permit (generators/money.ts): booking the toilets for all markets at
+ *   the start of the year ("Toiletten für die Saison buchen") is one of them, so no Ort has a toilets requirement.
  * Lead times follow the client's sheets where they say so: Genehmigung 6 months before the first date (Altstadt 7),
  * Standrohr 30 days, Schaustellerliste 2 months. The others are the usual lead times of the Köln offices.
  */
@@ -230,15 +226,6 @@ const GEMA: RequirementSpec = {
   authority: "music",
 };
 
-const TOILETTEN: RequirementSpec = {
-  permitType: "toilets",
-  category: "external",
-  cadence: "per_season",
-  leadTimeDays: 60,
-  fee: [0, 0],
-  authority: "supplier",
-};
-
 const ALTSTADT_WINDOW: SubmissionWindow = {
   startMd: "10-01",
   endMd: "11-30",
@@ -277,7 +264,6 @@ export const VENUE_PERMITS: Readonly<Record<string, readonly RequirementSpec[]>>
       eventType: "antique",
       notes: "Strom und Wasser organisiert die Orga am Vortag.",
     },
-    TOILETTEN,
   ],
   "riehler-guertel": [
     MARKET_PERMIT,
@@ -285,19 +271,17 @@ export const VENUE_PERMITS: Readonly<Record<string, readonly RequirementSpec[]>>
     { ...PVBT, notes: "PVBT und Werbung sechs Tage vorher aufhängen." },
     { ...PLAKATIERUNG, notes: "Hohlkammerplatten mit den Aufklebern der Stadt." },
     { ...SPERRUNG, notes: "Straße ab 05:00 Uhr gesperrt; Abflattern und Verkehr am Vortag." },
-    TOILETTEN,
   ],
-  nippes: [MARKET_PERMIT, FESTSETZUNG, TOILETTEN],
-  stadion: [{ ...LANDOWNER, window: STADION_WINDOW }, FESTSETZUNG, TOILETTEN],
-  suedstadt: [MARKET_PERMIT, FESTSETZUNG, { ...PVBT, notes: ASSUMED }, TOILETTEN],
-  suedbruecke: [LANDOWNER, FESTSETZUNG, TOILETTEN],
+  nippes: [MARKET_PERMIT, FESTSETZUNG],
+  stadion: [{ ...LANDOWNER, window: STADION_WINDOW }, FESTSETZUNG],
+  suedstadt: [MARKET_PERMIT, FESTSETZUNG, { ...PVBT, notes: ASSUMED }],
+  suedbruecke: [LANDOWNER, FESTSETZUNG],
   rudolfplatz: [
     MARKET_PERMIT,
     FESTSETZUNG,
     AUSSCHANK,
     STANDROHR,
     { ...GEMA, notes: "Livemusik an jedem Termin." },
-    TOILETTEN,
   ],
   rodenkirchen: [
     MARKET_PERMIT,
@@ -307,7 +291,6 @@ export const VENUE_PERMITS: Readonly<Record<string, readonly RequirementSpec[]>>
     { ...PVBT, eventType: "city_festival", notes: ASSUMED },
     { ...STANDROHR, eventType: "city_festival" },
     { ...GEMA, eventType: "city_festival", notes: "Bühne beim Straßenfest." },
-    TOILETTEN,
   ],
   // Kerpen: one Ausschankgenehmigung and one Standrohr per season for all markets there (Stadtfest, Weintage,
   // Bauernmarkt, the Trödelmarkt's drinks stand); GEMA per date where there is music.
@@ -319,9 +302,8 @@ export const VENUE_PERMITS: Readonly<Record<string, readonly RequirementSpec[]>>
     STANDROHR,
     { ...GEMA, eventType: "city_festival", notes: "Bühnenprogramm beim Stadtfest." },
     { ...GEMA, eventType: "food_wine", notes: "Livemusik bei Weintagen und Bauernmarkt." },
-    TOILETTEN,
   ],
-  // Hoffnungsthal ("Anträge 180 days: Festsetzung, Plakatierung"): school toilets instead of a toilet contract.
+  // Hoffnungsthal ("Anträge 180 days: Festsetzung, Plakatierung").
   // Drinks with the Ortsring, but no stage music of our own: Ausschank yes, GEMA no.
   hoffnungsthal: [
     MARKET_PERMIT,

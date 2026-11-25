@@ -74,7 +74,7 @@ Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Appli
 | Wasser / Hydrant / Standrohr | Water / standpipe | `permit_type = water` + `rental` | Hydrant use; the standpipe is rented from the utility once per Ort and season. Ordering it for a date ("Standrohr bestellen") is a plain task of that date. |
 | Plakatierung (mit Aufklebern/Plaketten) | Poster/signage permit (with stickers) | `permit_type = signage` | City issues stickers that must be on each poster. |
 | Halteverbot (PVBT) | No-parking order | `permit_type = no_parking` | Temporary no-parking signs. Per date: each date has its own permit and its own "… beantragen" task. |
-| Toiletten | Toilets | `permit_type = toilets` | External. |
+| Toiletten | Toilets | `permit_type = toilets` (not used for Orte) | Booked once at the start of the year for all markets (plus extra bookings when plans change): company work, the Pflicht "Toiletten für die Saison buchen" ([ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md)), not a permit requirement of an Ort. |
 | Einverständnis des Eigentümers | Landowner OK | `permit_type = landowner_ok` | External. On private ground, one per Ort and season, in addition to the city's Festsetzung (and Ausschank where drinks are served). |
 | Genehmigungen (Bereich, früher „Logbuch“) | Permits (area, formerly "logbook") | logbook view, route `/genehmigungen` | Company-wide status quo: what we hold, for which location, what's missing. The sidebar badge counts "Fehlt/abgelaufen für kommende Märkte". |
 | Antragsfenster / Entscheidung erwartet | Application window / expected decision | `submission_window_*`, `expected_decision_on` | e.g. city collects all applications, decides in January. |

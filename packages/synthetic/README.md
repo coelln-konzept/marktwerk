@@ -59,17 +59,17 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 | `eventAnchors` | 536 | `eventDay`, `setupDay`, `teardownDay`, `bookingCutoff` (Monday before) per event |
 | `checklistTemplates` | 18 | The Grundvorlage (12 items) and every market's own copy (13–43 items, child items included; 353 items in all) |
 | `tasks` | 2,432 | 1,752 tasks and 680 subtasks on the 134 events, due times in Berlin time (≈ 18 per event, 13–43) |
-| `permitRequirements` | 54 | Per place (`VENUE_PERMITS`), on the levels of ADR 0024. Per Ort and season: Ordnungsbehördliche Erlaubnis (8), Festsetzung (10), Ausschankgenehmigung (4), the owner's agreement on private ground (2), Standrohr (5), Plakatierung (3), Sperrung (4), toilets (9). Per date: Halteverbot/PVBT (4), GEMA (4), Schaustellerliste (1). Some only for one event type |
-| `permits` | 131 | Season permits, one per Ort (requirement) and season (90); per date Halteverbot (25), GEMA (14) and Schaustellerliste (2). 2026: 64 granted, 1 late example; 2027: 24 applied (2 with an overdue decision), 1 preparing, 41 not started |
-| `eventPermits` | 565 | Event ↔ permit links |
+| `permitRequirements` | 45 | Per place (`VENUE_PERMITS`), on the levels of ADR 0024. Per Ort and season: Ordnungsbehördliche Erlaubnis (8), Festsetzung (10), Ausschankgenehmigung (4), the owner's agreement on private ground (2), Standrohr (5), Plakatierung (3), Sperrung (4). Per date: Halteverbot/PVBT (4), GEMA (4), Schaustellerliste (1). Some only for one event type. No toilets: booking them is a company Pflicht |
+| `permits` | 113 | Season permits, one per Ort (requirement) and season (72); per date Halteverbot (25), GEMA (14) and Schaustellerliste (2). 2026: 55 granted, 1 late example; 2027: 24 applied (2 with an overdue decision), 33 not started |
+| `eventPermits` | 435 | Event ↔ permit links |
 | `vehicles` | 3 | Vans with 3,500 or 3,880 kg |
 | `obligations` | 16 | HU, UVV (one overdue), service, Kfz insurance renewal, KSK report; company Pflichten (ADR 0024): season planning, market insurance, toilets, electricity contract (always in its reminder window), marketing every 4 months |
 | `payables` | 90 | Location fees, Erlaubnis fees, Festsetzung fees (granted ones only), toilets, standpipes, vehicles, insurance, event costs |
 | `installments` | 114 | Sum exactly to each payable's total |
-| `shifts` | 274 | Field crew on past 2026 events |
+| `shifts` | 280 | Field crew on past 2026 events |
 | `vendors` | 1,500 | 75 % private, about 30 % regular |
-| `bookingRequests` | 5,520 | 40–150 per bookable event (flea and antique, completed or confirmed 2026) |
-| `bookingDates` | 4,667 | One per accepted request, with row placement and car grant |
+| `bookingRequests` | 5,639 | 40–150 per bookable event (flea and antique, completed or confirmed 2026) |
+| `bookingDates` | 4,656 | One per accepted request, with row placement and car grant |
 
 ## Rules the data follows
 
@@ -116,14 +116,15 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
   anmelden"; **Plakatierung** with city stickers (Riehler Gürtel, Hoffnungsthal, Kerpen); the **Standrohr** rented
   per season at the water supplier (Altstadt antiques, Rudolfplatz, the Rodenkirchen Straßenfest, Kerpen,
   Hoffnungsthal); a road closure (verkehrsrechtliche Anordnung: Altstadt, Riehler Gürtel, Hoffnungsthal, Rodenkirchen
-  Straßenfest); the **Schaustellerliste** (type `other`, per date, Hoffnungsthal); toilets everywhere except
-  Hoffnungsthal (school toilets). Lead times follow the sheets (Genehmigung 6 months, Altstadt 7; Standrohr 30 days;
+  Straßenfest); the **Schaustellerliste** (type `other`, per date, Hoffnungsthal). **No toilets permits**: booking
+  the toilets for all markets is company work at the start of the year, the Pflicht "Toiletten für die Saison
+  buchen" (the invoices stay venue payables). Lead times follow the sheets (Genehmigung 6 months, Altstadt 7; Standrohr 30 days;
   Schaustellerliste 2 months). The office prepares a month before filing and files 3–14 days before apply-by; the
   Festsetzung and the Ausschank go in with the Erlaubnis and are decided one to three weeks after it; the city
   decides them some weeks before the market's first date. Altstadt
   keeps the collective window (October–November, decision mid-January), the Stadion its date request by end of
   October (decision mid-December). A decision date in the past means granted; current-season permits of past events
-  are granted. Deliberate exceptions: at most 2 late permits (PVBT, toilets or road closure, not filed) and 2
+  are granted. Deliberate exceptions: at most 2 late permits (Halteverbot or road closure, not filed) and 2
   applied permits whose expected decision passed (Festsetzung, road closure, landowner or poster permit, note
   "nachfragen"). A granted Festsetzung becomes a payable (fee due a month after the decision).
 - **Bookings**: placements are first-fit along the venue rows, so they never overlap. Car requests are placed first. A car

@@ -76,7 +76,6 @@ export type PermitType =
   | "signage"
   | "no_parking"
   | "traffic_order"
-  | "toilets"
   | "landowner_ok"
   | "catering"
   | "gema"

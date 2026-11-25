@@ -5,7 +5,9 @@ import type { PermitCadence, PermitTypeKey } from "./status";
  * "Was braucht dieser Ort?" (product owner 2026-11-13, Fahrplan R28/R30): when an Ort is created or switched between
  * Städtisch and Privat, a dialog sets its permit requirements. These are the permit types it offers, in its order:
  * the main permit (Ordnungsbehördliche Erlaubnis on city ground, the owner's OK on private ground), the Festsetzung,
- * then the optional extras (Standrohr, PVBT, Plakatierung, Toiletten). Other types stay on the requirement form.
+ * then the optional extras (Standrohr, PVBT, Plakatierung, Ausschankgenehmigung). Other types stay on the requirement
+ * form. Toilets are not offered: booking them is company work once a year (a Pflicht, ADR 0024), not a permit of
+ * the Ort.
  */
 export const VENUE_NEED_TYPES = [
   "market_permit",
@@ -14,7 +16,7 @@ export const VENUE_NEED_TYPES = [
   "water",
   "no_parking",
   "signage",
-  "toilets",
+  "catering",
 ] as const satisfies readonly PermitTypeKey[];
 export type VenueNeedType = (typeof VENUE_NEED_TYPES)[number];
 
@@ -59,7 +61,12 @@ export const VENUE_NEED_DEFAULTS: Readonly<
     leadTimeDays: 21,
   },
   signage: { title: "Plakatierung", category: "city", cadence: "per_season", leadTimeDays: 42 },
-  toilets: { title: "Toiletten", category: "external", cadence: "per_season", leadTimeDays: 60 },
+  catering: {
+    title: "Ausschankgenehmigung",
+    category: "city",
+    cadence: "per_season",
+    leadTimeDays: 180,
+  },
 };
 
 /**
