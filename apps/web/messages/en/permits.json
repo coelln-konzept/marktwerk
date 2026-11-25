@@ -14,7 +14,7 @@
     "superseded": "Superseded"
   },
   "permitTypes": {
-    "market_permit": "Market permit",
+    "market_permit": "Public order permit",
     "market_fixing": "Market fixing (§ 69 GewO)",
     "water": "Water",
     "signage": "Posters and stickers",
@@ -24,7 +24,7 @@
     "gema": "GEMA (music licence)",
     "safety_concept": "Safety concept",
     "traffic_order": "Traffic order",
-    "catering": "Catering and alcohol",
+    "catering": "Alcohol licence",
     "insurance": "Insurance",
     "other": "Other"
   },
@@ -449,7 +449,7 @@
     "extrasTitle": "More, if needed",
     "types": {
       "market_permit": {
-        "label": "Market permit (special use)",
+        "label": "Public order permit",
         "hint": "From the city, once per season"
       },
       "landowner_ok": {
@@ -462,7 +462,7 @@
       },
       "water": {
         "label": "Standpipe",
-        "hint": "Water from the hydrant, per date"
+        "hint": "Water from the hydrant, once per season"
       },
       "no_parking": {
         "label": "No-parking signs (PVBT)",

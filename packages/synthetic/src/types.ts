@@ -78,9 +78,11 @@ export type PermitType =
   | "traffic_order"
   | "toilets"
   | "landowner_ok"
+  | "catering"
+  | "gema"
   | "other";
 /** Permit types a template item can apply for: the seeded ones plus those without a seeded permit. */
-export type TemplatePermitType = PermitType | "gema" | "safety_concept" | "catering";
+export type TemplatePermitType = PermitType | "safety_concept";
 export type PermitCadence = "per_event" | "per_season" | "per_year" | "multi_year" | "standing";
 export type PermitStatus =
   | "not_started"

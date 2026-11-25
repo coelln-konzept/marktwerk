@@ -14,7 +14,7 @@
     "superseded": "Ersetzt"
   },
   "permitTypes": {
-    "market_permit": "Marktgenehmigung",
+    "market_permit": "Ordnungsbehördliche Erlaubnis",
     "market_fixing": "Festsetzung (§ 69 GewO)",
     "water": "Wasser",
     "signage": "Plakate und Aufkleber",
@@ -24,7 +24,7 @@
     "gema": "GEMA",
     "safety_concept": "Sicherheitskonzept",
     "traffic_order": "Verkehrsrechtliche Anordnung",
-    "catering": "Ausschank und Gastronomie",
+    "catering": "Ausschankgenehmigung",
     "insurance": "Versicherung",
     "other": "Sonstiges"
   },
@@ -449,7 +449,7 @@
     "extrasTitle": "Weitere, falls nötig",
     "types": {
       "market_permit": {
-        "label": "Marktgenehmigung (Sondernutzung)",
+        "label": "Ordnungsbehördliche Erlaubnis",
         "hint": "Von der Stadt, einmal je Saison"
       },
       "landowner_ok": {
@@ -462,7 +462,7 @@
       },
       "water": {
         "label": "Standrohr",
-        "hint": "Wasser vom Hydranten, je Termin"
+        "hint": "Wasser vom Hydranten, einmal je Saison"
       },
       "no_parking": {
         "label": "PVBT (Halteverbot)",

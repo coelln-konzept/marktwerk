@@ -262,6 +262,8 @@ export async function fillLogbookForEvents(
             inArray(task.eventId, ids),
             eq(task.source, "template"),
             isNotNull(templateItem.permitType),
+            // one that applies for another permit already is not free for this one
+            isNull(task.permitId),
             ne(task.status, "cancelled"),
           ),
         )
@@ -431,7 +433,13 @@ export async function notifyPermitTasks(
  *
  * ADR 0024: a template task only applies for a `per_event` permit (or a hand-made one without a requirement,
  * linked to its event). A permit covering several dates is applied for once per Ort and season through its own
- * "… beantragen" task, so template tasks are never linked to it.
+ * "… beantragen" task, so template tasks are never linked to it: such an item (e.g. an old "Marktgenehmigung
+ * beantragen" in a template) simply stays a plain task of its date.
+ *
+ * One task applies for a permit, never two: a permit that already has one (its own "… beantragen" task, or a
+ * template task linked before) takes no second, and of several template tasks naming its type only the earliest due
+ * is linked. The others stay plain tasks. So an item added to a template later, or a hand-made permit linked to
+ * several dates, never gives a permit a second applying task.
  *
  * With an `actor`, open tasks whose permit is applied for / granted are completed right away (audited as
  * "task.status", reason "Genehmigung beantragt/erteilt"). Returns the number of linked tasks and the completed ones.
@@ -456,7 +464,8 @@ export async function linkPermitTasks(
         isNotNull(templateItem.permitType),
         ne(task.status, "cancelled"),
       ),
-    );
+    )
+    .orderBy(asc(task.dueAt), asc(task.id));
   if (open.length === 0) return result;
 
   const candidates = await tx
@@ -483,13 +492,27 @@ export async function linkPermitTasks(
   const rank = (c: (typeof candidates)[number]) =>
     (c.required && c.status !== "not_required" ? 0 : 100) + COVER_PREFERENCE.indexOf(c.status);
 
+  // Permits that already have a task applying for them (own "… beantragen" task or a linked template task).
+  const candidateIds = [...new Set(candidates.map((c) => c.permitId))];
+  const taken = new Set(
+    candidateIds.length === 0
+      ? []
+      : (
+          await tx
+            .select({ permitId: task.permitId })
+            .from(task)
+            .where(and(inArray(task.permitId, candidateIds), ne(task.status, "cancelled")))
+        ).map((r) => r.permitId),
+  );
+
   const byPermit = new Map<string, string[]>();
   for (const t of open) {
     const best = candidates
       .filter((c) => c.eventId === t.eventId && c.permitType === t.permitType)
       .sort((a, b) => rank(a) - rank(b) || a.createdAt.getTime() - b.createdAt.getTime())[0];
-    if (!best) continue;
-    byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t.id]);
+    if (!best || taken.has(best.permitId)) continue;
+    taken.add(best.permitId);
+    byPermit.set(best.permitId, [t.id]);
   }
 
   for (const [permitId, taskIds] of byPermit) {

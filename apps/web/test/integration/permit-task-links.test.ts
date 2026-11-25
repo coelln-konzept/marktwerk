@@ -311,32 +311,105 @@ describe("linking permits to existing events", () => {
   });
 });
 
+describe("one task applies for a permit, never two (ADR 0024)", () => {
+  /** Tasks applying for a permit (not deleted). */
+  const applying = (permitId: string) =>
+    db
+      .select({ title: task.title, source: task.source })
+      .from(task)
+      .where(and(eq(task.permitId, permitId), ne(task.status, "cancelled")));
+
+  it("a template item that names a per-date permit's type later leaves the permit's own task the only one", async () => {
+    // Version 1 names no water item: the per-date Standrohr permit gets its own "… beantragen" task.
+    await requirement({ permitType: "water", title: "Wasserentnahme" });
+    const [id] = await generate("2027-05-02");
+    const [p] = await db.select().from(permit);
+    expect(await applying(p?.id as string)).toEqual([
+      { title: "Wasserentnahme beantragen", source: "permit" },
+    ]);
+
+    // Version 2: the check item now names the water permit; propagating it must not add a second applying task.
+    const check = await taskTitled(id as string, PRUEFEN);
+    const draft = await createDraft(owner, templateId);
+    await updateTemplateItem(owner, draft.versionId, check.templateStableKey as string, {
+      ...baseItem({ title: PRUEFEN, category: "permits", offsetDays: -100 }),
+      permitType: "water",
+    });
+    await publishDraft(owner, draft.versionId, "Version 2");
+    await applyTemplateVersion(owner, templateId, [id as string]);
+    expect(await taskTitled(id as string, PRUEFEN)).toMatchObject({
+      permitId: null,
+      status: "todo",
+    });
+    expect(await applying(p?.id as string)).toEqual([
+      { title: "Wasserentnahme beantragen", source: "permit" },
+    ]);
+  });
+
+  it("a hand-made permit linked to two dates gets one applying task: the earliest due", async () => {
+    const [may, june] = await generate("2027-05-02", "2027-06-06");
+    const [p] = await db
+      .insert(permit)
+      .values({
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "market_permit",
+        title: "Von Hand",
+        status: "not_started",
+      })
+      .returning();
+    await linkEventsToPermit(owner, p?.id as string, [june as string, may as string]);
+    expect(await applying(p?.id as string)).toEqual([{ title: MARKT, source: "template" }]);
+    expect((await taskTitled(may as string, MARKT)).permitId).toBe(p?.id);
+    expect((await taskTitled(june as string, MARKT)).permitId).toBeNull();
+    // Running the link again changes nothing.
+    const again = await db.transaction((tx) =>
+      linkPermitTasks(tx, [may as string, june as string], owner),
+    );
+    expect(again.linked).toBe(0);
+  });
+
+  it("a season permit never gets a template task, whatever the template names", async () => {
+    await requirement({ cadence: "per_season" });
+    await generate("2027-04-04", "2027-05-02", "2027-06-06");
+    const [p] = await db.select().from(permit);
+    expect(await applying(p?.id as string)).toEqual([
+      { title: "Marktgenehmigung beantragen", source: "permit" },
+    ]);
+    // The template's item stays a plain task on every date.
+    const items = await db.select().from(task).where(eq(task.title, MARKT));
+    expect(items).toHaveLength(3);
+    for (const t of items) expect(t.permitId).toBeNull();
+  });
+});
+
 describe("template propagation", () => {
   it("a new version that names a permit type links and completes the existing task", async () => {
     // An event made from version 1 (no permit requirement yet, so nothing is linked).
     const [id] = await generate("2027-05-02");
     const check = await taskTitled(id as string, PRUEFEN);
     expect(check.permitId).toBeNull();
-    const req = await requirement();
+    // A per-date water permit (no other item names its type, so the check item is the one to apply for it).
+    const req = await requirement({ permitType: "water", title: "Wasserentnahme" });
     const [p] = await db
       .insert(permit)
       .values({
         requirementId: req.id,
         venueId: cat.venue.id,
         season: 2027,
-        category: "city",
-        permitType: "market_permit",
-        title: "Marktgenehmigung",
+        category: "external",
+        permitType: "water",
+        title: "Wasserentnahme",
         status: "applied",
       })
       .returning();
     await db.insert(eventPermit).values({ eventId: id as string, permitId: p?.id as string });
 
-    // Version 2: the check item now belongs to the market permit.
+    // Version 2: the check item now belongs to the water permit.
     const draft = await createDraft(owner, templateId);
     await updateTemplateItem(owner, draft.versionId, check.templateStableKey as string, {
       ...baseItem({ title: PRUEFEN, category: "permits", offsetDays: -100 }),
-      permitType: "market_permit",
+      permitType: "water",
     });
     await publishDraft(owner, draft.versionId, "Version 2");
     const result = await applyTemplateVersion(owner, templateId, [id as string]);

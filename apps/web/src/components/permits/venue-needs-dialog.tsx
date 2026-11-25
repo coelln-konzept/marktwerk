@@ -39,7 +39,7 @@ function initialTicks(
 /**
  * "Was braucht dieser Ort?" (product owner 2026-11-13, Fahrplan R30): opens after an Ort is created (on its page,
  * or stacked on the quick form inside "Markt planen") and after a switch Städtisch ↔ Privat. Pre-ticked from the
- * kind (Städtisch: Marktgenehmigung + Festsetzung; Privat: Einverständnis des Eigentümers + Festsetzung), the extras
+ * kind (Städtisch: Ordnungsbehördliche Erlaubnis + Festsetzung; Privat: Einverständnis des Eigentümers + Festsetzung), the extras
  * unticked; everything can be changed, "Überspringen" saves nothing. Saving sets the Ort's permit requirements
  * (`setVenueNeeds`) with an undo toast; details (Behörde, Gebühr, Fenster) go on the requirement form later.
  */

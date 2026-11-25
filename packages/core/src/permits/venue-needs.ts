@@ -4,8 +4,8 @@ import type { PermitCadence, PermitTypeKey } from "./status";
 /**
  * "Was braucht dieser Ort?" (product owner 2026-11-13, Fahrplan R28/R30): when an Ort is created or switched between
  * Städtisch and Privat, a dialog sets its permit requirements. These are the permit types it offers, in its order:
- * the main permit (Marktgenehmigung on city ground, the owner's OK on private ground), the Festsetzung, then the
- * optional extras (Standrohr, PVBT, Plakatierung, Toiletten). Other types stay on the requirement form.
+ * the main permit (Ordnungsbehördliche Erlaubnis on city ground, the owner's OK on private ground), the Festsetzung,
+ * then the optional extras (Standrohr, PVBT, Plakatierung, Toiletten). Other types stay on the requirement form.
  */
 export const VENUE_NEED_TYPES = [
   "market_permit",
@@ -23,8 +23,9 @@ export const isVenueNeedType = (value: unknown): value is VenueNeedType =>
 
 /**
  * The requirement a ticked need becomes: German title (data, like the template items), category, cadence and lead
- * time as the client's sheets have them (research 13 §4; the synthetic data uses the same numbers). Everything else
- * (authority, fee, application window) is filled in later on the requirement form.
+ * time as the client's sheets have them (research 13 §4; the synthetic data uses the same numbers). Cadences follow
+ * ADR 0024: only the Halteverbot is per date, the rest once per Ort and season. Everything else (authority, fee,
+ * application window) is filled in later on the requirement form.
  */
 export const VENUE_NEED_DEFAULTS: Readonly<
   Record<
@@ -33,7 +34,7 @@ export const VENUE_NEED_DEFAULTS: Readonly<
   >
 > = {
   market_permit: {
-    title: "Marktgenehmigung (Sondernutzung)",
+    title: "Ordnungsbehördliche Erlaubnis",
     category: "city",
     cadence: "per_season",
     leadTimeDays: 180,
@@ -50,9 +51,9 @@ export const VENUE_NEED_DEFAULTS: Readonly<
     cadence: "per_season",
     leadTimeDays: 180,
   },
-  water: { title: "Standrohr", category: "external", cadence: "per_event", leadTimeDays: 30 },
+  water: { title: "Standrohr", category: "external", cadence: "per_season", leadTimeDays: 30 },
   no_parking: {
-    title: "Haltverbot (PVBT)",
+    title: "Halteverbot (PVBT)",
     category: "city",
     cadence: "per_event",
     leadTimeDays: 21,
@@ -61,7 +62,10 @@ export const VENUE_NEED_DEFAULTS: Readonly<
   toilets: { title: "Toiletten", category: "external", cadence: "per_season", leadTimeDays: 60 },
 };
 
-/** The permit an Ort of this kind needs above all: the city's Marktgenehmigung, or the owner's OK on private ground. */
+/**
+ * The permit an Ort of this kind needs above all: the city's Ordnungsbehördliche Erlaubnis, or the owner's OK on
+ * private ground.
+ */
 export function mainPermitType(kind: VenueKindKey): "market_permit" | "landowner_ok" {
   return kind === "private" ? "landowner_ok" : "market_permit";
 }
@@ -74,7 +78,7 @@ export function defaultVenueNeeds(kind: VenueKindKey): VenueNeedType[] {
 /**
  * What the dialog ticks for an Ort that has requirements already (`current`: the permit types of its live
  * requirements): what it has, with the other kind's main permit swapped for this kind's, plus the Festsetzung. So a
- * switch Städtisch → Privat suggests the owner's OK instead of the Marktgenehmigung and keeps the extras; opening
+ * switch Städtisch → Privat suggests the owner's OK instead of the Erlaubnis and keeps the extras; opening
  * the dialog again without a switch suggests nothing new beyond the defaults. In {@link VENUE_NEED_TYPES} order.
  */
 export function suggestedVenueNeeds(

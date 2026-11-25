@@ -1,3 +1,4 @@
+import { seasonPermitApplyBy } from "@marktwerk/core";
 import {
   PERMIT_TYPE_BLUEPRINTS,
   type RequirementSpec,
@@ -42,6 +43,8 @@ function authorityKey(spec: RequirementSpec, blueprint: VenueBlueprint): string 
       return blueprint.landownerKey;
     case "supplier":
       return "dixi";
+    case "music":
+      return "musikrechte";
   }
 }
 
@@ -116,18 +119,25 @@ export interface PermitContext {
   clock: Clock;
 }
 
-/** Typical days the authority needs to decide, per permit type (Marktgenehmigung and Festsetzung: see `decide`). */
+/** Typical days the authority needs to decide, per permit type (the city's season permits: see `decide`). */
 const TURNAROUND_DAYS: Record<PermitType, number> = {
   market_permit: 60,
   market_fixing: 60,
+  catering: 60,
   water: 10,
   signage: 21,
   no_parking: 14,
   traffic_order: 21,
   toilets: 14,
   landowner_ok: 30,
+  gema: 7,
   other: 14,
 };
+
+/** The city's season permits, applied for together and decided some weeks before the first date (`decide`). */
+const CITY_SEASON_TYPES: readonly PermitType[] = ["market_permit", "market_fixing", "catering"];
+/** Go in with the Ordnungsbehördliche Erlaubnis of the Ort and come back after it (`decideWithMarketPermit`). */
+const WITH_MARKET_PERMIT: readonly PermitType[] = ["market_fixing", "catering"];
 
 /** The office files a few days before the apply-by date (the sheets' deadline) and prepares a month before that. */
 const FILING_EARLY_DAYS: readonly [number, number] = [3, 14];
@@ -172,8 +182,8 @@ function filed(today: string, appliedAt: string, decisionOn: string): Decision {
 /**
  * Where a permit stands today. The office prepares from a month before filing and files a few days before the
  * apply-by date (never later than yesterday). The authority decides after its typical turnaround; the city decides
- * a Marktgenehmigung or Festsetzung some weeks before the first date it covers. A decision in the past means granted,
- * and no permit is undecided past the first date it covers. Windowed applications (Altstadt, Stadion) are filed
+ * its season permits (Erlaubnis, Festsetzung, Ausschank) some weeks before the first date they cover. A decision in
+ * the past means granted, and no permit is undecided past the first date it covers. Windowed applications (Altstadt, Stadion) are filed
  * early in the window and decided on the window's decision day.
  */
 function decide(
@@ -201,18 +211,17 @@ function decide(
   const target = addDays(applyBy, -rng.int(FILING_EARLY_DAYS[0], FILING_EARLY_DAYS[1]));
   if (today <= target) return notFiled(today >= addDays(target, -PREPARING_DAYS));
   const appliedAt = earlierOf(target, addDays(today, -rng.int(1, 4)));
-  let decisionOn =
-    requirement.permitType === "market_permit" || requirement.permitType === "market_fixing"
-      ? laterOf(addDays(appliedAt, 30), addDays(eventDate, -rng.int(35, 75)))
-      : addDays(appliedAt, TURNAROUND_DAYS[requirement.permitType] + rng.int(-3, 7));
+  let decisionOn = CITY_SEASON_TYPES.includes(requirement.permitType)
+    ? laterOf(addDays(appliedAt, 30), addDays(eventDate, -rng.int(35, 75)))
+    : addDays(appliedAt, TURNAROUND_DAYS[requirement.permitType] + rng.int(-3, 7));
   const latest = addDays(eventDate, -2);
   if (decisionOn > latest && latest >= appliedAt) decisionOn = latest;
   return filed(today, appliedAt, decisionOn);
 }
 
 /**
- * The Festsetzung goes in with the Marktgenehmigung ("Antrag stellen, Festsetzung") and comes back one to three
- * weeks after it.
+ * The Festsetzung and the Ausschankgenehmigung go in with the Ordnungsbehördliche Erlaubnis ("Antrag stellen,
+ * Festsetzung") and come back one to three weeks after it.
  */
 function decideWithMarketPermit(
   rng: Rng,
@@ -237,7 +246,7 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
   const lateCandidates: [Permit, string][] = [];
   /** Filed permits whose decision may turn overdue afterwards: [permit, first event date it covers]. */
   const decisionCandidates: [Permit, string][] = [];
-  /** The Marktgenehmigung of each Ort and season, for its Festsetzung. */
+  /** The Ordnungsbehördliche Erlaubnis of each Ort and season, for its Festsetzung and Ausschank. */
   const marketPermitBy = new Map<string, Permit>();
 
   const typeKeyById = new Map(ctx.eventTypes.map((type) => [type.id, type.key]));
@@ -306,15 +315,20 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
       };
 
       if (requirement.cadence === "per_season") {
-        // One permit per Ort and season (ADR 0024), from the first date there; it covers every market at the Ort.
+        // One permit per Ort and season (ADR 0024); it covers every market at the Ort. Its apply-by is fixed in the
+        // calendar (lead time before the season starts on 1 March, as the nightly season-permits job sets it), or
+        // earlier where a date comes before that allows (as the logbook fill moves it when such a date joins).
         const [first] = [...venueEvents].sort((a, b) => a.startsOn.localeCompare(b.startsOn));
         if (!first) continue;
         const applyBy = window
           ? `${season - 1}-${window.endMd}`
-          : addDays(first.startsOn, -requirement.leadTimeDays);
+          : earlierOf(
+              seasonPermitApplyBy(requirement, season),
+              addDays(first.startsOn, -requirement.leadTimeDays),
+            );
         const marketPermit = marketPermitBy.get(`${requirement.venueId}|${season}`);
         const decision =
-          requirement.permitType === "market_fixing" && marketPermit
+          WITH_MARKET_PERMIT.includes(requirement.permitType) && marketPermit
             ? decideWithMarketPermit(rng, clock, marketPermit, first.startsOn)
             : decide(rng, clock, requirement, season, applyBy, first.startsOn);
         const permit = makePermit(
@@ -334,7 +348,7 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
         continue;
       }
 
-      // per_event: one permit per date (PVBT, Standrohr, Schaustellerliste).
+      // per_event: one permit per date (Halteverbot, GEMA, Schaustellerliste).
       for (const event of venueEvents) {
         const applyBy = addDays(event.startsOn, -requirement.leadTimeDays);
         const decision = decide(rng, clock, requirement, season, applyBy, event.startsOn);

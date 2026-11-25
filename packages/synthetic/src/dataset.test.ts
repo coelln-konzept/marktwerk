@@ -1023,7 +1023,7 @@ describe("permits per market (research 13 §4)", () => {
       ),
     ].sort();
 
-  it("gives every municipal market a Marktgenehmigung and a Festsetzung per season, private ones a landowner OK", () => {
+  it("gives every municipal market an Ordnungsbehördliche Erlaubnis and a Festsetzung per season, private ones a landowner OK", () => {
     for (const preset of data.eventPresets) {
       const venue = venueOf(preset.key);
       const seasons = seasonsOf(preset.key);
@@ -1031,9 +1031,8 @@ describe("permits per market (research 13 §4)", () => {
       expect(fixing.map((p) => p.season).sort(), `${preset.key} Festsetzung`).toEqual(seasons);
       if (venue?.kind === "municipal") {
         const market = permitsOf(preset.key, "market_permit");
-        expect(market.map((p) => p.season).sort(), `${preset.key} Marktgenehmigung`).toEqual(
-          seasons,
-        );
+        expect(market.map((p) => p.season).sort(), `${preset.key} Erlaubnis`).toEqual(seasons);
+        for (const permit of market) expect(permit.title).toBe("Ordnungsbehördliche Erlaubnis");
         expect(permitsOf(preset.key, "landowner_ok")).toEqual([]);
       } else {
         expect(permitsOf(preset.key, "market_permit"), preset.key).toEqual([]);
@@ -1071,10 +1070,14 @@ describe("permits per market (research 13 §4)", () => {
     const events = data.events.filter(
       (e) => e.presetId === presetByKey("hoffnungsthal")?.id && e.status !== "cancelled",
     );
-    // PVBT (96 h), the standpipe and the Schaustellerliste go per date, the rest per season
+    // PVBT (96 h) and the Schaustellerliste go per date, the rest (standpipe included) per season
     expect(permitsOf("hoffnungsthal", "no_parking")).toHaveLength(events.length);
-    expect(permitsOf("hoffnungsthal", "no_parking")[0]?.title).toMatch(/PVBT/);
-    expect(permitsOf("hoffnungsthal", "water")).toHaveLength(events.length);
+    expect(permitsOf("hoffnungsthal", "no_parking")[0]?.title).toMatch(/^Halteverbot \(PVBT\)/);
+    expect(
+      permitsOf("hoffnungsthal", "water")
+        .map((p) => p.season)
+        .sort(),
+    ).toEqual(hoffnungsthal);
     expect(
       permitsOf("hoffnungsthal", "signage")
         .map((p) => p.season)
@@ -1142,17 +1145,51 @@ describe("permits per market (research 13 §4)", () => {
       if (permit)
         expect(requirementById.get(permit.requirementId)?.cadence, task.title).toBe("per_event");
     }
-    // Hoffnungsthal: Standrohr and Schaustellerliste find their per-date permits
-    for (const key of ["standrohr_bestellen", "schaustellerliste"]) {
+    // Hoffnungsthal's Schaustellerliste and the festivals' GEMA find their per-date permits
+    for (const [key, presetKey] of [
+      ["schaustellerliste", "hoffnungsthal"],
+      ["gema_anmelden", "rodenkirchen-hauptstrasse"],
+      ["gema_anmelden", "rudolfplatz"],
+      ["gema_anmelden", "kerpen-weintage"],
+    ] as const) {
       const tasks = data.tasks.filter(
         (t) =>
           t.templateStableKey === key &&
           t.status !== "cancelled" &&
-          presetOf(t) === presetByKey("hoffnungsthal")?.id,
+          presetOf(t) === presetByKey(presetKey)?.id,
       );
       expect(tasks.length, key).toBeGreaterThan(0);
       for (const task of tasks) expect(permitOf(task), key).toBeDefined();
     }
+  });
+
+  it("names in template items only permit types that are per date at every Ort (ADR 0024)", () => {
+    const seasonalTypes = new Set(
+      data.permitRequirements.filter((r) => r.cadence !== "per_event").map((r) => r.permitType),
+    );
+    for (const template of data.checklistTemplates)
+      for (const item of template.items)
+        if (item.permitType !== null)
+          expect(seasonalTypes.has(item.permitType as Permit["permitType"]), item.title).toBe(
+            false,
+          );
+    // "Standrohr bestellen" stays as practical work of the date, without the season permit's type
+    const standrohr = data.checklistTemplates
+      .flatMap((t) => t.items)
+      .filter((i) => i.stableKey === "standrohr_bestellen");
+    expect(standrohr.length).toBeGreaterThan(0);
+    for (const item of standrohr) expect(item.permitType).toBeNull();
+  });
+
+  it("never lets two template tasks apply for the same permit", () => {
+    const permitOf = permitLinks(data);
+    const applying = new Map<string, string[]>();
+    for (const task of data.tasks) {
+      const permit = permitOf(task);
+      if (permit) applying.set(permit.id, [...(applying.get(permit.id) ?? []), task.title]);
+    }
+    expect(applying.size).toBeGreaterThan(0);
+    for (const [, titles] of applying) expect(titles).toHaveLength(1);
   });
 
   it("closes a permit task once its permit is filed, as the app does", () => {
@@ -1170,6 +1207,78 @@ describe("permits per market (research 13 §4)", () => {
     expect(overdue.some((t) => t.startsWith("Standrohr-Miete") && t.includes("Altstadt"))).toBe(
       true,
     );
+  });
+});
+
+/* ------------------------------------------- the three levels (ADR 0024) */
+
+describe("recurring work on three levels (ADR 0024)", () => {
+  const typeKeyById = () => new Map(data.eventTypes.map((t) => [t.id, t.key]));
+  const cadences = (type: Permit["permitType"]) =>
+    new Set(data.permitRequirements.filter((r) => r.permitType === type).map((r) => r.cadence));
+
+  it("applies per date for Halteverbot and GEMA, per season for the city's permits, Standrohr and the owner", () => {
+    for (const type of ["no_parking", "gema", "other"] as const)
+      expect([...cadences(type)], type).toEqual(["per_event"]);
+    for (const type of [
+      "market_permit",
+      "market_fixing",
+      "catering",
+      "water",
+      "landowner_ok",
+      "signage",
+      "toilets",
+      "traffic_order",
+    ] as const)
+      expect([...cadences(type)], type).toEqual(["per_season"]);
+    const title = (type: Permit["permitType"]) =>
+      data.permitRequirements.find((r) => r.permitType === type)?.title;
+    expect(title("market_permit")).toBe("Ordnungsbehördliche Erlaubnis");
+    expect(title("catering")).toBe("Ausschankgenehmigung");
+    expect(title("no_parking")).toBe("Halteverbot (PVBT)");
+  });
+
+  it("gives Orte with drinks the Ausschankgenehmigung and plays GEMA only where there is music", () => {
+    const types = typeKeyById();
+    const typesAt = (venueId: string) =>
+      new Set(
+        data.events.filter((e) => e.venueId === venueId).map((e) => types.get(e.eventTypeId)),
+      );
+    for (const venue of data.venues) {
+      const own = data.permitRequirements.filter((r) => r.venueId === venue.id);
+      const at = typesAt(venue.id);
+      const festive = at.has("city_festival") || at.has("food_wine");
+      expect(
+        own.some((r) => r.permitType === "catering"),
+        `${venue.name} Ausschank`,
+      ).toBe(festive);
+      for (const r of own.filter((r) => r.permitType === "gema")) {
+        const scoped = r.eventTypeId ? types.get(r.eventTypeId) : null;
+        expect(
+          scoped === null ? festive : ["city_festival", "food_wine"].includes(scoped ?? ""),
+        ).toBe(true);
+      }
+      // private ground: the owner's agreement in addition to the city's Festsetzung, no Erlaubnis
+      if (venue.kind === "private") {
+        expect(own.map((r) => r.permitType)).toContain("landowner_ok");
+        expect(own.map((r) => r.permitType)).toContain("market_fixing");
+        expect(own.map((r) => r.permitType)).not.toContain("market_permit");
+      }
+    }
+    expect(data.permits.some((p) => p.permitType === "gema")).toBe(true);
+    expect(data.permits.some((p) => p.permitType === "catering")).toBe(true);
+  });
+
+  it("times next season's city applications from the season start (1 March), not from each market", () => {
+    const requirementById = new Map(data.permitRequirements.map((r) => [r.id, r]));
+    for (const permit of data.permits.filter(
+      (p) => p.season === SEASON + 1 && ["market_permit", "catering"].includes(p.permitType),
+    )) {
+      const requirement = requirementById.get(permit.requirementId);
+      if (requirement?.submissionWindowEndMd) continue;
+      // 180 days before 1 March, or earlier for an Ort whose first market comes before March
+      expect(permit.applyBy <= `${SEASON}-09-02`, permit.title).toBe(true);
+    }
   });
 });
 

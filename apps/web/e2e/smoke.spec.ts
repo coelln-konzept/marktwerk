@@ -4,6 +4,16 @@ import { expect, type Page, test } from "@playwright/test";
 const toastUndo = (page: Page) =>
   page.getByRole("region", { name: "Hinweise" }).getByRole("button", { name: "Rückgängig" });
 
+/**
+ * Local runs against `next dev` only: even with `devIndicators: false` the Next.js DevTools still put an insight toast
+ * (e.g. the framework's upgrade reminder) bottom left, over the profile button. Production builds (CI) have no
+ * `nextjs-portal`, so this does nothing there.
+ */
+const hideDevOverlay = (page: Page) =>
+  page.locator("nextjs-portal").evaluateAll((portals) => {
+    for (const portal of portals) portal.remove();
+  });
+
 test("Übersicht loads after login", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
@@ -961,6 +971,7 @@ test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembere
   await expect(page.getByRole("heading", { level: 1, name: "Pflichten" })).toBeVisible();
 
   // Einstellungen: profile menu (bottom left).
+  await hideDevOverlay(page);
   await page.getByRole("button", { name: /Geschäftsführung/ }).click();
   await page.getByRole("menuitem", { name: "Einstellungen" }).click();
   await expect(page).toHaveURL(/\/einstellungen\/firma$/);

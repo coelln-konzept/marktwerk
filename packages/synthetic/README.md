@@ -41,7 +41,7 @@ pnpm --filter @marktwerk/synthetic typecheck
 `out/` is gitignored. Each entity is one file, `out/<entity>.json`, plus `out/manifest.json` (seed, reference date,
 counts). The seed script (M1) loads these files in dependency order: `settings`, `legalParameters`, `eventTypes`,
 `contacts`, `venues`, `dutyRoles`, `staffMembers`, `employmentContracts`, `checklistTemplates`, `eventPresets`,
-`events`, `eventAnchors`, `eventSeasons`, `eventSeasonAnchors`, `tasks`, `permitRequirements`, `permits`, `eventPermits`, `vehicles`, `obligations`,
+`events`, `eventAnchors`, `tasks`, `permitRequirements`, `permits`, `eventPermits`, `vehicles`, `obligations`,
 `payables`, `installments`, `shifts`, `vendors`, `bookingRequests`, `bookingDates`.
 
 | Entity (file) | Records | Notes |
@@ -57,19 +57,19 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 | `eventPresets` | 17 | The 16 Coelln Konzept series + Hoffnungsthal (9 flea, 2 antique, 3 city festival, 3 food & wine), each with colour, Kürzel (`shortCode`), Marktregeln (`rules`) and Zeitplan (`schedule`) |
 | `events` | 134 | 67 per season (2026, 2027), January–November, 53 on Sundays, 1–3 per day. Two 2026 events cancelled |
 | `eventAnchors` | 536 | `eventDay`, `setupDay`, `teardownDay`, `bookingCutoff` (Monday before) per event |
-| `checklistTemplates` | 18 | The Grundvorlage (12 items) and every market's own copy (13–43 items, child items included; 348 items in all) |
-| `tasks` | 2,418 | 1,738 tasks and 680 subtasks on the 134 events, due times in Berlin time (≈ 18 per event, 13–43) |
-| `permitRequirements` | 47 | Per place (`VENUE_PERMITS`): Marktgenehmigung and Festsetzung, the landowner's OK on private ground, PVBT, Plakatierung, Standrohr, Sperrung, Schaustellerliste, toilets; some only for one event type |
-| `permits` | 129 | Season permits, one per Ort (requirement) and season (72), PVBT, Standrohr and Schaustellerliste per date. 2026: 63 granted, 1 late example; 2027: 18 applied (2 with an overdue decision), 1 preparing, 46 not started |
-| `eventPermits` | 523 | Event ↔ permit links |
+| `checklistTemplates` | 18 | The Grundvorlage (12 items) and every market's own copy (13–43 items, child items included; 353 items in all) |
+| `tasks` | 2,432 | 1,752 tasks and 680 subtasks on the 134 events, due times in Berlin time (≈ 18 per event, 13–43) |
+| `permitRequirements` | 54 | Per place (`VENUE_PERMITS`), on the levels of ADR 0024. Per Ort and season: Ordnungsbehördliche Erlaubnis (8), Festsetzung (10), Ausschankgenehmigung (4), the owner's agreement on private ground (2), Standrohr (5), Plakatierung (3), Sperrung (4), toilets (9). Per date: Halteverbot/PVBT (4), GEMA (4), Schaustellerliste (1). Some only for one event type |
+| `permits` | 131 | Season permits, one per Ort (requirement) and season (90); per date Halteverbot (25), GEMA (14) and Schaustellerliste (2). 2026: 64 granted, 1 late example; 2027: 24 applied (2 with an overdue decision), 1 preparing, 41 not started |
+| `eventPermits` | 565 | Event ↔ permit links |
 | `vehicles` | 3 | Vans with 3,500 or 3,880 kg |
 | `obligations` | 16 | HU, UVV (one overdue), service, Kfz insurance renewal, KSK report; company Pflichten (ADR 0024): season planning, market insurance, toilets, electricity contract (always in its reminder window), marketing every 4 months |
-| `payables` | 109 | Location fees, Marktgenehmigung fees, Festsetzung fees (granted ones only), toilets, standpipes, vehicles, insurance, event costs |
-| `installments` | 133 | Sum exactly to each payable's total |
-| `shifts` | 278 | Field crew on past 2026 events |
+| `payables` | 90 | Location fees, Erlaubnis fees, Festsetzung fees (granted ones only), toilets, standpipes, vehicles, insurance, event costs |
+| `installments` | 114 | Sum exactly to each payable's total |
+| `shifts` | 274 | Field crew on past 2026 events |
 | `vendors` | 1,500 | 75 % private, about 30 % regular |
-| `bookingRequests` | 5,578 | 40–150 per bookable event (flea and antique, completed or confirmed 2026) |
-| `bookingDates` | 4,671 | One per accepted request, with row placement and car grant |
+| `bookingRequests` | 5,520 | 40–150 per bookable event (flea and antique, completed or confirmed 2026) |
+| `bookingDates` | 4,667 | One per accepted request, with row placement and car grant |
 
 ## Rules the data follows
 
@@ -90,26 +90,37 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
   generator creates all four anchors). `CLIENT_MARKET_PRESET_KEYS` attaches the four sheets to the presets
   `altstadt`, `riehler-guertel`, `nippes` and `hoffnungsthal`; `CLIENT_DUTY` puts the market-day lines on their
   roles (Einweisung, Ordner, Nachtwache, Verkehr; Nachkassieren on Kasse).
-- **No Saison records** ([ADR 0024](../../docs/architecture/adr/0024-recurring-work-three-levels.md)): the templates
-  have no season items; work once per Ort and season is the permit's own "… beantragen" task (the seed adds it, see
-  Permits), company work per year is a Pflicht.
-- **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets and 1 on the last past market (`rolloverCount` 1–5); up to 2 recent permit tasks without a filed permit wait on an authority (`waiting_external`). Future tasks are `todo` or `in_progress`. A task whose item applies for a per-date permit (`permitType`: Standrohr bestellen, Schaustellerliste) is `done` once that permit is applied for or granted, as the app's `linkPermitTasks` does; the seed links them. No template item applies for a permit covering several dates (ADR 0024). Counts are of top-level tasks, as in the app's lists.
+- **Three levels, no Saison records** ([ADR 0024](../../docs/architecture/adr/0024-recurring-work-three-levels.md)):
+  work per date is the event's template (and its per-date permits: Halteverbot, GEMA, Schaustellerliste); work once
+  per Ort and season is the season permit's own "… beantragen" task (the seed adds it, see Permits); company work per
+  year is a Pflicht (Ganze Firma). Template items name a permit type only for a per-date permit ("GEMA anmelden",
+  the Schaustellerliste); "Standrohr bestellen" is practical work of the date and names none, since the Standrohr
+  is rented per season.
+- **Tasks**: past tasks are `done` (3 % `skipped`), except 4 overdue ones on current markets and 1 on the last past market (`rolloverCount` 1–5); up to 2 recent permit tasks without a filed permit wait on an authority (`waiting_external`). Future tasks are `todo` or `in_progress`. A task whose item applies for a per-date permit (`permitType`: GEMA anmelden, Schaustellerliste) is `done` once that permit is applied for or granted, as the app's `linkPermitTasks` does; the seed links them, one task per permit. No template item applies for a permit covering several dates (ADR 0024). Counts are of top-level tasks, as in the app's lists.
 - **Subtasks** follow their parent: a done, skipped or cancelled parent has all subtasks the same; an open parent has
   some done (in progress: at least one; overdue: all but the last); a parent waiting on an authority has its first
   subtask done and the others waiting. A done subtask may be due later (done early), never completed after today.
-- **Permits** (research 13 §4, `dictionaries/permits.ts`): every Ort applies for one **Marktgenehmigung
-  (Sondernutzung)** and **Festsetzung (§ 69 GewO)** per season at the Ordnungsamt; on private ground (Stadion, P6,
-  Südbrücke) the **landowner's OK** replaces the Marktgenehmigung, the Festsetzung stays. A season permit is one per
-  Ort (requirement) and season and covers every market there (ADR 0024; shared Orte are handled by hand), titled by
-  the requirement; the seed gives each its own "… beantragen" task (no event, due at apply-by, done once filed). The rest follows the
-  client's sheets: **PVBT** per date (Riehler Gürtel, Hoffnungsthal 96 h; assumed for Südstadt and the Rodenkirchen
-  Straßenfest), **Plakatierung** with city stickers (Riehler Gürtel, Hoffnungsthal, Kerpen), **Standrohr** per date
-  at the water supplier (Altstadt, Hoffnungsthal, festivals and wine markets), a road closure (verkehrsrechtliche
-  Anordnung: Altstadt, Riehler Gürtel, Hoffnungsthal, Rodenkirchen Straßenfest), the **Schaustellerliste** (type
-  `other`, Hoffnungsthal), toilets everywhere except Hoffnungsthal (school toilets). Lead times follow the sheets
-  (Genehmigung 6 months, Altstadt 7; Standrohr 30 days; Schaustellerliste 2 months). The office prepares a month
-  before filing and files 3–14 days before apply-by; the Festsetzung goes in with the Marktgenehmigung and is
-  decided one to three weeks after it; the city decides both some weeks before the market's first date. Altstadt
+- **Permits** (research 13 §4, `dictionaries/permits.ts`, levels of ADR 0024): every municipal Ort applies once per
+  season at the Ordnungsamt for the **Ordnungsbehördliche Erlaubnis** (formerly "Marktgenehmigung (Sondernutzung)")
+  and the **Festsetzung (§ 69 GewO)**, and for the **Ausschankgenehmigung** where the market serves drinks
+  (Rudolfplatz, Kerpen, Hoffnungsthal, the Rodenkirchen Straßenfest); on private ground (Stadion, P6, Südbrücke) the
+  **owner's agreement** per season takes the Erlaubnis's place, in addition to the city's Festsetzung. A season permit
+  is one per Ort (requirement) and season and covers every market there (shared Orte are handled by hand), titled by
+  the requirement; the seed gives each its own "… beantragen" task (no event, due at apply-by, done once filed). Its
+  apply-by is fixed in the calendar: lead time before the season starts on 1 March (as the app's `season-permits`
+  job sets it; the Erlaubnis and its partners ≈ early September), or earlier where the Ort's first date requires it.
+  The rest follows the client's sheets: **Halteverbot (PVBT)** per date (Riehler Gürtel, Hoffnungsthal 96 h; assumed
+  for Südstadt and the Rodenkirchen Straßenfest), each with its own "… beantragen" task on its date (seed);
+  **GEMA** per date only where music is played (Stadtfeste in Rodenkirchen and Kerpen, the Food & Wine markets at
+  Rudolfplatz and in Kerpen; Hoffnungsthal's programme is the Ortsring's), applied for by the template item "GEMA
+  anmelden"; **Plakatierung** with city stickers (Riehler Gürtel, Hoffnungsthal, Kerpen); the **Standrohr** rented
+  per season at the water supplier (Altstadt antiques, Rudolfplatz, the Rodenkirchen Straßenfest, Kerpen,
+  Hoffnungsthal); a road closure (verkehrsrechtliche Anordnung: Altstadt, Riehler Gürtel, Hoffnungsthal, Rodenkirchen
+  Straßenfest); the **Schaustellerliste** (type `other`, per date, Hoffnungsthal); toilets everywhere except
+  Hoffnungsthal (school toilets). Lead times follow the sheets (Genehmigung 6 months, Altstadt 7; Standrohr 30 days;
+  Schaustellerliste 2 months). The office prepares a month before filing and files 3–14 days before apply-by; the
+  Festsetzung and the Ausschank go in with the Erlaubnis and are decided one to three weeks after it; the city
+  decides them some weeks before the market's first date. Altstadt
   keeps the collective window (October–November, decision mid-January), the Stadion its date request by end of
   October (decision mid-December). A decision date in the past means granted; current-season permits of past events
   are granted. Deliberate exceptions: at most 2 late permits (PVBT, toilets or road closure, not filed) and 2

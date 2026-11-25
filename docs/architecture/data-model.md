@@ -192,15 +192,21 @@ erDiagram
   `requires_attachment`), `is_key` (Kernaufgabe, manual flag, copied to the task by
   instantiation and propagation), `requires_approval_by?`, `condition` (on event
   type/venue attributes), sort), `permit_type?` (0008: the item applies for a permit of that type, e.g.
-  "Marktgenehmigung beantragen" → `market_permit`; its tasks get `task.permit_id` = the event's permit of that type
+  "Halteverbot beantragen" → `no_parking`, "GEMA anmelden" → `gema`; its tasks get `task.permit_id` = the event's
+  permit of that type
   via `linkPermitTasks` and complete automatically once that permit is applied for or granted). A permit that
   covers several dates (cadence `per_season | per_year | multi_year | standing`) is one per Ort (requirement) and
   season and is applied for by **its own** "… beantragen" task ([ADR 0024](adr/0024-recurring-work-three-levels.md)):
   `linkPermitTasks` links template tasks **only to per-date permits** (`per_event`, or a hand-made permit without a
   requirement linked to the event), and the logbook fill leaves out a per-date permit's own task when a template task
-  of that date names its type. So no task ever applies twice for the same permit. (The interim "one apply task on the
-  first covered event" rule of Fahrplan 18, the season task of R11 and the "main permit" rule of R30 are gone with
-  it.)
+  of that date names its type. **One task applies for a permit, never two** (Fahrplan SAI6): `linkPermitTasks` skips
+  a permit that already has a task (its own "… beantragen" task or a template task linked before), and of several
+  template tasks naming its type it links the earliest due; the others stay plain tasks. An item whose type covers
+  several dates at the event's Ort (e.g. an old "Marktgenehmigung beantragen") is not dropped at instantiation: it is
+  simply a plain task of the date, never linked (the simplest safe option: nothing the office wrote into a template
+  disappears, and nothing is counted twice). Template items therefore name only per-date types; the synthetic
+  templates name `gema` and `other` (Schaustellerliste) only. (The interim "one apply task on the first covered
+  event" rule of Fahrplan 18, the season task of R11 and the "main permit" rule of R30 are gone with it.)
   *(implemented 0002: `task_category` also has `office` (the synthetic Büro tasks); `phase` is `pre | live | post`;
   `priority` is `low | normal | high`; `checklist_template.kind` (`event | permit`, a permit-prep template has
   kind `permit`) and `event_type_id?`; `template_version` has `published_at`, `published_by_id`, `change_note`, a
@@ -307,7 +313,14 @@ erDiagram
   *(implemented 0002: `permit` also has `venue_id?` and `season?` (denormalised from the requirement so the logbook
   groups by location without a join and ad-hoc permits work); all dates are `date`; `apply_by`, `status` default
   `not_started`; `conditions` is `text[]`; `permit_requirement.event_type_id?`, `archived_at`; month-days are text
-  `MM-DD` with a check; `permit_type` has the full list of the data model, the synthetic data uses six.)*
+  `MM-DD` with a check; `permit_type` has the full list of the data model, the synthetic data uses eleven.)*
+  *(Levels of the permit types, ADR 0024, as the synthetic data and the "Was braucht dieser Ort?" defaults have them:
+  **per date** (`per_event`): `no_parking` (Halteverbot/PVBT), `gema`, `other` (Schaustellerliste); **per Ort and
+  season** (`per_season`): `market_permit` (titled **"Ordnungsbehördliche Erlaubnis"**, formerly "Marktgenehmigung
+  (Sondernutzung)"), `market_fixing` (Festsetzung), `catering` (**Ausschankgenehmigung**, where drinks are served),
+  `water` (Standrohr, rented for the season), `landowner_ok` (private ground, in addition to the city's Festsetzung),
+  `signage`, `traffic_order`, `toilets`. The city's three (Erlaubnis, Festsetzung, Ausschank) are applied for
+  together, about six months before the season starts on 1 March.)*
   *(ADR 0024, migration 0025: one permit per Ort (requirement) and season for a cadence covering several dates; it
   covers every market at the Ort (shared Orte are handled by hand: R27's per-market split and `permit.season_id`
   are gone). Single-date permits are titled "<requirement> – <date>", the others by the requirement. The nightly job
@@ -384,7 +397,10 @@ erDiagram
   `next_due_on?`, `next_due_km?`, `lead_days`, `responsible_staff_member_id`, `creates_payable` (bool),
   `last_done_on?`. Completing records date/cost/document and rolls forward. Seeds: HU, UVV (DGUV 70) yearly,
   service, tyres, insurances, vehicle tax, licence check (6-monthly practice; store date + checker only), KSK
-  report 31 March.
+  report 31 March. **Pflicht (Ganze Firma)** (`scope = company`, ADR 0024 level 3, Fahrplan SAI5): the company's
+  work per year, seeded as "Termine für die neue Saison planen" (1 August, before the season's applications),
+  "Versicherung für alle Märkte erneuern" (1 January, creates a payable), "Toiletten für die Saison buchen",
+  "Stromvertrag prüfen und verlängern" and "Marketing: Saisonwerbung" (every 4 months).
 - **vehicle_issue**: vehicle, reported_by, photo, severity, status.
   *(implemented 0002: `vehicle` has `name`, `make`, `model`, `odometer_recorded_on`, unique `plate` and `vin`;
   `obligation` has `kind` (`hu | uvv | service | tyres | insurance | vehicle_tax | licence_check | report | other`),
@@ -456,8 +472,9 @@ createEvent(preset | agreement, date [, durationDays]):
               for cadences covering several dates (ADR 0024)
           else → new permit (apply_by = event_day − lead_time, or window end)
               + its "beantragen" task: always for a permit covering several dates (no event), for a per-date
-              permit unless a template task of the date names its type
-          linkPermitTasks: template tasks with a permit_type → the date's per-date permit of that type
+              permit unless a free template task of the date names its type
+          linkPermitTasks: template tasks with a permit_type → the date's per-date permit of that type,
+              only if that permit has no applying task yet (one per permit; the rest stay plain tasks)
       auto-confirm: all required permits already granted → planned → confirmed (audit auto, same tx)
       (undo "Rückgängig" after a run: audit-based, an event qualifies while its audit trail holds only
        event.create (+ that automatic confirmation); status is not looked at)

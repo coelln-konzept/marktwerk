@@ -289,6 +289,10 @@ const NACHTWACHE = marketDay({
   estimateMinutes: 600,
 });
 
+/**
+ * Ordering the standpipe for this date. Not an application: the Standrohr permit covers the season and has its own
+ * "… beantragen" task (ADR 0024), so this item names no permit type.
+ */
 const STANDROHR_BESTELLEN = item({
   key: "standrohr_bestellen",
   title: "Standrohr bestellen",
@@ -297,8 +301,20 @@ const STANDROHR_BESTELLEN = item({
   offsetDays: -30,
   dutyRoleKey: "water_power",
   estimateMinutes: 20,
-  permitType: "water", // ordering the standpipe is the application at the water supplier (part C)
   children: [{ key: "abholtermin", title: "Abholtermin vereinbaren", estimateMinutes: 10 }],
+});
+
+/** GEMA is per date (ADR 0024): this task applies for the date's GEMA permit, so the permit needs no task of its own. */
+const GEMA_ANMELDEN = item({
+  key: "gema_anmelden",
+  title: "GEMA anmelden",
+  description: "Musik mit Bühnenprogramm und Uhrzeiten melden; die Musikfolge danach nachreichen.",
+  phase: "pre",
+  category: "permits",
+  offsetDays: -14,
+  dutyRoleKey: "permits",
+  estimateMinutes: 20,
+  permitType: "gema",
 });
 
 const WERBUNG_AUFHAENGEN = item({
@@ -654,6 +670,12 @@ export const CLIENT_MARKET_PRESET_KEYS: Readonly<Record<ClientMarketKey, readonl
 
 /* ------------------------------------------------------------- markets without their own sheet yet */
 
+/*
+ * Template items name a permit type only for a permit of a single date (ADR 0024): Schaustellerliste, GEMA. Work on a
+ * permit that covers several dates (Erlaubnis, Festsetzung, Ausschank, Standrohr, owner's agreement, toilets …) is
+ * the permit's own "… beantragen" task, once per Ort and season, never a template item.
+ */
+
 /**
  * What a market without its own sheet gets on top of the Grundvorlage, by event type: items from the client
  * sheets that markets of that kind plausibly need. Each carries ASSUMPTION_NOTE (research 13 §5 q5).
@@ -663,6 +685,7 @@ const ASSUMED_BY_TYPE: Readonly<Record<EventTypeKey, readonly ItemBlueprint[]>> 
   antique: [WERBUNG_AUFHAENGEN, LEIHSTAENDE_AUFBAUEN, LEIHSTAENDE_ABBAUEN],
   city_festival: [
     STANDROHR_BESTELLEN,
+    GEMA_ANMELDEN,
     STROM_WASSER_ORGANISIEREN,
     ABFLATTERN_VERKEHR,
     NACHTWACHE,
@@ -670,6 +693,7 @@ const ASSUMED_BY_TYPE: Readonly<Record<EventTypeKey, readonly ItemBlueprint[]>> 
   ],
   food_wine: [
     STANDROHR_BESTELLEN,
+    GEMA_ANMELDEN,
     STROM_WASSER_ORGANISIEREN,
     LEIHSTAENDE_AUFBAUEN,
     LEIHSTAENDE_ABBAUEN,
