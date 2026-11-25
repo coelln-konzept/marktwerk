@@ -151,6 +151,44 @@ describe("listCalendarDeadlines", () => {
     ]);
   });
 
+  it("gives each permit entry the logbook's state for the Liste badge (UX-051)", async () => {
+    await db.insert(permit).values([
+      {
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "signage",
+        title: "Schilder",
+        season: 2026,
+        status: "applied",
+        expectedDecisionOn: "2026-10-16",
+      },
+      {
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "toilets",
+        title: "Toiletten",
+        season: 2026,
+        status: "preparing",
+        applyBy: "2026-10-29",
+      },
+    ]);
+    const items = await listCalendarDeadlines(
+      owner,
+      RANGE,
+      selection({ deadlines: ["permits"] }),
+      TODAY,
+    );
+    const states = Object.fromEntries(items.map((i) => [i.title.split(" · ")[0], i.permitState]));
+    expect(states).toMatchObject({
+      // Not started, apply-by passed: "Fehlt".
+      "Antrag: Wasser": "missing",
+      // Filed, the expected decision date has passed: "Antwort überfällig".
+      "Entscheidung erwartet: Schilder": "answer_overdue",
+      "Antrag: Toiletten": "preparing",
+    });
+    expect(items).toHaveLength(3);
+  });
+
   it("only fetches the layers that are switched on", async () => {
     const onlyPermits = await listCalendarDeadlines(
       owner,

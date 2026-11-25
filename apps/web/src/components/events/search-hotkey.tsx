@@ -1,9 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
+import { useShell } from "@/components/shell/shell-context";
 
-/** `/` jumps to the search field of a list (UX concept §6). Ignored while typing or on top of a dialog. */
+/**
+ * `/` jumps to the search field of a list (UX concept §6). Ignored while typing or on top of a dialog.
+ * It also sets the field's `aria-keyshortcuts="/"`, only while single keys are on (UX-054): turned off,
+ * the shell stops `/` and the field must not advertise it.
+ */
 export function SearchHotkey({ inputId }: { inputId: string }) {
+  const { singleKeys } = useShell();
+  useEffect(() => {
+    const input = document.getElementById(inputId);
+    if (!singleKeys || !input) return;
+    input.setAttribute("aria-keyshortcuts", "/");
+    return () => input.removeAttribute("aria-keyshortcuts");
+  }, [inputId, singleKeys]);
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key !== "/" || event.repeat || event.defaultPrevented) return;

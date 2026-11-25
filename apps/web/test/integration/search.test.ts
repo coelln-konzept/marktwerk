@@ -239,8 +239,11 @@ describe("searchAs", () => {
     const titles = async (q: string, kind: string) =>
       (await search(owner, q)).filter((h) => h.kind === kind).map((h) => h.title);
     expect(await titles("koeln plakate", "task")).toEqual(await titles("köln plakate", "task"));
-    // Both test events are at the venue in Köln.
-    expect(await titles("Koeln", "event")).toEqual(["Brüsseler Platz Markt", "Fremder Markt"]);
+    // Both test events are at the venue in Köln (their order follows how close they are to today).
+    expect((await titles("Koeln", "event")).sort()).toEqual([
+      "Brüsseler Platz Markt",
+      "Fremder Markt",
+    ]);
     expect(await titles("bruesseler", "event")).toEqual(["Brüsseler Platz Markt"]);
     expect(await titles("troedelmarkt huerth", "task")).toEqual(["Trödelmarkt Hürth vorbereiten"]);
     expect(await titles("Müller", "task")).toEqual(["Mueller anrufen"]);

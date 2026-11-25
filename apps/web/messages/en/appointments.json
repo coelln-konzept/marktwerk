@@ -38,10 +38,10 @@
     "cancel": "Cancel",
     "loading": "Loading …",
     "toast": {
-      "created": "Meeting created",
-      "saved": "Meeting saved",
+      "created": "Meeting “{title}” created",
+      "saved": "Meeting “{title}” saved",
       "undo": "Undo",
-      "createdUndone": "Meeting removed"
+      "createdUndone": "Meeting “{title}” removed"
     },
     "errors": {
       "title_required": "Give the meeting a name.",
@@ -78,8 +78,8 @@
       "openContact": "Open in Contacts",
       "edit": "Edit",
       "archive": "Archive",
-      "archived": "Meeting archived",
-      "restored": "Meeting restored",
+      "archived": "Meeting “{title}” archived",
+      "restored": "Meeting “{title}” restored",
       "failed": "That didn't work. Please try again.",
       "timeRange": "{from}–{to}",
       "timeFrom": "from {from}",
