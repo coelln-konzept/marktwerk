@@ -1,9 +1,10 @@
 "use client";
 
-import { TriangleAlert } from "lucide-react";
+import { TriangleAlert, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useOnline } from "@/components/shell/connection-guard";
 import { Topbar } from "@/components/shell/topbar";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
@@ -11,20 +12,39 @@ import { EmptyState } from "@/components/ui/states";
 /**
  * Anything that throws while a page renders or a transition runs lands here instead of on Next's
  * English "This page couldn't load": the sidebar stays, so the way out is one click. The shell
- * (layout) is not wrapped by this boundary; `global-error.tsx` covers the layout itself.
+ * (layout) is not wrapped by this boundary; `global-error.tsx` covers the layout itself. Offline, it
+ * says so (not "etwas schiefgelaufen") and tries again by itself once the connection is back (UX-007).
  */
 export default function AppError({ error, retry }: { error: unknown; retry: () => void }) {
   const t = useTranslations("errors");
+  const online = useOnline();
   useEffect(() => {
     console.error(error);
   }, [error]);
+  // Retries on the change of `online` itself, not from an own `online` listener: `useOnline` re-renders
+  // on that event first, and the effect cleanup would remove such a listener before the browser calls it.
+  const wasOffline = useRef(!online);
+  useEffect(() => {
+    if (!online) {
+      wasOffline.current = true;
+      return;
+    }
+    if (!wasOffline.current) return;
+    wasOffline.current = false;
+    retry();
+  }, [online, retry]);
+  const title = online ? t("failedTitle") : t("offlineTitle");
   return (
     <>
-      <Topbar crumbs={[{ label: t("failedTitle") }]} />
+      <Topbar crumbs={[{ label: title }]} />
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-4 py-6 lg:px-7">
-        <h1 className="font-semibold text-[22px] tracking-tight">{t("failedTitle")}</h1>
+        <h1 className="font-semibold text-[22px] tracking-tight">{title}</h1>
         <Panel role="alert">
-          <EmptyState icon={TriangleAlert} tone="critical" title={t("failedHint")}>
+          <EmptyState
+            icon={online ? TriangleAlert : WifiOff}
+            tone="critical"
+            title={online ? t("failedHint") : t("offlineHint")}
+          >
             <button
               type="button"
               onClick={() => retry()}

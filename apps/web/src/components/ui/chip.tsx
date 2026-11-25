@@ -13,7 +13,10 @@ function Count({ value }: { value: number }) {
   );
 }
 
-/** Filter chip with a count. Rendered as a link so filters live in the URL. */
+/**
+ * Filter chip with a count. Rendered as a link so filters live in the URL; it replaces the history entry,
+ * so trying filters does not fill the browser's Back with them (UX-065).
+ */
 export function FilterChip({
   href,
   active,
@@ -33,6 +36,7 @@ export function FilterChip({
   return (
     <Link
       href={href as never}
+      replace
       scroll={false}
       aria-current={active ? "true" : undefined}
       title={title}

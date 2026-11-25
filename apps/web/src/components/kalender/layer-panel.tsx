@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from
 import { saveKalenderLayers } from "@/app/(app)/kalender/actions";
 import { type EventTypeKey, EventTypeSquare } from "@/components/ui/event-type-tag";
 import { FilterGroup } from "@/components/ui/filter-bar";
+import { MarketMarker } from "@/components/ui/market-marker";
 import { UI_STATE_COOKIES, writeUiState } from "@/lib/ui-state";
 import { cn } from "@/lib/utils";
 import type { CalendarLayer } from "@/server/queries/due";
@@ -20,6 +21,19 @@ import {
   PRESETS,
   type PresetKey,
 } from "./layers";
+
+/** One market of the Märkte group (Monat, Liste): the same filter as the Jahr legend (`?ohne=`). */
+export type MarketOption = {
+  /** Preset id, or the key of the Einzeltermine. */
+  key: string;
+  name: string;
+  code: string | null;
+  color: string | null;
+  typeKey: string | null;
+  /** Events in the shown range (of the shown types, after the narrowing), also while it is switched off. */
+  count: number;
+  hidden: boolean;
+};
 
 type Props = {
   /** The toolbar row of the page (navigation, view switch); the "Ebenen" button joins it on the right. */
@@ -45,6 +59,10 @@ type Props = {
   keep: Record<string, string>;
   /** How many layers differ from the default selection (shown on the collapsed button). */
   changedCount: number;
+  /** The changes in words ("Aus: Feiertage NRW · Eingegrenzt: Neuss"), the button's tooltip and spoken text. */
+  changedSummary?: string;
+  /** The markets of the shown range (Monat, Liste); switching one off hides its events (`?ohne=`). */
+  markets?: MarketOption[];
   /**
    * Only the event layers (Jahr view): no presets and no Fristen/Team groups, since the Jahresübersicht
    * shows markets and holidays only. The saved selection of those layers is kept as it is.
@@ -88,6 +106,8 @@ export function LayerPanel({
   canMine,
   keep,
   changedCount,
+  changedSummary,
+  markets = [],
   eventsOnly = false,
 }: Props) {
   const t = useTranslations("kalenderPage.layers");
@@ -124,11 +144,26 @@ export function LayerPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [sheetOpen]);
 
-  function apply(next: Layers) {
+  /** `hidden` replaces the switched-off markets (`ohne`); left out, they stay as they are. */
+  function apply(next: Layers, hidden?: string[]) {
     const params = new URLSearchParams(keep);
     for (const [k, v] of Object.entries(layerParams(next))) if (v !== undefined) params.set(k, v);
+    if (hidden !== undefined) {
+      if (hidden.length > 0) params.set("ohne", [...hidden].sort().join(","));
+      else params.delete("ohne");
+    }
     void saveKalenderLayers(next).catch(() => {});
     startTransition(() => router.replace(`/kalender?${params}` as never, { scroll: false }));
+  }
+
+  function hiddenFromForm(): string[] | undefined {
+    if (markets.length === 0) return undefined;
+    const data = new FormData(formRef.current as HTMLFormElement);
+    const on = data.getAll("markt");
+    // Switched-off markets that are not listed here (no dates in this range) stay switched off.
+    const listed = new Set(markets.map((m) => m.key));
+    const elsewhere = (keep.ohne ?? "").split(",").filter((k) => k && !listed.has(k));
+    return [...elsewhere, ...markets.filter((m) => !on.includes(m.key)).map((m) => m.key)];
   }
 
   function fromForm(): Layers {
@@ -161,7 +196,8 @@ export function LayerPanel({
           {changedCount > 0 && (
             <button
               type="button"
-              onClick={() => apply(DEFAULT_LAYERS)}
+              // Monat and Liste also show every market again; the Jahr legend has its own "Alle zeigen".
+              onClick={() => apply(DEFAULT_LAYERS, eventsOnly ? undefined : [])}
               className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2 font-medium text-accent-soft-foreground hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
             >
               <RotateCcw aria-hidden className="size-3.5" />
@@ -174,6 +210,7 @@ export function LayerPanel({
             onClick={toggle}
             aria-expanded={expanded}
             aria-controls="kalender-layers"
+            title={changedCount > 0 ? changedSummary : undefined}
             className="inline-flex min-h-8 cursor-pointer items-center gap-2 rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover aria-expanded:bg-hover"
           >
             {pending ? (
@@ -185,6 +222,7 @@ export function LayerPanel({
             {changedCount > 0 && (
               <span className="tabular font-semibold text-accent-soft-foreground">
                 · {t("changed", { count: changedCount })}
+                {changedSummary && <span className="sr-only">: {changedSummary}</span>}
               </span>
             )}
             <ChevronDown
@@ -246,10 +284,10 @@ export function LayerPanel({
             ref={formRef}
             method="get"
             action="/kalender"
-            onChange={() => apply(fromForm())}
+            onChange={() => apply(fromForm(), hiddenFromForm())}
             onSubmit={(e) => {
               e.preventDefault();
-              apply(fromForm());
+              apply(fromForm(), hiddenFromForm());
             }}
             className="flex flex-col gap-4 px-4 py-4"
           >
@@ -320,6 +358,42 @@ export function LayerPanel({
                 </fieldset>
               );
             })}
+
+            {markets.length > 0 && (
+              <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
+                <legend className="mb-1 p-0 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">
+                  {t("markets")}
+                </legend>
+                <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
+                  {markets.map((market) => (
+                    <LayerCheck
+                      key={market.key}
+                      name="markt"
+                      value={market.key}
+                      checked={!market.hidden}
+                      count={market.count}
+                      swatch={
+                        <span className="flex w-9 shrink-0 items-center gap-1">
+                          <MarketMarker
+                            color={market.color}
+                            typeKey={market.typeKey}
+                            shape="dot"
+                            className="size-2.5 shrink-0"
+                          />
+                          {market.code && (
+                            <span className="font-semibold text-[11px] tracking-wide">
+                              {market.code}
+                            </span>
+                          )}
+                        </span>
+                      }
+                      label={market.name}
+                    />
+                  ))}
+                </div>
+                <p className="m-0 px-1 text-muted-foreground text-tiny">{t("marketsHint")}</p>
+              </fieldset>
+            )}
 
             <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
               <legend className="mb-1 p-0 font-semibold text-muted-foreground text-tiny uppercase tracking-wide">
@@ -424,8 +498,14 @@ function LayerCheck({
       />
       {swatch}
       <span className="min-w-0 flex-1">{label}</span>
+      {/* Counted whether the layer is on or off (UX-051), so an off layer does not read as empty. */}
       {count !== undefined && (
-        <span className="tabular inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-neutral-bg px-1 font-semibold text-[11.5px] text-foreground-2">
+        <span
+          className={cn(
+            "tabular inline-grid h-5 min-w-5 place-items-center rounded-full bg-status-neutral-bg px-1 font-semibold text-[11.5px] text-foreground-2",
+            !checked && "opacity-70",
+          )}
+        >
           {count}
         </span>
       )}

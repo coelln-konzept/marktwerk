@@ -8,18 +8,22 @@ import { rowFocus } from "@/components/ui/table";
 import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { AppointmentView } from "@/server/queries/appointments";
-import type { OverviewDue } from "@/server/queries/overview";
+import type { OtherTask, OverviewDue } from "@/server/queries/overview";
 import { DueGroups } from "./due-groups";
+import { OtherTasks } from "./other-tasks";
 
 /**
  * "Heute & nächste Tage", the main panel of the Übersicht (decision 2026-11-13): what to do today and what the
  * next days need. Today's Besprechungen first, then the groups Überfällig · Heute · Nächste Tage (due in the
  * next 7 days, with the date) and, when there are any, the tasks waiting for somebody else. Each group is
  * bundled per market in ranking order (`rankDue`: Kernaufgaben first, the soonest market first), with
- * one-click Erledigt and Zurückstellen; long markets and long groups open the rest in place.
+ * one-click Erledigt and Zurückstellen; long markets and long groups open the rest in place. Last, "Weitere
+ * Aufgaben": tasks without a market that no group shows (UX-013). On phones Heute comes first and
+ * Überfällig is one line with its count (UX-006).
  */
 export async function TodayCard({
   due,
+  otherTasks = [],
   appointments = [],
   today,
   canSnooze,
@@ -27,6 +31,8 @@ export async function TodayCard({
   className,
 }: {
   due: OverviewDue;
+  /** "Weitere Aufgaben" (`Overview.otherTasks`). */
+  otherTasks?: OtherTask[];
   /** Today's Besprechungen (all-day first, then by time); the group is left out when there are none. */
   appointments?: AppointmentView[];
   today: string;
@@ -64,8 +70,11 @@ export async function TodayCard({
           groups={["overdue", "today", "soon", "waiting"]}
           today={today}
           canSnooze={canSnooze}
+          phoneFirst="today"
+          phoneCollapsed={["overdue"]}
         />
       )}
+      <OtherTasks tasks={otherTasks} today={today} canWrite={canSnooze} />
     </Panel>
   );
 }

@@ -92,14 +92,36 @@ test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the 
   await expect(page.getByRole("group", { name: "Filter" })).toHaveCount(0);
   await expect(page.getByText(/Aufwand =/)).toHaveCount(0);
 
-  // Phone (390 px): main panel, weekend box, permits stack in that order; nothing scrolls sideways.
+  // Phone (390 px): main panel, weekend box, permits stack in that order, except that a market running today
+  // moves the weekend box to the top (UX-006); nothing scrolls sideways.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const [dueY = 0, weekendY = 0, permitsY = 0] = await Promise.all(
     [due, weekend, permits].map(async (h) => (await h.boundingBox())?.y ?? 0),
   );
-  expect(dueY).toBeLessThan(weekendY);
-  expect(weekendY).toBeLessThan(permitsY);
+  const marketToday = (await page.locator("section[data-market-today]").count()) > 0;
+  if (marketToday) expect(weekendY).toBeLessThan(dueY);
+  else expect(dueY).toBeLessThan(weekendY);
+  expect(Math.max(dueY, weekendY)).toBeLessThan(permitsY);
+
+  // Phone: Heute comes first; Überfällig is one line with its count, its rows hidden until "Anzeigen".
+  const today = main.getByRole("heading", { level: 3, name: /^Heute\s*\d+$/ });
+  const overdueToggle = main.getByRole("button", { name: /^Überfällig\s*\d+/ });
+  await expect(today).toBeVisible();
+  await expect(overdueToggle).toBeVisible();
+  await expect(overdueToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(overdueToggle).toContainText("Anzeigen");
+  expect((await today.boundingBox())?.y ?? 0).toBeLessThan(
+    (await overdueToggle.boundingBox())?.y ?? 0,
+  );
+  const overdueRows = page.locator(`[id="${await overdueToggle.getAttribute("aria-controls")}"]`);
+  await expect(overdueRows).toBeHidden();
+  // The toggle is a client component: wait for hydration before clicking it.
+  await page.waitForLoadState("networkidle");
+  await overdueToggle.click();
+  await expect(overdueToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(overdueToggle).toContainText("Ausblenden");
+  await expect(overdueRows.locator("li[data-row]").first()).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -670,21 +692,23 @@ test("Markt planen: Saturday and Sunday picked become one two-day event (switcha
     .check();
   await sheet.getByRole("button", { name: "Weiter" }).click();
   await sheet.getByRole("button", { name: "Einzeln anklicken" }).click();
-  // Start from nothing picked, then pick one Saturday and the Sunday after it.
-  const picked = sheet.locator("button[data-day][aria-pressed=true]");
-  while ((await picked.count()) > 0) await picked.first().click();
-  // A free Saturday whose Sunday is free too (a day the place is taken, "Ort belegt", is not merged).
-  const saturdays = sheet.locator(
-    "button[data-day][aria-label^='Sa ']:not([disabled]):not([aria-label*='belegt'])",
-  );
+  // Start from nothing picked (a market with a rhythm or past dates starts with its dates picked, also in
+  // months not shown), then pick one Saturday and the Sunday after it.
+  const clear = sheet.getByRole("button", { name: "Alle abwählen" });
+  if (await clear.isVisible()) await clear.click();
+  await expect(sheet.getByText("Noch keine Termine gewählt")).toBeVisible();
+  // A free Saturday whose Sunday is free too: not a day the place is taken by another market ("Ort belegt")
+  // and not one this market already has ("schon geplant", skipped as "gibt es schon"; since UX-042 the
+  // market's own dates no longer count as "belegt"). Neither would be merged.
+  const free = ":not([disabled]):not([aria-label*='belegt']):not([aria-label*='schon geplant'])";
+  const saturdays = sheet.locator(`button[data-day][aria-label^='Sa ']${free}`);
   let sunday = "";
   for (let i = 5; i < (await saturdays.count()) && sunday === ""; i++) {
     const day = (await saturdays.nth(i).getAttribute("data-day")) as string;
     const next = new Date(`${day}T12:00:00Z`);
     next.setUTCDate(next.getUTCDate() + 1);
     const candidate = next.toISOString().slice(0, 10);
-    const free = `button[data-day='${candidate}']:not([disabled]):not([aria-label*='belegt'])`;
-    if ((await sheet.locator(free).count()) === 0) continue;
+    if ((await sheet.locator(`button[data-day='${candidate}']${free}`).count()) === 0) continue;
     await saturdays.nth(i).click();
     sunday = candidate;
   }
@@ -701,6 +725,40 @@ test("Markt planen: Saturday and Sunday picked become one two-day event (switcha
   await merge.uncheck();
   await sheet.getByRole("button", { name: "Weiter" }).click();
   await expect(sheet.getByRole("button", { name: "2 Veranstaltungen anlegen" })).toBeVisible();
+});
+
+test("Markt planen: a market with a rhythm starts with its own dates picked, in its months only; a reload stays on step 2", async ({
+  page,
+}) => {
+  await page.goto("/veranstaltungen?erzeugen=1");
+  await page.waitForLoadState("networkidle");
+  const sheet = page.getByRole("dialog");
+  // Kerpen Bauernmarkt: 1st Sunday of May and of October (not May to October).
+  await sheet
+    .getByRole("radio", { name: /Kerpen Bauernmarkt/ })
+    .first()
+    .check();
+  await sheet.getByRole("button", { name: "Weiter" }).click();
+  await expect(sheet.getByText("Vorschlag aus dem Rhythmus des Markts")).toBeVisible();
+  await expect(sheet.getByText(/Sonntag im Monat, Mai und Oktober \d{4}/)).toBeVisible();
+  await expect(sheet.getByText("2 Termine gewählt")).toBeVisible();
+  const months = sheet.getByRole("group", { name: "Monate" });
+  await expect(months.getByRole("button", { name: "Mai" })).toHaveAttribute("aria-pressed", "true");
+  await expect(months.getByRole("button", { name: "Juni" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+
+  // The URL carries the market: a reload lands on step 2 again, with the same dates.
+  await expect(page).toHaveURL(/[?&]vorlage=/);
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(sheet.getByRole("group", { name: "Auswahl" })).toBeVisible();
+  await expect(sheet.getByText("2 Termine gewählt")).toBeVisible();
+
+  // "Alle abwählen" clears every picked date, in every month.
+  await sheet.getByRole("button", { name: "Alle abwählen" }).click();
+  await expect(sheet.getByText("Noch keine Termine gewählt")).toBeVisible();
 });
 
 test("Archiv: past events only, newest first; Als Vorlage speichern opens the prefilled market form", async ({
@@ -844,8 +902,11 @@ test("Permit: an undo the server refuses shows a red error toast, never the succ
   await expect(other.getByText(`„${title}“ entfernt.`)).toBeVisible();
   await other.close();
 
-  // The top bar's Rückgängig runs the toast's own undo, without racing the toast's 8 s.
-  await page.getByRole("button", { name: /^Rückgängig: Genehmigung angelegt\./ }).click();
+  // The top bar's Rückgängig runs the toast's own undo, without racing the toast's 8 s. Its name ends with
+  // the key hint; the toast's own button is named "Rückgängig: Genehmigung angelegt." (UX-031).
+  await page
+    .getByRole("button", { name: "Rückgängig: Genehmigung angelegt. (Strg+Z)", exact: true })
+    .click();
   const region = page.getByRole("region", { name: "Hinweise" });
   const toast = region
     .getByRole("alert")
@@ -1566,11 +1627,12 @@ test('"+ Neu" › Besprechung: name and today, saved with a toast; the dialog cl
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   await expect(dialog.getByLabel("Datum")).not.toHaveValue("");
   await dialog.getByRole("button", { name: "Anlegen" }).click();
-  await expect(page.getByText("Besprechung angelegt")).toBeVisible();
+  // The toast names the Besprechung (UX-031), so two in a row stay apart.
+  await expect(page.getByText(`Besprechung „${name}“ angelegt`)).toBeVisible();
   await expect(dialog).toBeHidden();
   await expect(page).not.toHaveURL(/neu=besprechung/);
   await toastUndo(page).click(); // leaves no appointment behind
-  await expect(page.getByText("Besprechung entfernt")).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ entfernt`)).toBeVisible();
 });
 
 test("Kalender: a day's + opens the Besprechung dialog with that date", async ({ page }) => {
@@ -1599,7 +1661,7 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   await dialog.getByLabel("E-Mail").fill("e2e.kontakt@example.com");
   await dialog.getByLabel("Als Kontakt speichern").uncheck(); // stays on the Besprechung, no Kontakte entry left over
   await dialog.getByRole("button", { name: "Anlegen" }).click();
-  await expect(page.getByText("Besprechung angelegt")).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ angelegt`)).toBeVisible();
   await expect(dialog).toBeHidden();
 
   // Übersicht: first group of "Heute & nächste Tage", all-day Besprechungen first.
@@ -1631,15 +1693,18 @@ test("Besprechung: appears in the Kalender (Monat and Liste) and under Besprechu
   // Archive from the Vorschau: gone from the Übersicht, back with the undo.
   await page.goto("/?vorschau=besprechung:" + (await appointmentId(page, name)));
   await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
-  await expect(page.getByText("Besprechung archiviert")).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ archiviert`)).toBeVisible();
   await expect(group.getByRole("link", { name })).toHaveCount(0);
   await toastUndo(page).click();
-  await expect(page.getByText("Besprechung wiederhergestellt")).toBeVisible();
+  // The undo's confirmation names the change it took back and replaces its toast (UX-031).
+  await expect(
+    page.getByText(`Rückgängig gemacht: Besprechung „${name}“ archiviert`),
+  ).toBeVisible();
   await expect(group.getByRole("link", { name })).toBeVisible();
 
-  // Leave nothing behind.
+  // Leave nothing behind (the undo's "Rückgängig gemacht: …" toast may still be showing).
   await page.getByRole("dialog", { name }).getByRole("button", { name: "Archivieren" }).click();
-  await expect(page.getByText("Besprechung archiviert")).toBeVisible();
+  await expect(page.getByText(`Besprechung „${name}“ archiviert`, { exact: true })).toBeVisible();
 });
 
 /** The id of a Besprechung, read from its link in the Übersicht's "Besprechungen heute" group. */

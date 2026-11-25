@@ -121,6 +121,7 @@ export function NewMarketForm({
           color: result.data.color,
           lastHeldOn: null,
           plannedBySeason: {},
+          pastDates: [],
         },
         result.data.template,
       );

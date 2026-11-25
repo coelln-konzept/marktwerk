@@ -17,6 +17,7 @@ import {
 import { ScheduleHints } from "@/components/events/schedule-hints";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
+import { callAction, NETWORK_ERROR, SERVER_ERROR } from "@/lib/call-action";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { VenueOption } from "@/server/queries/venues";
 
@@ -95,15 +96,11 @@ export function ManualEventForm({
     if (!parsed.ok) return fail(parsed.problem);
     setProblem(null);
     startTransition(async () => {
-      let result: Awaited<ReturnType<typeof createSingleEvent>>;
-      try {
-        result = await createSingleEvent(parsed.input);
-      } catch (error) {
-        // Nothing typed is lost: the form stays as it is (UX-007).
-        const offline =
-          (typeof navigator !== "undefined" && navigator.onLine === false) ||
-          error instanceof TypeError;
-        setProblem({ field: "form", code: offline ? "offline" : "server" });
+      // The shell's pending bar shows while it runs; a redirect (session expired) passes through.
+      const result = await callAction(() => createSingleEvent(parsed.input));
+      if (!result.ok && (result.error === NETWORK_ERROR || result.error === SERVER_ERROR)) {
+        // Nothing typed is lost: the form stays as it is and offers "Erneut versuchen" (UX-007).
+        setProblem({ field: "form", code: result.error === NETWORK_ERROR ? "offline" : "server" });
         return;
       }
       if (!result.ok) {

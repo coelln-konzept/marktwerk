@@ -10,6 +10,7 @@ import {
   updateContactAction,
 } from "@/app/(app)/kontakte/actions";
 import { useShell } from "@/components/shell/shell-context";
+import { useSafeAction } from "@/components/shell/use-safe-action";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
@@ -68,6 +69,7 @@ export function ContactForm({
   const tKinds = useTranslations("contacts.kinds");
   const router = useRouter();
   const { showToast } = useShell();
+  const safe = useSafeAction();
   const [pending, startTransition] = useTransition();
   const start = initial ?? EMPTY;
   const [values, setValues] = useState<ContactInput>(start);
@@ -146,9 +148,13 @@ export function ContactForm({
     setLeaving(false);
     const input: ContactInput = { ...values, phone: phoneNormalized };
     startTransition(async () => {
-      const result = edit
-        ? await updateContactAction(edit.id, input, edit.updatedAt)
-        : await createContactAction(input);
+      const result = await safe(async () =>
+        edit
+          ? await updateContactAction(edit.id, input, edit.updatedAt)
+          : await createContactAction(input),
+      );
+      // Offline or a server error: the toast says so, the form keeps what was typed (UX-007).
+      if (!result) return;
       if (!result.ok) return fail(result.error);
       if (edit) {
         const changed = (result.data as { changed: boolean }).changed;

@@ -240,13 +240,15 @@ function AppointmentForm({
         return;
       }
       onDone();
+      // Every toast names the Besprechung (UX-031): two "Besprechung angelegt" in a row said nothing.
+      const named = { title: draft.title.trim() };
       if (editId) {
-        showToast({ message: t("toast.saved") });
+        showToast({ message: t("toast.saved", named) });
         return;
       }
       const { id } = result;
       showToast({
-        message: t("toast.created"),
+        message: t("toast.created", named),
         actionLabel: t("toast.undo"),
         onAction: async () => {
           const undone = await guardedCall(() => archiveAppointmentAction(id));
@@ -255,7 +257,7 @@ function AppointmentForm({
             return;
           }
           showToast({
-            message: t("toast.createdUndone"),
+            message: t("toast.createdUndone", named),
             actionLabel: t("toast.undo"),
             onAction: async () => {
               const restored = await guardedCall(() => restoreAppointmentAction(id));

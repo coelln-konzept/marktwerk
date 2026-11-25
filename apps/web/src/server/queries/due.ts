@@ -1,3 +1,5 @@
+import type { PermitDisplayState } from "@marktwerk/core";
+
 /**
  * Shapes every module feeds into the Übersicht ("Heute fällig") and the Kalender (layers). Each module
  * exports `dueItems(actor, today)` and `calendarItems(actor, from, to)` from its own query file and
@@ -67,6 +69,11 @@ export type DueItem = {
    * how many open ones are overdue (they flag the task).
    */
   subtasks?: { done: number; total: number; open: number; overdue: number };
+  /**
+   * Tasks with the status "Wartet" (somebody else has to act), whatever their urgency, and what they wait for
+   * (`task.waiting_reason`). Set by the Übersicht (`getOverview`); the row says "Wartet auf <Grund>".
+   */
+  waiting?: { reason: string | null };
 };
 
 export const CALENDAR_LAYERS = [
@@ -89,4 +96,6 @@ export type CalendarItem = {
   tone?: "ok" | "warn" | "critical" | "neutral";
   /** Tasks layer: a season task's market and season (shown after the title, "<Markt> · Saison <Jahr>"). */
   season?: TaskSeason | null;
+  /** Permits layer: the permit's state as the logbook shows it (badge in the Kalender's Liste). */
+  permitState?: PermitDisplayState;
 };
