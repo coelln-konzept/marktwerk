@@ -9,6 +9,7 @@ import {
   task,
 } from "@marktwerk/db/schema";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { todayIn } from "@/lib/format";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import { listEvents } from "@/server/queries/events";
@@ -364,9 +365,11 @@ describe("event permits and health", () => {
     const healthy = await permitHealthByEvent([{ id: ev.id, startsOn: ev.startsOn }], TODAY);
     expect(healthy.get(ev.id)).toBe("warn");
 
-    // The events list carries it as the permit dimension.
+    // The events list carries it as the permit dimension. The list judges by the real today (not TODAY), so it
+    // is compared with the same query for that day: a fixed date here turns critical once the event is near.
     const rows = await listEvents(owner, {});
-    expect(rows.find((r) => r.id === ev.id)?.health.permits).toBe("warn");
+    const asOfNow = await permitHealthByEvent([{ id: ev.id, startsOn: ev.startsOn }], todayIn());
+    expect(rows.find((r) => r.id === ev.id)?.health.permits).toBe(asOfNow.get(ev.id));
 
     // Nothing applied for and close to the event: critical. An event without permits: not tracked.
     const soon = await makeEvent("2026-10-25", "Bald");
