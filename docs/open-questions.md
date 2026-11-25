@@ -152,6 +152,7 @@
 | 2026-11-13 (product owner) | New synthetic data: who and where | Built in the user-test-2 session (packages/synthetic now owned there); loaded into the **local Docker DB** (migrated to the latest schema first; other local checkouts must pull `main`) and the **deployed dev app** (wipe + reseed via the *Seed dev database* workflow, as of the reseed day) |
 | 2026-11-13 (product owner) | Vendors and bookings in the new dataset | **Keep today's volume** (~1,500 vendors, ~6,400 bookings) in the new data; Fahrplan step 16 (≈5 per market) is dropped |
 | 2026-11-04 | Delete an event | "Veranstaltung löschen" in the event menu (owner/manager): permanent, confirmed by typing the event's name; blocked while payments, expenses, shifts or documents are attached (product owner) |
+| 2026-11-25 | Saison rethink | No Saison record ([ADR 0024](architecture/adr/0024-recurring-work-three-levels.md)). Three levels: per date (Halteverbot, GEMA, practical tasks) on the event; per season the three city permits (Ordnungsbehördliche Erlaubnis, Festsetzung, Ausschank) + owner's OK on private ground, created yearly from the Ort's requirements, applied ~September for a season starting in March; company per year (insurance, toilets, electricity, marketing 2–3×, Termine planen) as Pflichten. Shared Orte are exceptions handled by hand. |
 
 ## Open: product owner
 1. **Backup copy target:** what is the company's own server (NAS model, reachable from the internet/VPN?), for the
