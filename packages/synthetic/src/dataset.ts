@@ -1,3 +1,4 @@
+import { itemPermitType } from "@marktwerk/core";
 import { REFERENCE_DATE, SEED } from "./constants";
 import { PRESET_BLUEPRINTS } from "./dictionaries/presets";
 import { CORE_STAFF_BLUEPRINTS, FIELD_CREW_BLUEPRINTS } from "./dictionaries/staff";
@@ -8,6 +9,7 @@ import {
   buildLegalParameters,
   buildSettings,
   buildVenues,
+  venueName,
 } from "./generators/catalogue";
 import { buildEventPresets, buildEvents } from "./generators/events";
 import { buildObligations, buildPayablesAndInstallments, buildVehicles } from "./generators/money";
@@ -16,17 +18,25 @@ import {
   buildDutyRoles,
   buildStaffAndDuties,
   dutyDefaults,
+  withMarketStewards,
 } from "./generators/people";
-import { buildPermitRequirements, buildPermits } from "./generators/permits";
+import { buildPermitRequirements, buildPermits, linkedPermit } from "./generators/permits";
+import { buildSeasons } from "./generators/seasons";
 import { buildShifts } from "./generators/shifts";
-import { buildChecklistTemplates, buildTasks } from "./generators/tasks";
+import { buildMarketTemplates, buildMasterTemplate, buildTasks } from "./generators/tasks";
 import { buildVendors } from "./generators/vendors";
+import { clockFor } from "./lib/clock";
 import { createRng } from "./lib/rng";
-import type { Dataset, EventType } from "./types";
+import type { Dataset, EventType, Permit } from "./types";
 
 export interface GenerateOptions {
-  /** Defaults to SEED. The reference date is fixed and cannot be changed. */
+  /** Defaults to SEED. */
   seed?: number;
+  /**
+   * "Today" as `YYYY-MM-DD` for every status and due date, and the base of the two seasons (this year and the
+   * next). Defaults to `REFERENCE_DATE` (`SYNTHETIC_REFERENCE_DATE` or the fixed default).
+   */
+  referenceDate?: string;
 }
 
 /**
@@ -35,7 +45,8 @@ export interface GenerateOptions {
  */
 export function generateDataset(options: GenerateOptions = {}): Dataset {
   const rng = createRng(options.seed ?? SEED);
-  const today = REFERENCE_DATE;
+  const clock = clockFor(options.referenceDate ?? REFERENCE_DATE);
+  const today = clock.today;
 
   const settings = buildSettings(rng);
   const legalParameters = buildLegalParameters(rng);
@@ -50,7 +61,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
 
   const venues = buildVenues(rng, contactBundle.idByKey);
   const venueBlueprintByName = new Map(
-    VENUE_BLUEPRINTS.map((blueprint) => [blueprint.name, blueprint]),
+    VENUE_BLUEPRINTS.map((blueprint) => [venueName(blueprint), blueprint]),
   );
 
   const people = buildStaffAndDuties(rng, buildDutyRoles(rng));
@@ -62,57 +73,111 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     return id;
   };
 
-  const checklistTemplates = buildChecklistTemplates(rng, eventTypes);
-  const templateIdByTypeKey = new Map(
-    checklistTemplates.map((template) => [
-      eventTypeKeyById.get(template.eventTypeId) ?? "",
-      template.id,
-    ]),
+  // The Grundvorlage first; every preset gets its own copy once the presets exist (buildMarketTemplates).
+  const masterTemplate = buildMasterTemplate(rng, clock);
+  const templateIdByTypeKey = new Map(eventTypes.map((type) => [type.key, masterTemplate.id]));
+
+  // Every market starts from the default duty holders; the Ordner rotates through the Minijob crew per market.
+  const minijobStaffIds = FIELD_CREW_BLUEPRINTS.filter((b) => b.contract.type === "minijob").map(
+    (b) => staffId(b.key),
+  );
+  const blueprintPresets = withMarketStewards(
+    buildEventPresets(rng, PRESET_BLUEPRINTS, {
+      eventTypes,
+      venues,
+      venueBlueprintByName,
+      templateIdByTypeKey,
+      dutyDefaults: duties,
+    }),
+    minijobStaffIds,
+  );
+  // Events create all four anchors themselves, teardownDay (the last market day) included.
+  const { events: scheduledEvents, eventAnchors } = buildEvents(
+    rng,
+    blueprintPresets,
+    PRESET_BLUEPRINTS,
+    {
+      eventTypes,
+      venues,
+      venueBlueprintByName,
+      templateIdByTypeKey,
+      dutyDefaults: duties,
+    },
+    clock,
   );
 
-  const eventPresets = buildEventPresets(rng, PRESET_BLUEPRINTS, {
-    eventTypes,
-    venues,
-    venueBlueprintByName,
-    templateIdByTypeKey,
-    dutyDefaults: duties,
-  });
-  const { events: scheduledEvents, eventAnchors } = buildEvents(rng, eventPresets, {
-    eventTypes,
-    venues,
-    venueBlueprintByName,
-    templateIdByTypeKey,
-    dutyDefaults: duties,
-  });
+  const marketTemplates = buildMarketTemplates(rng, blueprintPresets, eventTypes, clock);
+  const checklistTemplates = [masterTemplate, ...marketTemplates.templates];
+  const eventPresets = blueprintPresets.map((preset) => ({
+    ...preset,
+    checklistTemplateId:
+      marketTemplates.templateIdByPresetId.get(preset.id) ?? preset.checklistTemplateId,
+  }));
 
-  const tasks = buildTasks(rng, {
-    events: scheduledEvents,
-    eventAnchors,
-    templates: checklistTemplates,
-    dutyRoleIdByKey,
-  });
+  // One Saison record per market and year (research 13 §6), before the season permits and tasks that belong to it.
+  const seasons = buildSeasons(rng, eventPresets, scheduledEvents, clock);
 
+  // Permits before tasks: a task that applies for a permit follows it (done once the permit is applied for).
   const permitRequirements = buildPermitRequirements(rng, {
     venues,
     venueBlueprintByName,
     contactIdByKey: contactBundle.idByKey,
+    eventTypes,
   });
-  const appliedFor2027ByVenueId = new Map(
-    venues.map((venue) => [
-      venue.id,
-      venueBlueprintByName.get(venue.name)?.permitsApplied2027 ?? false,
-    ]),
-  );
   const permitBundle = buildPermits(rng, {
     events: scheduledEvents,
+    presets: eventPresets,
     eventTypes,
     requirements: permitRequirements,
-    appliedFor2027ByVenueId,
+    venueBlueprintByName,
+    venues,
     permitsStaffId: duties.permits,
+    seasonIdOf: seasons.seasonIdOf,
+    clock,
+  });
+  const permitById = new Map(permitBundle.permits.map((permit) => [permit.id, permit]));
+  const permitLinksByEvent = new Map<string, { permit: Permit; required: boolean }[]>();
+  for (const link of permitBundle.eventPermits) {
+    const permit = permitById.get(link.permitId);
+    if (!permit) continue;
+    const links = permitLinksByEvent.get(link.eventId) ?? [];
+    links.push({ permit, required: link.required });
+    permitLinksByEvent.set(link.eventId, links);
+  }
+
+  const seasonPermits = new Map<string, Permit>();
+  const seasonPermitTypes = new Map<string, string[]>();
+  for (const permit of permitBundle.permits)
+    if (permit.seasonId !== null) {
+      seasonPermits.set(`${permit.seasonId}|${permit.permitType}`, permit);
+      seasonPermitTypes.set(permit.seasonId, [
+        ...(seasonPermitTypes.get(permit.seasonId) ?? []),
+        permit.permitType,
+      ]);
+    }
+
+  const tasks = buildTasks(rng, {
+    events: scheduledEvents,
+    eventAnchors,
+    eventSeasons: seasons.eventSeasons,
+    eventSeasonAnchors: seasons.eventSeasonAnchors,
+    presets: eventPresets,
+    templates: checklistTemplates,
+    templateIdByPresetId: marketTemplates.templateIdByPresetId,
+    dutyRoleIdByKey,
+    permitFor: (eventId, permitType) =>
+      linkedPermit(permitLinksByEvent.get(eventId) ?? [], permitType),
+    // A "Genehmigung" item applies for the owner's OK on private ground (Fahrplan R30), as in the app.
+    seasonPermitFor: (seasonId, permitType) =>
+      seasonPermits.get(
+        `${seasonId}|${itemPermitType(permitType, seasonPermitTypes.get(seasonId) ?? [])}`,
+      ),
+    clock,
   });
 
   const vehicles = buildVehicles(rng);
   const obligations = buildObligations(rng, {
+    clock,
     vehicles,
     logisticsStaffId: staffId("logistics_lead"),
     officeManagerStaffId: staffId("office_manager"),
@@ -121,6 +186,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
   const money = buildPayablesAndInstallments(
     rng,
     {
+      clock,
       venues,
       venueBlueprintByName,
       contactIdByKey: contactBundle.idByKey,
@@ -150,6 +216,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
   const shifts = buildShifts(rng, {
     events: scheduledEvents,
     today,
+    season: clock.season,
     contracts: people.employmentContracts,
     crewStaffIds,
     recordedById: staffId("office_manager"),
@@ -158,7 +225,13 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
   });
 
   const vendors = buildVendors(rng);
-  const bookings = buildBookings(rng, { events: scheduledEvents, eventTypes, venues, vendors });
+  const bookings = buildBookings(rng, {
+    events: scheduledEvents,
+    eventTypes,
+    venues,
+    vendors,
+    clock,
+  });
   const events = scheduledEvents.map((event) => {
     const flags = bookings.flagsByEventId.get(event.id);
     return flags
@@ -178,6 +251,8 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     eventPresets,
     events,
     eventAnchors,
+    eventSeasons: seasons.eventSeasons,
+    eventSeasonAnchors: seasons.eventSeasonAnchors,
     checklistTemplates,
     tasks,
     permitRequirements,

@@ -9,8 +9,10 @@ import {
   isSupersededNotification,
   latestPerSubject,
   parseCompanyDedupeKey,
+  resolveRelativeDue,
   taskLink,
 } from "@marktwerk/core";
+import { subtaskAggregates } from "@marktwerk/db";
 import {
   event,
   eventPermit,
@@ -74,6 +76,11 @@ export type CompanyNotificationRow = {
   isKey: boolean;
   /** Task rows: the current task status. */
   taskStatus: string | null;
+  /**
+   * Task rows: how many of the task's subtasks are still open (ADR 0021); "Erledigt" then opens the task's
+   * drawer instead of asking (R29). 0 for permits.
+   */
+  openSubtasks: number;
   snoozedUntil: string | null;
   /** Task rows: the task itself is snoozed ("Zurückstellen" on a task snoozes the task, decision 2026-10-29). */
   taskSnoozed: boolean;
@@ -194,6 +201,8 @@ async function loadCompanyRows(
             dueAt: task.dueAt,
             snoozedUntil: task.snoozedUntil,
             taskEventId: task.eventId,
+            openSubtasks: subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"))
+              .subtasksOpen,
             ...marketCols,
           })
           .from(task)
@@ -248,6 +257,7 @@ async function loadCompanyRows(
     let isLive = false;
     let isKey = false;
     let taskStatus: string | null = null;
+    let openSubtasks = 0;
     let subjectSnooze: string | null = null;
     let market: CompanyMarket | null = null;
     let href = n.link ?? "/benachrichtigungen";
@@ -257,6 +267,7 @@ async function loadCompanyRows(
         title = t.title;
         isKey = t.isKey;
         taskStatus = t.status;
+        openSubtasks = t.openSubtasks;
         const currentDue = t.dueAt ? todayIn("Europe/Berlin", t.dueAt) : null;
         dueOn = currentDue ?? key.dueOn;
         const eventOk =
@@ -332,6 +343,7 @@ async function loadCompanyRows(
       overdue: dueOn !== null && dueOn < today,
       isKey,
       taskStatus,
+      openSubtasks,
       snoozedUntil:
         status === "snoozed" ? (own ?? (subjectSnooze ? `${subjectSnooze}` : null)) : null,
       taskSnoozed: key.kind.startsWith("task_") && subjectSnooze !== null,

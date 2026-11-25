@@ -9,6 +9,12 @@ and antique markets, plus Stadtfeste and Food & Wine markets (other formats only
 `docs/research/05-client-meeting-2026-10.md` (what the users actually said), `docs/architecture/overview.md`
 and `docs/architecture/data-model.md` before building a feature.
 
+## Start of every session
+Open the **Marktwerk Fahrplan** tracker (https://claude.ai/artifact/Ei3Xy9VGSDWr5WsEujn639, read its `steps`
+collection and `meta/plan` with the ArtifactData tool) and tell the product owner the next step and where the last
+session stopped. Tick steps off there as they finish; split a stalled step into 23a, 23b … with done-checks; add new
+bugs and findings as steps in the right phase. Update `meta/plan.lastSession` before ending.
+
 ## Ask before deciding
 The product owner wants to be asked whenever a product or architecture decision isn't already
 settled in the docs/ADRs. Log answers in `docs/open-questions.md` (Decided table) or as an ADR.

@@ -11,9 +11,9 @@ import { formatPermitTitle } from "@/components/permits/permit-title";
 import { buttonVariants } from "@/components/ui/button";
 import { Health } from "@/components/ui/health";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
-import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, panelActionLink } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate, todayIn } from "@/lib/format";
 import { isModuleHidden } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
@@ -107,27 +107,29 @@ export default async function EventPermitsPage({
 
   return (
     <>
-      <Panel aria-labelledby="permits-title" className="overflow-hidden">
-        <PanelHeader>
-          <PanelTitle id="permits-title">{t("title")}</PanelTitle>
-          <span className="flex flex-wrap items-center gap-3">
-            <Health
-              level={level}
-              label={`${
-                permits.required === 0
-                  ? t("summaryNone")
-                  : t("summary", { held: permits.held, required: permits.required })
-              } · ${tHealth(level)}`}
-            />
-            <Link
-              href={"/genehmigungen" as never}
-              className="text-accent-soft-foreground text-small hover:underline"
-            >
+      <Panel
+        title={t("title")}
+        titleId="permits-title"
+        cardClassName="overflow-hidden"
+        meta={
+          <Health
+            level={level}
+            label={`${
+              permits.required === 0
+                ? t("summaryNone")
+                : t("summary", { held: permits.held, required: permits.required })
+            } · ${tHealth(level)}`}
+          />
+        }
+        actions={
+          <>
+            <Link href={"/genehmigungen" as never} className={panelActionLink}>
               {t("logbook")}
             </Link>
             {adders}
-          </span>
-        </PanelHeader>
+          </>
+        }
+      >
         <KeyboardRows>
           <Table>
             <caption className="sr-only">{t("caption")}</caption>
@@ -148,9 +150,10 @@ export default async function EventPermitsPage({
                     key={r.permitId}
                     data-row
                     data-href={peek}
-                    aria-selected={drawerId === r.permitId}
+                    aria-current={drawerId === r.permitId}
                     className={cn(
-                      "cursor-pointer focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+                      "cursor-pointer",
+                      rowFocus,
                       !r.required && "text-muted-foreground",
                     )}
                   >

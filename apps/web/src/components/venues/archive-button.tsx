@@ -16,7 +16,7 @@ import { useErrorText } from "./shared";
 export function ArchiveVenueButton({ id, name }: { id: string; name: string }) {
   const t = useTranslations("venues.manage");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
 
@@ -24,7 +24,7 @@ export function ArchiveVenueButton({ id, name }: { id: string; name: string }) {
     startTransition(async () => {
       const result = await archiveVenueAction(id);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       router.push("/orte" as never);
@@ -33,11 +33,8 @@ export function ArchiveVenueButton({ id, name }: { id: string; name: string }) {
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await restoreVenueAction(id);
-          showToast({
-            message: undone.ok
-              ? t("archive.restored", { name: undone.data.name })
-              : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("archive.restored", { name: undone.data.name }) });
+          else showError(errorText(undone.error));
         },
       });
     });

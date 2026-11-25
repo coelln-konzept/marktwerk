@@ -1,6 +1,6 @@
 "use client";
 
-import { ROLES } from "@marktwerk/core";
+import { can, isRole, ROLES } from "@marktwerk/core";
 import { UserCheck, UserX } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
@@ -25,48 +25,74 @@ function useErrorText() {
 
 /**
  * Role of one login. Changing it saves at once and offers "Rückgängig" in a toast (no confirmation
- * dialog). Disabled for the last active owner (the server refuses it as well).
+ * dialog); a promotion to Geschäftsführung says in the toast what that role may do. The one exception is
+ * an owner giving up their own Geschäftsführung: afterwards they can no longer change roles, so undo
+ * could not work and the change asks first. Disabled for the last active owner (the server refuses it
+ * as well).
  */
 export function RoleSelect({
   userId,
   name,
   role,
+  isMe = false,
   locked,
   describedBy,
 }: {
   userId: string;
   name: string;
   role: string;
+  /** The row of the signed-in user. */
+  isMe?: boolean;
   locked: boolean;
+  /** Ids of the elements that describe the select (role description, lock hint). */
   describedBy?: string;
 }) {
   const t = useTranslations("settings.users");
   const tRoles = useTranslations("roles");
-  const { showToast } = useShell();
+  const { showToast, showError, confirm } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
 
-  function change(select: HTMLSelectElement) {
+  async function change(select: HTMLSelectElement) {
     const to = select.value;
     const from = role;
     if (to === from) return;
+    const givesUpOwnOwner = isMe && from === "owner" && isRole(to) && !can(to, "user", "manage");
+    if (givesUpOwnOwner) {
+      const ok = await confirm({
+        title: t("confirmOwn.title"),
+        description: t("confirmOwn.description", { role: tRoles(to as never) }),
+        confirmLabel: t("confirmOwn.confirm"),
+        cancelLabel: t("confirmOwn.cancel"),
+      });
+      if (!ok) {
+        select.value = from;
+        return;
+      }
+    }
     startTransition(async () => {
       const result = (await setUserRole(userId, to)) as Result;
       if (!result.ok) {
         select.value = from;
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
+        return;
+      }
+      // Without user:manage the undo would be refused, so there is nothing to offer.
+      if (givesUpOwnOwner) {
+        showToast({ message: t("toasts.ownRole", { role: tRoles(to as never) }) });
         return;
       }
       showToast({
-        message: t("toasts.role", { name, role: tRoles(to as never) }),
+        message:
+          to === "owner"
+            ? t("toasts.promotedOwner", { name })
+            : t("toasts.role", { name, role: tRoles(to as never) }),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = (await setUserRole(userId, from)) as Result;
-          showToast({
-            message: undone.ok
-              ? t("toasts.roleReverted", { name, role: tRoles(from as never) })
-              : errorText(undone.error),
-          });
+          if (undone.ok)
+            showToast({ message: t("toasts.roleReverted", { name, role: tRoles(from as never) }) });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -81,7 +107,7 @@ export function RoleSelect({
       aria-busy={pending}
       aria-label={t("roleFor", { name })}
       aria-describedby={describedBy}
-      onChange={(e) => change(e.currentTarget)}
+      onChange={(e) => void change(e.currentTarget)}
       className={`${SELECT_CLASS} min-w-40`}
     >
       {ROLES.map((r) => (
@@ -108,7 +134,7 @@ export function StaffLinkSelect({
   options: StaffOption[];
 }) {
   const t = useTranslations("settings.users");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
   const nameOf = (id: string | null) => options.find((o) => o.id === id)?.displayName ?? "";
@@ -121,7 +147,7 @@ export function StaffLinkSelect({
       const result = (await setUserStaffLink(userId, to)) as Result;
       if (!result.ok) {
         select.value = from ?? "";
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       showToast({
@@ -131,9 +157,8 @@ export function StaffLinkSelect({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = (await setUserStaffLink(userId, from)) as Result;
-          showToast({
-            message: undone.ok ? t("toasts.relinkReverted", { name }) : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("toasts.relinkReverted", { name }) });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -174,7 +199,7 @@ export function ActiveToggle({
   describedBy?: string;
 }) {
   const t = useTranslations("settings.users");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [pending, startTransition] = useTransition();
 
@@ -182,7 +207,7 @@ export function ActiveToggle({
     startTransition(async () => {
       const result = (await (banned ? reactivateUser(userId) : deactivateUser(userId))) as Result;
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       showToast({
@@ -192,13 +217,13 @@ export function ActiveToggle({
           const undone = (await (banned
             ? deactivateUser(userId)
             : reactivateUser(userId))) as Result;
-          showToast({
-            message: undone.ok
-              ? banned
+          if (undone.ok)
+            showToast({
+              message: banned
                 ? t("toasts.deactivated", { name })
-                : t("toasts.reactivated", { name })
-              : errorText(undone.error),
-          });
+                : t("toasts.reactivated", { name }),
+            });
+          else showError(errorText(undone.error));
         },
       });
     });

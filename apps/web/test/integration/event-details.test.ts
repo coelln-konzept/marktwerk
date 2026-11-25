@@ -1,9 +1,12 @@
+import type { ScheduleRow } from "@marktwerk/core";
 import {
   auditLog,
   event,
   eventAnchor,
+  eventPermit,
   eventPreset,
   eventType,
+  permit,
   task,
   venue,
 } from "@marktwerk/db/schema";
@@ -60,35 +63,52 @@ const anchorsOf = async (id: string) =>
 const auditsOf = (action: string) =>
   db.select().from(auditLog).where(eq(auditLog.action, action)).orderBy(auditLog.at);
 
+const row = (
+  audience: ScheduleRow["audience"],
+  kind: ScheduleRow["kind"],
+  day: ScheduleRow["day"],
+  from: string,
+  to: string,
+): ScheduleRow => ({ audience, kind, day, from, to });
+
 const facts = {
-  times: { setup: "06:00", open: "09:00", close: "17:00", teardown: "19:00" },
+  schedule: [
+    row("team", "setup", "first", "05:00", "06:00"),
+    row("vendors", "setup", "first", "06:00", "09:00"),
+    row("visitors", "open", "each", "09:00", "17:00"),
+    row("vendors", "teardown", "last", "17:00", "19:00"),
+  ],
   pricePerMCents: 1500,
   bookingFeeCents: 300,
 };
 
 describe("updateEventFacts", () => {
-  it("updates times and prices of this event only and audits what changed", async () => {
+  it("updates the Zeitplan and prices of this event only and audits what changed", async () => {
     const id = await oneEvent();
     const result = await updateEventFacts(owner, id, { ...facts, bookingFeeCents: 500 });
     expect(result.changed).toBe(true);
     expect(result.previous).toEqual({
-      times: cat.times,
+      schedule: cat.schedule,
       pricePerMCents: 1200,
       bookingFeeCents: 500,
     });
 
-    const row = await load(id);
-    expect(row).toMatchObject({ times: facts.times, pricePerMCents: 1500, bookingFeeCents: 500 });
+    const stored = await load(id);
+    expect(stored).toMatchObject({
+      schedule: facts.schedule,
+      pricePerMCents: 1500,
+      bookingFeeCents: 500,
+    });
     const [preset] = await db
       .select()
       .from(eventPreset)
       .where(eq(eventPreset.id, cat.presets.flea.id));
-    expect(preset).toMatchObject({ defaultTimes: cat.times, pricePerMCents: 1200 });
+    expect(preset).toMatchObject({ schedule: cat.schedule, pricePerMCents: 1200 });
 
     const [entry] = await auditsOf("event.update");
     expect(entry?.diff).toEqual({
       changes: {
-        times: { from: cat.times, to: facts.times },
+        schedule: { from: cat.schedule, to: facts.schedule },
         pricePerMCents: { from: 1200, to: 1500 },
       },
     });
@@ -96,26 +116,42 @@ describe("updateEventFacts", () => {
 
   it("writes nothing when nothing changed", async () => {
     const id = await oneEvent();
-    const same = { times: cat.times, pricePerMCents: 1200, bookingFeeCents: 500 };
+    const same = { schedule: cat.schedule, pricePerMCents: 1200, bookingFeeCents: 500 };
     expect((await updateEventFacts(owner, id, same)).changed).toBe(false);
     expect(await auditsOf("event.update")).toHaveLength(0);
   });
 
-  it("checks the order of the times (setup may be late only for multi-day events)", async () => {
+  it("normalises typed times and keeps only the row fields", async () => {
     const id = await oneEvent();
-    const lateSetup = { ...facts, times: { ...facts.times, setup: "10:00" } };
-    await expect(updateEventFacts(owner, id, lateSetup)).rejects.toMatchObject({
-      code: "setup_after_open",
-    });
-    await expect(
-      updateEventFacts(owner, id, { ...facts, times: { ...facts.times, close: "08:00" } }),
-    ).rejects.toMatchObject({ code: "open_after_close" });
+    const typed = [{ ...row("visitors", "open", "each", "9", "17.30"), note: "x" } as ScheduleRow];
+    await updateEventFacts(owner, id, { ...facts, schedule: typed });
+    expect((await load(id)).schedule).toEqual([row("visitors", "open", "each", "09:00", "17:30")]);
+  });
+
+  it("checks the Zeitplan with the core rules for the event's length", async () => {
+    const id = await oneEvent();
+    // Early tear-down on the last morning: only after a night, so not on a single-day event.
+    const earlyTeardown = {
+      ...facts,
+      schedule: [...facts.schedule, row("vendors", "teardown", "last", "07:00", "10:00")],
+    };
+    const invalid = [
+      earlyTeardown,
+      { ...facts, schedule: [row("visitors", "open", "each", "17:00", "09:00")] },
+      { ...facts, schedule: [row("vendors", "setup", "first", "06:00", "09:00")] },
+      { ...facts, schedule: [row("visitors", "open", "each", "25:00", "26:00")] },
+      { ...facts, schedule: "08–16" as unknown as ScheduleRow[] },
+    ];
+    for (const next of invalid)
+      await expect(updateEventFacts(owner, id, next)).rejects.toMatchObject({
+        code: "invalid_schedule",
+      });
     await expect(
       updateEventFacts(owner, id, { ...facts, pricePerMCents: -1 }),
     ).rejects.toMatchObject({ code: "invalid_price" });
 
     const festival = await oneEvent(cat.presets.festival.id, "2026-12-04");
-    expect((await updateEventFacts(owner, festival, lateSetup)).changed).toBe(true);
+    expect((await updateEventFacts(owner, festival, earlyTeardown)).changed).toBe(true);
   });
 
   it("undo applies only while the values are still the saved ones", async () => {
@@ -172,6 +208,7 @@ describe("moving an event", () => {
       from: "2026-12-04",
       to: "2027-01-08",
       tasksShifted: 0,
+      seasonTasksShifted: 0,
     });
     expect(await load(id)).toMatchObject({
       startsOn: "2027-01-08",
@@ -207,6 +244,73 @@ describe("moving an event", () => {
     });
   });
 
+  it("answers far years with out_of_range instead of a crash; the undo may go back anyway (UX-041)", async () => {
+    const id = await oneEvent();
+    for (const date of ["9999-12-31", "0001-01-01", "2040-05-01"]) {
+      await expect(previewEventMove(owner, id, date)).rejects.toMatchObject({
+        code: "out_of_range",
+      });
+      await expect(moveEvent(owner, id, date, "2026-11-14")).rejects.toMatchObject({
+        code: "out_of_range",
+      });
+    }
+    await expect(previewEventMove(owner, id, "2026-02-30")).rejects.toMatchObject({
+      code: "invalid_date",
+    });
+    expect((await load(id)).startsOn).toBe("2026-11-14");
+
+    // An old event (a year that is now outside the range) can still be moved back by the undo toast.
+    await db
+      .update(event)
+      .set({ startsOn: "2020-06-06", endsOn: "2020-06-06", season: 2020 })
+      .where(eq(event.id, id));
+    await moveEvent(owner, id, "2026-12-05", "2020-06-06");
+    await expect(
+      moveEvent(owner, id, "2020-06-06", "2026-12-05", { undo: true }),
+    ).resolves.toMatchObject({ changed: true, to: "2020-06-06" });
+  });
+
+  it("names the permits still to apply for, whose Antrag bis does not move (UX-D3 open)", async () => {
+    const id = await oneEvent();
+    const permits = await db
+      .insert(permit)
+      .values(
+        (
+          [
+            ["Halteverbot", "not_started", "2026-10-20"],
+            ["Marktgenehmigung", "preparing", "2026-09-30"],
+            ["Wasser", "applied", "2026-10-01"],
+            ["Plakate", "not_started", null],
+          ] as const
+        ).map(([title, status, applyBy]) => ({
+          venueId: cat.venue.id,
+          season: 2026,
+          category: "city" as const,
+          permitType: "market_permit" as const,
+          title,
+          status,
+          applyBy,
+        })),
+      )
+      .returning();
+    await db.insert(eventPermit).values(permits.map((p) => ({ eventId: id, permitId: p.id })));
+
+    const preview = await previewEventMove(owner, id, "2026-11-21");
+    expect(preview.permitsKept.map((p) => [p.title, p.applyBy])).toEqual([
+      ["Marktgenehmigung", "2026-09-30"],
+      ["Halteverbot", "2026-10-20"],
+    ]);
+    // A change of length keeps the first day, so the permits are not named there.
+    expect((await previewEventSchedule(owner, id, { durationDays: 2 })).permitsKept).toEqual([]);
+    await moveEvent(owner, id, "2026-11-21", "2026-11-14");
+    expect((await db.select().from(permit).orderBy(permit.title)).map((p) => p.applyBy)).toEqual([
+      "2026-10-20",
+      "2026-09-30",
+      null,
+      "2026-10-01",
+    ]);
+  });
+
   it("is forbidden for staff", async () => {
     const id = await oneEvent();
     const staff = await createActor("staff");
@@ -224,7 +328,7 @@ describe("updateEventBasics", () => {
     const id = await oneEvent(); // Sa 2026-11-14, 1 day
     const [other] = await db
       .insert(venue)
-      .values({ name: "Rheinwiesen", kind: "outdoor_public", city: "Köln" })
+      .values({ name: "Rheinwiesen", kind: "municipal", city: "Köln" })
       .returning();
     if (!other) throw new Error("no venue");
     const result = await updateEventBasics(owner, id, {
@@ -322,7 +426,7 @@ describe("updateEventBasics", () => {
     await db.update(venue).set({ archivedAt: new Date() }).where(eq(venue.id, cat.venue.id));
     const [other] = await db
       .insert(venue)
-      .values({ name: "Alt", kind: "outdoor_public", city: "Köln", archivedAt: new Date() })
+      .values({ name: "Alt", kind: "municipal", city: "Köln", archivedAt: new Date() })
       .returning();
     await expect(
       updateEventBasics(owner, id, { ...base, venueId: other?.id ?? "" }),
@@ -339,7 +443,7 @@ describe("updateEventBasics", () => {
     const id = await oneEvent();
     const [other] = await db
       .insert(venue)
-      .values({ name: "Rheinwiesen", kind: "outdoor_public", city: "Köln" })
+      .values({ name: "Rheinwiesen", kind: "municipal", city: "Köln" })
       .returning();
     if (!other) throw new Error("no venue");
     const [busy] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-11-14"]);

@@ -1,16 +1,28 @@
+import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
+import { MarketNextTimeNotesPanel } from "@/components/next-time-notes/next-time-note-panels";
 import { PresetForm } from "@/components/presets/preset-form";
+import { SeasonPanels } from "@/components/presets/season-panel";
 import { Page, PageHeader } from "@/components/shell/page";
+import { TaskDrawer } from "@/components/task/task-drawer";
+import { Drawer } from "@/components/ui/drawer";
+import { todayIn } from "@/lib/format";
+import { param } from "@/lib/url";
+import { getActor } from "@/server/actor";
 import { listMarketColorUsage } from "@/server/queries/market-colors";
+import { listShortCodeMarkets } from "@/server/queries/market-short-codes";
+import { listNextTimeNotes } from "@/server/queries/next-time-notes";
 import {
   getPresetForEdit,
   getPresetFormOptions,
   getPresetTaskTemplates,
 } from "@/server/queries/presets";
+import { getMarketSeasons } from "@/server/queries/seasons";
+import { getTaskDetail, listStaffOptions } from "@/server/queries/tasks";
 import { requirePermission } from "@/server/session";
 
 export async function generateMetadata({ params }: PageProps<"/vorlagen/[id]">): Promise<Metadata> {
@@ -18,17 +30,53 @@ export async function generateMetadata({ params }: PageProps<"/vorlagen/[id]">):
   return { title: preset?.name ?? (await getTranslations("settings"))("tabs.library") };
 }
 
-/** "Vorlage bearbeiten" (template:write). Changes only apply to events generated afterwards. */
-export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[id]">) {
+/**
+ * The market page (template:write): its Saison panels (current and next year, Fahrplan R12) above the edit form.
+ * Form changes only apply to events generated afterwards. A season task opens its drawer here (`?aufgabe=<id>`).
+ */
+export default async function EditPresetPage({
+  params,
+  searchParams,
+}: PageProps<"/vorlagen/[id]">) {
   await requirePermission("template", "write");
   const { id } = await params;
   const preset = await getPresetForEdit(id);
   if (!preset) notFound();
+  const actor = await getActor();
+  const today = todayIn();
+  const [seasons, nextTimeNotes] = await Promise.all([
+    getMarketSeasons(actor, preset.id, today),
+    listNextTimeNotes(actor, preset.id),
+  ]);
+  const canWriteTasks = can(actor.role, "task", "write");
+  const taskId = param((await searchParams).aufgabe);
+  const closeHref = `/vorlagen/${preset.id}`;
+  let drawer: React.ReactNode = null;
+  if (taskId && can(actor.role, "task", "read")) {
+    const tBoard = await getTranslations("board");
+    const detail = await getTaskDetail(actor, taskId, today);
+    drawer = detail ? (
+      <TaskDrawer
+        task={detail}
+        staff={await listStaffOptions()}
+        canWrite={canWriteTasks}
+        canAssign={false}
+        canDelete={can(actor.role, "task", "delete")}
+        today={today}
+        closeHref={closeHref}
+      />
+    ) : (
+      <Drawer kind={tBoard("drawer.label")} title={tBoard("drawer.notFound")} closeHref={closeHref}>
+        <p className="text-muted-foreground text-small">{tBoard("drawer.notFoundHint")}</p>
+      </Drawer>
+    );
+  }
   const t = await getTranslations("templates");
   const tLib = await getTranslations("settings");
   const tNav = await getTranslations("nav");
   const taskTemplates = await getPresetTaskTemplates(preset.id);
   const colorUsage = await listMarketColorUsage(preset.id);
+  const otherMarkets = (await listShortCodeMarkets()).filter((m) => m.id !== preset.id);
   const options = await getPresetFormOptions({
     eventTypeId: preset.eventTypeId,
     venueId: preset.venueId,
@@ -85,9 +133,22 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
           t("vorschau.tasksNone")
         )}
       </p>
+      <SeasonPanels
+        presetId={preset.id}
+        seasons={seasons}
+        today={today}
+        canWrite={can(actor.role, "event", "write")}
+        canWriteTasks={canWriteTasks}
+      />
+      <MarketNextTimeNotesPanel
+        presetId={preset.id}
+        notes={nextTimeNotes}
+        canWrite={can(actor.role, "nextTimeNote", "write")}
+      />
       <PresetForm
         options={options}
         colorUsage={colorUsage}
+        otherMarkets={otherMarkets}
         edit={{ id: preset.id, updatedAt: preset.updatedAt.toISOString() }}
         initial={{
           name: preset.name,
@@ -96,15 +157,17 @@ export default async function EditPresetPage({ params }: PageProps<"/vorlagen/[i
           durationDays: preset.durationDays,
           publicTitle: preset.publicTitle,
           publicText: preset.publicText,
-          times: preset.defaultTimes,
+          schedule: preset.schedule,
           pricePerMCents: preset.pricePerMCents,
           bookingFeeCents: preset.bookingFeeCents,
           rrule: preset.rrule,
           defaultDuties,
           active: preset.active,
           color: preset.color,
+          shortCode: preset.shortCode,
         }}
       />
+      {drawer}
     </Page>
   );
 }

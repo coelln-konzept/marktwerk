@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["fra1"],
-  "buildCommand": "pnpm --filter @marktwerk/db migrate && next build"
+  "buildCommand": "pnpm --filter @marktwerk/db migrate:build && next build"
 }

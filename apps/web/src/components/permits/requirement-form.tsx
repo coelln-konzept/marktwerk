@@ -4,19 +4,20 @@ import { PERMIT_CADENCES } from "@marktwerk/core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import {
   archiveRequirementAction,
   createRequirementAction,
   updateRequirementAction,
 } from "@/app/(app)/orte/[id]/genehmigungen/actions";
+import { ContactPicker } from "@/components/contacts/contact-picker";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { SELECT_CLASS } from "@/components/settings/select-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { centsToInput, parseMoneyToCents } from "@/lib/format";
 import { dayMonthInput, parseDayMonth } from "@/lib/month-day";
 import { PERMIT_TYPE_KEYS } from "@/lib/permit-status";
@@ -58,12 +59,19 @@ const ERROR_FIELD: Record<string, Field> = {
   invalid_cadence: "cadence",
   invalid_lead_time: "leadTimeDays",
   invalid_fee: "fee",
-  invalid_month_day: "windowStart",
+  invalid_window_start: "windowStart",
+  invalid_window_end: "windowEnd",
+  invalid_decision_day: "decision",
+  incomplete_window_start: "windowStart",
+  incomplete_window_end: "windowEnd",
   invalid_event_type: "eventType",
   invalid_contact: "authority",
   invalid_deliverables: "stickers",
   invalid_text: "notes",
 };
+
+/** "+ Neu" in the Behörde picker creates an authority. */
+const AUTHORITY_KINDS = ["authority"] as const;
 
 /**
  * Create / edit a permit requirement of a venue. About a dozen fields, so a page rather than a modal
@@ -74,12 +82,15 @@ export function RequirementForm({
   requirementId,
   initial,
   contacts,
+  canCreateContact,
   eventTypes,
 }: {
   venueId: string;
   requirementId?: string;
   initial?: RequirementInput;
-  contacts: { id: string; name: string }[];
+  contacts: { id: string; name: string; city: string | null }[];
+  /** `contact:write`: the Behörde picker offers "+ Neu". */
+  canCreateContact: boolean;
   eventTypes: { id: string; name: string }[];
 }) {
   const t = useTranslations("requirements");
@@ -89,7 +100,7 @@ export function RequirementForm({
   const tCad = useTranslations("permitCadences");
   const locale = useLocale();
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const uid = useId();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<{ field: Field; code: string } | null>(null);
@@ -118,6 +129,10 @@ export function RequirementForm({
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
+  const contactOptions = useMemo(
+    () => contacts.map((c) => ({ id: c.id, label: c.name, hint: c.city })),
+    [contacts],
+  );
   const fid = (name: string) => `${uid}-${name}`;
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
@@ -139,6 +154,9 @@ export function RequirementForm({
     if (start === undefined) return fail("windowStart", "invalid_month_day");
     if (end === undefined) return fail("windowEnd", "invalid_month_day");
     if (decisionMd === undefined) return fail("decision", "invalid_month_day");
+    // An Antragsfenster has both ends or none (UX-008).
+    if (start === null && end !== null) return fail("windowStart", "incomplete_window_start");
+    if (start !== null && end === null) return fail("windowEnd", "incomplete_window_end");
     const cents = parseMoneyToCents(fee);
     if (Number.isNaN(cents)) return fail("fee", "invalid_fee");
     const count = stickers.trim() === "" ? 0 : Number(stickers);
@@ -167,8 +185,9 @@ export function RequirementForm({
           message: t("toast.created"),
           actionLabel: t("toast.undo"),
           onAction: async () => {
-            await archiveRequirementAction(id);
-            showToast({ message: t("toast.createdUndone") });
+            const undone = await archiveRequirementAction(id);
+            if (undone.ok) showToast({ message: t("toast.createdUndone") });
+            else showError(errorText(undone.error));
           },
         });
         router.push(back as never);
@@ -184,8 +203,9 @@ export function RequirementForm({
           message: t("toast.saved"),
           actionLabel: t("toast.undo"),
           onAction: async () => {
-            await updateRequirementAction(requirementId, previous, true);
-            showToast({ message: t("toast.reverted") });
+            const undone = await updateRequirementAction(requirementId, previous, true);
+            if (undone.ok) showToast({ message: t("toast.reverted") });
+            else showError(errorText(undone.error));
           },
         });
       }
@@ -199,6 +219,12 @@ export function RequirementForm({
         {label}
       </Label>
       {control}
+      {/* The error sits at its field (UX-008); one without a field stays above the buttons. */}
+      {error?.field === name && (
+        <p id={fid("error")} role="alert" className="text-small text-status-critical">
+          {errorText(error.code)}
+        </p>
+      )}
       {hint && <p className="text-muted-foreground text-tiny">{hint}</p>}
     </div>
   );
@@ -212,10 +238,7 @@ export function RequirementForm({
         submit();
       }}
     >
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{tForm("sectionBasics")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={tForm("sectionBasics")}>
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           {field(
             "category",
@@ -283,28 +306,23 @@ export function RequirementForm({
           {field(
             "authority",
             tForm("authority"),
-            <select
+            <ContactPicker
               id={fid("authority")}
-              value={authority}
-              onChange={(e) => setAuthority(e.target.value)}
-              className={SELECT_CLASS}
+              options={contactOptions}
+              value={authority || null}
+              onChange={(id) => setAuthority(id ?? "")}
+              allowNone
+              noneLabel={tForm("noAuthority")}
+              placeholder={tForm("noAuthority")}
+              kinds={AUTHORITY_KINDS}
+              canCreate={canCreateContact}
               {...invalid("authority")}
-            >
-              <option value="">{tForm("noAuthority")}</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>,
+            />,
           )}
         </PanelBody>
       </Panel>
 
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{tForm("sectionTiming")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={tForm("sectionTiming")}>
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           {field(
             "cadence",
@@ -376,10 +394,7 @@ export function RequirementForm({
         </PanelBody>
       </Panel>
 
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>{tForm("sectionExtras")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={tForm("sectionExtras")}>
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           {field(
             "fee",
@@ -424,7 +439,7 @@ export function RequirementForm({
         </PanelBody>
       </Panel>
 
-      {error && (
+      {error?.field === "form" && (
         <p id={fid("error")} role="alert" className="text-small text-status-critical">
           {errorText(error.code)}
         </p>

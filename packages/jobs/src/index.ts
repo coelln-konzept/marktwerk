@@ -4,12 +4,14 @@ import { deadlineSweep } from "./deadline-sweep";
 import { installmentReminders } from "./installment-reminders";
 import { obligationReminders } from "./obligation-reminders";
 import { payrollReminders } from "./payroll-reminders";
+import { eventSeasons } from "./seasons";
 import { sendQueuedEmails } from "./send-emails";
 import { taskRollover } from "./task-rollover";
 
 /**
  * Every scheduled job, keyed by name. The worker schedules these with pg-boss;
  * on serverless hosting an external scheduler calls /api/cron/<name> (ADR 0017).
+ * A new job also goes into .github/workflows/cron.yml (plan step and dispatch options; a test checks it).
  * Handlers must be idempotent: they can run twice or late.
  */
 export const JOBS = {
@@ -20,6 +22,8 @@ export const JOBS = {
   "obligation-reminders": { cron: "5 * * * *", run: (db: Database) => obligationReminders(db) },
   "installment-reminders": { cron: "10 * * * *", run: (db: Database) => installmentReminders(db) },
   "payroll-reminders": { cron: "5 7 * * *", run: (db: Database) => payrollReminders(db) },
+  /** Saison records for the current and next year of every active market, with their season items (R8). */
+  "event-seasons": { cron: "20 0 * * *", run: (db: Database) => eventSeasons(db) },
   /** Delivers the queued emails (immediate ones and the digest) every 5 minutes. */
   "send-emails": { cron: "*/5 * * * *", run: (db: Database) => sendQueuedEmails(db) },
 } as const satisfies Record<string, { cron: string; run: (db: Database) => Promise<unknown> }>;
@@ -30,11 +34,15 @@ export function isJobName(value: string): value is JobName {
   return Object.hasOwn(JOBS, value);
 }
 
+/** Re-exported so the worker can validate the mail fence variables at startup without depending on core. */
+export { type AppEnv, parseMailFence } from "@marktwerk/core";
 export { sendSmtp } from "./mail/smtp";
 export { createLogTransport, createMailTransport, type MailTransport } from "./mail/transport";
+export { CLAIM_TIMEOUT_MS } from "./send-emails";
 export {
   dailyDigest,
   deadlineSweep,
+  eventSeasons,
   installmentReminders,
   obligationReminders,
   payrollReminders,

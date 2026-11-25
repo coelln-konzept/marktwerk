@@ -1,10 +1,11 @@
 import { can } from "@marktwerk/core";
-import { Eye, FilePen, GitBranch, ListChecks, Pencil, Store } from "lucide-react";
+import { Eye, FilePen, GitBranch, ListChecks, Pencil, Plus, SearchX, Store } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PresetStatusBadge } from "@/components/catalogue/preset-status";
 import { PresetVorschau } from "@/components/catalogue/preset-vorschau";
+import { filterMarkets } from "@/components/settings/library-search";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { Page } from "@/components/shell/page";
 import { CreateMasterButton } from "@/components/templates/create-master-button";
@@ -15,10 +16,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { MarketMarker } from "@/components/ui/market-marker";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody, PanelHeading } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { RowActions, rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 import { rruleText } from "@/lib/rrule-text";
 import { hrefWith, param } from "@/lib/url";
@@ -42,14 +43,19 @@ const PATH = "/einstellungen/bibliothek";
 /**
  * Einstellungen → Bibliothek: the Grundvorlage (master task template every new market starts from), the
  * markets (presets, each with its own task template) and the older per-type templates. Needs
- * template:read; editing needs template:write. `?vorschau=<market id>` opens the market's Vorschau.
+ * template:read; editing needs template:write. `?vorschau=<market id>` opens the market's Vorschau,
+ * `?q=` filters the markets (name, Kürzel, Ort, Art). "Neuer Markt" opens Markt planen with the
+ * new-market form, the one path that creates a market (`/vorlagen/neu`).
  */
 export default async function LibraryPage({
   searchParams,
 }: PageProps<"/einstellungen/bibliothek">) {
   const user = await requirePermission("template", "read");
   const canWrite = can(user.role, "template", "write");
+  // The new-market form lives in Markt planen, which needs event:write on top.
+  const canCreateMarket = canWrite && can(user.role, "event", "write");
   const sp = await searchParams;
+  const q = param(sp.q)?.trim().slice(0, 100) || undefined;
   const [t, tSettings, tNav, tTpl, locale] = await Promise.all([
     getTranslations("library"),
     getTranslations("settings"),
@@ -80,6 +86,7 @@ export default async function LibraryPage({
       count: sum?.itemCount ?? 0,
     });
   };
+  const shownMarkets = filterMarkets(markets, q);
   const vorschauId = param(sp.vorschau);
   const selected = markets.find((m) => m.id === vorschauId);
   const shown = master?.published ?? master?.draft ?? null;
@@ -94,10 +101,7 @@ export default async function LibraryPage({
       <SettingsHeader />
       <p className="m-0 text-muted-foreground text-small">{t("subtitle")}</p>
 
-      <Panel aria-labelledby="library-master-title">
-        <PanelHeader>
-          <PanelTitle id="library-master-title">{t("master.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("master.title")} titleId="library-master-title">
         <PanelBody className="flex flex-col gap-3">
           {master ? (
             <>
@@ -148,27 +152,79 @@ export default async function LibraryPage({
       {inUse.length > 0 && (
         <section aria-labelledby="library-inuse-title" className="flex flex-col gap-2">
           <div>
-            <h2 id="library-inuse-title" className="m-0 font-semibold text-[15px]">
+            <PanelHeading id="library-inuse-title" className="mb-0">
               {t("inUse.title")}
-            </h2>
-            <p className="m-0 max-w-3xl text-muted-foreground text-small">{t("inUse.hint")}</p>
+            </PanelHeading>
+            <p className="m-0 max-w-3xl px-1 text-muted-foreground text-small">{t("inUse.hint")}</p>
           </div>
           <TimelineTable templates={inUse} />
         </section>
       )}
 
-      <Panel aria-labelledby="library-markets-title" className="overflow-hidden">
-        <PanelHeader>
-          <PanelTitle id="library-markets-title">{t("markets.title")}</PanelTitle>
-          <span className="text-muted-foreground text-small">
-            {t("markets.count", {
+      <Panel
+        title={t("markets.title")}
+        titleId="library-markets-title"
+        cardClassName="overflow-hidden"
+        meta={
+          q ? (
+            // A search says what it found and offers the way back, instead of "29 Märkte".
+            <>
+              {t("markets.searchResult", { count: shownMarkets.length, query: q })}
+              {" · "}
+              <Link
+                href={hrefWith(PATH, sp, { q: undefined, vorschau: undefined }) as never}
+                scroll={false}
+                className="font-medium text-accent-soft-foreground hover:underline"
+              >
+                {t("markets.resetSearch")}
+              </Link>
+            </>
+          ) : (
+            t("markets.count", {
               count: markets.length,
               active: markets.filter((m) => m.active).length,
-            })}
-          </span>
-        </PanelHeader>
+            })
+          )
+        }
+        actions={
+          canCreateMarket ? (
+            <Link
+              href={"/veranstaltungen?erzeugen=1&neu=1" as never}
+              className={buttonVariants({ variant: "default" })}
+            >
+              <Plus aria-hidden />
+              {t("markets.new")}
+            </Link>
+          ) : undefined
+        }
+      >
+        {markets.length > 0 && (
+          <form method="get" action={PATH} className="border-border-subtle border-b px-4 py-3">
+            <label className="sr-only" htmlFor="library-q">
+              {t("markets.searchLabel")}
+            </label>
+            <input
+              id="library-q"
+              name="q"
+              type="search"
+              defaultValue={q}
+              placeholder={t("markets.search")}
+              className="min-h-(--control-h) w-72 max-w-full rounded-lg border border-input bg-card px-3"
+            />
+          </form>
+        )}
         {markets.length === 0 ? (
           <EmptyState icon={Store} title={t("markets.empty")} hint={t("markets.emptyHint")} />
+        ) : shownMarkets.length === 0 ? (
+          <EmptyState icon={SearchX} title={t("markets.emptySearch")}>
+            <Link
+              href={hrefWith(PATH, sp, { q: undefined, vorschau: undefined }) as never}
+              scroll={false}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              {t("markets.resetSearch")}
+            </Link>
+          </EmptyState>
         ) : (
           <KeyboardRows>
             <Table>
@@ -187,7 +243,7 @@ export default async function LibraryPage({
                 </tr>
               </THead>
               <tbody>
-                {markets.map((m) => {
+                {shownMarkets.map((m) => {
                   const peek = hrefWith(PATH, sp, { vorschau: m.id });
                   return (
                     <TR
@@ -195,11 +251,8 @@ export default async function LibraryPage({
                       tabIndex={0}
                       data-row
                       data-peek={peek}
-                      aria-selected={vorschauId === m.id}
-                      className={cn(
-                        "outline-hidden focus-visible:bg-selected",
-                        !m.active && "text-muted-foreground",
-                      )}
+                      aria-current={vorschauId === m.id}
+                      className={cn(rowFocus, !m.active && "text-muted-foreground")}
                     >
                       <TD>
                         <span className="flex items-center gap-2">
@@ -212,6 +265,13 @@ export default async function LibraryPage({
                           >
                             {m.name}
                           </Link>
+                          <span
+                            title={t("markets.codeTitle")}
+                            className="font-semibold text-[11px] text-muted-foreground tracking-wide"
+                          >
+                            <span className="sr-only">{t("markets.codeTitle")}: </span>
+                            {m.code}
+                          </span>
                         </span>
                       </TD>
                       <TD>

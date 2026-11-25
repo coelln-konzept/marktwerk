@@ -6,7 +6,7 @@ import { setPresetsAction } from "@/app/(app)/vorlagen/ablauf/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 
 export type PresetChoice = {
   id: string;
@@ -34,7 +34,7 @@ export function PresetLinks({
 }) {
   const t = useTranslations("taskTemplates.links");
   const tErr = useTranslations("taskTemplates");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [selected, setSelected] = useState(() => new Set(linkedIds));
   const [pending, startTransition] = useTransition();
   const dirty = selected.size !== linkedIds.length || linkedIds.some((id) => !selected.has(id));
@@ -42,21 +42,18 @@ export function PresetLinks({
   function save() {
     startTransition(async () => {
       const result = await setPresetsAction(templateId, [...selected]);
-      showToast({
-        message: result.ok
-          ? t("saved")
-          : tErr.has(`errors.${result.error}` as never)
+      if (result.ok) showToast({ message: t("saved") });
+      else
+        showError(
+          tErr.has(`errors.${result.error}` as never)
             ? tErr(`errors.${result.error}` as never)
             : tErr("errors.generic"),
-      });
+        );
     });
   }
 
   return (
-    <Panel>
-      <PanelHeader>
-        <PanelTitle>{t("title")}</PanelTitle>
-      </PanelHeader>
+    <Panel title={t("title")}>
       <PanelBody className="flex flex-col gap-3">
         <p className="text-muted-foreground text-small">{t("hint")}</p>
         {presets.length === 0 ? (

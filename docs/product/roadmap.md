@@ -22,6 +22,9 @@ feedback 9 (PR #22: Besprechungen, Übersicht layout, task notification setting,
 
 The milestone text below still describes the full scope; *(UI hidden for now)* marks the parts above.
 
+**Step by step:** the [Marktwerk Fahrplan](https://claude.ai/artifact/Ei3Xy9VGSDWr5WsEujn639) breaks everything
+below into ≤30-minute steps with done-checks and tracks progress.
+
 **Left for the M6 exit (pilot):** production hosting (Scalingo candidate) with backups; S3 file storage and phone photo
 uploads; user invitations / magic link; "Passwort vergessen" (needs SMTP); the DATEV export format; real client data
 instead of synthetic; then the pilot and the go/no-go for Phase 2. The Postfach + Standplan prototype on

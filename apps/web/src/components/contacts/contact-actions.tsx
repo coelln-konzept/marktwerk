@@ -8,6 +8,7 @@ import { useTransition } from "react";
 import { archiveContactAction, unarchiveContactAction } from "@/app/(app)/kontakte/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
+import { contactListHref, withContactList } from "./list-context";
 
 /**
  * "Bearbeiten" and "Archivieren" in the Vorschau of a contact. Archiving has no confirmation dialog:
@@ -17,25 +18,28 @@ export function ContactActions({
   id,
   name,
   closeHref,
+  liste = "",
   canWrite,
   canArchive,
 }: {
   id: string;
   name: string;
   closeHref: string;
+  /** The Kontakte list's query, carried to the edit page and back (UX-038). */
+  liste?: string;
   canWrite: boolean;
   canArchive: boolean;
 }) {
   const t = useTranslations("contacts");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function archive() {
     startTransition(async () => {
       const result = await archiveContactAction(id);
       if (!result.ok) {
-        showToast({ message: t("toast.failed") });
+        showError(t("toast.failed"));
         return;
       }
       router.replace(closeHref as never, { scroll: false });
@@ -44,12 +48,9 @@ export function ContactActions({
         actionLabel: t("toast.undo"),
         onAction: async () => {
           const undone = await unarchiveContactAction(id);
-          if (undone.ok) router.replace(`/kontakte?vorschau=${id}` as never, { scroll: false });
-          showToast({
-            message: undone.ok
-              ? t("toast.restored", { name: undone.data.name })
-              : t("toast.failed"),
-          });
+          if (undone.ok) router.replace(contactListHref(liste, id) as never, { scroll: false });
+          if (undone.ok) showToast({ message: t("toast.restored", { name: undone.data.name }) });
+          else showError(t("toast.failed"));
         },
       });
     });
@@ -60,7 +61,7 @@ export function ContactActions({
     <div className="flex flex-wrap items-center gap-2 border-border-subtle border-t pt-3">
       {canWrite && (
         <Link
-          href={`/kontakte/${id}/bearbeiten` as never}
+          href={withContactList(`/kontakte/${id}/bearbeiten`, liste) as never}
           aria-label={t("editRow", { name })}
           className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-input bg-card px-3 font-medium hover:bg-hover"
         >

@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import { getActor } from "@/server/actor";
+import { findSimilarContacts } from "@/server/queries/contacts";
 import {
   archiveContact,
   type ContactInput,
@@ -13,6 +14,25 @@ import {
 import { requirePermission } from "@/server/session";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
+/**
+ * "Ähnlicher Kontakt" while the form is typed (UX-028): same name, phone or e-mail. A hint; saving
+ * stays possible. `excludeId` is the contact being edited.
+ */
+export async function similarContactsAction(
+  typed: { name: string; phone: string; email: string },
+  excludeId?: string,
+) {
+  await requirePermission("contact", "write");
+  return findSimilarContacts(
+    {
+      name: String(typed.name ?? "").slice(0, 200),
+      phone: String(typed.phone ?? "").slice(0, 200),
+      email: String(typed.email ?? "").slice(0, 254),
+    },
+    excludeId,
+  );
+}
 
 /** "Kontakt anlegen". */
 export async function createContactAction(

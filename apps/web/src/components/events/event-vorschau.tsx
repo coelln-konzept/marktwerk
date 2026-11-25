@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import { formatScheduleSummary } from "@/components/schedule/schedule-format";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
 import { formatDateWithWeekday, formatMoney, formatWeek } from "@/lib/format";
@@ -25,6 +26,7 @@ export async function EventVorschau({
   const event = await getEvent(actor, id);
   if (!event) return null;
   const t = await getTranslations("eventPage");
+  const tSchedule = await getTranslations("schedule");
   const locale = await getLocale();
   const anchor = (key: string) => event.anchors.find((a) => a.key === key)?.date;
   const cutoff = anchor("booking_cutoff");
@@ -51,7 +53,7 @@ export async function EventVorschau({
             value: `${formatDateWithWeekday(event.startsOn, locale)}${event.endsOn !== event.startsOn ? ` – ${formatDateWithWeekday(event.endsOn, locale)}` : ""} · ${formatWeek(event.startsOn, locale)}`,
           },
           { label: t("facts.venue"), value: event.venue.name },
-          { label: t("facts.times"), value: t("facts.timesValue", event.times) },
+          { label: t("facts.times"), value: formatScheduleSummary(event.schedule, tSchedule) },
           ...(isModuleVisible("team")
             ? [
                 {

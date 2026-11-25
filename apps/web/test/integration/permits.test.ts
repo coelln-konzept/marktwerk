@@ -1,3 +1,4 @@
+import { addDays } from "@marktwerk/core";
 import {
   auditLog,
   dutyRole,
@@ -13,6 +14,7 @@ import {
 } from "@marktwerk/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { todayIn } from "@/lib/format";
 import { db } from "@/server/db";
 import { changeEventStatus } from "@/server/services/event-lifecycle";
 import { createEventsFromPreset, undoGeneratedEvents } from "@/server/services/events";
@@ -100,7 +102,8 @@ describe("logbook fill on event creation", () => {
       season: 2027,
       category: "city",
       permitType: "market_permit",
-      title: "Marktgenehmigung",
+      // The place holds two markets (flea market and Stadtfest): the permit names its market (Fahrplan R27).
+      title: "Marktgenehmigung – Testflohmarkt",
       status: "not_started",
       // 120 days before 02.05.2027 is 02.01.2027: the city collected applications until 30.11.2026.
       applyBy: "2026-11-30",
@@ -235,8 +238,8 @@ describe("logbook fill on event creation", () => {
     const ids = await generate("2027-05-02", "2027-06-06");
     const permits = await db.select().from(permit).orderBy(asc(permit.applyBy));
     expect(permits.map((p) => [p.title, p.season, p.applyBy])).toEqual([
-      ["Halteverbot – 2027-05-02", 2027, "2027-04-11"],
-      ["Halteverbot – 2027-06-06", 2027, "2027-05-16"],
+      ["Halteverbot – Testflohmarkt – 2027-05-02", 2027, "2027-04-11"],
+      ["Halteverbot – Testflohmarkt – 2027-06-06", 2027, "2027-05-16"],
     ]);
     const tasks = await db.select().from(task);
     expect(tasks.map((t) => t.eventId).sort()).toEqual([...ids].sort());
@@ -256,7 +259,7 @@ describe("logbook fill on event creation", () => {
     await requirement({ eventTypeId: cat.type.id, title: "Marktgenehmigung" });
     await generate("2027-05-02");
     const permits = await db.select().from(permit);
-    expect(permits.map((p) => p.title)).toEqual(["Marktgenehmigung"]);
+    expect(permits.map((p) => p.title)).toEqual(["Marktgenehmigung – Testflohmarkt"]);
   });
 
   it("is idempotent and moves the deadline when an earlier event joins an unfiled permit", async () => {
@@ -345,6 +348,113 @@ describe("permit status flow", () => {
     expect(again?.status).toBe("applied");
     expect(again?.grantedAt).toBeNull();
     expect(again?.appliedAt).toBe(row?.appliedAt);
+  });
+
+  it("takes the details of a step: dates when applied, Aktenzeichen and validity when granted", async () => {
+    const p = await newPermit();
+    const today = todayIn();
+    const decision = addDays(today, 30);
+    const applied = await setPermitStatus(owner, p.id, "applied", {
+      appliedAt: today,
+      expectedDecisionOn: decision,
+      // Not part of this step: ignored.
+      validUntil: "2030-01-01",
+    });
+    expect(applied.previous).toMatchObject({
+      appliedAt: null,
+      expectedDecisionOn: p.expectedDecisionOn,
+    });
+    let [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({ appliedAt: today, expectedDecisionOn: decision, validUntil: null });
+    const [entry] = await db.select().from(auditLog).where(eq(auditLog.action, "permit.status"));
+    expect(entry?.diff).toMatchObject({
+      details: { appliedAt: today, expectedDecisionOn: decision },
+    });
+
+    // Undo writes the expected decision back; left empty, the answer is not watched.
+    await restorePermitStatus(owner, p.id, "applied", applied.previous, applied.closedTaskIds);
+    [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({ status: "not_started", appliedAt: null });
+    expect(row?.expectedDecisionOn).toBe(p.expectedDecisionOn);
+    await setPermitStatus(owner, p.id, "applied", { expectedDecisionOn: null });
+    [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({ appliedAt: today, expectedDecisionOn: null });
+
+    const granted = await setPermitStatus(owner, p.id, "granted", {
+      referenceNo: "  OA-77  ",
+      grantedAt: today,
+      validFrom: "2027-01-01",
+      validUntil: "2027-12-31",
+    });
+    [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({
+      status: "granted",
+      referenceNo: "OA-77",
+      grantedAt: today,
+      validFrom: "2027-01-01",
+      validUntil: "2027-12-31",
+    });
+    await restorePermitStatus(owner, p.id, "granted", granted.previous, granted.closedTaskIds);
+    [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({
+      status: "applied",
+      referenceNo: null,
+      grantedAt: null,
+      validFrom: null,
+      validUntil: null,
+    });
+  });
+
+  it("refuses step dates that contradict each other or today", async () => {
+    const p = await newPermit();
+    const today = todayIn();
+    await expect(
+      setPermitStatus(owner, p.id, "applied", { appliedAt: addDays(today, 1) }),
+    ).rejects.toMatchObject({ code: "applied_in_future" });
+    await expect(
+      setPermitStatus(owner, p.id, "applied", {
+        appliedAt: today,
+        expectedDecisionOn: addDays(today, -12),
+      }),
+    ).rejects.toMatchObject({ code: "decision_before_applied" });
+    await setPermitStatus(owner, p.id, "applied", { appliedAt: today, expectedDecisionOn: null });
+    await expect(
+      setPermitStatus(owner, p.id, "granted", { grantedAt: addDays(today, -1) }),
+    ).rejects.toMatchObject({ code: "granted_before_applied" });
+    await expect(
+      setPermitStatus(owner, p.id, "granted", {
+        validFrom: "2027-02-01",
+        validUntil: "2027-01-01",
+      }),
+    ).rejects.toMatchObject({ code: "invalid_period" });
+    const [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row?.status).toBe("applied");
+  });
+
+  it("keeps the application date when the step sends an empty one", async () => {
+    const today = todayIn();
+    // Filed now: an empty "Beantragt am" counts as left out, so today is stamped.
+    const p = await newPermit();
+    const applied = await setPermitStatus(owner, p.id, "applied", { appliedAt: null });
+    expect(applied.previous).not.toHaveProperty("expectedDecisionOn");
+    let [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({ status: "applied", appliedAt: today });
+
+    // A date already on the permit is not cleared by an empty one.
+    const q = await newPermit();
+    await updatePermit(owner, q.id, { appliedAt: addDays(today, -3) });
+    await setPermitStatus(owner, q.id, "applied", { appliedAt: "" });
+    [row] = await db.select().from(permit).where(eq(permit.id, q.id));
+    expect(row).toMatchObject({ status: "applied", appliedAt: addDays(today, -3) });
+  });
+
+  it("does not invent an application date when stepping back from granted", async () => {
+    const p = await newPermit();
+    // Held without applying (a permit that simply exists).
+    await setPermitStatus(owner, p.id, "granted");
+    await setPermitStatus(owner, p.id, "applied");
+    const [row] = await db.select().from(permit).where(eq(permit.id, p.id));
+    expect(row).toMatchObject({ status: "applied", appliedAt: null, grantedAt: null });
   });
 
   it("refuses transitions the flow does not allow and unknown statuses", async () => {
@@ -473,12 +583,18 @@ describe("permit status flow", () => {
       }),
     ).rejects.toSatisfy(isForbidden);
 
-    expect((await archivePermit(owner, p.id)).title).toBe("Marktgenehmigung");
+    expect((await archivePermit(owner, p.id)).title).toBe("Marktgenehmigung – Testflohmarkt");
     await expect(setPermitStatus(owner, p.id, "applied")).rejects.toMatchObject({
       code: "not_found",
     });
     await restorePermit(owner, p.id);
     expect((await setPermitStatus(owner, p.id, "applied")).changed).toBe(true);
+  });
+
+  it("refuses to archive an archived permit (undo of a new permit someone already removed)", async () => {
+    const p = await newPermit();
+    await archivePermit(owner, p.id);
+    await expect(archivePermit(owner, p.id)).rejects.toMatchObject({ code: "not_found" });
   });
 });
 
@@ -533,6 +649,24 @@ describe("editing a permit", () => {
     await expect(
       updatePermit(owner, p.id, { deliverablesReceived: { stickers: -1 } }),
     ).rejects.toMatchObject({ code: "invalid_deliverables" });
+    // Dates that contradict each other (UX-008).
+    const today = todayIn();
+    await expect(
+      updatePermit(owner, p.id, { appliedAt: today, expectedDecisionOn: addDays(today, -12) }),
+    ).rejects.toMatchObject({ code: "decision_before_applied" });
+    await expect(
+      updatePermit(owner, p.id, { appliedAt: addDays(today, -1), grantedAt: addDays(today, -30) }),
+    ).rejects.toMatchObject({ code: "granted_before_applied" });
+    await expect(updatePermit(owner, p.id, { appliedAt: addDays(today, 3) })).rejects.toMatchObject(
+      {
+        code: "applied_in_future",
+      },
+    );
+    await expect(updatePermit(owner, p.id, { grantedAt: addDays(today, 3) })).rejects.toMatchObject(
+      {
+        code: "granted_in_future",
+      },
+    );
     await expect(
       updatePermit(owner, p.id, {
         responsibleStaffMemberId: "11111111-1111-4111-8111-111111111111",
@@ -648,7 +782,7 @@ describe("events of a permit", () => {
     // Only an event at the permit's venue.
     const [other] = await db
       .insert(venue)
-      .values({ name: "Anderswo", kind: "outdoor_public", city: "Köln" })
+      .values({ name: "Anderswo", kind: "municipal", city: "Köln" })
       .returning();
     await expect(
       createPermit(owner, {
@@ -735,11 +869,11 @@ describe("auto-confirmation of planned events", () => {
     await requirement();
     await requirement({ title: "Sondernutzung", permitType: "other" });
     const [id] = await generate("2027-05-02");
-    await setPermitStatus(owner, await permitOf("Marktgenehmigung"), "granted");
+    await setPermitStatus(owner, await permitOf("Marktgenehmigung – Testflohmarkt"), "granted");
     expect(await statusOf(id ?? "")).toBe("planned");
     expect(await autoAudit()).toHaveLength(0);
 
-    await setPermitStatus(owner, await permitOf("Sondernutzung"), "granted");
+    await setPermitStatus(owner, await permitOf("Sondernutzung – Testflohmarkt"), "granted");
     expect(await statusOf(id ?? "")).toBe("confirmed");
   });
 

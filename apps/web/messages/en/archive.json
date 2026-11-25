@@ -106,6 +106,7 @@
         "document_restore": "Document restored",
         "preset_create": "Market created",
         "preset_update": "Market edited",
+        "preset_rules": "Market rules changed",
         "template_create": "Template created",
         "template_publish": "Template published",
         "notification_snooze": "Notice snoozed",

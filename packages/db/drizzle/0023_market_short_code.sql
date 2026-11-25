@@ -1,0 +1,3 @@
+ALTER TABLE "app"."event_preset" ADD COLUMN "short_code" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "event_preset_active_short_code" ON "app"."event_preset" USING btree ("short_code") WHERE "app"."event_preset"."archived_at" is null and "app"."event_preset"."active";--> statement-breakpoint
+ALTER TABLE "app"."event_preset" ADD CONSTRAINT "event_preset_short_code" CHECK ("app"."event_preset"."short_code" ~ '^[A-Z0-9ÄÖÜ]{1,4}$');

@@ -154,7 +154,7 @@ describe("createAppointment", () => {
       .insert(venue)
       .values({
         name: "Alt",
-        kind: "outdoor_public",
+        kind: "municipal",
         city: "Köln",
         bundesland: "NW",
         archivedAt: new Date(),

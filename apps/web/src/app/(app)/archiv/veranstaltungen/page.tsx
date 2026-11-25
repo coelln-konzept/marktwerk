@@ -16,7 +16,7 @@ import { PAGE_SIZE, Pager, pageOf } from "@/components/ui/pager";
 import { Panel } from "@/components/ui/panel";
 import { LinkRow } from "@/components/ui/row-link";
 import { EmptyState } from "@/components/ui/states";
-import { RowActions, Table, TD, TH, THead } from "@/components/ui/table";
+import { RowActions, rowFocus, Table, TD, TH, THead } from "@/components/ui/table";
 import { formatDateRangeYear, todayIn } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
@@ -169,8 +169,8 @@ export default async function ArchiveEventsPage({
                       data-row
                       data-href={href}
                       data-peek={peek}
-                      aria-selected={vorschauId === r.id}
-                      className="outline-hidden focus-visible:bg-selected max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-1 max-sm:px-3 max-sm:py-2.5"
+                      aria-current={vorschauId === r.id}
+                      className={`${rowFocus} max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-1 max-sm:px-3 max-sm:py-2.5`}
                     >
                       <TD className="tabular whitespace-nowrap font-semibold max-sm:h-auto max-sm:p-0 max-sm:text-small">
                         {formatDateRangeYear(r.startsOn, r.endsOn, locale, today)}

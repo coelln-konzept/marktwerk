@@ -43,16 +43,22 @@
       "finished": "Abgeschlossen"
     },
     "estimate": "Schätzung",
-    "checks": "Checkliste",
+    "checks": "Unteraufgaben",
     "evidence": {
       "title": "Nachweis",
       "photo": "Foto",
       "attachment": "Anhang",
-      "check_items": "Checkliste vollständig abhaken",
+      "subtasks": "offene Unteraufgaben",
+      "openSubtasks": "{count, plural, one {# offene Unteraufgabe} other {# offene Unteraufgaben}}",
+      "photoMissing": "Foto fehlt",
+      "attachmentMissing": "Anhang fehlt",
       "missing": "fehlt",
       "given": "vorhanden",
       "addPhoto": "Foto hinzufügen",
-      "addAttachment": "Anhang hinzufügen"
+      "addAttachment": "Anhang hinzufügen",
+      "requirePhoto": "Foto verlangen",
+      "requireAttachment": "Anhang verlangen",
+      "requireHint": "Ohne Nachweis lässt sich die Aufgabe nicht abhaken."
     },
     "reason": {
       "waiting_external": {
@@ -117,7 +123,9 @@
       "assignee": "Zuständig",
       "role": "Rolle",
       "completed": "Erledigt am",
-      "notify": "Benachrichtigung"
+      "notify": "Benachrichtigung",
+      "requiresPhoto": "Foto als Nachweis",
+      "requiresAttachment": "Anhang als Nachweis"
     },
     "source": {
       "template": "Aus Ablaufvorlage",
@@ -130,19 +138,45 @@
       "system": "Vom System"
     },
     "noEvent": "Ohne Veranstaltung",
+    "seasonContext": "{name} · Saison {year}",
     "edit": "Titel und Beschreibung bearbeiten",
     "cancel": "Abbrechen",
     "save": "Speichern",
     "saved": "Gespeichert",
+    "savedTitle": "„{title}“ gespeichert",
+    "dueCleared": "Fälligkeitsdatum von „{title}“ entfernt",
     "unchanged": "Nichts geändert",
+    "dueField": {
+      "incomplete": "Bitte das Datum vollständig angeben.",
+      "invalid": "Bitte ein Datum zwischen 2000 und 2099 angeben."
+    },
+    "dueRequiredByNotify": "Die Benachrichtigung richtet sich nach diesem Datum. Bitte zuerst die Benachrichtigung ändern.",
+    "deleted": {
+      "badge": "Gelöscht",
+      "restore": "Wiederherstellen",
+      "hint": "Die Aufgabe steht in keiner Liste mehr. Wiederherstellen holt sie mit ihrem alten Status zurück.",
+      "hintNoRestore": "Die Aufgabe steht in keiner Liste mehr.",
+      "eventBadge": "Mit der Veranstaltung abgesagt",
+      "eventHint": "Die Veranstaltung ist abgesagt, darum steht die Aufgabe in keiner Liste mehr. Wird sie wieder angesetzt, kommen ihre offenen Aufgaben zurück."
+    },
     "hours": "Stunden",
     "nobody": "Niemand",
     "dueSetByHand": "von Hand gesetzt, folgt dem Veranstaltungstermin nicht mehr",
     "description": "Beschreibung",
     "noDescription": "Keine Beschreibung.",
-    "checklist": "Checkliste · {done}/{total}",
-    "addCheckItem": "Schritt hinzufügen",
-    "addCheckItemButton": "Schritt anlegen",
+    "subtasks": "Unteraufgaben",
+    "addSubtask": "Unteraufgabe hinzufügen",
+    "addSubtaskButton": "Unteraufgabe anlegen",
+    "parentTask": "Unteraufgabe von <link>„{title}“</link>",
+    "subtask": {
+      "progress": "{done}/{total} erledigt",
+      "none": "Keine Unteraufgaben.",
+      "dueAria": "Fällig am: „{title}“",
+      "assignAria": "Zuweisen: „{title}“ (jetzt: {name})",
+      "deleteAria": "Unteraufgabe „{title}“ löschen",
+      "saving": "wird angelegt …",
+      "addFailed": "„{title}“ wurde nicht angelegt. {reason}"
+    },
     "feedback": {
       "title": "Wie war der Aufwand?",
       "as_planned": "Wie geplant",
@@ -207,6 +241,8 @@
     "reopen": "Wieder öffnen",
     "removedFromTemplate": "Nicht mehr in der Vorlage",
     "removedFromTemplateHint": "Die Vorlage enthält diese Aufgabe nicht mehr. Sie bleibt offen, bis du sie erledigst oder überspringst.",
-    "reopenAria": "„{title}“ wieder öffnen"
+    "reopenAria": "„{title}“ wieder öffnen",
+    "delete": "Löschen",
+    "deleteAria": "„{title}“ löschen"
   }
 }

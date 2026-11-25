@@ -6,6 +6,22 @@ the words in the UI and the identifiers in code. **Add a row before introducing 
 **Words we never use:** "customer"/"Kunde". It's ambiguous. A **vendor** rents a stall; a **visitor**
 comes to the event (client's explicit rule, research 05).
 
+## Wording
+Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Applies to the German UI texts
+(`apps/web/messages/de`) and to the German texts in `packages/synthetic`.
+
+1. **"Markt" and "Veranstaltung" stay as they are.** Neither is renamed.
+2. **Plain forms for people words**, no ":in", ":innen", "\*innen" or "/-innen": "Aussteller", "Ansprechpartner",
+   "Mitarbeiter", "Teilnehmer". Use a neutral word (Team, Person, Geschäftsführung) where it fits naturally; don't
+   force one. Check articles, plurals and endings after the change ("von Winzern", "von Produzenten").
+3. **"bitte" only in error and missing-input messages** ("Bitte noch einmal versuchen.", "Bitte einen Grund
+   angeben."). Labels, hints, help texts, placeholders, empty states and confirmations go without it ("Grund angeben",
+   select placeholder "Auswählen …"). A key used both as a hint and as an error counts as an error.
+4. **"Benutzer" and "Anmelden".** Someone who can sign in is a "Benutzer"; the action is "Anmelden" (sign-in page,
+   buttons). "Login" never appears in German UI text ("Benutzer" or "Anmeldung", depending on the meaning), and
+   "Konto" becomes "Benutzer" where it means the same ("Arbeitszeitkonto" is a different word and stays). Message
+   keys in code keep their names.
+
 ## People
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
@@ -13,9 +29,9 @@ comes to the event (client's explicit rule, research 05).
 | Besucher | Visitor | `visitor` | Comes to an event. Only relevant for communication (flyers, newsletter, social). |
 | Stammaussteller (Stammhändler) | Regular vendor | `vendor.is_regular` | Comes repeatedly, "family"; follows to new events. |
 | Stammplatz | Usual spot | `regular_spot` | Preferred stall of a regular, a *preference*, not a right. |
-| Mitarbeiter:in | Staff member | `staff_member` | A person who works for the company (office or field). May have no login. |
-| Benutzer:in | User | `user` | Someone with a marktwerk login (linked to a staff member). |
-| Minijobber:in | Mini-jobber | `contract_type = minijob` | Employee under the Minijob earnings limit. |
+| Mitarbeiter | Staff member | `staff_member` | A person who works for the company (office or field). May have no login. |
+| Benutzer | User | `user` | Someone who can sign in to marktwerk (linked to a staff member). UI-DE never says "Login" or "Konto"; the action is "Anmelden". |
+| Minijobber | Mini-jobber | `contract_type = minijob` | Employee under the Minijob earnings limit. |
 | Geschäftsführung | Owner | `role: owner` | Permission role. |
 | Büroleitung | Office manager | `role: manager` | Permission role. Receives escalations. |
 | Platzteam | Field crew | `role: field` / staff without login | Works on event days; reached via WhatsApp. |
@@ -29,10 +45,11 @@ comes to the event (client's explicit rule, research 05).
 |---|---|---|---|
 | Veranstaltung | Event | `event` | **Core record**: one occurrence (date or date range) of a market or other format. Menus may say "Märkte" where natural. |
 | Veranstaltungsart | Event type | `event_type` | Current scope: **Flohmarkt** (`flea`), **Antikmarkt** (`antique`), **Stadtfest** (`city_festival`), **Food & Wine** (`food_wine`). Future: Designmarkt, Workshop, Turnier. Carries rules (new-goods share, online booking allowed). |
-| Veranstaltungsvorlage (im alten System: "Preset") | Event preset | `event_preset` | Blueprint for a recurring event at a location: type, texts, prices, templates, permit needs, equipment needs, default team. Optional recurrence. |
+| Veranstaltungsvorlage (im alten System: "Preset") | Event preset | `event_preset` | Blueprint for a recurring event at a location: type, texts, prices, Marktregeln (own copy of the type's rules), templates, permit needs, equipment needs, default team. Optional recurrence. |
 | Termin | Date / occurrence | `event.starts_on` | The old website calls each event date a "Termin". |
 | Besprechung | Meeting | `appointment` | An office appointment with a contact (not a task, not an event date). Office only (own `appointment` grant: owner, manager, staff). |
 | Ort / Veranstaltungsort / Gelände | Location / venue | `venue` | Physical place (square, promenade, car park, hall). |
+| Städtisch / Privat | Municipal / private | `venue.kind = municipal / private` | Who owns the Ort: the city (permits from the city) or a private owner (Eigentümer). |
 | Zone / Reihe | Zone / row | `zone`, `row` | Area of a venue; rows have a length in metres. |
 | Standplatz | Stall | `stall` / placement | Position of a vendor at an event (metre interval on a row). |
 | laufender Meter (lfm) | Linear metre | `length_cm` | Frontage length; main pricing unit (€15/m standard). |
@@ -49,7 +66,8 @@ comes to the event (client's explicit rule, research 05).
 |---|---|---|---|
 | Genehmigung | Permit | `permit` | Any authorisation an event needs. |
 | Kategorie Stadt / Extern | City / external | `permit.category` | Client's own split: city permits vs. external OKs. |
-| Marktgenehmigung (Sondernutzung, §69 Festsetzung…) | Market permit | `permit_type = market_permit` | The core city permit for the event. |
+| Marktgenehmigung (Sondernutzung) | Market permit | `permit_type = market_permit` | The core city permit for the event (use of public space). |
+| Festsetzung (§ 69 GewO) | Market fixing (§ 69 GewO) | `permit_type = market_fixing` | The city fixes the market (type, place, times) under trade law; its own permit next to the Sondernutzung (user test 2, UT2-06). |
 | Wasser / Hydrant / Standrohr | Water / standpipe | `permit_type = water` + `rental` | Hydrant use; standpipes rented from the city utility. |
 | Plakatierung (mit Aufklebern/Plaketten) | Poster/signage permit (with stickers) | `permit_type = signage` | City issues stickers that must be on each poster. |
 | Halteverbot | No-parking order | `permit_type = no_parking` | Temporary no-parking signs. |
@@ -115,3 +133,23 @@ comes to the event (client's explicit rule, research 05).
 | Anmietung / Rückgabe bis | Rental / return by | `rental.due_return_on` | e.g. standpipes from the utility; deposit, late fee, meter readings. |
 | Wissensdatenbank | Knowledge base | `kb_article` | |
 | Postfach | Mailbox | `mailbox` | Connected Microsoft 365 mailbox. |
+
+## The client's own words (research 13)
+Terms from Coelln Konzept's checklists (2026-11). Most become task titles; only Saison is a record.
+| German (UI-DE) | English (UI-EN) | Code | Meaning |
+|---|---|---|---|
+| Saison | Season | `event_season` (planned) | One market's year: its season tasks (Termine planen, Genehmigung) relative to the first date, which exist before the dates do. |
+| Termine planen | Plan the dates | season task | Picking next season's dates by hand, about 8 months before the first one. |
+| Einzeichnen | Mark out | task | Chalking the stall plots on the ground, the day before or on the morning. |
+| Abflattern | Tape off | task | Closing the area with barrier tape (Flatterband) the day before. |
+| PVBT (Parkverbot) | No-parking signs | permit type `no_parking` | Set up at least 96 hours before; the client reminds 6 days before. |
+| Bringto | Packing list | (later: equipment list) | What goes into the van for a market; loaded the day before ("Bringto einladen"). |
+| Leihstände | Rental stalls | task | Stalls lent to vendors; built up the day before, taken down after. |
+| Einweisen | Direct vendors | live task | Guiding vendors to their plots on the morning. |
+| Nachkassieren | Collect on site | live task | Collecting fees on the day from vendors who did not pay ahead. |
+| Tageswache "Ordner" / Nachtwache | Day stewards / night watch | live task | Stewards during opening; a watch overnight between two market days. |
+| Vorbuchungen | Advance bookings | task | Bookings taken on site for the next date. |
+| Hohlkammerplatten | Corrugated sign boards | task | Plastic boards for posters, hung with the city's stickers. |
+| Festplätze | Fixed plots | task | Plots kept for regular vendors; checked for next year. |
+| Ortsring | Local association | `contact` | Co-organiser in Hoffnungsthal. |
+| Schausteller | Fairground operators | task | Their list goes to the city before the market. |

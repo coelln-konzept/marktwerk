@@ -77,6 +77,7 @@ export default async function VehiclesPage() {
                   v.statusCounts.overdue +
                   v.statusCounts.due +
                   v.statusCounts.soon +
+                  v.statusCounts.missing +
                   v.statusCounts.ok;
                 const level =
                   v.worstStatus === "overdue"
@@ -128,7 +129,9 @@ export default async function VehiclesPage() {
                                 ? tv("dueCount", { count: v.statusCounts.due })
                                 : v.statusCounts.soon > 0
                                   ? tv("soonCount", { count: v.statusCounts.soon })
-                                  : tv("obligationsOk")}
+                                  : v.statusCounts.missing > 0
+                                    ? tv("missingCount", { count: v.statusCounts.missing })
+                                    : tv("obligationsOk")}
                         </span>
                       </span>
                     </TD>

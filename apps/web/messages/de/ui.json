@@ -1,0 +1,19 @@
+{
+  "dateField": {
+    "placeholder": "TT.MM.JJ",
+    "hint": "Datum tippen, z. B. 5.3., 05.03.26, heute oder morgen",
+    "pick": "Datum im Kalender wählen",
+    "errors": {
+      "incomplete": "Bitte das Datum vollständig angeben, z. B. 5.3. oder 05.03.26.",
+      "invalid": "Bitte ein gültiges Datum angeben, z. B. 5.3. oder 05.03.26.",
+      "required": "Bitte ein Datum angeben.",
+      "tooEarly": "Bitte ein Datum ab {date} angeben.",
+      "tooLate": "Bitte ein Datum bis {date} angeben."
+    }
+  },
+  "emptyState": {
+    "query": "Nichts gefunden für „{query}“",
+    "filtered": "Nichts gefunden für diese Filter",
+    "reset": "Filter zurücksetzen"
+  }
+}

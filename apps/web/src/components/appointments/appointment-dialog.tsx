@@ -132,7 +132,7 @@ function AppointmentForm({
 }) {
   const t = useTranslations("appointments");
   const tKind = useTranslations("appointments.contactKind");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const uid = useId();
   const existing = data.appointment;
   const [pending, startTransition] = useTransition();
@@ -240,29 +240,30 @@ function AppointmentForm({
         return;
       }
       onDone();
+      // Every toast names the Besprechung (UX-031): two "Besprechung angelegt" in a row said nothing.
+      const named = { title: draft.title.trim() };
       if (editId) {
-        showToast({ message: t("toast.saved") });
+        showToast({ message: t("toast.saved", named) });
         return;
       }
       const { id } = result;
       showToast({
-        message: t("toast.created"),
+        message: t("toast.created", named),
         actionLabel: t("toast.undo"),
         onAction: async () => {
           const undone = await guardedCall(() => archiveAppointmentAction(id));
-          showToast(
-            undone.ok
-              ? {
-                  message: t("toast.createdUndone"),
-                  actionLabel: t("toast.undo"),
-                  onAction: async () => {
-                    const restored = await guardedCall(() => restoreAppointmentAction(id));
-                    if (!restored.ok)
-                      showToast({ message: errorText(restored.error), tone: "error" });
-                  },
-                }
-              : { message: errorText(undone.error), tone: "error" },
-          );
+          if (!undone.ok) {
+            showError(errorText(undone.error));
+            return;
+          }
+          showToast({
+            message: t("toast.createdUndone", named),
+            actionLabel: t("toast.undo"),
+            onAction: async () => {
+              const restored = await guardedCall(() => restoreAppointmentAction(id));
+              if (!restored.ok) showError(errorText(restored.error));
+            },
+          });
         },
       });
     });

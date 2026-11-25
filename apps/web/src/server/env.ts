@@ -1,4 +1,5 @@
 import "server-only";
+import { parseMailFence } from "@marktwerk/core";
 import { z } from "zod";
 
 /**
@@ -27,8 +28,16 @@ const schema = z.object({
 
 const parsed = schema.parse(process.env);
 
+/**
+ * `APP_ENV` (local | preview | production, default local), `MAIL_ALLOWLIST` and `MAIL_CATCH_ALL`: the outbound
+ * mail fence (ADR 0023). Parsed here so an invalid value fails at startup; the mail transport in @marktwerk/jobs
+ * applies the same rules (`parseMailFence`) when it sends.
+ */
+const mailFence = parseMailFence(process.env);
+
 export const env = {
   ...parsed,
+  APP_ENV: mailFence.appEnv,
   BETTER_AUTH_URL:
     parsed.BETTER_AUTH_URL ??
     (parsed.VERCEL_URL ? `https://${parsed.VERCEL_URL}` : "http://localhost:3000"),

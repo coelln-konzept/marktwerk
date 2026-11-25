@@ -7,6 +7,7 @@ import {
   isIsoDate,
   isoWeek,
   mondayOf,
+  monthWeeks,
   weekday,
   weekendsTouched,
 } from "./calendar";
@@ -55,5 +56,41 @@ describe("calendar arithmetic", () => {
     expect(weekendsTouched("2026-08-21", "2026-08-23")).toEqual(["2026-08-22"]);
     expect(weekendsTouched("2026-05-13", "2026-05-13")).toEqual([]); // Wednesday
     expect(weekendsTouched("2026-05-17", "2026-05-23")).toEqual(["2026-05-16", "2026-05-23"]);
+  });
+});
+
+describe("monthWeeks", () => {
+  it("lays a month out Monday to Sunday with its KW, neighbour days empty", () => {
+    // March 2027 starts on a Monday and ends on a Wednesday: five rows, KW 9–13.
+    const march = monthWeeks(2027, 3);
+    expect(march.map((w) => w.week)).toEqual([9, 10, 11, 12, 13]);
+    expect(march[0]?.days).toEqual(eachDay("2027-03-01", "2027-03-07"));
+    expect(march.at(-1)?.days).toEqual([
+      "2027-03-29",
+      "2027-03-30",
+      "2027-03-31",
+      null,
+      null,
+      null,
+      null,
+    ]);
+  });
+
+  it("uses the ISO week across the year boundary and needs six rows when the month asks for it", () => {
+    // 1 January 2027 is a Friday in KW 53 of 2026.
+    const january = monthWeeks(2027, 1);
+    expect(january[0]).toEqual({
+      week: 53,
+      days: [null, null, null, null, "2027-01-01", "2027-01-02", "2027-01-03"],
+    });
+    expect(january).toHaveLength(5);
+    // May 2027: Saturday the 1st to Monday the 31st, six rows.
+    expect(monthWeeks(2027, 5)).toHaveLength(6);
+    // February 2027 starts on a Monday and has exactly four weeks.
+    expect(monthWeeks(2027, 2)).toHaveLength(4);
+    // December 2026 ends in KW 53.
+    expect(monthWeeks(2026, 12).at(-1)?.week).toBe(53);
+    // Every day of a leap February exactly once.
+    expect(monthWeeks(2028, 2).flatMap((w) => w.days.filter(Boolean))).toHaveLength(29);
   });
 });

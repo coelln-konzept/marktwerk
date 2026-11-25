@@ -12,6 +12,14 @@ import {
 import { and, asc, count, eq, gte, lt, lte, ne, type SQL, sql } from "drizzle-orm";
 import { cache } from "react";
 import { todayIn } from "@/lib/format";
+import {
+  escapeLike,
+  escapeRegex,
+  FUZZY_THRESHOLD,
+  tokenize,
+  transpositions,
+  typoTolerant,
+} from "@/lib/search-query";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import { eventMoneyHealthFor } from "./finance";
@@ -25,6 +33,9 @@ export type EventFilters = {
   typeKey?: string;
   status?: EventStatusKey | "active";
   q?: string;
+  /** How `q` matches (see `eventSearchMode`); plain "every word somewhere" when not given. */
+  qMode?: EventSearchMode;
+  venueId?: string;
   from?: string;
   to?: string;
   /** Only events whose last day is before this date (Archiv › Vergangene Veranstaltungen). */
@@ -45,13 +56,76 @@ function where(actor: Actor, f: EventFilters, withType = true): SQL {
   if (f.from) parts.push(gte(event.endsOn, f.from));
   if (f.to) parts.push(lte(event.startsOn, f.to));
   if (f.endedBefore) parts.push(lt(event.endsOn, f.endedBefore));
-  if (f.q) {
-    const like = `%${f.q.toLowerCase().replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-    parts.push(
-      sql`(lower(${event.name}) like ${like} or lower(${venue.name}) like ${like} or lower(${venue.city}) like ${like})`,
-    );
-  }
+  if (f.venueId) parts.push(eq(event.venueId, f.venueId));
+  const tokens = f.q ? tokenize(f.q) : [];
+  if (tokens.length > 0) parts.push(searchWhere(tokens, f.qMode ?? "words"));
   return and(...parts) as SQL;
+}
+
+/**
+ * How a search matches events, the same rules as the command palette (`server/search-core.ts`), so
+ * "Alle 26 anzeigen" there and the list here count the same Termine (UX-066):
+ * - `wordStarts`: every word starts a word of name, city, Ort or date ("bonn" finds Bonn, not "Abonnent");
+ * - `words`: every word appears somewhere (when nothing starts a word);
+ * - `typos`: as `words`, but a word of four letters or more may also be a typo ("Nipes" finds Nippes).
+ */
+export type EventSearchMode = "wordStarts" | "words" | "typos";
+
+/** Folds umlauts and accents like the palette: "koln" finds Köln. */
+function fold(column: SQL): SQL {
+  return sql`translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aousseeeaaaoooiiiuuuc')`;
+}
+
+function searchWhere(tokens: string[], mode: EventSearchMode): SQL {
+  const haystack = fold(
+    sql`concat_ws(' ', ${event.name}, ${venue.city}, ${venue.name}, to_char(${event.startsOn}, 'DD.MM.YYYY'))`,
+  );
+  const has = (t: string) => sql`${haystack} like ${`%${escapeLike(t)}%`}`;
+  if (mode === "wordStarts")
+    return and(
+      ...tokens.map((t) => sql`${haystack} ~ ${`(^|[^[:alnum:]])${escapeRegex(t)}`}`),
+    ) as SQL;
+  if (mode === "words") return and(...tokens.map(has)) as SQL;
+  // As typed (1), two neighbouring letters swapped at a word start (0.9), else the trigram similarity.
+  const close = (t: string) => {
+    const swaps = transpositions(t).map(escapeRegex);
+    const swapped =
+      swaps.length > 0 ? sql`${haystack} ~ ${`(^|[^[:alnum:]])(${swaps.join("|")})`}` : sql`false`;
+    return sql`(case when ${has(t)} then 1 when ${swapped} then 0.9
+      else app.word_similarity(${t}, ${haystack}) end) >= ${FUZZY_THRESHOLD}`;
+  };
+  return and(...tokens.map((t) => (typoTolerant(t) ? close(t) : has(t)))) as SQL;
+}
+
+/**
+ * Which `EventSearchMode` a query uses, decided over every event the actor may see (like the palette):
+ * word starts when any event has them; otherwise typos when a word is long enough for one; else words.
+ */
+export async function eventSearchMode(actor: Actor, q: string): Promise<EventSearchMode> {
+  const tokens = tokenize(q);
+  if (tokens.length === 0) return "words";
+  const [hit] = await db
+    .select({ id: event.id })
+    .from(event)
+    .innerJoin(venue, eq(venue.id, event.venueId))
+    .where(and(visibleEvents(actor), searchWhere(tokens, "wordStarts")))
+    .limit(1);
+  if (hit) return "wordStarts";
+  return tokens.some(typoTolerant) ? "typos" : "words";
+}
+
+/**
+ * How many rows `listEvents` returns for these filters, without loading them: the list's "N abgesagt" and "Auch
+ * passend" hints, and the command palette's "anzeigen" count (the events its link really opens).
+ */
+export async function countEvents(actor: Actor, filters: EventFilters): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(event)
+    .innerJoin(eventType, eq(eventType.id, event.eventTypeId))
+    .innerJoin(venue, eq(venue.id, event.venueId))
+    .where(where(actor, filters));
+  return row?.n ?? 0;
 }
 
 export type EventRow = Awaited<ReturnType<typeof listEvents>>[number];
@@ -73,9 +147,13 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
       typeNameEn: eventType.nameEn,
       /** Market colour of the event's preset (`MARKET_COLORS` key), null = use the type marker. */
       color: eventPreset.color,
+      /** The event's market; its Kürzel comes from `getMarketShortCodes`. */
+      presetId: event.presetId,
       venueId: venue.id,
       venueName: venue.name,
       city: venue.city,
+      /** The Zeitplan (ADR 0022); the Kalender shows its summary. */
+      schedule: event.schedule,
       duties: sql<number>`(select count(*)::int from ${eventDuty} where ${eventDuty.eventId} = ${event.id})`,
     })
     .from(event)
@@ -89,6 +167,8 @@ export async function listEvents(actor: Actor, filters: EventFilters) {
     ...r,
     health: healthOf(r.status, r.duties, required, dims.get(r.id)),
     reasons: reasonsOf(r.status, dims.get(r.id)),
+    /** Open and overdue tasks the actor can see (the Kalender popover's "Checkliste" counts). */
+    taskCounts: dims.get(r.id)?.taskCounts ?? NO_TASKS,
   }));
 }
 
@@ -98,7 +178,14 @@ type Dimensions = {
   money: HealthLevel | null;
   /** What the levels are made of, for "1 Genehmigung fehlt" / "5 überfällig" instead of "Achtung". */
   counts: HealthCounts;
+  /** Plain task numbers, also for finished events (the health counts drop them). */
+  taskCounts: TaskCounts;
 };
+
+/** Open tasks of an event and how many of them are overdue. */
+export type TaskCounts = { open: number; overdue: number };
+
+const NO_TASKS: TaskCounts = { open: 0, overdue: 0 };
 
 /** The numbers behind the permit and task health levels of one event. */
 export type HealthCounts = {
@@ -142,6 +229,10 @@ async function dimensionHealth(
           tasksOverdue: tasks.get(id)?.overdue ?? 0,
           tasksBlocked: tasks.get(id)?.blocked ?? 0,
         },
+        taskCounts: {
+          open: tasks.get(id)?.open ?? 0,
+          overdue: tasks.get(id)?.overdue ?? 0,
+        },
       },
     ]),
   );
@@ -156,7 +247,13 @@ function healthOf(
   status: EventStatusKey,
   duties: number,
   required: number,
-  dims: Dimensions = { permits: null, tasks: null, money: null, counts: NO_COUNTS },
+  dims: Dimensions = {
+    permits: null,
+    tasks: null,
+    money: null,
+    counts: NO_COUNTS,
+    taskCounts: NO_TASKS,
+  },
 ): HealthDimensions {
   const past = status === "completed" || status === "closed" || status === "cancelled";
   return {
@@ -250,7 +347,7 @@ export type EventDetail = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
 
 /**
  * What "Als Vorlage speichern" (Archiv) copies from a past event into the new-market form: name, type, venue,
- * length, times and prices. Null when the event is gone or not visible to the person.
+ * length, Zeitplan and prices. Null when the event is gone or not visible to the person.
  */
 export async function getPresetSource(actor: Actor, id: string) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
@@ -262,7 +359,7 @@ export async function getPresetSource(actor: Actor, id: string) {
       venueId: event.venueId,
       startsOn: event.startsOn,
       endsOn: event.endsOn,
-      times: event.times,
+      schedule: event.schedule,
       pricePerMCents: event.pricePerMCents,
       bookingFeeCents: event.bookingFeeCents,
     })

@@ -1,15 +1,17 @@
 "use client";
 
-import { Flag, TriangleAlert, XCircle } from "lucide-react";
+import { XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { previewBasics, saveBasics, undoBasics } from "@/app/(app)/veranstaltungen/[id]/actions";
+import { HolidayNote } from "@/components/events/candidate-notes";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { VenuePicker } from "@/components/venues/venue-picker";
 import { formatDateWithWeekday } from "@/lib/format";
 import type { VenueOption } from "@/server/queries/venues";
 import type { EventBasics, EventSchedulePreview } from "@/server/services/event-details";
@@ -46,7 +48,7 @@ export function BasicsDialog({
   const t = useTranslations("eventDetail.basics");
   const tWarn = useTranslations("generate.warn");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const { confirm, dialog } = useConfirm();
   const [name, setName] = useState(basics.name);
   const [days, setDays] = useState(String(basics.durationDays));
@@ -149,16 +151,15 @@ export function BasicsDialog({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoBasics(eventId, previous, next);
-          showToast({ message: undone.ok ? t("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });
   }
 
   const check = preview?.check;
-  const hints = check
-    ? check.holidays.length + check.venueConflicts.length + (check.overWeekendCap ? 1 : 0)
-    : 0;
+  const hints = check ? check.holidays.length + check.venueConflicts.length : 0;
 
   return (
     <>
@@ -210,24 +211,20 @@ export function BasicsDialog({
           <div className="grid grid-cols-[1fr_7rem] gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="basics-venue">{t("venue")}</Label>
-              <select
+              <VenuePicker
                 id="basics-venue"
+                venues={
+                  venues.some((v) => v.id === basics.venueId)
+                    ? venues
+                    : [{ id: basics.venueId, name: t("archivedVenue"), city: null }, ...venues]
+                }
                 value={venueId}
-                className={SELECT_CLASS}
-                onChange={(e) => {
-                  setVenueId(e.target.value);
-                  refreshPreview(days, e.target.value);
+                canCreate
+                onChange={(next) => {
+                  setVenueId(next);
+                  refreshPreview(days, next);
                 }}
-              >
-                {!venues.some((v) => v.id === basics.venueId) && (
-                  <option value={basics.venueId}>{t("archivedVenue")}</option>
-                )}
-                {venues.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.city} · {v.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="basics-days">{t("days")}</Label>
@@ -261,17 +258,8 @@ export function BasicsDialog({
               </p>
               <ul className="flex flex-col gap-1">
                 {check?.holidays.map((h) => (
-                  <li key={h.key} className="flex items-center gap-1.5 text-status-warn">
-                    <TriangleAlert aria-hidden className="size-3.5" />
-                    {tWarn("holiday", { name: locale === "en" ? h.nameEn : h.nameDe })}
-                  </li>
+                  <HolidayNote key={h.key} holiday={h} className="gap-1.5" />
                 ))}
-                {check?.overWeekendCap && (
-                  <li className="flex items-center gap-1.5 text-status-warn">
-                    <Flag aria-hidden className="size-3.5" />
-                    {tWarn("weekend", { n: Math.max(...check.weekendLoad.map((w) => w.count)) })}
-                  </li>
-                )}
                 {check?.venueConflicts.map((v) => (
                   <li key={v.id} className="flex items-center gap-1.5 text-status-critical">
                     <XCircle aria-hidden className="size-3.5" />

@@ -5,47 +5,69 @@ import {
   formatCoordinate,
   formatMetres,
   isPostalCode,
+  landownerKindsFor,
+  mayOwnVenue,
   parseCoordinate,
   parseMetresToCm,
+  VENUE_KINDS,
+  VENUE_NAME_MAX,
+  venueNameFromAddress,
 } from "@marktwerk/core";
-import Link from "next/link";
+import { TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
-import { createVenueAction, updateVenueAction } from "@/app/(app)/orte/actions";
+import { useId, useMemo, useState, useTransition } from "react";
+import {
+  createVenueAction,
+  similarVenuesAction,
+  updateVenueAction,
+} from "@/app/(app)/orte/actions";
+import {
+  ContactQuickCreate,
+  type CreatedContact,
+} from "@/components/contacts/contact-quick-create";
+import { SimilarHint, useSimilar } from "@/components/contacts/similar-hint";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { FORM_SECTION, FORM_SECTION_TITLE } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
+import { DiscardBar, useBeforeUnload } from "@/components/ui/leave-guard";
 import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
+import { RecordPicker } from "@/components/ui/record-picker";
 import { formatLength } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { VenueFormValues } from "./defaults";
 import { fieldOfVenueError, SELECT_CLASS, useErrorText } from "./shared";
 
-const KINDS = ["outdoor_public", "outdoor_private", "indoor"] as const;
+const KINDS = VENUE_KINDS;
 
 /**
  * "Neuer Ort" and "Ort bearbeiten": a page, not a modal, because a venue has more than eight fields
- * (UX concept §4). Lengths are typed in metres with a comma and stored as centimetres.
+ * (UX concept §4). Lengths are typed in metres with a comma and stored as centimetres. After creating an Ort, or
+ * switching it between Städtisch and Privat, the Ort page opens "Was braucht dieser Ort?" (`?bedarf=`, Fahrplan R30).
  */
 export function VenueForm({
   venueId,
   initial,
   landowners,
   rowLengthCm = 0,
+  canSetNeeds = false,
 }: {
   /** Set when editing; without it the form creates a venue. */
   venueId?: string;
   initial: VenueFormValues;
-  landowners: { id: string; name: string; city: string | null }[];
+  landowners: { id: string; name: string; city: string | null; kind: string }[];
   /** Total length of the venue's rows; once there are rows, it replaces the stored capacity. */
   rowLengthCm?: number;
+  /** May set the Ort's permit requirements (permit write + delete): then the needs dialog follows. */
+  canSetNeeds?: boolean;
 }) {
   const t = useTranslations("venues");
   const tm = useTranslations("venues.manage");
   const tf = useTranslations("venues.manage.form");
+  const tKinds = useTranslations("contacts.kinds");
   const locale = useLocale();
   const router = useRouter();
   const { showToast } = useShell();
@@ -61,7 +83,40 @@ export function VenueForm({
   const [city, setCity] = useState(initial.city);
   const [bundesland, setBundesland] = useState(initial.bundesland);
   const [accessInfo, setAccessInfo] = useState(initial.accessInfo ?? "");
-  const [landowner, setLandowner] = useState(initial.landownerContactId ?? "");
+  const [landowner, setLandowner] = useState<string | null>(initial.landownerContactId);
+  // Eigentümer created in place (UT2-04) join the options until the page data has them.
+  const [createdLandowners, setCreatedLandowners] = useState<CreatedContact[]>([]);
+  const [newLandowner, setNewLandowner] = useState<string | null>(null);
+  // A städtisches Ort may also belong to a Behörde (UX-056); a private one only to an Eigentümer.
+  const ownerKinds = landownerKindsFor(kind);
+  const allLandowners = useMemo(
+    () => [
+      ...landowners.map((l) => ({ id: l.id, label: l.name, hint: l.city, kind: l.kind })),
+      ...createdLandowners
+        .filter((c) => !landowners.some((l) => l.id === c.id))
+        .map((c) => ({ ...c, kind: c.kind ?? "landowner" })),
+    ],
+    [landowners, createdLandowners],
+  );
+  const pickedLandowner = allLandowners.find((l) => l.id === landowner) ?? null;
+  // The picked one stays listed even when the kind no longer fits, so the warning below makes sense.
+  const landownerOptions = allLandowners
+    .filter((l) => mayOwnVenue(l.kind, kind) || l.id === landowner)
+    .map((l) => ({
+      id: l.id,
+      label: l.label,
+      hint:
+        l.kind === "authority" ? [tKinds("authority"), l.hint].filter(Boolean).join(" · ") : l.hint,
+    }));
+  // As in the service: an Eigentümer that no longer fits (its Art was changed since) may stay while
+  // neither it nor the Ort's kind changes, so unrelated edits still save. Only a new pick or a new
+  // kind has to fit.
+  const landownerBlocked =
+    pickedLandowner !== null &&
+    !mayOwnVenue(pickedLandowner.kind, kind) &&
+    (landowner !== initial.landownerContactId || kind !== initial.kind);
+  const landownerKindCode =
+    pickedLandowner?.kind === "authority" ? "landowner_kind" : "landowner_kind_other";
   const [capacity, setCapacity] = useState(
     initial.capacityCm === null ? "" : formatMetres(initial.capacityCm, locale),
   );
@@ -71,33 +126,71 @@ export function VenueForm({
   const editing = venueId !== undefined;
   const backHref = editing ? `/orte/${venueId}` : "/orte";
 
+  // Unsaved changes (UX-002): the browser asks on close/reload, "Abbrechen" asks inline.
+  const [leaving, setLeaving] = useState(false);
+  const dirty =
+    name !== initial.name ||
+    kind !== initial.kind ||
+    street !== (initial.street ?? "") ||
+    postalCode !== (initial.postalCode ?? "") ||
+    city !== initial.city ||
+    bundesland !== initial.bundesland ||
+    accessInfo !== (initial.accessInfo ?? "") ||
+    landowner !== initial.landownerContactId ||
+    capacity !== (initial.capacityCm === null ? "" : formatMetres(initial.capacityCm, locale)) ||
+    lat !== (initial.lat === null ? "" : formatCoordinate(initial.lat, locale)) ||
+    lng !== (initial.lng === null ? "" : formatCoordinate(initial.lng, locale));
+  useBeforeUnload(dirty && !pending);
+
+  function cancel() {
+    if (dirty) setLeaving(true);
+    else router.push(backHref as never);
+  }
+
   function fail(code: string) {
     const field = fieldOfVenueError(code);
     setError({ field, text: errorText(code) });
     if (field) document.getElementById(field)?.focus();
   }
 
+  // An empty name is filled from the address by the service (UT2-02); the field shows what it will be.
+  const derivedName = venueNameFromAddress(city, street);
+
+  // "Ähnlicher Ort" while typing (UX-028): same name (or the name the address gives) or same street
+  // and PLZ. Never blocks saving.
+  const typedName = name.trim() || derivedName;
+  const similar = useSimilar(
+    typedName.length >= 3 || (street.trim() !== "" && postalCode.trim().length === 5)
+      ? JSON.stringify([typedName, street.trim(), postalCode.trim()])
+      : null,
+    () =>
+      similarVenuesAction(
+        { name: typedName, street: street.trim(), postalCode: postalCode.trim() },
+        venueId,
+      ),
+  );
+
   function submit() {
     setError(null);
+    setLeaving(false);
     // Required fields and obvious format mistakes are answered on the spot (no round trip), in field
     // order, so the focus lands on the first wrong field.
-    if (name.trim() === "") return fail("invalid_name");
     if (postalCode.trim() !== "" && !isPostalCode(postalCode.trim()))
       return fail("invalid_postal_code");
     if (city.trim() === "") return fail("invalid_city");
     const capacityText = capacity.trim();
     const capacityCm = capacityText === "" ? null : parseMetresToCm(capacityText);
+    if (landownerBlocked) return fail(landownerKindCode);
     if (capacityText !== "" && !capacityCm) return fail("invalid_capacity");
+    // Each coordinate mistake gets its own message at its own field (UX-056).
     const latText = lat.trim();
     const lngText = lng.trim();
     const latValue = latText === "" ? null : parseCoordinate(latText, "lat");
     const lngValue = lngText === "" ? null : parseCoordinate(lngText, "lng");
-    if (
-      (latText === "") !== (lngText === "") ||
-      (latText !== "" && latValue === null) ||
-      (lngText !== "" && lngValue === null)
-    )
-      return fail("invalid_coordinates");
+    if (latText !== "" && latValue === null) return fail("invalid_lat");
+    if (lngText !== "" && lngValue === null) return fail("invalid_lng");
+    if (latText === "" && lngText !== "") return fail("lat_missing");
+    if (lngText === "" && latText !== "") return fail("lng_missing");
 
     const input = {
       name,
@@ -126,16 +219,39 @@ export function VenueForm({
       if (editing && "changed" in result.data && !result.data.changed) {
         showToast({ message: tf("unchanged") });
       } else {
-        showToast({ message: tf(editing ? "saved" : "created", { name: name.trim() }) });
+        showToast({
+          message: tf(editing ? "saved" : "created", { name: name.trim() || derivedName }),
+        });
       }
-      router.push(`/orte/${id}` as never);
+      // A new Ort, or one that changed between Städtisch and Privat, asks what it needs (Fahrplan R30).
+      const needs = !canSetNeeds
+        ? null
+        : !editing
+          ? "neu"
+          : kind !== initial.kind && "changed" in result.data && result.data.changed
+            ? "art"
+            : null;
+      router.push(`/orte/${id}${needs ? `?bedarf=${needs}` : ""}` as never);
     });
   }
 
-  const invalid = (field: string) =>
-    error?.field === field ? { "aria-invalid": true as const } : {};
+  /** A field in error: marked invalid and described by its own message, which sits right under it. */
+  const invalid = (field: string, hintId?: string) =>
+    error?.field === field
+      ? {
+          "aria-invalid": true as const,
+          "aria-describedby": [`${field}-error`, hintId].filter(Boolean).join(" "),
+        }
+      : hintId
+        ? { "aria-describedby": hintId }
+        : {};
+  const errorAt = (field: string) =>
+    error?.field === field ? (
+      <p id={`${field}-error`} className="text-small text-status-critical">
+        {error.text}
+      </p>
+    ) : null;
   const f = (key: string) => `venue-${key}`;
-  const legend = "mb-3 font-semibold text-[15px]";
   const cell = "flex flex-col gap-1.5";
   const hint = "text-faint-foreground text-small";
 
@@ -148,21 +264,27 @@ export function VenueForm({
       }}
     >
       <Panel>
-        <PanelBody className="flex flex-col gap-7">
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("basics")}</legend>
+        <PanelBody className="flex flex-col gap-6">
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("basics")}</legend>
             <div className="grid gap-4 sm:grid-cols-[1fr_14rem]">
               <div className={cell}>
-                <Label htmlFor={f("name")}>{tf("name")}</Label>
+                <Label htmlFor={f("name")} optional>
+                  {tf("name")}
+                </Label>
                 <Input
                   id={f("name")}
                   value={name}
-                  maxLength={120}
-                  required
+                  maxLength={VENUE_NAME_MAX}
                   autoComplete="off"
+                  placeholder={derivedName || undefined}
                   onChange={(e) => setName(e.target.value)}
-                  {...invalid(f("name"))}
+                  {...invalid(f("name"), `${uid}-name`)}
                 />
+                {errorAt(f("name"))}
+                <p id={`${uid}-name`} className={hint}>
+                  {tf("nameHint")}
+                </p>
               </div>
               <div className={cell}>
                 <Label htmlFor={f("kind")}>{tf("kind")}</Label>
@@ -179,12 +301,24 @@ export function VenueForm({
                     </option>
                   ))}
                 </select>
+                {errorAt(f("kind"))}
               </div>
+              <SimilarHint
+                className="sm:col-span-2"
+                title={tf("similar.title", { count: similar.length })}
+                note={editing ? tf("similar.noteEdit") : tf("similar.note")}
+                items={similar.map((v) => ({
+                  id: v.id,
+                  href: `/orte/${v.id}`,
+                  label: v.name,
+                  reason: [v.city, tf(`similar.reason.${v.reason}`)].filter(Boolean).join(" · "),
+                }))}
+              />
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("address")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("address")}</legend>
             <div className="grid gap-4 sm:grid-cols-6">
               <div className={cn(cell, "sm:col-span-6")}>
                 <Label htmlFor={f("street")} optional>
@@ -198,6 +332,7 @@ export function VenueForm({
                   onChange={(e) => setStreet(e.target.value)}
                   {...invalid(f("street"))}
                 />
+                {errorAt(f("street"))}
               </div>
               <div className={cn(cell, "sm:col-span-2")}>
                 <Label htmlFor={f("postal")} optional>
@@ -213,6 +348,7 @@ export function VenueForm({
                   onChange={(e) => setPostalCode(e.target.value)}
                   {...invalid(f("postal"))}
                 />
+                {errorAt(f("postal"))}
               </div>
               <div className={cn(cell, "sm:col-span-4")}>
                 <Label htmlFor={f("city")}>{tf("city")}</Label>
@@ -225,16 +361,16 @@ export function VenueForm({
                   onChange={(e) => setCity(e.target.value)}
                   {...invalid(f("city"))}
                 />
+                {errorAt(f("city"))}
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
                 <Label htmlFor={f("bundesland")}>{tf("bundesland")}</Label>
                 <select
                   id={f("bundesland")}
                   value={bundesland}
-                  aria-describedby={`${uid}-bundesland`}
                   className={SELECT_CLASS}
                   onChange={(e) => setBundesland(e.target.value)}
-                  {...invalid(f("bundesland"))}
+                  {...invalid(f("bundesland"), `${uid}-bundesland`)}
                 >
                   {BUNDESLAENDER.map((code) => (
                     <option key={code} value={code}>
@@ -242,6 +378,7 @@ export function VenueForm({
                     </option>
                   ))}
                 </select>
+                {errorAt(f("bundesland"))}
                 <p id={`${uid}-bundesland`} className={hint}>
                   {tf("bundeslandHint")}
                 </p>
@@ -249,8 +386,8 @@ export function VenueForm({
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("access")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("access")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cn(cell, "sm:col-span-2")}>
                 <Label htmlFor={f("access")} optional>
@@ -261,11 +398,11 @@ export function VenueForm({
                   value={accessInfo}
                   rows={4}
                   maxLength={2000}
-                  aria-describedby={`${uid}-access`}
                   className={TEXTAREA_CLASS}
                   onChange={(e) => setAccessInfo(e.target.value)}
-                  {...invalid(f("access"))}
+                  {...invalid(f("access"), `${uid}-access`)}
                 />
+                {errorAt(f("access"))}
                 <p id={`${uid}-access`} className={hint}>
                   {tf("accessInfoHint")}
                 </p>
@@ -274,30 +411,56 @@ export function VenueForm({
                 <Label htmlFor={f("landowner")} optional>
                   {tf("landowner")}
                 </Label>
-                <select
+                <RecordPicker
                   id={f("landowner")}
+                  options={landownerOptions}
                   value={landowner}
-                  aria-describedby={`${uid}-landowner`}
-                  className={SELECT_CLASS}
-                  onChange={(e) => setLandowner(e.target.value)}
-                  {...invalid(f("landowner"))}
-                >
-                  <option value="">{tf("noLandowner")}</option>
-                  {landowners.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.city ? `${l.name} · ${l.city}` : l.name}
-                    </option>
-                  ))}
-                </select>
-                <p id={`${uid}-landowner`} className={hint}>
-                  {tf("landownerHint")}
-                </p>
+                  onChange={setLandowner}
+                  allowNone
+                  noneLabel={tf("noLandowner")}
+                  placeholder={tf("noLandowner")}
+                  aria-describedby={[
+                    error?.field === f("landowner") ? `${f("landowner")}-error` : null,
+                    `${uid}-landowner`,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-invalid={error?.field === f("landowner")}
+                  onCreate={(text) => setNewLandowner(text)}
+                />
+                <ContactQuickCreate
+                  open={newLandowner !== null}
+                  onOpenChange={(open) => !open && setNewLandowner(null)}
+                  name={newLandowner ?? ""}
+                  kinds={ownerKinds}
+                  onCreated={(created) => {
+                    setCreatedLandowners((prev) => [...prev, created]);
+                    setLandowner(created.id);
+                  }}
+                />
+                {errorAt(f("landowner"))}
+                {/* While the error says it, the hint goes back to normal so it is not read twice. */}
+                {landownerBlocked && error?.field !== f("landowner") ? (
+                  <p
+                    id={`${uid}-landowner`}
+                    className="flex items-center gap-1.5 text-small text-status-warn"
+                  >
+                    <TriangleAlert aria-hidden className="size-4 shrink-0" />
+                    {landownerKindCode === "landowner_kind"
+                      ? tf("landownerKindMismatch")
+                      : tf("landownerKindMismatchOther")}
+                  </p>
+                ) : (
+                  <p id={`${uid}-landowner`} className={hint}>
+                    {kind === "municipal" ? tf("landownerHintMunicipal") : tf("landownerHint")}
+                  </p>
+                )}
               </div>
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("capacitySection")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("capacitySection")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
                 <Label htmlFor={f("capacity")} optional>
@@ -309,19 +472,19 @@ export function VenueForm({
                     value={capacity}
                     inputMode="decimal"
                     autoComplete="off"
-                    aria-describedby={`${uid}-capacity`}
                     className="tabular pr-9"
                     onChange={(e) => setCapacity(e.target.value)}
                     onBlur={(e) => {
                       const cm = parseMetresToCm(e.target.value);
                       if (cm) setCapacity(formatMetres(cm, locale));
                     }}
-                    {...invalid(f("capacity"))}
+                    {...invalid(f("capacity"), `${uid}-capacity`)}
                   />
                   <span className="-translate-y-1/2 pointer-events-none absolute top-1/2 right-3 text-muted-foreground text-small">
                     m
                   </span>
                 </div>
+                {errorAt(f("capacity"))}
                 <p id={`${uid}-capacity`} className={hint}>
                   {tf("capacityHint")}
                   {rowLengthCm > 0 &&
@@ -342,11 +505,11 @@ export function VenueForm({
                     value={lat}
                     inputMode="decimal"
                     autoComplete="off"
-                    aria-describedby={`${uid}-coordinates`}
                     className="tabular"
                     onChange={(e) => setLat(e.target.value)}
-                    {...invalid(f("lat"))}
+                    {...invalid(f("lat"), `${uid}-coordinates`)}
                   />
+                  {errorAt(f("lat"))}
                 </div>
                 <div className={cell}>
                   <Label htmlFor={f("lng")}>{tf("lng")}</Label>
@@ -355,11 +518,11 @@ export function VenueForm({
                     value={lng}
                     inputMode="decimal"
                     autoComplete="off"
-                    aria-describedby={`${uid}-coordinates`}
                     className="tabular"
                     onChange={(e) => setLng(e.target.value)}
-                    {...invalid(f("lng"))}
+                    {...invalid(f("lng"), `${uid}-coordinates`)}
                   />
+                  {errorAt(f("lng"))}
                 </div>
                 <p id={`${uid}-coordinates`} className={cn(hint, "sm:col-span-2")}>
                   {tf("coordinatesHint")}
@@ -368,14 +531,24 @@ export function VenueForm({
             </fieldset>
           </fieldset>
         </PanelBody>
+        {leaving && (
+          <PanelBody className="pt-0">
+            <DiscardBar
+              message={tf("unsaved")}
+              discardLabel={tf("discard")}
+              keepLabel={tf("keepEditing")}
+              onDiscard={() => router.push(backHref as never)}
+              onKeep={() => setLeaving(false)}
+            />
+          </PanelBody>
+        )}
         <PanelFooter className="justify-between">
+          {/* Field errors sit at their field (UX-055); only errors without a field show here. */}
           <p role="alert" className="min-w-0 flex-1 text-small text-status-critical">
-            {error?.text}
+            {error && error.field === null ? error.text : ""}
           </p>
           <div className="flex items-center gap-2">
-            <Link href={backHref as never} className={buttonVariants({ variant: "outline" })}>
-              {tm("cancel")}
-            </Link>
+            <Button onClick={cancel}>{tm("cancel")}</Button>
             <Button type="submit" variant="default" aria-busy={pending} disabled={pending}>
               {tf(editing ? "save" : "create")}
             </Button>

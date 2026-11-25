@@ -3,20 +3,30 @@
 import { Dialog } from "@base-ui/react/dialog";
 import type { MarketColor } from "@marktwerk/core";
 import {
+  ALL_MONTHS,
   addDays,
   type CandidateCheck,
   checkCandidates,
   daysInMonth,
   endsOnFor,
-  expandRRule,
+  expandPlanRule,
   groupConsecutiveDates,
+  type Holiday,
+  type HolidayWeekend,
   holidaysBetween,
+  holidayWeekendsBetween,
   isoDate,
   isoWeek,
   mondayOf,
-  parseRRule,
+  type PlanRule,
+  planRuleFollowing,
+  planRuleFromRRule,
+  planRuleMonthRange,
+  planRuleMonths,
+  planRuleStart,
+  rruleDatesInYear,
+  suggestPlanRule,
   weekday,
-  weekendsTouched,
 } from "@marktwerk/core";
 import {
   CalendarDays,
@@ -26,6 +36,7 @@ import {
   CopyCheck,
   Plus,
   Search,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -39,20 +50,26 @@ import {
 import { CandidateNotes, candidateWarningCount } from "@/components/events/candidate-notes";
 import { NewMarketForm } from "@/components/events/new-market-form";
 import { useScheduleContextState } from "@/components/events/schedule-hints";
+import { GenerateNextTimeNotes } from "@/components/next-time-notes/generate-next-time-notes";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
 import { Kbd } from "@/components/ui/kbd";
 import { MarketMarker } from "@/components/ui/market-marker";
 import { formatDate, formatDateWithWeekday, formatMonth, formatWeek, todayIn } from "@/lib/format";
+import { quietHoursValues } from "@/lib/holidays";
 import { cn } from "@/lib/utils";
 import type { EventTypeOption } from "@/server/queries/event-form";
 import type { DatePreview, GenerationPreview } from "@/server/queries/generation-preview";
 import type { GenerationPreset } from "@/server/queries/presets";
 import type { VenueOption } from "@/server/queries/venues";
 
-const CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
-const POSITIONS = [1, 2, 3, 4, -1] as const;
+/** "jeden", "jeden 1." … "jeden 5.", "jeden letzten" (null = every week). */
+const POSITIONS = [null, 1, 2, 3, 4, 5, -1] as const;
+/** "1. Sonntag, April bis Oktober": the plain start without a rule of the market's own. */
+const DEFAULT_MONTHS = [4, 5, 6, 7, 8, 9, 10];
+/** Monday first, the German week (weekday 0 = Sunday). */
+const WEEK = [1, 2, 3, 4, 5, 6, 0] as const;
 
 const CHIP =
   "inline-flex min-h-7 cursor-pointer items-center rounded-full border border-input bg-card px-3 font-medium text-small hover:bg-hover touch:min-h-10";
@@ -74,23 +91,61 @@ function shiftDayByMonths(day: string, by: number): string {
   return isoDate(y, m, Math.min(Number(day.slice(8, 10)), daysInMonth(y, m)));
 }
 
-/** Rule fields prefilled from the preset's recurrence rule. */
-function ruleFromPreset(rrule: string | null, year: number) {
-  const fallback = { setPos: 1, day: 0, fromMonth: 4, toMonth: 10, year };
-  if (!rrule) return fallback;
-  try {
-    const parsed = parseRRule(rrule);
-    const months = parsed.months ?? [1, 12];
-    return {
-      setPos: parsed.setPos ?? 1,
-      day: parsed.weekdays[0] ?? 0,
-      fromMonth: Math.min(...months),
-      toMonth: Math.max(...months),
-      year,
-    };
-  } catch {
-    return fallback;
-  }
+type RuleSource =
+  /** `exact`: the rule fields mean the stored rhythm's dates (see core `planRuleFromRRule`). */
+  | { kind: "rhythm"; exact: boolean }
+  | { kind: "past"; season: number; dates: number; regular: boolean }
+  | { kind: "default" };
+
+/**
+ * Where step 2 starts for a market (UX-015): its stored rhythm, else the rule read from its own past dates
+ * (weekday, position, months), else a plain "1. Sonntag, April bis Oktober". A rule of the market's own is put
+ * into the calendar at once (future days only); the plain default only prefills the rule. A stored rhythm puts
+ * exactly its own dates in (the ones the Vorlage preview shows), and only when the rule fields mean the same
+ * dates; past dates only when they follow a real rhythm.
+ */
+function startFor(preset: GenerationPreset | undefined, year: number, today: string) {
+  const stored = planRuleFromRRule(preset?.rrule ?? null, year);
+  const past = preset ? suggestPlanRule(preset.pastDates, preset.durationDays, today) : null;
+  const { rule, source }: { rule: PlanRule; source: RuleSource } =
+    stored && stored.weekdays.length > 0
+      ? {
+          rule: {
+            weekdays: stored.weekdays,
+            setPos: stored.setPos,
+            months: stored.months,
+            year,
+          },
+          source: { kind: "rhythm", exact: stored.exact },
+        }
+      : past
+        ? {
+            rule: { weekdays: past.weekdays, setPos: past.setPos, months: past.months, year },
+            source: { kind: "past", ...past.basedOn, regular: past.regular },
+          }
+        : {
+            rule: { weekdays: [0], setPos: 1, months: DEFAULT_MONTHS, year },
+            source: { kind: "default" },
+          };
+  // Past dates without a clear rhythm (twice a year) only prefill the rule; nothing is picked for the office.
+  const dates =
+    source.kind === "rhythm"
+      ? source.exact && preset?.rrule
+        ? rruleDatesInYear(preset.rrule, year)
+        : []
+      : source.kind === "past" && source.regular
+        ? expandPlanRule(rule)
+        : [];
+  const selected = dates.filter((d) => d > today);
+  return {
+    rule,
+    source,
+    selected,
+    pastLeftOut: dates.length - selected.length,
+    firstMonth: selected[0]
+      ? monthKey(selected[0])
+      : `${year}-${String(rule.months[0] ?? DEFAULT_MONTHS[0]).padStart(2, "0")}`,
+  };
 }
 
 type PreviewState =
@@ -127,9 +182,10 @@ export function GenerateSheet({
   openNewMarket?: boolean;
 }) {
   const t = useTranslations("generate");
+  const tNotes = useTranslations("holidayNotes");
   const locale = useLocale();
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const today = todayIn();
   const nextYear = Number(today.slice(0, 4)) + 1;
 
@@ -158,11 +214,13 @@ export function GenerateSheet({
       )
     : all;
   const [mode, setMode] = useState<"click" | "rule">("rule");
-  const [rule, setRule] = useState(() => ruleFromPreset(preset?.rrule ?? null, nextYear));
-  const [firstMonth, setFirstMonth] = useState(
-    `${nextYear}-${String(rule.fromMonth).padStart(2, "0")}`,
-  );
-  const [selected, setSelected] = useState<string[]>([]);
+  const [start] = useState(() => startFor(preset, nextYear, today));
+  const [rule, setRule] = useState<PlanRule>(start.rule);
+  const [ruleSource, setRuleSource] = useState<RuleSource>(start.source);
+  /** Dates of the applied rule that lie in the past and were left out ("2 vergangene ausgelassen"). */
+  const [pastLeftOut, setPastLeftOut] = useState(start.pastLeftOut);
+  const [firstMonth, setFirstMonth] = useState(start.firstMonth);
+  const [selected, setSelected] = useState<string[]>(start.selected);
   /** Consecutive picked days become one event (HN-12, UT-16); on by default, a switch in step 2. */
   const [merge, setMerge] = useState(true);
   /** Dates that exist already but are created anyway ("Doch anlegen"). */
@@ -191,19 +249,39 @@ export function GenerateSheet({
   const notesState =
     contextState === "ready" ? "ready" : contextState === "error" ? "error" : "loading";
 
+  // Holidays incl. the stille Tage (Volkstrauertag, Totensonntag, Heiligabend) and the Easter/Whitsun weekends.
   const holidays = useMemo(
-    () => holidaysBetween(addDays(windowFrom, -7), addDays(windowTo, 7)),
+    () =>
+      holidaysBetween(addDays(windowFrom, -7), addDays(windowTo, 7), "NW", { observances: true }),
+    [windowFrom, windowTo],
+  );
+  const holidayWeekends = useMemo(
+    () => holidayWeekendsBetween(addDays(windowFrom, -7), addDays(windowTo, 7)),
     [windowFrom, windowTo],
   );
 
+  // The market's own existing dates, and everyone else's (only those make the Ort "belegt", UX-042).
+  const ownEvents = useMemo(
+    () => (preset ? existing.filter((e) => e.presetId === preset.id) : []),
+    [existing, preset],
+  );
+  const otherEvents = useMemo(
+    () => (preset ? existing.filter((e) => e.presetId !== preset.id) : existing),
+    [existing, preset],
+  );
   // Dates this market already has (same market, same first day): "Gibt es schon".
   const existingOfMarket = useMemo(() => {
     const byDate = new Map<string, { id: string; name: string }>();
-    for (const e of existing) {
-      if (preset && e.presetId === preset.id) byDate.set(e.startsOn, { id: e.id, name: e.name });
-    }
+    for (const e of ownEvents) byDate.set(e.startsOn, { id: e.id, name: e.name });
     return byDate;
-  }, [existing, preset]);
+  }, [ownEvents]);
+  /** Every day the market already has a date on (Kalender marker "schon geplant"). */
+  const ownDays = useMemo(() => {
+    const days = new Set<string>();
+    for (const e of ownEvents)
+      for (let d = e.startsOn; d <= e.endsOn; d = addDays(d, 1)) days.add(d);
+    return days;
+  }, [ownEvents]);
   const skippedDays = useMemo(
     () => new Set(selected.filter((d) => existingOfMarket.has(d) && !readded.includes(d))),
     [selected, readded, existingOfMarket],
@@ -234,6 +312,19 @@ export function GenerateSheet({
     [toCreate, preset],
   );
 
+  /** Days after the first one of each new event: shaded in the Kalender, so a Fr–So market shows Fr–So. */
+  const spanDays = useMemo(() => {
+    const days = new Set<string>();
+    for (const p of plan)
+      for (
+        let d = addDays(p.startsOn, 1);
+        d <= endsOnFor(p.startsOn, p.durationDays);
+        d = addDays(d, 1)
+      )
+        days.add(d);
+    return days;
+  }, [plan]);
+
   const checks: CandidateCheck[] = useMemo(() => {
     if (!preset) return [];
     return checkCandidates(
@@ -242,32 +333,44 @@ export function GenerateSheet({
         startsOn: p.startsOn,
         endsOn: endsOnFor(p.startsOn, p.durationDays),
       })),
-      existing,
+      otherEvents,
     );
-  }, [plan, existing, preset]);
+  }, [plan, otherEvents, preset]);
   const checkOf = useMemo(() => new Map(checks.map((c) => [c.startsOn, c])), [checks]);
-  const totalWarnings = checks.reduce((sum, c) => sum + candidateWarningCount(c), 0);
+  /**
+   * The market's own dates a new event would overlap (UX-028): a warning, nothing is blocked. The date with the
+   * same first day is not one of them: that is "Gibt es schon".
+   */
+  const sameMarketOf = useMemo(() => {
+    const byStart = new Map<string, { id: string; startsOn: string; endsOn: string }[]>();
+    for (const p of plan) {
+      const endsOn = endsOnFor(p.startsOn, p.durationDays);
+      const hits = ownEvents
+        .filter((e) => e.startsOn !== p.startsOn && e.startsOn <= endsOn && p.startsOn <= e.endsOn)
+        .map(({ id, startsOn, endsOn: end }) => ({ id, startsOn, endsOn: end }));
+      if (hits.length > 0) byStart.set(p.startsOn, hits);
+    }
+    return byStart;
+  }, [plan, ownEvents]);
+  const totalWarnings = checks.reduce(
+    (sum, c) => sum + candidateWarningCount(c) + (sameMarketOf.get(c.startsOn)?.length ?? 0),
+    0,
+  );
 
   const venueBusy = useMemo(() => {
     const days = new Set<string>();
-    for (const e of existing) {
+    for (const e of otherEvents) {
       if (e.venueId !== preset?.venueId) continue;
       for (let d = e.startsOn; d <= e.endsOn; d = addDays(d, 1)) days.add(d);
     }
     return days;
-  }, [existing, preset]);
-  /** Names of the events on each weekend (keyed by Saturday): the weekend marker and the preview say which. */
-  const weekendMarkets = useMemo(() => {
-    const names = new Map<string, string[]>();
-    for (const e of existing) {
-      for (const saturday of weekendsTouched(e.startsOn, e.endsOn))
-        names.set(saturday, [...(names.get(saturday) ?? []), e.name]);
-    }
-    return names;
-  }, [existing]);
+  }, [otherEvents, preset]);
 
   // Step 3: what the dates bring along (tasks, tasks due on day one, permits), worked out on the server.
   const [preview, setPreview] = useState<PreviewState>({ state: "idle" });
+  /** Step 3: the folded group of dates the market has already. */
+  /** null = the default: open only when every date exists already (nothing else to show). */
+  const [dupsOpen, setDupsOpen] = useState<boolean | null>(null);
   const createKey = toCreate.join(",");
   useEffect(() => {
     if (step !== 3 || !presetId || createKey === "") {
@@ -360,21 +463,44 @@ export function GenerateSheet({
     router.replace(closeHref as never, { scroll: false });
   }
 
-  function choosePreset(id: string) {
+  // The URL carries the market once its dates are being chosen (`?vorlage=`), so a reload or a shared link
+  // lands on step 2 instead of the market list; `?neu=1` only while the new-market form is open.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("erzeugen") !== "1") return;
+    const before = url.search;
+    if (step > 1 && presetId) url.searchParams.set("vorlage", presetId);
+    else url.searchParams.delete("vorlage");
+    if (step === 1 && creatingMarket) url.searchParams.set("neu", "1");
+    else url.searchParams.delete("neu");
+    if (url.search !== before)
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [step, presetId, creatingMarket]);
+
+  /**
+   * Choosing the market starts its dates from its own rule. Choosing the same market again (back from step 2,
+   * Enter in the search) keeps everything already picked.
+   */
+  function choosePreset(id: string, market?: GenerationPreset) {
+    if (id === presetId) return;
     setPresetId(id);
-    const next = all.find((p) => p.id === id);
-    const r = ruleFromPreset(next?.rrule ?? null, nextYear);
-    setRule(r);
-    setFirstMonth(`${r.year}-${String(r.fromMonth).padStart(2, "0")}`);
-    setSelected([]);
+    const next = market ?? all.find((p) => p.id === id);
+    const s = startFor(next, nextYear, today);
+    setRule(s.rule);
+    setRuleSource(s.source);
+    setPastLeftOut(s.pastLeftOut);
+    setFirstMonth(s.firstMonth);
+    setSelected(s.selected);
     setReaded([]);
+    setLastClicked(null);
     setFocusDay(null);
+    setDupsOpen(null);
   }
 
   /** A market made in this sheet: select it and go on to its dates. */
   function marketCreated(market: GenerationPreset, template: { items: number } | null) {
     setCreated((list) => [market, ...list]);
-    choosePreset(market.id);
+    choosePreset(market.id, market);
     setNoTasksFor(template === null ? market.id : null);
     setCreatingMarket(false);
     setStep(2);
@@ -404,14 +530,11 @@ export function GenerateSheet({
   }
 
   function applyRule() {
-    const monthsList: number[] = [];
-    for (let m = rule.fromMonth; m <= rule.toMonth; m += 1) monthsList.push(m);
-    const rrule = `FREQ=MONTHLY;BYMONTH=${monthsList.join(",")};BYDAY=${CODES[rule.day]};BYSETPOS=${rule.setPos}`;
-    const dates = expandRRule(rrule, `${rule.year}-01-01`, `${rule.year}-12-31`).filter(
-      (d) => d > today,
-    );
+    const all = expandPlanRule(rule);
+    const dates = all.filter((d) => d > today);
     setSelected(dates);
     setReaded([]);
+    setPastLeftOut(all.length - dates.length);
     if (dates[0]) setFirstMonth(monthKey(dates[0]));
   }
 
@@ -433,7 +556,15 @@ export function GenerateSheet({
         message: t("created", { count: ids.length }),
         actionLabel: t("undo"),
         onAction: async () => {
-          await undoCreateEvents(ids);
+          const undone = await undoCreateEvents(ids);
+          if (!undone.ok) {
+            showError(
+              t.has(`errors.${undone.error}` as never)
+                ? t(`errors.${undone.error}` as never)
+                : t("single.errors.generic"),
+            );
+            return;
+          }
           // The page we moved to belonged to one of the undone events.
           router.push("/veranstaltungen" as never);
         },
@@ -442,11 +573,71 @@ export function GenerateSheet({
   }
 
   const weekdayNames = t("weekdaysShort").split(",");
+  const weekdaysLong = t("weekdaysLong").split(",");
+  /** Weekday 0 = Sunday: long names are Sunday first, short ones Monday first. */
+  const longName = (d: number) => weekdaysLong[d] ?? "";
+  const shortName = (d: number) => weekdayNames[(d + 6) % 7] ?? "";
+  const joinNames = (names: string[]) =>
+    names.length <= 1
+      ? names.join("")
+      : `${names.slice(0, -1).join(", ")} ${t("rule.and")} ${names.at(-1)}`;
+  const monthFormat = (m: number, month: "long" | "short") =>
+    new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "de-DE", {
+      month,
+      timeZone: "UTC",
+    }).format(new Date(Date.UTC(2026, m - 1, 15)));
+  const monthName = (m: number) => monthFormat(m, "long");
+  const monthShort = (m: number) => monthFormat(m, "short");
+  const ruleStart = planRuleStart(rule.weekdays);
+  /** The rule in words: "jedes 1. Wochenende im Monat (Samstag und Sonntag), April bis Oktober 2027". */
+  const ruleWords = (() => {
+    const ruleMonths = planRuleMonths(rule.months);
+    if (ruleStart === null || ruleMonths.length === 0) return null;
+    const pos = rule.setPos === null ? null : rule.setPos === -1 ? "last" : String(rule.setPos);
+    const following = planRuleFollowing(rule.weekdays);
+    let base: string;
+    if (ruleStart === 6 && following.length === 1 && following[0] === 0) {
+      base = pos === null ? t("rule.words.weekendEvery") : t("rule.words.weekendNth", { pos });
+    } else {
+      base =
+        pos === null
+          ? t("rule.words.every", { day: longName(ruleStart) })
+          : t("rule.words.nth", { pos, day: longName(ruleStart) });
+      if (following.length > 0)
+        base = t("rule.words.following", { base, days: joinNames(following.map(longName)) });
+    }
+    // "April bis Oktober" for months that follow each other, else the list: "Mai und Oktober".
+    const range = planRuleMonthRange(ruleMonths);
+    return range && range.from !== range.to
+      ? t("rule.words.months", {
+          rule: base,
+          from: monthName(range.from),
+          to: monthName(range.to),
+          year: rule.year,
+        })
+      : t("rule.words.monthList", {
+          rule: base,
+          months: joinNames(ruleMonths.map(monthName)),
+          year: rule.year,
+        });
+  })();
+  const ruleDays = useMemo(
+    () => expandPlanRule(rule).filter((d) => d > today).length,
+    [rule, today],
+  );
+  /** The past dates began on other weekdays than the rule's Beginn: "Bisher begann der Markt am Freitag." */
+  const pastStarts = WEEK.filter((d) => preset?.pastDates.some((p) => weekday(p.startsOn) === d));
+  const otherStart =
+    ruleStart !== null && pastStarts.length > 0 && !(pastStarts as number[]).includes(ruleStart);
   const typeName = (p: Pick<GenerationPreset, "typeNameEn" | "typeNameDe">) =>
     locale === "en" ? p.typeNameEn : p.typeNameDe;
+  // An Ort without requirements is "noch nicht geklärt", never "keine Genehmigungen nötig" (UX-011).
+  const noRequirements = preview.state === "ready" && preview.data.noRequirements;
   const permitText = (p: Pick<DatePreview, "permitsCovered" | "permitsNew">) =>
     p.permitsCovered + p.permitsNew === 0
-      ? t("preview.permitsNone")
+      ? noRequirements
+        ? t("preview.permitsUnknown")
+        : t("preview.permitsNone")
       : t("preview.permits", { covered: p.permitsCovered, fresh: p.permitsNew });
 
   return (
@@ -661,47 +852,97 @@ export function GenerateSheet({
 
                 {mode === "rule" && (
                   <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-surface-2 p-3">
-                    <span>{t("rule.every")}</span>
+                    {ruleSource.kind !== "default" && (
+                      <p className="basis-full text-muted-foreground text-small">
+                        {ruleSource.kind === "past"
+                          ? t("rule.fromPast", {
+                              count: ruleSource.dates,
+                              season: ruleSource.season,
+                            })
+                          : t("rule.fromRhythm")}
+                        {ruleSource.kind === "rhythm" &&
+                          !ruleSource.exact &&
+                          ` · ${t("rule.rhythmLoose")}`}
+                        {ruleSource.kind === "past" &&
+                          !ruleSource.regular &&
+                          ` · ${t("rule.irregular", { season: ruleSource.season })}`}
+                      </p>
+                    )}
                     <select
                       aria-label={t("rule.position")}
-                      value={rule.setPos}
-                      onChange={(e) => setRule({ ...rule, setPos: Number(e.target.value) })}
+                      value={rule.setPos === null ? "every" : rule.setPos}
+                      onChange={(e) =>
+                        setRule({
+                          ...rule,
+                          setPos: e.target.value === "every" ? null : Number(e.target.value),
+                        })
+                      }
                       className="min-h-(--control-h) rounded-lg border border-input bg-card px-2"
                     >
                       {POSITIONS.map((pos) => (
-                        <option key={pos} value={pos}>
-                          {pos === -1 ? t("rule.last") : `${pos}.`}
+                        <option key={pos ?? "every"} value={pos ?? "every"}>
+                          {pos === null
+                            ? t("rule.every")
+                            : pos === -1
+                              ? t("rule.last")
+                              : t("rule.nth", { pos: String(pos) })}
                         </option>
                       ))}
                     </select>
-                    <select
-                      aria-label={t("rule.weekday")}
-                      value={rule.day}
-                      onChange={(e) => setRule({ ...rule, day: Number(e.target.value) })}
-                      className="min-h-(--control-h) rounded-lg border border-input bg-card px-2"
+                    {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of toggle buttons */}
+                    <div
+                      role="group"
+                      aria-label={t("rule.weekdays")}
+                      className="flex flex-wrap gap-1"
                     >
-                      {t("weekdaysLong")
-                        .split(",")
-                        .map((name, i) => (
-                          <option key={name} value={i}>
-                            {name}
-                          </option>
-                        ))}
-                    </select>
-                    <span>{t("rule.from")}</span>
-                    <MonthSelect
-                      label={t("rule.fromMonth")}
-                      value={rule.fromMonth}
-                      onChange={(v) => setRule({ ...rule, fromMonth: v })}
-                      locale={locale}
-                    />
-                    <span>{t("rule.to")}</span>
-                    <MonthSelect
-                      label={t("rule.toMonth")}
-                      value={rule.toMonth}
-                      onChange={(v) => setRule({ ...rule, toMonth: v })}
-                      locale={locale}
-                    />
+                      {WEEK.map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          aria-pressed={rule.weekdays.includes(d)}
+                          aria-label={longName(d)}
+                          onClick={() =>
+                            setRule({
+                              ...rule,
+                              weekdays: rule.weekdays.includes(d)
+                                ? rule.weekdays.filter((x) => x !== d)
+                                : [...rule.weekdays, d],
+                            })
+                          }
+                          className="grid min-h-(--control-h) min-w-9 cursor-pointer place-items-center rounded-lg border border-input bg-card px-2 font-medium hover:bg-hover aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                        >
+                          {shortName(d)}
+                        </button>
+                      ))}
+                    </div>
+                    {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of toggle buttons */}
+                    <div
+                      role="group"
+                      aria-label={t("rule.months")}
+                      className="flex basis-full flex-wrap gap-1"
+                    >
+                      {ALL_MONTHS.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          aria-pressed={rule.months.includes(m)}
+                          aria-label={monthName(m)}
+                          onClick={() =>
+                            setRule({
+                              ...rule,
+                              months: planRuleMonths(
+                                rule.months.includes(m)
+                                  ? rule.months.filter((x) => x !== m)
+                                  : [...rule.months, m],
+                              ),
+                            })
+                          }
+                          className="grid min-h-(--control-h) min-w-11 cursor-pointer place-items-center rounded-lg border border-input bg-card px-2 font-medium hover:bg-hover aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                        >
+                          {monthShort(m)}
+                        </button>
+                      ))}
+                    </div>
                     <select
                       aria-label={t("rule.year")}
                       value={rule.year}
@@ -717,15 +958,50 @@ export function GenerateSheet({
                     <Button
                       variant="default"
                       onClick={applyRule}
-                      disabled={rule.fromMonth > rule.toMonth}
+                      disabled={rule.months.length === 0 || ruleStart === null}
                     >
                       {t("rule.apply")}
                     </Button>
-                    {selected.length > 0 && (
-                      <span className="basis-full text-muted-foreground text-small">
-                        {t("rule.replaces", { count: selected.length })}
-                      </span>
-                    )}
+                    <div className="flex basis-full flex-col gap-0.5 text-small" aria-live="polite">
+                      {ruleWords ? (
+                        <p className="text-foreground-2">
+                          {ruleWords} · {t("rule.yields", { count: ruleDays })}
+                        </p>
+                      ) : (
+                        <p className="text-status-warn">
+                          {ruleStart === null ? t("rule.noWeekday") : t("rule.noMonth")}
+                        </p>
+                      )}
+                      {ruleStart !== null && preset.durationDays > 1 && preset.durationDays < 7 && (
+                        <p className="text-muted-foreground">
+                          {t("rule.duration", {
+                            day: longName(ruleStart),
+                            count: preset.durationDays,
+                            span: `${shortName(ruleStart)}–${shortName((ruleStart + preset.durationDays - 1) % 7)}`,
+                          })}
+                        </p>
+                      )}
+                      {otherStart && (
+                        <p className="flex items-center gap-1 text-status-warn">
+                          <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+                          {t("rule.otherStart", {
+                            days: joinNames(pastStarts.map(longName)),
+                          })}
+                        </p>
+                      )}
+                      {pastLeftOut > 0 && (
+                        <p className="text-muted-foreground">
+                          {t("rule.pastLeftOut", { count: pastLeftOut })}
+                        </p>
+                      )}
+                      {selected.length > 0 ? (
+                        <p className="text-muted-foreground">
+                          {t("rule.replaces", { count: selected.length })}
+                        </p>
+                      ) : (
+                        ruleWords && <p className="text-muted-foreground">{t("rule.notApplied")}</p>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -745,16 +1021,20 @@ export function GenerateSheet({
                       today={today}
                       selected={selected}
                       holidays={holidays}
+                      holidayWeekends={holidayWeekends}
                       venueBusy={venueBusy}
-                      weekendMarkets={weekendMarkets}
+                      spanDays={spanDays}
+                      ownDays={ownDays}
                       tabDay={tabDay}
                       onFocusDay={setFocusDay}
                       onToggle={toggle}
                       chosenLabel={(n) => t("chosen", { n })}
                       labels={{
                         busy: t("day.busy"),
-                        weekendFull: t("day.weekendFull"),
-                        weekendWith: (names) => t("warn.weekendWith", { names }),
+                        span: t("day.span"),
+                        own: t("day.own"),
+                        quiet: (h) =>
+                          h.quiet ? tNotes("quiet", quietHoursValues(h.quiet)) : undefined,
                       }}
                     />
                   ))}
@@ -768,24 +1048,40 @@ export function GenerateSheet({
                     {t("legend.selected")}
                   </li>
                   <li className="flex items-center gap-1.5">
+                    <span className="grid size-5 place-items-center rounded-md bg-selected font-semibold text-[11px] text-foreground">
+                      5
+                    </span>
+                    {t("legend.span")}
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="grid size-5 place-items-center rounded-md border-2 border-foreground-2 border-dashed text-[11px]">
+                      7
+                    </span>
+                    {t("legend.own")}
+                  </li>
+                  <li className="flex items-center gap-1.5">
                     <span className="font-semibold text-status-critical">3</span>
                     {t("legend.holiday")}
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="relative grid size-5 place-items-center text-[11px]">
+                      2
+                      <QuietBadge />
+                    </span>
+                    {tNotes("legendQuiet")}
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <span className="relative grid size-5 place-items-center text-[11px]">
+                      5
+                      <WeekendBar />
+                    </span>
+                    {tNotes("legendWeekend")}
                   </li>
                   <li className="flex items-center gap-1.5">
                     <span className="grid size-5 place-items-center rounded-full border-2 border-status-critical-dot font-semibold text-[11px]">
                       6
                     </span>
                     {t("legend.venueBusy")}
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <span className="relative grid size-5 place-items-center font-semibold text-[11px]">
-                      1
-                      <span
-                        aria-hidden
-                        className="absolute inset-x-0.5 bottom-0 h-[3px] rounded-full bg-status-warn-dot"
-                      />
-                    </span>
-                    {t("legend.weekendFull")}
                   </li>
                 </ul>
                 <p className="touch:hidden text-muted-foreground text-tiny">
@@ -798,6 +1094,20 @@ export function GenerateSheet({
                   <p className="flex flex-wrap items-center gap-x-2">
                     <CalendarDays aria-hidden className="size-4" />
                     <strong>{t("summary", { count: selected.length })}</strong>
+                    {selected.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelected([]);
+                          setReaded([]);
+                          setPastLeftOut(0);
+                          setLastClicked(null);
+                        }}
+                        className={CHIP}
+                      >
+                        {t("clearAll")}
+                      </button>
+                    )}
                     {skipped > 0 && <span>· {t("skippedCount", { count: skipped })}</span>}
                     {totalWarnings > 0 && (
                       <span>· {t("warningsCount", { count: totalWarnings })}</span>
@@ -837,9 +1147,34 @@ export function GenerateSheet({
                 <p className="text-foreground-2">
                   {t("previewIntro", { name: preset.name, venue: preset.venueName })}
                 </p>
+                <GenerateNextTimeNotes presetId={preset.id} />
                 {preview.state === "ready" && preview.data.noTemplate && (
                   <p role="status" className="text-muted-foreground text-small">
                     {t("preview.noTemplate")}
+                  </p>
+                )}
+                {noRequirements && (
+                  <p
+                    role="status"
+                    className="flex items-start gap-1.5 rounded-lg bg-status-warn-bg px-3 py-2 text-small text-status-warn"
+                  >
+                    <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                    <span>
+                      {t.rich("preview.noRequirements", {
+                        venue: preset.venueName,
+                        link: (chunks) => (
+                          <a
+                            href={`/orte/${preset.venueId}`}
+                            target="_blank"
+                            rel="noopener"
+                            className="font-medium underline underline-offset-2"
+                          >
+                            {chunks}
+                            <span className="sr-only"> {t("warn.newTab")}</span>
+                          </a>
+                        ),
+                      })}
+                    </span>
                   </p>
                 )}
                 {preview.state === "error" && (
@@ -866,10 +1201,8 @@ export function GenerateSheet({
                     {t("allExist")}
                   </p>
                 )}
-                <ul aria-label={t("cols.date")} className="overflow-hidden rounded-lg border">
-                  {selected.map((day) => {
-                    // A day that joins the event before it has no row of its own.
-                    if (mergedIn.has(day)) return null;
+                {(() => {
+                  const previewRow = (day: string) => {
                     const endsOn = endsOnFor(day, lengthOf.get(day) ?? preset.durationDays);
                     const dup = existingOfMarket.get(day);
                     const skippedRow = isSkipped(day);
@@ -949,7 +1282,7 @@ export function GenerateSheet({
                                 <CandidateNotes
                                   check={check}
                                   state={notesState}
-                                  weekendMarkets={weekendMarkets}
+                                  sameMarket={sameMarketOf.get(day)}
                                 />
                               )}
                             </>
@@ -974,8 +1307,44 @@ export function GenerateSheet({
                         </div>
                       </li>
                     );
-                  })}
-                </ul>
+                  };
+                  // New dates first (UX-042); the ones the market has already are folded away below (also
+                  // when added anyway, so the row does not jump). A day that joins the event before it has
+                  // no row of its own.
+                  const newRows = selected.filter(
+                    (d) => !existingOfMarket.has(d) && !mergedIn.has(d),
+                  );
+                  const dupRows = selected.filter(
+                    (d) => existingOfMarket.has(d) && !mergedIn.has(d),
+                  );
+                  return (
+                    <>
+                      {newRows.length > 0 && (
+                        <ul
+                          aria-label={t("preview.newList")}
+                          className="overflow-hidden rounded-lg border"
+                        >
+                          {newRows.map(previewRow)}
+                        </ul>
+                      )}
+                      {dupRows.length > 0 && (
+                        <details
+                          open={dupsOpen ?? newRows.length === 0}
+                          onToggle={(e) => setDupsOpen(e.currentTarget.open)}
+                          className="overflow-hidden rounded-lg border"
+                        >
+                          <summary className="flex cursor-pointer items-center gap-1.5 bg-sunken px-3 py-2 font-medium text-foreground-2 text-small">
+                            <CopyCheck aria-hidden className="size-4 shrink-0" />
+                            {t("dup.group", { count: dupRows.length })}
+                          </summary>
+                          <ul aria-label={t("dup.groupLabel")} className="border-t">
+                            {dupRows.map(previewRow)}
+                          </ul>
+                        </details>
+                      )}
+                    </>
+                  );
+                })()}
                 <p className="text-muted-foreground text-small">{t("previewNote")}</p>
                 {error && (
                   <p role="alert" className="text-status-critical">
@@ -1006,6 +1375,7 @@ export function GenerateSheet({
                     <span>
                       · {permitText({ permitsCovered: totals.covered, permitsNew: totals.fresh })}
                     </span>
+                    {skipped > 0 && <span>· {t("skippedCount", { count: skipped })}</span>}
                   </span>
                 ) : preview.state === "error" ? null : (
                   t("preview.loading")
@@ -1049,8 +1419,8 @@ export function GenerateSheet({
                 >
                   {pending
                     ? t("creating")
-                    : skipped > 0
-                      ? t("createWithSkipped", { count: plan.length, skipped })
+                    : plan.length === 0
+                      ? t("createNone")
                       : t("create", { count: plan.length })}
                 </Button>
               )}
@@ -1062,33 +1432,31 @@ export function GenerateSheet({
   );
 }
 
-function MonthSelect({
-  label,
-  value,
-  onChange,
-  locale,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  locale: string;
-}) {
+/** Stiller Feiertag marker (FeiertG NW §6): an amber warning badge on the day's top right corner. */
+function QuietBadge({ selected = false }: { selected?: boolean }) {
   return (
-    <select
-      aria-label={label}
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="min-h-(--control-h) rounded-lg border border-input bg-card px-2"
+    <span
+      aria-hidden
+      className={cn(
+        "absolute -top-1 -right-1 grid size-3.5 place-items-center rounded-full bg-status-warn-bg text-status-warn ring-1 ring-card",
+        selected && "ring-primary-foreground",
+      )}
     >
-      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-        <option key={m} value={m}>
-          {new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "de-DE", {
-            month: "short",
-            timeZone: "UTC",
-          }).format(new Date(Date.UTC(2026, m - 1, 15)))}
-        </option>
-      ))}
-    </select>
+      <TriangleAlert className="size-2.5" strokeWidth={2.75} />
+    </span>
+  );
+}
+
+/** Easter or Whitsun weekend (Sa–Mo): a quiet short bar under the day number. */
+function WeekendBar({ selected = false }: { selected?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "absolute bottom-0.5 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full bg-status-info-dot",
+        selected && "bg-primary-foreground/70",
+      )}
+    />
   );
 }
 
@@ -1100,8 +1468,10 @@ function MonthPicker({
   today,
   selected,
   holidays,
+  holidayWeekends,
   venueBusy,
-  weekendMarkets,
+  spanDays,
+  ownDays,
   tabDay,
   onFocusDay,
   onToggle,
@@ -1114,16 +1484,25 @@ function MonthPicker({
   weekLabel: string;
   today: string;
   selected: string[];
-  holidays: Map<string, { nameDe: string; nameEn: string }>;
+  holidays: Map<string, Holiday>;
+  holidayWeekends: Map<string, HolidayWeekend>;
+  /** Days another market or event uses the Ort on. */
   venueBusy: Set<string>;
-  /** Names of the events per weekend (keyed by Saturday); 3 or more = the weekend is full. */
-  weekendMarkets: Map<string, string[]>;
+  /** Later days of a new event (shaded, so the whole span shows). */
+  spanDays: Set<string>;
+  /** Days this market already has a date on. */
+  ownDays: Set<string>;
   /** The one day that is a tab stop (roving tabindex). */
   tabDay: string;
   onFocusDay: (day: string) => void;
   onToggle: (day: string, shift: boolean) => void;
   chosenLabel: (n: number) => string;
-  labels: { busy: string; weekendFull: string; weekendWith: (names: string) => string };
+  labels: {
+    busy: string;
+    span: string;
+    own: string;
+    quiet: (holiday: Holiday) => string | undefined;
+  };
 }) {
   const [y, m] = month.split("-").map(Number) as [number, number];
   const first = isoDate(y, m, 1);
@@ -1160,25 +1539,30 @@ function MonthPicker({
               {week.map((day) => {
                 if (day < first || day > last) return <td key={day} />;
                 const holiday = holidays.get(day);
+                const weekend = holidayWeekends.get(day);
                 const isSelected = selected.includes(day);
                 const busy = venueBusy.has(day);
+                const inSpan = !isSelected && spanDays.has(day);
+                const own = ownDays.has(day);
                 const dow = weekday(day);
-                const saturday = dow === 6 ? day : dow === 0 ? addDays(day, -1) : null;
-                const weekendNames = saturday ? (weekendMarkets.get(saturday) ?? []) : [];
-                const full = weekendNames.length >= 3;
                 const past = day <= today;
                 const name = holiday
                   ? locale === "en"
                     ? holiday.nameEn
                     : holiday.nameDe
                   : undefined;
+                // A real holiday is red; the stille Tage that are no holiday (Volkstrauertag, Totensonntag,
+                // Heiligabend) only get the warning badge. Warnings never block the selection.
+                const dayOff = holiday && !holiday.observance;
+                const quiet = holiday ? labels.quiet(holiday) : undefined;
                 // Tooltip and screen reader text carry what the markers show (colour alone is not enough).
                 const notes = [
                   name,
+                  quiet,
+                  weekend ? (locale === "en" ? weekend.nameEn : weekend.nameDe) : undefined,
                   busy ? labels.busy : undefined,
-                  full
-                    ? `${labels.weekendFull} (${labels.weekendWith(weekendNames.join(", "))})`
-                    : undefined,
+                  own ? labels.own : undefined,
+                  inSpan ? labels.span : undefined,
                 ].filter(Boolean);
                 return (
                   <td key={day} className="p-0">
@@ -1195,26 +1579,23 @@ function MonthPicker({
                       className={cn(
                         "tabular relative mx-auto grid size-7 cursor-pointer place-items-center rounded-lg text-small hover:bg-hover disabled:cursor-not-allowed disabled:opacity-35 max-sm:size-10",
                         (dow === 6 || dow === 0) && "font-semibold",
-                        holiday && "text-status-critical",
-                        busy && "rounded-full border-2 border-status-critical-dot",
+                        dayOff && "text-status-critical",
+                        inSpan && "bg-selected text-foreground",
+                        own && "border-2 border-foreground-2 border-dashed",
+                        busy && "rounded-full border-2 border-status-critical-dot border-solid",
                         isSelected &&
                           "bg-primary font-semibold text-primary-foreground hover:bg-primary-hover",
                       )}
                     >
                       {Number(day.slice(8, 10))}
-                      {holiday && (
+                      {dayOff && (
                         <span
                           aria-hidden
                           className="absolute top-0.5 size-1 rounded-full bg-status-critical-dot"
                         />
                       )}
-                      {/* Own element, so a venue-busy ring and a full weekend show together. */}
-                      {full && (
-                        <span
-                          aria-hidden
-                          className="absolute inset-x-1.5 bottom-[3px] h-[3px] rounded-full bg-status-warn-dot"
-                        />
-                      )}
+                      {quiet && <QuietBadge selected={isSelected} />}
+                      {weekend && <WeekendBar selected={isSelected} />}
                     </button>
                   </td>
                 );

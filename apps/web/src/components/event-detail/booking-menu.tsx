@@ -26,7 +26,7 @@ export function BookingMenu({
   happening: boolean;
 }) {
   const t = useTranslations("eventDetail.booking");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const tHappening = useTranslations("eventDetail.happening");
   const { confirm, dialog } = useConfirm();
   /** While the event is happening, every change is confirmed first (decided 2026-10-21). */
@@ -45,7 +45,7 @@ export function BookingMenu({
     startTransition(async () => {
       const result = await setBookingFlag(eventId, flag, value);
       if (!result.ok) {
-        showToast({ message: t("failed") });
+        showError(t("failed"));
         return;
       }
       if (!result.data.changed) return;
@@ -54,7 +54,8 @@ export function BookingMenu({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await setBookingFlag(eventId, flag, !value);
-          showToast({ message: undone.ok ? t(`${value ? "off" : "on"}.${flag}`) : t("failed") });
+          if (undone.ok) showToast({ message: t(`${value ? "off" : "on"}.${flag}`) });
+          else showError(t("failed"));
         },
       });
     });

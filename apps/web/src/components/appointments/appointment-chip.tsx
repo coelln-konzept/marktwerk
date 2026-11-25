@@ -3,8 +3,9 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * A Besprechung in a Kalender day cell: icon, "09:00" or "ganztägig", then the title, in the neutral style of the
- * module layers. Links to its Vorschau (`?vorschau=besprechung:<id>`, the page's other parameters kept).
+ * A Besprechung in a Kalender day cell: icon, the start time if it has one, then the title, in the neutral style of
+ * the module layers. "ganztägig" is only spoken and in the tooltip: in a narrow cell it pushed the title out
+ * (UT-11 #4). Links to its Vorschau (`?vorschau=besprechung:<id>`, the page's other parameters kept).
  */
 export function AppointmentChip({
   href,
@@ -30,9 +31,13 @@ export function AppointmentChip({
       )}
     >
       <CalendarClock aria-hidden className="mt-[2px] size-3 shrink-0" />
-      <span className="sr-only">{kindLabel}: </span>
+      <span className="sr-only">
+        {kindLabel}
+        {startsAt ? "" : `, ${allDayLabel}`}:{" "}
+      </span>
       <span className="line-clamp-2 min-w-0 break-words">
-        <span className="tabular font-semibold">{when}</span> {title}
+        {startsAt && <span className="tabular font-semibold">{startsAt} </span>}
+        {title}
       </span>
     </Link>
   );

@@ -11,6 +11,7 @@ import {
   StatusLine,
   TeamSummaryPanel,
 } from "@/components/event-detail/overview-panels";
+import { NextTimeOverviewPanel } from "@/components/next-time-notes/next-time-note-panels";
 import { PermitDrawer } from "@/components/permits/permit-drawer";
 import { TaskDrawer } from "@/components/task/task-drawer";
 import { Drawer } from "@/components/ui/drawer";
@@ -21,12 +22,13 @@ import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import { getEventOverview } from "@/server/queries/event-overview";
 import { getEvent } from "@/server/queries/events";
+import { getEventNextTimeNotes } from "@/server/queries/next-time-notes";
 import { getTaskDetail, listStaffOptions } from "@/server/queries/tasks";
 import { requirePermission } from "@/server/session";
 
 /**
  * Tab "Zusammenfassung": is this market on track, and what's missing? Status line, Was fehlt, Kernaufgaben,
- * Nächste Termine; Eckdaten and Regeln der Art stay collapsed. Task rows open the task drawer
+ * Nächste Termine; Eckdaten and Marktregeln stay collapsed. Task rows open the task drawer
  * (`?aufgabe=<id>`), permit rows the permit drawer (`?genehmigung=<id>`), both right here.
  */
 export default async function EventOverviewPage({
@@ -41,7 +43,10 @@ export default async function EventOverviewPage({
   const today = todayIn();
   const canWrite = can(actor.role, "event", "write");
   const canWriteTasks = can(actor.role, "task", "write");
-  const overview = await getEventOverview(actor, event, today);
+  const [overview, nextTime] = await Promise.all([
+    getEventOverview(actor, event, today),
+    getEventNextTimeNotes(actor, event, today),
+  ]);
 
   const sp = await searchParams;
   const taskId = param(sp.aufgabe);
@@ -61,6 +66,7 @@ export default async function EventOverviewPage({
         staff={await listStaffOptions()}
         canWrite={canWriteTasks}
         canAssign={false}
+        canDelete={can(actor.role, "task", "delete")}
         today={today}
         closeHref={closeHref}
       />
@@ -74,6 +80,11 @@ export default async function EventOverviewPage({
   return (
     <KeyboardRows className="flex flex-col gap-6">
       <StatusLine event={event} overview={overview} />
+      <NextTimeOverviewPanel
+        event={event}
+        notes={nextTime}
+        canWrite={can(actor.role, "nextTimeNote", "write")}
+      />
       <NotesExcerpt event={event} />
       <MissingPanel event={event} overview={overview} today={today} canWrite={canWriteTasks} />
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2">
@@ -84,7 +95,7 @@ export default async function EventOverviewPage({
       </div>
       <div className="flex flex-col gap-3">
         <FactsPanel event={event} canWrite={canWrite} />
-        <RulesPanel event={event} />
+        <RulesPanel event={event} canEditMarket={can(actor.role, "template", "write")} />
       </div>
       {isModuleVisible("team") && <TeamSummaryPanel event={event} />}
       {drawer}

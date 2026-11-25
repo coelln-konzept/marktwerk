@@ -9,10 +9,13 @@ import { createVehicleAction, updateVehicleAction } from "@/app/(app)/firma/acti
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { FORM_SECTION, FORM_SECTION_TITLE } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Panel, PanelBody, PanelFooter } from "@/components/ui/panel";
+import { todayIn } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { FieldError, FormErrorSummary, useFieldErrors } from "./field-errors";
 import { useErrorText } from "./shared";
 
 export type VehicleFormValues = {
@@ -59,6 +62,28 @@ const FIELD_OF: Record<string, string> = {
   invalid_text: "notes",
 };
 
+/** Field order of the form: the first field with an error gets the focus. */
+const ORDER = [
+  "name",
+  "plate",
+  "vin",
+  "firstRegistration",
+  "weight",
+  "odometer",
+  "odometerOn",
+  "notes",
+] as const;
+
+/** The plate as the server stores it ("k - mw 123" → "K-MW 123"), for the check before sending. */
+const normalizePlate = (value: string) =>
+  value
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase()
+    .replace(/\s*-\s*/g, "-");
+const PLATE = /^[A-ZÄÖÜ0-9][A-ZÄÖÜ0-9 -]{1,14}$/;
+const VIN = /^[A-HJ-NPR-Z0-9]{11,17}$/;
+
 /**
  * "Fahrzeug anlegen" and "Fahrzeug bearbeiten": a page (more than eight fields). Weight and kilometres are
  * typed as whole numbers; the odometer date defaults to today on the server when only the km are given.
@@ -79,7 +104,6 @@ export function VehicleForm({
   const [pending, startTransition] = useTransition();
   const uid = useId();
   const editing = vehicleId !== undefined;
-  const [error, setError] = useState<{ field: string | null; text: string } | null>(null);
 
   const [name, setName] = useState(initial.name);
   const [plate, setPlate] = useState(initial.plate);
@@ -95,14 +119,7 @@ export function VehicleForm({
   const [notes, setNotes] = useState(initial.notes ?? "");
 
   const f = (key: string) => `${uid}-${key}`;
-  const invalid = (field: string) =>
-    error?.field === field ? { "aria-invalid": true as const } : {};
-
-  function fail(code: string, field?: string) {
-    const target = field ?? FIELD_OF[code] ?? null;
-    setError({ field: target, text: errorText(code) });
-    if (target) document.getElementById(f(target))?.focus();
-  }
+  const { errors, show, clear, invalid } = useFieldErrors(f);
 
   function whole(text: string): number | null | undefined {
     const value = text.trim();
@@ -111,14 +128,24 @@ export function VehicleForm({
   }
 
   function submit() {
-    setError(null);
-    // Required fields are answered on the spot (no round trip); the first wrong field gets the focus.
-    if (name.trim() === "") return fail("invalid_name");
-    if (plate.trim() === "") return fail("plate_required");
+    clear();
+    // Every wrong field is answered on the spot, at the field (no round trip); the first one gets the focus.
+    const today = todayIn();
+    const found: Record<string, string> = {};
+    if (name.trim() === "") found.name = errorText("invalid_name");
+    if (plate.trim() === "") found.plate = errorText("plate_required");
+    else if (!PLATE.test(normalizePlate(plate))) found.plate = errorText("invalid_plate");
+    const vinText = vin.replace(/\s+/g, "").toUpperCase();
+    if (vinText !== "" && !VIN.test(vinText)) found.vin = errorText("invalid_vin");
+    if (firstRegistration && firstRegistration > today)
+      found.firstRegistration = errorText("future_date");
     const grossWeightKg = whole(weight);
-    if (grossWeightKg === undefined) return fail("invalid_weight");
+    if (grossWeightKg === undefined || grossWeightKg === 0)
+      found.weight = errorText("invalid_weight");
     const odometerKm = whole(odometer);
-    if (odometerKm === undefined) return fail("invalid_odometer");
+    if (odometerKm === undefined) found.odometer = errorText("invalid_odometer");
+    if (odometerOn && odometerOn > today) found.odometerOn = errorText("future_date");
+    if (Object.keys(found).length > 0) return show(found, ORDER);
 
     const input = {
       name,
@@ -127,8 +154,8 @@ export function VehicleForm({
       model: model || null,
       vin: vin || null,
       firstRegistrationOn: firstRegistration || null,
-      grossWeightKg,
-      odometerKm,
+      grossWeightKg: grossWeightKg ?? null,
+      odometerKm: odometerKm ?? null,
       odometerRecordedOn: odometerOn || null,
       insurer: insurer || null,
       policyNumber: policy || null,
@@ -139,7 +166,8 @@ export function VehicleForm({
         ? await updateVehicleAction(vehicleId, input)
         : await createVehicleAction(input);
       if (!result.ok) {
-        fail(result.error);
+        const field = FIELD_OF[result.error] ?? "form";
+        show({ [field]: errorText(result.error) }, ORDER);
         if (result.error === "not_found" && editing) router.push("/firma/fahrzeuge" as never);
         return;
       }
@@ -153,7 +181,6 @@ export function VehicleForm({
     });
   }
 
-  const legend = "mb-3 font-semibold text-[15px]";
   const cell = "flex flex-col gap-1.5";
   const hint = "text-faint-foreground text-small";
   const backHref = editing ? `/firma/fahrzeuge/${vehicleId}` : "/firma/fahrzeuge";
@@ -167,9 +194,9 @@ export function VehicleForm({
       }}
     >
       <Panel>
-        <PanelBody className="flex flex-col gap-7">
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("basics")}</legend>
+        <PanelBody className="flex flex-col gap-6">
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("basics")}</legend>
             <div className="grid gap-4 sm:grid-cols-6">
               <div className={cn(cell, "sm:col-span-3")}>
                 <Label htmlFor={f("name")}>{tf("name")}</Label>
@@ -179,13 +206,13 @@ export function VehicleForm({
                   maxLength={120}
                   required
                   autoComplete="off"
-                  aria-describedby={f("name-hint")}
                   onChange={(e) => setName(e.target.value)}
-                  {...invalid("name")}
+                  {...invalid("name", f("name-hint"))}
                 />
                 <p id={f("name-hint")} className={hint}>
                   {tf("nameHint")}
                 </p>
+                <FieldError id={f("name")} text={errors.name} />
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
                 <Label htmlFor={f("plate")}>{tf("plate")}</Label>
@@ -197,8 +224,10 @@ export function VehicleForm({
                   autoComplete="off"
                   className="uppercase"
                   onChange={(e) => setPlate(e.target.value)}
+                  onBlur={() => plate.trim() && setPlate(normalizePlate(plate))}
                   {...invalid("plate")}
                 />
+                <FieldError id={f("plate")} text={errors.plate} />
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
                 <Label htmlFor={f("make")} optional>
@@ -237,6 +266,7 @@ export function VehicleForm({
                   onChange={(e) => setVin(e.target.value)}
                   {...invalid("vin")}
                 />
+                <FieldError id={f("vin")} text={errors.vin} />
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
                 <Label htmlFor={f("firstRegistration")} optional>
@@ -250,6 +280,7 @@ export function VehicleForm({
                   onChange={(e) => setFirstRegistration(e.target.value)}
                   {...invalid("firstRegistration")}
                 />
+                <FieldError id={f("firstRegistration")} text={errors.firstRegistration} />
               </div>
               <div className={cn(cell, "sm:col-span-3")}>
                 <Label htmlFor={f("weight")} optional>
@@ -260,20 +291,20 @@ export function VehicleForm({
                   value={weight}
                   inputMode="numeric"
                   autoComplete="off"
-                  aria-describedby={f("weight-hint")}
                   className="tabular"
                   onChange={(e) => setWeight(e.target.value)}
-                  {...invalid("weight")}
+                  {...invalid("weight", f("weight-hint"))}
                 />
                 <p id={f("weight-hint")} className={hint}>
                   {tf("weightHint")}
                 </p>
+                <FieldError id={f("weight")} text={errors.weight} />
               </div>
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("odometerSection")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("odometerSection")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
                 <Label htmlFor={f("odometer")} optional>
@@ -293,6 +324,7 @@ export function VehicleForm({
                     km
                   </span>
                 </div>
+                <FieldError id={f("odometer")} text={errors.odometer} />
               </div>
               <div className={cell}>
                 <Label htmlFor={f("odometerOn")} optional>
@@ -304,13 +336,15 @@ export function VehicleForm({
                   value={odometerOn}
                   className="tabular"
                   onChange={(e) => setOdometerOn(e.target.value)}
+                  {...invalid("odometerOn")}
                 />
+                <FieldError id={f("odometerOn")} text={errors.odometerOn} />
               </div>
             </div>
           </fieldset>
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className={legend}>{tf("insuranceSection")}</legend>
+          <fieldset className={FORM_SECTION}>
+            <legend className={FORM_SECTION_TITLE}>{tf("insuranceSection")}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className={cell}>
                 <Label htmlFor={f("insurer")} optional>
@@ -350,14 +384,13 @@ export function VehicleForm({
                   onChange={(e) => setNotes(e.target.value)}
                   {...invalid("notes")}
                 />
+                <FieldError id={f("notes")} text={errors.notes} />
               </div>
             </div>
           </fieldset>
         </PanelBody>
         <PanelFooter className="justify-between">
-          <p role="alert" className="min-w-0 flex-1 text-small text-status-critical">
-            {error?.text}
-          </p>
+          <FormErrorSummary errors={errors} />
           <div className="flex items-center gap-2">
             <Link href={backHref as never} className={buttonVariants({ variant: "outline" })}>
               {t("cancel")}

@@ -48,7 +48,9 @@ function tabStops(panel: HTMLElement): HTMLElement[] {
   );
 }
 
-function isActive(pathname: string, href: string) {
+function isActive(pathname: string, target: string) {
+  // An entry may link with a query (Genehmigungen → its work list); the page is what counts.
+  const href = target.split("?")[0] ?? target;
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -198,7 +200,7 @@ export function SidebarNav({
         aria-label={navLabel}
         data-closed={navOpen ? undefined : ""}
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-[232px] shrink-0 flex-col gap-0.5 border-sidebar-border border-r bg-sidebar px-2 py-3 text-sidebar-foreground transition-[transform,visibility] focus:outline-none max-lg:data-[closed]:invisible lg:sticky lg:top-0 lg:h-svh lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-[232px] shrink-0 flex-col gap-0.5 border-sidebar-border border-r bg-sidebar px-2 py-3 text-sidebar-foreground transition-[transform,visibility] focus:outline-none max-lg:data-[closed]:invisible lg:sticky lg:top-0 lg:h-svh lg:translate-x-0 print:hidden",
           navOpen ? "translate-x-0" : "-translate-x-full",
           sidebarHidden && "lg:hidden",
         )}

@@ -5,17 +5,14 @@ import {
   Landmark,
   LandPlot,
   type LucideIcon,
-  Trees,
   Truck,
-  Warehouse,
   Wrench,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 
 const VENUE_ICONS: Record<string, LucideIcon> = {
-  outdoor_public: Trees,
-  outdoor_private: Fence,
-  indoor: Warehouse,
+  municipal: Landmark,
+  private: Fence,
 };
 
 const CONTACT_ICONS: Record<string, LucideIcon> = {

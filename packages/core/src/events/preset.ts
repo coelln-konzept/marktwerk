@@ -1,5 +1,7 @@
-import { checkEventTimes, type EventTimesInput, isClockTime, MAX_PRICE_CENTS } from "./details";
+import { MAX_PRICE_CENTS } from "./details";
+import { isMarketShortCode } from "./market-short-code";
 import { parseRRule } from "./rrule";
+import { type ScheduleRow, validateSchedule } from "./schedule";
 
 /*
  * Rules for the fields of an event preset ("Vorlage") that need no database: shared by the form
@@ -17,10 +19,16 @@ export type PresetFieldsInput = {
   durationDays: number;
   publicTitle: string | null;
   publicText: string | null;
-  times: EventTimesInput;
+  /** The market's default Zeitplan (ADR 0022); checked with validateSchedule for durationDays. */
+  schedule: ScheduleRow[];
   pricePerMCents: number;
   bookingFeeCents: number;
   rrule: string | null;
+  /**
+   * The market's own Kürzel, already normalised (`normalizeMarketShortCode`); null or left out = none
+   * (the derived one is shown).
+   */
+  shortCode?: string | null;
 };
 
 export type PresetIssueCode =
@@ -28,31 +36,27 @@ export type PresetIssueCode =
   | "invalid_duration"
   | "invalid_public_title"
   | "invalid_public_text"
-  | "invalid_time"
-  | "open_after_close"
-  | "close_after_teardown"
-  | "setup_after_open"
+  /** The Zeitplan has an issue; the form shows the row issues from validateSchedule. */
+  | "invalid_schedule"
   | "invalid_price"
   | "invalid_fee"
-  | "invalid_rrule";
+  | "invalid_rrule"
+  /** The Kürzel is not 1–4 letters (A–Z, Ä, Ö, Ü) or digits. */
+  | "invalid_short_code";
 
 /** The form field an issue belongs to. */
 export type PresetIssueField =
   | "name"
+  | "shortCode"
   | "duration"
   | "publicTitle"
   | "publicText"
-  | "setup"
-  | "open"
-  | "close"
-  | "teardown"
+  | "schedule"
   | "price"
   | "fee"
   | "rrule";
 
 export type PresetIssue = { code: PresetIssueCode; field: PresetIssueField };
-
-const TIME_KEYS = ["setup", "open", "close", "teardown"] as const;
 
 const validCents = (cents: number) =>
   Number.isSafeInteger(cents) && cents >= 0 && cents <= MAX_PRICE_CENTS;
@@ -63,6 +67,8 @@ export function checkPresetFields(input: PresetFieldsInput): PresetIssue[] {
   const name = input.name.trim();
   if (name.length < 1 || name.length > PRESET_NAME_MAX)
     issues.push({ code: "invalid_name", field: "name" });
+  if (input.shortCode != null && !isMarketShortCode(input.shortCode))
+    issues.push({ code: "invalid_short_code", field: "shortCode" });
   if (
     !Number.isInteger(input.durationDays) ||
     input.durationDays < 1 ||
@@ -74,17 +80,15 @@ export function checkPresetFields(input: PresetFieldsInput): PresetIssue[] {
   if (input.publicText !== null && input.publicText.length > PRESET_PUBLIC_TEXT_MAX)
     issues.push({ code: "invalid_public_text", field: "publicText" });
 
-  const badTime = TIME_KEYS.find((key) => !isClockTime(input.times[key]));
-  if (badTime) {
-    issues.push({ code: "invalid_time", field: badTime });
-  } else {
-    const timesError = checkEventTimes(input.times, input.durationDays > 1);
-    if (timesError === "open_after_close") issues.push({ code: timesError, field: "close" });
-    else if (timesError === "close_after_teardown")
-      issues.push({ code: timesError, field: "teardown" });
-    else if (timesError === "setup_after_open") issues.push({ code: timesError, field: "setup" });
-    else if (timesError) issues.push({ code: "invalid_time", field: "open" });
-  }
+  // The day rules depend on the length; with an invalid length check as a single-day market.
+  const days =
+    Number.isInteger(input.durationDays) &&
+    input.durationDays >= 1 &&
+    input.durationDays <= PRESET_MAX_DURATION_DAYS
+      ? input.durationDays
+      : 1;
+  if (!Array.isArray(input.schedule) || validateSchedule(input.schedule, days).length > 0)
+    issues.push({ code: "invalid_schedule", field: "schedule" });
 
   if (!validCents(input.pricePerMCents)) issues.push({ code: "invalid_price", field: "price" });
   if (!validCents(input.bookingFeeCents)) issues.push({ code: "invalid_fee", field: "fee" });

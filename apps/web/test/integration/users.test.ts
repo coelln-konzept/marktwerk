@@ -118,6 +118,16 @@ describe("changeUserRole", () => {
       expect(await roleOf(owner.id)).toBe("manager");
     });
 
+    it("after stepping down, an owner cannot take the role back themself (why the UI asks first)", async () => {
+      await makeUser("owner");
+      await changeUserRole(owner, owner.id, "manager");
+      const asManager = { ...owner, role: "manager" as const };
+      expect(isForbidden(await changeUserRole(asManager, owner.id, "owner").catch((e) => e))).toBe(
+        true,
+      );
+      expect(await roleOf(owner.id)).toBe("manager");
+    });
+
     it("a deactivated owner does not count as another owner", async () => {
       await makeUser("owner", { banned: true });
       expect(codeOf(await changeUserRole(owner, owner.id, "staff").catch((e) => e))).toBe(

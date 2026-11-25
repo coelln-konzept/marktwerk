@@ -6,8 +6,11 @@ import {
   daysBetween,
   eventPermitHealth,
   type HealthLevel,
+  isAnswerOverdue,
   isPermitHistory,
   isUnfiled,
+  logbookDisplayState,
+  missingPermits,
   PERMIT_HORIZON_DEFAULT_DAYS,
   type PermitActionTier,
   type PermitDisplayState,
@@ -23,6 +26,8 @@ import {
   contact,
   event,
   eventPermit,
+  eventPreset,
+  eventSeason,
   eventType,
   type PermitDeliverables,
   payable,
@@ -152,13 +157,17 @@ export const LOGBOOK_FOCUS = ["fehlt"] as const;
 export type LogbookFocus = (typeof LOGBOOK_FOCUS)[number];
 
 /**
- * "Jetzt zu tun": a permit in a missing state that at least one upcoming (not cancelled) event requires
- * and whose application is overdue or due within the company's permit horizon (`permitActionTier`,
- * product owner 2026-10-29). Later ones are "noch nicht fällig". One definition for the sidebar badge
- * and the Genehmigungen focus chip.
+ * "Jetzt zu tun": a permit that at least one upcoming (not cancelled) event requires and that is either
+ * still to be applied for, overdue or due within the company's permit horizon (`permitActionTier`,
+ * product owner 2026-10-29), or applied with its decision overdue ("Antwort überfällig": time to chase
+ * the authority, product owner 2026-11-13). Later applications are "noch nicht fällig". One definition
+ * for the sidebar badge and the Genehmigungen focus chip.
  */
-const needsAction = (row: Pick<LogbookRow, "tier" | "upcomingEvents">) =>
-  row.upcomingEvents > 0 && (row.tier === "overdue" || row.tier === "apply_now");
+const needsAction = (
+  row: Pick<LogbookRow, "tier" | "upcomingEvents"> & { answerOverdue: boolean },
+) =>
+  row.upcomingEvents > 0 &&
+  (row.tier === "overdue" || row.tier === "apply_now" || row.answerOverdue);
 /** Still to be applied for, but later than the horizon: shown, not counted. */
 const notDue = (row: Pick<LogbookRow, "tier" | "upcomingEvents">) =>
   row.upcomingEvents > 0 && row.tier === "not_due";
@@ -210,6 +219,11 @@ export type Logbook = {
   horizonDays: number;
   /** `filters.revealId` exists but the filters hide it: the page should show everything. */
   drawerHidden: boolean;
+  /**
+   * Orte with an upcoming event but no requirement and no permit: which permits they need is
+   * "noch nicht geklärt" (UX-011), never "keine Genehmigung nötig". Respects the Ort filter.
+   */
+  unclearVenues: { id: string; name: string; nextEventOn: string }[];
 };
 
 /** Everything the Genehmigungen page shows: permits with their derived state, filtered, plus counts. */
@@ -231,6 +245,7 @@ export async function listLogbook(
     notDue: 0,
     horizonDays: horizonDays ?? PERMIT_HORIZON_DEFAULT_DAYS,
     drawerHidden: false,
+    unclearVenues: [],
   };
   if (!can(actor.role, "permit", "read")) return empty;
   const horizon = horizonDays ?? (await getPermitHorizonDays());
@@ -277,11 +292,17 @@ export async function listLogbook(
     .orderBy(asc(venue.name), asc(permit.permitType), asc(permit.season), asc(permit.applyBy));
 
   const all: LogbookRow[] = raw.map(({ lastEventEnd, ...r }) => {
-    const state = logbookState({ ...r, lastEventEnd }, today);
+    const derived = logbookState({ ...r, lastEventEnd }, today);
+    const tier = permitActionTier({ state: derived, applyBy: r.applyBy }, today, horizon);
     return {
       ...r,
-      state,
-      tier: permitActionTier({ state, applyBy: r.applyBy }, today, horizon),
+      // "Noch nicht fällig" instead of "Fehlt" when the apply-by date lies beyond the horizon,
+      // "Antwort überfällig" instead of "Beantragt" once the expected decision date has passed.
+      state: logbookDisplayState(derived, tier, {
+        expectedDecisionOn: r.expectedDecisionOn,
+        today,
+      }),
+      tier,
       feeCents: r.feeCents > 0 ? r.feeCents : null,
       stickers: r.deliverablesReceived.stickers ?? null,
     };
@@ -308,7 +329,9 @@ export async function listLogbook(
   for (const r of scoped) counts[r.state] += 1;
 
   // Needing action depends on upcoming markets, not on the season, so this focus looks across seasons.
-  const urgent = all.filter(needsAction);
+  const urgent = all.filter((r) =>
+    needsAction({ ...r, answerOverdue: r.state === "answer_overdue" }),
+  );
   let rows = filters.focus === "fehlt" ? urgent : scoped;
   if (filters.state) rows = rows.filter((r) => r.state === filters.state);
   const drawerHidden =
@@ -325,12 +348,43 @@ export async function listLogbook(
     notDue: all.filter(notDue).length,
     horizonDays: horizon,
     drawerHidden,
+    unclearVenues: await listUnclearVenues(today, filters.venueId),
   };
 }
 
 /**
+ * Orte with an upcoming (not cancelled) event that have neither a requirement nor a permit yet: nobody
+ * has said which permits they need. A städtisches Ort without requirements is a missed permit waiting to
+ * happen (UX-011), so the Genehmigungen page names them with a link to add requirements.
+ */
+async function listUnclearVenues(
+  today: string,
+  venueId?: string,
+): Promise<{ id: string; name: string; nextEventOn: string }[]> {
+  const next = sql<string>`min(${event.startsOn})`;
+  const rows = await db
+    .select({ id: venue.id, name: venue.name, nextEventOn: next })
+    .from(venue)
+    .innerJoin(event, eq(event.venueId, venue.id))
+    .where(
+      and(
+        isNull(venue.archivedAt),
+        isNull(event.archivedAt),
+        ne(event.status, "cancelled"),
+        gte(event.endsOn, today),
+        venueId ? eq(venue.id, venueId) : undefined,
+        sql`not exists (select 1 from ${permitRequirement} r where r.venue_id = ${venue.id} and r.archived_at is null)`,
+        sql`not exists (select 1 from ${permit} p where p.venue_id = ${venue.id} and p.archived_at is null)`,
+      ),
+    )
+    .groupBy(venue.id, venue.name)
+    .orderBy(asc(venue.name));
+  return rows;
+}
+
+/**
  * The sidebar badge: permits to act on now, i.e. an application that is overdue or due within the permit
- * horizon (`permitActionTier`). Equals the "Jetzt zu tun" chip on the Genehmigungen page
+ * horizon (`permitActionTier`), or a decision that is overdue ("Antwort überfällig"). Equals the "Jetzt zu tun" chip on the Genehmigungen page
  * (`Logbook.needsAction`), same definition.
  */
 export async function missingPermitCount(
@@ -345,6 +399,7 @@ export async function missingPermitCount(
       status: permit.status,
       validUntil: permit.validUntil,
       applyBy: permit.applyBy,
+      expectedDecisionOn: permit.expectedDecisionOn,
       upcoming: upcomingCount(today),
     })
     .from(permit)
@@ -356,6 +411,7 @@ export async function missingPermitCount(
     return needsAction({
       tier: permitActionTier({ state, applyBy: r.applyBy }, today, horizon),
       upcomingEvents: r.upcoming,
+      answerOverdue: isAnswerOverdue(r, today),
     });
   }).length;
 }
@@ -378,6 +434,7 @@ export async function getPermit(actor: Actor, id: string, today: string) {
       cadence: permitRequirement.cadence,
       typicalFeeCents: permitRequirement.typicalFeeCents,
       leadTimeDays: permitRequirement.leadTimeDays,
+      expectedDecisionMd: permitRequirement.expectedDecisionMd,
     })
     .from(permit)
     .leftJoin(venue, eq(venue.id, permit.venueId))
@@ -411,12 +468,18 @@ export async function getPermit(actor: Actor, id: string, today: string) {
         eventId: task.eventId,
         eventName: event.name,
         eventStartsOn: event.startsOn,
+        // A season task (Fahrplan R11): "<Markt> · Saison 2027".
+        seasonYear: eventSeason.season,
+        seasonMarketName: eventPreset.name,
         assigneeName: staffMember.displayName,
       })
       .from(task)
       .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
       .leftJoin(event, eq(event.id, task.eventId))
-      .where(eq(task.permitId, id))
+      .leftJoin(eventSeason, eq(eventSeason.id, task.seasonId))
+      .leftJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
+      // Deleted tasks (cancelled, e.g. a season permit's duplicate apply tasks) are left out like everywhere.
+      .where(and(eq(task.permitId, id), ne(task.status, "cancelled")))
       .orderBy(asc(task.dueAt), asc(task.title)),
     db
       .select({ id: payable.id, title: payable.title, totalGrossCents: payable.totalGrossCents })
@@ -429,6 +492,13 @@ export async function getPermit(actor: Actor, id: string, today: string) {
           .where(eq(permit.id, row.permit.supersedesId))
       : Promise.resolve([]),
   ]);
+  // A permit of a Saison record serves its own market (Fahrplan R27): only that market's dates are offered.
+  const [record] = row.permit.seasonId
+    ? await db
+        .select({ presetId: eventSeason.presetId })
+        .from(eventSeason)
+        .where(eq(eventSeason.id, row.permit.seasonId))
+    : [];
   const venueEvents =
     row.permit.venueId && can(actor.role, "event", "read")
       ? await db
@@ -437,6 +507,7 @@ export async function getPermit(actor: Actor, id: string, today: string) {
           .where(
             and(
               eq(event.venueId, row.permit.venueId),
+              record ? eq(event.presetId, record.presetId) : undefined,
               isNull(event.archivedAt),
               ne(event.status, "cancelled"),
               gte(event.endsOn, today),
@@ -447,25 +518,35 @@ export async function getPermit(actor: Actor, id: string, today: string) {
           .limit(40)
       : [];
 
+  const derived = logbookState(
+    {
+      status: row.permit.status,
+      validUntil: row.permit.validUntil,
+      linkedEvents: events.length,
+      upcomingEvents: events.filter(
+        (e) => e.required && e.status !== "cancelled" && e.endsOn >= today,
+      ).length,
+      lastEventEnd:
+        events
+          .filter((e) => e.required && e.status !== "cancelled")
+          .map((e) => e.endsOn)
+          .sort()
+          .at(-1) ?? null,
+    },
+    today,
+  );
+  // Same reading as the logbook row: not started and beyond the horizon is "Noch nicht fällig", filed
+  // and past the expected decision is "Antwort überfällig".
+  const horizon = await getPermitHorizonDays();
+  const state = logbookDisplayState(
+    derived,
+    permitActionTier({ state: derived, applyBy: row.permit.applyBy }, today, horizon),
+    { expectedDecisionOn: row.permit.expectedDecisionOn, today },
+  );
+
   return {
     ...row.permit,
-    state: logbookState(
-      {
-        status: row.permit.status,
-        validUntil: row.permit.validUntil,
-        linkedEvents: events.length,
-        upcomingEvents: events.filter(
-          (e) => e.required && e.status !== "cancelled" && e.endsOn >= today,
-        ).length,
-        lastEventEnd:
-          events
-            .filter((e) => e.required && e.status !== "cancelled")
-            .map((e) => e.endsOn)
-            .sort()
-            .at(-1) ?? null,
-      },
-      today,
-    ),
+    state,
     venueName: row.venueName,
     responsibleName: row.responsibleName,
     authority: row.authorityId
@@ -482,6 +563,8 @@ export async function getPermit(actor: Actor, id: string, today: string) {
           cadence: row.cadence as Cadence,
           typicalFeeCents: row.typicalFeeCents,
           leadTimeDays: row.leadTimeDays as number,
+          /** "MM-DD" the authority usually decides on: prefills "Entscheidung erwartet bis". */
+          expectedDecisionMd: row.expectedDecisionMd,
         }
       : null,
     updatedAtIso: row.permit.updatedAt.toISOString(),
@@ -650,6 +733,50 @@ export async function permitSummaryByEvent(
         own.length === 0 ? null : eventPermitHealth(own, e.startsOn, today, e.endsOn, horizonDays),
       missing: countMissingPermits(own, e.startsOn, today, e.endsOn, horizonDays),
     });
+  }
+  return result;
+}
+
+/**
+ * How many permits each event is missing, by the rule of the event Zusammenfassung's "Was fehlt"
+ * (`missingPermits`: needed, not covering the event yet and needing action), one query for all events (the
+ * Übersicht's weekend box). Without `permit:read` every event maps to 0, as "Was fehlt" shows no permits then.
+ */
+export async function missingPermitsByEvent(
+  actor: Actor,
+  events: { id: string; startsOn: string; endsOn: string }[],
+  today: string,
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>(events.map((e) => [e.id, 0]));
+  if (events.length === 0 || !can(actor.role, "permit", "read")) return result;
+  const [rows, horizonDays] = await Promise.all([
+    db
+      .select({
+        eventId: eventPermit.eventId,
+        id: permit.id,
+        title: permit.title,
+        required: eventPermit.required,
+        status: permit.status,
+        applyBy: permit.applyBy,
+        expectedDecisionOn: permit.expectedDecisionOn,
+        validUntil: permit.validUntil,
+      })
+      .from(eventPermit)
+      .innerJoin(permit, eq(permit.id, eventPermit.permitId))
+      .where(
+        and(
+          inArray(
+            eventPermit.eventId,
+            events.map((e) => e.id),
+          ),
+          isNull(permit.archivedAt),
+        ),
+      ),
+    getPermitHorizonDays(),
+  ]);
+  for (const e of events) {
+    const own = rows.filter((r) => r.eventId === e.id);
+    result.set(e.id, missingPermits(own, e.startsOn, today, e.endsOn, horizonDays).length);
   }
   return result;
 }
@@ -843,9 +970,18 @@ export async function calendarItems(
     )
     .orderBy(desc(permit.applyBy));
   const items: CalendarItem[] = [];
+  const horizon = rows.length > 0 ? await getPermitHorizonDays() : PERMIT_HORIZON_DEFAULT_DAYS;
   for (const r of rows) {
     const where = r.venueName ? ` · ${r.venueName}` : "";
     const href = `/genehmigungen?genehmigung=${r.id}`;
+    // The permit's state as the logbook shows it ("Noch nicht fällig", "Antwort überfällig", …), for the
+    // badge of the Kalender's Liste (UX-051).
+    const derived = permitDisplayState(r, today);
+    const permitState = logbookDisplayState(
+      derived,
+      permitActionTier({ state: derived, applyBy: r.applyBy }, today, horizon),
+      { expectedDecisionOn: r.expectedDecisionOn, today },
+    );
     if (isUnfiled(r.status) && r.applyBy && r.applyBy >= from && r.applyBy <= to) {
       const days = daysBetween(today, r.applyBy);
       items.push({
@@ -854,6 +990,7 @@ export async function calendarItems(
         date: r.applyBy,
         title: `Antrag: ${r.title}${where}`,
         href,
+        permitState,
         tone: days < 0 ? "critical" : days <= 7 ? "warn" : "neutral",
       });
     }
@@ -864,6 +1001,7 @@ export async function calendarItems(
         date: r.expectedDecisionOn,
         title: `Entscheidung erwartet: ${r.title}${where}`,
         href,
+        permitState,
         tone: "neutral",
       });
     }
@@ -879,6 +1017,7 @@ export async function calendarItems(
         date: r.validUntil,
         title: `Läuft ab: ${r.title}${where}`,
         href,
+        permitState,
         tone: "warn",
       });
     }

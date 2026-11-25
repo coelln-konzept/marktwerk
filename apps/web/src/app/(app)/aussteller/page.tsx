@@ -13,7 +13,7 @@ import { LetterFilter } from "@/components/ui/letter-filter";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatNumber } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { hrefWith, param } from "@/lib/url";
@@ -174,8 +174,8 @@ export default async function VendorsPage({ searchParams }: PageProps<"/ausstell
                       data-row
                       data-href={peek}
                       data-peek={peek}
-                      aria-selected={vorschauId === v.id}
-                      className="outline-hidden focus-visible:bg-selected"
+                      aria-current={vorschauId === v.id}
+                      className={rowFocus}
                     >
                       <TD className="min-w-44">
                         <Link

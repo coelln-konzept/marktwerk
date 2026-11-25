@@ -1,13 +1,15 @@
 import "server-only";
 import {
+  anchorFitsScope,
   can,
-  checkDependencies,
+  checkItemTree,
   checkTemplateItem,
   clockTime,
   type ItemIssueCode,
   MAX_ITEMS_PER_VERSION,
   normalizeCondition,
   type TemplateItemFields,
+  type TemplateItemScope,
   uniqueItemKey,
 } from "@marktwerk/core";
 import {
@@ -33,6 +35,7 @@ export type TemplateError =
   | "invalid_type"
   | "version_not_found"
   | "item_not_found"
+  | "item_exists"
   | "not_draft"
   | "draft_exists"
   | "empty"
@@ -40,8 +43,6 @@ export type TemplateError =
   | "too_many_items"
   | "invalid_role"
   | "invalid_preset"
-  | "invalid_dependency"
-  | "dependency_cycle"
   | "invalid_note"
   | "master_exists"
   | "master_protected"
@@ -89,9 +90,10 @@ export function itemFields(row: ItemRow): TemplateItemFields {
     requiresAttachment: row.requiresAttachment,
     isKey: row.isKey,
     permitType: row.permitType,
-    checkItems: row.checkItems,
     approverDutyRoleId: row.approverDutyRoleId,
-    dependsOnKeys: row.dependsOnKeys,
+    parentKey: row.parentKey,
+    ownDue: row.ownDue,
+    scope: row.scope,
     condition: row.condition ?? null,
   };
 }
@@ -100,7 +102,11 @@ function assertShape(input: TemplateItemFields) {
   if (input === null || typeof input !== "object") throw new TemplateInputError("invalid_input");
 }
 
-/** Trims text, drops blank sub-steps and duplicate keys; validation happens afterwards. */
+/**
+ * Trims text and empties blank references; validation happens afterwards. Only the fields of
+ * `TemplateItemFields` come through: the input arrives from a server action, and a foreign key (`versionId`,
+ * `stableKey`, `id`, `sort`) must never reach an insert or update of `template_item`.
+ */
 function normalizeItem(input: TemplateItemFields): TemplateItemFields {
   assertShape(input);
   const text = (value: string | null) => {
@@ -108,7 +114,18 @@ function normalizeItem(input: TemplateItemFields): TemplateItemFields {
     return trimmed === "" ? null : trimmed;
   };
   return {
-    ...input,
+    phase: input.phase,
+    category: input.category,
+    anchorKey: input.anchorKey,
+    offsetDays: input.offsetDays,
+    dayMode: input.dayMode,
+    priority: input.priority,
+    estimateMinutes: input.estimateMinutes,
+    requiresPhoto: input.requiresPhoto,
+    requiresNote: input.requiresNote,
+    requiresAttachment: input.requiresAttachment,
+    isKey: input.isKey,
+    ...(input.scope === undefined ? {} : { scope: input.scope }),
     title: typeof input.title === "string" ? input.title.trim().replace(/\s+/g, " ") : "",
     description: text(input.description),
     // An unparsable time stays as typed so that validation reports it.
@@ -116,10 +133,8 @@ function normalizeItem(input: TemplateItemFields): TemplateItemFields {
       input.dueTime === null || input.dueTime === ""
         ? null
         : (clockTime(input.dueTime) ?? input.dueTime),
-    checkItems: Array.isArray(input.checkItems)
-      ? input.checkItems.map((c) => (typeof c === "string" ? c.trim() : c)).filter((c) => c !== "")
-      : input.checkItems,
-    dependsOnKeys: Array.isArray(input.dependsOnKeys) ? [...new Set(input.dependsOnKeys)] : [],
+    parentKey: input.parentKey || null,
+    ownDue: input.ownDue ?? false,
     permitType: input.permitType || null,
     dutyRoleId: input.dutyRoleId || null,
     approverDutyRoleId: input.approverDutyRoleId || null,
@@ -143,16 +158,35 @@ async function checkRoles(tx: Tx, ids: (string | null)[]) {
   if (found.length !== wanted.length) throw new TemplateInputError("invalid_role");
 }
 
-/** Dependencies of one item against the other items of the version (unknown targets, loops). */
-function checkItemDependencies(
-  items: { stableKey: string; dependsOnKeys: readonly string[] }[],
+/**
+ * Child items of the version (ADR 0021): every `parentKey` names another item of the version that is not a child
+ * itself (one level).
+ */
+function checkItemParents(items: { stableKey: string; parentKey: string | null }[], key?: string) {
+  const [issue] = checkItemTree(items);
+  if (issue) throw new TemplateInputError("invalid_parent", "parentKey", key ?? issue.key);
+}
+
+/**
+ * A child item is shown and instantiated in its parent's phase (ADR 0021) and belongs to its parent's scope
+ * (research 13 §6.1): the parent's values win. A top-level item keeps the scope it was given, else `fallbackScope`
+ * (its stored scope on update, `event` for a new item). The anchor is checked against the resulting scope.
+ */
+function withParentPhase(
+  fields: TemplateItemFields,
+  items: { stableKey: string; phase: TemplateItemFields["phase"]; scope: TemplateItemScope }[],
+  fallbackScope: TemplateItemScope,
   key?: string,
-) {
-  const [issue] = checkDependencies(items);
-  if (!issue) return;
-  if (issue.code === "dependency_cycle")
-    throw new TemplateInputError("dependency_cycle", "dependsOnKeys", issue.key);
-  throw new TemplateInputError("invalid_dependency", "dependsOnKeys", key ?? issue.key);
+): TemplateItemFields & { scope: TemplateItemScope } {
+  const parent =
+    fields.parentKey === null ? undefined : items.find((i) => i.stableKey === fields.parentKey);
+  const next = {
+    ...fields,
+    phase: parent?.phase ?? fields.phase,
+    scope: parent?.scope ?? fields.scope ?? fallbackScope,
+  };
+  checkFields(next, key);
+  return next;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -554,7 +588,7 @@ export async function publishDraft(
       tx,
       items.flatMap((i) => [i.dutyRoleId, i.approverDutyRoleId]),
     );
-    checkItemDependencies(items);
+    checkItemParents(items);
 
     const [published] = await tx
       .select()
@@ -658,18 +692,22 @@ export async function addTemplateItem(
     if (items.length >= MAX_ITEMS_PER_VERSION) throw new TemplateInputError("too_many_items");
     await checkRoles(tx, [fields.dutyRoleId, fields.approverDutyRoleId]);
     const key = uniqueItemKey(fields.title, new Set(items.map((i) => i.stableKey)));
-    checkItemDependencies([
-      ...items.map((i) => ({ stableKey: i.stableKey, dependsOnKeys: i.dependsOnKeys })),
-      { stableKey: key, dependsOnKeys: fields.dependsOnKeys },
-    ]);
+    checkItemParents(
+      [
+        ...items.map((i) => ({ stableKey: i.stableKey, parentKey: i.parentKey })),
+        { stableKey: key, parentKey: fields.parentKey },
+      ],
+      key,
+    );
+    const values = withParentPhase(fields, items, "event");
     const [row] = await tx
       .insert(templateItem)
       .values({
+        ...values,
+        dueTime: values.dueTime,
         versionId: version.id,
         stableKey: key,
         sort: items.length,
-        ...fields,
-        dueTime: fields.dueTime,
       })
       .returning({ id: templateItem.id });
     if (!row) throw new Error("insert failed");
@@ -705,34 +743,59 @@ export async function updateTemplateItem(
     const row = await lockItem(tx, version.id, key);
     await checkRoles(tx, [fields.dutyRoleId, fields.approverDutyRoleId]);
     const items = await itemsOf(tx, version.id);
-    checkItemDependencies(
+    checkItemParents(
       items.map((i) => ({
         stableKey: i.stableKey,
-        dependsOnKeys: i.stableKey === key ? fields.dependsOnKeys : i.dependsOnKeys,
+        parentKey: i.stableKey === key ? fields.parentKey : i.parentKey,
       })),
       key,
     );
+    const next = withParentPhase(fields, items, row.scope, key);
     const before = itemFields(row);
     const changes: Record<string, { from: unknown; to: unknown }> = {};
-    for (const field of Object.keys(fields) as (keyof TemplateItemFields)[]) {
-      if (JSON.stringify(before[field]) !== JSON.stringify(fields[field]))
-        changes[field] = { from: before[field], to: fields[field] };
+    for (const field of Object.keys(next) as (keyof TemplateItemFields)[]) {
+      if (JSON.stringify(before[field]) !== JSON.stringify(next[field]))
+        changes[field] = { from: before[field], to: next[field] };
     }
     if (Object.keys(changes).length === 0) return { changed: false };
-    await tx.update(templateItem).set(fields).where(eq(templateItem.id, row.id));
+    // Child items stay in their parent's phase and scope; one with its own schedule must fit a new scope.
+    const children = items.filter(
+      (i) => i.parentKey === key && (i.phase !== next.phase || i.scope !== next.scope),
+    );
+    const misfit = children.find(
+      (c) => c.scope !== next.scope && c.ownDue && !anchorFitsScope(next.scope, c.anchorKey),
+    );
+    if (misfit) throw new TemplateInputError("invalid_anchor", "anchorKey", misfit.stableKey);
+    await tx.update(templateItem).set(next).where(eq(templateItem.id, row.id));
+    if (children.length > 0)
+      await tx
+        .update(templateItem)
+        .set({ phase: next.phase, scope: next.scope })
+        .where(
+          inArray(
+            templateItem.id,
+            children.map((c) => c.id),
+          ),
+        );
     await audit(tx, actor.id, [
       {
         action: "template.item_update",
         entityType: "template_version",
         entityId: version.id,
-        diff: { version: version.version, key, title: fields.title, changes },
+        diff: {
+          version: version.version,
+          key,
+          title: next.title,
+          changes,
+          ...(children.length > 0 ? { childrenPhase: children.map((c) => c.stableKey) } : {}),
+        },
       },
     ]);
     return { changed: true };
   });
 }
 
-/** Removes a row from the draft; other rows no longer depend on it. */
+/** Removes a row from the draft; its child items go with it (foreign key cascade, ADR 0021). */
 export async function deleteTemplateItem(
   actor: Actor,
   versionId: string,
@@ -742,15 +805,12 @@ export async function deleteTemplateItem(
   return db.transaction(async (tx) => {
     const { version } = await lockDraft(tx, versionId);
     const row = await lockItem(tx, version.id, key);
+    const children = await tx
+      .select({ key: templateItem.stableKey })
+      .from(templateItem)
+      .where(and(eq(templateItem.versionId, version.id), eq(templateItem.parentKey, key)));
     await tx.delete(templateItem).where(eq(templateItem.id, row.id));
     const rest = await itemsOf(tx, version.id);
-    for (const item of rest) {
-      if (item.dependsOnKeys.includes(key))
-        await tx
-          .update(templateItem)
-          .set({ dependsOnKeys: item.dependsOnKeys.filter((k) => k !== key) })
-          .where(eq(templateItem.id, item.id));
-    }
     await resequence(
       tx,
       version.id,
@@ -761,14 +821,119 @@ export async function deleteTemplateItem(
         action: "template.item_delete",
         entityType: "template_version",
         entityId: version.id,
-        diff: { version: version.version, key, title: row.title },
+        diff: {
+          version: version.version,
+          key,
+          title: row.title,
+          ...(children.length > 0 ? { children: children.map((c) => c.key) } : {}),
+        },
       },
     ]);
     return { title: row.title };
   });
 }
 
-/** Moves a row one position up or down ("Nach oben/unten"). */
+/**
+ * A stable key as `uniqueItemKey` makes it (lowercase letters, digits, `_`; seeded data also uses `-`), at most
+ * 200 characters.
+ */
+const RESTORED_KEY = /^[a-z0-9][a-z0-9_-]{0,199}$/;
+
+/** A deleted row as the editor knows it, with its own stable key (undo of "Löschen"). */
+export type RestoredItem = TemplateItemFields & { key: string };
+
+/**
+ * Undo of "Löschen" (row menu, the drawer's list of child items): puts deleted rows back with their own stable
+ * keys, so the tasks of existing events still match them on the next apply. The rows go in the given order before
+ * `beforeKey` (else after `afterKey`, else at the end); a child names its parent, which is in the draft or among
+ * the restored rows (in any order). A key that is taken again (a second undo, a new row with the same key) is refused.
+ */
+export async function restoreTemplateItems(
+  actor: Actor,
+  versionId: string,
+  rows: RestoredItem[],
+  afterKey?: string | null,
+  beforeKey?: string | null,
+): Promise<{ keys: string[] }> {
+  if (!can(actor.role, "template", "write")) forbidden();
+  if (!Array.isArray(rows) || rows.length === 0 || rows.length > MAX_ITEMS_PER_VERSION)
+    throw new TemplateInputError("invalid_input");
+  const restoring = rows.map((row) => {
+    assertShape(row);
+    const { key, ...rest } = row;
+    if (typeof key !== "string" || !RESTORED_KEY.test(key))
+      throw new TemplateInputError("invalid_input");
+    return { key, fields: normalizeItem(rest) };
+  });
+  if (new Set(restoring.map((r) => r.key)).size !== restoring.length)
+    throw new TemplateInputError("invalid_input");
+
+  return db.transaction(async (tx) => {
+    const { version } = await lockDraft(tx, versionId);
+    const items = await itemsOf(tx, version.id);
+    if (items.length + restoring.length > MAX_ITEMS_PER_VERSION)
+      throw new TemplateInputError("too_many_items");
+    const taken = new Set(items.map((i) => i.stableKey));
+    const clash = restoring.find((r) => taken.has(r.key));
+    if (clash) throw new TemplateInputError("item_exists", undefined, clash.key);
+    await checkRoles(
+      tx,
+      restoring.flatMap((r) => [r.fields.dutyRoleId, r.fields.approverDutyRoleId]),
+    );
+    checkItemParents([
+      ...items.map((i) => ({ stableKey: i.stableKey, parentKey: i.parentKey })),
+      ...restoring.map((r) => ({ stableKey: r.key, parentKey: r.fields.parentKey })),
+    ]);
+    const known: {
+      stableKey: string;
+      phase: TemplateItemFields["phase"];
+      scope: TemplateItemScope;
+    }[] = items.map((i) => ({ stableKey: i.stableKey, phase: i.phase, scope: i.scope }));
+    // Parents first, whatever order the rows came in: a child takes its parent's phase and scope, and the
+    // foreign key needs the parent row. The place in the list follows the given order.
+    const restoringKeys = new Set(restoring.map((r) => r.key));
+    const isChildOfRestored = (r: (typeof restoring)[number]) =>
+      r.fields.parentKey !== null && restoringKeys.has(r.fields.parentKey);
+    const idByKey = new Map<string, string>();
+    for (const r of [
+      ...restoring.filter((r) => !isChildOfRestored(r)),
+      ...restoring.filter(isChildOfRestored),
+    ]) {
+      const values = withParentPhase(r.fields, known, "event", r.key);
+      const [row] = await tx
+        .insert(templateItem)
+        .values({
+          ...values,
+          dueTime: values.dueTime,
+          versionId: version.id,
+          stableKey: r.key,
+          sort: items.length + idByKey.size,
+        })
+        .returning({ id: templateItem.id });
+      if (!row) throw new Error("insert failed");
+      known.push({ stableKey: r.key, phase: values.phase, scope: values.scope });
+      idByKey.set(r.key, row.id);
+    }
+    const ids = restoring.flatMap((r) => idByKey.get(r.key) ?? []);
+    const order = items.map((i) => i.id);
+    const before = beforeKey ? items.findIndex((i) => i.stableKey === beforeKey) : -1;
+    const after = afterKey ? items.findIndex((i) => i.stableKey === afterKey) : -1;
+    order.splice(before >= 0 ? before : after >= 0 ? after + 1 : order.length, 0, ...ids);
+    await resequence(tx, version.id, order);
+    const keys = restoring.map((r) => r.key);
+    await audit(tx, actor.id, [
+      {
+        action: "template.item_restore",
+        entityType: "template_version",
+        entityId: version.id,
+        diff: { version: version.version, keys, title: restoring[0]?.fields.title },
+      },
+    ]);
+    return { keys };
+  });
+}
+
+/** Moves a row one position up or down among its siblings ("Nach oben/unten"). */
 export async function moveTemplateItem(
   actor: Actor,
   versionId: string,
@@ -782,14 +947,21 @@ export async function moveTemplateItem(
     const items = await itemsOf(tx, version.id);
     const index = items.findIndex((i) => i.stableKey === key);
     if (index < 0) throw new TemplateInputError("item_not_found", undefined, key);
-    // The editor shows rows grouped by phase, so "one up" means past the next row of the same phase.
+    // The editor shows the season rows in one section ("Ganze Saison") above the event rows grouped by phase, with
+    // child items under their parent, so "one up" means past the next sibling: a top-level season row, a top-level
+    // event row of the same phase, or a child item of the same parent.
+    const moving = items[index] as ItemRow;
+    const isSibling = (i: ItemRow) =>
+      i.parentKey === moving.parentKey &&
+      (moving.parentKey !== null ||
+        (i.scope === moving.scope && (moving.scope === "season" || i.phase === moving.phase)));
     const step = direction === "up" ? -1 : 1;
     let target = index + step;
-    while (items[target] && items[target]?.phase !== items[index]?.phase) target += step;
+    while (items[target] && !isSibling(items[target] as ItemRow)) target += step;
     if (!items[target]) return { moved: false };
     const order = items.map((i) => i.id);
-    const [moving] = order.splice(index, 1);
-    order.splice(target, 0, moving as string);
+    order.splice(index, 1);
+    order.splice(target, 0, moving.id);
     await resequence(tx, version.id, order);
     await audit(tx, actor.id, [
       {

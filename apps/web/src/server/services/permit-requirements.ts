@@ -1,5 +1,12 @@
 import "server-only";
-import { can, isMonthDay, type PermitCadence } from "@marktwerk/core";
+import {
+  can,
+  isMonthDay,
+  isVenueNeedType,
+  type PermitCadence,
+  planVenueNeeds,
+  VENUE_NEED_DEFAULTS,
+} from "@marktwerk/core";
 import {
   contact,
   event,
@@ -11,7 +18,7 @@ import {
   permitType,
   venue,
 } from "@marktwerk/db/schema";
-import { and, eq, gte, isNull, ne } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, ne } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
@@ -62,9 +69,13 @@ function toInput(row: RequirementRow): RequirementInput {
   };
 }
 
-const optionalMonthDay = (value: unknown): string | null => {
+/** An optional "MM-DD"; a day the month does not have (31.02.) fails with the field's own code. */
+const optionalMonthDay = (
+  value: unknown,
+  code: "invalid_window_start" | "invalid_window_end" | "invalid_decision_day",
+): string | null => {
   if (value === null || value === undefined || value === "") return null;
-  if (!isMonthDay(value)) throw new PermitInputError("invalid_month_day");
+  if (!isMonthDay(value)) throw new PermitInputError(code);
   return value;
 };
 
@@ -87,6 +98,13 @@ async function checked(tx: Tx, input: RequirementInput): Promise<RequirementInpu
     throw new PermitInputError("invalid_fee");
   const notes = typeof input.notes === "string" ? input.notes.trim() : "";
   if (notes.length > MAX_NOTES) throw new PermitInputError("invalid_text");
+  // An Antragsfenster has both ends or none (UX audit UX-008).
+  const windowStart = optionalMonthDay(input.submissionWindowStartMd, "invalid_window_start");
+  const windowEnd = optionalMonthDay(input.submissionWindowEndMd, "invalid_window_end");
+  if (windowStart === null && windowEnd !== null)
+    throw new PermitInputError("incomplete_window_start");
+  if (windowStart !== null && windowEnd === null)
+    throw new PermitInputError("incomplete_window_end");
 
   let eventTypeId: string | null = null;
   if (input.eventTypeId) {
@@ -118,9 +136,9 @@ async function checked(tx: Tx, input: RequirementInput): Promise<RequirementInpu
     authorityContactId,
     cadence: input.cadence,
     leadTimeDays: input.leadTimeDays,
-    submissionWindowStartMd: optionalMonthDay(input.submissionWindowStartMd),
-    submissionWindowEndMd: optionalMonthDay(input.submissionWindowEndMd),
-    expectedDecisionMd: optionalMonthDay(input.expectedDecisionMd),
+    submissionWindowStartMd: windowStart,
+    submissionWindowEndMd: windowEnd,
+    expectedDecisionMd: optionalMonthDay(input.expectedDecisionMd, "invalid_decision_day"),
     typicalFeeCents: fee,
     deliverables: checkedDeliverables(input.deliverables ?? {}),
     notes: notes === "" ? null : notes,
@@ -289,5 +307,152 @@ export async function applyRequirementsToUpcomingEvents(
       linked: fill.linked,
       tasks: fill.tasks,
     };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// "Was braucht dieser Ort?" (Fahrplan R30)
+
+/** What `setVenueNeeds` changed: the requirements it made and the ones it removed (for the undo toast). */
+export type VenueNeedsChange = { created: string[]; archived: string[] };
+
+async function lockLiveVenue(tx: Tx, venueId: string) {
+  const [place] = UUID.test(venueId)
+    ? await tx
+        .select({ id: venue.id })
+        .from(venue)
+        .where(and(eq(venue.id, venueId), isNull(venue.archivedAt)))
+        .for("update")
+    : [];
+  if (!place) throw new PermitInputError("invalid_venue");
+  return place;
+}
+
+/**
+ * The dialog "Was braucht dieser Ort?" (product owner 2026-11-13, Fahrplan R30): sets the Ort's permit requirements
+ * from the ticked permit types (core `VENUE_NEED_TYPES`). A ticked type without a live requirement gets one with the
+ * defaults (`VENUE_NEED_DEFAULTS`: title, category, cadence, lead time; the rest is filled in on the requirement
+ * form); the requirements of an unticked need type are removed (archived, like "Entfernen"). Types the dialog
+ * does not offer are never touched (core `planVenueNeeds`). Like a new requirement, it shapes the events created
+ * from now on; existing ones get it through "Auf kommende Veranstaltungen anwenden". Audited as
+ * "permit_requirement.create" / ".archive" with `source: "venue_needs"`.
+ */
+export async function setVenueNeeds(
+  actor: Actor,
+  venueId: string,
+  wanted: readonly string[],
+): Promise<VenueNeedsChange> {
+  if (!can(actor.role, "permit", "write")) forbidden();
+  if (!Array.isArray(wanted) || !wanted.every(isVenueNeedType))
+    throw new PermitInputError("invalid_type");
+  return db.transaction(async (tx) => {
+    const place = await lockLiveVenue(tx, venueId);
+    const current = await tx
+      .select({
+        id: permitRequirement.id,
+        permitType: permitRequirement.permitType,
+        title: permitRequirement.title,
+      })
+      .from(permitRequirement)
+      .where(and(eq(permitRequirement.venueId, place.id), isNull(permitRequirement.archivedAt)));
+    const plan = planVenueNeeds(current, wanted);
+    // Removing a requirement is "Entfernen", which needs the delete grant.
+    if (plan.archive.length > 0 && !can(actor.role, "permit", "delete")) forbidden();
+
+    const created: { id: string; values: typeof permitRequirement.$inferInsert }[] = [];
+    for (const type of plan.create) {
+      const values = { venueId: place.id, permitType: type, ...VENUE_NEED_DEFAULTS[type] };
+      const [row] = await tx
+        .insert(permitRequirement)
+        .values(values)
+        .returning({ id: permitRequirement.id });
+      if (!row) throw new Error("insert failed");
+      created.push({ id: row.id, values });
+    }
+    const archived = plan.archive.map((r) => r.id);
+    if (archived.length > 0)
+      await tx
+        .update(permitRequirement)
+        .set({ archivedAt: new Date() })
+        .where(inArray(permitRequirement.id, archived));
+    await audit(tx, actor.id, [
+      ...created.map(({ id, values }) => ({
+        action: "permit_requirement.create",
+        entityType: "permit_requirement",
+        entityId: id,
+        diff: { ...values, source: "venue_needs" },
+      })),
+      ...plan.archive.map((r) => ({
+        action: "permit_requirement.archive",
+        entityType: "permit_requirement",
+        entityId: r.id,
+        diff: { title: r.title, source: "venue_needs" },
+      })),
+    ]);
+    return { created: created.map((c) => c.id), archived };
+  });
+}
+
+/**
+ * Undo of `setVenueNeeds` (the toast's "Rückgängig"): removes the requirements it made and brings back the ones it
+ * removed, as far as they still belong to the Ort and are in that state. Audited with `undo: true`.
+ */
+export async function undoVenueNeeds(
+  actor: Actor,
+  venueId: string,
+  change: VenueNeedsChange,
+): Promise<{ changed: number }> {
+  if (!can(actor.role, "permit", "write") || !can(actor.role, "permit", "delete")) forbidden();
+  const ids = (list: unknown) =>
+    Array.isArray(list)
+      ? list.filter((id): id is string => typeof id === "string" && UUID.test(id))
+      : [];
+  const created = ids(change?.created);
+  const archived = ids(change?.archived);
+  return db.transaction(async (tx) => {
+    const place = await lockLiveVenue(tx, venueId);
+    const removed =
+      created.length === 0
+        ? []
+        : await tx
+            .update(permitRequirement)
+            .set({ archivedAt: new Date() })
+            .where(
+              and(
+                inArray(permitRequirement.id, created),
+                eq(permitRequirement.venueId, place.id),
+                isNull(permitRequirement.archivedAt),
+              ),
+            )
+            .returning({ id: permitRequirement.id, title: permitRequirement.title });
+    const restored =
+      archived.length === 0
+        ? []
+        : await tx
+            .update(permitRequirement)
+            .set({ archivedAt: null })
+            .where(
+              and(
+                inArray(permitRequirement.id, archived),
+                eq(permitRequirement.venueId, place.id),
+                isNotNull(permitRequirement.archivedAt),
+              ),
+            )
+            .returning({ id: permitRequirement.id, title: permitRequirement.title });
+    await audit(tx, actor.id, [
+      ...removed.map((r) => ({
+        action: "permit_requirement.archive",
+        entityType: "permit_requirement",
+        entityId: r.id,
+        diff: { title: r.title, source: "venue_needs", undo: true },
+      })),
+      ...restored.map((r) => ({
+        action: "permit_requirement.restore",
+        entityType: "permit_requirement",
+        entityId: r.id,
+        diff: { title: r.title, source: "venue_needs", undo: true },
+      })),
+    ]);
+    return { changed: removed.length + restored.length };
   });
 }

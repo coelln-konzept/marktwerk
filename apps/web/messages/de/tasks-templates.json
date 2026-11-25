@@ -99,7 +99,7 @@
       "editHint": "Zeile anklicken zum Bearbeiten · ⋯ für Reihenfolge, Duplizieren, Löschen",
       "readOnlyHint": "Nur Ansicht",
       "empty": "Diese Version hat keine Aufgaben.",
-      "caption": "Aufgaben der Ablaufvorlage nach Phase",
+      "caption": "Aufgaben der Ablaufvorlage: erst die Saison, dann jeder Termin nach Phase",
       "cols": {
         "title": "Aufgabe",
         "category": "Kategorie",
@@ -113,14 +113,20 @@
       },
       "keyTask": "Kernaufgabe",
       "count": "{count, plural, =0 {keine Aufgaben} one {# Aufgabe} other {# Aufgaben}}",
-      "checkItems": "{count, plural, one {# Teilschritt} other {# Teilschritte}}",
-      "dependsOn": "Hängt ab von: {titles}",
+      "children": "{count, plural, one {# Unteraufgabe} other {# Unteraufgaben}}",
+      "childOf": "Unteraufgabe von „{title}“",
       "onlyFor": "Nur für: {what}",
       "venues": "bestimmte Orte",
       "businessDays": "Werktage",
       "defaultTime": "Standard",
       "rowMenu": "Aktionen für {title}",
-      "add": "Aufgabe in „{phase}“ hinzufügen"
+      "add": "Aufgabe in „{phase}“ hinzufügen",
+      "inherited": "wie Hauptaufgabe",
+      "season": "Ganze Saison",
+      "seasonHint": "einmal je Saison",
+      "addSeason": "Saison-Aufgabe hinzufügen",
+      "permit": "Genehmigung: {type}",
+      "onlyPermits": "Nur Aufgaben mit Genehmigung ({count})"
     },
     "menu": {
       "edit": "Bearbeiten",
@@ -129,14 +135,14 @@
       "down": "Nach unten",
       "duplicate": "Duplizieren",
       "duplicated": "„{title}“ dupliziert",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "moved": "„{title}“ verschoben",
+      "undo": "Rückgängig"
     },
     "delete": {
-      "title": "„{title}“ löschen?",
-      "description": "Die Zeile verschwindet aus dem Entwurf. Aufgaben in bestehenden Veranstaltungen bleiben unverändert.",
-      "confirm": "Löschen",
-      "cancel": "Abbrechen",
-      "done": "„{title}“ gelöscht"
+      "done": "„{title}“ gelöscht",
+      "doneChildren": "{count, plural, one {„{title}“ mit Unteraufgabe gelöscht} other {„{title}“ mit # Unteraufgaben gelöscht}}",
+      "undo": "Rückgängig"
     },
     "drawer": {
       "newTitle": "Neue Aufgabe",
@@ -169,10 +175,6 @@
       "permitTypeHint": "Erledigt sich, sobald diese Genehmigung dieser Veranstaltung beantragt oder erteilt ist. Nur für Aufgaben, die eine Genehmigung beantragen.",
       "isKey": "Kernaufgabe",
       "isKeyHint": "Jeder Markt braucht diese Aufgabe. Sie erscheint in der Kernaufgaben-Übersicht und wird bei Verzug stärker hervorgehoben.",
-      "checkItems": "Teilschritte",
-      "checkItemsHint": "Ein Teilschritt pro Zeile.",
-      "dependsOn": "Hängt ab von",
-      "dependsOnHint": "Nur ein Hinweis („erst B, dann A“); die Fälligkeit ändert sich dadurch nicht.",
       "conditionLegend": "Gilt nur für",
       "conditionHint": "Ohne Auswahl entsteht die Aufgabe bei jeder Veranstaltung.",
       "conditionTypes": "Veranstaltungsarten",
@@ -186,7 +188,47 @@
       "saved": "„{title}“ gespeichert",
       "added": "„{title}“ hinzugefügt",
       "unchanged": "Keine Änderungen zu speichern.",
-      "offsetNow": "Das heißt: {text}"
+      "offsetNow": "Das heißt: {text}",
+      "childOf": "Unteraufgabe von „{title}“",
+      "openParent": "„{title}“ öffnen",
+      "parent": "Unteraufgabe von",
+      "standalone": "Eigenständig (keine Unteraufgabe)",
+      "parentHint": "Unteraufgaben entstehen bei jeder Veranstaltung unter ihrer Hauptaufgabe und stehen in deren Phase.",
+      "hasChildrenHint": "Diese Aufgabe hat Unteraufgaben und kann deshalb selbst keine Unteraufgabe werden (nur eine Ebene).",
+      "ownDue": "Eigene Fälligkeit",
+      "ownDueHint": "Ohne Haken ist die Unteraufgabe fällig wie ihre Hauptaufgabe und zieht mit, wenn sich deren Fälligkeit ändert.",
+      "inheritedDue": "Fällig wie die Hauptaufgabe: {text}",
+      "roleAsParent": "Wie Hauptaufgabe",
+      "children": {
+        "legend": "Unteraufgaben",
+        "hint": "Unteraufgaben sind fällig wie die Hauptaufgabe und gehen an dieselbe Rolle, solange du nichts anderes festlegst.",
+        "empty": "Noch keine Unteraufgaben.",
+        "newLabel": "Neue Unteraufgabe",
+        "newPlaceholder": "Titel der Unteraufgabe",
+        "add": "Unteraufgabe",
+        "added": "„{title}“ als Unteraufgabe hinzugefügt",
+        "edit": "„{title}“ bearbeiten",
+        "up": "„{title}“ nach oben",
+        "down": "„{title}“ nach unten",
+        "remove": "„{title}“ entfernen",
+        "removed": "„{title}“ entfernt",
+        "undo": "Rückgängig",
+        "ownDue": "fällig {text}",
+        "saveFirst": "Bitte erst speichern oder abbrechen: Die Änderungen an dieser Aufgabe gingen sonst verloren.",
+        "newItemHint": "Unteraufgaben kannst du anlegen, sobald die Aufgabe hinzugefügt ist."
+      },
+      "scope": "Gilt für",
+      "scopes": {
+        "event": "Jeder Termin",
+        "season": "Ganze Saison"
+      },
+      "scopeHint": "Jeder Termin: Die Aufgabe entsteht bei jeder Veranstaltung des Markts. Ganze Saison: Sie entsteht einmal im Jahr für die Saison und ist ab Saisonbeginn oder Saisonende fällig.",
+      "scopeInherited": "Gilt wie die Hauptaufgabe für die ganze Saison.",
+      "exampleSeason": "Beispiel: {anchor} am {day} → fällig {due}",
+      "exampleSeasonEnd": "Ohne Termine in der Saison gibt es kein Saisonende: Die Aufgabe hat dann noch kein Fälligkeitsdatum.",
+      "conditionHintSeason": "Ohne Auswahl entsteht die Aufgabe für die Saison jedes Markts, der diese Vorlage nutzt.",
+      "roleHintSeason": "Eine Rolle, keine Person: Für die Saison übernimmt, wer die Rolle in der Standardbesetzung des Markts hat.",
+      "parentHintSeason": "Unteraufgaben entstehen einmal je Saison unter ihrer Hauptaufgabe."
     },
     "links": {
       "title": "Gilt für Vorlagen",
@@ -202,7 +244,7 @@
       "title": "So funktioniert es",
       "published": "Veröffentlichte Versionen sind unveränderlich; Änderungen entstehen in einem Entwurf.",
       "newEvents": "Neue Veranstaltungen bekommen die Aufgaben der veröffentlichten Version.",
-      "apply": "Bestehende Veranstaltungen ändern sich nur über „Auf Veranstaltungen anwenden …“, nach Vorschau und ohne Vorauswahl.",
+      "apply": "Bestehende Veranstaltungen und Saisons ändern sich nur über „Auf Veranstaltungen anwenden …“, nach Vorschau und ohne Vorauswahl.",
       "followAnchors": "Verschiebt sich eine Veranstaltung, ziehen offene Aufgaben mit; erledigte nie. Ohne eigene Uhrzeit sind Aufgaben um {time} Uhr fällig."
     },
     "apply": {
@@ -211,11 +253,11 @@
       "subtitle": "{name}, Version {version}",
       "close": "Schließen",
       "steps": "Schritte",
-      "step1": "Veranstaltungen wählen",
+      "step1": "Veranstaltungen und Saisons wählen",
       "step2": "Vorschau",
-      "intro": "Hier übernehmen bestehende Veranstaltungen die veröffentlichte Version. Es ist nichts vorausgewählt: du entscheidest je Veranstaltung. Erledigte und von Hand angepasste Aufgaben bleiben, wie sie sind.",
+      "intro": "Hier übernehmen bestehende Veranstaltungen und Saisons die veröffentlichte Version. Es ist nichts vorausgewählt: du entscheidest je Veranstaltung und Saison. Erledigte und von Hand angepasste Aufgaben bleiben, wie sie sind.",
       "changeNote": "Was ist neu:",
-      "empty": "Keine bevorstehende Veranstaltung braucht diese Version.",
+      "empty": "Keine bevorstehende Veranstaltung und keine offene Saison braucht diese Version.",
       "selected": "{count} gewählt",
       "selectChanged": "Alle {count} mit Änderungen wählen",
       "clear": "Auswahl aufheben",
@@ -230,7 +272,9 @@
         "addLabel": "Neue Aufgabe",
         "updateLabel": "Aufgabe wird angepasst",
         "removeLabel": "Aufgabe entfällt",
-        "overdue": "{count, plural, one {# wäre sofort überfällig} other {# wären sofort überfällig}}"
+        "overdue": "{count, plural, one {# wäre sofort überfällig} other {# wären sofort überfällig}}",
+        "cancel": "{count, plural, one {# Unteraufgabe wird abgebrochen} other {# Unteraufgaben werden abgebrochen}}",
+        "cancelLabel": "Unteraufgabe wird abgebrochen"
       },
       "changes": {
         "restored": "wieder in der Vorlage",
@@ -244,40 +288,58 @@
         "key": "Kernaufgabe",
         "permit": "Genehmigung",
         "duty": "Rolle",
-        "due": "Fälligkeit"
+        "due": "Fälligkeit",
+        "parent": "Hauptaufgabe"
       },
-      "previewIntro": "{events, plural, one {# Veranstaltung} other {# Veranstaltungen}}: {what}.",
+      "previewIntro": "{targets}: {what}.",
       "markedRemoved": "Aufgabe bleibt offen und wird als „Nicht mehr in der Vorlage“ markiert, nicht gelöscht",
       "keep": {
         "customized": "von Hand angepasst",
         "closed": "erledigt oder abgeschlossen"
       },
-      "rules": "Von Hand gesetzte Fälligkeiten und Zuweisungen bleiben bei geänderten Aufgaben erhalten. Nichts wird gelöscht.",
+      "rules": "Von Hand gesetzte Fälligkeiten und Zuweisungen bleiben bei geänderten Aufgaben erhalten. Unteraufgaben, deren Zeile entfernt wurde, werden abgebrochen. Nichts wird gelöscht.",
       "cancel": "Abbrechen",
       "back": "Zurück",
       "next": "Weiter zur Vorschau",
-      "confirm": "{count, plural, one {Auf # Veranstaltung anwenden} other {Auf # Veranstaltungen anwenden}}",
+      "confirm": "Auf {targets} anwenden",
       "done": "Angewendet auf {names}: {what}",
       "errors": {
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
         "not_found": "Diese Ablaufvorlage gibt es nicht mehr.",
         "no_published_version": "Es gibt noch keine veröffentlichte Version.",
-        "no_events": "Bitte mindestens eine Veranstaltung wählen.",
-        "not_applicable": "Eine der Veranstaltungen braucht die Version nicht mehr (oder läuft nicht mehr). Die Seite wurde aktualisiert, es wurde nichts geändert."
+        "no_events": "Bitte mindestens eine Veranstaltung oder Saison wählen.",
+        "not_applicable": "Eine der gewählten Veranstaltungen oder Saisons braucht die Version nicht mehr (vielleicht wurde sie gerade anderswo angewendet). Es wurde nichts geändert. Die Liste ist aktualisiert, bitte die Auswahl prüfen."
       },
-      "listCount": "{shown} von {total} Veranstaltungen angezeigt",
+      "listCount": "{shown} von {total} angezeigt",
       "hiddenUnchanged": "{count} ohne Änderungen ausgeblendet",
-      "search": "Veranstaltung suchen",
+      "search": "Veranstaltung oder Saison suchen",
       "onlyChanged": "Nur mit Änderungen",
-      "nothingChanged": "Keine Veranstaltung hat Änderungen. Ohne den Haken bei „Nur mit Änderungen“ siehst du alle.",
-      "noMatch": "Keine Veranstaltung passt zur Suche.",
+      "nothingChanged": "Nichts hat Änderungen. Ohne den Haken bei „Nur mit Änderungen“ siehst du alles.",
+      "noMatch": "Nichts passt zur Suche.",
       "noDue": "ohne Fälligkeit",
       "dueOn": "fällig {date}",
       "wouldBeOverdue": "wäre sofort überfällig",
       "overdueTotal": "{count, plural, one {# neue Aufgabe wäre} other {# neue Aufgaben wären}} sofort überfällig: Das Datum liegt schon in der Vergangenheit. Die Aufgabe entsteht trotzdem.",
-      "previewIntroNone": "{events, plural, one {# Veranstaltung} other {# Veranstaltungen}}: keine Änderungen an den Aufgaben.",
+      "previewIntroNone": "{targets}: keine Änderungen an den Aufgaben.",
       "doneNothing": "Angewendet auf {names}: keine Änderungen an den Aufgaben",
-      "doneNames": "{first} und {more} weitere"
+      "doneNames": "{first} und {more} weitere",
+      "cancelled": "Unteraufgabe ist nicht mehr in der Vorlage und wird abgebrochen, nicht gelöscht",
+      "seasonLabel": "{name} · Saison {season}",
+      "seasonStart": "Saisonbeginn {date}",
+      "noSeasonStart": "Noch kein Saisonbeginn",
+      "seasonStatus": {
+        "planning": "In Planung",
+        "dates_set": "Termine stehen",
+        "closed": "Abgeschlossen"
+      },
+      "groupSeasons": "Saisons",
+      "groupEvents": "Veranstaltungen",
+      "seasonItems": "Bekommt nur die Aufgaben für die ganze Saison.",
+      "targets": "{events, plural, =0 {} one {# Veranstaltung} other {# Veranstaltungen}}{both, select, yes { und } other {}}{seasons, plural, =0 {} one {# Saison} other {# Saisons}}",
+      "irreversible": "Anwenden lässt sich nicht rückgängig machen. Danach änderst du einzelne Aufgaben nur noch in der Veranstaltung selbst.",
+      "step1Heading": "Schritt 1 von 2: Veranstaltungen und Saisons wählen",
+      "step2Heading": "Schritt 2 von 2: Vorschau prüfen",
+      "nothingChosen": "Nichts mehr gewählt: Die Auswahl ist nicht mehr aktuell. Geh zurück und wähle neu."
     },
     "phases": {
       "pre": "Vorbereitung",
@@ -307,12 +369,13 @@
       "setup_day": "Aufbautag",
       "teardown_day": "Abbautag",
       "booking_cutoff": "Buchungsschluss",
-      "permit_decision": "Genehmigungsentscheid"
+      "permit_decision": "Genehmigungsentscheid",
+      "season_start": "Saisonbeginn",
+      "season_end": "Saisonende"
     },
     "venueKinds": {
-      "outdoor_public": "Draußen, öffentlich",
-      "outdoor_private": "Draußen, privat",
-      "indoor": "Drinnen"
+      "municipal": "Städtisch",
+      "private": "Privat"
     },
     "evidence": {
       "photo": "Foto",
@@ -336,16 +399,14 @@
       "invalid_offset": "Bitte eine ganze Zahl von −365 bis 365 angeben.",
       "invalid_time": "Bitte die Uhrzeit als HH:MM angeben, z. B. 09:00.",
       "invalid_estimate": "Bitte den Aufwand in ganzen Minuten angeben.",
-      "invalid_check_items": "Teilschritte dürfen nicht leer sein (höchstens 30, je höchstens 200 Zeichen).",
-      "invalid_depends": "Die Abhängigkeiten sind nicht gültig.",
+      "invalid_parent": "Die Hauptaufgabe gibt es in dieser Version nicht oder sie ist selbst eine Unteraufgabe (nur eine Ebene).",
       "invalid_permit_type": "Bitte eine Genehmigungsart aus der Liste wählen.",
+      "invalid_scope": "Bitte Veranstaltung oder Saison wählen.",
       "invalid_condition": "Die Bedingung ist nicht gültig.",
       "invalid_name": "Bitte einen Namen angeben (höchstens 120 Zeichen).",
       "invalid_type": "Diese Art gibt es nicht mehr.",
       "invalid_role": "Diese Rolle gibt es nicht mehr.",
       "invalid_preset": "Eine der Veranstaltungs-Vorlagen gibt es nicht mehr.",
-      "invalid_dependency": "Eine Abhängigkeit zeigt auf eine Zeile, die es nicht gibt.",
-      "dependency_cycle": "Die Abhängigkeiten laufen im Kreis.",
       "invalid_note": "Die Anmerkung ist zu lang (höchstens 500 Zeichen).",
       "invalid_input": "Die Angaben sind unvollständig. Bitte die Seite neu laden.",
       "not_found": "Diese Ablaufvorlage gibt es nicht mehr.",
@@ -357,10 +418,11 @@
       "no_changes": "Der Entwurf unterscheidet sich nicht von der veröffentlichten Version.",
       "too_many_items": "Eine Version kann höchstens 300 Zeilen haben.",
       "no_published_version": "Es gibt noch keine veröffentlichte Version.",
-      "no_events": "Bitte mindestens eine Veranstaltung wählen.",
-      "not_applicable": "Eine der Veranstaltungen braucht die Version nicht mehr.",
+      "no_events": "Bitte mindestens eine Veranstaltung oder Saison wählen.",
+      "not_applicable": "Eine der Veranstaltungen oder Saisons braucht die Version nicht mehr.",
       "master_exists": "Es gibt schon eine Grundvorlage.",
-      "master_protected": "Die Grundvorlage kann nicht archiviert werden."
+      "master_protected": "Die Grundvorlage kann nicht archiviert werden.",
+      "item_exists": "Diese Zeile gibt es schon wieder. Die Seite wurde aktualisiert."
     },
     "offset": {
       "on": "am Tag selbst",

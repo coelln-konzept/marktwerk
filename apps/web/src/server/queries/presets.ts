@@ -1,4 +1,5 @@
 import "server-only";
+import { addDays, marketShortCodes } from "@marktwerk/core";
 import {
   checklistTemplate,
   dutyRole,
@@ -9,7 +10,7 @@ import {
   staffMember,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, count, eq, gte, isNull, lte, max, ne } from "drizzle-orm";
+import { and, asc, count, eq, gte, isNotNull, isNull, lte, max, ne } from "drizzle-orm";
 import { db } from "../db";
 
 /**
@@ -59,8 +60,34 @@ export async function listPresetsForGeneration(today: string) {
   for (const p of planned) {
     if (p.presetId) plannedOf.set(p.presetId, { ...plannedOf.get(p.presetId), [p.season]: p.n });
   }
+  // The market's own dates of the last two years up to today: step 2 reads its usual rule from them (UX-015).
+  const past = await db
+    .select({ presetId: event.presetId, startsOn: event.startsOn, endsOn: event.endsOn })
+    .from(event)
+    .where(
+      and(
+        isNotNull(event.presetId),
+        gte(event.startsOn, addDays(today, -730)),
+        lte(event.startsOn, today),
+        ne(event.status, "cancelled"),
+        isNull(event.archivedAt),
+      ),
+    )
+    .orderBy(asc(event.startsOn));
+  const pastOf = new Map<string, { startsOn: string; endsOn: string }[]>();
+  for (const p of past) {
+    if (!p.presetId) continue;
+    const list = pastOf.get(p.presetId) ?? [];
+    list.push({ startsOn: p.startsOn, endsOn: p.endsOn });
+    pastOf.set(p.presetId, list);
+  }
   return rows
-    .map((r) => ({ ...r, plannedBySeason: plannedOf.get(r.id) ?? ({} as Record<number, number>) }))
+    .map((r) => ({
+      ...r,
+      plannedBySeason: plannedOf.get(r.id) ?? ({} as Record<number, number>),
+      /** Held dates of the last two years, oldest first. */
+      pastDates: pastOf.get(r.id) ?? [],
+    }))
     .sort((a, b) => {
       if (a.lastHeldOn !== b.lastHeldOn) {
         if (!a.lastHeldOn) return 1;
@@ -90,10 +117,12 @@ export async function listPresets() {
         rrule: eventPreset.rrule,
         pricePerMCents: eventPreset.pricePerMCents,
         bookingFeeCents: eventPreset.bookingFeeCents,
-        defaultTimes: eventPreset.defaultTimes,
+        schedule: eventPreset.schedule,
         defaultDuties: eventPreset.defaultDuties,
         publicTitle: eventPreset.publicTitle,
         color: eventPreset.color,
+        /** The market's own Kürzel (null = derived, see `code`). */
+        shortCode: eventPreset.shortCode,
       })
       .from(eventPreset)
       .innerJoin(eventType, eq(eventType.id, eventPreset.eventTypeId))
@@ -114,11 +143,15 @@ export async function listPresets() {
       .orderBy(asc(eventPresetTemplate.sort), asc(checklistTemplate.name)),
   ]);
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
+  // Every non-archived market is here, so the codes match the Kalender's (`getMarketShortCodes`).
+  const codes = marketShortCodes(presets);
   return presets.map((p) => {
     const linked = linkedTemplates.filter((l) => l.presetId === p.id);
     const own = linked.find((l) => l.ownerPresetId === p.id) ?? null;
     return {
       ...p,
+      /** The Kürzel shown for the market: its own one or the one derived from its name. */
+      code: codes.get(p.id) ?? "",
       /** The market's own task template (made from the master), if it has one. */
       ownTemplate: own ? { id: own.id, name: own.name } : null,
       /** The library templates it still uses (existing markets keep their per-type templates). */
@@ -174,12 +207,13 @@ export async function getPresetForEdit(id: string) {
       durationDays: eventPreset.durationDays,
       publicTitle: eventPreset.publicTitle,
       publicText: eventPreset.publicText,
-      defaultTimes: eventPreset.defaultTimes,
+      schedule: eventPreset.schedule,
       pricePerMCents: eventPreset.pricePerMCents,
       bookingFeeCents: eventPreset.bookingFeeCents,
       rrule: eventPreset.rrule,
       defaultDuties: eventPreset.defaultDuties,
       color: eventPreset.color,
+      shortCode: eventPreset.shortCode,
       updatedAt: eventPreset.updatedAt,
     })
     .from(eventPreset)

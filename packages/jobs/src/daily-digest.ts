@@ -1,15 +1,23 @@
-import { type DigestItem, digestUrgency, renderDigest } from "@marktwerk/core";
+import {
+  type DigestItem,
+  digestUrgency,
+  flaggedDueAt,
+  renderDigest,
+  resolveRelativeDue,
+} from "@marktwerk/core";
 import {
   type Database,
   event,
   eventPermit,
+  isOwnWorkItem,
   outboundMessage,
+  parentIsOpen,
   permit,
   staffMember,
   task,
   user,
 } from "@marktwerk/db";
-import { and, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import {
   appUrl,
   berlinDate,
@@ -17,6 +25,9 @@ import {
   isEmailDisabled,
   notOfPastEvent,
   OPEN_TASK_STATUSES,
+  openSubtaskDues,
+  seasonContext,
+  taskContextName,
 } from "./shared";
 
 /** Logins that work in the office get the morning mail; the field crew does not (decision: office users). */
@@ -78,10 +89,15 @@ export async function dailyDigest(db: Database, now: Date = new Date()): Promise
   return { people: people.length, queued };
 }
 
-/** Open tasks (assigned to the person) and unfiled / undecided permits (they are responsible for). */
+/**
+ * Open tasks of the person's own list (top-level tasks assigned to them and subtasks assigned to them of somebody
+ * else's task, ADR 0021; an overdue subtask makes its parent overdue) and unfiled / undecided permits (they are
+ * responsible for).
+ */
 async function itemsOf(db: Database, staffMemberId: string, today: string): Promise<DigestItem[]> {
   const items: DigestItem[] = [];
 
+  const sc = seasonContext(db);
   const tasks = await db
     .select({
       id: task.id,
@@ -89,14 +105,20 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
       dueAt: task.dueAt,
       eventId: task.eventId,
       eventName: event.name,
+      seasonName: sc.seasonName,
+      seasonYear: sc.seasonYear,
+      parentTaskId: task.parentTaskId,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
+    // A season task names its market and season instead (research 13 §6.3).
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .where(
       and(
         eq(task.assigneeId, staffMemberId),
+        isOwnWorkItem(),
+        parentIsOpen(),
         inArray(task.status, [...OPEN_TASK_STATUSES]),
-        isNotNull(task.dueAt),
         // Snoozed tasks stay out until their snooze date.
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         // The permit's own line covers "beantragen".
@@ -106,9 +128,16 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
         notOfPastEvent(today),
       ),
     );
+  const subDues = await openSubtaskDues(
+    db,
+    tasks.filter((t) => t.parentTaskId === null).map((t) => t.id),
+    today,
+  );
+  const todayStart = resolveRelativeDue(today, 0, "00:00");
   for (const t of tasks) {
-    if (!t.dueAt) continue;
-    const dueOn = berlinDate(t.dueAt);
+    const { dueAt } = flaggedDueAt(t.dueAt, subDues.get(t.id) ?? [], todayStart);
+    if (!dueAt) continue;
+    const dueOn = berlinDate(dueAt);
     const urgency = digestUrgency(dueOn, today);
     if (!urgency) continue;
     items.push({
@@ -118,8 +147,9 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
       urgency,
       href: t.eventId
         ? `/veranstaltungen/${t.eventId}/board?detail=task:${t.id}`
-        : `/board?detail=task:${t.id}`,
-      context: t.eventName,
+        : // A task without an event opens on the Übersicht: the global board is hidden (UX-052).
+          `/?aufgabe=${t.id}`,
+      context: taskContextName(t),
     });
   }
 

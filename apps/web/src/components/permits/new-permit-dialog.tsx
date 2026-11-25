@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { VenuePicker } from "@/components/venues/venue-picker";
+import { todayIn } from "@/lib/format";
 import { PERMIT_TYPE_KEYS } from "@/lib/permit-status";
 
 type Field = "venue" | "title" | "season" | "apply";
@@ -34,16 +36,19 @@ export function NewPermitDialog({
   venues,
   defaultSeason,
   forEvent,
+  canCreateVenue = false,
 }: {
-  venues: { id: string; name: string }[];
+  venues: { id: string; name: string; city?: string | null }[];
   defaultSeason: number;
   forEvent?: { id: string; venueId: string; path: string };
+  /** "+ Neu" in the Ort picker (venue:write, UT2-01). */
+  canCreateVenue?: boolean;
 }) {
   const t = useTranslations("logbook");
   const tTypes = useTranslations("permitTypes");
   const tCat = useTranslations("permitCategories");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const uid = useId();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -70,7 +75,9 @@ export function NewPermitDialog({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the refs are stable
   useEffect(() => {
     if (!focusField || pending) return;
-    fields[focusField].current?.focus();
+    // The Ort picker is a combobox found by id; the event's fixed Ort is the select below.
+    if (focusField === "venue" && !forEvent) document.getElementById(`${uid}-venue`)?.focus();
+    else fields[focusField].current?.focus();
     setFocusField(null);
   }, [focusField, pending]);
 
@@ -90,6 +97,8 @@ export function NewPermitDialog({
 
   // "+ Neu › Genehmigung" in the top bar links here with ?neu=1.
   useOpenOnNew(openDialog);
+
+  const applyByPast = applyBy !== "" && applyBy < todayIn();
 
   function submit() {
     setError(null);
@@ -111,8 +120,9 @@ export function NewPermitDialog({
         message: t("toast.created"),
         actionLabel: t("toast.undo"),
         onAction: async () => {
-          await archivePermitAction(id);
-          showToast({ message: t("toast.createdUndone") });
+          const undone = await archivePermitAction(id);
+          if (undone.ok) showToast({ message: t("toast.createdUndone") });
+          else showError(errorText(undone.error));
         },
       });
       router.push(
@@ -147,22 +157,31 @@ export function NewPermitDialog({
         >
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${uid}-venue`}>{t("form.venue")}</Label>
-            <select
-              id={`${uid}-venue`}
-              ref={fields.venue}
-              value={venueId}
-              onChange={(e) => setVenueId(e.target.value)}
-              disabled={!!forEvent}
-              className={SELECT_CLASS}
-              aria-invalid={error === "invalid_venue" || undefined}
-            >
-              <option value="">{t("form.chooseVenue")}</option>
-              {venues.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
+            {forEvent ? (
+              <select
+                id={`${uid}-venue`}
+                ref={fields.venue}
+                value={venueId}
+                disabled
+                className={SELECT_CLASS}
+              >
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <VenuePicker
+                id={`${uid}-venue`}
+                venues={venues.map((v) => ({ id: v.id, name: v.name, city: v.city ?? null }))}
+                value={venueId}
+                onChange={setVenueId}
+                canCreate={canCreateVenue}
+                placeholder={t("form.chooseVenue")}
+                invalid={error === "invalid_venue"}
+              />
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
@@ -238,7 +257,14 @@ export function NewPermitDialog({
                 onChange={(e) => setApplyBy(e.target.value)}
                 className="tabular"
                 aria-invalid={error === "invalid_date" || undefined}
+                aria-describedby={applyByPast ? `${uid}-apply-past` : undefined}
               />
+              {/* A hint, not an error: the deadline may simply be missed already (UX-008). */}
+              {applyByPast && (
+                <p id={`${uid}-apply-past`} className="text-status-warn text-tiny">
+                  {t("form.applyByPast")}
+                </p>
+              )}
             </div>
           </div>
           {error && (

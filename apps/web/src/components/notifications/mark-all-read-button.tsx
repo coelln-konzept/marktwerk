@@ -19,21 +19,24 @@ export function MarkAllReadButton({
   compact?: boolean;
 }) {
   const t = useTranslations("notificationsPage");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
+  const errorText = (code: string) =>
+    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
   function run() {
     startTransition(async () => {
       const result = await markAllReadAction(group);
-      if (!result.ok) return showToast({ message: t("errors.generic") });
+      if (!result.ok) return showError(t("errors.generic"));
       const { ids } = result.data;
       if (ids.length === 0) return showToast({ message: t("nothingToMark") });
       showToast({
         message: t("markedAllRead", { count: ids.length }),
         actionLabel: t("undo"),
         onAction: async () => {
-          await markUnreadAction(ids);
-          showToast({ message: t("toast.restored") });
+          const undone = await markUnreadAction(ids);
+          if (undone.ok) showToast({ message: t("toast.restored") });
+          else showError(errorText(undone.error));
         },
       });
     });

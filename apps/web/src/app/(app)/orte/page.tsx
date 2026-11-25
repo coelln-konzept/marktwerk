@@ -7,12 +7,12 @@ import { VenueVorschau } from "@/components/catalogue/venue-vorschau";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
+import { LiveSearch } from "@/components/ui/live-search";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { RowActions, rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { todayIn } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
-import { cn } from "@/lib/utils";
 import { getActor } from "@/server/actor";
 import { listVenues } from "@/server/queries/venues";
 import { requirePermission } from "@/server/session";
@@ -65,19 +65,8 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
         }
       />
 
-      <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
-        <label className="sr-only" htmlFor="q">
-          {t("search")}
-        </label>
-        <input
-          id="q"
-          name="q"
-          type="search"
-          defaultValue={q}
-          placeholder={t("search")}
-          className="min-h-(--control-h) w-72 max-w-full rounded-lg border border-input bg-card px-3"
-        />
-      </form>
+      {/* Searches while typing and keeps ?q= in the URL (UX-038). */}
+      <LiveSearch label={t("search")} placeholder={t("searchPlaceholder")} />
 
       <Panel className="overflow-hidden">
         {rows.length === 0 ? (
@@ -118,8 +107,8 @@ export default async function VenuesPage({ searchParams }: PageProps<"/orte">) {
                       data-row
                       data-href={href}
                       data-peek={peek}
-                      aria-selected={vorschauId === r.id}
-                      className={cn("outline-hidden focus-visible:bg-selected")}
+                      aria-current={vorschauId === r.id}
+                      className={rowFocus}
                     >
                       <TD className="max-w-72 truncate" title={r.name}>
                         <Link

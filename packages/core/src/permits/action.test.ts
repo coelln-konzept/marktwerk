@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { permitActionTier, permitNeedsActionNow } from "./action";
+import { logbookDisplayState, permitActionTier, permitNeedsActionNow } from "./action";
 
 const TODAY = "2026-10-29";
 const HORIZON = 30;
@@ -94,5 +94,68 @@ describe("permitNeedsActionNow", () => {
     expect(permitNeedsActionNow({ state: "applied", applyBy: "2026-10-01" }, TODAY, HORIZON)).toBe(
       false,
     );
+  });
+});
+
+describe("logbookDisplayState", () => {
+  const show = (state: "missing" | "preparing", applyBy: string | null) =>
+    logbookDisplayState(state, permitActionTier({ state, applyBy }, TODAY, HORIZON));
+
+  it("shows a not-started permit beyond the horizon as 'Noch nicht fällig'", () => {
+    expect(show("missing", "2027-03-01")).toBe("not_due");
+  });
+
+  it("keeps 'Fehlt' when the apply-by date is within the horizon, passed or unknown", () => {
+    expect(show("missing", "2026-11-15")).toBe("missing");
+    expect(show("missing", "2026-10-01")).toBe("missing");
+    expect(show("missing", null)).toBe("missing");
+  });
+
+  it("leaves other states alone, even when they are not due", () => {
+    expect(show("preparing", "2027-03-01")).toBe("preparing");
+    expect(logbookDisplayState("applied", null)).toBe("applied");
+  });
+
+  it("a not-due permit stays out of 'Jetzt zu tun'", () => {
+    expect(permitActionTier({ state: "not_due", applyBy: "2027-03-01" }, TODAY, HORIZON)).toBe(
+      "not_due",
+    );
+    expect(permitNeedsActionNow({ state: "not_due", applyBy: "2027-03-01" }, TODAY, HORIZON)).toBe(
+      false,
+    );
+  });
+});
+
+describe("logbookDisplayState: Antwort überfällig", () => {
+  const show = (expectedDecisionOn: string | null, today = TODAY) =>
+    logbookDisplayState("applied", null, { expectedDecisionOn, today });
+
+  it("shows a filed permit whose expected decision has passed as 'Antwort überfällig'", () => {
+    expect(show("2026-10-28")).toBe("answer_overdue");
+    expect(show("2026-01-15")).toBe("answer_overdue");
+  });
+
+  it("stays 'Beantragt' on the expected day, before it and without a date", () => {
+    expect(show("2026-10-29")).toBe("applied");
+    expect(show("2026-10-30")).toBe("applied");
+    expect(show(null)).toBe("applied");
+    // Without the answer data the state is left alone (callers that only know the status).
+    expect(logbookDisplayState("applied", null)).toBe("applied");
+  });
+
+  it("year boundary: decision expected on 31.12., overdue on 01.01.", () => {
+    expect(show("2026-12-31", "2026-12-31")).toBe("applied");
+    expect(show("2026-12-31", "2027-01-01")).toBe("answer_overdue");
+  });
+
+  it("never touches another state, even with a passed decision date", () => {
+    const answer = { expectedDecisionOn: "2026-01-01", today: TODAY };
+    for (const state of ["granted", "preparing", "rejected", "past", "missing"] as const)
+      expect(logbookDisplayState(state, null, answer)).toBe(state);
+  });
+
+  it("is not part of 'Jetzt zu tun' (the badge counts permits to apply for)", () => {
+    const permit = { state: "answer_overdue" as const, applyBy: "2026-09-01" };
+    expect(permitActionTier(permit, TODAY, HORIZON)).toBeNull();
   });
 });

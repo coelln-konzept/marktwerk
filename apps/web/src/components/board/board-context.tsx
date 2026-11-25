@@ -23,10 +23,17 @@ export type BoardContextValue = {
   staff: StaffOption[];
   canWrite: boolean;
   canAssign: boolean;
+  /** "Löschen" in the card menu (`task:delete`). */
+  canDelete: boolean;
   /** Show the event name on the card (boards across events). */
   showEvent: boolean;
   /** Cards can be lifted and moved with the keyboard (not in the grouped list). */
   liftable: boolean;
+  /**
+   * The board shows kanban columns, so "Verschieben nach …" means something. The Checkliste has none: a move
+   * there changed a column nobody sees and the row stayed put (UX-024).
+   */
+  hasColumns: boolean;
   actions: BoardActions;
   lift: Lift | null;
   pick: (task: BoardTask) => void;
@@ -37,6 +44,17 @@ export type BoardContextValue = {
   askReason: (task: BoardTask, status: TaskStatusKey) => void;
   /** "Zurückstellen › Datum wählen …" opens a small date dialog. */
   askSnoozeDate: (task: BoardTask) => void;
+  /**
+   * Subtasks show under their parent and tasks nest by dragging (ADR 0021): the event's board (its Checkliste),
+   * with `task:write`. Across events the cards carry the progress only.
+   */
+  nestable: boolean;
+  /** The subtasks of a task shown on this board, in their order (empty across events). */
+  subtasksOf: (parentId: string) => BoardTask[];
+  /** Any task of this board by id (top-level or subtask). */
+  taskById: (id: string) => BoardTask | undefined;
+  /** "Unteraufgabe von …" opens a dialog to pick the parent. */
+  askParent: (task: BoardTask) => void;
 };
 
 const BoardContext = createContext<BoardContextValue | null>(null);

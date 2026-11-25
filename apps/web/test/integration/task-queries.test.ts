@@ -17,16 +17,23 @@ import {
   seasonWorkload,
 } from "@/server/queries/tasks";
 import {
-  addCheckItem,
   assignTask,
+  createTask,
   moveTask,
-  setCheckItemDone,
   setTaskStatus,
   snoozeTask,
   unsnoozeTask,
 } from "@/server/services/tasks";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
-import { asStaff, dueOn, insertEvent, insertStaff, insertTask, TODAY } from "../helpers/tasks";
+import {
+  asStaff,
+  dueOn,
+  insertEvent,
+  insertSeason,
+  insertStaff,
+  insertTask,
+  TODAY,
+} from "../helpers/tasks";
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
 let owner: Actor;
@@ -117,7 +124,7 @@ describe("listBoardTasks", () => {
     expect((await listBoardTasks(owner, { eventId: "nope" }, TODAY)).tasks).toEqual([]);
   });
 
-  it("carries assignee, carry-over, check item counts and evidence flags", async () => {
+  it("carries assignee, carry-over, subtask progress and evidence flags", async () => {
     const t = await insertTask({
       title: "A",
       eventId,
@@ -126,15 +133,18 @@ describe("listBoardTasks", () => {
       requiresNote: true,
       estimateMinutes: 90,
     });
-    const item = await addCheckItem(owner, t.id, "eins");
-    await addCheckItem(owner, t.id, "zwei");
-    await setCheckItemDone(owner, t.id, item.id, true);
-    const [card] = (await listBoardTasks(owner, { eventId }, TODAY)).tasks;
-    expect(card).toMatchObject({
+    const item = await createTask(owner, { title: "eins", parentId: t.id });
+    await createTask(owner, { title: "zwei", parentId: t.id });
+    await setTaskStatus(owner, item.id, "done");
+    const cards = (await listBoardTasks(owner, { eventId }, TODAY)).tasks;
+    // Subtasks sit under their parent, not on the board.
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({
       assigneeName: "Ben Test",
       rolloverCount: 2,
-      checkTotal: 2,
-      checkDone: 1,
+      subtasksTotal: 2,
+      subtasksDone: 1,
+      subtasksOverdue: 0,
       requiresNote: true,
       estimateMinutes: 90,
     });
@@ -606,7 +616,7 @@ describe("tasks that wait for somebody else (Wartet)", () => {
 });
 
 describe("getTaskDetail", () => {
-  it("collects check items, the completion note and the audit activity", async () => {
+  it("collects subtasks, the completion note and the audit activity", async () => {
     const office = asStaff(await createActor("staff"), cat.staff.anna);
     const t = await insertTask({
       title: "Schilder",
@@ -614,9 +624,9 @@ describe("getTaskDetail", () => {
       dueAt: dueOn("2026-10-22"),
       dutyRoleId: cat.roles.setup.id,
     });
-    const item = await addCheckItem(office, t.id, "zählen");
+    const item = await createTask(office, { title: "zählen", parentId: t.id });
     await assignTask(owner, t.id, cat.staff.ben.id);
-    await setCheckItemDone(office, t.id, item.id, true, clock);
+    await setTaskStatus(office, item.id, "done", {}, clock);
     await setTaskStatus(office, t.id, "done", { note: "Alles gezählt" }, clock);
 
     const detail = await getTaskDetail(owner, t.id);
@@ -630,16 +640,17 @@ describe("getTaskDetail", () => {
       dutyRoleName: { de: "Aufbau", en: "Setup" },
       link: `/veranstaltungen/${eventId}/board?aufgabe=${t.id}`,
     });
-    expect(detail?.checkItems).toEqual([expect.objectContaining({ title: "zählen", done: true })]);
+    expect(detail?.subtasks).toEqual([
+      expect.objectContaining({ id: item.id, title: "zählen", status: "done", overdue: false }),
+    ]);
+    expect(detail?.parent).toBeNull();
+    const sub = await getTaskDetail(owner, item.id);
+    expect(sub?.parent).toEqual({ id: t.id, title: "Schilder", status: "done" });
+    expect(sub?.subtasks).toEqual([]);
     expect(detail?.completionNote).toBe("Alles gezählt");
     expect(detail?.snoozedUntil).toBeNull();
     // newest first
-    expect(detail?.activity.map((a) => a.action)).toEqual([
-      "task.status",
-      "task.check",
-      "task.assign",
-      "task.check",
-    ]);
+    expect(detail?.activity.map((a) => a.action)).toEqual(["task.status", "task.assign"]);
     expect(detail?.activity[0]?.actorName).toBe("Test staff");
     expect(await getTaskDetail(owner, "nope")).toBeNull();
     expect(await getTaskDetail(owner, "00000000-0000-4000-8000-000000000000")).toBeNull();
@@ -653,5 +664,112 @@ describe("option lists", () => {
     expect(names).toEqual(["Anna Test", "Ben Test"]);
     const events = await listTaskEventOptions(owner, TODAY);
     expect(events.map((e) => e.name)).toEqual(["Testmarkt"]);
+  });
+});
+
+describe("season tasks (research 13 §6.3, R13)", () => {
+  const label = (presetId: string, href: boolean) => ({
+    year: 2027,
+    presetId,
+    name: "Testflohmarkt",
+    href: href ? `/vorlagen/${presetId}` : null,
+  });
+
+  it("carry their market and season in the due list, the Kalender, the board and the drawer", async () => {
+    const season = await insertSeason(cat);
+    const t = await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      isKey: true,
+      dueAt: dueOn("2026-10-15"),
+      assigneeId: cat.staff.anna.id,
+    });
+    await insertTask({ title: "Aufbau", eventId, dueAt: dueOn("2026-10-22") });
+    const presetId = cat.presets.flea.id;
+
+    const items = await dueItems(owner, TODAY);
+    expect(items.find((i) => i.id === t.id)).toMatchObject({
+      urgency: "overdue",
+      eventId: null,
+      eventColor: "petrol",
+      eventTypeKey: "flea",
+      href: `/?aufgabe=${t.id}`,
+      season: { id: season.id, ...label(presetId, true) },
+    });
+    expect(items.find((i) => i.title === "Aufbau")?.season).toBeNull();
+
+    const calendar = await calendarItems(owner, "2026-10-01", "2026-10-31", TODAY);
+    expect(calendar.find((i) => i.id === t.id)).toMatchObject({
+      tone: "critical",
+      href: `/?aufgabe=${t.id}`,
+      season: label(presetId, true),
+    });
+
+    const board = await listBoardTasks(owner, {}, TODAY);
+    expect(board.tasks.find((c) => c.id === t.id)).toMatchObject({
+      eventName: null,
+      eventColor: "petrol",
+      season: label(presetId, true),
+    });
+
+    expect(await getTaskDetail(owner, t.id)).toMatchObject({
+      eventId: null,
+      season: { id: season.id, ...label(presetId, true) },
+      link: `/?aufgabe=${t.id}`,
+    });
+    // Staff may not open the market page: the label stays, the link goes.
+    const anna = asStaff(await createActor("staff"), cat.staff.anna);
+    expect((await getTaskDetail(anna, t.id))?.season).toMatchObject(label(presetId, false));
+    expect((await dueItems(anna, TODAY)).map((i) => i.season)).toEqual([
+      expect.objectContaining(label(presetId, false)),
+    ]);
+  });
+
+  it("are snoozed like event tasks: out of the due list and the Kalender until their date", async () => {
+    const season = await insertSeason(cat);
+    const t = await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      dueAt: dueOn("2026-10-15"),
+    });
+    await snoozeTask(owner, t.id, "2026-10-23", clock);
+    expect(await dueItems(owner, TODAY)).toEqual([]);
+    expect(await calendarItems(owner, "2026-10-01", "2026-10-31", TODAY)).toEqual([]);
+    expect((await dueItems(owner, "2026-10-23")).map((i) => i.season?.id)).toEqual([season.id]);
+  });
+
+  it("show a field user only the season tasks assigned to them", async () => {
+    const frieda = await insertStaff("Frieda Platz", {
+      userId: "user-field-frieda",
+      role: "field",
+    });
+    const field: Actor = asStaff(
+      { ...(await createActor("field")), id: "user-field-frieda" },
+      frieda,
+    );
+    const season = await insertSeason(cat);
+    const mine = await insertTask({
+      title: "Plakate",
+      seasonId: season.id,
+      assigneeId: frieda.id,
+      dueAt: dueOn("2026-10-22"),
+    });
+    const others = await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      assigneeId: cat.staff.anna.id,
+      dueAt: dueOn("2026-10-22"),
+    });
+    await insertTask({ title: "Genehmigung", seasonId: season.id, dueAt: dueOn("2026-10-22") });
+
+    expect((await dueItems(field, TODAY)).map((i) => i.title)).toEqual(["Plakate"]);
+    expect(
+      (await calendarItems(field, "2026-10-01", "2026-10-31", TODAY)).map((i) => i.title),
+    ).toEqual(["Plakate"]);
+    expect((await listBoardTasks(field, {}, TODAY)).tasks.map((c) => c.title)).toEqual(["Plakate"]);
+    expect((await getTaskDetail(field, mine.id))?.season).toMatchObject({ href: null });
+    expect(await getTaskDetail(field, others.id)).toBeNull();
+    // Office users see all of them.
+    expect((await listBoardTasks(owner, {}, TODAY)).tasks).toHaveLength(3);
   });
 });

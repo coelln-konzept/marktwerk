@@ -1,3 +1,4 @@
+import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -16,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function EditRequirementPage({
   params,
 }: PageProps<"/orte/[id]/genehmigungen/[reqId]">) {
-  await requirePermission("permit", "write");
+  const user = await requirePermission("permit", "write");
   const { id, reqId } = await params;
   const found = await getRequirement(reqId);
   if (!found || found.requirement.venueId !== id) notFound();
@@ -52,7 +53,8 @@ export default async function EditRequirementPage({
           deliverables: requirement.deliverables,
           notes: requirement.notes,
         }}
-        contacts={contacts.map((c) => ({ id: c.id, name: c.name }))}
+        contacts={contacts.map((c) => ({ id: c.id, name: c.name, city: c.city }))}
+        canCreateContact={can(user.role, "contact", "write")}
         eventTypes={types.map((x) => ({ id: x.id, name: locale === "en" ? x.nameEn : x.nameDe }))}
       />
     </Page>

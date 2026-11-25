@@ -21,6 +21,7 @@ export type PermitStatus = (typeof PERMIT_STATUSES)[number];
 /** The kinds of permit (the database enum `permit_type`). */
 export const PERMIT_TYPES = [
   "market_permit",
+  "market_fixing",
   "water",
   "signage",
   "no_parking",
@@ -87,11 +88,13 @@ export function splitPermitTransitions(status: PermitStatus): {
     .filter((to) => (order(to) ?? -1) > current)
     .sort((a, b) => (order(a) as number) - (order(b) as number));
   const backward = next.filter((to) => (order(to) ?? Number.POSITIVE_INFINITY) < current);
-  const outcomes = next.filter((to) => order(to) === undefined && to !== "not_required");
+  // "Ersetzt" happens with a renewal, not as the next step: it waits in the menu next to "nicht nötig".
+  const quiet = (to: PermitStatus) => to === "not_required" || to === "superseded";
+  const outcomes = next.filter((to) => order(to) === undefined && !quiet(to));
   return {
     primary: forward[0] ?? null,
     secondary: [...forward.slice(1), ...outcomes],
-    menu: [...backward, ...next.filter((to) => to === "not_required")],
+    menu: [...backward, ...next.filter(quiet)],
   };
 }
 
@@ -109,8 +112,19 @@ export const PERMIT_EXPIRY_WARNING_DAYS = 60;
 
 export type PermitDisplayState =
   | "missing"
+  /**
+   * Logbook only: not started, but its apply-by date lies beyond the permit horizon ("Noch nicht fällig",
+   * product owner 2026-11-10). Set by `logbookDisplayState`; "Fehlt" is kept for permits that are due.
+   */
+  | "not_due"
   | "preparing"
   | "applied"
+  /**
+   * Logbook only: filed (Beantragt), but the date the authority was expected to decide has passed
+   * ("Antwort überfällig", research 10): time to chase the authority. Set by `logbookDisplayState`
+   * (`isAnswerOverdue`).
+   */
+  | "answer_overdue"
   | "granted"
   | "expiring"
   | "expired"
@@ -183,14 +197,96 @@ export const DISPLAY_STATE_SEVERITY: Record<PermitDisplayState, number> = {
   rejected: 0,
   expired: 1,
   missing: 2,
-  preparing: 3,
-  applied: 4,
-  expiring: 5,
-  granted: 6,
-  not_required: 7,
-  past: 8,
-  superseded: 9,
+  // Chasing the authority comes right after "Fehlt": it needs the office, but the application is in.
+  answer_overdue: 3,
+  preparing: 4,
+  not_due: 5,
+  applied: 6,
+  expiring: 7,
+  granted: 8,
+  not_required: 9,
+  past: 10,
+  superseded: 11,
 };
+
+/**
+ * "Antwort überfällig": the permit is filed (Beantragt) and the date the authority was expected to decide
+ * (`permit.expected_decision_on`, filled from the requirement's usual decision day) lies before today. On
+ * the expected day itself it is still just waiting; without an expected date it never is overdue. One
+ * rule for the logbook state, the event health and "Was fehlt". Dates are Berlin `YYYY-MM-DD`.
+ */
+export function isAnswerOverdue(
+  permit: { status: PermitStatus; expectedDecisionOn?: string | null },
+  today: string,
+): boolean {
+  return (
+    permit.status === "applied" &&
+    permit.expectedDecisionOn != null &&
+    permit.expectedDecisionOn < today
+  );
+}
+
+/**
+ * Filed (Beantragt) without a date the authority is expected to decide by: nothing tells the office when
+ * to chase, so the drawer and the list say "Antwort wird nicht überwacht" (UX audit UX-017).
+ */
+export function isAnswerUnwatched(permit: {
+  status: PermitStatus;
+  expectedDecisionOn?: string | null;
+}): boolean {
+  return permit.status === "applied" && permit.expectedDecisionOn == null;
+}
+
+/** The dates of a permit that must fit together (`permitDateIssues`). */
+export type PermitDates = {
+  appliedAt?: string | null;
+  expectedDecisionOn?: string | null;
+  grantedAt?: string | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
+};
+export type PermitDateField = keyof PermitDates;
+export type PermitDateIssueCode =
+  | "applied_in_future"
+  | "decision_before_applied"
+  | "granted_before_applied"
+  | "granted_in_future"
+  | "invalid_period";
+export type PermitDateIssue = { code: PermitDateIssueCode; field: PermitDateField };
+
+/**
+ * Dates of one permit that contradict each other or today (UX audit UX-008): applied in the future, a
+ * decision expected before the application, granted before it was applied for or in the future, valid
+ * until before valid from. Each issue names the field to mark. `only` limits the check to issues that
+ * touch the given fields (the ones a person just changed), so an old inconsistency never blocks an
+ * unrelated edit. Dates are Berlin `YYYY-MM-DD`; a missing date never is an issue.
+ */
+export function permitDateIssues(
+  dates: PermitDates,
+  today: string,
+  only?: readonly PermitDateField[],
+): PermitDateIssue[] {
+  const { appliedAt, expectedDecisionOn, grantedAt, validFrom, validUntil } = dates;
+  const touched = (...fields: PermitDateField[]) =>
+    only === undefined || fields.some((f) => only.includes(f));
+  const issues: PermitDateIssue[] = [];
+  if (appliedAt && appliedAt > today && touched("appliedAt"))
+    issues.push({ code: "applied_in_future", field: "appliedAt" });
+  if (
+    appliedAt &&
+    expectedDecisionOn &&
+    expectedDecisionOn < appliedAt &&
+    touched("appliedAt", "expectedDecisionOn")
+  )
+    issues.push({ code: "decision_before_applied", field: "expectedDecisionOn" });
+  if (appliedAt && grantedAt && grantedAt < appliedAt && touched("appliedAt", "grantedAt"))
+    issues.push({ code: "granted_before_applied", field: "grantedAt" });
+  if (grantedAt && grantedAt > today && touched("grantedAt"))
+    issues.push({ code: "granted_in_future", field: "grantedAt" });
+  if (validFrom && validUntil && validUntil < validFrom && touched("validFrom", "validUntil"))
+    issues.push({ code: "invalid_period", field: "validUntil" });
+  return issues;
+}
 
 /** Within this many days of the event a permit that is not granted yet is critical. */
 export const PERMIT_CRITICAL_DAYS = 14;
@@ -242,7 +338,7 @@ export function eventPermitHealth(
     if (overdue || close) return "critical";
     if (p.status === "applied") {
       // Waiting for the authority is fine until the expected decision has passed.
-      if (p.expectedDecisionOn != null && p.expectedDecisionOn < today) level = "warn";
+      if (isAnswerOverdue(p, today)) level = "warn";
       continue;
     }
     // Not filed yet: actionable once the apply-by date is within the horizon (or unknown).

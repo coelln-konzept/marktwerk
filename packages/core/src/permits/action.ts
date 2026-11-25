@@ -2,6 +2,7 @@ import { daysBetween } from "../dates/calendar";
 import { PERMIT_HORIZON_DEFAULT_DAYS, permitUrgency } from "../deadlines/permit-horizon";
 import {
   type EventPermitInput,
+  isAnswerOverdue,
   isHeld,
   PERMIT_CRITICAL_DAYS,
   type PermitDisplayState,
@@ -34,6 +35,8 @@ export function permitActionTier(
     case "rejected":
     case "expired":
       return "overdue";
+    case "not_due":
+      return "not_due";
     case "missing":
     case "preparing": {
       if (permit.applyBy === null) return "apply_now";
@@ -44,6 +47,33 @@ export function permitActionTier(
     default:
       return null;
   }
+}
+
+/**
+ * The state the logbook shows (list, matrix, drawer):
+ * - a permit not started yet whose apply-by date lies beyond the horizon is "Noch nicht fällig"
+ *   (neutral), not "Fehlt" (red). Product owner, 2026-11-10: with realistic data most next-season
+ *   permits are simply not due yet.
+ * - a filed permit whose expected decision date has passed is "Antwort überfällig" (`isAnswerOverdue`,
+ *   research 10); pass `answer` with the permit's `expectedDecisionOn` and today for it.
+ * Everything else keeps its state.
+ */
+export function logbookDisplayState(
+  state: PermitDisplayState,
+  tier: PermitActionTier | null,
+  answer?: { expectedDecisionOn: string | null; today: string },
+): PermitDisplayState {
+  if (state === "missing" && tier === "not_due") return "not_due";
+  if (
+    state === "applied" &&
+    answer &&
+    isAnswerOverdue(
+      { status: "applied", expectedDecisionOn: answer.expectedDecisionOn },
+      answer.today,
+    )
+  )
+    return "answer_overdue";
+  return state;
 }
 
 /** Does the permit count for the badge and the "Jetzt zu tun" chip: overdue or due within the horizon. */
@@ -82,7 +112,7 @@ export function permitNeedsActionForEvent(
     case "expired":
       return true;
     case "applied":
-      return permit.expectedDecisionOn != null && permit.expectedDecisionOn < today;
+      return isAnswerOverdue(permit, today);
     case "missing":
     case "preparing":
       return permitNeedsActionNow({ state, applyBy: permit.applyBy }, today, horizonDays);

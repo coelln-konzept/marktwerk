@@ -169,10 +169,45 @@ describe("deleteEvent", () => {
     expect(await exists(eventId)).toBe(true);
   });
 
-  it("reports no blockers for a clean event", async () => {
+  it("reports no blockers for a clean event, with its dates and nothing to lose", async () => {
     expect(await getEventDeleteInfo(owner, eventId)).toEqual({
       name: NAME,
+      startsOn: "2026-11-14",
+      endsOn: "2026-11-14",
       blockers: { payables: 0, expenses: 0, shifts: 0, documents: 0 },
+      losses: { tasks: 0, permitLinks: 0, duties: 0, checklists: 0, notes: false },
+    });
+  });
+
+  it("names what the deletion takes with it (UX-061): tasks incl. subtasks, links, duties, notes", async () => {
+    const [list] = await db.insert(checklist).values({ eventId, name: "Checkliste" }).returning();
+    const parent = await insertTask({ title: "A", eventId, checklistId: list?.id });
+    await insertTask({ title: "A.1", eventId, parentTaskId: parent.id });
+    await insertTask({ title: "B", eventId, status: "skipped" });
+    await db.insert(eventDuty).values({
+      eventId,
+      dutyRoleId: cat.roles.lead.id,
+      staffMemberId: cat.staff.anna.id,
+    });
+    const [p] = await db
+      .insert(permit)
+      .values({
+        venueId: cat.venue.id,
+        season: 2026,
+        category: "city",
+        permitType: "market_permit",
+        title: "Marktgenehmigung",
+      })
+      .returning();
+    await db.insert(eventPermit).values({ eventId, permitId: p?.id as string });
+    await db.update(event).set({ notes: "Schlüssel bei Herrn K." }).where(eq(event.id, eventId));
+
+    expect((await getEventDeleteInfo(owner, eventId)).losses).toEqual({
+      tasks: 3,
+      permitLinks: 1,
+      duties: 1,
+      checklists: 1,
+      notes: true,
     });
   });
 

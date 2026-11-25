@@ -9,7 +9,8 @@
     "view": "View",
     "views": {
       "monat": "Month",
-      "liste": "List · 6 weeks"
+      "liste": "List · 6 weeks",
+      "jahr": "Year"
     },
     "layers": {
       "title": "Layers",
@@ -48,7 +49,12 @@
         "obligations": "Vehicles & obligations",
         "shifts": "Shifts",
         "appointments": "Meetings"
-      }
+      },
+      "changedOff": "Off: {names}",
+      "changedOn": "On: {names}",
+      "changedNarrow": "Narrowed: {names}",
+      "markets": "Markets",
+      "marketsHint": "Also applies to the year view. Not saved."
     },
     "gridCaption": "Calendar {month}",
     "listCaption": "Events, deadlines and public holidays, {from} to {to}",
@@ -86,7 +92,12 @@
       "open": "{title}, choose month or year",
       "prevYear": "Previous year",
       "nextYear": "Next year",
-      "today": "Today"
+      "today": "Today",
+      "typed": "Date or month",
+      "typedPlaceholder": "e.g. 14.3.2027 or 3.2027",
+      "go": "Show",
+      "errorInvalid": "Please enter a date like 14.3.2027 or a month like 3.2027.",
+      "errorRange": "Please choose a year from {min} to {max}."
     },
     "emptyList": "Nothing is scheduled in these six weeks.",
     "emptyListHint": "Change the selection under “Layers”, or page on with ›.",
@@ -103,6 +114,49 @@
       "warn": "Attention",
       "critical": "Overdue",
       "neutral": "Planned"
+    },
+    "groupAll": "All in the permits logbook",
+    "groupAllTasks": "All tasks",
+    "groupAria": "{text}: show each",
+    "spanRange": "{days} days · until {to}",
+    "eventPopover": {
+      "date": "Date",
+      "times": "Times",
+      "venue": "Venue",
+      "status": "Change status",
+      "checklist": "Checklist",
+      "openTasks": "{count, plural, =0 {nothing open} other {# open}}",
+      "overdueTasks": "{count} overdue",
+      "open": "Open",
+      "close": "Close"
+    },
+    "year": {
+      "title": "Year overview {year}",
+      "asOf": "As of {date}",
+      "print": "Print",
+      "openMonth": "{month} in the month view",
+      "dot": "{name} ({code}), {date}",
+      "dotNoCode": "{name}, {date}",
+      "legendTitle": "Markets",
+      "legendHint": "Click to hide or show a market",
+      "showAll": "Show all",
+      "singleEvents": "Single events",
+      "legendItem": "{name} ({code}), {count}",
+      "legendItemNoCode": "{name}, {count}",
+      "count": "{count, plural, =0 {no dates} one {# date} other {# dates}}",
+      "hiddenCount": "{count, plural, one {# market hidden} other {# markets hidden}}",
+      "empty": "There are no dates for this selection in this year."
+    },
+    "rangeClamped": "The calendar covers {min} to {max}. Showing the nearest end.",
+    "dayAria": "{day}, {n, plural, =0 {nothing planned} one {# entry} other {# entries}}",
+    "addAppointmentShort": "New meeting",
+    "emptyDay": "Nothing planned.",
+    "gridKeys": "In the month: <k>←</k> <k>→</k> <k>↑</k> <k>↓</k> pick a day · <k>Enter</k> to its entries",
+    "gridKeysAdd": "In the month: <k>←</k> <k>→</k> <k>↑</k> <k>↓</k> pick a day · <k>Enter</k> to its entries · <k>N</k> new meeting",
+    "gone": {
+      "event": "Event",
+      "title": "No longer exists",
+      "text": "This entry was deleted or archived, or the link is wrong."
     }
   }
 }

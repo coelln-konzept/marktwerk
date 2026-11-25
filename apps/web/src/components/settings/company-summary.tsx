@@ -1,6 +1,6 @@
 import { formatIban } from "@marktwerk/core/company/identifiers";
 import { getTranslations } from "next-intl/server";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import type { CompanySettings } from "@/server/queries/settings";
 
 /** Read-only view of the company data for everyone without `settings:manage`. */
@@ -96,12 +96,11 @@ export async function CompanySummary({ settings }: { settings: CompanySettings }
   return (
     <div className="flex flex-col gap-6">
       {sections.map((section) => (
-        <Panel key={section.key} aria-labelledby={`company-${section.key}`}>
-          <PanelHeader>
-            <PanelTitle id={`company-${section.key}`}>
-              {t(`sections.${section.key}` as never)}
-            </PanelTitle>
-          </PanelHeader>
+        <Panel
+          key={section.key}
+          title={t(`sections.${section.key}` as never)}
+          titleId={`company-${section.key}`}
+        >
           <PanelBody>
             <dl className="m-0 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-[14rem_1fr]">
               {section.rows.map((row) => (

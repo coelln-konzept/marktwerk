@@ -43,16 +43,22 @@
       "finished": "Finished"
     },
     "estimate": "Estimate",
-    "checks": "Checklist",
+    "checks": "Subtasks",
     "evidence": {
       "title": "Evidence",
       "photo": "Photo",
       "attachment": "Attachment",
-      "check_items": "tick off the whole checklist",
+      "subtasks": "open subtasks",
+      "openSubtasks": "{count, plural, one {# open subtask} other {# open subtasks}}",
+      "photoMissing": "photo missing",
+      "attachmentMissing": "attachment missing",
       "missing": "missing",
       "given": "given",
       "addPhoto": "Add photo",
-      "addAttachment": "Add attachment"
+      "addAttachment": "Add attachment",
+      "requirePhoto": "Require a photo",
+      "requireAttachment": "Require an attachment",
+      "requireHint": "Without it the task can't be marked done."
     },
     "reason": {
       "waiting_external": {
@@ -117,7 +123,9 @@
       "assignee": "Assigned to",
       "role": "Role",
       "completed": "Done on",
-      "notify": "Notification"
+      "notify": "Notification",
+      "requiresPhoto": "Photo evidence",
+      "requiresAttachment": "Attachment evidence"
     },
     "source": {
       "template": "From timeline template",
@@ -130,19 +138,45 @@
       "system": "By the system"
     },
     "noEvent": "No event",
+    "seasonContext": "{name} · Season {year}",
     "edit": "Edit title and description",
     "cancel": "Cancel",
     "save": "Save",
     "saved": "Saved",
+    "savedTitle": "“{title}” saved",
+    "dueCleared": "Due date of “{title}” removed",
     "unchanged": "Nothing changed",
+    "dueField": {
+      "incomplete": "Please enter the full date.",
+      "invalid": "Please enter a date between 2000 and 2099."
+    },
+    "dueRequiredByNotify": "The notification is timed from this date. Please change the notification first.",
+    "deleted": {
+      "badge": "Deleted",
+      "restore": "Restore",
+      "hint": "The task no longer shows up in any list. Restore brings it back with its previous status.",
+      "hintNoRestore": "The task no longer shows up in any list.",
+      "eventBadge": "Cancelled with the event",
+      "eventHint": "The event is cancelled, so the task no longer shows up in any list. If the event is back on, its open tasks come back."
+    },
     "hours": "hours",
     "nobody": "Nobody",
     "dueSetByHand": "set by hand, no longer follows the event date",
     "description": "Description",
     "noDescription": "No description.",
-    "checklist": "Checklist · {done}/{total}",
-    "addCheckItem": "Add a step",
-    "addCheckItemButton": "Add step",
+    "subtasks": "Subtasks",
+    "addSubtask": "Add a subtask",
+    "addSubtaskButton": "Add subtask",
+    "parentTask": "Subtask of <link>“{title}”</link>",
+    "subtask": {
+      "progress": "{done}/{total} done",
+      "none": "No subtasks.",
+      "dueAria": "Due date: “{title}”",
+      "assignAria": "Assign: “{title}” (now: {name})",
+      "deleteAria": "Delete subtask “{title}”",
+      "saving": "saving …",
+      "addFailed": "“{title}” was not added. {reason}"
+    },
     "feedback": {
       "title": "How was the effort?",
       "as_planned": "As planned",
@@ -207,6 +241,8 @@
     "reopen": "Reopen",
     "removedFromTemplate": "No longer in the template",
     "removedFromTemplateHint": "The template no longer contains this task. It stays open until you complete or skip it.",
-    "reopenAria": "Reopen “{title}”"
+    "reopenAria": "Reopen “{title}”",
+    "delete": "Delete",
+    "deleteAria": "Delete “{title}”"
   }
 }

@@ -6,7 +6,24 @@ import {
   phoneDigits,
   scoreMatch,
   tokenize,
+  transpositions,
+  typoTolerant,
 } from "@/lib/search-query";
+
+describe("transpositions", () => {
+  it("swaps each pair of neighbouring letters once", () => {
+    expect(transpositions("bnon")).toEqual(["nbon", "bonn", "bnno"]);
+    // Equal neighbours give nothing new ("nn"), and duplicates are dropped.
+    expect(transpositions("bonn")).toEqual(["obnn", "bnon"]);
+    expect(transpositions("aaa")).toEqual([]);
+  });
+  it("only words of four letters or more without digits may be typos", () => {
+    expect(typoTolerant("bnon")).toBe(true);
+    expect(typoTolerant("bnn")).toBe(false);
+    expect(typoTolerant("2027")).toBe(false);
+    expect(typoTolerant("k-mw77")).toBe(false);
+  });
+});
 
 /** Pure rules of the command palette search (words, umlauts, ranking, phone numbers). */
 
@@ -26,6 +43,23 @@ describe("tokenize", () => {
 describe("foldText / escapeLike", () => {
   it("folds like the SQL side", () => {
     expect(foldText("Müller-Öl, Café")).toBe("muller-ol, cafe");
+  });
+  it("folds the ASCII spellings of umlauts and ß the same way (UX-014)", () => {
+    for (const [typed, stored] of [
+      ["Koeln", "Köln"],
+      ["Huerth", "Hürth"],
+      ["Troedelmarkt", "Trödelmarkt"],
+      ["Mueller", "Müller"],
+      ["Strasse", "Straße"],
+      ["Baeckerei", "Bäckerei"],
+    ] as const) {
+      expect(foldText(typed)).toBe(foldText(stored));
+    }
+    expect(foldText("Straße")).toBe("strase");
+    // Query and record fold alike, so a plain "ue" still finds itself.
+    expect(scoreMatch("manuel", "Manuel Test")).toBe(0);
+    expect(scoreMatch("koeln", "Flohmarkt Köln")).toBe(1);
+    expect(scoreMatch("köln", "Koelner Treff")).toBe(0);
   });
   it("escapes like wildcards", () => {
     expect(escapeLike("100%_a\\b")).toBe("100\\%\\_a\\\\b");

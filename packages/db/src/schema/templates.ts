@@ -3,6 +3,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -50,6 +51,12 @@ export const dayMode = app.enum("day_mode", ["calendar", "business"]);
 /* ------------------------------------------------------------------------------------------------
  * Templates
  * --------------------------------------------------------------------------------------------- */
+
+/**
+ * What a template item belongs to (research 13 §6.1): `event` items become tasks of every event of the market,
+ * `season` items tasks of the market's Saison record (once per season), due relative to the season anchors.
+ */
+export const templateItemScope = app.enum("template_item_scope", ["event", "season"]);
 
 /** What a template instantiates into: an event timeline, or the preparation checklist of one permit. */
 export const templateKind = app.enum("template_kind", ["event", "permit"]);
@@ -166,12 +173,23 @@ export const templateItem = app.table(
      * granted (UX pass 2026-10-22: no false "overdue" for permits that are already in).
      */
     permitType: permitType(),
-    /** Titles of the sub-steps; become `task_check_item` rows on instantiation. */
-    checkItems: jsonb().$type<string[]>().notNull().default([]),
     /** Duty role whose holder has to approve before the task counts as done. */
     approverDutyRoleId: uuid().references(() => dutyRole.id, { onDelete: "set null" }),
-    /** `stable_key`s of items in the same version this one depends on (does not move dates). */
-    dependsOnKeys: text().array().notNull().default([]),
+    /**
+     * Child item (ADR 0021): the `stable_key` of another item of the same version, whose task this item's task
+     * becomes a subtask of. One level only (the parent has no `parent_key`). Null = a top-level item.
+     */
+    parentKey: text(),
+    /**
+     * Child items only: true = own anchor, offset, day mode and time; false (default) = the parent's. A child
+     * without its own duty role (`duty_role_id` null) takes the parent's.
+     */
+    ownDue: boolean().notNull().default(false),
+    /**
+     * `event` (default) or `season`: a season item is instantiated on the Saison record only and hangs on a season
+     * anchor (`season_start`, `season_end`). A child item belongs to its parent's scope.
+     */
+    scope: templateItemScope().notNull().default("event"),
     /** Only instantiate for matching events; null = always. */
     condition: jsonb().$type<TemplateItemCondition>(),
     ...timestamps,
@@ -180,6 +198,17 @@ export const templateItem = app.table(
     unique().on(t.versionId, t.stableKey),
     index().on(t.versionId, t.sort),
     index().on(t.dutyRoleId),
+    index().on(t.versionId, t.parentKey),
+    // A child belongs to an item of its own version; deleting the parent deletes its children.
+    foreignKey({
+      name: "template_item_parent",
+      columns: [t.versionId, t.parentKey],
+      foreignColumns: [t.versionId, t.stableKey],
+    }).onDelete("cascade"),
+    check(
+      "template_item_not_own_parent",
+      sql`${t.parentKey} is null or ${t.parentKey} <> ${t.stableKey}`,
+    ),
     check("template_item_estimate", sql`${t.estimateMinutes} >= 0`),
   ],
 );

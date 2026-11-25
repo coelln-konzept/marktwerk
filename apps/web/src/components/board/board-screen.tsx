@@ -14,7 +14,7 @@ import {
 import { EmptyState } from "@/components/ui/states";
 import { formatWeek, todayIn } from "@/lib/format";
 import { isModuleHidden } from "@/lib/modules";
-import { filterCategories } from "@/lib/task-ui";
+import { categoryFromSlug, filterCategories, TASK_CATEGORY_SLUGS } from "@/lib/task-ui";
 import { hrefWith, param } from "@/lib/url";
 import type { Actor } from "@/server/actor";
 import { getKeyTaskMatrix, getReadinessList } from "@/server/queries/board-overview";
@@ -97,7 +97,8 @@ export async function BoardScreen({
   const scope = scopeParam && scopeKeys.includes(scopeParam) ? scopeParam : defaultScope;
   const scopeUrlKey = eventMode ? "filter" : "tab";
   const categories = filterCategories();
-  const category = categories.find((c) => c === param(sp.kategorie));
+  const categoryParam = categoryFromSlug(param(sp.kategorie));
+  const category = categories.find((c) => c === categoryParam);
   const horizonParam = param(sp.zeitraum);
   const horizon = horizonParam === "woche" || horizonParam === "alle" ? horizonParam : "14";
   const horizonDays =
@@ -122,6 +123,7 @@ export async function BoardScreen({
         staff={staff}
         canWrite={canWrite}
         canAssign={canAssign}
+        canDelete={can(actor.role, "task", "delete")}
         today={today}
         closeHref={closeHref}
       />
@@ -224,7 +226,7 @@ export async function BoardScreen({
                       .map((c) => (
                         <FilterChip
                           key={c}
-                          href={href({ kategorie: c })}
+                          href={href({ kategorie: TASK_CATEGORY_SLUGS[c] })}
                           active={category === c}
                           count={categoryCounts[c] ?? 0}
                         >
@@ -265,7 +267,8 @@ export async function BoardScreen({
   }
 
   // ---- cards
-  const [{ tasks: all, truncated }, rail] = await Promise.all([
+  // `subtasks` (event board only) show under their parent; filters and counts work on the top-level tasks.
+  const [{ tasks: all, subtasks, truncated }, rail] = await Promise.all([
     listBoardTasks(actor, { eventId, horizonDays }, today),
     teamHidden ? Promise.resolve(null) : getPeopleRail(actor, { eventId }, today),
   ]);
@@ -323,7 +326,7 @@ export async function BoardScreen({
                   .map((c) => (
                     <FilterChip
                       key={c}
-                      href={href({ kategorie: c })}
+                      href={href({ kategorie: TASK_CATEGORY_SLUGS[c] })}
                       active={category === c}
                       count={byCategory.get(c) ?? 0}
                     >
@@ -344,12 +347,14 @@ export async function BoardScreen({
       ) : (
         <BoardView
           tasks={tasks}
+          subtasks={subtasks}
           staff={staff}
           rail={rail}
           today={today}
           weekLabel={formatWeek(today, locale)}
           canWrite={canWrite}
           canAssign={canAssign}
+          canDelete={can(actor.role, "task", "delete")}
           scopeEventId={eventId ?? null}
           eventEndsOn={eventEndsOn ?? null}
           eventStartsOn={eventStartsOn ?? null}

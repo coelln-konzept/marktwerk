@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
+import { rowFocus } from "@/components/ui/table";
 import { formatDateShort, formatMoney } from "@/lib/format";
 import { type PayableRow, payableHref } from "@/server/queries/finance";
 import { RateTable, type StaffOption } from "./rate-table";
@@ -43,7 +44,9 @@ export async function PayableCard({
       open={p.status === "overdue"}
       className="group/card border-border-subtle border-b last:border-b-0"
     >
-      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 outline-hidden hover:bg-hover focus-visible:bg-hover [&::-webkit-details-marker]:hidden">
+      <summary
+        className={`flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-hover ${rowFocus} [&::-webkit-details-marker]:hidden`}
+      >
         <ChevronRight
           aria-hidden
           className="size-4 shrink-0 text-muted-foreground transition-transform group-open/card:rotate-90"

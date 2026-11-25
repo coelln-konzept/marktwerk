@@ -1,14 +1,12 @@
-import { auditLog, notification, task, taskCheckItem, taskComment } from "@marktwerk/db/schema";
+import { auditLog, notification, task, taskComment } from "@marktwerk/db/schema";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import {
-  addCheckItem,
   assignTask,
   createTask,
   moveTask,
-  setCheckItemDone,
   setEffortFeedback,
   setTaskStatus,
   snoozeTask,
@@ -23,6 +21,7 @@ import {
   dueOn,
   getTask,
   insertEvent,
+  insertSeason,
   insertStaff,
   insertTask,
   TODAY,
@@ -225,6 +224,29 @@ describe("assignTask", () => {
     expect(entry?.diff).toMatchObject({ fromName: "Anna Test", toName: "Ben Test" });
   });
 
+  it("names the market and season of a season task in the notification (R13)", async () => {
+    const season = await insertSeason(cat);
+    const t = await insertTask({ title: "Termine planen", seasonId: season.id });
+    await assignTask(owner, t.id, cat.staff.ben.id);
+    const [note] = await notifications("assigned");
+    expect(note).toMatchObject({
+      recipientStaffMemberId: cat.staff.ben.id,
+      body: "Test owner hat dir die Aufgabe zugewiesen (Testflohmarkt · Saison 2027).",
+      link: `/?aufgabe=${t.id}`,
+    });
+  });
+
+  it("a subtask added under a season task belongs to the same Saison (R13)", async () => {
+    const season = await insertSeason(cat);
+    const parent = await insertTask({ title: "Termine planen", seasonId: season.id });
+    const { id } = await createTask(owner, { title: "Rhythmus festlegen", parentId: parent.id });
+    expect(await getTask(id)).toMatchObject({
+      seasonId: season.id,
+      eventId: null,
+      parentTaskId: parent.id,
+    });
+  });
+
   it("unassigns (and still marks the assignment as done by hand) without notifying", async () => {
     const t = await insertTask({ title: "A", eventId, assigneeId: cat.staff.anna.id });
     await assignTask(owner, t.id, null);
@@ -343,23 +365,20 @@ describe("setTaskStatus", () => {
     expect(await notifications("mentioned")).toHaveLength(0);
   });
 
-  it("reports which evidence is missing, and requires every check item", async () => {
+  it("reports which evidence is missing, and requires every subtask to be finished", async () => {
     const t = await insertTask({ title: "A", eventId, requiresNote: true });
-    const item = await addCheckItem(owner, t.id, "Schilder zählen");
-    await addCheckItem(owner, t.id, "Protokoll");
+    const item = await createTask(owner, { title: "Schilder zählen", parentId: t.id });
+    const other = await createTask(owner, { title: "Protokoll", parentId: t.id });
     try {
       await setTaskStatus(owner, t.id, "done", {}, clock);
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(TaskInputError);
-      expect((error as TaskInputError).detail).toEqual(["check_items"]);
+      expect((error as TaskInputError).detail).toEqual(["subtasks"]);
     }
-    await setCheckItemDone(owner, t.id, item.id, true, clock);
-    const open = await db
-      .select()
-      .from(taskCheckItem)
-      .where(and(eq(taskCheckItem.taskId, t.id), eq(taskCheckItem.done, false)));
-    for (const o of open) await setCheckItemDone(owner, t.id, o.id, true, clock);
+    await setTaskStatus(owner, item.id, "done", {}, clock);
+    // a skipped subtask counts as finished
+    await setTaskStatus(owner, other.id, "skipped", { reason: "entfällt" }, clock);
     // the template asks for a note, but a note never blocks completion
     await setTaskStatus(owner, t.id, "done", {}, clock);
     expect((await getTask(t.id)).status).toBe("done");
@@ -409,6 +428,32 @@ describe("updateTask", () => {
     });
     const [entry] = await audits("task.update");
     expect(entry?.diff).toMatchObject({ before: { title: "Alt" }, after: { title: "Neu" } });
+  });
+
+  it("adds and removes photo/attachment evidence on a task, audited, which then blocks or frees Erledigt", async () => {
+    const t = await insertTask({ title: "Fotos vom Markt", eventId });
+    const result = await updateTask(owner, t.id, {
+      requiresPhoto: true,
+      requiresAttachment: false,
+    });
+    expect(result.fields).toEqual(["requiresPhoto"]);
+    expect(await getTask(t.id)).toMatchObject({
+      requiresPhoto: true,
+      requiresAttachment: false,
+      customized: true,
+    });
+    const [entry] = await audits("task.update");
+    expect(entry?.diff).toMatchObject({
+      before: { requiresPhoto: false },
+      after: { requiresPhoto: true },
+    });
+    expect(await code(setTaskStatus(owner, t.id, "done", {}, clock))).toBe("evidence_missing");
+    await updateTask(owner, t.id, { requiresPhoto: false });
+    await setTaskStatus(owner, t.id, "done", {}, clock);
+    expect((await getTask(t.id)).status).toBe("done");
+    expect(await code(updateTask(owner, t.id, { requiresPhoto: "ja" as never }))).toBe(
+      "invalid_input",
+    );
   });
 
   it("flags and unflags a Kernaufgabe, audited, and ignores a no-op", async () => {
@@ -477,22 +522,6 @@ describe("effort feedback", () => {
     expect((await setEffortFeedback(owner, t.id, "longer")).changed).toBe(true);
     expect((await getTask(t.id)).effortFeedback).toBe("longer");
     expect(await code(setEffortFeedback(owner, t.id, "huge" as never))).toBe("invalid_input");
-  });
-});
-
-describe("check items", () => {
-  it("adds and ticks items with who and when", async () => {
-    const t = await insertTask({ title: "A", eventId });
-    const { id } = await addCheckItem(owner, t.id, "Schilder zählen");
-    await setCheckItemDone(office, t.id, id, true, clock);
-    const [row] = await db.select().from(taskCheckItem).where(eq(taskCheckItem.id, id));
-    expect(row).toMatchObject({ done: true, doneByStaffMemberId: cat.staff.anna.id });
-    expect(row?.doneAt?.toISOString()).toBe("2026-10-21T10:00:00.000Z");
-    expect((await setCheckItemDone(office, t.id, id, true, clock)).changed).toBe(false);
-    await setCheckItemDone(office, t.id, id, false, clock);
-    const [again] = await db.select().from(taskCheckItem).where(eq(taskCheckItem.id, id));
-    expect(again).toMatchObject({ done: false, doneAt: null });
-    expect(await audits("task.check")).toHaveLength(3);
   });
 });
 

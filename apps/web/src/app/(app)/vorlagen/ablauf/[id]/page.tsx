@@ -15,7 +15,7 @@ import { TimelineRuler } from "@/components/templates/timeline-ruler";
 import type { ItemView } from "@/components/templates/types";
 import { VersionBar } from "@/components/templates/version-bar";
 import { EventTypeTag } from "@/components/ui/event-type-tag";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
@@ -52,7 +52,7 @@ function sampleEventDay(today: string): string {
 /**
  * Timeline template editor (`/vorlagen/ablauf/[id]`): version chips, timeline ruler, the grid of rows and the
  * links to presets. Only the draft is editable (template:write); published versions are immutable.
- * Overlays are addressed by search params: `?v=<version>`, `?zeile=<key>|neu`, `?anwenden=1`.
+ * Overlays are addressed by search params: `?v=<version>`, `?zeile=<key>|neu[&phase=…|&gilt=saison]`, `?anwenden=1`.
  */
 export default async function TemplateEditorPage({
   params,
@@ -100,6 +100,8 @@ export default async function TemplateEditorPage({
   const zeile = param(sp.zeile);
   const drawerItem = zeile && zeile !== "neu" ? items.find((i) => i.key === zeile) : undefined;
   const newPhase = PHASES.find((p) => p === param(sp.phase)) ?? "pre";
+  // "Saison-Aufgabe hinzufügen" in the grid's Saison section: a new row for the whole season.
+  const newScope = param(sp.gilt) === "saison" ? "season" : "event";
   const drawerOpen = Boolean(drawerItem) || (editable && zeile === "neu");
 
   let apply = null;
@@ -229,27 +231,28 @@ export default async function TemplateEditorPage({
         <Panel>
           <PanelBody>
             <TimelineRuler
-              items={items.map((i) => ({
-                key: i.key,
-                title: i.title,
-                phase: i.phase,
-                offsetDays: i.offsetDays,
-                dayMode: i.dayMode,
-                anchorKey: i.anchorKey,
-              }))}
+              // Child items without their own due date sit on their parent's spot (ADR 0021).
+              items={items
+                .filter((i) => i.parentKey === null || i.ownDue)
+                .map((i) => ({
+                  key: i.key,
+                  title: i.title,
+                  phase: i.phase,
+                  offsetDays: i.offsetDays,
+                  dayMode: i.dayMode,
+                  anchorKey: i.anchorKey,
+                }))}
               baseHref={baseHref}
             />
           </PanelBody>
         </Panel>
       )}
 
-      <Panel className="overflow-hidden">
-        <PanelHeader>
-          <PanelTitle>{t("grid.title")}</PanelTitle>
-          <span className="text-muted-foreground text-small">
-            {editable ? t("grid.editHint") : t("grid.readOnlyHint")}
-          </span>
-        </PanelHeader>
+      <Panel
+        title={t("grid.title")}
+        meta={editable ? t("grid.editHint") : t("grid.readOnlyHint")}
+        cardClassName="overflow-hidden"
+      >
         {items.length === 0 && !editable ? (
           <p className="px-4 py-8 text-center text-muted-foreground">{t("grid.empty")}</p>
         ) : (
@@ -266,10 +269,7 @@ export default async function TemplateEditorPage({
 
       <div className="grid gap-4 lg:grid-cols-2">
         {template.isMaster || template.ownerPresetId ? (
-          <Panel>
-            <PanelHeader>
-              <PanelTitle>{t("links.title")}</PanelTitle>
-            </PanelHeader>
+          <Panel title={t("links.title")}>
             <PanelBody>
               <p className="m-0 text-small text-foreground-2">
                 {template.isMaster
@@ -292,10 +292,7 @@ export default async function TemplateEditorPage({
             }))}
           />
         )}
-        <Panel>
-          <PanelHeader>
-            <PanelTitle>{t("rules.title")}</PanelTitle>
-          </PanelHeader>
+        <Panel title={t("rules.title")}>
           <PanelBody>
             <ul className="flex list-disc flex-col gap-1.5 pl-5 text-small text-foreground-2">
               <li>{t("rules.published")}</li>
@@ -309,11 +306,12 @@ export default async function TemplateEditorPage({
 
       {drawerOpen && (
         <ItemDrawer
-          key={drawerItem ? `${drawerItem.key}:${selected.id}` : `neu:${newPhase}`}
+          key={drawerItem ? `${drawerItem.key}:${selected.id}` : `neu:${newPhase}:${newScope}`}
           versionId={selected.id}
           editable={editable}
           item={drawerItem ?? null}
           newPhase={newPhase}
+          newScope={newScope}
           items={items}
           roles={roles}
           eventTypes={eventTypes}
@@ -330,6 +328,7 @@ export default async function TemplateEditorPage({
           templateName={template.name}
           version={{ version: apply.version.version, changeNote: apply.version.changeNote }}
           events={apply.events}
+          seasons={apply.seasons}
           today={apply.today}
           closeHref={baseHref}
         />

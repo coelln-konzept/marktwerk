@@ -28,6 +28,8 @@ export type ReadinessTask = {
   /** Berlin due date. */
   dueOn: string | null;
   snoozedUntil: string | null;
+  /** Open overdue subtasks (ADR 0021): they make the task overdue, once. */
+  subtasksOverdue?: number;
 };
 
 /** The next open task by due date. */
@@ -85,8 +87,9 @@ export function summarizeReadiness(
     }
     if (!isOpenStatus(t.status)) continue;
     if (t.isKey) openKey += 1;
-    if (isSnoozed(t, today) || t.dueOn === null) continue;
-    if (isOverdueTask(t, today)) overdue += 1;
+    if (isSnoozed(t, today)) continue;
+    if (isOverdueTask(t, today) || (t.subtasksOverdue ?? 0) > 0) overdue += 1;
+    if (t.dueOn === null) continue;
     // Waiting for somebody else past the date: nothing to do, so not "the next deadline" either.
     if (isWaitingPastDue(t, today)) continue;
     if (
@@ -134,12 +137,14 @@ export type MatrixCellState =
 
 /** State of one matrix cell. `null` = the market has no such task ("–"). */
 export function matrixCellState(
-  task: Pick<ReadinessTask, "status" | "dueOn" | "snoozedUntil"> | null,
+  task: Pick<ReadinessTask, "status" | "dueOn" | "snoozedUntil" | "subtasksOverdue"> | null,
   today: string,
 ): MatrixCellState {
   if (task === null || task.status === "cancelled") return "absent";
   if (isFinishedStatus(task.status)) return "done";
   if (isSnoozed(task, today)) return "snoozed";
+  // An overdue subtask flags its parent (ADR 0021).
+  if ((task.subtasksOverdue ?? 0) > 0) return "overdue";
   if (task.dueOn === null) return "open";
   if (isWaitingPastDue(task, today)) return "waiting";
   if (task.dueOn < today) return "overdue";

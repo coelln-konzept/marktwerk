@@ -1,7 +1,7 @@
 {
   "settings": {
     "title": "Einstellungen",
-    "subtitle": "Firmendaten, Logins mit Rollen und die Bibliothek der Märkte und Aufgabenvorlagen.",
+    "subtitle": "Firmendaten, Benutzer mit Rollen und die Bibliothek der Märkte und Aufgabenvorlagen.",
     "tabsLabel": "Bereiche der Einstellungen",
     "tabs": {
       "company": "Firma",
@@ -49,7 +49,7 @@
         "iban": "Leerzeichen sind egal.",
         "timeZone": "Fest eingestellt: Veranstaltungstage und Fristen gelten immer in dieser Zeitzone.",
         "bundesland": "Feiertage sind derzeit nur für Nordrhein-Westfalen hinterlegt.",
-        "defaultLocale": "Sprache, die für neue Logins vorgesehen ist.",
+        "defaultLocale": "Sprache, die für neue Benutzer vorgesehen ist.",
         "defaultDueTime": "Uhrzeit für Aufgaben aus Vorlagen ohne eigene Fälligkeitszeit.",
         "emailEnabled": "Solange das ausgeschaltet ist, verschickt marktwerk keine E-Mails. Benachrichtigungen in der App funktionieren weiterhin.",
         "dailyDigestEnabled": "Täglich eine Zusammenfassung dessen, was fällig ist, per E-Mail versenden.",
@@ -93,18 +93,24 @@
       "bankSummary": "Steuernummer, IBAN, BIC",
       "units": {
         "days": "Tage"
+      },
+      "unsaved": {
+        "notice": "Ungespeicherte Änderungen",
+        "leave": "Deine Änderungen an den Firmendaten sind noch nicht gespeichert.",
+        "discard": "Verwerfen",
+        "keepEditing": "Weiter bearbeiten"
       }
     },
     "users": {
       "title": "Benutzer & Rollen",
-      "subtitle": "{count, plural, one {# Login} other {# Logins}} · Rollen bestimmen, was jemand sehen und ändern darf.",
-      "readOnly": "Nur die Geschäftsführung kann Rollen ändern und Logins deaktivieren.",
-      "invite": "Benutzer einladen",
-      "inviteSoon": "Kommt später: Wie neue Logins angelegt werden, ist noch nicht entschieden.",
-      "caption": "Logins mit Rolle, verknüpfter Person und Status",
-      "empty": "Noch keine Logins vorhanden.",
+      "subtitle": "{count, plural, one {# Benutzer} other {# Benutzer}} · Rollen bestimmen, was jemand sehen und ändern darf.",
+      "readOnly": "Nur die Geschäftsführung kann Rollen ändern und Benutzer deaktivieren.",
+      "inviteTitle": "Neuen Benutzer anlegen",
+      "inviteHow": "Das geht noch nicht hier. Schick Name, E-Mail-Adresse und Rolle an die Person, die marktwerk für euch betreut. Danach stellst du hier Rolle und verknüpfte Person ein.",
+      "caption": "Benutzer mit Rolle, verknüpfter Person und Status",
+      "empty": "Noch keine Benutzer vorhanden.",
       "cols": {
-        "user": "Login",
+        "user": "Benutzer",
         "role": "Rolle",
         "staff": "Verknüpfte Person",
         "lastSignIn": "Zuletzt angemeldet",
@@ -126,13 +132,14 @@
       "reactivateFor": "{name} reaktivieren",
       "lastOwner": "Letzte aktive Geschäftsführung: Rolle und Status sind gesperrt, bis jemand anderes diese Rolle hat.",
       "lastOwnerShort": "Letzte Geschäftsführung",
-      "fieldNoStaff": "Ohne verknüpfte Person sieht dieses Platzteam-Login keine Veranstaltungen.",
+      "fieldNoStaff": "Ohne verknüpfte Person sieht dieser Platzteam-Benutzer keine Veranstaltungen.",
       "roleHints": {
-        "owner": "Alles, auch Benutzer und Firmendaten",
-        "manager": "Alles außer Benutzer und Firmendaten",
-        "staff": "Lesen, Aufgaben, Genehmigungen, Kontakte",
-        "field": "Nur die eigenen Veranstaltungen"
+        "owner": "Darf alles, auch Benutzer, Rollen und Firmendaten ändern.",
+        "manager": "Darf alles außer Benutzer, Rollen und Firmendaten.",
+        "staff": "Bearbeitet Aufgaben, Genehmigungen, Kontakte und Besprechungen. Märkte, Orte und Vorlagen nur lesen.",
+        "field": "Sieht nur die Veranstaltungen, bei denen die verknüpfte Person eingeteilt ist, und erledigt dort Aufgaben."
       },
+      "rolesTitle": "Was die Rollen dürfen",
       "undo": "Rückgängig",
       "toasts": {
         "role": "{name}: Rolle ist jetzt {role}.",
@@ -141,15 +148,23 @@
         "reactivated": "{name} ist wieder aktiv.",
         "linked": "{name} ist mit {staff} verknüpft.",
         "unlinked": "Die Verknüpfung von {name} ist gelöst.",
-        "relinkReverted": "Verknüpfung von {name} rückgängig gemacht."
+        "relinkReverted": "Verknüpfung von {name} rückgängig gemacht.",
+        "promotedOwner": "{name} ist jetzt Geschäftsführung und kann Benutzer, Rollen und Firmendaten ändern.",
+        "ownRole": "Deine Rolle ist jetzt {role}."
       },
       "errors": {
-        "not_found": "Dieses Login gibt es nicht mehr.",
+        "not_found": "Diesen Benutzer gibt es nicht mehr.",
         "invalid_role": "Diese Rolle gibt es nicht.",
         "last_owner": "Es muss mindestens eine aktive Geschäftsführung bleiben.",
         "staff_not_found": "Diese Person gibt es nicht mehr.",
-        "staff_taken": "Diese Person gehört schon zu einem anderen Login.",
+        "staff_taken": "Diese Person gehört schon zu einem anderen Benutzer.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      },
+      "confirmOwn": {
+        "title": "Deine eigene Rolle ändern?",
+        "description": "Als {role} kannst du keine Benutzer, Rollen und Firmendaten mehr ändern. Zurückgeben kann dir die Rolle dann nur eine andere Geschäftsführung.",
+        "confirm": "Rolle ändern",
+        "cancel": "Abbrechen"
       }
     },
     "legal": {
@@ -187,7 +202,7 @@
         "hu_interval_months_over_3500kg": "Hauptuntersuchung über 3,5 t"
       }
     },
-    "subtitleWithLegal": "Firmendaten, Logins mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen.",
+    "subtitleWithLegal": "Firmendaten, Benutzer mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen.",
     "bookings": {
       "intro": "Prototyp · gespeichert nur in diesem Browser. Gilt für die Platzkarte im Standplan: Der Platz ist reserviert, bis die Überweisung da ist.",
       "rulesTitle": "Zahlungsfrist und Erinnerung",

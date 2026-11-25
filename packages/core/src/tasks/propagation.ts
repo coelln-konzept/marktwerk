@@ -5,7 +5,10 @@
  *
  *  - an item without a task          → add a task
  *  - an item with an open task        → update the task's fields (unless the task was customised)
- *  - a task whose item is gone        → mark it `removed_from_template` (unless done or customised)
+ *  - a task whose item is gone        → mark it `removed_from_template` (unless done or customised); a
+ *                                       subtask whose child item is gone is cancelled instead (ADR 0021)
+ *  - a child item                     → its task is a subtask of the parent item's task; a child of a parent
+ *                                       task that is closed already gets no new task
  *  - done / skipped / cancelled tasks → never touched (comments, evidence and history stay as they are)
  *  - customised tasks                 → never touched
  */
@@ -37,7 +40,11 @@ export type PropagatedFields = {
   dueAt: number | null;
 };
 
-export type PlanItem = PropagatedFields & { stableKey: string };
+export type PlanItem = PropagatedFields & {
+  stableKey: string;
+  /** Child item: the stable key of its parent item (ADR 0021); null/absent = top-level. */
+  parentKey?: string | null;
+};
 
 export type PlanTask = PropagatedFields & {
   id: string;
@@ -47,6 +54,10 @@ export type PlanTask = PropagatedFields & {
   removedFromTemplate: boolean;
   /** Due date edited by hand: the schedule of the item does not apply. */
   dueOverridden: boolean;
+  /** Subtask: the id of its parent task; null/absent = top-level. */
+  parentTaskId?: string | null;
+  /** Subtask: the template stable key of its parent task (null when the parent is not from the template). */
+  parentKey?: string | null;
 };
 
 export type PropagationChange =
@@ -61,6 +72,7 @@ export type PropagationChange =
   | "permit"
   | "duty"
   | "due"
+  | "parent"
   | "restored";
 
 export type KeepReason = "customized" | "closed";
@@ -70,8 +82,10 @@ export type PropagationPlan<I extends PlanItem = PlanItem, T extends PlanTask = 
   add: I[];
   /** Open, untouched tasks whose item changed. */
   update: { task: T; item: I; changes: PropagationChange[] }[];
-  /** Open, untouched tasks whose item no longer exists (marked, not deleted). */
+  /** Open, untouched top-level tasks whose item no longer exists (marked, not deleted). */
   remove: T[];
+  /** Open, untouched subtasks whose child item no longer exists (cancelled, ADR 0021). */
+  cancel: T[];
   /** Tasks that stay exactly as they are because someone worked on them. */
   keep: { task: T; reason: KeepReason }[];
   /** Tasks that already match their item. */
@@ -98,6 +112,7 @@ export function propagationChanges(item: PlanItem, task: PlanTask): PropagationC
   if ((task.permitType ?? null) !== (item.permitType ?? null)) changes.push("permit");
   if (task.dutyRoleId !== item.dutyRoleId) changes.push("duty");
   if (!task.dueOverridden && task.dueAt !== item.dueAt) changes.push("due");
+  if ((task.parentKey ?? null) !== (item.parentKey ?? null)) changes.push("parent");
   return changes;
 }
 
@@ -106,7 +121,14 @@ export function planPropagation<I extends PlanItem, T extends PlanTask>(
   items: readonly I[],
   tasks: readonly T[],
 ): PropagationPlan<I, T> {
-  const plan: PropagationPlan<I, T> = { add: [], update: [], remove: [], keep: [], same: 0 };
+  const plan: PropagationPlan<I, T> = {
+    add: [],
+    update: [],
+    remove: [],
+    cancel: [],
+    keep: [],
+    same: 0,
+  };
   const byKey = new Map<string, T>();
   for (const task of tasks) if (task.templateStableKey) byKey.set(task.templateStableKey, task);
   const itemKeys = new Set(items.map((i) => i.stableKey));
@@ -114,7 +136,9 @@ export function planPropagation<I extends PlanItem, T extends PlanTask>(
   for (const item of items) {
     const task = byKey.get(item.stableKey);
     if (!task) {
-      plan.add.push(item);
+      // A closed parent gets no new open subtask (it could not be done any more).
+      const parent = item.parentKey ? byKey.get(item.parentKey) : undefined;
+      if (!parent || isOpenTask(parent.status)) plan.add.push(item);
       continue;
     }
     if (!isOpenTask(task.status)) plan.keep.push({ task, reason: "closed" });
@@ -130,6 +154,7 @@ export function planPropagation<I extends PlanItem, T extends PlanTask>(
     if (!task.templateStableKey || itemKeys.has(task.templateStableKey)) continue;
     if (!isOpenTask(task.status)) plan.keep.push({ task, reason: "closed" });
     else if (task.customized) plan.keep.push({ task, reason: "customized" });
+    else if (task.parentTaskId) plan.cancel.push(task);
     else if (!task.removedFromTemplate) plan.remove.push(task);
     else plan.same += 1;
   }
@@ -138,5 +163,5 @@ export function planPropagation<I extends PlanItem, T extends PlanTask>(
 
 /** Number of changes a plan makes (what the preview calls "Änderungen"). */
 export function planSize(plan: PropagationPlan): number {
-  return plan.add.length + plan.update.length + plan.remove.length;
+  return plan.add.length + plan.update.length + plan.remove.length + plan.cancel.length;
 }

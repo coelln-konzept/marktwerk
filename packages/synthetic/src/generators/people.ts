@@ -61,7 +61,13 @@ function buildStaffMember(
   const preferredKeys: DutyRoleKey[] =
     blueprint.crew && blueprint.defaultDuties.length === 0
       ? rng
-          .shuffle(["setup_crew", "water_power", "cash", "communication"] as DutyRoleKey[])
+          .shuffle([
+            "setup_crew",
+            "water_power",
+            "cash",
+            "communication",
+            "steward",
+          ] as DutyRoleKey[])
           .slice(0, rng.int(1, 2))
       : blueprint.defaultDuties;
   const preferredDutyRoleIds = dutyRoles
@@ -121,9 +127,9 @@ export function buildStaffAndDuties(rng: Rng, dutyRoles: DutyRole[]): PeopleBund
     staffIdByKey.set(blueprint.key, member.id);
   }
 
-  // Each duty role gets exactly one default holder: the first core staff member who lists it.
+  // Each duty role gets exactly one default holder: the first person who lists it (core staff first).
   const defaultHolder = new Map<DutyRoleKey, string>();
-  for (const blueprint of CORE_STAFF_BLUEPRINTS) {
+  for (const blueprint of [...CORE_STAFF_BLUEPRINTS, ...FIELD_CREW_BLUEPRINTS]) {
     const staffId = staffIdByKey.get(blueprint.key);
     if (staffId === undefined) continue;
     for (const dutyKey of blueprint.defaultDuties) {
@@ -135,6 +141,23 @@ export function buildStaffAndDuties(rng: Rng, dutyRoles: DutyRole[]): PeopleBund
     defaultStaffMemberId: defaultHolder.get(role.key) ?? null,
   }));
   return { staffMembers, employmentContracts, staffIdByKey, dutyRoles: dutyRolesWithDefaults };
+}
+
+/**
+ * The Ordner (Tageswache) per market: markets rotate the role through the Minijob crew, so not every market has the
+ * same person on the day. Every other role keeps its default holder.
+ */
+export function withMarketStewards<T extends { defaultDuties: Record<DutyRoleKey, string> }>(
+  presets: readonly T[],
+  minijobStaffIds: readonly string[],
+): T[] {
+  return presets.map((preset, index) => ({
+    ...preset,
+    defaultDuties: {
+      ...preset.defaultDuties,
+      steward: minijobStaffIds[index % minijobStaffIds.length] ?? preset.defaultDuties.steward,
+    },
+  }));
 }
 
 /** Duty role key → default staff member, as used by presets and events. Throws if a role has no holder. */

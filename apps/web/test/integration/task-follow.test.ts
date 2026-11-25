@@ -174,12 +174,74 @@ describe("anchor change → tasks follow", () => {
     expect(await db.select().from(notification)).toHaveLength(0);
   });
 
-  it("moving back (undo) announces again, and the tasks return to their dates", async () => {
+  it("the undo takes back unread notices instead of sending more; the tasks return to their dates", async () => {
     await moveEvent(owner, eventId, "2027-03-20", "2027-03-13");
     await moveEvent(owner, eventId, "2027-03-13", "2027-03-20", { undo: true });
     expect(await dueOf("marktgenehmigung_beantragen")).toBe("2027-01-12T08:00:00.000Z");
     expect(await dueOf("plakate_aufhaengen")).toBe("2027-02-23T16:30:00.000Z");
-    expect(await db.select().from(notification)).toHaveLength(4);
+    // UX-046: nobody is told twice about a move that did not stick.
+    expect(await db.select().from(notification)).toHaveLength(0);
+  });
+
+  it("the undo takes back only the notices of the move it undoes, not of an earlier one with the same dates", async () => {
+    await moveEvent(owner, eventId, "2027-03-20", "2027-03-13");
+    await moveEvent(owner, eventId, "2027-03-13", "2027-03-20");
+    await moveEvent(owner, eventId, "2027-03-20", "2027-03-13");
+    const ids = async () =>
+      (
+        await db
+          .select({ id: notification.id })
+          .from(notification)
+          .orderBy(asc(notification.createdAt), asc(notification.id))
+      ).map((r) => r.id);
+    const before = await ids();
+    expect(before).toHaveLength(6);
+    await moveEvent(owner, eventId, "2027-03-13", "2027-03-20", { undo: true });
+    // The first two moves' notices stay; the third move's are gone and none are added.
+    expect((await ids()).sort()).toEqual(before.slice(0, 4).sort());
+  });
+
+  it("the undo tells only those who already read the first notice", async () => {
+    await moveEvent(owner, eventId, "2027-03-20", "2027-03-13");
+    await db
+      .update(notification)
+      .set({ state: "read", readAt: new Date() })
+      .where(eq(notification.recipientStaffMemberId, cat.staff.anna.id));
+    await moveEvent(owner, eventId, "2027-03-13", "2027-03-20", { undo: true });
+    const rows = await db.select().from(notification).orderBy(asc(notification.createdAt));
+    // Anna: the read notice and the way back. Ben's unread notice is gone.
+    expect(rows.map((r) => r.recipientStaffMemberId)).toEqual([
+      cat.staff.anna.id,
+      cat.staff.anna.id,
+    ]);
+    expect(rows[1]?.body).toContain("13.03.2027");
+  });
+
+  it("previews who is told, the tasks that stay and the permits whose Antrag bis stays", async () => {
+    // One task set by hand after the new date, one without a rule.
+    await db
+      .update(task)
+      .set({ dueAt: new Date("2027-04-30T08:00:00Z"), dueOverridden: true })
+      .where(eq(task.id, (await taskByKey("abrechnung")).id));
+    await db.insert(task).values({
+      title: "Ohne Regel",
+      eventId,
+      dueAt: new Date("2027-03-01T08:00:00Z"),
+    });
+    const preview = await previewEventMove(owner, eventId, "2027-03-20");
+    expect(preview.tasksShifting).toBe(3);
+    expect(preview.kept).toEqual({ manual: 1, noRule: 1, afterEnd: 1 });
+    // Anna and Ben have moving tasks; the person moving is never listed.
+    expect(preview.notified).toEqual(
+      [cat.staff.anna.displayName, cat.staff.ben.displayName].sort((a, b) =>
+        a.localeCompare(b, "de"),
+      ),
+    );
+    const asAnna = { ...owner, staffMemberId: cat.staff.anna.id };
+    expect((await previewEventMove(asAnna, eventId, "2027-03-20")).notified).toEqual([
+      cat.staff.ben.displayName,
+    ]);
+    expect(preview.permitsKept).toEqual([]);
   });
 
   it("only touches the tasks of the moved event", async () => {

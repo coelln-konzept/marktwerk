@@ -105,6 +105,7 @@ export async function CompanyCenterPage({
           staff={await listStaffOptions()}
           canWrite={can(actor.role, "task", "write")}
           canAssign={!isModuleHidden("team") && can(actor.role, "task", "assign")}
+          canDelete={can(actor.role, "task", "delete")}
           today={center.today}
           closeHref={closeHref}
         />

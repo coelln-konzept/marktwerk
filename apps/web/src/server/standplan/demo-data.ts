@@ -1,5 +1,5 @@
 import "server-only";
-import { parseStallRequestMail } from "@marktwerk/core";
+import { parseStallRequestMail, scheduleSummary } from "@marktwerk/core";
 import { event, vendor, venue, venueRow, zone } from "@marktwerk/db/schema";
 import { and, asc, eq, gte, inArray, isNotNull, ne } from "drizzle-orm";
 import type {
@@ -171,14 +171,25 @@ export async function loadStandplanDemo(
       venueName: venue.name,
       pricePerMCents: event.pricePerMCents,
       bookingFeeCents: event.bookingFeeCents,
-      times: event.times,
+      schedule: event.schedule,
     })
     .from(event)
     .innerJoin(venue, eq(venue.id, event.venueId))
     .where(and(visibleEvents(actor), gte(event.startsOn, today), ne(event.status, "cancelled")))
     .orderBy(asc(event.startsOn))
     .limit(24);
-  const events: PlanEvent[] = eventsRaw.map((e) => ({ ...e, times: e.times ?? {} }));
+  // The prototype screens still use the old three times; main replaced them with the Zeitplan (ADR 0022).
+  const events: PlanEvent[] = eventsRaw.map(({ schedule, ...e }) => {
+    const summary = scheduleSummary(schedule);
+    return {
+      ...e,
+      times: {
+        setup: summary.earliestSetup ?? undefined,
+        open: summary.open?.from,
+        close: summary.open?.to,
+      },
+    };
+  });
 
   const venueIds = [...new Set(events.map((e) => e.venueId))];
   const venueRows = venueIds.length

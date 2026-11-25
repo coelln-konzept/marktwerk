@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
+import { escapeClosesOverlay } from "./drawer";
 import { Kbd } from "./kbd";
 
 /**
@@ -40,15 +41,16 @@ export function Vorschau({
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     (openRef.current ?? closeRef.current)?.focus({ preventScroll: true });
     return () => {
-      if (opener?.isConnected) opener.focus({ preventScroll: true });
+      // Never to <body>: the row is gone (archived, filtered out) → the page's main region.
+      const back = opener?.isConnected && opener !== document.body ? opener : null;
+      (back ?? document.getElementById("main"))?.focus({ preventScroll: true });
     };
   }, []);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      // Esc inside a menu or a modal dialog belongs to that.
-      if (document.querySelector("[role=menu], [role=dialog]:not([aria-modal=false])")) return;
+      // Esc inside a menu, a modal dialog or a toast belongs to that (the same rule as the drawers).
+      if (!escapeClosesOverlay(event)) return;
       event.preventDefault();
       router.replace(closeHref as never, { scroll: false });
     }
@@ -76,13 +78,13 @@ export function Vorschau({
               scroll={false}
               replace
               aria-label={t("close")}
-              className="grid size-7 place-items-center rounded-md hover:bg-hover"
+              className="grid size-7 place-items-center rounded-md hover:bg-hover tap:size-11"
             >
               <X className="size-4" />
             </Link>
           </span>
         </div>
-        <h2 id="vorschau-title" className="font-semibold text-[15px]">
+        <h2 id="vorschau-title" className="font-semibold text-title">
           {title}
         </h2>
         {badges && <div className="flex flex-wrap gap-1.5">{badges}</div>}
@@ -94,7 +96,7 @@ export function Vorschau({
           <Link
             ref={openRef}
             href={openHref as never}
-            className="ml-auto inline-flex min-h-8 items-center rounded-lg bg-primary px-3 font-medium text-primary-foreground hover:bg-primary-hover"
+            className="ml-auto inline-flex min-h-8 items-center rounded-lg tap:min-h-11 bg-primary px-3 font-medium text-primary-foreground hover:bg-primary-hover"
           >
             {openLabel ?? t("open")}
           </Link>

@@ -1,6 +1,6 @@
 import { History } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDateShort } from "@/lib/format";
@@ -8,7 +8,15 @@ import type { HistoryEntry } from "@/server/queries/event-detail";
 import { formatInstant } from "./format-instant";
 import { RestoreTaskButton } from "./restore-task-button";
 
-type StatusDiff = { from?: string; to?: string; reason?: string; undo?: boolean };
+type StatusDiff = {
+  from?: string;
+  to?: string;
+  reason?: string;
+  undo?: boolean;
+  restored?: boolean;
+  cancelledTasks?: unknown[];
+  reopenedTaskIds?: unknown[];
+};
 type CreateDiff = { source?: string };
 type DutyDiff = {
   roleDe?: string;
@@ -19,7 +27,15 @@ type DutyDiff = {
 };
 type UpdateDiff = { changes?: Record<string, unknown>; undo?: boolean };
 type BookingDiff = { flag?: string; to?: boolean };
-type MoveDiff = { from?: { startsOn?: string }; to?: { startsOn?: string }; undo?: boolean };
+type MoveDiff = {
+  from?: { startsOn?: string };
+  to?: { startsOn?: string };
+  undo?: boolean;
+  tasksShifted?: number;
+  seasonTasksShifted?: number;
+};
+
+const countOf = (list: unknown) => (Array.isArray(list) ? list.length : 0);
 type TaskStatusDiff = { from?: string; to?: string; reason?: string; note?: string };
 type SnoozeDiff = { until?: string };
 
@@ -34,9 +50,12 @@ function asObject<T>(value: unknown): T {
 export async function HistoryTable({
   entries,
   canRestore = false,
+  canRestoreDeleted = false,
 }: {
   entries: HistoryEntry[];
   canRestore?: boolean;
+  /** Deleted tasks come back with the deleting right (`task:delete`, UT2-13). */
+  canRestoreDeleted?: boolean;
 }) {
   const t = await getTranslations("eventDetail.history");
   const tStatus = await getTranslations("status.event");
@@ -51,12 +70,20 @@ export async function HistoryTable({
     switch (entry.action) {
       case "event.status": {
         const d = asObject<StatusDiff>(entry.diff);
+        // What happened to the tasks with it (UX-049): "12 Aufgaben mit abgesagt" / "… wieder offen".
+        const cancelled = countOf(d.cancelledTasks);
+        const reopened = countOf(d.reopenedTaskIds);
+        const details = [
+          ...(d.reason ? [t("reason", { reason: d.reason })] : []),
+          ...(cancelled > 0 ? [t("tasksCancelled", { count: cancelled })] : []),
+          ...(reopened > 0 ? [t("tasksReopened", { count: reopened })] : []),
+        ];
         return {
-          text: t(d.undo ? "statusUndone" : "statusChanged", {
+          text: t(d.restored ? "statusRestored" : d.undo ? "statusUndone" : "statusChanged", {
             from: status(d.from),
             to: status(d.to),
           }),
-          reason: d.reason ? t("reason", { reason: d.reason }) : undefined,
+          reason: details.length > 0 ? details.join(" · ") : undefined,
         };
       }
       case "event.create": {
@@ -98,9 +125,16 @@ export async function HistoryTable({
       case "event.move": {
         const d = asObject<MoveDiff>(entry.diff);
         const day = (date?: string) => (date ? formatDateShort(date, locale) : "?");
+        const details = [
+          ...(d.undo ? [t("undone")] : []),
+          ...(d.tasksShifted ? [t("tasksShifted", { count: d.tasksShifted })] : []),
+          ...(d.seasonTasksShifted
+            ? [t("seasonTasksShifted", { count: d.seasonTasksShifted })]
+            : []),
+        ];
         return {
           text: t("moved", { from: day(d.from?.startsOn), to: day(d.to?.startsOn) }),
-          reason: d.undo ? t("undone") : undefined,
+          reason: details.length > 0 ? details.join(" · ") : undefined,
         };
       }
       case "event.archive":
@@ -132,6 +166,10 @@ export async function HistoryTable({
       }
       case "task.unsnooze":
         return { text: t("taskUnsnoozed", { title: entry.subject ?? "?" }) };
+      case "task.delete":
+        return { text: t("taskDeleted", { title: entry.subject ?? "?" }) };
+      case "task.restore":
+        return { text: t("taskRestored", { title: entry.subject ?? "?" }) };
       case "task.undo":
         return { text: t("taskUndone", { title: entry.subject ?? "?" }) };
       case "document.upload":
@@ -146,15 +184,16 @@ export async function HistoryTable({
   }
 
   const restore = (entry: HistoryEntry) =>
-    canRestore && entry.restoreTaskId ? (
-      <RestoreTaskButton taskId={entry.restoreTaskId} title={entry.subject ?? "?"} />
+    entry.restoreTaskId && (entry.restoreDeleted ? canRestoreDeleted : canRestore) ? (
+      <RestoreTaskButton
+        taskId={entry.restoreTaskId}
+        title={entry.subject ?? "?"}
+        deleted={entry.restoreDeleted}
+      />
     ) : null;
 
   return (
-    <Panel aria-labelledby="history-title">
-      <PanelHeader>
-        <PanelTitle id="history-title">{t("title")}</PanelTitle>
-      </PanelHeader>
+    <Panel title={t("title")} titleId="history-title">
       {entries.length === 0 ? (
         <EmptyState icon={History} title={t("empty")} hint={t("emptyHint")} />
       ) : (

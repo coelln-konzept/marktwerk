@@ -158,21 +158,20 @@ export function IncomeDialog({ eventId }: { eventId: string }) {
 /** "Entfernen" on an income line: soft delete with an undo toast. */
 export function ArchiveIncomeButton({ id, label }: { id: string; label: string }) {
   const t = useTranslations("eventMoney.income");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function archive() {
     startTransition(async () => {
       const result = await archiveIncomeAction(id);
-      if (!result.ok) return showToast({ message: t("failed") });
+      if (!result.ok) return showError(t("failed"));
       showToast({
         message: t("removed", { label: result.data.label }),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await archiveIncomeAction(id, true);
-          showToast({
-            message: undone.ok ? t("restored", { label: undone.data.label }) : t("failed"),
-          });
+          if (undone.ok) showToast({ message: t("restored", { label: undone.data.label }) });
+          else showError(t("failed"));
         },
       });
     });

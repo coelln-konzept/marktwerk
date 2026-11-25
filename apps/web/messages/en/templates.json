@@ -27,7 +27,6 @@
       "duration": "Duration",
       "publicTitle": "Public title",
       "times": "Times",
-      "timesValue": "Setup {setup} · {open}–{close} · teardown {teardown}",
       "price": "Stall price",
       "fee": "Booking fee",
       "team": "Default team",
@@ -58,7 +57,10 @@
         "retired": "(no longer active)",
         "duration": "Duration (days)",
         "active": "Active",
-        "activeHint": "Inactive markets do not show up under “Plan a market”. Tick the box to bring it back."
+        "activeHint": "Inactive markets do not show up under “Plan a market”. Tick the box to bring it back.",
+        "shortCode": "Short code",
+        "shortCodeHint": "Shown next to the colour in the calendar, 1 to 4 letters or digits. Leave it empty to use “{code}” from the name.",
+        "shortCodeHintOwn": "Shown next to the colour in the calendar, 1 to 4 letters or digits."
       },
       "color": {
         "legend": "Market colour",
@@ -83,14 +85,6 @@
         "title": "Public details",
         "publicTitle": "Public title",
         "publicText": "Public text"
-      },
-      "times": {
-        "title": "Times (24-hour)",
-        "setup": "Setup",
-        "open": "Start",
-        "close": "End",
-        "teardown": "Teardown",
-        "hint": "24-hour format, e.g. 08:00. Entries like 8 or 8.30 are completed for you."
       },
       "prices": {
         "title": "Prices",
@@ -137,10 +131,6 @@
         "invalid_duration": "Please enter 1 to 14 days.",
         "invalid_public_title": "The public title can be at most 200 characters.",
         "invalid_public_text": "The public text can be at most 5,000 characters.",
-        "invalid_time": "Please enter the time as HH:MM, e.g. 08:00.",
-        "open_after_close": "The end must be after the start.",
-        "close_after_teardown": "Teardown cannot be before the end.",
-        "setup_after_open": "Setup cannot be after the start on single-day markets.",
         "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most €10,000).",
         "invalid_fee": "Please enter an amount in euros, e.g. 5 (at most €10,000).",
         "invalid_rrule": "This recurrence is not valid. Please check weekdays and months.",
@@ -152,10 +142,109 @@
         "invalid_staff": "This person is not (or no longer) active. Please choose somebody else.",
         "not_found": "This preset no longer exists.",
         "invalid_input": "The details are incomplete. Please reload the page.",
-        "generic": "That didn't work. Please try again."
+        "generic": "That didn't work. Please try again.",
+        "invalid_schedule": "Please check the schedule (see the notes at the rows).",
+        "invalid_short_code": "Please enter 1 to 4 letters or digits, e.g. ALT.",
+        "short_code_taken": "Another active market already has this short code. Please choose a different one."
       },
       "tasksLink": "Tasks of this market:",
-      "tasksOwn": "Own task template"
+      "tasksOwn": "Own task template",
+      "schedule": {
+        "title": "Schedule"
+      }
+    },
+    "season": {
+      "title": "Season {season}",
+      "statusLabel": "Status",
+      "statusChange": "Change the season's status (now: {status})",
+      "status": {
+        "planning": "Planning",
+        "dates_set": "Dates set",
+        "closed": "Closed"
+      },
+      "openCount": "{count} open",
+      "start": {
+        "first": "First date {date} · {week}",
+        "dates": "{count, plural, one {# date} other {# dates}}, last on {last}",
+        "expected": "Expected from {date}",
+        "expectedHint": "{week} · no dates yet. Once the first date exists, it is the start.",
+        "expectedLabel": "Expected from",
+        "edit": "Change",
+        "editLabel": "Change the expected start of season {season}",
+        "save": "Save",
+        "cancel": "Cancel"
+      },
+      "suggest": {
+        "dates_set": {
+          "hint": "The dates have been created.",
+          "action": "Set to “Dates set”"
+        },
+        "closed": {
+          "hint": "The last date is over and no season task is open.",
+          "action": "Close the season"
+        },
+        "planning": {
+          "hint": "The season has no dates any more.",
+          "action": "Back to “Planning”"
+        }
+      },
+      "tasks": {
+        "title": "Season tasks",
+        "none": "No season tasks. They come from the season items of the task template.",
+        "allDone": "All season tasks done",
+        "finished": "Done ({count})"
+      },
+      "assignee": "Assignee",
+      "unassigned": "Nobody assigned",
+      "snoozedUntil": "Snoozed until {date}",
+      "missing": {
+        "title": "No season {season} yet",
+        "hint": "The season tasks are due relative to the first date."
+      },
+      "create": "Create season",
+      "toast": {
+        "status": "Season {season}: {status}",
+        "expected": "Season {season} expected from {date}",
+        "shifted": "{count, plural, =0 {no tasks moved} one {# task moved} other {# tasks moved}}",
+        "subtasksShifted": "{count, plural, one {# subtask moved} other {# subtasks moved}}",
+        "created": "Season {season} created · {count, plural, =0 {no tasks} one {# task} other {# tasks}}",
+        "undo": "Undo",
+        "subtasks": "+{count, plural, one {# subtask} other {# subtasks}}",
+        "dueToday": "{count, plural, one {# of them was already due and is now due today} other {# of them were already due and are now due today}}"
+      },
+      "errors": {
+        "generic": "That didn't work. Please try again.",
+        "conflict": "The season was changed in the meantime. The page now shows the current state.",
+        "season_not_found": "This season no longer exists.",
+        "preset_not_found": "This market no longer exists.",
+        "invalid_season": "Please enter a valid year.",
+        "invalid_status": "Please pick a valid status.",
+        "invalid_transition": "The season already has this status.",
+        "invalid_date": "Please enter a valid date.",
+        "outside_season": "Please pick a date in {season}.",
+        "has_dates": "The season already has dates; its first date is the season start.",
+        "no_dates": "The season has no dates yet. Please create dates first.",
+        "not_over": "The season is still running. It can be closed after the last date.",
+        "open_tasks": "Some season tasks are still open. Please finish or skip them first."
+      },
+      "intro": "A season collects the work this market needs once a year, such as planning the dates or applying for the permit.",
+      "statusHint": {
+        "planning": "The dates are not fixed yet.",
+        "dates_set": "The year's dates have been created.",
+        "closed": "The season is over, nothing is open any more."
+      },
+      "statusBlocked": {
+        "no_dates": "Only once the season has dates.",
+        "not_over": "Only after the last date.",
+        "open_tasks": "{count, plural, one {# season task still open.} other {# season tasks still open.}}"
+      },
+      "createForm": {
+        "label": "Expected from",
+        "hint": "When do you expect the first date? The season tasks are due relative to it.",
+        "suggested": "Suggested from last year: same weekday, same week.",
+        "hasDates": "The season already has dates. The season tasks are due relative to the first one.",
+        "required": "Please enter a date."
+      }
     }
   },
   "library": {
@@ -188,7 +277,14 @@
       "tplOwn": "Own template",
       "tplShared": "shared",
       "tplDraft": "draft",
-      "tplMeta": "{kind} · {version} · {count, plural, one {# task} other {# tasks}}"
+      "tplMeta": "{kind} · {version} · {count, plural, one {# task} other {# tasks}}",
+      "codeTitle": "Short code",
+      "new": "New market",
+      "searchLabel": "Search markets",
+      "search": "Name, code, venue or type",
+      "searchResult": "{count, plural, one {# match} other {# matches}} for “{query}”",
+      "resetSearch": "Clear search",
+      "emptySearch": "No market matches this search."
     },
     "others": {
       "title": "Unused timeline templates",

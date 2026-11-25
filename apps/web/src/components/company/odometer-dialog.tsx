@@ -28,7 +28,7 @@ export function OdometerButton({
   const t = useTranslations("company");
   const to = useTranslations("company.odometer");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -46,6 +46,8 @@ export function OdometerButton({
   function submit() {
     const value = parseWholeNumber(km.trim());
     if (value === null) return setError(errorText("invalid_odometer"));
+    // The same check as the server (and as "Erledigt …"): a reading never goes below the stored one.
+    if (currentKm !== null && value < currentKm) return setError(errorText("odometer_lower"));
     setError(null);
     startTransition(async () => {
       const result = await recordOdometerAction(vehicleId, value, on || null);
@@ -57,7 +59,8 @@ export function OdometerButton({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoOdometerAction(vehicleId, previous, next);
-          showToast({ message: undone.ok ? to("reverted") : errorText(undone.error) });
+          if (undone.ok) showToast({ message: to("reverted") });
+          else showError(errorText(undone.error));
         },
       });
     });

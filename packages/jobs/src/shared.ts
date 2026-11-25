@@ -1,7 +1,14 @@
-import { pastEventCutoff, renderImmediate, resolveRelativeDue } from "@marktwerk/core";
+import {
+  pastEventCutoff,
+  renderImmediate,
+  resolveRelativeDue,
+  seasonContextName,
+} from "@marktwerk/core";
 import {
   type Database,
   event,
+  eventPreset,
+  eventSeason,
   notification,
   notificationPreference,
   outboundMessage,
@@ -10,10 +17,41 @@ import {
   task,
   user,
 } from "@marktwerk/db";
-import { and, eq, gte, inArray, isNull, or, type SQL } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lte, ne, or, type SQL } from "drizzle-orm";
 
 /** Tasks that are still to be done. */
 export const OPEN_TASK_STATUSES = ["todo", "in_progress", "waiting_external", "blocked"] as const;
+
+/**
+ * The Saison of a season task with its market's name (research 13 §6.3), for a left join on `task.season_id`:
+ * `.leftJoin(sc, eq(sc.seasonId, task.seasonId))` with `const sc = seasonContext(db)`.
+ */
+export function seasonContext(db: Database) {
+  return db
+    .select({
+      seasonId: eventSeason.id,
+      seasonYear: eventSeason.season,
+      seasonName: eventPreset.name,
+    })
+    .from(eventSeason)
+    .innerJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
+    .as("season_ctx");
+}
+
+/**
+ * What a reminder, the digest or a carry-over names after the task: its event, or for a season task
+ * "<Markt> · Saison <Jahr>" (`seasonContextName`); null for a task with neither.
+ */
+export function taskContextName(r: {
+  eventName: string | null;
+  seasonName: string | null;
+  seasonYear: number | null;
+}): string | null {
+  if (r.eventName) return r.eventName;
+  return r.seasonName !== null && r.seasonYear !== null
+    ? seasonContextName(r.seasonName, r.seasonYear)
+    : null;
+}
 
 /**
  * Leftovers of past markets (last day more than 7 days ago, task already due or undated) neither remind,
@@ -27,6 +65,39 @@ export function notOfPastEvent(today: string): SQL {
     gte(event.endsOn, pastEventCutoff(today)),
     gte(task.dueAt, resolveRelativeDue(today, 0, "00:00")),
   ) as SQL;
+}
+
+/**
+ * Due instants of the open subtasks of these parents that can be overdue (not waiting for somebody else, not
+ * snoozed on `today`), per parent. With `flaggedDueAt` (@marktwerk/core) an overdue subtask flags its parent, so
+ * the jobs count it once, through the parent (ADR 0021).
+ */
+export async function openSubtaskDues(
+  db: Database,
+  parentIds: readonly string[],
+  today: string,
+): Promise<Map<string, Date[]>> {
+  const result = new Map<string, Date[]>();
+  if (parentIds.length === 0) return result;
+  const rows = await db
+    .select({ parentTaskId: task.parentTaskId, dueAt: task.dueAt })
+    .from(task)
+    .where(
+      and(
+        inArray(task.parentTaskId, [...new Set(parentIds)]),
+        inArray(task.status, [...OPEN_TASK_STATUSES]),
+        ne(task.status, "waiting_external"),
+        isNotNull(task.dueAt),
+        or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
+      ),
+    );
+  for (const r of rows) {
+    if (!r.parentTaskId || !r.dueAt) continue;
+    const list = result.get(r.parentTaskId) ?? [];
+    list.push(r.dueAt);
+    result.set(r.parentTaskId, list);
+  }
+  return result;
 }
 
 /** The business date (YYYY-MM-DD) of an instant in the company's time zone. */

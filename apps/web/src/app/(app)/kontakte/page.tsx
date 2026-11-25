@@ -6,19 +6,26 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ContactVorschau } from "@/components/catalogue/contact-vorschau";
 import { ContactKindBadge } from "@/components/catalogue/kinds";
-import { ContactReach } from "@/components/contacts/contact-reach";
+import { ContactReach, ReachValue } from "@/components/contacts/contact-reach";
+import { contactListQuery, withContactList } from "@/components/contacts/list-context";
 import { Page, PageHeader } from "@/components/shell/page";
 import { buttonVariants } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/chip";
 import { KeyboardRows } from "@/components/ui/keyboard-rows";
 import { LetterFilter } from "@/components/ui/letter-filter";
+import { LiveSearch } from "@/components/ui/live-search";
 import { Panel } from "@/components/ui/panel";
-import { MailLink, PhoneLink } from "@/components/ui/phone";
 import { EmptyState } from "@/components/ui/states";
-import { RowActions, Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { RowActions, rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
-import { CONTACT_KINDS, isContactKind, listContacts } from "@/server/queries/contacts";
+import {
+  CONTACT_KINDS,
+  type ContactSort,
+  isContactKind,
+  isContactSort,
+  listContacts,
+} from "@/server/queries/contacts";
 import { requirePermission } from "@/server/session";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -38,7 +45,24 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
   const kind = isContactKind(kindParam) ? kindParam : undefined;
   const vorschauId = param(sp.vorschau);
   const letter = parseLetterParam(param(sp.buchstabe));
-  const { rows, counts, total, letterTotal, letters } = await listContacts(q, kind, letter);
+  // Sort by a column (UX-055): `?sortierung=art|stadt`, `&richtung=ab` for descending.
+  const sortParam = param(sp.sortierung);
+  const sortKey: ContactSort = isContactSort(sortParam) ? sortParam : "name";
+  const sortDir: "asc" | "desc" = param(sp.richtung) === "ab" ? "desc" : "asc";
+  const { rows, counts, total, letterTotal, letters } = await listContacts(q, kind, letter, {
+    by: sortKey,
+    dir: sortDir,
+  });
+  const sortBy = (key: ContactSort) => ({
+    href: hrefWith(PATH, sp, {
+      sortierung: key === "name" ? undefined : key,
+      richtung: key === sortKey && sortDir === "asc" ? "ab" : undefined,
+      vorschau: undefined,
+    }),
+    dir: key === sortKey ? sortDir : null,
+  });
+  // Search, filters and sort travel to "Kontakt anlegen" and "Bearbeiten" and back (UX-038).
+  const liste = contactListQuery(sp);
 
   return (
     <Page crumbs={[{ label: t("title") }]}>
@@ -64,7 +88,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
         actions={
           canWrite && (
             <Link
-              href={"/kontakte/neu" as never}
+              href={withContactList("/kontakte/neu", liste) as never}
               className={buttonVariants({ variant: "default" })}
             >
               <Plus aria-hidden />
@@ -74,21 +98,16 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
         }
       />
 
-      <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
-        {kind && <input type="hidden" name="art" value={kind} />}
-        {letter && <input type="hidden" name="buchstabe" value={letter} />}
-        <label className="sr-only" htmlFor="q">
-          {t("search")}
-        </label>
-        <input
-          id="q"
-          name="q"
-          type="search"
-          defaultValue={q}
-          placeholder={t("search")}
-          className="min-h-(--control-h) w-72 max-w-full rounded-lg border border-input bg-card px-3"
-        />
-      </form>
+      <LiveSearch
+        label={t("search")}
+        placeholder={t("searchPlaceholder")}
+        hidden={{
+          art: kind,
+          buchstabe: letter,
+          sortierung: param(sp.sortierung),
+          richtung: param(sp.richtung),
+        }}
+      />
 
       {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls */}
       <div className="flex flex-wrap gap-2" role="group" aria-label={t("kindsLabel")}>
@@ -131,46 +150,53 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
           </EmptyState>
         ) : (
           <>
-            {/* Phones (< 640 px): stacked cards with Name, Art and the two actions people come here for. */}
-            <ul className="m-0 flex list-none flex-col p-0 sm:hidden">
-              {rows.map((r) => (
-                <li
-                  key={r.id}
-                  data-selected={vorschauId === r.id ? "" : undefined}
-                  className="flex flex-col gap-2 border-border-subtle border-b px-4 py-3 last:border-b-0 data-selected:bg-selected"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <Link
-                      href={hrefWith(PATH, sp, { vorschau: r.id }) as never}
-                      scroll={false}
-                      aria-label={t("preview", { name: r.name })}
-                      className="min-w-0 font-semibold text-accent-soft-foreground [overflow-wrap:anywhere]"
+            {/* Phones (< 640 px): stacked cards with Name, Art and the two actions people come here for.
+                A tap anywhere on a card opens its Vorschau (UT-18); Anrufen and E-Mail are the only calls. */}
+            <KeyboardRows className="sm:hidden">
+              <ul className="m-0 flex list-none flex-col p-0">
+                {rows.map((r) => {
+                  const peek = hrefWith(PATH, sp, { vorschau: r.id });
+                  return (
+                    <li
+                      key={r.id}
+                      data-href={peek}
+                      data-selected={vorschauId === r.id ? "" : undefined}
+                      className="flex cursor-pointer flex-col gap-2 border-border-subtle border-b px-4 py-3 last:border-b-0 hover:bg-hover data-selected:bg-selected"
                     >
-                      {r.name}
-                    </Link>
-                    <ContactKindBadge kind={r.kind} label={t(`kinds.${r.kind}`)} />
-                  </div>
-                  {(r.contactPerson || r.city) && (
-                    <p className="text-muted-foreground text-small">
-                      {[r.contactPerson, r.city].filter(Boolean).join(" · ")}
-                    </p>
-                  )}
-                  <ContactReach name={r.name} phone={r.phone} email={r.email} />
-                </li>
-              ))}
-            </ul>
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          href={peek as never}
+                          scroll={false}
+                          aria-label={t("preview", { name: r.name })}
+                          className="min-w-0 font-semibold text-accent-soft-foreground [overflow-wrap:anywhere]"
+                        >
+                          {r.name}
+                        </Link>
+                        <ContactKindBadge kind={r.kind} label={t(`kinds.${r.kind}`)} />
+                      </div>
+                      {(r.contactPerson || r.city) && (
+                        <p className="text-muted-foreground text-small">
+                          {[r.contactPerson, r.city].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                      <ContactReach name={r.name} phone={r.phone} email={r.email} />
+                    </li>
+                  );
+                })}
+              </ul>
+            </KeyboardRows>
             <div className="hidden sm:block">
               <KeyboardRows>
                 <Table>
                   <caption className="sr-only">{t("caption")}</caption>
                   <THead>
                     <tr>
-                      <TH>{t("cols.name")}</TH>
-                      <TH>{t("cols.kind")}</TH>
+                      <TH sort={sortBy("name")}>{t("cols.name")}</TH>
+                      <TH sort={sortBy("art")}>{t("cols.kind")}</TH>
                       <TH>{t("cols.person")}</TH>
                       <TH>{t("cols.phone")}</TH>
                       <TH>{t("cols.email")}</TH>
-                      <TH>{t("cols.city")}</TH>
+                      <TH sort={sortBy("stadt")}>{t("cols.city")}</TH>
                       <TH>{t("cols.notes")}</TH>
                       <TH>
                         <span className="sr-only">{t("cols.actions")}</span>
@@ -185,9 +211,10 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                           key={r.id}
                           tabIndex={0}
                           data-row
+                          data-href={peek}
                           data-peek={peek}
-                          aria-selected={vorschauId === r.id}
-                          className="outline-hidden focus-visible:bg-selected"
+                          aria-current={vorschauId === r.id}
+                          className={`cursor-pointer ${rowFocus}`}
                         >
                           <TD className="min-w-44 max-w-64">
                             <Link
@@ -209,23 +236,24 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                           </TD>
                           <TD>
                             {r.phone ? (
-                              <PhoneLink phone={r.phone} />
+                              <ReachValue kind="phone" value={r.phone} name={r.name} />
                             ) : (
                               <span className="text-faint-foreground">{t("none")}</span>
                             )}
                           </TD>
-                          <TD className="max-w-56">
+                          <TD className="min-w-48 max-w-56">
                             {r.email ? (
-                              <MailLink email={r.email} />
+                              <ReachValue kind="email" value={r.email} name={r.name} />
                             ) : (
                               <span className="text-faint-foreground">{t("none")}</span>
                             )}
                           </TD>
-                          <TD>
+                          {/* Town names stay whole ("Rösrath", not "Rös-rath"); notes give way. */}
+                          <TD className="min-w-28 whitespace-nowrap">
                             {r.city ?? <span className="text-faint-foreground">{t("none")}</span>}
                           </TD>
                           <TD
-                            className="max-w-36 truncate text-muted-foreground"
+                            className="max-w-48 truncate text-muted-foreground"
                             title={r.notes ?? undefined}
                           >
                             {r.notes ?? ""}
@@ -243,7 +271,9 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
                               </Link>
                               {canWrite && (
                                 <Link
-                                  href={`/kontakte/${r.id}/bearbeiten` as never}
+                                  href={
+                                    withContactList(`/kontakte/${r.id}/bearbeiten`, liste) as never
+                                  }
                                   tabIndex={-1}
                                   aria-label={t("editRow", { name: r.name })}
                                   className="grid size-7 place-items-center rounded-md hover:bg-hover"
@@ -267,7 +297,11 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kontakt
       <p className="touch:hidden text-muted-foreground text-tiny">{t("keys")}</p>
 
       {vorschauId && (
-        <ContactVorschau id={vorschauId} closeHref={hrefWith(PATH, sp, { vorschau: undefined })} />
+        <ContactVorschau
+          id={vorschauId}
+          closeHref={hrefWith(PATH, sp, { vorschau: undefined })}
+          liste={liste}
+        />
       )}
     </Page>
   );

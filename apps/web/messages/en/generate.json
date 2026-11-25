@@ -17,15 +17,34 @@
     "rule": {
       "every": "every",
       "position": "Which",
-      "last": "last",
-      "weekday": "Weekday",
-      "from": "from",
-      "to": "to",
-      "fromMonth": "First month",
-      "toMonth": "Last month",
+      "last": "every last",
+      "months": "Months",
       "year": "Year",
       "apply": "Apply",
-      "replaces": "Replaces your {count, plural, one {# selected date} other {# selected dates}}."
+      "replaces": "Replaces your {count, plural, one {# selected date} other {# selected dates}}.",
+      "nth": "every {pos, select, 1 {1st} 2 {2nd} 3 {3rd} other {{pos}th}}",
+      "weekdays": "Weekdays",
+      "and": "and",
+      "words": {
+        "every": "every {day}",
+        "nth": "every {pos, select, last {last} 1 {1st} 2 {2nd} 3 {3rd} other {{pos}th}} {day} of the month",
+        "following": "{base} and the {days} after",
+        "weekendEvery": "every weekend (Saturday and Sunday)",
+        "weekendNth": "every {pos, select, last {last} 1 {1st} 2 {2nd} 3 {3rd} other {{pos}th}} weekend of the month (Saturday and Sunday)",
+        "months": "{rule}, {from} to {to} {year}",
+        "monthList": "{rule}, {months} {year}"
+      },
+      "yields": "{count, plural, =0 {gives no dates} one {gives # date} other {gives # dates}}",
+      "noWeekday": "Choose at least one weekday.",
+      "noMonth": "Choose at least one month.",
+      "duration": "Starts on {day}: one event lasts {count, plural, one {# day} other {# days}} ({span}).",
+      "otherStart": "So far the market started on {days}.",
+      "pastLeftOut": "{count, plural, one {# past date left out} other {# past dates left out}}",
+      "notApplied": "“Apply” puts the dates into the calendar.",
+      "fromPast": "Suggested from the {count, plural, one {# date} other {# dates}} in {season}",
+      "fromRhythm": "Suggested from the market's rhythm",
+      "rhythmLoose": "the rhythm means one of these days, this rule all of them in a row: check it, then “Apply”",
+      "irregular": "the {season} dates follow no fixed rhythm: pick the days in the calendar or adjust the rule"
     },
     "weekShort": "CW",
     "weekdaysShort": "Mo,Tu,We,Th,Fr,Sa,Su",
@@ -35,10 +54,12 @@
       "selected": "selected",
       "holiday": "NRW holiday",
       "venueBusy": "venue already booked",
-      "weekendFull": "already 3+ events that weekend"
+      "span": "further days of the event",
+      "own": "already planned (this market)"
     },
     "shiftHint": "+ click: same weekday in between",
     "summary": "{count, plural, =0 {No dates selected yet} one {# date selected} other {# dates selected}}",
+    "clearAll": "Clear all",
     "merge": {
       "label": "Merge consecutive days into one event",
       "result": "{count, plural, one {makes # event} other {makes # events}}"
@@ -53,15 +74,14 @@
     },
     "warn": {
       "holiday": "{name} (holiday)",
-      "weekend": "event no. {n} that weekend (more than {max})",
-      "venue": "Venue booked: {name}",
+      "venue": "Venue booked: <link>{name} on {date}</link>",
       "overlap": "overlaps another selected date",
       "none": "no notes",
-      "weekendFull": "event no. {n} that weekend, which fills it (maximum {max})",
-      "weekendWith": "already there: {names}",
       "past": "is in the past – all tasks would be overdue at once",
       "checking": "checking …",
-      "unchecked": "could not be checked"
+      "unchecked": "could not be checked",
+      "sameMarket": "This market is already planned then: <link>{date}</link>",
+      "newTab": "(opens in a new tab)"
     },
     "remove": "Remove {date}",
     "previewNote": "Notes never block: you decide.",
@@ -88,13 +108,6 @@
       "venuePlaceholder": "Choose a venue …",
       "start": "First day",
       "days": "Number of days",
-      "times": "Times (24-hour)",
-      "time": {
-        "setup": "Setup",
-        "open": "Opens",
-        "close": "Closes",
-        "teardown": "Teardown"
-      },
       "price": "Pitch price",
       "perMeter": "€ per m",
       "fee": "Booking fee",
@@ -116,14 +129,12 @@
         "invalid_date": "Please enter the first day.",
         "no_dates": "Please enter the first day.",
         "invalid_duration": "The number of days must be between 1 and 14.",
-        "invalid_time": "Please enter all times as HH:MM.",
-        "open_after_close": "The end must be after the start.",
-        "close_after_teardown": "Teardown cannot be before the end.",
-        "setup_after_open": "On single-day markets setup cannot be after the start.",
         "invalid_price": "Please enter an amount in euros, e.g. 12.50 (at most 10,000 €).",
-        "generic": "That didn't work. Please try again."
+        "generic": "That didn't work. Please try again.",
+        "invalid_schedule": "Please check the schedule (see the notes at the rows)."
       },
-      "hintsRetry": "Check again"
+      "hintsRetry": "Check again",
+      "schedule": "Schedule"
     },
     "search": "Search market or venue …",
     "searchLabel": "Search markets",
@@ -154,10 +165,10 @@
     "keysHint": "Arrow keys: choose day · Page up/down: month · Space: toggle",
     "skippedCount": "{count} already exist",
     "allExist": "All selected dates exist already. Use “Add anyway” to create some of them regardless.",
-    "createWithSkipped": "{count} new · {skipped} already exist",
     "day": {
       "busy": "venue booked",
-      "weekendFull": "weekend full"
+      "span": "further day of the event",
+      "own": "already planned (this market)"
     },
     "context": {
       "loading": "Loading bookings …",
@@ -169,7 +180,9 @@
       "addedAgain": "Will be created anyway",
       "addAnyway": "Add anyway",
       "skip": "Skip it",
-      "detail": "“{name}” is already planned on this day. The date is skipped."
+      "detail": "“{name}” is already planned on this day. The date is skipped.",
+      "group": "{count, plural, one {# date already exists} other {# dates already exist}}",
+      "groupLabel": "Dates that already exist"
     },
     "preview": {
       "tasks": "{count, plural, one {# task} other {# tasks}}",
@@ -178,7 +191,17 @@
       "permitsNone": "No permits needed",
       "loading": "Working out tasks and permits …",
       "failed": "Tasks and permits could not be worked out. You can still create the events.",
-      "noTemplate": "This market has no published task template: the events start without tasks."
-    }
+      "noTemplate": "This market has no published task template: the events start without tasks.",
+      "newList": "New dates",
+      "permitsUnknown": "Permits: not clarified yet",
+      "noRequirements": "No permits are set up for {venue} yet, so it is not clear whether any are needed. <link>Add requirements to the venue</link>"
+    },
+    "createNone": "Nothing to create"
+  },
+  "holidayNotes": {
+    "quiet": "Quiet holiday – markets usually not allowed ({kind, select, allDay {all day} from {from {from}:00} other {{from}:00–{until}:00}})",
+    "warnQuiet": "{name}: quiet holiday – markets usually not allowed ({kind, select, allDay {all day} from {from {from}:00} other {{from}:00–{until}:00}})",
+    "legendQuiet": "Quiet holiday",
+    "legendWeekend": "Easter and Whitsun weekend"
   }
 }

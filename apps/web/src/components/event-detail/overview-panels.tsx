@@ -19,11 +19,14 @@ import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PermitStateBadge } from "@/components/permits/permit-state-badge";
 import { formatPermitTitle } from "@/components/permits/permit-title";
+import { formatVisitorHours } from "@/components/schedule/schedule-format";
+import { ScheduleView } from "@/components/schedule/schedule-view";
 import { useDueText } from "@/components/ui/due-badge";
 import { Health } from "@/components/ui/health";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody, panelActionLink } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
+import { rowFocus } from "@/components/ui/table";
 import {
   formatDateShort,
   formatDateWithWeekday,
@@ -38,6 +41,7 @@ import type { EventDetail } from "@/server/queries/events";
 import { FactsDialog } from "./facts-dialog";
 import { KeyTaskItem, MissingTaskRow } from "./overview-rows";
 import { roleName } from "./role-name";
+import { RulesDialog } from "./rules-dialog";
 
 const ANCHOR_ORDER = ["event_day", "setup_day", "teardown_day", "booking_cutoff"] as const;
 
@@ -66,7 +70,8 @@ function ProgressBar({ label, ratio }: { label: string; ratio: number }) {
 
 /**
  * Status line: days until the market, tasks done with a slim bar, permits granted. Every piece links to
- * the place it summarises (Termine below, Board tab, Genehmigungen tab).
+ * the place it summarises (Termine below, Board tab, Genehmigungen tab). Not shown for a cancelled event:
+ * a countdown and "0/0 erledigt" would make it look live; the "Abgesagt" banner says it all (UX-049).
  */
 export async function StatusLine({
   event,
@@ -75,6 +80,7 @@ export async function StatusLine({
   event: EventDetail;
   overview: EventOverview;
 }) {
+  if (event.status === "cancelled") return null;
   const t = await getTranslations("eventDetail.overview.status");
   const locale = await getLocale();
   const base = `/veranstaltungen/${event.id}`;
@@ -157,6 +163,8 @@ export async function MissingPanel({
   today: string;
   canWrite: boolean;
 }) {
+  // Nothing is missing at a cancelled event: its open tasks went with the cancellation (UX-049).
+  if (event.status === "cancelled") return null;
   const t = await getTranslations("eventDetail.overview.missing");
   const locale = await getLocale();
   const tasks = overview.tasks?.missing ?? [];
@@ -180,11 +188,12 @@ export async function MissingPanel({
     />
   );
   return (
-    <Panel aria-labelledby="missing-title">
-      <PanelHeader>
-        <PanelTitle id="missing-title">{t("title")}</PanelTitle>
-        <span className="text-muted-foreground text-small">{t("hint")}</span>
-      </PanelHeader>
+    <Panel
+      title={t("title")}
+      titleId="missing-title"
+      meta={t("hint")}
+      cardClassName="overflow-hidden"
+    >
       {empty ? (
         <EmptyState icon={CircleCheck} title={t("emptyTitle")} hint={t("emptyHint")} />
       ) : (
@@ -198,7 +207,10 @@ export async function MissingPanel({
                 key={p.id}
                 data-row
                 data-href={href}
-                className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover focus-visible:bg-selected focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                className={cn(
+                  "flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-border-subtle border-b px-4 py-1.5 last:border-b-0 hover:bg-hover",
+                  rowFocus,
+                )}
               >
                 <Link
                   href={href}
@@ -258,13 +270,15 @@ export async function KeyTasksPanel({
   const t = await getTranslations("eventDetail.overview.key");
   const rows = overview.tasks?.key ?? [];
   return (
-    <Panel aria-labelledby="key-title">
-      <PanelHeader>
-        <PanelTitle id="key-title" className="flex items-center gap-2">
+    <Panel
+      title={
+        <span className="inline-flex items-center gap-2">
           <KeyTaskMark />
           {t("title")}
-        </PanelTitle>
-      </PanelHeader>
+        </span>
+      }
+      titleId="key-title"
+    >
       {rows.length === 0 ? (
         <PanelBody className="text-muted-foreground text-small">{t("empty")}</PanelBody>
       ) : (
@@ -332,10 +346,7 @@ export async function DatesPanel({ event, today }: { event: EventDetail; today: 
   );
 
   return (
-    <Panel id="termine" aria-labelledby="dates-title" className="scroll-mt-4">
-      <PanelHeader>
-        <PanelTitle id="dates-title">{t("title")}</PanelTitle>
-      </PanelHeader>
+    <Panel id="termine" title={t("title")} titleId="dates-title" className="scroll-mt-4">
       {upcoming.length + past.length === 0 ? (
         <PanelBody className="text-muted-foreground text-small">{t("empty")}</PanelBody>
       ) : (
@@ -384,20 +395,21 @@ export async function NotesExcerpt({ event }: { event: EventDetail }) {
   const excerpt =
     text.length > NOTE_EXCERPT_CHARS ? `${text.slice(0, NOTE_EXCERPT_CHARS).trimEnd()} …` : text;
   return (
-    <Panel aria-labelledby="note-title">
-      <PanelHeader>
-        <PanelTitle id="note-title" className="flex items-center gap-2">
-          <NotebookText aria-hidden className="size-4 text-muted-foreground" />
+    <Panel
+      title={
+        <span className="inline-flex items-center gap-2">
+          <NotebookText aria-hidden className="size-[18px] text-muted-foreground" />
           {t("title")}
-        </PanelTitle>
-        <Link
-          href={`/veranstaltungen/${event.id}/notizen` as never}
-          className="inline-flex items-center gap-1 text-accent-soft-foreground text-small hover:underline"
-        >
+        </span>
+      }
+      titleId="note-title"
+      actions={
+        <Link href={`/veranstaltungen/${event.id}/notizen` as never} className={panelActionLink}>
           {t("link")}
           <ArrowRight aria-hidden className="size-3.5" />
         </Link>
-      </PanelHeader>
+      }
+    >
       <PanelBody className="line-clamp-4 whitespace-pre-line break-words text-foreground-2">
         {excerpt}
       </PanelBody>
@@ -449,12 +461,16 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-/** "Eckdaten": venue, times and prices; collapsed with a one-line summary, editable with event:write. */
+/**
+ * "Eckdaten": venue, the full Zeitplan grouped by day (ADR 0022) and prices; collapsed with a one-line
+ * summary, editable with event:write.
+ */
 export async function FactsPanel({ event, canWrite }: { event: EventDetail; canWrite: boolean }) {
   const t = await getTranslations("eventDetail.overview.facts");
   const tHeader = await getTranslations("eventDetail.header");
+  const tSchedule = await getTranslations("schedule");
   const locale = await getLocale();
-  const { venue, times } = event;
+  const { venue } = event;
   const address = [venue.street, [venue.postalCode, venue.city].filter(Boolean).join(" ")]
     .filter(Boolean)
     .join(", ");
@@ -464,8 +480,7 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
       title={t("title")}
       summary={t("summary", {
         venue: venue.name,
-        open: times.open,
-        close: times.close,
+        hours: formatVisitorHours(event.schedule, tSchedule),
         price: formatMoney(event.pricePerMCents, locale),
       })}
     >
@@ -474,10 +489,10 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
           <div className="mb-3 flex justify-end">
             <FactsDialog
               eventId={event.id}
-              multiDay={event.endsOn !== event.startsOn}
+              durationDays={daysBetween(event.startsOn, event.endsOn) + 1}
               happening={isHappening(event, todayIn())}
               facts={{
-                times: event.times,
+                schedule: event.schedule,
                 pricePerMCents: event.pricePerMCents,
                 bookingFeeCents: event.bookingFeeCents,
               }}
@@ -507,14 +522,11 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
             )}
           </Fact>
           <Fact label={t("times")}>
-            <span className="tabular">
-              {t("timesValue", {
-                setup: times.setup,
-                open: times.open,
-                close: times.close,
-                teardown: times.teardown,
-              })}
-            </span>
+            <ScheduleView
+              schedule={event.schedule}
+              startsOn={event.startsOn}
+              endsOn={event.endsOn}
+            />
           </Fact>
           <Fact label={t("price")}>
             <span className="tabular">
@@ -533,18 +545,30 @@ export async function FactsPanel({ event, canWrite }: { event: EventDetail; canW
   );
 }
 
-/** "Regeln der Art": new-goods share, banned goods, online booking; collapsed with a one-line summary. */
-export async function RulesPanel({ event }: { event: EventDetail }) {
+/**
+ * "Marktregeln": new-goods share, banned goods, online booking; collapsed with a one-line summary. An event
+ * of a market shows the market's rules (decision D2-3), editable with template:write; an event without a
+ * market shows its event type's rules, read-only.
+ */
+export async function RulesPanel({
+  event,
+  canEditMarket,
+}: {
+  event: EventDetail;
+  canEditMarket: boolean;
+}) {
   const t = await getTranslations("eventDetail.overview.rules");
   const tFacts = await getTranslations("eventDetail.overview.facts");
   const locale = await getLocale();
-  const rules = event.type.rules;
-  const share = formatNumber(Math.round(rules.newGoodsMaxShare * 100), locale, 0);
+  const { preset } = event;
+  const rules = preset ? preset.rules : event.type.rules;
+  // The dialog takes shares like 12,5 %, so show up to two decimals.
+  const share = formatNumber(Math.round(rules.newGoodsMaxShare * 10_000) / 100, locale, 2);
   const online = rules.onlineBookingAllowed ? tFacts("yes") : tFacts("no");
   return (
     <Disclosure
       id="rules-title"
-      title={t("title")}
+      title={preset ? t("marketTitle") : t("title")}
       summary={t("summary", {
         share,
         online,
@@ -555,6 +579,11 @@ export async function RulesPanel({ event }: { event: EventDetail }) {
       })}
     >
       <PanelBody>
+        {preset && canEditMarket && (
+          <div className="mb-3 flex justify-end">
+            <RulesDialog presetId={preset.id} presetName={preset.name} rules={preset.rules} />
+          </div>
+        )}
         <ul className="flex flex-col gap-0.5">
           <li>{tFacts("newGoods", { share })}</li>
           <li>
@@ -564,6 +593,9 @@ export async function RulesPanel({ event }: { event: EventDetail }) {
           </li>
           <li>{tFacts("onlineBooking", { value: online })}</li>
         </ul>
+        <p className="mt-3 text-faint-foreground text-small">
+          {preset ? t("marketSource", { market: preset.name }) : t("typeSource")}
+        </p>
       </PanelBody>
     </Disclosure>
   );
@@ -579,17 +611,16 @@ export async function TeamSummaryPanel({ event }: { event: EventDetail }) {
   const assigned = total - open.length;
   const level = event.health.team ?? "none";
   return (
-    <Panel aria-labelledby="team-title">
-      <PanelHeader>
-        <PanelTitle id="team-title">{t("title")}</PanelTitle>
-        <Link
-          href={`/veranstaltungen/${event.id}/team` as never}
-          className="inline-flex items-center gap-1 text-accent-soft-foreground text-small hover:underline"
-        >
+    <Panel
+      title={t("title")}
+      titleId="team-title"
+      actions={
+        <Link href={`/veranstaltungen/${event.id}/team` as never} className={panelActionLink}>
           {t("link")}
           <ArrowRight aria-hidden className="size-3.5" />
         </Link>
-      </PanelHeader>
+      }
+    >
       <PanelBody className="flex flex-col gap-2">
         <Health level={level} label={`${t("summary", { assigned, total })} · ${tHealth(level)}`} />
         <p className="text-foreground-2 text-small">

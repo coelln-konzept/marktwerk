@@ -4,12 +4,25 @@
  * services and the nightly carry-over job, not in the UI message files.
  */
 
-/** App-relative link that opens the task drawer on the right board. */
+/**
+ * App-relative link that opens the task drawer: on its event's Checkliste, or for a task without an event (a
+ * season task) on the Übersicht. The global `/board` is hidden (web `lib/modules.ts`, `globalBoard`), so no
+ * link leads there.
+ */
 export function taskLink(taskId: string, eventId: string | null): string {
   const query = `?aufgabe=${taskId}`;
-  return eventId ? `/veranstaltungen/${eventId}/board${query}` : `/board${query}`;
+  return eventId ? `/veranstaltungen/${eventId}/board${query}` : `/${query}`;
 }
 
+/**
+ * What a season task (research 13 §6.3) is about in a stored German text, where an event task names its event:
+ * "Flohmarkt Bilk · Saison 2027". The UI says the same through the message key `tasks.seasonContext`.
+ */
+export function seasonContextName(marketName: string, season: number): string {
+  return `${marketName} · Saison ${season}`;
+}
+
+/** `eventName` is the event's name, or for a season task its {@link seasonContextName}. */
 type Subject = { title: string; eventName: string | null };
 
 const where = (s: Subject) => (s.eventName ? ` (${s.eventName})` : "");

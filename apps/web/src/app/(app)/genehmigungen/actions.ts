@@ -10,6 +10,7 @@ import {
   PermitInputError,
   type PermitPatch,
   type PermitStatusState,
+  type PermitStepDetails,
   reinstatePermit,
   restorePermit,
   restorePermitStatus,
@@ -51,11 +52,14 @@ export async function savePermitAction(id: string, patch: PermitPatch, undo = fa
   return guarded(() => updatePermit(actor, id, patch, { undo }));
 }
 
-/** Drawer: next step of the status flow. */
-export async function changePermitStatus(id: string, to: string) {
+/**
+ * Drawer: next step of the status flow, with what the step asks for (beantragt: dates of application and
+ * expected decision; genehmigt: Aktenzeichen, Erteilt am, validity).
+ */
+export async function changePermitStatus(id: string, to: string, details?: PermitStepDetails) {
   await requirePermission("permit", "write");
   const actor = await getActor();
-  return guarded(() => setPermitStatus(actor, id, to));
+  return guarded(() => setPermitStatus(actor, id, to, details));
 }
 
 /** Undo toast of changePermitStatus. */

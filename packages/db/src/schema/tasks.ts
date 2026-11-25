@@ -7,7 +7,6 @@ import {
   doublePrecision,
   index,
   integer,
-  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -17,7 +16,7 @@ import { archivedAt, id, timestamps } from "./_columns";
 import { app } from "./_schema";
 import { user } from "./auth";
 import { obligation } from "./company";
-import { event } from "./events";
+import { event, eventSeason } from "./events";
 import { payable } from "./money";
 import { dutyRole, staffMember } from "./people";
 import { permit } from "./permits";
@@ -31,13 +30,17 @@ import {
   templateVersion,
 } from "./templates";
 
-/** A named list of tasks: the timeline of one event, or the preparation steps of one permit. */
+/**
+ * A named list of tasks: the timeline of one event, the season work of one Saison record (research 13 §6), or the
+ * preparation steps of one permit. Exactly one owner (check `checklist_one_owner`).
+ */
 export const checklist = app.table(
   "checklist",
   {
     id: id(),
     eventId: uuid().references(() => event.id, { onDelete: "cascade" }),
     permitId: uuid().references(() => permit.id, { onDelete: "cascade" }),
+    seasonId: uuid().references(() => eventSeason.id, { onDelete: "cascade" }),
     /** Template and the exact version it was instantiated from (null = hand-made). */
     templateId: uuid().references(() => checklistTemplate.id, { onDelete: "set null" }),
     templateVersionId: uuid().references(() => templateVersion.id, { onDelete: "set null" }),
@@ -49,8 +52,9 @@ export const checklist = app.table(
   (t) => [
     index().on(t.eventId),
     index().on(t.permitId),
+    index().on(t.seasonId),
     index().on(t.templateVersionId),
-    check("checklist_one_owner", sql`not (${t.eventId} is not null and ${t.permitId} is not null)`),
+    check("checklist_one_owner", sql`num_nonnulls(${t.eventId}, ${t.permitId}, ${t.seasonId}) = 1`),
   ],
 );
 
@@ -100,6 +104,8 @@ export const task = app.table(
 
     // origin
     eventId: uuid().references(() => event.id, { onDelete: "cascade" }),
+    /** Season work (research 13 §6): the task belongs to a Saison record, not to an event. */
+    seasonId: uuid().references(() => eventSeason.id, { onDelete: "cascade" }),
     checklistId: uuid().references(() => checklist.id, { onDelete: "cascade" }),
     templateItemId: uuid().references(() => templateItem.id, { onDelete: "set null" }),
     /** Survives template versions (the item row differs per version). */
@@ -107,6 +113,10 @@ export const task = app.table(
     permitId: uuid().references(() => permit.id, { onDelete: "set null" }),
     payableId: uuid().references(() => payable.id, { onDelete: "set null" }),
     obligationId: uuid().references(() => obligation.id, { onDelete: "set null" }),
+    /**
+     * Subtask of this task (ADR 0021). One level only: a parent has no parent, and a task with subtasks is no
+     * subtask (service guard plus the trigger `task_one_level_subtasks`, migration 0019).
+     */
     parentTaskId: uuid().references((): AnyPgColumn => task.id, { onDelete: "set null" }),
     source: taskSource().notNull().default("manual"),
 
@@ -188,6 +198,7 @@ export const task = app.table(
   },
   (t) => [
     index().on(t.eventId, t.status),
+    index().on(t.seasonId, t.status),
     index().on(t.assigneeId, t.status, t.dueAt),
     index().on(t.status, t.dueAt),
     index().on(t.checklistId),
@@ -217,46 +228,6 @@ export const task = app.table(
     check("task_rollover", sql`${t.rolloverCount} >= 0`),
     check("task_done_completed", sql`${t.status} <> 'done' or ${t.completedAt} is not null`),
     check("task_not_own_parent", sql`${t.parentTaskId} is null or ${t.parentTaskId} <> ${t.id}`),
-  ],
-);
-
-/** A small step inside a task (from the template's `check_items` or added by hand). */
-export const taskCheckItem = app.table(
-  "task_check_item",
-  {
-    id: id(),
-    taskId: uuid()
-      .notNull()
-      .references(() => task.id, { onDelete: "cascade" }),
-    title: text().notNull(),
-    sort: integer().notNull().default(0),
-    done: boolean().notNull().default(false),
-    doneAt: timestamp({ withTimezone: true }),
-    doneByStaffMemberId: uuid().references(() => staffMember.id, { onDelete: "set null" }),
-    ...timestamps,
-  },
-  (t) => [
-    index().on(t.taskId, t.sort),
-    check("task_check_item_done", sql`${t.done} = (${t.doneAt} is not null)`),
-  ],
-);
-
-/** "Task A needs task B first." Informational: does not move dates. */
-export const taskDependency = app.table(
-  "task_dependency",
-  {
-    taskId: uuid()
-      .notNull()
-      .references(() => task.id, { onDelete: "cascade" }),
-    dependsOnTaskId: uuid()
-      .notNull()
-      .references(() => task.id, { onDelete: "cascade" }),
-    ...timestamps,
-  },
-  (t) => [
-    primaryKey({ columns: [t.taskId, t.dependsOnTaskId] }),
-    index().on(t.dependsOnTaskId),
-    check("task_dependency_not_self", sql`${t.taskId} <> ${t.dependsOnTaskId}`),
   ],
 );
 

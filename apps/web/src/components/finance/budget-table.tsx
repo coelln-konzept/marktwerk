@@ -47,7 +47,7 @@ export function BudgetTable({
   const t = useTranslations("eventMoney.table");
   const tErrors = useTranslations("finance.errors");
   const locale = useLocale();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
   const [extra, setExtra] = useState<string[]>([]);
   const [error, setError] = useState<{ category: string; code: string } | null>(null);
@@ -91,7 +91,8 @@ export function BudgetTable({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await setBudgetLineAction(eventId, row.category, previousCents);
-          showToast({ message: undone.ok ? t("reverted") : tErrors("generic") });
+          if (undone.ok) showToast({ message: t("reverted") });
+          else showError(tErrors("generic"));
         },
       });
     });

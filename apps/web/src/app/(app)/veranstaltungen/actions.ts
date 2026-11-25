@@ -1,6 +1,6 @@
 "use server";
 
-import { addDays } from "@marktwerk/core";
+import { addDays, clampToLookupRange } from "@marktwerk/core";
 import { refresh } from "next/cache";
 import { getActor } from "@/server/actor";
 import { type GenerationPreview, previewGeneration } from "@/server/queries/generation-preview";
@@ -20,8 +20,11 @@ type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 /** Existing events around the months shown in "Markt planen", for markers and preview warnings. */
 export async function loadScheduleContext(from: string, to: string) {
   await requirePermission("event", "write");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return [];
-  return scheduledEventsBetween(addDays(from, -7), addDays(to, 7));
+  // "9999-12-31" + 7 days would be year 10000, which Postgres rejects (HTTP 500 in the hints, UX-041).
+  // Only that is cut: "Markt planen" and agreements may look at years outside the plannable ones.
+  const range = clampToLookupRange(from, to);
+  if (!range) return [];
+  return scheduledEventsBetween(addDays(range.from, -7), addDays(range.to, 7));
 }
 
 /**

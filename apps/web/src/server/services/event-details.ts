@@ -4,37 +4,58 @@ import {
   addDays,
   berlinDay,
   type CandidateCheck,
+  CLOSED_TASK_STATUSES,
   can,
   canMoveEvent,
   checkCandidates,
-  checkEventTimes,
   daysBetween,
   defaultAnchors,
-  type EventTimesInput,
   isAnnounced,
+  isEventDateInRange,
   isIsoDate,
   MAX_PRICE_CENTS,
+  parseSchedule,
+  type Schedule,
+  sameSchedule,
+  validateSchedule,
 } from "@marktwerk/core";
 import type { EventStatus } from "@marktwerk/core/events/lifecycle";
-import { event, eventAnchor, eventType, venue } from "@marktwerk/db/schema";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import {
+  event,
+  eventAnchor,
+  eventPermit,
+  eventType,
+  permit,
+  staffMember,
+  task,
+  venue,
+} from "@marktwerk/db/schema";
+import { and, asc, eq, inArray, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "../../lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { scheduledEventsBetween } from "./events";
-import { notifyDatesShifted, planTaskShift, type ShiftedTask, shiftTasks } from "./task-schedule";
+import { ensureSeasonsTx, planSeasonShiftForMove, syncSeasonsTx } from "./seasons";
+import {
+  notifyDatesShifted,
+  planTaskShift,
+  retractDatesShifted,
+  type ShiftedTask,
+  shiftedTaskRecipients,
+  shiftTasks,
+} from "./task-schedule";
 
 export type EventDetailsError =
   | "not_found"
-  | "invalid_time"
-  | "open_after_close"
-  | "close_after_teardown"
-  | "setup_after_open"
+  /** The Zeitplan has an issue (the dialog shows the row issues from validateSchedule). */
+  | "invalid_schedule"
   | "invalid_price"
   | "invalid_flag"
   | "invalid_date"
+  /** A new first day outside last year … five years ahead (`eventDateRange`, UX-041). */
+  | "out_of_range"
   | "invalid_duration"
   | "invalid_name"
   | "invalid_venue"
@@ -64,23 +85,22 @@ async function lockEvent(tx: Tx, id: string) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Eckdaten: times and prices
+// Eckdaten: Zeitplan and prices
 
 export type EventFacts = {
-  times: EventTimesInput;
+  /** The event's Zeitplan (ADR 0022). */
+  schedule: Schedule;
   pricePerMCents: number;
   bookingFeeCents: number;
 };
-
-const sameTimes = (a: EventTimesInput, b: EventTimesInput) =>
-  a.setup === b.setup && a.open === b.open && a.close === b.close && a.teardown === b.teardown;
 
 const validPrice = (cents: number) =>
   Number.isSafeInteger(cents) && cents >= 0 && cents <= MAX_PRICE_CENTS;
 
 /**
- * "Eckdaten bearbeiten": times of the event day and prices, for this event only (the preset stays).
- * `expected` (undo toast) applies the change only while the event still has those values.
+ * "Eckdaten bearbeiten": the Zeitplan and prices, for this event only (the market stays). The Zeitplan
+ * is checked with validateSchedule for the event's length. `expected` (undo toast) applies the change
+ * only while the event still has those values.
  * Audited as "event.update" with {field: {from, to}} for the fields that changed.
  */
 export async function updateEventFacts(
@@ -92,26 +112,25 @@ export async function updateEventFacts(
   if (!can(actor.role, "event", "write")) forbidden();
   if (!validPrice(next.pricePerMCents) || !validPrice(next.bookingFeeCents))
     throw new EventDetailsInputError("invalid_price");
-  const times: EventTimesInput = {
-    setup: next.times.setup,
-    open: next.times.open,
-    close: next.times.close,
-    teardown: next.times.teardown,
-  };
+  const schedule = parseSchedule(next.schedule);
+  if (!schedule) throw new EventDetailsInputError("invalid_schedule");
+  const expectedSchedule = expected ? parseSchedule(expected.schedule) : null;
+  if (expected && !expectedSchedule) throw new EventDetailsInputError("conflict");
 
   return db.transaction(async (tx) => {
     const current = await lockEvent(tx, id);
-    const timesError = checkEventTimes(times, current.endsOn !== current.startsOn);
-    if (timesError) throw new EventDetailsInputError(timesError);
+    const durationDays = daysBetween(current.startsOn, current.endsOn) + 1;
+    if (validateSchedule(schedule, durationDays).length > 0)
+      throw new EventDetailsInputError("invalid_schedule");
     const previous: EventFacts = {
-      times: current.times,
+      schedule: current.schedule,
       pricePerMCents: current.pricePerMCents,
       bookingFeeCents: current.bookingFeeCents,
     };
     if (
       expected &&
       !(
-        sameTimes(previous.times, expected.times) &&
+        sameSchedule(previous.schedule, expectedSchedule ?? []) &&
         previous.pricePerMCents === expected.pricePerMCents &&
         previous.bookingFeeCents === expected.bookingFeeCents
       )
@@ -119,7 +138,8 @@ export async function updateEventFacts(
       throw new EventDetailsInputError("conflict");
 
     const changes: Record<string, { from: unknown; to: unknown }> = {};
-    if (!sameTimes(previous.times, times)) changes.times = { from: previous.times, to: times };
+    if (!sameSchedule(previous.schedule, schedule))
+      changes.schedule = { from: previous.schedule, to: schedule };
     if (previous.pricePerMCents !== next.pricePerMCents)
       changes.pricePerMCents = { from: previous.pricePerMCents, to: next.pricePerMCents };
     if (previous.bookingFeeCents !== next.bookingFeeCents)
@@ -129,7 +149,7 @@ export async function updateEventFacts(
     await tx
       .update(event)
       .set({
-        times,
+        schedule,
         pricePerMCents: next.pricePerMCents,
         bookingFeeCents: next.bookingFeeCents,
       })
@@ -214,6 +234,29 @@ export type EventSchedulePreview = {
   shifting: { id: string; title: string; from: string | null; to: string; overdue: boolean }[];
   /** How many of them would be overdue after the change (new due day before today). */
   tasksOverdueAfter: number;
+  /**
+   * Season tasks (research 13 §6.2) whose due date moves because the season's first or last date changes, same
+   * shape as `shifting`; not part of `tasksShifting`.
+   */
+  seasonShifting: {
+    id: string;
+    title: string;
+    from: string | null;
+    to: string;
+    overdue: boolean;
+  }[];
+  /**
+   * Open tasks with a due date that stay where they are (UX-046): set by hand (`manual`) or without a rule
+   * (`noRule`); `afterEnd` of them fall after the new last day.
+   */
+  kept: { manual: number; noRule: number; afterEnd: number };
+  /** Names of the people told in-app about their moved tasks (never the person who moves). */
+  notified: string[];
+  /**
+   * Permits of this event still to apply for: their "Antrag bis" stays as it is (UX-D3 is open), so the
+   * preview names them instead of letting the deadline stay silently.
+   */
+  permitsKept: { id: string; title: string; applyBy: string }[];
 };
 
 type EventRow = typeof event.$inferSelect;
@@ -227,12 +270,72 @@ function target(current: EventRow, change: ScheduleChange) {
   if (!isIsoDate(startsOn)) throw new EventDetailsInputError("invalid_date");
   if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > MAX_DURATION_DAYS)
     throw new EventDetailsInputError("invalid_duration");
-  return {
-    startsOn,
-    endsOn: addDays(startsOn, durationDays - 1),
-    durationDays,
-    venueId: change.venueId ?? current.venueId,
-  };
+  const endsOn = addDays(startsOn, durationDays - 1);
+  // An old event near the end of year 9999 must not overflow into an invalid date (UX-041).
+  if (!isIsoDate(endsOn)) throw new EventDetailsInputError("invalid_date");
+  return { startsOn, endsOn, durationDays, venueId: change.venueId ?? current.venueId };
+}
+
+/** A new first day picked in "Verschieben" must lie in the plausible range (UX-041; the undo may go back). */
+function checkNewFirstDay(startsOn: string) {
+  if (!isIsoDate(startsOn)) throw new EventDetailsInputError("invalid_date");
+  if (!isEventDateInRange(startsOn, todayIn())) throw new EventDetailsInputError("out_of_range");
+}
+
+/** Open, dated tasks of the event that a change of dates leaves where they are (not in `shifted`). */
+async function keptTasks(eventId: string, shifted: ShiftedTask[], endsOn: string) {
+  const moving = shifted.map((s) => s.id);
+  const rows = await db
+    .select({
+      dueAt: task.dueAt,
+      dueOverridden: task.dueOverridden,
+      anchorKey: task.anchorKey,
+      offsetDays: task.offsetDays,
+    })
+    .from(task)
+    .where(
+      and(
+        eq(task.eventId, eventId),
+        isNotNull(task.dueAt),
+        notInArray(task.status, [...CLOSED_TASK_STATUSES]),
+        moving.length > 0 ? notInArray(task.id, moving) : undefined,
+      ),
+    );
+  const kept = { manual: 0, noRule: 0, afterEnd: 0 };
+  for (const r of rows) {
+    if (r.dueOverridden) kept.manual++;
+    else if (r.anchorKey === null || r.offsetDays === null) kept.noRule++;
+    else continue; // follows its anchor, the date just stays the same
+    if (r.dueAt && berlinDay(r.dueAt) > endsOn) kept.afterEnd++;
+  }
+  return kept;
+}
+
+/** Permits of the event not applied for yet, with their "Antrag bis" (which a move leaves as it is). */
+async function permitsToApply(eventId: string) {
+  const rows = await db
+    .select({ id: permit.id, title: permit.title, applyBy: permit.applyBy })
+    .from(eventPermit)
+    .innerJoin(permit, eq(permit.id, eventPermit.permitId))
+    .where(
+      and(
+        eq(eventPermit.eventId, eventId),
+        isNull(permit.archivedAt),
+        isNotNull(permit.applyBy),
+        inArray(permit.status, ["not_started", "preparing"]),
+      ),
+    )
+    .orderBy(asc(permit.applyBy), asc(permit.title));
+  return rows.flatMap((r) => (r.applyBy ? [{ id: r.id, title: r.title, applyBy: r.applyBy }] : []));
+}
+
+async function staffNames(ids: string[]) {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select({ name: staffMember.displayName })
+    .from(staffMember)
+    .where(inArray(staffMember.id, ids));
+  return rows.map((r) => r.name).sort((a, b) => a.localeCompare(b, "de"));
 }
 
 /** Old anchors by key; older data may lack the teardown anchor (= last event day then, like DatesPanel). */
@@ -283,20 +386,33 @@ export async function previewEventSchedule(
 
   const shifted = unchanged
     ? []
-    : await planTaskShift(db, id, new Map([...old, ...Object.entries(anchors)]));
+    : await planTaskShift(db, { eventId: id }, new Map([...old, ...Object.entries(anchors)]));
+  const seasonShifted = unchanged
+    ? []
+    : await planSeasonShiftForMove(db, current, { startsOn: next.startsOn, endsOn: next.endsOn });
   const today = todayIn();
-  const shifting = shifted
-    .map((s) => {
-      const to = berlinDay(s.to);
-      return {
-        id: s.id,
-        title: s.title,
-        from: s.from ? berlinDay(s.from) : null,
-        to,
-        overdue: to < today,
-      };
-    })
-    .sort((a, b) => a.to.localeCompare(b.to) || a.title.localeCompare(b.title, "de"));
+  const toRows = (list: ShiftedTask[]) =>
+    list
+      .map((s) => {
+        const to = berlinDay(s.to);
+        return {
+          id: s.id,
+          title: s.title,
+          from: s.from ? berlinDay(s.from) : null,
+          to,
+          overdue: to < today,
+        };
+      })
+      .sort((a, b) => a.to.localeCompare(b.to) || a.title.localeCompare(b.title, "de"));
+  const shifting = toRows(shifted);
+  const datesChange = next.startsOn !== current.startsOn || next.endsOn !== current.endsOn;
+  const [kept, notified, permitsKept] = datesChange
+    ? await Promise.all([
+        keptTasks(id, shifted, next.endsOn),
+        staffNames(shiftedTaskRecipients(actor, shifted)),
+        next.startsOn !== current.startsOn ? permitsToApply(id) : [],
+      ])
+    : [{ manual: 0, noRule: 0, afterEnd: 0 }, [], []];
 
   return {
     status: current.status,
@@ -309,12 +425,16 @@ export async function previewEventSchedule(
     tasksShifting: shifting.length,
     shifting,
     tasksOverdueAfter: shifting.filter((s) => s.overdue).length,
+    seasonShifting: toRows(seasonShifted),
+    kept,
+    notified,
+    permitsKept,
   };
 }
 
 /** "Verschieben": the preview for a new first day. */
 export async function previewEventMove(actor: Actor, id: string, startsOn: string) {
-  if (!isIsoDate(startsOn)) throw new EventDetailsInputError("invalid_date");
+  checkNewFirstDay(startsOn);
   return previewEventSchedule(actor, id, { startsOn });
 }
 
@@ -322,15 +442,20 @@ export async function previewEventMove(actor: Actor, id: string, startsOn: strin
  * The one place that changes the days of an event (CLAUDE.md: anchor shifts): first/last day, season and
  * the four named dates (booking cut-off = Monday before). Other anchors (custom ones, later the permit
  * decision) stay. Open tasks that follow their anchor (not done, due date not set by hand) get their
- * new due date here too (M2). Returns the anchor diff for the audit entry and the tasks that moved.
+ * new due date here too (M2), and so do the season tasks when the season's first or last date changes (R10;
+ * moving into another year makes sure that year's Saison record exists). Returns the anchor diff for the audit
+ * entry and the tasks that moved.
  */
 async function applySchedule(
   tx: Tx,
+  actor: Actor,
   current: EventRow,
   next: { startsOn: string; endsOn: string; durationDays: number },
+  cause: "event_move" | "event_update",
 ): Promise<{
   anchors: Record<string, { from: string | null; to: string }>;
   shifted: ShiftedTask[];
+  seasonShifted: number;
 }> {
   await tx
     .update(event)
@@ -357,13 +482,40 @@ async function applySchedule(
         set: { date: anchors[key] },
       });
   }
-  const shifted = await shiftTasks(tx, current.id, new Map([...old, ...Object.entries(anchors)]));
-  return { anchors: diff, shifted };
+  const shifted = await shiftTasks(
+    tx,
+    { eventId: current.id },
+    new Map([...old, ...Object.entries(anchors)]),
+  );
+  let seasonShifted = 0;
+  if (current.presetId) {
+    const nextSeason = Number(next.startsOn.slice(0, 4));
+    if (nextSeason !== current.season)
+      await ensureSeasonsTx(
+        tx,
+        actor,
+        [{ presetId: current.presetId, season: nextSeason }],
+        "event_move",
+      );
+    const synced = await syncSeasonsTx(
+      tx,
+      actor,
+      [
+        { presetId: current.presetId, season: current.season },
+        { presetId: current.presetId, season: nextSeason },
+      ],
+      cause,
+    );
+    seasonShifted = synced.reduce((n, s) => n + s.shifted.length, 0);
+  }
+  return { anchors: diff, shifted, seasonShifted };
 }
 
 /**
  * "Verschieben": new first day, duration kept. Only until the event runs. `expectedStartsOn` guards
- * against a concurrent move (and makes the undo toast safe). Warnings never block.
+ * against a concurrent move (and makes the undo toast safe). Warnings never block. The undo takes back the
+ * move's notices that are still unread instead of sending a second one (UX-046); people who already read
+ * theirs are told about the way back.
  */
 export async function moveEvent(
   actor: Actor,
@@ -371,20 +523,43 @@ export async function moveEvent(
   startsOn: string,
   expectedStartsOn: string,
   options: { undo?: boolean } = {},
-): Promise<{ changed: boolean; from: string; to: string; tasksShifted: number }> {
+): Promise<{
+  changed: boolean;
+  from: string;
+  to: string;
+  tasksShifted: number;
+  seasonTasksShifted: number;
+}> {
   if (!can(actor.role, "event", "write")) forbidden();
-  if (!isIsoDate(startsOn)) throw new EventDetailsInputError("invalid_date");
+  if (options.undo) {
+    if (!isIsoDate(startsOn)) throw new EventDetailsInputError("invalid_date");
+  } else checkNewFirstDay(startsOn);
 
   return db.transaction(async (tx) => {
     const current = await lockEvent(tx, id);
     if (current.startsOn !== expectedStartsOn) throw new EventDetailsInputError("conflict");
     if (!canMoveEvent(current.status)) throw new EventDetailsInputError("not_movable");
     if (startsOn === current.startsOn)
-      return { changed: false, from: current.startsOn, to: startsOn, tasksShifted: 0 };
+      return {
+        changed: false,
+        from: current.startsOn,
+        to: startsOn,
+        tasksShifted: 0,
+        seasonTasksShifted: 0,
+      };
 
     const next = target(current, { startsOn });
-    const { anchors, shifted } = await applySchedule(tx, current, next);
-    await notifyDatesShifted(tx, actor, current, next, shifted);
+    const { anchors, shifted, seasonShifted } = await applySchedule(
+      tx,
+      actor,
+      current,
+      next,
+      "event_move",
+    );
+    const retracted = options.undo
+      ? await retractDatesShifted(tx, { id, from: next.startsOn, to: current.startsOn })
+      : new Set<string>();
+    await notifyDatesShifted(tx, actor, current, next, shifted, retracted);
     await audit(tx, actor.id, [
       {
         action: "event.move",
@@ -395,6 +570,7 @@ export async function moveEvent(
           to: { startsOn: next.startsOn, endsOn: next.endsOn },
           anchors,
           ...(shifted.length > 0 ? { tasksShifted: shifted.length } : {}),
+          ...(seasonShifted > 0 ? { seasonTasksShifted: seasonShifted } : {}),
           ...(options.undo ? { undo: true } : {}),
         },
       },
@@ -404,6 +580,7 @@ export async function moveEvent(
       from: current.startsOn,
       to: next.startsOn,
       tasksShifted: shifted.length,
+      seasonTasksShifted: seasonShifted,
     };
   });
 }
@@ -499,7 +676,9 @@ export async function updateEventBasics(
       .update(event)
       .set({ name, venueId: schedule.venueId, eventTypeId: next.eventTypeId })
       .where(eq(event.id, id));
-    const applied = changes.durationDays ? await applySchedule(tx, current, schedule) : undefined;
+    const applied = changes.durationDays
+      ? await applySchedule(tx, actor, current, schedule, "event_update")
+      : undefined;
     const anchors = applied?.anchors;
     const shifted = applied?.shifted ?? [];
     if (applied) await notifyDatesShifted(tx, actor, current, schedule, shifted);
@@ -512,6 +691,9 @@ export async function updateEventBasics(
           changes,
           ...(anchors ? { anchors } : {}),
           ...(shifted.length > 0 ? { tasksShifted: shifted.length } : {}),
+          ...(applied && applied.seasonShifted > 0
+            ? { seasonTasksShifted: applied.seasonShifted }
+            : {}),
           ...(expected ? { undo: true } : {}),
         },
       },

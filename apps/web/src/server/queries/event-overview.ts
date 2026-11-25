@@ -1,6 +1,7 @@
 import "server-only";
 import {
   berlinDay,
+  CLOSED_TASK_STATUSES,
   can,
   type EventCountdown,
   eventCountdown,
@@ -13,11 +14,13 @@ import {
   type OverviewTask,
   type PermitProgress,
   permitProgress,
+  resolveRelativeDue,
   type TaskProgress,
   taskProgress,
 } from "@marktwerk/core";
+import { isTopLevel, subtaskAggregates } from "@marktwerk/db";
 import { eventPermit, permit, task } from "@marktwerk/db/schema";
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, count, eq, isNull, ne, notInArray } from "drizzle-orm";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { visibleTasks } from "../task-scope";
@@ -37,6 +40,19 @@ export type EventOverview = {
     missing: OverviewPermit[];
   } | null;
 };
+
+/**
+ * Open tasks of the event, subtasks included: exactly the ones a cancellation would close (named in the
+ * "Absagen" dialog, UX-049). Only for actors who may change the event status.
+ */
+export async function countOpenEventTasks(actor: Actor, eventId: string): Promise<number> {
+  if (!can(actor.role, "event", "write")) return 0;
+  const [row] = await db
+    .select({ n: count() })
+    .from(task)
+    .where(and(eq(task.eventId, eventId), notInArray(task.status, [...CLOSED_TASK_STATUSES])));
+  return row?.n ?? 0;
+}
 
 /**
  * Everything the event's Überblick needs in one go: the status line numbers, "Was fehlt" (tasks and
@@ -59,9 +75,18 @@ export async function getEventOverview(
             isKey: task.isKey,
             snoozedUntil: task.snoozedUntil,
             boardSort: task.boardSort,
+            ...subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00")),
           })
           .from(task)
-          .where(and(visibleTasks(actor), eq(task.eventId, event.id), ne(task.status, "cancelled")))
+          .where(
+            and(
+              visibleTasks(actor),
+              // Top-level tasks with their subtask progress (ADR 0021).
+              isTopLevel(),
+              eq(task.eventId, event.id),
+              ne(task.status, "cancelled"),
+            ),
+          )
       : null,
     can(actor.role, "permit", "read")
       ? db
@@ -90,6 +115,10 @@ export async function getEventOverview(
       isKey: r.isKey,
       snoozedUntil: r.snoozedUntil,
       boardSort: r.boardSort,
+      subtasksDone: r.subtasksDone,
+      subtasksTotal: r.subtasksTotal,
+      subtasksOverdue: r.subtasksOverdue,
+      openSubtasks: r.subtasksOpen,
     })) ?? null;
 
   return {

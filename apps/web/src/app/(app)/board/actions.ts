@@ -4,16 +4,17 @@ import type { BoardColumn, TaskStatusKey } from "@marktwerk/core";
 import { refresh } from "next/cache";
 import { getActor } from "@/server/actor";
 import {
-  addCheckItem,
   assignTask,
   createTask,
+  deleteTask,
   type EffortFeedback,
   type MovePosition,
   type MoveScope,
   moveTask,
   type NewTask,
-  setCheckItemDone,
+  restoreTask,
   setEffortFeedback,
+  setTaskParent,
   setTaskStatus,
   snoozeTask,
   TaskInputError,
@@ -26,7 +27,7 @@ import { requirePermission } from "@/server/session";
 
 export type ActionResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string; detail?: string[] };
+  | { ok: false; error: string; detail?: string[]; count?: number };
 
 /** Runs a service call, turns its input errors into results and refreshes the page data afterwards. */
 async function run<T>(call: () => Promise<T>): Promise<ActionResult<T>> {
@@ -38,7 +39,12 @@ async function run<T>(call: () => Promise<T>): Promise<ActionResult<T>> {
     if (error instanceof TaskInputError) {
       // The page may be showing an outdated card; make it current again.
       if (["conflict", "not_found", "invalid_state"].includes(error.code)) refresh();
-      return { ok: false, error: error.code, detail: error.detail };
+      return {
+        ok: false,
+        error: error.code,
+        detail: error.detail,
+        ...(error.count !== undefined ? { count: error.count } : {}),
+      };
     }
     throw error;
   }
@@ -73,6 +79,20 @@ export async function setStatus(
   return run(() => setTaskStatus(actor, taskId, status, input));
 }
 
+/** "Löschen" in the task drawer and the card menu (UT2-13); the toast offers undo. */
+export async function deleteCard(taskId: string) {
+  await requirePermission("task", "delete");
+  const actor = await getActor();
+  return run(() => deleteTask(actor, taskId));
+}
+
+/** "Wiederherstellen" of a deleted task in the Verlauf. */
+export async function restoreCard(taskId: string) {
+  await requirePermission("task", "delete");
+  const actor = await getActor();
+  return run(() => restoreTask(actor, taskId));
+}
+
 /** Undo toast of a move, assignment or status change. */
 export async function undoChange(auditId: string) {
   await requirePermission("task", "write");
@@ -92,16 +112,18 @@ export async function giveEffortFeedback(taskId: string, feedback: EffortFeedbac
   return run(() => setEffortFeedback(actor, taskId, feedback));
 }
 
-export async function tickCheckItem(taskId: string, itemId: string, done: boolean) {
+/** "Unteraufgabe hinzufügen" in the task drawer (ADR 0021). */
+export async function newSubtask(parentId: string, title: string) {
   await requirePermission("task", "write");
   const actor = await getActor();
-  return run(() => setCheckItemDone(actor, taskId, itemId, done));
+  return run(() => createTask(actor, { title, parentId }));
 }
 
-export async function newCheckItem(taskId: string, title: string) {
+/** "Unteraufgabe von…" / "Aus Hauptaufgabe lösen" (null), later the drag in the Checkliste (ADR 0021). */
+export async function setParent(taskId: string, parentId: string | null) {
   await requirePermission("task", "write");
   const actor = await getActor();
-  return run(() => addCheckItem(actor, taskId, title));
+  return run(() => setTaskParent(actor, taskId, parentId));
 }
 
 /** "Zurückstellen": hides the task from the due lists until `until` (`YYYY-MM-DD`, after today). */

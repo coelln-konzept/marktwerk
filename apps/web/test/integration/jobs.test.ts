@@ -10,11 +10,20 @@ import {
   staffMember,
   task,
 } from "@marktwerk/db/schema";
-import { dailyDigest, deadlineSweep, type MailTransport, sendQueuedEmails } from "@marktwerk/jobs";
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import {
+  CLAIM_TIMEOUT_MS,
+  createMailTransport,
+  dailyDigest,
+  deadlineSweep,
+  type MailTransport,
+  sendQueuedEmails,
+} from "@marktwerk/jobs";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { fakeSmtpServer, parseReceived } from "../helpers/fake-smtp";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
+import { insertSeason } from "../helpers/tasks";
 
 /** Wed 21.10.2026, 12:00 Berlin (CEST). */
 const NOW = new Date("2026-10-21T10:00:00Z");
@@ -127,7 +136,7 @@ describe("deadline sweep: tasks", () => {
       severity: "info",
       subjectType: "task",
       subjectId: t.id,
-      link: `/board?detail=task:${t.id}`,
+      link: `/?aufgabe=${t.id}`,
     });
     expect(rows[0]?.title).toBe("Fällig in 2 Tagen: Plakate bestellen");
     expect(rows[0]?.dedupeKey).toBe(`task:${t.id}:due-3d:${daysFromNow(2).toISOString()}`);
@@ -203,7 +212,7 @@ describe("deadline sweep: tasks", () => {
       ["ben@test.local", "notification.immediate", "queued"],
     ]);
     expect(mails[1]?.subject).toContain("Eskaliert: Halteverbot aufstellen");
-    expect(mails[1]?.renderedText).toContain("http://localhost:3000/board?detail=task:");
+    expect(mails[1]?.renderedText).toContain("http://localhost:3000/?aufgabe=");
 
     // Nothing again on the next sweeps.
     expect(await deadlineSweep(db, NOW)).toMatchObject({ created: 0, escalated: 0, emails: 0 });
@@ -314,7 +323,7 @@ describe("deadline sweep: tasks", () => {
         season: 2026,
         startsOn: "2026-10-25",
         endsOn: "2026-10-25",
-        times: cat.times,
+        schedule: cat.schedule,
         status: "cancelled",
         pricePerMCents: 0,
         bookingFeeCents: 0,
@@ -327,6 +336,37 @@ describe("deadline sweep: tasks", () => {
       eventId: ev?.id,
     });
     expect((await deadlineSweep(db, NOW)).created).toBe(0);
+  });
+
+  it("names the market and season of a season task in reminders, escalations and the center (R13)", async () => {
+    const season = await insertSeason(cat);
+    const t = await addTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      assigneeId: annaId,
+      priority: "high",
+      dueAt: daysFromNow(-2),
+    });
+    await deadlineSweep(db, NOW);
+    const [reminder] = await notificationsOf(annaId);
+    expect(reminder).toMatchObject({
+      reason: "overdue",
+      subjectId: t.id,
+      title: "Überfällig: Termine planen · Testflohmarkt · Saison 2027",
+      link: `/?aufgabe=${t.id}`,
+    });
+    const [escalation] = await notificationsOf(benId);
+    expect(escalation?.title).toBe(
+      "Eskaliert: Termine planen · Testflohmarkt · Saison 2027 ist seit 2 Tagen überfällig",
+    );
+    // The company-wide notification center (owner and manager).
+    const center = await db
+      .select()
+      .from(notification)
+      .where(and(isNull(notification.recipientStaffMemberId), eq(notification.subjectId, t.id)));
+    expect(center.map((n) => [n.title, n.body])).toEqual([
+      ["Termine planen", "Testflohmarkt · Saison 2027 · 19.10.2026"],
+    ]);
   });
 });
 
@@ -341,7 +381,7 @@ describe("deadline sweep: permits", () => {
         season: Number(day.slice(0, 4)),
         startsOn: day,
         endsOn: day,
-        times: cat.times,
+        schedule: cat.schedule,
         pricePerMCents: 0,
         bookingFeeCents: 0,
       })
@@ -529,6 +569,22 @@ describe("daily digest", () => {
     expect((await dailyDigest(db, daysFromNow(1))).queued).toBe(2);
   });
 
+  it("names the market and season of a season task (R13)", async () => {
+    const season = await insertSeason(cat);
+    await addTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      assigneeId: annaId,
+      dueAt: daysFromNow(-1),
+    });
+    expect((await dailyDigest(db, NOW)).queued).toBe(1);
+    const [mail] = await db.select().from(outboundMessage);
+    expect(mail?.renderedText).toContain(
+      "Aufgabe: Termine planen · Testflohmarkt · Saison 2027 (fällig 20.10.2026)",
+    );
+    expect(mail?.renderedText).toContain(`/?aufgabe=`);
+  });
+
   it("sends nothing when there is nothing, and honours the opt-out", async () => {
     expect((await dailyDigest(db, NOW)).queued).toBe(0);
     await addTask({ title: "Aufgabe", assigneeId: annaId, dueAt: daysFromNow(-1) });
@@ -587,6 +643,94 @@ describe("sending queued emails", () => {
     expect(sent).toHaveLength(1);
   });
 
+  /** A transport whose sends wait until `release()`; `started` resolves once the first send has begun. */
+  function gated() {
+    const sent: string[] = [];
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let begin = () => {};
+    const started = new Promise<void>((resolve) => {
+      begin = resolve;
+    });
+    const transport: MailTransport = {
+      name: "gated",
+      async send(message) {
+        begin();
+        await gate;
+        sent.push(message.to);
+        return { externalId: `gated-${sent.length}` };
+      },
+    };
+    return { transport, sent, started, release };
+  }
+
+  it("a run that starts while another is still sending does not send the claimed message again", async () => {
+    const m = await queue();
+    const first = gated();
+    const running = sendQueuedEmails(db, first.transport, NOW);
+    await first.started;
+    // Mid-send the message is still `queued`; before the fix the second run picked it up and sent it, too.
+    const { transport, sent } = fake();
+    expect(await sendQueuedEmails(db, transport, NOW)).toEqual({ sent: 0, failed: 0, retrying: 0 });
+    first.release();
+    expect(await running).toEqual({ sent: 1, failed: 0, retrying: 0 });
+    expect(sent).toHaveLength(0);
+    expect(first.sent).toEqual(["anna@test.local"]);
+    const [row] = await db.select().from(outboundMessage).where(eq(outboundMessage.id, m.id));
+    expect(row).toMatchObject({ status: "sent", attempts: 1, externalId: "gated-1" });
+    // `send_after` is back at when the message was due, not at the claim marker.
+    expect(row?.sendAfter.toISOString()).toBe(new Date(NOW.getTime() - 1000).toISOString());
+  });
+
+  it("two concurrent runs send every message exactly once", async () => {
+    const ids = [];
+    for (let i = 0; i < 12; i++)
+      ids.push((await queue({ recipientAddress: `p${i}@test.local` })).id);
+    const delivered: string[] = [];
+    const slow: MailTransport = {
+      name: "slow",
+      async send(message) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        delivered.push(message.to);
+        return { externalId: message.to };
+      },
+    };
+    const [a, b] = await Promise.all([
+      sendQueuedEmails(db, slow, NOW),
+      sendQueuedEmails(db, slow, NOW),
+    ]);
+    expect(a.sent + b.sent).toBe(12);
+    // Both runs got work, so they really overlapped.
+    expect(a.sent).toBeGreaterThan(0);
+    expect(b.sent).toBeGreaterThan(0);
+    expect(delivered).toHaveLength(12);
+    expect(new Set(delivered).size).toBe(12);
+    const rows = await db.select().from(outboundMessage);
+    expect(rows.every((r) => r.status === "sent" && r.attempts === 1)).toBe(true);
+  });
+
+  it("a message whose run died mid-send is sent again once the claim has run out", async () => {
+    const m = await queue();
+    const crashed = gated(); // never released: the run hangs like a killed process
+    const stale = sendQueuedEmails(db, crashed.transport, NOW);
+    await crashed.started;
+    const { transport, sent } = fake();
+    const soon = new Date(NOW.getTime() + CLAIM_TIMEOUT_MS - 1000);
+    expect((await sendQueuedEmails(db, transport, soon)).sent).toBe(0);
+    const later = new Date(NOW.getTime() + CLAIM_TIMEOUT_MS + 1000);
+    expect((await sendQueuedEmails(db, transport, later)).sent).toBe(1);
+    expect(sent).toHaveLength(1);
+    const [row] = await db.select().from(outboundMessage).where(eq(outboundMessage.id, m.id));
+    expect(row).toMatchObject({ status: "sent", attempts: 2, externalId: "id-1" });
+    // The stale run finishing late does not overwrite what the later run recorded.
+    crashed.release();
+    await stale;
+    const [after] = await db.select().from(outboundMessage).where(eq(outboundMessage.id, m.id));
+    expect(after).toMatchObject({ status: "sent", attempts: 2, externalId: "id-1" });
+  });
+
   it("retries a failure later and gives up after five attempts", async () => {
     const m = await queue();
     const { transport } = fake(() => {
@@ -614,6 +758,35 @@ describe("sending queued emails", () => {
       failed: 0,
       retrying: 0,
     });
+  });
+
+  it("outside production a queued mail to an address off the allowlist lands in the catch-all", async () => {
+    const m = await queue({ recipientAddress: "anna@example.test", subject: "Überfällig" });
+    const smtp = await fakeSmtpServer();
+    try {
+      const transport = createMailTransport({
+        APP_ENV: "preview",
+        MAIL_ALLOWLIST: "arda@firma.test",
+        MAIL_CATCH_ALL: "catch-all@marktwerk.test",
+        SMTP_HOST: "127.0.0.1",
+        SMTP_PORT: String(smtp.port),
+      });
+      expect(await sendQueuedEmails(db, transport, NOW)).toEqual({
+        sent: 1,
+        failed: 0,
+        retrying: 0,
+      });
+      expect(smtp.received).toContain("RCPT TO:<catch-all@marktwerk.test>");
+      const mail = parseReceived(smtp.data());
+      expect(mail.header("To")).toBe("catch-all@marktwerk.test");
+      expect(mail.header("X-Marktwerk-Original-To")).toBe("anna@example.test");
+      expect(mail.text).toBe("Text");
+      // The queue keeps the intended recipient; only the delivery was fenced.
+      const [row] = await db.select().from(outboundMessage).where(eq(outboundMessage.id, m.id));
+      expect(row).toMatchObject({ status: "sent", recipientAddress: "anna@example.test" });
+    } finally {
+      await smtp.close();
+    }
   });
 
   it("fails a message without an address right away", async () => {
