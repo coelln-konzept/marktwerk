@@ -3,7 +3,6 @@ import { PERMIT_TYPES } from "./status";
 import {
   defaultVenueNeeds,
   isVenueNeedType,
-  itemPermitType,
   mainPermitType,
   planVenueNeeds,
   suggestedVenueNeeds,
@@ -20,12 +19,28 @@ describe("venue needs: the offered types", () => {
     }
     expect(isVenueNeedType("water")).toBe(true);
     expect(isVenueNeedType("traffic_order")).toBe(false);
+    // ADR 0024: toilets are company work (a Pflicht), not a need of the Ort
+    expect(isVenueNeedType("toilets")).toBe(false);
+  });
+
+  it("offers the Ausschankgenehmigung as an extra, once per season like the city's other permits", () => {
+    expect(isVenueNeedType("catering")).toBe(true);
+    expect(VENUE_NEED_DEFAULTS.catering).toEqual({
+      title: "Ausschankgenehmigung",
+      category: "city",
+      cadence: "per_season",
+      leadTimeDays: 180,
+    });
+    expect(defaultVenueNeeds("municipal")).not.toContain("catering");
+    expect(defaultVenueNeeds("private")).not.toContain("catering");
+    expect(VENUE_NEED_DEFAULTS.water.cadence).toBe("per_season");
+    expect(VENUE_NEED_DEFAULTS.no_parking.cadence).toBe("per_event");
     expect(isVenueNeedType(null)).toBe(false);
   });
 });
 
 describe("defaultVenueNeeds", () => {
-  it("pre-ticks the Marktgenehmigung and the Festsetzung on city ground", () => {
+  it("pre-ticks the Ordnungsbehördliche Erlaubnis and the Festsetzung on city ground", () => {
     expect(mainPermitType("municipal")).toBe("market_permit");
     expect(defaultVenueNeeds("municipal")).toEqual(["market_permit", "market_fixing"]);
   });
@@ -44,8 +59,8 @@ describe("suggestedVenueNeeds", () => {
 
   it("swaps the main permit on a switch Städtisch → Privat and keeps the extras", () => {
     expect(
-      suggestedVenueNeeds("private", ["market_permit", "market_fixing", "no_parking", "toilets"]),
-    ).toEqual(["landowner_ok", "market_fixing", "no_parking", "toilets"]);
+      suggestedVenueNeeds("private", ["market_permit", "market_fixing", "no_parking", "catering"]),
+    ).toEqual(["landowner_ok", "market_fixing", "no_parking", "catering"]);
   });
 
   it("swaps it back on Privat → Städtisch", () => {
@@ -88,8 +103,8 @@ describe("planVenueNeeds", () => {
   });
 
   it("keeps several requirements of one ticked type and drops unknown ticks", () => {
-    const current = [req("a", "toilets"), req("b", "toilets")];
-    expect(planVenueNeeds(current, ["toilets", "nonsense", "gema"])).toEqual({
+    const current = [req("a", "water"), req("b", "water")];
+    expect(planVenueNeeds(current, ["water", "nonsense", "gema"])).toEqual({
       create: [],
       archive: [],
     });
@@ -100,31 +115,5 @@ describe("planVenueNeeds", () => {
       create: [],
       archive: [],
     });
-  });
-});
-
-describe("itemPermitType", () => {
-  it("lets a Marktgenehmigung item stand for the owner's OK on private ground", () => {
-    expect(itemPermitType("market_permit", ["landowner_ok", "market_fixing"])).toBe("landowner_ok");
-  });
-
-  it("keeps the Marktgenehmigung where the Ort needs one, also next to an owner's OK", () => {
-    expect(itemPermitType("market_permit", ["market_permit", "market_fixing"])).toBe(
-      "market_permit",
-    );
-    expect(itemPermitType("market_permit", ["market_permit", "landowner_ok"])).toBe(
-      "market_permit",
-    );
-  });
-
-  it("stays market_permit where neither is needed (nothing to link)", () => {
-    expect(itemPermitType("market_permit", [])).toBe("market_permit");
-    expect(itemPermitType("market_permit", ["water"])).toBe("market_permit");
-  });
-
-  it("leaves every other type alone", () => {
-    expect(itemPermitType("market_fixing", ["landowner_ok"])).toBe("market_fixing");
-    expect(itemPermitType("landowner_ok", ["market_permit"])).toBe("landowner_ok");
-    expect(itemPermitType("water", new Set(["landowner_ok"]))).toBe("water");
   });
 });

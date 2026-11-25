@@ -10,7 +10,7 @@ export interface PermitTypeBlueprint {
 export const PERMIT_TYPE_BLUEPRINTS: Record<PermitType, PermitTypeBlueprint> = {
   market_permit: {
     permitType: "market_permit",
-    titleDe: "Marktgenehmigung (Sondernutzung)",
+    titleDe: "Ordnungsbehördliche Erlaubnis",
     conditions: [
       "Rettungswege müssen jederzeit frei bleiben.",
       "Stände dürfen nicht auf der Fahrbahn stehen.",
@@ -32,7 +32,8 @@ export const PERMIT_TYPE_BLUEPRINTS: Record<PermitType, PermitTypeBlueprint> = {
     titleDe: "Standrohr (Wasserentnahme am Hydranten)",
     conditions: [
       "Entnahme nur über das vom Versorger ausgegebene Standrohr.",
-      "Standrohr ist am Folgetag zurückzugeben.",
+      "Zählerstand nach jedem Markttag notieren.",
+      "Standrohr spätestens zwei Wochen nach dem letzten Markt der Saison zurückgeben.",
     ],
   },
   signage: {
@@ -46,7 +47,7 @@ export const PERMIT_TYPE_BLUEPRINTS: Record<PermitType, PermitTypeBlueprint> = {
   },
   no_parking: {
     permitType: "no_parking",
-    titleDe: "Haltverbot (PVBT)",
+    titleDe: "Halteverbot (PVBT)",
     conditions: [
       "Schilder rechtzeitig vor Beginn aufstellen (Frist laut Anordnung) und das Aufstellprotokoll einreichen.",
       "Schilder nach der Veranstaltung wieder entfernen.",
@@ -60,15 +61,24 @@ export const PERMIT_TYPE_BLUEPRINTS: Record<PermitType, PermitTypeBlueprint> = {
       "Zufahrt für Rettungsfahrzeuge freihalten.",
     ],
   },
-  toilets: {
-    permitType: "toilets",
-    titleDe: "Toilettenanlage (Rahmenvertrag)",
-    conditions: ["Mindestens eine barrierefreie Toilette je Standort."],
-  },
   landowner_ok: {
     permitType: "landowner_ok",
     titleDe: "Einverständnis Grundstückseigentümer",
     conditions: ["Keine Schäden an Belägen, Rasen oder Bäumen."],
+  },
+  catering: {
+    permitType: "catering",
+    titleDe: "Ausschankgenehmigung",
+    conditions: [
+      "Ausschank nur an den genehmigten Ständen und zu den Marktzeiten.",
+      "Kein Alkohol an Jugendliche unter 16 Jahren, kein Branntwein unter 18 Jahren.",
+      "Mindestens ein alkoholfreies Getränk günstiger als das günstigste alkoholische anbieten.",
+    ],
+  },
+  gema: {
+    permitType: "gema",
+    titleDe: "GEMA-Anmeldung (Musik)",
+    conditions: ["Musikfolge nach der Veranstaltung nachreichen."],
   },
   other: {
     permitType: "other",
@@ -77,8 +87,8 @@ export const PERMIT_TYPE_BLUEPRINTS: Record<PermitType, PermitTypeBlueprint> = {
   },
 };
 
-/** Who issues a permit: the city (Ordnungsamt), its traffic office, the water supplier, the landowner, a supplier. */
-export type PermitAuthority = "city" | "traffic" | "water" | "landowner" | "supplier";
+/** Who issues a permit: the city (Ordnungsamt), its traffic office, the water supplier, the landowner, GEMA. */
+export type PermitAuthority = "city" | "traffic" | "water" | "landowner" | "music";
 
 /** The authority collects applications in a window and decides on a fixed day (Köln Altstadt, the stadium). */
 export interface SubmissionWindow {
@@ -109,10 +119,15 @@ export interface RequirementSpec {
 }
 
 /*
- * Permit kinds (research 13 §4). Lead times follow the client's sheets where they say so: Genehmigung 6 months before
- * the first date (Altstadt 7), Standrohr 30 days, Schaustellerliste 2 months. The others are the usual lead times of
- * the Köln offices. Every market applies for its own Marktgenehmigung and Festsetzung, also where markets share a
- * place (the generator makes one permit per market and season).
+ * Permit kinds (research 13 §4) on the three levels of ADR 0024:
+ * - per date (`per_event`): Halteverbot (PVBT), GEMA, the Hoffnungsthal Schaustellerliste;
+ * - per Ort and season: the city's Ordnungsbehördliche Erlaubnis, Festsetzung and Ausschankgenehmigung (one
+ *   application per season, about six months before the season starts in March), on private ground the owner's
+ *   agreement, and Standrohr, Plakatierung, Sperrung;
+ * - company work per year is a Pflicht, not a permit (generators/money.ts): booking the toilets for all markets at
+ *   the start of the year ("Toiletten für die Saison buchen") is one of them, so no Ort has a toilets requirement.
+ * Lead times follow the client's sheets where they say so: Genehmigung 6 months before the first date (Altstadt 7),
+ * Standrohr 30 days, Schaustellerliste 2 months. The others are the usual lead times of the Köln offices.
  */
 const MARKET_PERMIT: RequirementSpec = {
   permitType: "market_permit",
@@ -123,7 +138,10 @@ const MARKET_PERMIT: RequirementSpec = {
   authority: "city",
 };
 
-/** Festsetzung (§ 69 GewO): applied for together with the Marktgenehmigung; its fee becomes a payable once granted. */
+/**
+ * Festsetzung (§ 69 GewO): applied for together with the Ordnungsbehördliche Erlaubnis; its fee becomes a payable
+ * once granted.
+ */
 const FESTSETZUNG: RequirementSpec = {
   permitType: "market_fixing",
   category: "city",
@@ -142,7 +160,7 @@ const LANDOWNER: RequirementSpec = {
   authority: "landowner",
 };
 
-/** PVBT: no-parking signs, ordered per date. */
+/** Halteverbot (PVBT): no-parking signs, ordered per date. */
 const PVBT: RequirementSpec = {
   permitType: "no_parking",
   category: "city",
@@ -162,11 +180,14 @@ const PLAKATIERUNG: RequirementSpec = {
   stickers: 100,
 };
 
-/** Standrohr at the water supplier, ordered 30 days before each date ("Standrohr bestellen"). */
+/**
+ * Standrohr at the water supplier: rented for the season, applied for 30 days before the first date. Picking it up
+ * for a date ("Standrohr bestellen", template item) is practical work of that date, not a new application.
+ */
 const STANDROHR: RequirementSpec = {
   permitType: "water",
   category: "external",
-  cadence: "per_event",
+  cadence: "per_season",
   leadTimeDays: 30,
   fee: [3000, 6000],
   authority: "water",
@@ -182,13 +203,27 @@ const SPERRUNG: RequirementSpec = {
   authority: "traffic",
 };
 
-const TOILETTEN: RequirementSpec = {
-  permitType: "toilets",
-  category: "external",
+/**
+ * Ausschankgenehmigung (Gestattung, § 12 GastG) where the market serves drinks: the city's, applied for once per
+ * season together with the Ordnungsbehördliche Erlaubnis.
+ */
+const AUSSCHANK: RequirementSpec = {
+  permitType: "catering",
+  category: "city",
   cadence: "per_season",
-  leadTimeDays: 60,
-  fee: [0, 0],
-  authority: "supplier",
+  leadTimeDays: 180,
+  fee: [5000, 15000],
+  authority: "city",
+};
+
+/** GEMA: music on a stage is registered per date (only where music is played: Stadtfest, Food & Wine). */
+const GEMA: RequirementSpec = {
+  permitType: "gema",
+  category: "external",
+  cadence: "per_event",
+  leadTimeDays: 14,
+  fee: [10000, 30000],
+  authority: "music",
 };
 
 const ALTSTADT_WINDOW: SubmissionWindow = {
@@ -213,9 +248,11 @@ const STADION_WINDOW: SubmissionWindow = {
 const ASSUMED = "Annahme – vom Team noch nicht bestätigt";
 
 /**
- * Which permits each place needs (by venue key). Municipal places: Marktgenehmigung (Sondernutzung) and Festsetzung
- * via the Ordnungsamt. Private places (Stadion, Südbrücke): the landowner's OK instead of the Marktgenehmigung; the
- * Festsetzung is still the city's (it gives the Sunday market its privileges). The rest follows the client's sheets.
+ * Which permits each place needs (by venue key). Municipal places: Ordnungsbehördliche Erlaubnis and Festsetzung via
+ * the Ordnungsamt, plus the Ausschankgenehmigung where the market serves drinks (Stadtfeste, Food & Wine, Kerpen).
+ * Private places (Stadion, Südbrücke): the owner's agreement per season instead of the Erlaubnis; the Festsetzung is
+ * still the city's (it gives the Sunday market its privileges). GEMA only where music is played. The rest follows
+ * the client's sheets.
  */
 export const VENUE_PERMITS: Readonly<Record<string, readonly RequirementSpec[]>> = {
   altstadt: [
@@ -227,7 +264,6 @@ export const VENUE_PERMITS: Readonly<Record<string, readonly RequirementSpec[]>>
       eventType: "antique",
       notes: "Strom und Wasser organisiert die Orga am Vortag.",
     },
-    TOILETTEN,
   ],
   "riehler-guertel": [
     MARKET_PERMIT,
@@ -235,33 +271,44 @@ export const VENUE_PERMITS: Readonly<Record<string, readonly RequirementSpec[]>>
     { ...PVBT, notes: "PVBT und Werbung sechs Tage vorher aufhängen." },
     { ...PLAKATIERUNG, notes: "Hohlkammerplatten mit den Aufklebern der Stadt." },
     { ...SPERRUNG, notes: "Straße ab 05:00 Uhr gesperrt; Abflattern und Verkehr am Vortag." },
-    TOILETTEN,
   ],
-  nippes: [MARKET_PERMIT, FESTSETZUNG, TOILETTEN],
-  stadion: [{ ...LANDOWNER, window: STADION_WINDOW }, FESTSETZUNG, TOILETTEN],
-  suedstadt: [MARKET_PERMIT, FESTSETZUNG, { ...PVBT, notes: ASSUMED }, TOILETTEN],
-  suedbruecke: [LANDOWNER, FESTSETZUNG, TOILETTEN],
-  rudolfplatz: [MARKET_PERMIT, FESTSETZUNG, STANDROHR, TOILETTEN],
+  nippes: [MARKET_PERMIT, FESTSETZUNG],
+  stadion: [{ ...LANDOWNER, window: STADION_WINDOW }, FESTSETZUNG],
+  suedstadt: [MARKET_PERMIT, FESTSETZUNG, { ...PVBT, notes: ASSUMED }],
+  suedbruecke: [LANDOWNER, FESTSETZUNG],
+  rudolfplatz: [
+    MARKET_PERMIT,
+    FESTSETZUNG,
+    AUSSCHANK,
+    STANDROHR,
+    { ...GEMA, notes: "Livemusik an jedem Termin." },
+  ],
   rodenkirchen: [
     MARKET_PERMIT,
     FESTSETZUNG,
+    { ...AUSSCHANK, eventType: "city_festival", notes: "Getränkestände beim Straßenfest." },
     { ...SPERRUNG, eventType: "city_festival", notes: "Hauptstraße für das Straßenfest gesperrt." },
     { ...PVBT, eventType: "city_festival", notes: ASSUMED },
     { ...STANDROHR, eventType: "city_festival" },
-    TOILETTEN,
+    { ...GEMA, eventType: "city_festival", notes: "Bühne beim Straßenfest." },
   ],
+  // Kerpen: one Ausschankgenehmigung and one Standrohr per season for all markets there (Stadtfest, Weintage,
+  // Bauernmarkt, the Trödelmarkt's drinks stand); GEMA per date where there is music.
   kerpen: [
     MARKET_PERMIT,
     FESTSETZUNG,
+    AUSSCHANK,
     PLAKATIERUNG,
-    { ...STANDROHR, eventType: "city_festival" },
-    { ...STANDROHR, eventType: "food_wine" },
-    TOILETTEN,
+    STANDROHR,
+    { ...GEMA, eventType: "city_festival", notes: "Bühnenprogramm beim Stadtfest." },
+    { ...GEMA, eventType: "food_wine", notes: "Livemusik bei Weintagen und Bauernmarkt." },
   ],
-  // Hoffnungsthal ("Anträge 180 days: Festsetzung, Plakatierung"): school toilets instead of a toilet contract.
+  // Hoffnungsthal ("Anträge 180 days: Festsetzung, Plakatierung").
+  // Drinks with the Ortsring, but no stage music of our own: Ausschank yes, GEMA no.
   hoffnungsthal: [
     MARKET_PERMIT,
     FESTSETZUNG,
+    { ...AUSSCHANK, notes: "Getränkeausschank zusammen mit dem Ortsring." },
     { ...PLAKATIERUNG, notes: "Hohlkammerplatten mit den Aufklebern der Stadt bekleben." },
     {
       ...PVBT,

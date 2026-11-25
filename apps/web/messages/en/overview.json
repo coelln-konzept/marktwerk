@@ -11,6 +11,7 @@
       "emptyHint": "Anything overdue or due today from permits, tasks and obligations shows up here.",
       "openItem": "Open: {title}",
       "assignee": "responsible: {name}",
+      "companyWide": "Whole company",
       "kind": {
         "task": "Task",
         "permit": "Permit",

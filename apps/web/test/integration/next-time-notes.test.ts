@@ -16,7 +16,7 @@ import {
   setNextTimeNoteDone,
 } from "@/server/services/next-time-notes";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
-import { insertSeason, insertTask } from "../helpers/tasks";
+import { insertTask } from "../helpers/tasks";
 
 /**
  * "Fürs nächste Mal" (Fahrplan R25): notes against a market, written at a date, from a task or on the market page,
@@ -121,21 +121,6 @@ describe("addNextTimeNote", () => {
       eventId: date(0).id,
       taskId: first.id,
     });
-  });
-
-  it("takes the market from a season task (no date)", async () => {
-    const season = await insertSeason(cat, 2027);
-    const seasonTask = await insertTask({ title: "Termine planen", seasonId: season.id });
-    const added = await addNextTimeNote(staff, { taskId: seasonTask.id }, "Früher anfragen");
-    const [row] = await db.select().from(nextTimeNote).where(eq(nextTimeNote.id, added.id));
-    expect(row).toMatchObject({
-      presetId: cat.presets.flea.id,
-      eventId: null,
-      taskId: seasonTask.id,
-    });
-    // A task without date and season has no market.
-    const loose = await insertTask({ title: "Lose Aufgabe" });
-    expect(await codeOf(addNextTimeNote(owner, { taskId: loose.id }, "Text"))).toBe("no_market");
   });
 
   it("writes on the market page without a date", async () => {

@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
   // Cache Components is off on purpose: almost every screen is per-user and
   // behind login, so the static-shell model adds friction without benefit (ADR 0004).
   typedRoutes: true,
+  // No dev-tools badge in `next dev`: it sits over the profile button bottom left and breaks local e2e runs.
+  // Compile and runtime errors still show; production builds (CI e2e) never have it.
+  devIndicators: false,
   experimental: {
     // enables forbidden()/unauthorized() used by requirePermission()
     authInterrupts: true,

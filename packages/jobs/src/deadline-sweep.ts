@@ -35,8 +35,6 @@ import {
   OPEN_TASK_STATUSES,
   openSubtaskDues,
   queueImmediateEmails,
-  seasonContext,
-  taskContextName,
 } from "./shared";
 
 export type SweepResult = {
@@ -114,7 +112,6 @@ export async function deadlineSweep(db: Database, now: Date = new Date()): Promi
 // Tasks
 
 async function stageTasks(db: Database, now: Date, today: string, out: Staged[]) {
-  const sc = seasonContext(db);
   const rows = await db
     .select({
       id: task.id,
@@ -124,14 +121,10 @@ async function stageTasks(db: Database, now: Date, today: string, out: Staged[])
       assigneeId: task.assigneeId,
       eventId: task.eventId,
       eventName: event.name,
-      seasonName: sc.seasonName,
-      seasonYear: sc.seasonYear,
       parentTaskId: task.parentTaskId,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
-    // A season task names its market and season instead (research 13 §6.3).
-    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .where(
       and(
         inArray(task.status, [...OPEN_TASK_STATUSES]),
@@ -162,7 +155,7 @@ async function stageTasks(db: Database, now: Date, today: string, out: Staged[])
     if (state.kind === "none") continue;
     const dueOn = berlinDate(dueAt);
     if (state.kind === "overdue" && daysBetween(dueOn, today) > BACKLOG_AFTER_DAYS) continue;
-    const name = taskContextName(t);
+    const name = t.eventName;
     const context = name ? ` · ${name}` : "";
     const overdue = state.kind === "overdue";
     out.push({
@@ -344,7 +337,6 @@ async function escalate(
   };
   const targets: Target[] = [];
 
-  const sc = seasonContext(db);
   const tasks = await db
     .select({
       id: task.id,
@@ -352,14 +344,11 @@ async function escalate(
       dueAt: task.dueAt,
       eventId: task.eventId,
       eventName: event.name,
-      seasonName: sc.seasonName,
-      seasonYear: sc.seasonYear,
       who: staffMember.displayName,
     })
     .from(task)
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
     .leftJoin(event, eq(event.id, task.eventId))
-    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .where(
       and(
         inArray(task.status, [...OPEN_TASK_STATUSES]),
@@ -381,7 +370,7 @@ async function escalate(
   for (const t of tasks) {
     const { dueAt } = flaggedDueAt(t.dueAt, escalationSubDues.get(t.id) ?? [], now);
     // The event or "<Markt> · Saison <Jahr>" tells the many "Termine planen" apart.
-    const name = taskContextName(t);
+    const name = t.eventName;
     if (dueAt)
       targets.push({
         type: "task",

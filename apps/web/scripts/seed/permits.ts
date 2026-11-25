@@ -3,11 +3,15 @@
  * and which events they cover. Permit fees are `payable`s and are seeded in money.ts.
  */
 
-import { itemPermitType, permitCoversApplication } from "@marktwerk/core";
+import {
+  permitCoversApplication,
+  permitCoversSeveralEvents,
+  resolveRelativeDue,
+} from "@marktwerk/core";
 import { schema } from "@marktwerk/db";
-import { and, eq, inArray, isNotNull, isNull, ne, notExists } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, notExists, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { insertAll, type SeedContext, type Tx } from "./shared";
+import { derivedId, insertAll, type SeedContext, type Tx } from "./shared";
 
 /** The permit that is further along wins when several of one type cover an event (as in the service). */
 const STATUS_ORDER = ["granted", "applied", "preparing", "not_started", "rejected", "not_required"];
@@ -15,13 +19,13 @@ const OPEN = ["todo", "in_progress", "waiting_external", "blocked"] as const;
 
 /**
  * Seed counterpart of `linkPermitTasks` (apps/web/src/server/services/permits.ts; the seed cannot import the
- * server-only services): template tasks whose item names a permit type get the event's permit of that type, season
- * tasks the permit of their Saison record (R11), a "Genehmigung" item (market_permit) the owner's OK where the
- * Ort has that instead of a Marktgenehmigung (R30, `itemPermitType`), and open ones whose permit is applied for or granted are done.
- * Idempotent.
+ * server-only services): template tasks whose item names a permit type get the event's per-date permit of that
+ * type (ADR 0024: template tasks never apply for a permit covering several dates), and open ones whose permit is
+ * applied for or granted are done. One task applies for a permit: one that has a task already takes no second, and
+ * of several template tasks the earliest due is linked. Idempotent.
  */
 async function linkPermitTasks(tx: Tx) {
-  const { task, templateItem, eventPermit, permit } = schema;
+  const { task, templateItem, eventPermit, permit, permitRequirement } = schema;
   const open = await tx
     .select({ id: task.id, eventId: task.eventId, permitType: templateItem.permitType })
     .from(task)
@@ -33,7 +37,8 @@ async function linkPermitTasks(tx: Tx) {
         isNotNull(templateItem.permitType),
         ne(task.status, "cancelled"),
       ),
-    );
+    )
+    .orderBy(asc(task.dueAt), asc(task.id));
   const candidates = await tx
     .select({
       eventId: eventPermit.eventId,
@@ -44,61 +49,38 @@ async function linkPermitTasks(tx: Tx) {
     })
     .from(eventPermit)
     .innerJoin(permit, eq(permit.id, eventPermit.permitId))
-    .where(and(isNull(permit.archivedAt), ne(permit.status, "superseded")));
+    .leftJoin(permitRequirement, eq(permitRequirement.id, permit.requirementId))
+    .where(
+      and(
+        isNull(permit.archivedAt),
+        ne(permit.status, "superseded"),
+        or(isNull(permit.requirementId), eq(permitRequirement.cadence, "per_event")),
+      ),
+    );
   const byEvent = new Map<string, typeof candidates>();
   for (const c of candidates) byEvent.set(c.eventId, [...(byEvent.get(c.eventId) ?? []), c]);
   const rank = (c: (typeof candidates)[number]) =>
     (c.required && c.status !== "not_required" ? 0 : 100) + STATUS_ORDER.indexOf(c.status);
 
-  const byPermit = new Map<string, string[]>();
-  /** The pool's permits of the type the item applies for (R30: market_permit → the Ort's main permit). */
-  const ofType = <C extends { permitType: string }>(pool: C[], itemType: string) => {
-    const type = itemPermitType(
-      itemType,
-      pool.map((c) => c.permitType),
-    );
-    return pool.filter((c) => c.permitType === type);
-  };
-  for (const t of open) {
-    const best = ofType(byEvent.get(t.eventId as string) ?? [], t.permitType as string).sort(
-      (a, b) => rank(a) - rank(b),
-    )[0];
-    if (best) byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t.id]);
-  }
-  // Season tasks (R11): the season item that names a permit type links to the permit of its own Saison record.
-  const seasonOpen = await tx
-    .select({ id: task.id, seasonId: task.seasonId, permitType: templateItem.permitType })
-    .from(task)
-    .innerJoin(templateItem, eq(templateItem.id, task.templateItemId))
-    .where(
-      and(
-        isNull(task.permitId),
-        isNotNull(task.seasonId),
-        isNotNull(templateItem.permitType),
-        ne(task.status, "cancelled"),
-      ),
-    );
-  const seasonPermits = await tx
-    .select({
-      seasonId: permit.seasonId,
-      permitId: permit.id,
-      permitType: permit.permitType,
-      status: permit.status,
-    })
-    .from(permit)
-    .where(
-      and(isNotNull(permit.seasonId), isNull(permit.archivedAt), ne(permit.status, "superseded")),
-    );
-  for (const t of seasonOpen) {
-    const best = ofType(
-      seasonPermits.filter((c) => c.seasonId === t.seasonId),
-      t.permitType as string,
-    ).sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))[0];
-    if (best) byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t.id]);
-  }
-  const statusOf = new Map(
-    [...candidates, ...seasonPermits].map((c) => [c.permitId, c.status] as const),
+  const taken = new Set(
+    (
+      await tx
+        .select({ permitId: task.permitId })
+        .from(task)
+        .where(and(isNotNull(task.permitId), ne(task.status, "cancelled")))
+    ).map((r) => r.permitId),
   );
+  const byPermit = new Map<string, string[]>();
+  for (const t of open) {
+    const best = (byEvent.get(t.eventId as string) ?? [])
+      .filter((c) => c.permitType === t.permitType)
+      .sort((a, b) => rank(a) - rank(b))[0];
+    if (!best || taken.has(best.permitId)) continue;
+    taken.add(best.permitId);
+    byPermit.set(best.permitId, [t.id]);
+  }
+
+  const statusOf = new Map(candidates.map((c) => [c.permitId, c.status] as const));
   let linked = 0;
   let done = 0;
   for (const [permitId, ids] of byPermit) {
@@ -161,9 +143,6 @@ export async function seedPermits(tx: Tx, { data }: SeedContext) {
       requirementId: p.requirementId,
       venueId: p.venueId,
       season: p.season,
-      // Season permits (one per market and season) belong to that market's Saison record; `linkPermitTasks` below
-      // links the season's apply task to it (one task per season permit, Fahrplan R11).
-      seasonId: p.seasonId,
       category: p.category,
       permitType: p.permitType,
       title: p.title,
@@ -192,4 +171,65 @@ export async function seedPermits(tx: Tx, { data }: SeedContext) {
   );
 
   await linkPermitTasks(tx);
+  await seedOwnApplyTasks(tx, data);
+}
+
+/**
+ * Seed counterpart of the logbook fill's own "… beantragen" tasks (ADR 0024): a permit covering several dates gets
+ * one, without an event (one per Ort and season); a per-date permit (Halteverbot) gets one on its date unless a
+ * template task of that date applies for it already (GEMA anmelden, Schaustellerliste). Due at apply-by (end of day,
+ * Berlin), assigned to the permit's responsible person, done once the permit is applied for or granted (at its
+ * application day), as the app completes it. Ids are derived from the permit, so re-running adds nothing.
+ */
+async function seedOwnApplyTasks(tx: Tx, data: SeedContext["data"]) {
+  const cadenceOf = new Map(data.permitRequirements.map((r) => [r.id, r.cadence]));
+  const titleOf = new Map(data.permitRequirements.map((r) => [r.id, r.title]));
+  const roleId = data.dutyRoles.find((r) => r.key === "permits")?.id ?? null;
+  const eventOf = new Map(data.eventPermits.map((l) => [l.permitId, l.eventId]));
+  const applying = new Set(
+    (
+      await tx
+        .select({ permitId: schema.task.permitId })
+        .from(schema.task)
+        .where(
+          and(
+            isNotNull(schema.task.permitId),
+            eq(schema.task.source, "template"),
+            ne(schema.task.status, "cancelled"),
+          ),
+        )
+    ).map((r) => r.permitId),
+  );
+  const own = data.permits.flatMap((p) => {
+    if (permitCoversSeveralEvents(cadenceOf.get(p.requirementId)))
+      return [{ permit: p, eventId: null }];
+    if (applying.has(p.id)) return [];
+    return [{ permit: p, eventId: eventOf.get(p.id) ?? null }];
+  });
+  await insertAll(
+    tx,
+    schema.task,
+    own
+      .filter(({ permit: p }) => p.status !== "not_required")
+      .map(({ permit: p, eventId }) => {
+        const filed = permitCoversApplication(p.status);
+        return {
+          id: derivedId("task", `permit-apply:${p.id}`),
+          eventId,
+          permitId: p.id,
+          source: "permit" as const,
+          title: `${titleOf.get(p.requirementId) ?? p.title} beantragen`,
+          phase: "pre" as const,
+          category: "permits" as const,
+          priority: "normal" as const,
+          dutyRoleId: roleId,
+          assigneeId: p.responsibleStaffMemberId,
+          dueAt: resolveRelativeDue(p.applyBy, 0, "23:59"),
+          status: filed ? ("done" as const) : ("todo" as const),
+          completedAt: filed ? resolveRelativeDue(p.appliedAt ?? p.applyBy, 0, "11:00") : null,
+          completedByStaffMemberId: filed ? p.responsibleStaffMemberId : null,
+        };
+      }),
+    "permit apply tasks",
+  );
 }

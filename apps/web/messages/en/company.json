@@ -40,7 +40,7 @@
       "other": "Other"
     },
     "scopes": {
-      "company": "Business",
+      "company": "Whole company",
       "vehicle": "Vehicle",
       "venue": "Venue"
     },
@@ -171,11 +171,13 @@
       "schedule": "Rhythm and due date",
       "intervalMonths": "Every … months",
       "intervalMonthsHint": "Leave empty if it only goes by kilometres.",
+      "intervalMonthsHintDate": "12 = yearly, 4 = three times a year. Leave empty if it is due only once.",
       "intervalKm": "Every … km",
       "intervalKmHint": "Vehicles only. Whichever comes first counts: date or kilometres.",
       "nextDueOn": "Next due (date)",
       "nextDueKm": "Next due (km)",
       "leadDays": "Remind from (days before)",
+      "leadDaysHint": "From then on it shows under Today on the overview, and the responsible person is reminded.",
       "responsibleSection": "Responsibility",
       "responsible": "Responsible",
       "createsPayable": "Create a payment when done (e.g. the workshop invoice)",

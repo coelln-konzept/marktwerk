@@ -4,7 +4,6 @@ import {
   defaultAnchors,
   endsOnFor,
   groupConsecutiveDates,
-  itemPermitType,
   type PermitStatus,
   permitCovers,
   permitCoversSeveralEvents,
@@ -14,15 +13,12 @@ import {
 import {
   checklistTemplate,
   eventPresetTemplate,
-  eventSeason,
   eventType,
   permit,
   permitRequirement,
-  task,
-  templateItem,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { todayIn } from "@/lib/format";
 import { db } from "../db";
 import { EventInputError, MAX_EVENT_DAYS, presetTemplate, validateDates } from "../services/events";
@@ -118,7 +114,6 @@ export async function previewGeneration(
             ),
           ),
         );
-      const requirementTypes = requirements.map((r) => r.permitType);
       const existingPermits =
         requirements.length === 0
           ? []
@@ -134,63 +129,6 @@ export async function previewGeneration(
                   isNull(permit.archivedAt),
                 ),
               );
-      // Saison records (Fahrplan R11/R27): the market and year of the permits that belong to one (a permit of
-      // another market at the same place covers nothing here), and the market's own records with the permit
-      // types their season tasks apply for (those permits get no own "beantragen" task).
-      const recordIds = [
-        ...new Set(existingPermits.flatMap((p) => (p.seasonId ? [p.seasonId] : []))),
-      ];
-      const records = new Map(
-        recordIds.length === 0
-          ? []
-          : (
-              await tx
-                .select({
-                  id: eventSeason.id,
-                  presetId: eventSeason.presetId,
-                  season: eventSeason.season,
-                })
-                .from(eventSeason)
-                .where(inArray(eventSeason.id, recordIds))
-            ).map((r) => [r.id, { presetId: r.presetId, season: r.season }]),
-      );
-      const ownSeasons = await tx
-        .select({ id: eventSeason.id, season: eventSeason.season })
-        .from(eventSeason)
-        .where(eq(eventSeason.presetId, presetId));
-      const seasonTaskTypes =
-        ownSeasons.length === 0
-          ? []
-          : await tx
-              .select({ seasonId: task.seasonId, permitType: templateItem.permitType })
-              .from(task)
-              .innerJoin(templateItem, eq(templateItem.id, task.templateItemId))
-              .where(
-                and(
-                  inArray(
-                    task.seasonId,
-                    ownSeasons.map((s) => s.id),
-                  ),
-                  eq(task.source, "template"),
-                  isNotNull(templateItem.permitType),
-                  ne(task.status, "cancelled"),
-                ),
-              );
-      // A season without a record gets one with the current versions' season items when the date is created.
-      const newSeasonTypes = new Set(
-        [...versions.values()].flatMap((v) =>
-          v.items.flatMap((i) => (i.scope === "season" && i.permitType ? [i.permitType] : [])),
-        ),
-      );
-      const seasonPermitTypes = (season: number): Set<string> => {
-        const record = ownSeasons.find((s) => s.season === season);
-        if (!record) return newSeasonTypes;
-        return new Set(
-          seasonTaskTypes.flatMap((t) =>
-            t.seasonId === record.id && t.permitType ? [t.permitType] : [],
-          ),
-        );
-      };
 
       // The permits as the fill sees them; the ones created for earlier dates of this run join the pool.
       const pool = existingPermits.map((p) => ({
@@ -199,14 +137,12 @@ export async function previewGeneration(
         season: p.season,
         validFrom: p.validFrom,
         validUntil: p.validUntil,
-        seasonRecord: p.seasonId ? (records.get(p.seasonId) ?? null) : null,
       }));
 
       const dates: DatePreview[] = [];
       for (const { startsOn, durationDays } of plan) {
         const endsOn = endsOnFor(startsOn, durationDays);
         const ev: EventContext = {
-          scope: "event",
           id: startsOn,
           name: template.name,
           startsOn,
@@ -245,31 +181,23 @@ export async function previewGeneration(
           const covered = pool.some(
             (p) =>
               p.requirementId === req.id &&
-              permitCovers(req.cadence, p, { startsOn, endsOn, season, presetId }),
+              permitCovers(req.cadence, p, { startsOn, endsOn, season }),
           );
           if (covered) {
             permitsCovered += 1;
             continue;
           }
           permitsNew += 1;
-          const seasonal = permitCoversSeveralEvents(req.cadence);
           pool.push({
             requirementId: req.id,
             status: "not_started",
             season: seasonFor(req.cadence, season),
             validFrom: null,
             validUntil: null,
-            seasonRecord: seasonal ? { presetId, season } : null,
           });
-          // A "beantragen" task for the permit, unless a template task (or, for a season permit, the season
-          // task) already covers that permit type.
-          // A "Genehmigung" item stands for the owner's OK on private ground (Fahrplan R30), as in the fill.
-          const appliesFor = (types: Set<string>) =>
-            [...types].some((type) => itemPermitType(type, requirementTypes) === req.permitType);
-          if (
-            !appliesFor(templatePermitTypes) &&
-            !(seasonal && appliesFor(seasonPermitTypes(season)))
-          ) {
+          // A "beantragen" task for the permit, unless (per-date permits only) a template task of the date
+          // already applies for it, as in the fill (ADR 0024).
+          if (permitCoversSeveralEvents(req.cadence) || !templatePermitTypes.has(req.permitType)) {
             const applyBy = applyByFor(startsOn, req.leadTimeDays, {
               startMd: req.submissionWindowStartMd,
               endMd: req.submissionWindowEndMd,

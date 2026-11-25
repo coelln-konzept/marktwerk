@@ -1,7 +1,7 @@
 /*
- * THE instantiation path (CLAUDE.md: one service path): templates → checklists → tasks, for events and for Saison
- * records (research 13 §6). Lives in @marktwerk/jobs so the web services ("Markt planen", propagation) and the
- * nightly `event-seasons` job share it; `apps/web/src/server/services/task-instantiation.ts` re-exports it.
+ * THE instantiation path (CLAUDE.md: one service path): templates → checklists → tasks for events. Lives in
+ * @marktwerk/jobs so web services ("Markt planen", propagation) and jobs can share it;
+ * `apps/web/src/server/services/task-instantiation.ts` re-exports it.
  */
 import {
   applicableItems,
@@ -20,14 +20,10 @@ import {
   checklist,
   checklistTemplate,
   type Database,
-  dutyRole,
   event,
   eventAnchor,
   eventDuty,
-  eventPreset,
   eventPresetTemplate,
-  eventSeason,
-  eventSeasonAnchor,
   eventType,
   settings,
   task,
@@ -80,30 +76,20 @@ export function holidaysForAnchors(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Contexts: what a checklist is made for (an event, or a Saison record), with anchors, duties, condition facts
+// Context: the event a checklist is made for, with anchors, duties and condition facts
 
-/** What every context has: the anchors items are due relative to, the duty holders and the condition facts. */
-type ContextBase = {
+/** An event: the anchors items are due relative to, the duty holders and the condition facts. */
+export type EventContext = {
   id: string;
   name: string;
   presetId: string | null;
+  startsOn: string;
+  endsOn: string;
   facts: ConditionFacts;
   anchors: Map<string, string>;
   /** duty_role.id → staff_member.id */
   duties: Map<string, string>;
 };
-
-/** An event: gets the template items with `scope = 'event'`. */
-export type EventContext = ContextBase & {
-  scope: "event";
-  startsOn: string;
-  endsOn: string;
-};
-
-/** A Saison record (research 13 §6): gets the items with `scope = 'season'`, due relative to the season anchors. */
-export type SeasonContext = ContextBase & { scope: "season"; season: number };
-
-export type InstantiationContext = EventContext | SeasonContext;
 
 /** Everything instantiation needs to know about events, in the order of `ids`. */
 export async function loadEventContexts(tx: Tx, ids: string[]): Promise<EventContext[]> {
@@ -154,7 +140,6 @@ export async function loadEventContexts(tx: Tx, ids: string[]): Promise<EventCon
     if (!e) return [];
     return [
       {
-        scope: "event" as const,
         id: e.id,
         name: e.name,
         startsOn: e.startsOn,
@@ -163,70 +148,6 @@ export async function loadEventContexts(tx: Tx, ids: string[]): Promise<EventCon
         facts: { eventTypeKey: e.eventTypeKey, venueId: e.venueId, venueKind: e.venueKind },
         anchors: anchorsOf.get(id) ?? new Map<string, string>(),
         duties: dutiesOf.get(id) ?? new Map<string, string>(),
-      },
-    ];
-  });
-}
-
-/**
- * Everything instantiation needs to know about Saison records, in the order of `ids`: the market's type and venue
- * as condition facts, the season anchors, and the market's default duties (`event_preset.default_duties`, the
- * same people a new event of the market gets).
- */
-export async function loadSeasonContexts(tx: Tx, ids: string[]): Promise<SeasonContext[]> {
-  if (ids.length === 0) return [];
-  const seasons = await tx
-    .select({
-      id: eventSeason.id,
-      season: eventSeason.season,
-      presetId: eventSeason.presetId,
-      name: eventPreset.name,
-      defaultDuties: eventPreset.defaultDuties,
-      venueId: eventPreset.venueId,
-      venueKind: venue.kind,
-      eventTypeKey: eventType.key,
-    })
-    .from(eventSeason)
-    .innerJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
-    .innerJoin(venue, eq(venue.id, eventPreset.venueId))
-    .innerJoin(eventType, eq(eventType.id, eventPreset.eventTypeId))
-    .where(inArray(eventSeason.id, ids));
-  const anchors = await tx
-    .select({
-      seasonId: eventSeasonAnchor.seasonId,
-      key: eventSeasonAnchor.key,
-      date: eventSeasonAnchor.date,
-    })
-    .from(eventSeasonAnchor)
-    .where(inArray(eventSeasonAnchor.seasonId, ids));
-  const roleKeys = [...new Set(seasons.flatMap((s) => Object.keys(s.defaultDuties)))];
-  const roles =
-    roleKeys.length > 0
-      ? await tx
-          .select({ id: dutyRole.id, key: dutyRole.key })
-          .from(dutyRole)
-          .where(inArray(dutyRole.key, roleKeys))
-      : [];
-  const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
-  const byId = new Map(seasons.map((s) => [s.id, s]));
-  return ids.flatMap((id) => {
-    const s = byId.get(id);
-    if (!s) return [];
-    const duties = new Map<string, string>();
-    for (const [key, staffMemberId] of Object.entries(s.defaultDuties)) {
-      const roleId = roleIdByKey.get(key);
-      if (roleId) duties.set(roleId, staffMemberId);
-    }
-    return [
-      {
-        scope: "season" as const,
-        id: s.id,
-        name: s.name,
-        season: s.season,
-        presetId: s.presetId,
-        facts: { eventTypeKey: s.eventTypeKey, venueId: s.venueId, venueKind: s.venueKind },
-        anchors: new Map(anchors.filter((a) => a.seasonId === id).map((a) => [a.key, a.date])),
-        duties,
       },
     ];
   });
@@ -286,9 +207,9 @@ export async function loadPublishedVersions(
 }
 
 // ---------------------------------------------------------------------------------------------
-// One item for one event or season
+// One item for one event
 
-/** What a template item turns into for one event or season (due date and assignee worked out). */
+/** What a template item turns into for one event (due date and assignee worked out). */
 export type DesiredTask = PlanItem & {
   itemId: string;
   /** Child item (ADR 0021): the parent item's stable key; its task becomes a subtask of the parent's task. */
@@ -305,7 +226,7 @@ export type DesiredContext = { defaults: DueDefaults; holidays: ReadonlyMap<stri
 
 /** The holiday table a context's items need (empty unless an item counts business days). */
 export function holidaysFor(
-  context: InstantiationContext,
+  context: EventContext,
   items: readonly Pick<TemplateItemRow, "dayMode" | "offsetDays">[],
 ): Map<string, unknown> {
   const business = items.filter((i) => i.dayMode === "business");
@@ -319,7 +240,7 @@ export function holidaysFor(
 /** The one place that turns an item into task values: used by creation, propagation and previews. */
 export function desiredTask(
   item: TemplateItemRow,
-  ev: InstantiationContext,
+  ev: EventContext,
   context: DesiredContext,
 ): DesiredTask {
   const dueAt = taskDueInstant(
@@ -361,21 +282,17 @@ export function desiredTask(
 }
 
 /**
- * Items of a version that apply to the event or season, as the tasks they would become: only items of the
- * context's scope (an event never gets `season` items and a season never gets `event` items; a child item belongs
- * to its parent's scope), parents first, then child items (ADR 0021), which apply only together with their parent
- * and take its schedule and duty role unless they have their own (`inheritedItem`). The returned items carry those
- * resolved values.
+ * Items of a version that apply to the event, as the tasks they would become: parents first, then child items
+ * (ADR 0021), which apply only together with their parent and take its schedule and duty role unless they have
+ * their own (`inheritedItem`). The returned items carry those resolved values.
  */
 export function desiredTasks(
   version: TemplateVersionContent,
-  ev: InstantiationContext,
+  ev: EventContext,
   defaults: DueDefaults,
 ): { desired: DesiredTask[]; items: TemplateItemRow[] } {
   const applicable = applicableItems(
-    version.items
-      .filter((i) => i.parentKey !== null || i.scope === ev.scope)
-      .map((i) => ({ ...i, condition: i.condition as ItemCondition | null })),
+    version.items.map((i) => ({ ...i, condition: i.condition as ItemCondition | null })),
     ev.facts,
   );
   const byKey = new Map(version.items.map((i) => [i.stableKey, i]));
@@ -389,11 +306,10 @@ export function desiredTasks(
 // ---------------------------------------------------------------------------------------------
 // Writing tasks
 
-/** The task values of a desired item for one event's or season's checklist. */
-function taskValues(ev: InstantiationContext, checklistId: string, d: DesiredTask) {
+/** The task values of a desired item for one event's checklist. */
+function taskValues(ev: EventContext, checklistId: string, d: DesiredTask) {
   return {
-    eventId: ev.scope === "event" ? ev.id : null,
-    seasonId: ev.scope === "season" ? ev.id : null,
+    eventId: ev.id,
     checklistId,
     templateItemId: d.itemId,
     templateStableKey: d.stableKey,
@@ -450,7 +366,7 @@ export async function parentTasksByKey(
  */
 export async function insertTemplateTasks(
   tx: Tx,
-  ev: InstantiationContext,
+  ev: EventContext,
   checklistId: string,
   desired: DesiredTask[],
 ): Promise<number> {
@@ -484,25 +400,30 @@ export async function insertTemplateTasks(
   return created;
 }
 
-/** The checklist of an event or season for a template (created when missing; idempotent). */
+/** The checklist of an event for a template (created when missing; idempotent). */
 export async function ensureChecklist(
   tx: Tx,
-  ev: InstantiationContext,
+  ev: EventContext,
   version: TemplateVersionContent,
   sort: number,
 ): Promise<{ id: string; created: boolean }> {
-  const owner = ev.scope === "event" ? eq(checklist.eventId, ev.id) : eq(checklist.seasonId, ev.id);
   const [existing] = await tx
     .select({ id: checklist.id })
     .from(checklist)
-    .where(and(owner, eq(checklist.templateId, version.templateId), isNull(checklist.archivedAt)))
+    .where(
+      and(
+        eq(checklist.eventId, ev.id),
+        eq(checklist.templateId, version.templateId),
+        isNull(checklist.archivedAt),
+      ),
+    )
     .orderBy(asc(checklist.createdAt))
     .limit(1);
   if (existing) return { id: existing.id, created: false };
   const [row] = await tx
     .insert(checklist)
     .values({
-      ...(ev.scope === "event" ? { eventId: ev.id } : { seasonId: ev.id }),
+      eventId: ev.id,
       templateId: version.templateId,
       templateVersionId: version.versionId,
       name: version.templateName,
@@ -516,16 +437,19 @@ export async function ensureChecklist(
 export type InstantiationSummary = { checklists: number; tasks: number };
 
 /**
- * The shared loop: for each context one checklist per template linked to its preset (current published version)
- * with one task per applicable item of the context's scope. An event always gets its checklists (as before); a
- * season gets one only for templates that have season items for it, so markets without season work keep no empty
- * season checklists.
+ * THE one service path that turns timeline templates into work (CLAUDE.md, data model "Generating events"):
+ * for each new event one checklist per template linked to its preset (current published version) and one
+ * task per applicable item, due at anchor + offset, assigned to whoever holds the item's duty role at the
+ * event; child items become subtasks of their parent item's task (ADR 0021). Called by `instantiateEvents` inside
+ * its transaction; safe to call again (nothing is duplicated: the checklist is reused and the partial unique index
+ * skips tasks that exist).
  */
-async function instantiateContexts(
+export async function instantiateTemplatesForEvents(
   tx: Tx,
   actor: ServiceActor,
-  contexts: InstantiationContext[],
+  eventIds: string[],
 ): Promise<InstantiationSummary> {
+  const contexts = await loadEventContexts(tx, eventIds);
   const summary: InstantiationSummary = { checklists: 0, tasks: 0 };
   const withPreset = contexts.filter((c) => c.presetId !== null);
   if (withPreset.length === 0) return summary;
@@ -558,7 +482,6 @@ async function instantiateContexts(
       const version = versions.get(link.templateId);
       if (!version) continue;
       const { desired } = desiredTasks(version, ev, defaults);
-      if (ev.scope === "season" && desired.length === 0) continue;
       const list = await ensureChecklist(tx, ev, version, index);
       const count = await insertTemplateTasks(tx, ev, list.id, desired);
       if (list.created) summary.checklists += 1;
@@ -569,7 +492,7 @@ async function instantiateContexts(
           entityType: "checklist",
           entityId: list.id,
           diff: {
-            ...(ev.scope === "event" ? { eventId: ev.id } : { seasonId: ev.id }),
+            eventId: ev.id,
             templateId: version.templateId,
             templateName: version.templateName,
             versionId: version.versionId,
@@ -581,35 +504,4 @@ async function instantiateContexts(
   }
   await audit(tx, actor.id, entries);
   return summary;
-}
-
-/**
- * THE one service path that turns timeline templates into work (CLAUDE.md, data model "Generating events"):
- * for each new event one checklist per template linked to its preset (current published version) and one
- * task per applicable `event` item, due at anchor + offset, assigned to whoever holds the item's duty role at the
- * event; child items become subtasks of their parent item's task (ADR 0021). `season` items are left out: they
- * belong to the Saison record (`instantiateTemplatesForSeasons`). Called by `instantiateEvents` inside its
- * transaction; safe to call again (nothing is duplicated: the checklist is reused and the partial unique index
- * skips tasks that exist).
- */
-export async function instantiateTemplatesForEvents(
-  tx: Tx,
-  actor: ServiceActor,
-  eventIds: string[],
-): Promise<InstantiationSummary> {
-  return instantiateContexts(tx, actor, await loadEventContexts(tx, eventIds));
-}
-
-/**
- * The same path for Saison records (research 13 §6.2): the `season` items of the templates linked to the
- * season's market become tasks of a season checklist (`checklist.season_id`, `task.season_id`), due relative to
- * the season anchors (`season_start`, `season_end`) and assigned through the market's default duties. Called by
- * `ensureEventSeasonTx` when it creates a record; idempotent like the event path.
- */
-export async function instantiateTemplatesForSeasons(
-  tx: Tx,
-  actor: ServiceActor,
-  seasonIds: string[],
-): Promise<InstantiationSummary> {
-  return instantiateContexts(tx, actor, await loadSeasonContexts(tx, seasonIds));
 }

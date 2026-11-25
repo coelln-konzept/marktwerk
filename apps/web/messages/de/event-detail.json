@@ -268,8 +268,7 @@
       "statusRestored": "Absage aufgehoben: {from} → {to}",
       "tasksCancelled": "{count, plural, one {# Aufgabe mit abgesagt} other {# Aufgaben mit abgesagt}}",
       "tasksReopened": "{count, plural, one {# Aufgabe wieder offen} other {# Aufgaben wieder offen}}",
-      "tasksShifted": "{count, plural, one {# Aufgabe verschoben} other {# Aufgaben verschoben}}",
-      "seasonTasksShifted": "{count, plural, one {# Saisonaufgabe verschoben} other {# Saisonaufgaben verschoben}}"
+      "tasksShifted": "{count, plural, one {# Aufgabe verschoben} other {# Aufgaben verschoben}}"
     },
     "facts": {
       "edit": "Bearbeiten",
@@ -405,15 +404,10 @@
       "task": "Aufgabe",
       "overdueShort": "Überfällig",
       "overdueAfter": "{count, plural, one {# Aufgabe wäre danach überfällig.} other {# Aufgaben wären danach überfällig.}}",
-      "movedSeasonTasks": "{count, plural, one {1 Saisonaufgabe verschoben} other {# Saisonaufgaben verschoben}}",
       "tasksKept": "{count, plural, one {# offene Aufgabe bleibt} other {# offene Aufgaben bleiben}} am alten Tag: {detail}. Erledigte bleiben sowieso.",
       "keptManual": "{count} von Hand gesetzt",
       "keptNoRule": "{count} ohne Regel",
       "keptAfterEnd": "{count, plural, one {# Aufgabe, die bleibt, ist dann erst nach dem Termin fällig.} other {# Aufgaben, die bleiben, sind dann erst nach dem Termin fällig.}}",
-      "seasonShifting": "{count, plural, one {1 Saisonaufgabe verschiebt sich.} other {# Saisonaufgaben verschieben sich.}}",
-      "seasonShiftingNote": "Der erste oder letzte Termin der Saison ändert sich.",
-      "seasonShow": "{count, plural, one {# Saisonaufgabe anzeigen} other {# Saisonaufgaben anzeigen}}",
-      "seasonCaption": "Saisonaufgaben mit bisherigem und neuem Fälligkeitstag",
       "notified": "Benachrichtigt {count, plural, one {wird} other {werden}}: {names}.",
       "notifiedNobody": "Niemand wird benachrichtigt: die Aufgaben sind niemand anderem zugewiesen.",
       "permitsKept": "{count, plural, one {„Antrag bis“ verschiebt sich nicht:} other {„Antrag bis“ verschiebt sich bei # Genehmigungen nicht:}}",

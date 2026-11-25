@@ -5,7 +5,6 @@ import type {
   TaskCategory,
   TaskPhase,
   TaskPriority,
-  TemplateItemScope,
   TemplatePermitType,
 } from "../types";
 
@@ -36,15 +35,6 @@ export const CLIENT_DUTY = {
   traffic: "traffic",
   collection: "cash",
 } as const satisfies Record<string, DutyRoleKey>;
-
-/**
- * Season items (research 13 §1.2 kind 1, §6): "Termine planen" and "Genehmigung" happen once per market and
- * season, relative to its first date. They are template items with `scope: "season"` on the season anchor
- * `seasonStart`, and become tasks of the market's Saison record (`Task.seasonId`), not of an event. The UI labels
- * them "<Markt> · Saison <Jahr>", so the title carries no prefix. Their stable keys keep the `saison_` prefix they
- * had while the first event carried them (interim until R18), so existing tasks still match their items.
- */
-export const SEASON_KEY_PREFIX = "saison_";
 
 /** Description of the items a market without its own sheet gets on top of the Grundvorlage. */
 export const ASSUMPTION_NOTE = "Annahme – vom Team noch nicht bestätigt";
@@ -83,7 +73,6 @@ export interface ItemBlueprint extends DueBlueprint {
   /** Kernaufgabe. */
   isKey?: boolean;
   permitType?: TemplatePermitType;
-  scope?: TemplateItemScope;
   children?: readonly ChildBlueprint[];
 }
 
@@ -94,60 +83,12 @@ function item(draft: Draft): ItemBlueprint {
   return { anchorKey: "eventDay", dueTime: null, priority: "normal", ...draft };
 }
 
-/** A season item (see SEASON_KEY_PREFIX): due relative to the season's first date; the key gets its prefix here. */
-function seasonItem(draft: Draft): ItemBlueprint {
-  return item({
-    anchorKey: "seasonStart",
-    ...draft,
-    key: `${SEASON_KEY_PREFIX}${draft.key}`,
-    scope: "season",
-  });
-}
-
 /** A line of the market day (phase `live`), on the first day unless `anchorKey` says otherwise. */
 function marketDay(draft: Omit<Draft, "phase" | "offsetDays">): ItemBlueprint {
   return item({ phase: "live", offsetDays: 0, ...draft });
 }
 
 /* ------------------------------------------------------------------------------------- Grundvorlage */
-
-const TERMINE_PLANEN = seasonItem({
-  key: "termine_planen",
-  title: "Termine planen",
-  phase: "pre",
-  category: "general",
-  offsetDays: -240, // 8 months before the first date of the season
-  dutyRoleKey: "market_lead",
-  priority: "high",
-  estimateMinutes: 120,
-  isKey: true,
-  children: [
-    { key: "rhythmus", title: "Rhythmus festlegen (z. B. monatlich)", estimateMinutes: 30 },
-    { key: "notiz", title: "Notiz zur Terminwahl anlegen", estimateMinutes: 15 },
-  ],
-});
-
-const GENEHMIGUNG = seasonItem({
-  key: "genehmigung",
-  title: "Genehmigung beantragen",
-  phase: "pre",
-  category: "permits",
-  offsetDays: -180, // 6 months before the first date of the season
-  dutyRoleKey: "permits",
-  priority: "high",
-  estimateMinutes: 120,
-  isKey: true,
-  permitType: "market_permit",
-  children: [
-    { key: "antrag", title: "Antrag bei der Stadt stellen", estimateMinutes: 90 },
-    {
-      key: "festsetzung",
-      title: "Festsetzung prüfen und Gebühr als Zahlung anlegen",
-      estimateMinutes: 20,
-      permitType: "market_fixing",
-    },
-  ],
-});
 
 const SCHICHTPLAN = item({
   key: "schichtplan",
@@ -254,8 +195,6 @@ const NACHBEREITUNG = item({
 
 /** The master ("Grundvorlage"): the items all four client sheets share (research 13 §1.3). */
 export const GRUNDVORLAGE: readonly ItemBlueprint[] = [
-  TERMINE_PLANEN,
-  GENEHMIGUNG,
   SCHICHTPLAN,
   EINZEICHNEN,
   BRINGTO_EINLADEN,
@@ -350,6 +289,10 @@ const NACHTWACHE = marketDay({
   estimateMinutes: 600,
 });
 
+/**
+ * Ordering the standpipe for this date. Not an application: the Standrohr permit covers the season and has its own
+ * "… beantragen" task (ADR 0024), so this item names no permit type.
+ */
 const STANDROHR_BESTELLEN = item({
   key: "standrohr_bestellen",
   title: "Standrohr bestellen",
@@ -358,8 +301,20 @@ const STANDROHR_BESTELLEN = item({
   offsetDays: -30,
   dutyRoleKey: "water_power",
   estimateMinutes: 20,
-  permitType: "water", // ordering the standpipe is the application at the water supplier (part C)
   children: [{ key: "abholtermin", title: "Abholtermin vereinbaren", estimateMinutes: 10 }],
+});
+
+/** GEMA is per date (ADR 0024): this task applies for the date's GEMA permit, so the permit needs no task of its own. */
+const GEMA_ANMELDEN = item({
+  key: "gema_anmelden",
+  title: "GEMA anmelden",
+  description: "Musik mit Bühnenprogramm und Uhrzeiten melden; die Musikfolge danach nachreichen.",
+  phase: "pre",
+  category: "permits",
+  offsetDays: -14,
+  dutyRoleKey: "permits",
+  estimateMinutes: 20,
+  permitType: "gema",
 });
 
 const WERBUNG_AUFHAENGEN = item({
@@ -414,15 +369,11 @@ function position(blueprint: ItemBlueprint): number {
   return blueprint.offsetDays + (blueprint.anchorKey === "teardownDay" ? 0.5 : 0);
 }
 
-/** Template order: season items first, then by phase, day and due time (stable for ties). */
+/** Template order: by phase, day and due time (stable for ties). */
 function timeline(items: readonly ItemBlueprint[]): ItemBlueprint[] {
   return items
     .map((blueprint, index) => ({ blueprint, index }))
     .sort((a, b) => {
-      const scope =
-        Number((a.blueprint.scope ?? "event") === "event") -
-        Number((b.blueprint.scope ?? "event") === "event");
-      if (scope !== 0) return scope;
       const phase = PHASE_ORDER[a.blueprint.phase] - PHASE_ORDER[b.blueprint.phase];
       if (phase !== 0) return phase;
       const day = position(a.blueprint) - position(b.blueprint);
@@ -461,7 +412,6 @@ export type ClientMarketKey = "altstadt" | "riehler-guertel" | "nippes" | "hoffn
 /** Altstadt, 2–3 days ("altstadt 2 day event"). */
 const ALTSTADT = fromMaster({
   change: {
-    [GENEHMIGUNG.key]: { offsetDays: -210 }, // 7 months
     einweisen: { title: "Aussteller einweisen (1. Tag)" },
     tageswache_ordner: { title: "Tageswache „Ordner“ stellen (1. Tag)" },
     nachkassieren: { title: "Standgebühren nachkassieren (1. Tag)" },
@@ -545,31 +495,6 @@ const NIPPES = fromMaster({
 /** Hoffnungsthal ("hoffnungsthal - 1 day event", the newer sheet): co-organised with the Ortsring. */
 const HOFFNUNGSTHAL = fromMaster({
   change: {
-    [TERMINE_PLANEN.key]: {
-      offsetDays: -350,
-      children: [
-        { key: "notiz", title: "Notiz zur Terminwahl anlegen", estimateMinutes: 15 },
-        { key: "ortsring", title: "Termin mit dem Ortsring abstimmen", estimateMinutes: 30 },
-      ],
-    },
-    [GENEHMIGUNG.key]: {
-      title: "Anträge stellen",
-      children: [
-        { key: "antrag", title: "Antrag bei der Stadt stellen", estimateMinutes: 90 },
-        {
-          key: "festsetzung",
-          title: "Festsetzung prüfen und Gebühr als Zahlung anlegen",
-          estimateMinutes: 20,
-          permitType: "market_fixing",
-        },
-        {
-          key: "plakatierung",
-          title: "Plakatierung beantragen",
-          estimateMinutes: 30,
-          permitType: "signage",
-        },
-      ],
-    },
     flyer_verteilen: { title: "Flyer verteilen und Festplätze fürs nächste Jahr prüfen" },
   },
   drop: ["tageswache_ordner"], // not on this sheet
@@ -745,6 +670,12 @@ export const CLIENT_MARKET_PRESET_KEYS: Readonly<Record<ClientMarketKey, readonl
 
 /* ------------------------------------------------------------- markets without their own sheet yet */
 
+/*
+ * Template items name a permit type only for a permit of a single date (ADR 0024): Schaustellerliste, GEMA. Work on a
+ * permit that covers several dates (Erlaubnis, Festsetzung, Ausschank, Standrohr, owner's agreement, toilets …) is
+ * the permit's own "… beantragen" task, once per Ort and season, never a template item.
+ */
+
 /**
  * What a market without its own sheet gets on top of the Grundvorlage, by event type: items from the client
  * sheets that markets of that kind plausibly need. Each carries ASSUMPTION_NOTE (research 13 §5 q5).
@@ -754,6 +685,7 @@ const ASSUMED_BY_TYPE: Readonly<Record<EventTypeKey, readonly ItemBlueprint[]>> 
   antique: [WERBUNG_AUFHAENGEN, LEIHSTAENDE_AUFBAUEN, LEIHSTAENDE_ABBAUEN],
   city_festival: [
     STANDROHR_BESTELLEN,
+    GEMA_ANMELDEN,
     STROM_WASSER_ORGANISIEREN,
     ABFLATTERN_VERKEHR,
     NACHTWACHE,
@@ -761,6 +693,7 @@ const ASSUMED_BY_TYPE: Readonly<Record<EventTypeKey, readonly ItemBlueprint[]>> 
   ],
   food_wine: [
     STANDROHR_BESTELLEN,
+    GEMA_ANMELDEN,
     STROM_WASSER_ORGANISIEREN,
     LEIHSTAENDE_AUFBAUEN,
     LEIHSTAENDE_ABBAUEN,

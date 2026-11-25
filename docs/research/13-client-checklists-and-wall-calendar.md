@@ -196,6 +196,11 @@ every series will get dates. Fahrplan R4:
 
 ## 6. Saison record — proposed design (decided in principle 2026-11-13)
 
+> **Superseded by [ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md) (2026-11-25).** The Saison record
+> was built (Fahrplan R6–R14, R18, R27) and removed again (Fahrplan SAI3, migration `0025_remove_saison`): recurring
+> work lives per date (event + template), per Ort and season (the Genehmigungen logbook, one permit with its own
+> "… beantragen" task) and company per year (Pflichten). This section is kept as the record of the earlier design.
+
 ### 6.1 Data
 - **`event_season`** (UI "Saison"): `id`, `preset_id` → event_preset, `season` (integer, the calendar year), unique
   `(preset_id, season)`; `expected_start` (`date`, the first date we expect before any event exists), `status`

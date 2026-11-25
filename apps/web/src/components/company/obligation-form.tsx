@@ -419,7 +419,8 @@ export function ObligationForm({
                           months: Number(months),
                         })
                       : tf("legalMissing")
-                    : tf("intervalMonthsHint")}
+                    : // Km only exist for vehicles; elsewhere the months are the whole rhythm.
+                      tf(scope === "vehicle" ? "intervalMonthsHint" : "intervalMonthsHintDate")}
                 </p>
                 <FieldError id={f("intervalMonths")} text={errors.intervalMonths} />
               </div>
@@ -484,8 +485,11 @@ export function ObligationForm({
                   required
                   className="tabular"
                   onChange={(e) => setLeadDays(e.target.value)}
-                  {...invalid("leadDays")}
+                  {...invalid("leadDays", f("leadDays-hint"))}
                 />
+                <p id={f("leadDays-hint")} className={hint}>
+                  {tf("leadDaysHint")}
+                </p>
                 <FieldError id={f("leadDays")} text={errors.leadDays} />
               </div>
             </div>

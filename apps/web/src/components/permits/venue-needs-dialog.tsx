@@ -21,7 +21,7 @@ import { callAction, NETWORK_ERROR } from "@/lib/call-action";
 /** Why the dialog opens: a new Ort, a switch Städtisch ↔ Privat, or "Was braucht dieser Ort?" on the Ort page. */
 export type VenueNeedsReason = "created" | "kindChanged" | "manual";
 
-/** The main permits and the Festsetzung first, the extras (Standrohr, PVBT, Plakatierung, Toiletten) below. */
+/** The main permits and the Festsetzung first, the extras (Standrohr, PVBT, Plakatierung, Ausschank) below. */
 const MAIN: readonly VenueNeedType[] = ["market_permit", "landowner_ok", "market_fixing"];
 const EXTRAS = VENUE_NEED_TYPES.filter((type) => !MAIN.includes(type));
 
@@ -39,8 +39,8 @@ function initialTicks(
 /**
  * "Was braucht dieser Ort?" (product owner 2026-11-13, Fahrplan R30): opens after an Ort is created (on its page,
  * or stacked on the quick form inside "Markt planen") and after a switch Städtisch ↔ Privat. Pre-ticked from the
- * kind (Städtisch: Marktgenehmigung + Festsetzung; Privat: Einverständnis des Eigentümers + Festsetzung), the extras
- * unticked; everything can be changed, "Überspringen" saves nothing. Saving sets the Ort's permit requirements
+ * kind (Städtisch: Ordnungsbehördliche Erlaubnis + Festsetzung; Privat: Einverständnis des Eigentümers +
+ * Festsetzung), the extras unticked; everything can be changed, "Überspringen" saves nothing. Saving sets the Ort's permit requirements
  * (`setVenueNeeds`) with an undo toast; details (Behörde, Gebühr, Fenster) go on the requirement form later.
  */
 export function VenueNeedsDialog({

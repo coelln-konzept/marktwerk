@@ -32,7 +32,6 @@ type MoveDiff = {
   to?: { startsOn?: string };
   undo?: boolean;
   tasksShifted?: number;
-  seasonTasksShifted?: number;
 };
 
 const countOf = (list: unknown) => (Array.isArray(list) ? list.length : 0);
@@ -128,9 +127,6 @@ export async function HistoryTable({
         const details = [
           ...(d.undo ? [t("undone")] : []),
           ...(d.tasksShifted ? [t("tasksShifted", { count: d.tasksShifted })] : []),
-          ...(d.seasonTasksShifted
-            ? [t("seasonTasksShifted", { count: d.seasonTasksShifted })]
-            : []),
         ];
         return {
           text: t("moved", { from: day(d.from?.startsOn), to: day(d.to?.startsOn) }),

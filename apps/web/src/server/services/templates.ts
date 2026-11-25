@@ -1,6 +1,5 @@
 import "server-only";
 import {
-  anchorFitsScope,
   can,
   checkItemTree,
   checkTemplateItem,
@@ -9,7 +8,6 @@ import {
   MAX_ITEMS_PER_VERSION,
   normalizeCondition,
   type TemplateItemFields,
-  type TemplateItemScope,
   uniqueItemKey,
 } from "@marktwerk/core";
 import {
@@ -93,7 +91,6 @@ export function itemFields(row: ItemRow): TemplateItemFields {
     approverDutyRoleId: row.approverDutyRoleId,
     parentKey: row.parentKey,
     ownDue: row.ownDue,
-    scope: row.scope,
     condition: row.condition ?? null,
   };
 }
@@ -125,7 +122,6 @@ function normalizeItem(input: TemplateItemFields): TemplateItemFields {
     requiresNote: input.requiresNote,
     requiresAttachment: input.requiresAttachment,
     isKey: input.isKey,
-    ...(input.scope === undefined ? {} : { scope: input.scope }),
     title: typeof input.title === "string" ? input.title.trim().replace(/\s+/g, " ") : "",
     description: text(input.description),
     // An unparsable time stays as typed so that validation reports it.
@@ -167,26 +163,14 @@ function checkItemParents(items: { stableKey: string; parentKey: string | null }
   if (issue) throw new TemplateInputError("invalid_parent", "parentKey", key ?? issue.key);
 }
 
-/**
- * A child item is shown and instantiated in its parent's phase (ADR 0021) and belongs to its parent's scope
- * (research 13 §6.1): the parent's values win. A top-level item keeps the scope it was given, else `fallbackScope`
- * (its stored scope on update, `event` for a new item). The anchor is checked against the resulting scope.
- */
+/** A child item is shown and instantiated in its parent's phase (ADR 0021): the parent's phase wins. */
 function withParentPhase(
   fields: TemplateItemFields,
-  items: { stableKey: string; phase: TemplateItemFields["phase"]; scope: TemplateItemScope }[],
-  fallbackScope: TemplateItemScope,
-  key?: string,
-): TemplateItemFields & { scope: TemplateItemScope } {
-  const parent =
-    fields.parentKey === null ? undefined : items.find((i) => i.stableKey === fields.parentKey);
-  const next = {
-    ...fields,
-    phase: parent?.phase ?? fields.phase,
-    scope: parent?.scope ?? fields.scope ?? fallbackScope,
-  };
-  checkFields(next, key);
-  return next;
+  items: { stableKey: string; phase: TemplateItemFields["phase"] }[],
+): TemplateItemFields {
+  if (fields.parentKey === null) return fields;
+  const parent = items.find((i) => i.stableKey === fields.parentKey);
+  return parent && parent.phase !== fields.phase ? { ...fields, phase: parent.phase } : fields;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -699,7 +683,7 @@ export async function addTemplateItem(
       ],
       key,
     );
-    const values = withParentPhase(fields, items, "event");
+    const values = withParentPhase(fields, items);
     const [row] = await tx
       .insert(templateItem)
       .values({
@@ -750,7 +734,7 @@ export async function updateTemplateItem(
       })),
       key,
     );
-    const next = withParentPhase(fields, items, row.scope, key);
+    const next = withParentPhase(fields, items);
     const before = itemFields(row);
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     for (const field of Object.keys(next) as (keyof TemplateItemFields)[]) {
@@ -758,19 +742,13 @@ export async function updateTemplateItem(
         changes[field] = { from: before[field], to: next[field] };
     }
     if (Object.keys(changes).length === 0) return { changed: false };
-    // Child items stay in their parent's phase and scope; one with its own schedule must fit a new scope.
-    const children = items.filter(
-      (i) => i.parentKey === key && (i.phase !== next.phase || i.scope !== next.scope),
-    );
-    const misfit = children.find(
-      (c) => c.scope !== next.scope && c.ownDue && !anchorFitsScope(next.scope, c.anchorKey),
-    );
-    if (misfit) throw new TemplateInputError("invalid_anchor", "anchorKey", misfit.stableKey);
     await tx.update(templateItem).set(next).where(eq(templateItem.id, row.id));
+    // Child items stay in their parent's phase.
+    const children = items.filter((i) => i.parentKey === key && i.phase !== next.phase);
     if (children.length > 0)
       await tx
         .update(templateItem)
-        .set({ phase: next.phase, scope: next.scope })
+        .set({ phase: next.phase })
         .where(
           inArray(
             templateItem.id,
@@ -884,12 +862,11 @@ export async function restoreTemplateItems(
       ...items.map((i) => ({ stableKey: i.stableKey, parentKey: i.parentKey })),
       ...restoring.map((r) => ({ stableKey: r.key, parentKey: r.fields.parentKey })),
     ]);
-    const known: {
-      stableKey: string;
-      phase: TemplateItemFields["phase"];
-      scope: TemplateItemScope;
-    }[] = items.map((i) => ({ stableKey: i.stableKey, phase: i.phase, scope: i.scope }));
-    // Parents first, whatever order the rows came in: a child takes its parent's phase and scope, and the
+    const known: { stableKey: string; phase: TemplateItemFields["phase"] }[] = items.map((i) => ({
+      stableKey: i.stableKey,
+      phase: i.phase,
+    }));
+    // Parents first, whatever order the rows came in: a child takes its parent's phase, and the
     // foreign key needs the parent row. The place in the list follows the given order.
     const restoringKeys = new Set(restoring.map((r) => r.key));
     const isChildOfRestored = (r: (typeof restoring)[number]) =>
@@ -899,7 +876,7 @@ export async function restoreTemplateItems(
       ...restoring.filter((r) => !isChildOfRestored(r)),
       ...restoring.filter(isChildOfRestored),
     ]) {
-      const values = withParentPhase(r.fields, known, "event", r.key);
+      const values = withParentPhase(r.fields, known);
       const [row] = await tx
         .insert(templateItem)
         .values({
@@ -911,7 +888,7 @@ export async function restoreTemplateItems(
         })
         .returning({ id: templateItem.id });
       if (!row) throw new Error("insert failed");
-      known.push({ stableKey: r.key, phase: values.phase, scope: values.scope });
+      known.push({ stableKey: r.key, phase: values.phase });
       idByKey.set(r.key, row.id);
     }
     const ids = restoring.flatMap((r) => idByKey.get(r.key) ?? []);
@@ -947,14 +924,11 @@ export async function moveTemplateItem(
     const items = await itemsOf(tx, version.id);
     const index = items.findIndex((i) => i.stableKey === key);
     if (index < 0) throw new TemplateInputError("item_not_found", undefined, key);
-    // The editor shows the season rows in one section ("Ganze Saison") above the event rows grouped by phase, with
-    // child items under their parent, so "one up" means past the next sibling: a top-level season row, a top-level
-    // event row of the same phase, or a child item of the same parent.
+    // The editor groups the rows by phase, with child items under their parent, so "one up" means past the next
+    // sibling: a top-level row of the same phase, or a child item of the same parent.
     const moving = items[index] as ItemRow;
     const isSibling = (i: ItemRow) =>
-      i.parentKey === moving.parentKey &&
-      (moving.parentKey !== null ||
-        (i.scope === moving.scope && (moving.scope === "season" || i.phase === moving.phase)));
+      i.parentKey === moving.parentKey && (moving.parentKey !== null || i.phase === moving.phase);
     const step = direction === "up" ? -1 : 1;
     let target = index + step;
     while (items[target] && !isSibling(items[target] as ItemRow)) target += step;

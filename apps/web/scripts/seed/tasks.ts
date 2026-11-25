@@ -1,8 +1,6 @@
 /**
- * M2 seed, part 2: one checklist per event and one per Saison record (both made from the market's own template
- * version, as the instantiation path does: `checklist.event_id` or `checklist.season_id`) and the tasks in them.
- * Event tasks carry `event_id`, season tasks (the template's `season` items) `season_id` (research 13 §6).
- * Subtasks (ADR 0021, `parent_task_id`) are inserted after all top-level tasks: the one-level trigger and the
+ * M2 seed, part 2: one checklist per event (made from the market's own template version, as the instantiation
+ * path does) and the tasks in them. Subtasks (ADR 0021, `parent_task_id`) are inserted after all top-level tasks: the one-level trigger and the
  * foreign key then always find the parent. Checklist ids are derived from owner + template, so re-running never
  * duplicates them. Comments are not part of the synthetic dataset.
  */
@@ -20,60 +18,34 @@ export async function seedTasks(tx: Tx, { data }: SeedContext) {
 
   const eventChecklistId = (eventId: string, templateId: string) =>
     derivedId("checklist", `${eventId}:${templateId}`);
-  const seasonChecklistId = (seasonId: string, templateId: string) =>
-    derivedId("checklist", `season:${seasonId}:${templateId}`);
   const templateOf = (presetId: string) => {
     const template = templateById.get(templateIdByPresetId.get(presetId) ?? "");
     if (!template) throw new Error(`Preset ${presetId}: no task template`);
     return template;
   };
 
-  const checklist = (owner: { eventId: string } | { seasonId: string }, presetId: string) => {
-    const template = templateOf(presetId);
-    return {
-      id:
-        "eventId" in owner
-          ? eventChecklistId(owner.eventId, template.id)
-          : seasonChecklistId(owner.seasonId, template.id),
-      ...owner,
-      templateId: template.id,
-      templateVersionId: templateVersionId(template.id),
-      name: template.name,
-    };
-  };
-  // A season gets a checklist only when its template has season items (as `instantiateTemplatesForSeasons`).
-  const seasonsWithItems = data.eventSeasons.filter((s) =>
-    templateOf(s.presetId).items.some((item) => item.scope === "season"),
-  );
   await insertAll(
     tx,
     schema.checklist,
-    [
-      ...data.events.map((event) => checklist({ eventId: event.id }, event.presetId)),
-      ...seasonsWithItems.map((season) => checklist({ seasonId: season.id }, season.presetId)),
-    ],
-    "checklists (events and seasons)",
+    data.events.map((event) => {
+      const template = templateOf(event.presetId);
+      return {
+        id: eventChecklistId(event.id, template.id),
+        eventId: event.id,
+        templateId: template.id,
+        templateVersionId: templateVersionId(template.id),
+        name: template.name,
+      };
+    }),
+    "checklists",
   );
 
   const presetIdByEventId = new Map(data.events.map((e) => [e.id, e.presetId]));
-  const presetIdBySeasonId = new Map(data.eventSeasons.map((s) => [s.id, s.presetId]));
-  const checklistOf = (task: (typeof data.tasks)[number]): string => {
-    if (task.seasonId !== null)
-      return seasonChecklistId(
-        task.seasonId,
-        templateOf(presetIdBySeasonId.get(task.seasonId) ?? "").id,
-      );
-    if (task.eventId !== null)
-      return eventChecklistId(
-        task.eventId,
-        templateOf(presetIdByEventId.get(task.eventId) ?? "").id,
-      );
-    throw new Error(`Task ${task.id} has neither an event nor a season`);
-  };
+  const checklistOf = (task: (typeof data.tasks)[number]): string =>
+    eventChecklistId(task.eventId, templateOf(presetIdByEventId.get(task.eventId) ?? "").id);
   const rows = data.tasks.map((task) => ({
     id: task.id,
     eventId: task.eventId,
-    seasonId: task.seasonId,
     checklistId: checklistOf(task),
     templateItemId: task.templateItemId,
     templateStableKey: task.templateStableKey,
@@ -104,7 +76,6 @@ export async function seedTasks(tx: Tx, { data }: SeedContext) {
     rolloverCount: task.rolloverCount,
     lastRolledAt: instant(task.lastRolledAt),
   }));
-  const seasonTasks = rows.filter((row) => row.seasonId !== null).length;
   await insertAll(
     tx,
     schema.task,
@@ -117,5 +88,4 @@ export async function seedTasks(tx: Tx, { data }: SeedContext) {
     rows.filter((row) => row.parentTaskId !== null),
     "subtasks",
   );
-  console.log(`  of them on Saison records (tasks and subtasks): ${seasonTasks}`);
 }

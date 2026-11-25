@@ -45,7 +45,7 @@ export default async function NewObligationPage({
   return (
     <Page
       crumbs={[
-        { label: t("title"), href: "/firma" },
+        // The area and its first tab are both "Pflichten": one crumb, not two.
         { label: t("obligations.title"), href: "/firma/pflichten" },
         { label: tf("newTitle") },
       ]}

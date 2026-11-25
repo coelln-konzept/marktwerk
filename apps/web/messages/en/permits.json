@@ -14,7 +14,7 @@
     "superseded": "Superseded"
   },
   "permitTypes": {
-    "market_permit": "Market permit",
+    "market_permit": "Public order permit",
     "market_fixing": "Market fixing (§ 69 GewO)",
     "water": "Water",
     "signage": "Posters and stickers",
@@ -24,7 +24,7 @@
     "gema": "GEMA (music licence)",
     "safety_concept": "Safety concept",
     "traffic_order": "Traffic order",
-    "catering": "Catering and alcohol",
+    "catering": "Alcohol licence",
     "insurance": "Insurance",
     "other": "Other"
   },
@@ -230,7 +230,6 @@
     "tasksEmpty": "No tasks for this permit.",
     "taskDue": "due {date}",
     "taskNoDue": "no deadline",
-    "taskSeason": "{market} · Season {year}",
     "taskStatus": {
       "todo": "Open",
       "in_progress": "In progress",
@@ -450,7 +449,7 @@
     "extrasTitle": "More, if needed",
     "types": {
       "market_permit": {
-        "label": "Market permit (special use)",
+        "label": "Public order permit",
         "hint": "From the city, once per season"
       },
       "landowner_ok": {
@@ -463,7 +462,7 @@
       },
       "water": {
         "label": "Standpipe",
-        "hint": "Water from the hydrant, per date"
+        "hint": "Water from the hydrant, once per season"
       },
       "no_parking": {
         "label": "No-parking signs (PVBT)",
@@ -473,9 +472,9 @@
         "label": "Posters",
         "hint": "Posters with the city's stickers, once per season"
       },
-      "toilets": {
-        "label": "Toilets",
-        "hint": "Toilet trailer or facility, once per season"
+      "catering": {
+        "label": "Alcohol licence",
+        "hint": "Serving drinks at the market, from the city, once per season"
       }
     },
     "removing": "Will be removed from the venue: {list}",

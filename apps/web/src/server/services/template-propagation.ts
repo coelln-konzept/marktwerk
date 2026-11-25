@@ -12,14 +12,12 @@ import {
   checklist,
   checklistTemplate,
   event,
-  eventPreset,
   eventPresetTemplate,
-  eventSeason,
   task,
   templateItem,
   templateVersion,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, gte, inArray, isNotNull, isNull, ne, notInArray, or } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, isNull, notInArray, or } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { todayIn } from "../../lib/format";
 import type { Actor } from "../actor";
@@ -30,13 +28,12 @@ import {
   type DesiredTask,
   type DueDefaults,
   desiredTasks,
+  type EventContext,
   ensureChecklist,
-  type InstantiationContext,
   insertTemplateTasks,
   loadDueDefaults,
   loadEventContexts,
   loadPublishedVersions,
-  loadSeasonContexts,
   parentTasksByKey,
   type TemplateItemRow,
   type TemplateVersionContent,
@@ -54,7 +51,7 @@ export class TemplateApplyError extends Error {
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
-/** At most this many events and seasons in one go (a season of one preset is ~10, all presets ~100). */
+/** At most this many events in one go (a season of one preset is ~10, all presets ~100). */
 export const MAX_APPLY_EVENTS = 150;
 
 /** Events in these states no longer get template changes. */
@@ -65,7 +62,7 @@ type ExistingTask = PlanTask & {
   title: string;
 };
 
-/** What bringing one checklist (of an event or a Saison record) to the published version would change. */
+/** What bringing one event's checklist to the published version would change. */
 type ApplyChanges = {
   /** null = no checklist from this template yet (linked through the market). */
   checklistId: string | null;
@@ -90,18 +87,6 @@ export type ApplyEventPlan = ApplyChanges & {
   status: string;
 };
 
-/** A Saison record (research 13 §6) as a target, labelled "<Markt> · Saison 2027": it takes the `season` items. */
-export type ApplySeasonPlan = ApplyChanges & {
-  seasonId: string;
-  /** The market's name. */
-  name: string;
-  /** The calendar year. */
-  season: number;
-  status: string;
-  /** The `season_start` anchor (first date, else the expected start); null when the record has none. */
-  seasonStart: string | null;
-};
-
 export type ApplyPreview = {
   templateId: string;
   templateName: string;
@@ -109,8 +94,6 @@ export type ApplyPreview = {
   today: string;
   version: { id: string; version: number; publishedAt: Date | null; changeNote: string | null };
   events: ApplyEventPlan[];
-  /** Saison records that could take over the version's season items, by year and market name. */
-  seasons: ApplySeasonPlan[];
 };
 
 type Candidate = { checklistId: string | null; sort: number; fromVersion: number | null };
@@ -119,7 +102,7 @@ type Plan<S> = {
   summary: S;
   checklistId: string | null;
   sort: number;
-  ctx: InstantiationContext;
+  ctx: EventContext;
   items: TemplateItemRow[];
   plan: PropagationPlan<DesiredTask, ExistingTask>;
 };
@@ -127,12 +110,11 @@ type Plan<S> = {
 type Computed = {
   version: TemplateVersionContent;
   plans: Plan<ApplyEventPlan>[];
-  seasonPlans: Plan<ApplySeasonPlan>[];
   today: string;
 };
 
 /** Narrows the real run to the chosen targets; absent = every candidate (the preview). */
-type Only = { eventIds: string[]; seasonIds: string[] };
+type Only = { eventIds: string[] };
 
 function existingTasks(
   rows: { task: typeof task.$inferSelect; permitType: string | null }[],
@@ -188,14 +170,11 @@ function candidatesOf(
   return candidates;
 }
 
-/**
- * The merge plan of one event or season (the same for both, `desiredTasks` picks the items of the context's
- * scope).
- */
+/** The merge plan of one event. */
 async function planOne(
   tx: Tx,
   version: TemplateVersionContent,
-  ctx: InstantiationContext,
+  ctx: EventContext,
   candidate: Candidate,
   defaults: DueDefaults,
 ) {
@@ -230,11 +209,10 @@ async function planOne(
 }
 
 /**
- * Works out, for upcoming events and open Saison records, what bringing them to the template's published version
- * would change. Targets qualify when they have a checklist of an older version of this template, or are linked to
- * the template through their market but have no checklist yet (a season only when the version has season items
- * for it, like instantiation). `only` narrows it for the real run. Both the preview and `applyTemplateVersion` use
- * this, so they cannot disagree.
+ * Works out, for upcoming events, what bringing them to the template's published version would change. Events
+ * qualify when they have a checklist of an older version of this template, or are linked to the template through
+ * their market but have no checklist yet. `only` narrows it for the real run. Both the preview and
+ * `applyTemplateVersion` use this, so they cannot disagree.
  */
 async function computePlans(tx: Tx, templateId: string, only?: Only): Promise<Computed> {
   if (!UUID.test(templateId)) throw new TemplateApplyError("not_found");
@@ -250,11 +228,10 @@ async function computePlans(tx: Tx, templateId: string, only?: Only): Promise<Co
   const today = todayIn(defaults.timeZone);
   const scan: Scan = { tx, templateId, version, defaults, today, only };
   const plans = only && only.eventIds.length === 0 ? [] : await eventPlans(scan);
-  const seasonPlans = only && only.seasonIds.length === 0 ? [] : await seasonPlansOf(scan);
-  return { version, plans, seasonPlans, today };
+  return { version, plans, today };
 }
 
-/** What the event and season scans share. */
+/** What the event scan needs. */
 type Scan = {
   tx: Tx;
   templateId: string;
@@ -343,92 +320,8 @@ async function eventPlans({
 }
 
 /**
- * Saison records of this year and later that are not closed or archived (research 13 §6.2: season items
- * propagate like event items). Existing records never get a new version on their own (R9).
- */
-async function seasonPlansOf({
-  tx,
-  templateId,
-  version,
-  defaults,
-  today,
-  only,
-}: Scan): Promise<Plan<ApplySeasonPlan>[]> {
-  const rows = await tx
-    .select({
-      id: eventSeason.id,
-      checklistId: checklist.id,
-      checklistSort: checklist.sort,
-      fromVersion: templateVersion.version,
-      status: eventSeason.status,
-    })
-    .from(eventSeason)
-    .innerJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
-    .leftJoin(
-      checklist,
-      and(
-        eq(checklist.seasonId, eventSeason.id),
-        eq(checklist.templateId, templateId),
-        isNull(checklist.archivedAt),
-      ),
-    )
-    .leftJoin(templateVersion, eq(templateVersion.id, checklist.templateVersionId))
-    .leftJoin(
-      eventPresetTemplate,
-      and(
-        eq(eventPresetTemplate.presetId, eventSeason.presetId),
-        eq(eventPresetTemplate.templateId, templateId),
-      ),
-    )
-    .where(
-      and(
-        isNull(eventSeason.archivedAt),
-        ne(eventSeason.status, "closed"),
-        gte(eventSeason.season, Number(today.slice(0, 4))),
-        or(isNotNull(checklist.id), isNotNull(eventPresetTemplate.templateId)),
-        only ? inArray(eventSeason.id, only.seasonIds) : undefined,
-      ),
-    )
-    .orderBy(asc(eventSeason.season), asc(eventPreset.name));
-  const candidates = candidatesOf(rows, version);
-  const statusOf = new Map(rows.map((r) => [r.id, r.status]));
-  const contexts = await loadSeasonContexts(tx, [...candidates.keys()]);
-
-  const result: Plan<ApplySeasonPlan>[] = [];
-  for (const season of contexts) {
-    const candidate = candidates.get(season.id);
-    if (!candidate) continue;
-    const { desired, items, plan, changes } = await planOne(
-      tx,
-      version,
-      season,
-      candidate,
-      defaults,
-    );
-    // Like instantiation: a season gets a checklist only for a version with season items for it.
-    if (!candidate.checklistId && desired.length === 0) continue;
-    result.push({
-      checklistId: candidate.checklistId,
-      sort: candidate.sort,
-      ctx: season,
-      items,
-      plan,
-      summary: {
-        ...changes,
-        seasonId: season.id,
-        name: season.name,
-        season: season.season,
-        status: statusOf.get(season.id) ?? "planning",
-        seasonStart: season.anchors.get("season_start") ?? null,
-      },
-    });
-  }
-  return result;
-}
-
-/**
- * "Auf Veranstaltungen anwenden…", step 1 and 2: the upcoming events and open Saison records that could take over
- * the published version, each with what would change. Nothing is written and nothing is pre-selected by the caller.
+ * "Auf Veranstaltungen anwenden…", step 1 and 2: the upcoming events that could take over the published version,
+ * each with what would change. Nothing is written and nothing is pre-selected by the caller.
  */
 export async function previewTemplateApplication(
   actor: Actor,
@@ -442,9 +335,7 @@ export async function previewTemplateApplication(
         .where(eq(checklistTemplate.id, templateId))
     : [];
   if (!meta) throw new TemplateApplyError("not_found");
-  const { version, plans, seasonPlans, today } = await db.transaction((tx) =>
-    computePlans(tx, templateId),
-  );
+  const { version, plans, today } = await db.transaction((tx) => computePlans(tx, templateId));
   const [published] = await db
     .select({ publishedAt: templateVersion.publishedAt, changeNote: templateVersion.changeNote })
     .from(templateVersion)
@@ -460,7 +351,6 @@ export async function previewTemplateApplication(
       changeNote: published?.changeNote ?? null,
     },
     events: plans.map((p) => p.summary),
-    seasons: seasonPlans.map((p) => p.summary),
   };
 }
 
@@ -468,86 +358,61 @@ type Counts = { added: number; updated: number; removed: number; cancelled: numb
 
 export type ApplyResult = Counts & {
   events: number;
-  /** Saison records that took over the version. */
-  seasons: number;
   perEvent: ({ eventId: string } & Counts)[];
-  perSeason: ({ seasonId: string } & Counts)[];
 };
 
 /**
- * THE one service path that brings existing events and Saison records to a newer template version (CLAUDE.md:
- * deliberate, never automatic). For each chosen event or season: new items become tasks, open untouched tasks take
+ * THE one service path that brings existing events to a newer template version (CLAUDE.md: deliberate, never
+ * automatic). For each chosen event: new items become tasks, open untouched tasks take
  * over the changed fields, open untouched tasks of vanished items are marked `removed_from_template` (subtasks of
  * vanished child items are cancelled; child items are matched by `stable_key` like any item, ADR 0021). Done,
  * skipped, cancelled and customised tasks are never touched, nor are due dates / assignees that were set by hand.
- * An event takes the `event` items, a season the `season` items (research 13 §6.2). The merge is planned again
- * inside the transaction, so it equals the preview (or fails with `not_applicable` for a target that stopped
- * qualifying).
+ * The merge is planned again inside the transaction, so it equals the preview (or fails with `not_applicable` for
+ * an event that stopped qualifying).
  */
 export async function applyTemplateVersion(
   actor: Actor,
   templateId: string,
   eventIds: string[],
-  seasonIds: string[] = [],
 ): Promise<ApplyResult> {
   if (!can(actor.role, "template", "write")) forbidden();
   const events = [...new Set(eventIds)];
-  const seasons = [...new Set(seasonIds)];
-  const total = events.length + seasons.length;
-  if (total === 0 || total > MAX_APPLY_EVENTS) throw new TemplateApplyError("no_events");
-  if (![...events, ...seasons].every((id) => typeof id === "string" && UUID.test(id)))
+  if (events.length === 0 || events.length > MAX_APPLY_EVENTS)
+    throw new TemplateApplyError("no_events");
+  if (!events.every((id) => typeof id === "string" && UUID.test(id)))
     throw new TemplateApplyError("not_applicable");
 
   return db.transaction(async (tx) => {
     // Lock the targets in a fixed order so two runs cannot deadlock.
-    if (events.length > 0)
-      await tx
-        .select({ id: event.id })
-        .from(event)
-        .where(inArray(event.id, events))
-        .orderBy(asc(event.id))
-        .for("update");
-    if (seasons.length > 0)
-      await tx
-        .select({ id: eventSeason.id })
-        .from(eventSeason)
-        .where(inArray(eventSeason.id, seasons))
-        .orderBy(asc(eventSeason.id))
-        .for("update");
-    const { version, plans, seasonPlans } = await computePlans(tx, templateId, {
-      eventIds: events,
-      seasonIds: seasons,
-    });
-    if (plans.length !== events.length || seasonPlans.length !== seasons.length)
-      throw new TemplateApplyError("not_applicable");
+    await tx
+      .select({ id: event.id })
+      .from(event)
+      .where(inArray(event.id, events))
+      .orderBy(asc(event.id))
+      .for("update");
+    const { version, plans } = await computePlans(tx, templateId, { eventIds: events });
+    if (plans.length !== events.length) throw new TemplateApplyError("not_applicable");
 
     const result: ApplyResult = {
       events: 0,
-      seasons: 0,
       added: 0,
       updated: 0,
       removed: 0,
       cancelled: 0,
       perEvent: [],
-      perSeason: [],
     };
     const entries: Parameters<typeof audit>[2] = [];
-    for (const p of [...plans, ...seasonPlans]) {
+    for (const p of plans) {
       const counts = await applyPlan(tx, version, p);
       result.added += counts.added;
       result.updated += counts.updated;
       result.removed += counts.removed;
       result.cancelled += counts.cancelled;
-      if (p.ctx.scope === "event") {
-        result.events += 1;
-        result.perEvent.push({ eventId: p.ctx.id, ...counts });
-      } else {
-        result.seasons += 1;
-        result.perSeason.push({ seasonId: p.ctx.id, ...counts });
-      }
+      result.events += 1;
+      result.perEvent.push({ eventId: p.ctx.id, ...counts });
       entries.push({
         action: "template.apply",
-        entityType: p.ctx.scope === "event" ? "event" : "event_season",
+        entityType: "event",
         entityId: p.ctx.id,
         diff: {
           templateId,
@@ -564,13 +429,11 @@ export async function applyTemplateVersion(
       });
     }
     await audit(tx, actor.id, entries);
-    // New and changed items that apply for a permit get linked to the event's or the Saison's permit (one
-    // linking path; season permits since R11).
+    // New and changed items that apply for a per-date permit get linked to the event's permit (one linking path).
     await linkPermitTasks(
       tx,
-      plans.filter((p) => p.ctx.scope === "event").map((p) => p.ctx.id),
+      plans.map((p) => p.ctx.id),
       actor,
-      { seasonIds: plans.filter((p) => p.ctx.scope === "season").map((p) => p.ctx.id) },
     );
     return result;
   });

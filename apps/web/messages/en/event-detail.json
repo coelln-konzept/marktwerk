@@ -268,8 +268,7 @@
       "statusRestored": "Cancellation lifted: {from} → {to}",
       "tasksCancelled": "{count, plural, one {# task cancelled with it} other {# tasks cancelled with it}}",
       "tasksReopened": "{count, plural, one {# task open again} other {# tasks open again}}",
-      "tasksShifted": "{count, plural, one {# task moved} other {# tasks moved}}",
-      "seasonTasksShifted": "{count, plural, one {# season task moved} other {# season tasks moved}}"
+      "tasksShifted": "{count, plural, one {# task moved} other {# tasks moved}}"
     },
     "facts": {
       "edit": "Edit",
@@ -405,15 +404,10 @@
       "task": "Task",
       "overdueShort": "Overdue",
       "overdueAfter": "{count, plural, one {# task would be overdue afterwards.} other {# tasks would be overdue afterwards.}}",
-      "movedSeasonTasks": "{count, plural, one {1 season task moved} other {# season tasks moved}}",
       "tasksKept": "{count, plural, one {# open task stays} other {# open tasks stay}} on the old day: {detail}. Done tasks stay anyway.",
       "keptManual": "{count} set by hand",
       "keptNoRule": "{count} without a rule",
       "keptAfterEnd": "{count, plural, one {# task that stays is then due only after the event.} other {# tasks that stay are then due only after the event.}}",
-      "seasonShifting": "{count, plural, one {1 season task moves.} other {# season tasks move.}}",
-      "seasonShiftingNote": "The season's first or last date changes.",
-      "seasonShow": "{count, plural, one {Show # season task} other {Show # season tasks}}",
-      "seasonCaption": "Season tasks with their old and new due day",
       "notified": "Notified: {names}.",
       "notifiedNobody": "Nobody is notified: the tasks are not assigned to anyone else.",
       "permitsKept": "{count, plural, one {“Apply by” does not move:} other {“Apply by” does not move for # permits:}}",

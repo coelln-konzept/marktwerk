@@ -8,22 +8,19 @@ import {
   expectedDecisionAfter,
   isIsoDate,
   isUnfiled,
-  itemPermitType,
   PERMIT_STATUSES,
   type PermitDateField,
   type PermitDateIssueCode,
   type PermitDates,
-  type PermitSeasonRecord,
   type PermitStatus,
+  permitApplyDueAt,
+  permitApplyTaskTitle,
   permitCovers,
   permitCoversApplication,
   permitCoversSeveralEvents,
   permitDateIssues,
   permitInstanceTitle,
-  resolveRelativeDue,
-  seasonApplyDuplicates,
   seasonFor,
-  splitApplyTasks,
 } from "@marktwerk/core";
 import { insertNotifications } from "@marktwerk/db";
 import {
@@ -33,8 +30,6 @@ import {
   event,
   eventDuty,
   eventPermit,
-  eventPreset,
-  eventSeason,
   type PermitDeliverables,
   permit,
   permitCategory,
@@ -45,7 +40,6 @@ import {
   templateItem,
   venue,
 } from "@marktwerk/db/schema";
-import { ensureEventSeasonTx } from "@marktwerk/jobs/seasons";
 import {
   and,
   asc,
@@ -60,14 +54,13 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 import { forbidden } from "next/navigation";
 import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { type AutoConfirmSource, autoConfirmEvents } from "./event-lifecycle";
-import { cancelDuplicatePermitTasks, completeTasksForPermit } from "./tasks";
+import { completeTasksForPermit } from "./tasks";
 
 export type PermitErrorCode =
   | "not_found"
@@ -115,13 +108,11 @@ const MAX_NOTES = 4000;
 const MAX_CONDITIONS = 30;
 const MAX_CONDITION_LENGTH = 300;
 const MAX_DELIVERABLE_KEYS = 20;
-/** Clock time of a deadline that is only a day ("bis 30.11."): the end of that day. */
-const DEADLINE_TIME = "23:59";
 
 /** Tasks that are still to be done (the statuses before done / skipped / cancelled). */
 const OPEN_TASK = ["todo", "in_progress", "waiting_external", "blocked"] as const;
 
-const dueAtOf = (day: string) => resolveRelativeDue(day, 0, DEADLINE_TIME);
+const dueAtOf = (day: string) => permitApplyDueAt(day);
 
 // ---------------------------------------------------------------------------------------------
 // Logbook fill (called by instantiateEvents)
@@ -145,15 +136,7 @@ const COVER_PREFERENCE: PermitStatus[] = [
   "not_required",
 ];
 
-/** Saison records by id and by `presetId:season` (Fahrplan R11/R27). */
-type SeasonRecords = {
-  byId: Map<string, PermitSeasonRecord>;
-  idOf: Map<string, string>;
-};
-
-const seasonKey = (presetId: string, season: number) => `${presetId}:${season}`;
-
-/** The permit types template tasks name, by their event or Saison record. */
+/** The permit types template tasks name, by their event. */
 function itemTypesBy(rows: (readonly [string | null, string | null])[]): Map<string, Set<string>> {
   const byOwner = new Map<string, Set<string>>();
   for (const [owner, type] of rows) {
@@ -163,27 +146,28 @@ function itemTypesBy(rows: (readonly [string | null, string | null])[]): Map<str
   return byOwner;
 }
 
-async function loadSeasonRecords(
-  tx: Tx,
-  ids: readonly string[],
-  keys: readonly { presetId: string; season: number }[],
-): Promise<SeasonRecords> {
-  const records: SeasonRecords = { byId: new Map(), idOf: new Map() };
-  const presetIds = [...new Set(keys.map((k) => k.presetId))];
-  const conditions = [
-    ids.length > 0 ? inArray(eventSeason.id, [...new Set(ids)]) : undefined,
-    presetIds.length > 0 ? inArray(eventSeason.presetId, presetIds) : undefined,
-  ].filter((c) => c !== undefined);
-  if (conditions.length === 0) return records;
-  const rows = await tx
-    .select({ id: eventSeason.id, presetId: eventSeason.presetId, season: eventSeason.season })
-    .from(eventSeason)
-    .where(or(...conditions));
-  for (const r of rows) {
-    records.byId.set(r.id, { presetId: r.presetId, season: r.season });
-    records.idOf.set(seasonKey(r.presetId, r.season), r.id);
-  }
-  return records;
+/** The "… beantragen" task of a permit made by the system (task text is data in German, like template items). */
+export function permitApplyTaskValues(input: {
+  permitId: string;
+  requirementTitle: string;
+  /** Only for a per-date permit: the date it belongs to. A permit covering several dates has no event. */
+  eventId: string | null;
+  applyBy: string;
+  dutyRoleId: string | null;
+  assigneeId: string | null;
+}) {
+  return {
+    eventId: input.eventId,
+    permitId: input.permitId,
+    source: "permit" as const,
+    title: permitApplyTaskTitle(input.requirementTitle),
+    phase: "pre" as const,
+    category: "permits" as const,
+    priority: "normal" as const,
+    dutyRoleId: input.dutyRoleId,
+    assigneeId: input.assigneeId,
+    dueAt: dueAtOf(input.applyBy),
+  };
 }
 
 /**
@@ -195,12 +179,10 @@ async function loadSeasonRecords(
  * duty holder). Idempotent: an event that already has a permit for a requirement is skipped. Runs inside
  * the caller's transaction; `actor` only decides whether the audit entries are written.
  *
- * Saison (Fahrplan R11/R27): a permit covering several events that is made for an event of a market belongs to
- * that market's Saison record of the event's year (`permit.season_id`; the record is made through
- * `ensureEventSeasonTx` if it is missing). Such a permit covers only its own market's events
- * (`permitServesMarket`), so at a place with several markets every market gets its own permit, named after the
- * market. Permits without a record keep the place + season rule. No own "beantragen" task is added when the
- * market's season has a task for that permit type (the season task applies for it, `linkPermitTasks`).
+ * ADR 0024: a permit covering several dates is one per Ort (requirement) and season, whatever market the dates
+ * belong to (shared Orte are handled by hand); it always gets its own "… beantragen" task without an event, and
+ * template tasks never apply for it. Only a per-date permit leaves its application to a template task of that
+ * event that names its type (`linkPermitTasks`), so no task applies twice for the same permit.
  */
 export async function fillLogbookForEvents(
   tx: Tx,
@@ -212,7 +194,6 @@ export async function fillLogbookForEvents(
   const events = await tx
     .select({
       id: event.id,
-      presetId: event.presetId,
       venueId: event.venueId,
       eventTypeId: event.eventTypeId,
       startsOn: event.startsOn,
@@ -268,81 +249,8 @@ export async function fillLogbookForEvents(
   const appliesTo = (req: (typeof requirements)[number], ev: (typeof events)[number]) =>
     req.venueId === ev.venueId && (!req.eventTypeId || req.eventTypeId === ev.eventTypeId);
 
-  // Saison records (Fahrplan R11/R27): the ones the permits belong to, and one per market and year for the events
-  // that need a permit covering several events (made here if missing, through the one creation path).
-  const seasonNeeds = events.flatMap((ev) =>
-    ev.presetId &&
-    requirements.some((r) => appliesTo(r, ev) && permitCoversSeveralEvents(r.cadence))
-      ? [{ presetId: ev.presetId, season: ev.season }]
-      : [],
-  );
-  const records = await loadSeasonRecords(
-    tx,
-    permits.flatMap((p) => (p.seasonId ? [p.seasonId] : [])),
-    seasonNeeds,
-  );
-  for (const need of seasonNeeds) {
-    if (records.idOf.has(seasonKey(need.presetId, need.season))) continue;
-    const ensured = await ensureEventSeasonTx(
-      tx,
-      { id: actor?.id ?? null },
-      need.presetId,
-      need.season,
-      { today: todayIn(), source: "logbook_fill" },
-    );
-    records.byId.set(ensured.id, need);
-    records.idOf.set(seasonKey(need.presetId, need.season), ensured.id);
-  }
-  const seasonOf = (ev: (typeof events)[number]) =>
-    ev.presetId ? (records.idOf.get(seasonKey(ev.presetId, ev.season)) ?? null) : null;
-  const recordOf = (p: PermitRow) => (p.seasonId ? (records.byId.get(p.seasonId) ?? null) : null);
-
-  // Where a place holds several markets, a permit made for one of them is named after it (Fahrplan R27).
-  const venueIds = [...new Set(events.map((e) => e.venueId))];
-  const marketCounts = await tx
-    .select({ venueId: eventPreset.venueId, markets: sql<number>`count(*)::int` })
-    .from(eventPreset)
-    .where(and(inArray(eventPreset.venueId, venueIds), isNull(eventPreset.archivedAt)))
-    .groupBy(eventPreset.venueId);
-  const sharedPlaces = new Set(marketCounts.filter((m) => m.markets > 1).map((m) => m.venueId));
-  const presetIds = [...new Set(events.flatMap((e) => (e.presetId ? [e.presetId] : [])))];
-  const marketNames = new Map(
-    presetIds.length === 0
-      ? []
-      : (
-          await tx
-            .select({ id: eventPreset.id, name: eventPreset.name })
-            .from(eventPreset)
-            .where(inArray(eventPreset.id, presetIds))
-        ).map((p) => [p.id, p.name]),
-  );
-  const marketNameOf = (ev: (typeof events)[number]) =>
-    ev.presetId && sharedPlaces.has(ev.venueId) ? (marketNames.get(ev.presetId) ?? null) : null;
-
-  // Season tasks that apply for a permit type ("Genehmigung beantragen" on the Saison record): they apply for
-  // the season permit, so it gets no own "beantragen" task (Fahrplan R11).
-  const seasonIds = [...new Set(records.idOf.values())];
-  const seasonCovered = itemTypesBy(
-    seasonIds.length === 0
-      ? []
-      : (
-          await tx
-            .select({ seasonId: task.seasonId, permitType: templateItem.permitType })
-            .from(task)
-            .innerJoin(templateItem, eq(templateItem.id, task.templateItemId))
-            .where(
-              and(
-                inArray(task.seasonId, seasonIds),
-                eq(task.source, "template"),
-                isNotNull(templateItem.permitType),
-                ne(task.status, "cancelled"),
-              ),
-            )
-        ).map((t) => [t.seasonId, t.permitType] as const),
-  );
-
-  // Template tasks that apply for a permit of some type ("Marktgenehmigung beantragen"): they are linked
-  // to the permit afterwards, so the fill must not add a second "beantragen" task for the same work.
+  // Template tasks that apply for a per-date permit of some type ("Halteverbot beantragen"): they are linked to the
+  // permit afterwards, so the fill must not add a second "beantragen" task for the same work.
   const templateCovered = itemTypesBy(
     (
       await tx
@@ -354,22 +262,13 @@ export async function fillLogbookForEvents(
             inArray(task.eventId, ids),
             eq(task.source, "template"),
             isNotNull(templateItem.permitType),
+            // one that applies for another permit already is not free for this one
+            isNull(task.permitId),
             ne(task.status, "cancelled"),
           ),
         )
     ).map((t) => [t.eventId, t.permitType] as const),
   );
-  // Whether one of these item types applies for the requirement's permit at this event: a "Genehmigung" item
-  // (market_permit) applies for the owner's OK where the Ort needs that instead (Fahrplan R30, `itemPermitType`).
-  const requirementTypesOf = (ev: (typeof events)[number]) =>
-    requirements.filter((r) => appliesTo(r, ev)).map((r) => r.permitType);
-  const covers = (
-    itemTypes: Set<string> | undefined,
-    ev: (typeof events)[number],
-    reqType: string,
-  ) =>
-    itemTypes !== undefined &&
-    [...itemTypes].some((type) => itemPermitType(type, requirementTypesOf(ev)) === reqType);
 
   const linkedEvents = new Map<string, string[]>();
   const newTasks: { assignee: string | null; permitId: string }[] = [];
@@ -385,7 +284,6 @@ export async function fillLogbookForEvents(
   }
 
   for (const ev of events) {
-    const evSeasonId = seasonOf(ev);
     for (const req of requirements) {
       if (!appliesTo(req, ev)) continue;
       const own = permits.filter((p) => p.requirementId === req.id);
@@ -396,14 +294,10 @@ export async function fillLogbookForEvents(
         endMd: req.submissionWindowEndMd,
       });
 
-      // A permit of this market's season comes before one without a record (older data), then the one held.
+      // The permit that is already held comes first.
       const covering = own
-        .filter((p) => permitCovers(req.cadence, { ...p, seasonRecord: recordOf(p) }, ev))
-        .sort(
-          (a, b) =>
-            Number(a.seasonId === null) - Number(b.seasonId === null) ||
-            COVER_PREFERENCE.indexOf(a.status) - COVER_PREFERENCE.indexOf(b.status),
-        )[0];
+        .filter((p) => permitCovers(req.cadence, p, ev))
+        .sort((a, b) => COVER_PREFERENCE.indexOf(a.status) - COVER_PREFERENCE.indexOf(b.status))[0];
       if (covering) {
         await link(covering, ev.id);
         // An earlier event joined a permit that is not filed yet: the deadline moves forward.
@@ -429,17 +323,15 @@ export async function fillLogbookForEvents(
       }
 
       const holder = holderOf.get(ev.id) ?? role?.defaultStaffMemberId ?? null;
-      const seasonId = permitCoversSeveralEvents(req.cadence) ? evSeasonId : null;
       const [created] = await tx
         .insert(permit)
         .values({
           requirementId: req.id,
           venueId: req.venueId,
           season: seasonFor(req.cadence, ev.season),
-          seasonId,
           category: req.category,
           permitType: req.permitType,
-          title: permitInstanceTitle(req.title, req.cadence, ev.startsOn, marketNameOf(ev)),
+          title: permitInstanceTitle(req.title, req.cadence, ev.startsOn),
           authorityContactId: req.authorityContactId,
           status: "not_started",
           applyBy,
@@ -451,22 +343,19 @@ export async function fillLogbookForEvents(
       permits.push(created);
       result.createdPermits.push(created.id);
       await link(created, ev.id);
-      if (covers(templateCovered.get(ev.id), ev, req.permitType)) continue;
-      if (seasonId && covers(seasonCovered.get(seasonId), ev, req.permitType)) continue;
-      await tx.insert(task).values({
-        // A permit that covers a season belongs to no single event; only single-event permits show on one.
-        eventId: req.cadence === "per_event" ? ev.id : null,
-        permitId: created.id,
-        source: "permit",
-        // Task text is data in German, like the template items.
-        title: `${req.title} beantragen`,
-        phase: "pre",
-        category: "permits",
-        priority: "normal",
-        dutyRoleId: role?.id ?? null,
-        assigneeId: holder,
-        dueAt: dueAtOf(applyBy),
-      });
+      const perDate = !permitCoversSeveralEvents(req.cadence);
+      if (perDate && templateCovered.get(ev.id)?.has(req.permitType)) continue;
+      await tx.insert(task).values(
+        permitApplyTaskValues({
+          permitId: created.id,
+          requirementTitle: req.title,
+          // A permit that covers several dates belongs to no single event; only per-date permits show on one.
+          eventId: perDate ? ev.id : null,
+          applyBy,
+          dutyRoleId: role?.id ?? null,
+          assigneeId: holder,
+        }),
+      );
       result.tasks += 1;
       newTasks.push({ assignee: holder, permitId: created.id });
     }
@@ -504,7 +393,16 @@ export async function fillLogbookForEvents(
     );
   }
 
-  // One grouped "assigned" notification per person instead of one per task.
+  await notifyPermitTasks(tx, newTasks, "permit-fill");
+  return result;
+}
+
+/** One grouped "assigned" notification per person for new "… beantragen" tasks instead of one per task. */
+export async function notifyPermitTasks(
+  tx: Tx,
+  newTasks: readonly { assignee: string | null; permitId: string }[],
+  dedupePrefix: string,
+): Promise<void> {
   const byAssignee = new Map<string, string[]>();
   for (const t of newTasks) {
     if (t.assignee) byAssignee.set(t.assignee, [...(byAssignee.get(t.assignee) ?? []), t.permitId]);
@@ -521,255 +419,110 @@ export async function fillLogbookForEvents(
           ? "Neue Aufgabe: Genehmigung beantragen"
           : `${permitIds.length} neue Aufgaben: Genehmigungen beantragen`,
       link: "/genehmigungen?fokus=fehlt",
-      dedupeKey: `assigned:permit-fill:${createHash("sha1").update(permitIds.sort().join(",")).digest("hex").slice(0, 16)}`,
+      dedupeKey: `assigned:${dedupePrefix}:${createHash("sha1").update(permitIds.sort().join(",")).digest("hex").slice(0, 16)}`,
     })),
   );
-  return result;
 }
 
 /**
  * THE one place that links template tasks to permits (UX pass 2026-10-22): a task whose template item names
- * a permit type (`template_item.permit_type`, e.g. "Marktgenehmigung beantragen" → market_permit) gets
- * `task.permit_id` = the event's permit of that type (required permits first, then the one that is
+ * a permit type (`template_item.permit_type`, e.g. "Halteverbot beantragen" → no_parking) gets
+ * `task.permit_id` = the event's per-date permit of that type (required permits first, then the one that is
  * furthest along). Called after instantiation, the logbook fill, linking a permit to events and applying
  * requirements to existing events. Idempotent; tasks that already carry a permit are left alone.
  *
- * A permit that covers several events (season, year, multi-year, standing) gets **one** apply task, not
- * one per covered market (research 10, Fahrplan 18). The apply work stays with one event: the event of
- * an apply task the permit has already, else the earliest one (`splitApplyTasks`); the untouched template
- * tasks of every other event are removed (`cancelled`, the app's "Löschen", restorable in the Verlauf).
- * With its own "beantragen" task (no event) all of them go. Tasks somebody has worked on or finished are
- * only linked. Single-event permits keep one task per event.
+ * ADR 0024: a template task only applies for a `per_event` permit (or a hand-made one without a requirement,
+ * linked to its event). A permit covering several dates is applied for once per Ort and season through its own
+ * "… beantragen" task, so template tasks are never linked to it: such an item (e.g. an old "Marktgenehmigung
+ * beantragen" in a template) simply stays a plain task of its date.
  *
- * Saison (research 13 §6.1, Fahrplan R11): a season task whose item names a permit type ("Genehmigung
- * beantragen") gets the permit of its Saison record (`permit.season_id`), else a multi-year or standing permit of
- * the same market that the season's events are linked to. A season permit whose own season has such a task gets
- * exactly that one apply task: the untouched event tasks, its own "beantragen" task and later seasons' tasks are
- * removed as above (`seasonApplyDuplicates`). The first-covered-event rule stays the fallback for permits without
- * a record and markets without season items. The seasons looked at are those of `eventIds` plus `seasonIds`.
- *
- * Main permit (Fahrplan R30): an item naming `market_permit` ("Genehmigung beantragen") applies for the Ort's main
- * permit, so where the event or season has no Marktgenehmigung but an owner's OK (`landowner_ok`, private ground)
- * it links to that (core `itemPermitType`; the logbook fill counts the same way).
+ * One task applies for a permit, never two: a permit that already has one (its own "… beantragen" task, or a
+ * template task linked before) takes no second, and of several template tasks naming its type only the earliest due
+ * is linked. The others stay plain tasks. So an item added to a template later, or a hand-made permit linked to
+ * several dates, never gives a permit a second applying task.
  *
  * With an `actor`, open tasks whose permit is applied for / granted are completed right away (audited as
- * "task.status", reason "Genehmigung beantragt/erteilt"). Returns the number of linked tasks, the completed
- * and the removed ones.
+ * "task.status", reason "Genehmigung beantragt/erteilt"). Returns the number of linked tasks and the completed ones.
  */
 export async function linkPermitTasks(
   tx: Tx,
   eventIds: readonly string[],
   actor?: Pick<Actor, "id"> & { staffMemberId?: string | null },
-  options: { seasonIds?: readonly string[] } = {},
-): Promise<{ linked: number; completedTaskIds: string[]; cancelledTaskIds: string[] }> {
-  const result = { linked: 0, completedTaskIds: [] as string[], cancelledTaskIds: [] as string[] };
+): Promise<{ linked: number; completedTaskIds: string[] }> {
+  const result = { linked: 0, completedTaskIds: [] as string[] };
   const ids = [...new Set(eventIds)];
-  // The Saison records of these events' markets and years, and the ones asked for.
-  const seasonIds = [
-    ...new Set([
-      ...(options.seasonIds ?? []),
-      ...(ids.length === 0
-        ? []
-        : (
-            await tx
-              .selectDistinct({ id: eventSeason.id })
-              .from(event)
-              .innerJoin(
-                eventSeason,
-                and(eq(eventSeason.presetId, event.presetId), eq(eventSeason.season, event.season)),
-              )
-              .where(inArray(event.id, ids))
-          ).map((s) => s.id)),
-    ]),
-  ];
-  if (ids.length === 0 && seasonIds.length === 0) return result;
-  const owners = [
-    ids.length > 0 ? inArray(task.eventId, ids) : undefined,
-    seasonIds.length > 0 ? inArray(task.seasonId, seasonIds) : undefined,
-  ].filter((c) => c !== undefined);
+  if (ids.length === 0) return result;
   const open = await tx
-    .select({
-      id: task.id,
-      eventId: task.eventId,
-      seasonId: task.seasonId,
-      status: task.status,
-      startsOn: event.startsOn,
-      permitType: templateItem.permitType,
-    })
+    .select({ id: task.id, eventId: task.eventId, permitType: templateItem.permitType })
     .from(task)
     .innerJoin(templateItem, eq(templateItem.id, task.templateItemId))
-    .leftJoin(event, eq(event.id, task.eventId))
     .where(
       and(
-        or(...owners),
+        inArray(task.eventId, ids),
         eq(task.source, "template"),
         isNull(task.permitId),
         isNotNull(templateItem.permitType),
         ne(task.status, "cancelled"),
       ),
-    );
+    )
+    .orderBy(asc(task.dueAt), asc(task.id));
   if (open.length === 0) return result;
 
-  const permitColumns = {
-    permitId: permit.id,
-    permitType: permit.permitType,
-    status: permit.status,
-    cadence: permitRequirement.cadence,
-    permitSeasonId: permit.seasonId,
-    createdAt: permit.createdAt,
-  };
-  const usable = and(isNull(permit.archivedAt), ne(permit.status, "superseded"));
-  const candidates =
-    ids.length === 0
-      ? []
-      : await tx
-          .select({
-            ...permitColumns,
-            eventId: eventPermit.eventId,
-            required: eventPermit.required,
-          })
-          .from(eventPermit)
-          .innerJoin(permit, eq(permit.id, eventPermit.permitId))
-          .leftJoin(permitRequirement, eq(permitRequirement.id, permit.requirementId))
-          .where(and(inArray(eventPermit.eventId, ids), usable));
+  const candidates = await tx
+    .select({
+      permitId: permit.id,
+      permitType: permit.permitType,
+      status: permit.status,
+      createdAt: permit.createdAt,
+      eventId: eventPermit.eventId,
+      required: eventPermit.required,
+    })
+    .from(eventPermit)
+    .innerJoin(permit, eq(permit.id, eventPermit.permitId))
+    .leftJoin(permitRequirement, eq(permitRequirement.id, permit.requirementId))
+    .where(
+      and(
+        inArray(eventPermit.eventId, ids),
+        isNull(permit.archivedAt),
+        ne(permit.status, "superseded"),
+        // Per-date permits only: one covering several dates has its own apply task (ADR 0024).
+        or(isNull(permit.requirementId), eq(permitRequirement.cadence, "per_event")),
+      ),
+    );
   const rank = (c: (typeof candidates)[number]) =>
     (c.required && c.status !== "not_required" ? 0 : 100) + COVER_PREFERENCE.indexOf(c.status);
 
-  // Season tasks: the permits of their record first, then multi-year / standing permits of the same market (from an
-  // earlier season) that the season's events are linked to.
-  const seasonTaskIds = [...new Set(open.flatMap((t) => (t.seasonId ? [t.seasonId] : [])))];
-  const ownRecord =
-    seasonTaskIds.length === 0
+  // Permits that already have a task applying for them (own "… beantragen" task or a linked template task).
+  const candidateIds = [...new Set(candidates.map((c) => c.permitId))];
+  const taken = new Set(
+    candidateIds.length === 0
       ? []
-      : await tx
-          .select({ ...permitColumns, seasonId: permit.seasonId })
-          .from(permit)
-          .leftJoin(permitRequirement, eq(permitRequirement.id, permit.requirementId))
-          .where(and(inArray(permit.seasonId, seasonTaskIds), usable));
-  const permitRecord = alias(eventSeason, "permit_record");
-  const ofMarket =
-    seasonTaskIds.length === 0
-      ? []
-      : await tx
-          .selectDistinct({ ...permitColumns, seasonId: eventSeason.id })
-          .from(eventSeason)
-          .innerJoin(
-            event,
-            and(
-              eq(event.presetId, eventSeason.presetId),
-              eq(event.season, eventSeason.season),
-              isNull(event.archivedAt),
-            ),
-          )
-          .innerJoin(eventPermit, eq(eventPermit.eventId, event.id))
-          .innerJoin(permit, eq(permit.id, eventPermit.permitId))
-          .innerJoin(permitRecord, eq(permitRecord.id, permit.seasonId))
-          .innerJoin(permitRequirement, eq(permitRequirement.id, permit.requirementId))
-          .where(
-            and(
-              inArray(eventSeason.id, seasonTaskIds),
-              eq(permitRecord.presetId, eventSeason.presetId),
-              ne(permit.seasonId, eventSeason.id),
-              inArray(permitRequirement.cadence, ["multi_year", "standing"]),
-              usable,
-            ),
-          );
-  const seasonCandidates = [...ownRecord, ...ofMarket];
-  const seasonRank = (c: (typeof seasonCandidates)[number]) =>
-    (c.permitSeasonId === c.seasonId ? 0 : 100) + COVER_PREFERENCE.indexOf(c.status);
+      : (
+          await tx
+            .select({ permitId: task.permitId })
+            .from(task)
+            .where(and(inArray(task.permitId, candidateIds), ne(task.status, "cancelled")))
+        ).map((r) => r.permitId),
+  );
 
-  // A "Genehmigung" item (market_permit) applies for the Ort's main permit: the owner's OK on private ground
-  // without a Marktgenehmigung (Fahrplan R30, `itemPermitType`).
-  const ofType = <C extends { permitType: string }>(pool: C[], itemType: string) => {
-    const type = itemPermitType(
-      itemType,
-      pool.map((c) => c.permitType),
-    );
-    return pool.filter((c) => c.permitType === type);
-  };
-  const byPermit = new Map<string, (typeof open)[number][]>();
+  const byPermit = new Map<string, string[]>();
   for (const t of open) {
-    const itemType = t.permitType as string;
-    const best = t.seasonId
-      ? ofType(
-          seasonCandidates.filter((c) => c.seasonId === t.seasonId),
-          itemType,
-        ).sort(
-          (a, b) => seasonRank(a) - seasonRank(b) || a.createdAt.getTime() - b.createdAt.getTime(),
-        )[0]
-      : ofType(
-          candidates.filter((c) => c.eventId === t.eventId),
-          itemType,
-        ).sort((a, b) => rank(a) - rank(b) || a.createdAt.getTime() - b.createdAt.getTime())[0];
-    if (!best) continue;
-    byPermit.set(best.permitId, [...(byPermit.get(best.permitId) ?? []), t]);
+    const best = candidates
+      .filter((c) => c.eventId === t.eventId && c.permitType === t.permitType)
+      .sort((a, b) => rank(a) - rank(b) || a.createdAt.getTime() - b.createdAt.getTime())[0];
+    if (!best || taken.has(best.permitId)) continue;
+    taken.add(best.permitId);
+    byPermit.set(best.permitId, [t.id]);
   }
 
-  // Permits covering several events: the apply tasks they have already (their own "beantragen" task and the
-  // template tasks that apply for them).
-  const all = [...candidates, ...seasonCandidates];
-  const cadenceOf = new Map(all.map((c) => [c.permitId, c.cadence]));
-  const recordOf = new Map(all.map((c) => [c.permitId, c.permitSeasonId]));
-  const shared = [...byPermit.keys()].filter((id) => permitCoversSeveralEvents(cadenceOf.get(id)));
-  const existing =
-    shared.length === 0
-      ? []
-      : await tx
-          .select({
-            id: task.id,
-            permitId: task.permitId,
-            eventId: task.eventId,
-            seasonId: task.seasonId,
-            status: task.status,
-          })
-          .from(task)
-          .leftJoin(templateItem, eq(templateItem.id, task.templateItemId))
-          .where(
-            and(
-              inArray(task.permitId, shared),
-              or(
-                eq(task.source, "permit"),
-                and(eq(task.source, "template"), isNotNull(templateItem.permitType)),
-              ),
-              ne(task.status, "cancelled"),
-            ),
-          );
-
-  const duplicatesOf = new Map<string, string[]>();
-  for (const [permitId, tasks] of byPermit) {
-    await tx
-      .update(task)
-      .set({ permitId })
-      .where(
-        inArray(
-          task.id,
-          tasks.map((t) => t.id),
-        ),
-      );
-    result.linked += tasks.length;
-    if (!shared.includes(permitId)) continue;
-    const before = existing.filter((e) => e.permitId === permitId);
-    // The season task of the permit's Saison record is the one apply task; without one, the first covered event.
-    const duplicates =
-      seasonApplyDuplicates([...before, ...tasks], recordOf.get(permitId)) ??
-      splitApplyTasks(
-        tasks,
-        before.map((e) => e.eventId),
-      ).duplicates;
-    if (duplicates.length > 0)
-      duplicatesOf.set(
-        permitId,
-        duplicates.map((d) => d.id),
-      );
+  for (const [permitId, taskIds] of byPermit) {
+    await tx.update(task).set({ permitId }).where(inArray(task.id, taskIds));
+    result.linked += taskIds.length;
   }
-  for (const [permitId, taskIds] of duplicatesOf)
-    result.cancelledTaskIds.push(
-      ...(await cancelDuplicatePermitTasks(tx, actor, permitId, taskIds)),
-    );
   if (!actor) return result;
 
   const statusOf = new Map(candidates.map((c) => [c.permitId, c.status]));
-  for (const [permitId, tasks] of byPermit) {
+  for (const [permitId, taskIds] of byPermit) {
     const status = statusOf.get(permitId);
     if (!status || !permitCoversApplication(status)) continue;
     result.completedTaskIds.push(
@@ -777,7 +530,7 @@ export async function linkPermitTasks(
         tx,
         { id: actor.id, staffMemberId: actor.staffMemberId ?? null },
         permitId,
-        tasks.map((t) => t.id).filter((id) => !result.cancelledTaskIds.includes(id)),
+        taskIds,
       )),
     );
   }

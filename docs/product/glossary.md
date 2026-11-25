@@ -66,13 +66,16 @@ Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Appli
 |---|---|---|---|
 | Genehmigung | Permit | `permit` | Any authorisation an event needs. |
 | Kategorie Stadt / Extern | City / external | `permit.category` | Client's own split: city permits vs. external OKs. |
-| Marktgenehmigung (Sondernutzung) | Market permit | `permit_type = market_permit` | The core city permit for the event (use of public space). |
-| Festsetzung (§ 69 GewO) | Market fixing (§ 69 GewO) | `permit_type = market_fixing` | The city fixes the market (type, place, times) under trade law; its own permit next to the Sondernutzung (user test 2, UT2-06). |
-| Wasser / Hydrant / Standrohr | Water / standpipe | `permit_type = water` + `rental` | Hydrant use; standpipes rented from the city utility. |
+| Je Termin / je Ort und Saison / je Jahr | Per date / per Ort and season / per year | `permit_requirement.cadence`, `obligation` | The three levels of recurring work ([ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md)): per date the event's template and its `per_event` permits; per Ort and season one permit with its own "… beantragen" task; per year a Pflicht. |
+| Ordnungsbehördliche Erlaubnis | Public order permit | `permit_type = market_permit` | The city's main permit for a market on public ground (formerly called "Marktgenehmigung (Sondernutzung)"). One per Ort and season, applied for about six months before the season starts in March. |
+| Festsetzung (§ 69 GewO) | Market fixing (§ 69 GewO) | `permit_type = market_fixing` | The city fixes the market (type, place, times) under trade law; its own permit next to the Erlaubnis (user test 2, UT2-06), also on private ground. One per Ort and season. |
+| Ausschankgenehmigung | Alcohol licence | `permit_type = catering` | The city's permit to serve drinks (Gestattung, § 12 GastG) where the market serves them (Stadtfest, Food & Wine). One per Ort and season, applied for with the Erlaubnis. |
+| GEMA | GEMA (music rights) | `permit_type = gema` | Registering the music of one date (only where music is played). Per date; the template item "GEMA anmelden" is its task. |
+| Wasser / Hydrant / Standrohr | Water / standpipe | `permit_type = water` + `rental` | Hydrant use; the standpipe is rented from the utility once per Ort and season. Ordering it for a date ("Standrohr bestellen") is a plain task of that date. |
 | Plakatierung (mit Aufklebern/Plaketten) | Poster/signage permit (with stickers) | `permit_type = signage` | City issues stickers that must be on each poster. |
-| Halteverbot | No-parking order | `permit_type = no_parking` | Temporary no-parking signs. |
-| Toiletten | Toilets | `permit_type = toilets` | External. |
-| Einverständnis Grundstück | Landowner OK | `permit_type = landowner_ok` | External. |
+| Halteverbot (PVBT) | No-parking order | `permit_type = no_parking` | Temporary no-parking signs. Per date: each date has its own permit and its own "… beantragen" task. |
+| Toiletten | Toilets | `permit_type = toilets` (not used for Orte) | Booked once at the start of the year for all markets (plus extra bookings when plans change): company work, the Pflicht "Toiletten für die Saison buchen" ([ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md)), not a permit requirement of an Ort. |
+| Einverständnis des Eigentümers | Landowner OK | `permit_type = landowner_ok` | External. On private ground, one per Ort and season, in addition to the city's Festsetzung (and Ausschank where drinks are served). |
 | Genehmigungen (Bereich, früher „Logbuch“) | Permits (area, formerly "logbook") | logbook view, route `/genehmigungen` | Company-wide status quo: what we hold, for which location, what's missing. The sidebar badge counts "Fehlt/abgelaufen für kommende Märkte". |
 | Antragsfenster / Entscheidung erwartet | Application window / expected decision | `submission_window_*`, `expected_decision_on` | e.g. city collects all applications, decides in January. |
 | Auflagen | Conditions | `permit.conditions` | Turned into tasks. |
@@ -126,6 +129,7 @@ Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Appli
 |---|---|---|---|
 | Pflichten (Bereich und Seitentitel) | Duties (area) | company tab, route `/firma` | Recurring obligations, vehicles and defects: everything not tied to one event. Not to be confused with **Firma** in Einstellungen, which holds the company data. |
 | Pflichttermin / wiederkehrende Pflicht | Recurring obligation | `obligation` | e.g. HU/TÜV, UVV inspection, insurance renewal, KSK report. |
+| Pflicht (Ganze Firma) | Obligation (whole company) | `obligation.scope = company` | Company work per year that belongs to no vehicle or Ort ([ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md)): "Termine für die neue Saison planen", insurance for all markets, toilet booking, electricity contract, marketing. Shown as "Pflicht · Ganze Firma". |
 | Fahrzeug | Vehicle | `vehicle` | Vans; HU every 24 months (≤ 3.5 t), UVV yearly. |
 | Inventar / Material | Inventory / equipment | `item_type` | Bulk items: cables, power boxes, tables… |
 | Bedarf | Requirement | `event_requirement` | What an event needs. |
@@ -135,11 +139,11 @@ Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Appli
 | Postfach | Mailbox | `mailbox` | Connected Microsoft 365 mailbox. |
 
 ## The client's own words (research 13)
-Terms from Coelln Konzept's checklists (2026-11). Most become task titles; only Saison is a record.
+Terms from Coelln Konzept's checklists (2026-11). Most become task titles.
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
-| Saison | Season | `event_season` (planned) | One market's year: its season tasks (Termine planen, Genehmigung) relative to the first date, which exist before the dates do. |
-| Termine planen | Plan the dates | season task | Picking next season's dates by hand, about 8 months before the first one. |
+| Saison | Season | `event.season`, `permit.season` (the year) | Only the market year (the season starts in March), never a record or a screen ([ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md)): work per season lives in the Genehmigungen logbook (one permit per Ort and season), work per year in Pflichten. |
+| Termine planen | Plan the dates | Pflicht (Ganze Firma, yearly) | "Termine für die neue Saison planen": picking next season's dates, before the season's applications go out. |
 | Einzeichnen | Mark out | task | Chalking the stall plots on the ground, the day before or on the morning. |
 | Abflattern | Tape off | task | Closing the area with barrier tape (Flatterband) the day before. |
 | PVBT (Parkverbot) | No-parking signs | permit type `no_parking` | Set up at least 96 hours before; the client reminds 6 days before. |

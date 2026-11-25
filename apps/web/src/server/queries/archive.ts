@@ -9,7 +9,6 @@ import {
   document,
   event,
   eventPreset,
-  eventSeason,
   expense,
   installment,
   locationAgreement,
@@ -341,7 +340,8 @@ const AREA_TYPES: Record<ActivityArea, string[]> = {
   task: ["task"],
   permit: ["permit", "permit_requirement"],
   document: ["document"],
-  // A Saison and a "Notiz fürs nächste Mal" belong to a Markt (their page is /vorlagen/<id>).
+  // A "Notiz fürs nächste Mal" belongs to a Markt (its page is /vorlagen/<id>); "event_season" entries are the
+  // history of the Saison records removed by ADR 0024 (no link any more).
   template: [
     "event_preset",
     "event_season",
@@ -468,19 +468,6 @@ const TARGETS: Record<string, (ids: string[]) => Promise<Named[]>> = {
         .from(eventPreset)
         .where(inArray(eventPreset.id, ids))
     ).map((r) => ({ ...r, href: `/vorlagen/${r.id}` })),
-  event_season: async (ids) =>
-    (
-      await db
-        .select({
-          id: eventSeason.id,
-          name: eventPreset.name,
-          season: eventSeason.season,
-          presetId: eventSeason.presetId,
-        })
-        .from(eventSeason)
-        .innerJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
-        .where(inArray(eventSeason.id, ids))
-    ).map((r) => ({ id: r.id, label: `${r.name} ${r.season}`, href: `/vorlagen/${r.presetId}` })),
   checklist_template: async (ids) =>
     (
       await db

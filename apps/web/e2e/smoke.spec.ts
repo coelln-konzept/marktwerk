@@ -4,6 +4,16 @@ import { expect, type Page, test } from "@playwright/test";
 const toastUndo = (page: Page) =>
   page.getByRole("region", { name: "Hinweise" }).getByRole("button", { name: "Rückgängig" });
 
+/**
+ * Local runs against `next dev` only: even with `devIndicators: false` the Next.js DevTools still put an insight toast
+ * (e.g. the framework's upgrade reminder) bottom left, over the profile button. Production builds (CI) have no
+ * `nextjs-portal`, so this does nothing there.
+ */
+const hideDevOverlay = (page: Page) =>
+  page.locator("nextjs-portal").evaluateAll((portals) => {
+    for (const portal of portals) portal.remove();
+  });
+
 test("Übersicht loads after login", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
@@ -961,6 +971,7 @@ test("Sidebar: four daily entries (no Board), Stammdaten collapsed and remembere
   await expect(page.getByRole("heading", { level: 1, name: "Pflichten" })).toBeVisible();
 
   // Einstellungen: profile menu (bottom left).
+  await hideDevOverlay(page);
   await page.getByRole("button", { name: /Geschäftsführung/ }).click();
   await page.getByRole("menuitem", { name: "Einstellungen" }).click();
   await expect(page).toHaveURL(/\/einstellungen\/firma$/);
@@ -1816,7 +1827,7 @@ test('Task drawer: subtasks are added with Enter, ticked off, and "Hauptaufgabe 
   await expect(drawer).toBeHidden();
 });
 
-test('Market page: the Saison panel shows its heading, its status (or "Saison anlegen") and its start', async ({
+test('Market page: no Saison panel (ADR 0024), "Fürs nächste Mal" comes first', async ({
   page,
 }) => {
   await page.goto("/einstellungen/bibliothek");
@@ -1827,22 +1838,7 @@ test('Market page: the Saison panel shows its heading, its status (or "Saison an
   expect(href).toMatch(/^\/vorlagen\/[0-9a-f-]{36}$/);
   await page.goto(href as string);
 
-  const year = new Intl.DateTimeFormat("de-DE", {
-    year: "numeric",
-    timeZone: "Europe/Berlin",
-  }).format(new Date());
-  await expect(
-    page.getByRole("heading", { level: 2, name: `Saison ${year}`, exact: true }),
-  ).toBeVisible();
-  const panel = page.getByRole("region", { name: `Saison ${year}`, exact: true });
-  const create = panel.getByRole("button", { name: "Saison anlegen" });
-  if ((await create.count()) > 0) {
-    await expect(panel.getByText(`Noch keine Saison ${year}`)).toBeVisible();
-  } else {
-    // Status as colour + icon + text in the switch, and the start: the first date or "Erwartet ab …".
-    await expect(panel.getByRole("button", { name: /Status der Saison ändern/ })).toContainText(
-      /In Planung|Termine stehen|Abgeschlossen/,
-    );
-    await expect(panel.getByText(/^(Erster Termin|Erwartet ab) /).first()).toBeVisible();
-  }
+  await expect(page.getByRole("heading", { level: 2, name: "Fürs nächste Mal" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Saison \d{4}$/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Saison anlegen" })).toHaveCount(0);
 });

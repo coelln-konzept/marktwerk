@@ -867,6 +867,7 @@ describe("queries", () => {
         urgency: "overdue",
         href: `/firma/pflichten/${overdue}`,
         meta: "Transporter 1",
+        companyWide: false,
         assigneeName: "Anna Test",
       },
       {
@@ -878,6 +879,8 @@ describe("queries", () => {
         urgency: "today",
         href: `/firma/pflichten/${soon}`,
         meta: undefined,
+        // No vehicle, no Ort: the Übersicht row says "Ganze Firma".
+        companyWide: true,
         assigneeName: "Anna Test",
       },
     ]);

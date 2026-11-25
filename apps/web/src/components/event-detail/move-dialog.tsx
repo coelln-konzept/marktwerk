@@ -142,12 +142,11 @@ export function MoveDialog({
         return;
       }
       onOpenChange(false);
-      const { tasksShifted, seasonTasksShifted } = result.data;
+      const { tasksShifted } = result.data;
       showToast({
         message: [
           t("moved", { date: formatDateShort(to, locale) }),
           ...(tasksShifted > 0 ? [t("movedTasks", { count: tasksShifted })] : []),
-          ...(seasonTasksShifted > 0 ? [t("movedSeasonTasks", { count: seasonTasksShifted })] : []),
         ].join(" · "),
         actionLabel: t("undo"),
         onAction: async () => {
@@ -173,7 +172,6 @@ export function MoveDialog({
       preview.to.endsOn,
       ...preview.anchors.flatMap((a) => [a.from, a.to]),
       ...preview.shifting.flatMap((s) => [s.from, s.to]),
-      ...preview.seasonShifting.flatMap((s) => [s.from, s.to]),
       ...preview.permitsKept.map((p) => p.applyBy),
     ].some((d) => d != null && d.slice(0, 4) !== thisYear);
   const short = (d: string) =>
@@ -182,8 +180,7 @@ export function MoveDialog({
     r.startsOn === r.endsOn
       ? formatDateWithWeekday(r.startsOn, locale)
       : `${formatDateWithWeekday(r.startsOn, locale)} – ${formatDateWithWeekday(r.endsOn, locale)}`;
-  const seasonOverdue = preview?.seasonShifting.filter((s) => s.overdue).length ?? 0;
-  const overdueAfter = (preview?.tasksOverdueAfter ?? 0) + seasonOverdue;
+  const overdueAfter = preview?.tasksOverdueAfter ?? 0;
   const keptTotal = preview ? preview.kept.manual + preview.kept.noRule : 0;
   const hints =
     (overdueAfter > 0 ? 1 : 0) +
@@ -297,22 +294,6 @@ export function MoveDialog({
                     caption={t("tasksCaption")}
                     short={short}
                   />
-                )}
-                {preview.seasonShifting.length > 0 && (
-                  <>
-                    <p className="text-small">
-                      <span className="font-semibold">
-                        {t("seasonShifting", { count: preview.seasonShifting.length })}
-                      </span>{" "}
-                      <span className="text-muted-foreground">{t("seasonShiftingNote")}</span>
-                    </p>
-                    <ShiftList
-                      rows={preview.seasonShifting}
-                      summary={t("seasonShow", { count: preview.seasonShifting.length })}
-                      caption={t("seasonCaption")}
-                      short={short}
-                    />
-                  </>
                 )}
                 {preview.tasksShifting > 0 && (
                   <p className="flex items-start gap-1.5 text-foreground-2 text-small">

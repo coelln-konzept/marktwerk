@@ -498,6 +498,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       urgency,
       href: obligationHref(o.id),
       meta: o.vehicleName ?? o.venueName ?? undefined,
+      companyWide: o.scope === "company",
       assigneeName: o.responsibleName,
     });
   }

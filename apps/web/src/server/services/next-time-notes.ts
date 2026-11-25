@@ -1,6 +1,6 @@
 import "server-only";
 import { can, nextTimeNoteProblem, normalizeNextTimeNote } from "@marktwerk/core";
-import { event, eventSeason, nextTimeNote, task } from "@marktwerk/db/schema";
+import { event, nextTimeNote, task } from "@marktwerk/db/schema";
 import { and, eq, exists, type SQL, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import { type Actor, visibleEvents } from "../actor";
@@ -51,14 +51,12 @@ async function resolveTarget(tx: Tx, actor: Actor, target: NextTimeNoteTarget): 
       .select({
         eventId: task.eventId,
         eventPresetId: event.presetId,
-        seasonPresetId: eventSeason.presetId,
       })
       .from(task)
       .leftJoin(event, eq(event.id, task.eventId))
-      .leftJoin(eventSeason, eq(eventSeason.id, task.seasonId))
       .where(and(eq(task.id, target.taskId), visibleTasks(actor)));
     if (!row) throw new NextTimeNoteInputError("not_found");
-    const presetId = row.eventPresetId ?? row.seasonPresetId;
+    const presetId = row.eventPresetId;
     if (!presetId) throw new NextTimeNoteInputError("no_market");
     return { presetId, eventId: row.eventId, taskId: target.taskId };
   }

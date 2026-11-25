@@ -87,7 +87,6 @@ import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { getActor } from "@/server/actor";
 import { getAppointment, listAppointmentsBetween } from "@/server/queries/appointments";
-import type { CalendarItem } from "@/server/queries/due";
 import { getEvent } from "@/server/queries/events";
 import {
   getSavedLayers,
@@ -148,7 +147,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const tCal = await getTranslations("calendar");
   const tAppt = await getTranslations("appointments");
   const tStatus = await getTranslations("status.event");
-  const tTasks = await getTranslations("tasks");
+  const _tTasks = await getTranslations("tasks");
   const tNotes = await getTranslations("holidayNotes");
   const locale = await getLocale();
   const today = todayIn();
@@ -286,12 +285,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
       ];
 
   // Same-day, same-kind items collapse into one summary ("70 Genehmigungen: Entscheidung erwartet");
-  // single entries put the object first and the verb last. A season task names its market and season after
-  // the title ("Termine planen · Flohmarkt Bilk · Saison 2027", research 13 §6.3).
-  const seasonLabel = (i: CalendarItem) =>
-    i.season
-      ? tTasks("seasonContext", { name: i.season.name, year: String(i.season.year) })
-      : undefined;
+  // single entries put the object first and the verb last.
   const display: DisplayItem[] = groupDeadlines(deadlines).map((item) => {
     const kind = item.group ? item.group.kind : deadlineKind(item);
     const kindLabel = kind ? t(`permitKind.${kind}`) : undefined;
@@ -300,7 +294,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
         ...item,
         text: deadlineText(item),
         shortText: deadlineShortText(item),
-        kindLabel: kindLabel ?? seasonLabel(item),
+        kindLabel,
       };
     const { count } = item.group;
     const text =
@@ -312,7 +306,7 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
     const members = item.group.members.map((m) => ({
       key: m.id,
       href: m.href,
-      text: [deadlineText(m), seasonLabel(m)].filter(Boolean).join(" · "),
+      text: deadlineText(m),
     }));
     return { ...item, text, kindLabel, members };
   });
