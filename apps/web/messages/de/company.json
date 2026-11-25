@@ -40,7 +40,7 @@
       "other": "Sonstiges"
     },
     "scopes": {
-      "company": "Unternehmen",
+      "company": "Ganze Firma",
       "vehicle": "Fahrzeug",
       "venue": "Ort"
     },
@@ -171,11 +171,13 @@
       "schedule": "Rhythmus und Fälligkeit",
       "intervalMonths": "Alle … Monate",
       "intervalMonthsHint": "Leer lassen, wenn es nur nach Kilometern geht.",
+      "intervalMonthsHintDate": "12 = jährlich, 4 = dreimal im Jahr. Leer lassen, wenn es nur einmal fällig ist.",
       "intervalKm": "Alle … km",
       "intervalKmHint": "Nur bei Fahrzeugen. Gilt, was zuerst eintritt: Datum oder Kilometer.",
       "nextDueOn": "Nächste Fälligkeit (Datum)",
       "nextDueKm": "Nächste Fälligkeit (km)",
       "leadDays": "Erinnerung ab (Tage vorher)",
+      "leadDaysHint": "Ab dann steht die Pflicht auf der Übersicht unter Heute, und die verantwortliche Person wird erinnert.",
       "responsibleSection": "Zuständigkeit",
       "responsible": "Verantwortlich",
       "createsPayable": "Beim Erledigen eine Zahlung anlegen (z. B. Rechnung der Werkstatt)",

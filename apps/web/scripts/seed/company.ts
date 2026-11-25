@@ -1,5 +1,6 @@
 /**
- * M6 seed: vehicles, obligations (HU, UVV, service, insurance, KSK report) and their history.
+ * M6 seed: vehicles, obligations (HU, UVV, service, insurance, KSK report, and the company's yearly work of
+ * ADR 0024: season planning, insurance, toilets, electricity, marketing) and their history.
  *
  * Derived here, deterministically (not in the dataset): `obligation.kind` (from the title), one
  * `obligation_completion` per obligation with a `last_done_on`, `vehicle.odometer_recorded_on` (the
@@ -80,6 +81,7 @@ export async function seedCompany(tx: Tx, { data }: SeedContext) {
       responsibleStaffMemberId: o.responsibleStaffMemberId,
       createsPayable: o.createsPayable,
       lastDoneOn: o.lastDoneOn,
+      notes: o.notes ?? null,
     })),
     "obligations",
   );

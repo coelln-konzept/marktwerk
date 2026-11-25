@@ -11,7 +11,12 @@ import {
   venueName,
 } from "./generators/catalogue";
 import { buildEventPresets, buildEvents } from "./generators/events";
-import { buildObligations, buildPayablesAndInstallments, buildVehicles } from "./generators/money";
+import {
+  buildCompanyObligations,
+  buildObligations,
+  buildPayablesAndInstallments,
+  buildVehicles,
+} from "./generators/money";
 import {
   buildContacts,
   buildDutyRoles,
@@ -214,6 +219,16 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
       : event;
   });
 
+  // Company-wide yearly work (ADR 0024); last, so its random draws leave the rest of the dataset unchanged.
+  const companyObligations = buildCompanyObligations(rng, {
+    clock,
+    ownerStaffId: staffId("owner"),
+    officeManagerStaffId: staffId("office_manager"),
+    bookingsStaffId: staffId("office_staff_1"),
+    communicationStaffId: staffId("office_staff_2"),
+    logisticsStaffId: staffId("logistics_lead"),
+  });
+
   return {
     settings,
     legalParameters,
@@ -234,7 +249,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     payables: money.payables,
     installments: money.installments,
     vehicles,
-    obligations,
+    obligations: [...obligations, ...companyObligations],
     shifts,
     vendors,
     bookingRequests: bookings.bookingRequests,

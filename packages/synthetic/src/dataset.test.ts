@@ -1307,6 +1307,46 @@ describe("money", () => {
     expect(overdue[0]?.title).toContain("UVV");
   });
 
+  it("has the company's yearly Pflichten (ADR 0024) with responsible office people", () => {
+    const company = data.obligations.filter((o) => o.scope === "company");
+    const byTitle = new Map(company.map((o) => [o.title, o]));
+    const planning = byTitle.get("Termine für die neue Saison planen");
+    const insurance = byTitle.get("Versicherung für alle Märkte erneuern");
+    const toilets = byTitle.get("Toiletten für die Saison buchen");
+    const power = byTitle.get("Stromvertrag prüfen und verlängern");
+    const marketing = byTitle.get("Marketing: Saisonwerbung");
+    for (const o of [planning, insurance, toilets, power, marketing]) {
+      expect(o).toBeDefined();
+      expect(o?.vehicleId).toBeNull();
+      expect(o?.venueId).toBeNull();
+      expect(o?.notes).toBeTruthy();
+    }
+    // fixed calendar points: dates before the season applications (~September), insurance and toilets in January
+    expect(planning?.nextDueOn.slice(5)).toBe("08-01");
+    expect(insurance?.nextDueOn.slice(5)).toBe("01-01");
+    expect(toilets?.nextDueOn.slice(5)).toBe("01-31");
+    for (const o of [planning, insurance, toilets, power]) expect(o?.intervalMonths).toBe(12);
+    // marketing every 4 months: start, middle and end of the season
+    expect(marketing?.intervalMonths).toBe(4);
+    expect(["02-15", "06-15", "10-15"]).toContain(marketing?.nextDueOn.slice(5));
+    // only the insurance renewal books a payable
+    expect(company.filter((o) => o.createsPayable).map((o) => o.title)).toEqual(
+      expect.arrayContaining(["Versicherung für alle Märkte erneuern"]),
+    );
+    expect(toilets?.createsPayable).toBe(false);
+    // responsible: fictional office staff from the dataset, each a different person where it fits
+    const staffIds = new Set(data.staffMembers.map((m) => m.id));
+    for (const o of company) expect(staffIds.has(o.responsibleStaffMemberId)).toBe(true);
+    expect(
+      new Set(
+        [planning, insurance, toilets, power, marketing].map((o) => o?.responsibleStaffMemberId),
+      ).size,
+    ).toBe(5);
+    // last done one interval before the next due date
+    expect(marketing?.lastDoneOn).toBeDefined();
+    expect(planning?.lastDoneOn?.slice(5)).toBe("08-01");
+  });
+
   it("uses the legal parameters for the Minijob limit and minimum wage", () => {
     const limit2026 = data.legalParameters.find(
       (p) => p.key === "minijob_limit_cents_per_month" && p.validFrom === "2026-01-01",
@@ -1520,6 +1560,15 @@ describe.each(REFERENCE_DATES)("as of %s", (today) => {
         expect(event.status).toBe(event.season === season ? "confirmed" : "planned");
       }
     }
+  });
+
+  it("has one company Pflicht in its reminder window and the others later, none overdue", () => {
+    const company = d.obligations.filter((o) => o.scope === "company");
+    expect(company.length).toBeGreaterThanOrEqual(5);
+    for (const o of company) expect(o.nextDueOn >= today, o.title).toBe(true);
+    const reminding = company.filter((o) => daysAfter(o.nextDueOn, -o.leadDays) <= today);
+    expect(reminding.map((o) => o.title)).toContain("Stromvertrag prüfen und verlängern");
+    expect(company.length - reminding.length).toBeGreaterThanOrEqual(3);
   });
 
   it(

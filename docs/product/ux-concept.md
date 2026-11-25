@@ -266,7 +266,8 @@ permits at the bottom. No KPI strip, no season strip. Section titles sit outside
    soonest market), with one-click Erledigt and Zurückstellen with undo and the due words from `DueBadge`. No subtitle.
    **Pflichten** (research 10) show as soon as their reminder runs, like the reminder job: overdue in Überfällig; due
    today, inside the "Erinnerung ab" window or near the km target in Heute, with the due date next to the words ("Di
-   10.11. · In 3 Wochen") and "Pflicht" in the second line; the row opens the Pflicht. Only roles with
+   10.11. · In 3 Wochen") and "Pflicht" in the second line, followed by its vehicle or Ort, or "Ganze Firma" for a
+   company-wide one; the row opens the Pflicht. Only roles with
    `company:read`; a Pflicht whose lead is shorter than a week shows in Nächste Tage before its reminder starts.
    **Above the bands a group "Besprechungen heute"** (CF9-1) lists today's Besprechungen, all-day ones first, then by
    time ("09:30  Ortstermin · Heumarkt"); a row opens the Besprechung's Vorschau (`/?vorschau=besprechung:<id>`), J/K

@@ -11,6 +11,7 @@
       "emptyHint": "Überfälliges und Heutiges aus Genehmigungen, Aufgaben und Pflichten erscheint hier.",
       "openItem": "Öffnen: {title}",
       "assignee": "zuständig: {name}",
+      "companyWide": "Ganze Firma",
       "kind": {
         "task": "Aufgabe",
         "permit": "Genehmigung",

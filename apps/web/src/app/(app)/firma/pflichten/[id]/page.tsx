@@ -46,11 +46,14 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
   const td = await getTranslations("company.obligation");
   const locale = await getLocale();
   const canWrite = can(actor.role, "company", "write");
+  // Km and "Geprüft von" only mean something for vehicles and licence checks; a company or Ort Pflicht leaves them out.
+  const showKm = o.scope === "vehicle" || completions.some((c) => c.doneKm !== null);
+  const showChecker = o.kind === "licence_check" || completions.some((c) => c.checkerName !== null);
 
   return (
     <Page
       crumbs={[
-        { label: t("title"), href: "/firma" },
+        // The area and its first tab are both "Pflichten": one crumb, not two.
         { label: t("obligations.title"), href: "/firma/pflichten" },
         { label: o.title },
       ]}
@@ -177,10 +180,10 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
             <THead>
               <tr>
                 <TH>{td("historyCols.doneOn")}</TH>
-                <TH className="text-right">{td("historyCols.km")}</TH>
+                {showKm && <TH className="text-right">{td("historyCols.km")}</TH>}
                 <TH className="text-right">{td("historyCols.cost")}</TH>
                 <TH>{td("historyCols.by")}</TH>
-                <TH>{td("historyCols.checker")}</TH>
+                {showChecker && <TH>{td("historyCols.checker")}</TH>}
                 <TH>{td("historyCols.notes")}</TH>
                 <TH>{td("historyCols.next")}</TH>
               </tr>
@@ -191,14 +194,18 @@ export default async function ObligationPage({ params }: PageProps<"/firma/pflic
                   <TD className="tabular whitespace-nowrap font-medium">
                     {formatDate(c.doneOn, locale)}
                   </TD>
-                  <TD className="tabular whitespace-nowrap text-right">
-                    {c.doneKm === null ? t("none") : `${formatNumber(c.doneKm, locale, 0)} km`}
-                  </TD>
+                  {showKm && (
+                    <TD className="tabular whitespace-nowrap text-right">
+                      {c.doneKm === null ? t("none") : `${formatNumber(c.doneKm, locale, 0)} km`}
+                    </TD>
+                  )}
                   <TD className="tabular whitespace-nowrap text-right">
                     {c.costCents === null ? t("none") : formatMoney(c.costCents, locale)}
                   </TD>
                   <TD className="whitespace-nowrap">{c.doneByName ?? t("none")}</TD>
-                  <TD className="whitespace-nowrap">{c.checkerName ?? t("none")}</TD>
+                  {showChecker && (
+                    <TD className="whitespace-nowrap">{c.checkerName ?? t("none")}</TD>
+                  )}
                   <TD className="max-w-72 truncate" title={c.notes ?? undefined}>
                     {c.notes ?? t("none")}
                   </TD>

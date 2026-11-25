@@ -63,9 +63,9 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 | `permits` | 129 | Season permits, one per Ort (requirement) and season (72), PVBT, Standrohr and Schaustellerliste per date. 2026: 63 granted, 1 late example; 2027: 18 applied (2 with an overdue decision), 1 preparing, 46 not started |
 | `eventPermits` | 523 | Event ↔ permit links |
 | `vehicles` | 3 | Vans with 3,500 or 3,880 kg |
-| `obligations` | 11 | HU, UVV (one overdue), service, insurance renewal, KSK report |
-| `payables` | 90 | Location fees, Marktgenehmigung fees, Festsetzung fees (granted ones only), toilets, standpipes, vehicles, insurance, event costs |
-| `installments` | 114 | Sum exactly to each payable's total |
+| `obligations` | 16 | HU, UVV (one overdue), service, Kfz insurance renewal, KSK report; company Pflichten (ADR 0024): season planning, market insurance, toilets, electricity contract (always in its reminder window), marketing every 4 months |
+| `payables` | 109 | Location fees, Marktgenehmigung fees, Festsetzung fees (granted ones only), toilets, standpipes, vehicles, insurance, event costs |
+| `installments` | 133 | Sum exactly to each payable's total |
 | `shifts` | 278 | Field crew on past 2026 events |
 | `vendors` | 1,500 | 75 % private, about 30 % regular |
 | `bookingRequests` | 5,578 | 40–150 per bookable event (flea and antique, completed or confirmed 2026) |

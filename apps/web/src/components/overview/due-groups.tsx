@@ -5,10 +5,10 @@ import {
   CalendarDays,
   ChevronRight,
   CircleCheck,
+  ClipboardCheck,
   Clock,
   type LucideIcon,
   ShieldCheck,
-  Truck,
   Wallet,
   Wrench,
 } from "lucide-react";
@@ -37,7 +37,7 @@ const KIND_ICONS: Record<DueKind, LucideIcon> = {
   task: CircleCheck,
   hours: Clock,
   issue: Wrench,
-  obligation: Truck,
+  obligation: ClipboardCheck,
 };
 
 /** Each urgency group opens with a band in its status colour (colour + icon + text). */
@@ -142,7 +142,8 @@ function DueRow({
   const href = itemHref(item);
   const Icon = KIND_ICONS[item.kind];
   const editable = item.kind === "task" && canSnooze;
-  const meta = nested ? null : item.meta;
+  // A company-wide Pflicht has no vehicle or Ort to name: "Ganze Firma" instead.
+  const meta = nested ? null : (item.meta ?? (item.companyWide ? t("companyWide") : undefined));
   // A Pflicht or a Mangel has no market around it, so the row names its kind in words (research 10).
   const kindLabel =
     item.kind === "obligation" || item.kind === "issue" ? t(`kind.${item.kind}`) : null;

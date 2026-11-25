@@ -205,6 +205,122 @@ export function buildObligations(rng: Rng, ctx: ObligationContext): Obligation[]
   return obligations;
 }
 
+export interface CompanyObligationContext {
+  clock: Clock;
+  ownerStaffId: string;
+  officeManagerStaffId: string;
+  bookingsStaffId: string;
+  communicationStaffId: string;
+  logisticsStaffId: string;
+}
+
+/** Marketing runs every 4 months: before the season, mid-season and towards its end. */
+const MARKETING_MONTH_DAYS = ["02-15", "06-15", "10-15"] as const;
+const MARKETING_INTERVAL_MONTHS = 4;
+
+/** Days from today to the electricity contract's renewal: inside its 30-day reminder, so a fresh seed shows one. */
+const POWER_CONTRACT_DAYS_AHEAD = 12;
+
+/**
+ * The office's yearly company work (ADR 0024, level 3: Pflichten with `scope = company`). Fixed calendar points
+ * roll to their next occurrence on or after today, so none of them is overdue; the electricity contract's
+ * renewal is a contract anniversary and sits a few days ahead, so one company Pflicht is always in its reminder
+ * window. Built after everything else so its random draws do not shift the rest of the dataset.
+ */
+export function buildCompanyObligations(rng: Rng, ctx: CompanyObligationContext): Obligation[] {
+  const today = ctx.clock.today;
+  const obligations: Obligation[] = [];
+  const add = (o: Omit<Obligation, "id" | "scope" | "vehicleId" | "venueId">): void => {
+    obligations.push({
+      id: rng.uuid(),
+      scope: "company",
+      vehicleId: null,
+      venueId: null,
+      ...o,
+    });
+  };
+  const yearly = {
+    intervalMonths: 12,
+    intervalKm: null,
+    nextDueKm: null,
+  } as const;
+
+  // Dates first: the city's season applications go out around September (ADR 0024).
+  const planning = yearlyAround(today, "08-01");
+  add({
+    ...yearly,
+    title: "Termine für die neue Saison planen",
+    nextDueOn: planning.next,
+    leadDays: 30,
+    responsibleStaffMemberId: ctx.ownerStaffId,
+    createsPayable: false,
+    lastDoneOn: planning.last,
+    notes:
+      "Termine aller Märkte für die nächste Saison festlegen. Die Anträge bei der Stadt gehen ab September raus.",
+  });
+
+  const insurance = yearlyAround(today, "01-01");
+  add({
+    ...yearly,
+    title: "Versicherung für alle Märkte erneuern",
+    nextDueOn: insurance.next,
+    leadDays: 30,
+    responsibleStaffMemberId: ctx.officeManagerStaffId,
+    createsPayable: true,
+    lastDoneOn: insurance.last,
+    notes:
+      "Veranstalterhaftpflicht für alle Märkte der Saison. Die Jahresprämie wird als Zahlung angelegt.",
+  });
+
+  const toilets = yearlyAround(today, "01-31");
+  add({
+    ...yearly,
+    title: "Toiletten für die Saison buchen",
+    nextDueOn: toilets.next,
+    leadDays: 30,
+    responsibleStaffMemberId: ctx.bookingsStaffId,
+    createsPayable: false,
+    lastDoneOn: toilets.last,
+    notes:
+      "Toilettenwagen für alle Märkte der Saison buchen. Bei Planänderungen einzeln nachbuchen.",
+  });
+
+  const power = addDays(today, POWER_CONTRACT_DAYS_AHEAD);
+  add({
+    ...yearly,
+    title: "Stromvertrag prüfen und verlängern",
+    nextDueOn: power,
+    leadDays: 30,
+    responsibleStaffMemberId: ctx.logisticsStaffId,
+    createsPayable: false,
+    lastDoneOn: addMonths(power, -12),
+    notes:
+      "Ein Vertrag für den Baustrom aller Märkte. Preise vergleichen, bevor er sich verlängert.",
+  });
+
+  const marketing = MARKETING_MONTH_DAYS.flatMap((md) => [
+    `${yearOf(today)}-${md}`,
+    `${yearOf(today) + 1}-${md}`,
+  ])
+    .filter((date) => date >= today)
+    .sort()[0];
+  if (!marketing) throw new Error("No marketing date after today");
+  add({
+    title: "Marketing: Saisonwerbung",
+    intervalMonths: MARKETING_INTERVAL_MONTHS,
+    intervalKm: null,
+    nextDueOn: marketing,
+    nextDueKm: null,
+    leadDays: 21,
+    responsibleStaffMemberId: ctx.communicationStaffId,
+    createsPayable: false,
+    lastDoneOn: addMonths(marketing, -MARKETING_INTERVAL_MONTHS),
+    notes: "Flyer, Plakate und Social Media: zum Saisonstart, zur Saisonmitte und zum Saisonende.",
+  });
+
+  return obligations;
+}
+
 /* ------------------------------------------------------------------------------------------------
  * Payables and instalments
  * --------------------------------------------------------------------------------------------- */

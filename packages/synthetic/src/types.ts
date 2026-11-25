@@ -514,6 +514,7 @@ export interface Obligation {
   responsibleStaffMemberId: string;
   createsPayable: boolean;
   lastDoneOn: DateString | null;
+  notes?: string;
 }
 
 export interface Shift {
