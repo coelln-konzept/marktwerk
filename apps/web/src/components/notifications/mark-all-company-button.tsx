@@ -26,21 +26,24 @@ export function MarkAllCompanyButton({
   iconOnlyOnPhone?: boolean;
 }) {
   const t = useTranslations("notificationCenter");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
+  const errorText = (code: string) =>
+    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
   function run() {
     startTransition(async () => {
       const result = await markAllCompanyReadAction(art, markt);
-      if (!result.ok) return showToast({ message: t("errors.generic") });
+      if (!result.ok) return showError(t("errors.generic"));
       const { ids } = result.data;
       if (ids.length === 0) return showToast({ message: t("toast.nothingToMark") });
       showToast({
         message: t("toast.markedAll", { count: ids.length }),
         actionLabel: t("actions.undo"),
         onAction: async () => {
-          await markCompanyUnreadAction(ids);
-          showToast({ message: t("toast.restored") });
+          const undone = await markCompanyUnreadAction(ids);
+          if (undone.ok) showToast({ message: t("toast.restored") });
+          else showError(errorText(undone.error));
         },
       });
     });

@@ -5,7 +5,9 @@ import {
   derivedColumn,
   isAfterEvent,
   isFinishedStatus,
+  openSubtaskCount,
   sortColumnByDue,
+  subtaskProgress,
   type TaskStatusKey,
 } from "@marktwerk/core";
 import { Keyboard } from "lucide-react";
@@ -21,10 +23,11 @@ import type { BoardTask, PeopleRail, StaffOption } from "@/server/queries/tasks"
 import { AblaufList } from "./ablauf-list";
 import { type BoardActions, BoardProvider, type Lift } from "./board-context";
 import { BoardDnd, useCellDrop, useLaneDrop } from "./board-dnd";
+import { ParentDialog } from "./parent-dialog";
 import { PeopleRailPanel } from "./people-rail";
 import { ReasonDialog } from "./reason-dialog";
 import { LoadBar } from "./task-bits";
-import { CardPreview, TaskCard } from "./task-card";
+import { CardPreview, RowPreview, TaskCard } from "./task-card";
 import { type OptimisticPatch, useTaskActions } from "./use-task-actions";
 
 /** Finished cards shown before "weitere anzeigen" (the column is a collapsed list). */
@@ -61,6 +64,11 @@ type Live = ReturnType<typeof useTaskActions>;
 function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): BoardTask[] {
   const task = state.find((t) => t.id === patch.id);
   if (!task) return state;
+  if (patch.kind === "remove") return state.filter((t) => t.id !== patch.id);
+  if (patch.kind === "parent") {
+    // To the end, so a task nested just now shows last under its new parent.
+    return [...state.filter((t) => t.id !== patch.id), { ...task, parentId: patch.parentId }];
+  }
   if (patch.kind === "assign") {
     return state.map((t) =>
       t.id === patch.id
@@ -106,8 +114,12 @@ function applyPatch(state: BoardTask[], patch: OptimisticPatch, today: string): 
 
 export type BoardLayout = "columns" | "person" | "ablauf";
 
+const NO_TASKS: BoardTask[] = [];
+
 type Props = {
   tasks: BoardTask[];
+  /** Event board: the subtasks of `tasks`, shown under their parent (ADR 0021). */
+  subtasks?: BoardTask[];
   staff: StaffOption[];
   /** People rail; null while the team module is hidden (lib/modules.ts). */
   rail: PeopleRail | null;
@@ -115,6 +127,8 @@ type Props = {
   weekLabel: string;
   canWrite: boolean;
   canAssign: boolean;
+  /** "Löschen" in the card menu (UT2-13, `task:delete`). */
+  canDelete?: boolean;
   /** Event board: its id (card order is kept per event). Across events: null. */
   scopeEventId: string | null;
   /** Event board: last day of the event; tasks due after it sit under "Nach der Veranstaltung". */
@@ -138,9 +152,47 @@ export function BoardView(props: Props) {
   const t = useTranslations("board");
   const locale = useLocale();
   const { today, staff } = props;
-  const [tasks, apply] = useOptimistic(props.tasks, (state, patch: OptimisticPatch) =>
+  // Top-level tasks and subtasks in one optimistic list, so nesting, lifting out and ticking a subtask show at
+  // once; the views get the top-level tasks and the subtasks per parent.
+  const loaded = useMemo(
+    () => (props.subtasks?.length ? [...props.tasks, ...props.subtasks] : props.tasks),
+    [props.tasks, props.subtasks],
+  );
+  const [everything, apply] = useOptimistic(loaded, (state, patch: OptimisticPatch) =>
     applyPatch(state, patch, today),
   );
+  const eventBoard = props.scopeEventId !== null;
+  const { tasks, childrenOf, byId } = useMemo(() => {
+    const children = new Map<string, BoardTask[]>();
+    const top: BoardTask[] = [];
+    for (const task of everything) {
+      if (task.parentId === null) top.push(task);
+      else children.set(task.parentId, [...(children.get(task.parentId) ?? []), task]);
+    }
+    const ids = new Map(everything.map((task) => [task.id, task]));
+    // Across events the server's progress is all there is. On the event board the subtasks are here, so the
+    // parent's "3/5", overdue flag and open count (its tick opens the drawer while any is open, R29) follow a
+    // tick, a nesting or a lift-out at once.
+    if (!eventBoard) return { tasks: top, childrenOf: children, byId: ids };
+    const withProgress = top.map((task) => {
+      const subs = children.get(task.id) ?? [];
+      const p = subtaskProgress(subs, today);
+      const open = openSubtaskCount(subs);
+      return p.total === task.subtasksTotal &&
+        p.done === task.subtasksDone &&
+        p.overdue === task.subtasksOverdue &&
+        open === task.openSubtasks
+        ? task
+        : {
+            ...task,
+            subtasksTotal: p.total,
+            subtasksDone: p.done,
+            subtasksOverdue: p.overdue,
+            openSubtasks: open,
+          };
+    });
+    return { tasks: withProgress, childrenOf: children, byId: ids };
+  }, [everything, eventBoard, today]);
   // Across events done cards leave the open columns, so "Erledigt" asks first (decision D1); the
   // event's Checkliste keeps them in place and asks nothing.
   const current = useTaskActions({
@@ -162,6 +214,9 @@ export function BoardView(props: Props) {
       setStatus: (...args: Parameters<Live["setStatus"]>) => liveRef.current.setStatus(...args),
       snooze: (...args: Parameters<Live["snooze"]>) => liveRef.current.snooze(...args),
       unsnooze: (...args: Parameters<Live["unsnooze"]>) => liveRef.current.unsnooze(...args),
+      remove: (...args: Parameters<Live["remove"]>) => liveRef.current.remove(...args),
+      setParent: (...args: Parameters<Live["setParent"]>) => liveRef.current.setParent(...args),
+      restore: (...args: Parameters<Live["restore"]>) => liveRef.current.restore(...args),
       errorText: (code: string) => liveRef.current.errorText(code),
       drawer: {
         open: (id: string) => liveRef.current.drawer.open(id),
@@ -178,6 +233,7 @@ export function BoardView(props: Props) {
     null,
   );
   const [snoozeFor, setSnoozeFor] = useState<BoardTask | null>(null);
+  const [parentFor, setParentFor] = useState<BoardTask | null>(null);
   const focusAfter = useRef<string | null>(null);
 
   const eventEndsOn = props.eventEndsOn ?? null;
@@ -190,6 +246,11 @@ export function BoardView(props: Props) {
     (column: BoardColumn, lane?: string | null) =>
       cardsIn(tasksRef.current, column, lane, eventEndsOn),
     [eventEndsOn],
+  );
+  // The kanban's column on phones (Columns): the first with open cards, fixed on the first render so the
+  // view never jumps by itself when that column empties; then the switch, or where a lifted card ends up.
+  const [phoneColumn, setPhoneColumn] = useState<BoardColumn>(
+    () => COLUMN_ORDER.find((c) => c !== "done" && cardsOf(c).length > 0) ?? "today",
   );
 
   // After a drop the card sits in another list; give focus back to its grip.
@@ -253,6 +314,8 @@ export function BoardView(props: Props) {
   const cancelLift = useCallback(() => {
     if (!lift) return;
     focusAfter.current = lift.id;
+    const from = tasksRef.current.find((c) => c.id === lift.id)?.column;
+    if (from) setPhoneColumn(from);
     setLift(null);
     setLive(t("keys.cancelled"));
   }, [lift, t]);
@@ -261,6 +324,8 @@ export function BoardView(props: Props) {
     if (!lift) return;
     const task = tasksRef.current.find((c) => c.id === lift.id);
     setLift(null);
+    // On phones the column the card lands in shows, so its grip can take focus back.
+    setPhoneColumn(lift.column);
     if (!task) return;
     focusAfter.current = task.id;
     const others = cardsNow(lift.column, lift.lane).filter((c) => c.id !== lift.id);
@@ -280,6 +345,12 @@ export function BoardView(props: Props) {
   );
 
   const askSnoozeDate = useCallback((task: BoardTask) => setSnoozeFor(task), []);
+  const askParent = useCallback((task: BoardTask) => setParentFor(task), []);
+  const subtasksOf = useCallback(
+    (parentId: string) => childrenOf.get(parentId) ?? NO_TASKS,
+    [childrenOf],
+  );
+  const taskById = useCallback((id: string) => byId.get(id), [byId]);
 
   const value = useMemo(
     () => ({
@@ -287,8 +358,10 @@ export function BoardView(props: Props) {
       staff,
       canWrite: props.canWrite,
       canAssign: props.canAssign,
+      canDelete: props.canDelete ?? false,
       showEvent: props.scopeEventId === null,
       liftable: props.canWrite && props.layout !== "ablauf",
+      hasColumns: props.layout !== "ablauf",
       actions,
       lift,
       pick,
@@ -297,12 +370,21 @@ export function BoardView(props: Props) {
       cancelLift,
       askReason,
       askSnoozeDate,
+      nestable: eventBoard && props.canWrite,
+      subtasksOf,
+      taskById,
+      askParent,
     }),
     [
+      eventBoard,
+      subtasksOf,
+      taskById,
+      askParent,
       today,
       staff,
       props.canWrite,
       props.canAssign,
+      props.canDelete,
       props.scopeEventId,
       props.layout,
       actions,
@@ -323,9 +405,51 @@ export function BoardView(props: Props) {
     return { open: open.length, hours: total / 60 };
   }, [tasks]);
 
+  // The footer's "Tastatur": the Checkliste has rows, not cards with a grip, so it lists the keys that work
+  // there (UX-036); ticking, the menu and a new task need `task:write`.
+  const keyHints: [key: string, label: string, kbd: React.ReactNode][] =
+    props.layout === "ablauf"
+      ? [
+          ["move", t("keys.rowMove"), <Kbd key="k1">J K ↑ ↓</Kbd>],
+          [
+            "open",
+            t("keys.rowOpen"),
+            <span key="k2" className="inline-flex gap-1">
+              <Kbd>↵</Kbd>
+              <Kbd>{t("keys.space")}</Kbd>
+            </span>,
+          ],
+          ...(props.canWrite
+            ? ([
+                ["e", t("keys.rowTick"), <Kbd key="k3">E</Kbd>],
+                ["a", t("keys.rowMenu"), <Kbd key="k4">A</Kbd>],
+                ["c", t("keys.newTask"), <Kbd key="k5">C</Kbd>],
+              ] satisfies [string, string, React.ReactNode][])
+            : []),
+        ]
+      : [
+          ["grip", t("keys.pickUp"), <Kbd key="k1">{t("keys.space")}</Kbd>],
+          ["arrows", t("keys.moveArrows"), <Kbd key="k2">← → ↑ ↓</Kbd>],
+          ["drop", t("keys.dropShort"), <Kbd key="k3">{t("keys.space")}</Kbd>],
+          ["esc", t("keys.cancelShort"), <Kbd key="k4">Esc</Kbd>],
+          ["e", t("keys.markDone"), <Kbd key="k5">E</Kbd>],
+          ["a", t("keys.openMenu"), <Kbd key="k6">A</Kbd>],
+          ["c", t("keys.newTask"), <Kbd key="k7">C</Kbd>],
+        ];
+
   return (
     <BoardProvider value={value}>
-      <BoardDnd tasks={tasks} cardsOf={cardsOf} overlay={(task) => <CardPreview task={task} />}>
+      <BoardDnd
+        tasks={everything}
+        cardsOf={cardsOf}
+        overlay={(task) =>
+          props.layout === "ablauf" || task.parentId !== null ? (
+            <RowPreview task={task} />
+          ) : (
+            <CardPreview task={task} />
+          )
+        }
+      >
         <div className="flex flex-col gap-3">
           {liftedTask && (
             <div
@@ -364,17 +488,13 @@ export function BoardView(props: Props) {
               {props.layout === "ablauf" && props.eventStartsOn && eventEndsOn ? (
                 <AblaufList tasks={tasks} startsOn={props.eventStartsOn} endsOn={eventEndsOn} />
               ) : props.layout === "columns" ? (
-                <div className="grid min-w-[880px] grid-cols-4 items-start gap-3">
-                  {COLUMN_ORDER.map((column) => (
-                    <ColumnPanel
-                      key={column}
-                      column={column}
-                      cards={cardsOf(column)}
-                      lift={lift}
-                      eventEndsOn={eventEndsOn}
-                    />
-                  ))}
-                </div>
+                <Columns
+                  cardsOf={cardsOf}
+                  lift={lift}
+                  eventEndsOn={eventEndsOn}
+                  picked={phoneColumn}
+                  onPick={setPhoneColumn}
+                />
               ) : (
                 <Swimlanes
                   tasks={tasks}
@@ -416,17 +536,7 @@ export function BoardView(props: Props) {
                 {t("keys.title")}
               </summary>
               <dl className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
-                {(
-                  [
-                    ["grip", t("keys.pickUp"), <Kbd key="k1">{t("keys.space")}</Kbd>],
-                    ["arrows", t("keys.moveArrows"), <Kbd key="k2">← → ↑ ↓</Kbd>],
-                    ["drop", t("keys.dropShort"), <Kbd key="k3">{t("keys.space")}</Kbd>],
-                    ["esc", t("keys.cancelShort"), <Kbd key="k4">Esc</Kbd>],
-                    ["e", t("keys.markDone"), <Kbd key="k5">E</Kbd>],
-                    ["a", t("keys.openMenu"), <Kbd key="k6">A</Kbd>],
-                    ["c", t("keys.newTask"), <Kbd key="k7">C</Kbd>],
-                  ] as const
-                ).map(([key, label, kbd]) => (
+                {keyHints.map(([key, label, kbd]) => (
                   <div key={key} className="contents">
                     <dd className="m-0 text-right">{kbd}</dd>
                     <dt>{label}</dt>
@@ -446,6 +556,19 @@ export function BoardView(props: Props) {
           setReasonFor(null);
         }}
       />
+      <ParentDialog
+        task={parentFor}
+        tasks={tasks}
+        hasSubtasks={(id) =>
+          (childrenOf.get(id)?.length ?? 0) > 0 ||
+          (!eventBoard && (byId.get(id)?.subtasksTotal ?? 0) > 0)
+        }
+        onCancel={() => setParentFor(null)}
+        onPick={(parent) => {
+          if (parentFor) actions.setParent(parentFor, parent);
+          setParentFor(null);
+        }}
+      />
       <SnoozeDialog
         open={snoozeFor !== null}
         taskTitle={snoozeFor?.title ?? ""}
@@ -460,17 +583,97 @@ export function BoardView(props: Props) {
   );
 }
 
+/**
+ * The four columns side by side; on phones one column at a time behind a wrapping switch with the counts
+ * (UX-003: the 880 px strip needed a sideways scroll). While a card is lifted, its own column (it stays
+ * there until the drop, with the focused grip that takes the keys) and the target column both show; the
+ * switch marks the target.
+ */
+function Columns({
+  cardsOf,
+  lift,
+  eventEndsOn,
+  picked,
+  onPick,
+}: {
+  cardsOf: (column: BoardColumn) => BoardTask[];
+  lift: Lift | null;
+  eventEndsOn: string | null;
+  picked: BoardColumn;
+  onPick: (column: BoardColumn) => void;
+}) {
+  const t = useTranslations("board");
+  const shown = lift?.column ?? picked;
+  const from = lift
+    ? COLUMN_ORDER.find((c) => cardsOf(c).some((task) => task.id === lift.id))
+    : undefined;
+  return (
+    <div className="flex flex-col gap-3">
+      {/* biome-ignore lint/a11y/useSemanticElements: a labelled group of toggle buttons, not a fieldset */}
+      <div
+        role="group"
+        aria-label={t("mobileColumns")}
+        className="flex max-w-full flex-wrap rounded-lg border border-input bg-sunken p-0.5 sm:hidden"
+      >
+        {COLUMN_ORDER.map((column) => {
+          const active = column === shown;
+          return (
+            <button
+              key={column}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onPick(column)}
+              className={cn(
+                "inline-flex min-h-9 grow cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring",
+                active
+                  ? "bg-card font-semibold text-foreground shadow-card ring-1 ring-input"
+                  : "text-foreground-2 hover:bg-hover",
+              )}
+            >
+              {t(`columns.${column}`)}
+              <span
+                className={cn(
+                  "tabular inline-grid h-5 min-w-5 place-items-center rounded-full px-1 font-semibold text-[11.5px]",
+                  active
+                    ? "bg-accent-soft text-accent-soft-foreground"
+                    : "bg-status-neutral-bg text-foreground-2",
+                )}
+              >
+                {cardsOf(column).length}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="grid grid-cols-1 items-start gap-3 sm:min-w-[880px] sm:grid-cols-4">
+        {COLUMN_ORDER.map((column) => (
+          <ColumnPanel
+            key={column}
+            column={column}
+            cards={cardsOf(column)}
+            lift={lift}
+            eventEndsOn={eventEndsOn}
+            className={column === shown || column === from ? undefined : "max-sm:hidden"}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** One column with its header (title, count, estimated hours) and its cards. */
 function ColumnPanel({
   column,
   cards,
   lift,
   eventEndsOn,
+  className,
 }: {
   column: BoardColumn;
   cards: BoardTask[];
   lift: Lift | null;
   eventEndsOn?: string | null;
+  className?: string;
 }) {
   const t = useTranslations("board");
   const locale = useLocale();
@@ -485,6 +688,7 @@ function ColumnPanel({
       className={cn(
         "flex min-w-0 flex-col gap-2 rounded-xl bg-sunken p-2",
         drop.marked && "ring-2 ring-primary/60",
+        className,
       )}
     >
       <header className="flex items-center justify-between gap-2 px-1.5 pt-1">

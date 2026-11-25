@@ -11,10 +11,12 @@ import {
   matrixColumnKey,
   pickCellTask,
   type Readiness,
+  resolveRelativeDue,
   selectMatrixColumns,
   summarizeReadiness,
   type TaskStatusKey,
 } from "@marktwerk/core";
+import { isTopLevel, subtaskAggregates } from "@marktwerk/db";
 import { event, eventPermit, eventPreset, eventType, permit, task } from "@marktwerk/db/schema";
 import {
   and,
@@ -115,6 +117,7 @@ export async function getReadinessList(
   const events = await upcomingEvents(actor, scope, today);
   if (events.length === 0) return { rows: [], categoryCounts: {} };
   const ids = events.map((e) => e.id);
+  const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
 
   const [taskRows, permitRows, horizonDays] = await Promise.all([
     db
@@ -127,11 +130,14 @@ export async function getReadinessList(
         isKey: task.isKey,
         dueAt: task.dueAt,
         snoozedUntil: task.snoozedUntil,
+        subtasksOverdue: sub.subtasksOverdue,
       })
       .from(task)
       .where(
         and(
           visibleTasks(actor),
+          // Top-level tasks; an overdue subtask flags its parent (ADR 0021).
+          isTopLevel(),
           inArray(task.eventId, ids),
           inArray(task.status, [
             "todo",
@@ -203,6 +209,7 @@ function toTask(r: {
   isKey: boolean;
   dueAt: Date | null;
   snoozedUntil: string | null;
+  subtasksOverdue: number;
 }) {
   return {
     id: r.id,
@@ -212,6 +219,7 @@ function toTask(r: {
     isKey: r.isKey,
     dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
     snoozedUntil: r.snoozedUntil,
+    subtasksOverdue: r.subtasksOverdue,
   };
 }
 
@@ -238,6 +246,7 @@ export async function getKeyTaskMatrix(
   const events = await upcomingEvents(actor, scope, today);
   if (events.length === 0) return { events, columns: [], cells: {}, truncatedColumns: false };
   const startsOn = new Map(events.map((e) => [e.id, e.startsOn]));
+  const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
 
   const rows = await db
     .select({
@@ -250,11 +259,13 @@ export async function getKeyTaskMatrix(
       dueAt: task.dueAt,
       snoozedUntil: task.snoozedUntil,
       templateStableKey: task.templateStableKey,
+      subtasksOverdue: sub.subtasksOverdue,
     })
     .from(task)
     .where(
       and(
         visibleTasks(actor),
+        isTopLevel(),
         inArray(
           task.eventId,
           events.map((e) => e.id),

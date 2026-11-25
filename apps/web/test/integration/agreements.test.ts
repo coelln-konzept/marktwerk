@@ -1,3 +1,4 @@
+import { scheduleFromTimes } from "@marktwerk/core";
 import {
   auditLog,
   contact,
@@ -58,7 +59,12 @@ const manualPlan = () => ({
     name: "Gemeindefest",
     eventTypeId: cat.type.id,
     durationDays: 1,
-    times: { setup: "06:00", open: "09:00", close: "17:00", teardown: "19:00" },
+    schedule: scheduleFromTimes({
+      setup: "06:00",
+      open: "09:00",
+      close: "17:00",
+      teardown: "19:00",
+    }),
     pricePerMCents: 1000,
     bookingFeeCents: 0,
   },
@@ -223,7 +229,13 @@ describe("createEventsFromAgreement", () => {
     }
     // Default duties of the preset come along, like in a normal generation.
     expect(await db.select().from(eventDuty)).toHaveLength(6);
-    const entries = await db.select().from(auditLog);
+    const all = await db.select().from(auditLog);
+    // Plus the market's Saison record of each year with a date (research 13 §6), audited on their own.
+    const seasons = all.filter((e) => e.action === "season.create");
+    const years = new Set(rows.map((r) => r.season));
+    expect(seasons).toHaveLength(years.size);
+    expect(seasons.every((e) => (e.diff as { source: string }).source === "agreement")).toBe(true);
+    const entries = all.filter((e) => e.action !== "season.create");
     expect(entries).toHaveLength(3);
     expect(entries.map((e) => e.diff)).toContainEqual({
       presetId: cat.presets.flea.id,
@@ -309,7 +321,7 @@ describe("createEventsFromAgreement", () => {
     const { id } = await newAgreement();
     const [other] = await db
       .insert(venue)
-      .values({ name: "Anderer Platz", kind: "indoor", city: "Bonn" })
+      .values({ name: "Anderer Platz", kind: "private", city: "Bonn" })
       .returning();
     await db
       .update(eventPreset)

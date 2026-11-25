@@ -2,8 +2,8 @@
   "eventDetail": {
     "kicker": "Veranstaltung",
     "header": {
-      "dateLine": "{date} · {open}–{close} Uhr · {week}",
-      "dateLineRange": "{from} – {to} · {open}–{close} Uhr · {week}",
+      "dateLine": "{date} · {hours} · {week}",
+      "dateLineRange": "{from} – {to} · {hours} · {week}",
       "noPreset": "Ohne Vorlage",
       "booking": {
         "open": "buchbar",
@@ -43,15 +43,29 @@
         "reason_required": "Bitte einen Grund für die Absage angeben.",
         "conflict": "Der Status wurde zwischenzeitlich geändert. Nichts zurückgesetzt.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+      },
+      "restored": "Absage aufgehoben: wieder {to}",
+      "tasksCancelled": "{count, plural, one {# Aufgabe mit abgesagt} other {# Aufgaben mit abgesagt}}",
+      "tasksReopened": "{count, plural, one {# Aufgabe wieder offen} other {# Aufgaben wieder offen}}",
+      "actions": {
+        "draft": "Auf Entwurf setzen",
+        "planned": "Auf geplant setzen",
+        "confirmed": "Bestätigen",
+        "live": "Als laufend markieren",
+        "completed": "Abschließen",
+        "closed": "Als abgerechnet markieren",
+        "cancelled": "Absagen …",
+        "restore": "Absage aufheben"
       }
     },
     "cancel": {
       "title": "Veranstaltung absagen",
-      "description": "„{name}“ wird als abgesagt markiert. Offene Aufgaben werden mit abgesagt. Der Grund erscheint im Verlauf; du kannst die Absage direkt danach rückgängig machen.",
+      "description": "„{name}“ wird als abgesagt markiert. Offene Aufgaben werden mit abgesagt. Der Grund erscheint im Verlauf; „Absage aufheben“ holt alles jederzeit zurück.",
       "reason": "Grund der Absage",
       "placeholder": "z. B. Genehmigung nicht erteilt, Wetterwarnung …",
       "submit": "Absagen",
-      "cancel": "Nicht absagen"
+      "cancel": "Nicht absagen",
+      "descriptionCount": "„{name}“ wird als abgesagt markiert. {count, plural, =0 {Es sind keine Aufgaben offen.} one {Die # offene Aufgabe wird mit abgesagt.} other {Die # offenen Aufgaben werden mit abgesagt.}} Der Grund erscheint im Verlauf; „Absage aufheben“ holt alles jederzeit zurück."
     },
     "overview": {
       "dates": {
@@ -74,8 +88,7 @@
       "facts": {
         "title": "Eckdaten",
         "venue": "Ort",
-        "times": "Zeiten",
-        "timesValue": "Aufbau {setup} · {open}–{close} Uhr · Abbau {teardown}",
+        "times": "Zeitplan",
         "price": "Standpreis",
         "pricePerM": "{price} je Meter",
         "fee": "Buchungsgebühr",
@@ -86,7 +99,7 @@
         "yes": "ja",
         "no": "nein",
         "cancelledReason": "Grund der Absage",
-        "summary": "{venue} · {open}–{close} Uhr · {price} je Meter",
+        "summary": "{venue} · {hours} · {price} je Meter",
         "preset": "Vorlage"
       },
       "team": {
@@ -142,7 +155,10 @@
         "title": "Regeln der Veranstaltungsart",
         "summary": "Neuware max. {share} % · {banned} · Online-Buchung: {online}",
         "bannedCount": "{count} verbotene Waren",
-        "noBanned": "keine verbotenen Waren"
+        "noBanned": "keine verbotenen Waren",
+        "marketTitle": "Marktregeln",
+        "marketSource": "Regeln des Marktes „{market}“, gelten für alle seine Termine.",
+        "typeSource": "Diese Veranstaltung gehört zu keinem Markt; es gelten die Regeln der Veranstaltungsart."
       }
     },
     "team": {
@@ -194,7 +210,10 @@
       "readOnly": "Du kannst die Notizen lesen, aber nicht ändern.",
       "tooLong": "Die Notizen sind zu lang (höchstens {max} Zeichen).",
       "failed": "Das Speichern hat nicht geklappt. Bitte noch einmal versuchen.",
-      "chars": "{count} Zeichen"
+      "chars": "{count} Zeichen",
+      "unsaved": "Nicht gespeichert",
+      "draftRestored": "Nicht gespeicherter Text wiederhergestellt.",
+      "discard": "Verwerfen"
     },
     "history": {
       "title": "Verlauf",
@@ -224,7 +243,8 @@
         "bookingFeeCents": "Buchungsgebühr",
         "name": "Name",
         "durationDays": "Dauer",
-        "venueId": "Ort"
+        "venueId": "Ort",
+        "schedule": "Zeitplan"
       },
       "bookingOn": "{flag}: ja",
       "bookingOff": "{flag}: nein",
@@ -241,19 +261,20 @@
       "documentArchived": "Dokument entfernt: {file}",
       "documentRestored": "Dokument wiederhergestellt: {file}",
       "restore": "Wiederherstellen",
-      "restoreAria": "„{title}“ wiederherstellen (wieder offen)"
+      "restoreAria": "„{title}“ wiederherstellen (wieder offen)",
+      "taskDeleted": "Aufgabe gelöscht: {title}",
+      "taskRestored": "Aufgabe wiederhergestellt: {title}",
+      "restoreDeletedAria": "„{title}“ wiederherstellen",
+      "statusRestored": "Absage aufgehoben: {from} → {to}",
+      "tasksCancelled": "{count, plural, one {# Aufgabe mit abgesagt} other {# Aufgaben mit abgesagt}}",
+      "tasksReopened": "{count, plural, one {# Aufgabe wieder offen} other {# Aufgaben wieder offen}}",
+      "tasksShifted": "{count, plural, one {# Aufgabe verschoben} other {# Aufgaben verschoben}}",
+      "seasonTasksShifted": "{count, plural, one {# Saisonaufgabe verschoben} other {# Saisonaufgaben verschoben}}"
     },
     "facts": {
       "edit": "Bearbeiten",
       "title": "Eckdaten bearbeiten",
-      "description": "Zeiten und Preise dieser Veranstaltung.",
-      "times": "Zeiten (Uhr)",
-      "time": {
-        "setup": "Aufbau",
-        "open": "Beginn",
-        "close": "Ende",
-        "teardown": "Abbau"
-      },
+      "description": "Zeitplan und Preise dieser Veranstaltung.",
       "price": "Standpreis",
       "perMeter": "€ je m",
       "fee": "Buchungsgebühr",
@@ -265,13 +286,34 @@
       "undo": "Rückgängig",
       "reverted": "Änderung an den Eckdaten rückgängig gemacht",
       "errors": {
-        "invalid_time": "Bitte alle Zeiten als HH:MM angeben.",
-        "open_after_close": "Das Ende muss nach dem Beginn liegen.",
-        "close_after_teardown": "Der Abbau kann nicht vor dem Ende liegen.",
-        "setup_after_open": "Der Aufbau kann bei eintägigen Märkten nicht nach dem Beginn liegen.",
         "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
         "conflict": "Die Eckdaten wurden zwischenzeitlich geändert. Nichts zurückgesetzt.",
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+        "invalid_schedule": "Bitte den Zeitplan prüfen (Hinweise an den Zeilen)."
+      },
+      "schedule": "Zeitplan"
+    },
+    "rules": {
+      "edit": "Bearbeiten",
+      "title": "Marktregeln bearbeiten",
+      "description": "Neuwarenanteil, verbotene Waren und Online-Buchung des Marktes „{market}“.",
+      "share": "Neuwarenanteil höchstens",
+      "banned": "Verbotene Waren",
+      "bannedHint": "Eine Ware pro Zeile.",
+      "online": "Online-Buchung erlaubt",
+      "scopeHint": "Gilt für alle Termine dieses Marktes",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "saved": "Marktregeln gespeichert",
+      "unchanged": "Keine Änderungen zu speichern.",
+      "undo": "Rückgängig",
+      "reverted": "Änderung an den Marktregeln rückgängig gemacht",
+      "errors": {
+        "invalid_share": "Bitte einen Anteil zwischen 0 und 100 % angeben, z. B. 20.",
+        "invalid_banned_goods": "Höchstens 50 verbotene Waren mit je höchstens 100 Zeichen.",
+        "not_found": "Den Markt gibt es nicht mehr.",
+        "conflict": "Die Marktregeln wurden zwischenzeitlich geändert. Nichts zurückgesetzt.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
       }
     },
@@ -299,13 +341,13 @@
       "open": "Veranstaltung löschen",
       "title": "Veranstaltung endgültig löschen?",
       "blockedTitle": "Veranstaltung kann nicht gelöscht werden",
-      "description": "Die Veranstaltung und alles, was nur zu ihr gehört – Aufgaben, Checkliste, Notizen, Genehmigungs-Verknüpfungen, Zuständigkeiten – werden dauerhaft gelöscht. Das lässt sich nicht rückgängig machen.",
+      "description": "Die Veranstaltung wird dauerhaft gelöscht.",
       "typeName": "Zum Bestätigen den Namen der Veranstaltung eingeben:",
       "submit": "Endgültig löschen",
       "cancel": "Abbrechen",
       "close": "Schließen",
       "loading": "Wird geprüft …",
-      "deleted": "„{name}“ gelöscht.",
+      "deleted": "„{name}“ ({date}) gelöscht.",
       "blockedIntro": "Diese Veranstaltung kann nicht gelöscht werden, weil noch Folgendes daran hängt:",
       "blockedHint": "Du kannst die Veranstaltung stattdessen absagen oder zuerst entfernen, was daran hängt.",
       "payables": "{count, plural, one {# Zahlung} other {# Zahlungen}}",
@@ -317,7 +359,17 @@
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
         "blocked": "Diese Veranstaltung kann nicht gelöscht werden, weil noch etwas daran hängt.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
-      }
+      },
+      "titleNamed": "„{name}“ am {date} endgültig löschen?",
+      "lossesIntro": "Mit der Veranstaltung wird dauerhaft gelöscht:",
+      "losses": {
+        "tasks": "{count, plural, one {# Aufgabe} other {# Aufgaben}} mit Unteraufgaben und Kommentaren",
+        "permitLinks": "{count, plural, one {# Verknüpfung zu einer Genehmigung} other {# Verknüpfungen zu Genehmigungen}}",
+        "duties": "{count, plural, one {# Zuständigkeit} other {# Zuständigkeiten}}",
+        "checklists": "{count, plural, one {# Checkliste} other {# Checklisten}}",
+        "notes": "die Notizen"
+      },
+      "kept": "Das lässt sich nicht rückgängig machen. Die Genehmigungen selbst und „Fürs nächste Mal“ bleiben."
     },
     "move": {
       "open": "Verschieben",
@@ -342,7 +394,8 @@
         "not_movable": "Diese Veranstaltung läuft schon oder ist vorbei und kann nicht mehr verschoben werden.",
         "conflict": "Die Veranstaltung wurde zwischenzeitlich verschoben. Die Seite wurde aktualisiert.",
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
-        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+        "out_of_range": "Bitte ein Datum zwischen {from} und {to} wählen."
       },
       "tasksShifting": "{count, plural, =0 {Keine Aufgabe verschiebt sich.} one {1 Aufgabe verschiebt sich.} other {# Aufgaben verschieben sich.}}",
       "tasksShiftingNote": "Erledigte Aufgaben und von Hand gesetzte Fälligkeiten bleiben.",
@@ -351,7 +404,20 @@
       "tasksCaption": "Aufgaben mit bisherigem und neuem Fälligkeitstag",
       "task": "Aufgabe",
       "overdueShort": "Überfällig",
-      "overdueAfter": "{count, plural, one {# Aufgabe wäre danach überfällig.} other {# Aufgaben wären danach überfällig.}}"
+      "overdueAfter": "{count, plural, one {# Aufgabe wäre danach überfällig.} other {# Aufgaben wären danach überfällig.}}",
+      "movedSeasonTasks": "{count, plural, one {1 Saisonaufgabe verschoben} other {# Saisonaufgaben verschoben}}",
+      "tasksKept": "{count, plural, one {# offene Aufgabe bleibt} other {# offene Aufgaben bleiben}} am alten Tag: {detail}. Erledigte bleiben sowieso.",
+      "keptManual": "{count} von Hand gesetzt",
+      "keptNoRule": "{count} ohne Regel",
+      "keptAfterEnd": "{count, plural, one {# Aufgabe, die bleibt, ist dann erst nach dem Termin fällig.} other {# Aufgaben, die bleiben, sind dann erst nach dem Termin fällig.}}",
+      "seasonShifting": "{count, plural, one {1 Saisonaufgabe verschiebt sich.} other {# Saisonaufgaben verschieben sich.}}",
+      "seasonShiftingNote": "Der erste oder letzte Termin der Saison ändert sich.",
+      "seasonShow": "{count, plural, one {# Saisonaufgabe anzeigen} other {# Saisonaufgaben anzeigen}}",
+      "seasonCaption": "Saisonaufgaben mit bisherigem und neuem Fälligkeitstag",
+      "notified": "Benachrichtigt {count, plural, one {wird} other {werden}}: {names}.",
+      "notifiedNobody": "Niemand wird benachrichtigt: die Aufgaben sind niemand anderem zugewiesen.",
+      "permitsKept": "{count, plural, one {„Antrag bis“ verschiebt sich nicht:} other {„Antrag bis“ verschiebt sich bei # Genehmigungen nicht:}}",
+      "permitKept": "{title} ({date})"
     },
     "happening": {
       "title": "Die Veranstaltung läuft gerade",
@@ -409,6 +475,78 @@
       "readOnly": "Du kannst Dokumente ansehen, aber nicht hinzufügen.",
       "count": "{count, plural, one {# Dokument} other {# Dokumente}}",
       "kind": "Art"
+    },
+    "cancelled": {
+      "title": "Abgesagt",
+      "titleOn": "Abgesagt am {date}",
+      "reason": "Grund: {reason}",
+      "tasks": "{count, plural, one {# offene Aufgabe wurde mit abgesagt.} other {# offene Aufgaben wurden mit abgesagt.}}",
+      "noTasks": "Es waren keine Aufgaben offen.",
+      "restoreHint": "„Absage aufheben“ setzt die Veranstaltung wieder auf „{status}“, abgesagte Aufgaben sind dann wieder offen.",
+      "restore": "Absage aufheben"
+    }
+  },
+  "nextTimeNotes": {
+    "title": "Fürs nächste Mal",
+    "intro": "Was beim nächsten Termin von „{market}“ anders laufen soll. Offene Notizen stehen beim nächsten Termin oben und in „Markt planen“.",
+    "label": "Neue Notiz fürs nächste Mal",
+    "placeholder": "z. B. Strom am Stand 12 fehlt",
+    "add": "Notieren",
+    "saving": "wird gespeichert …",
+    "chars": "{count} / {max}",
+    "empty": "Keine offenen Notizen.",
+    "openCount": "{count} offen",
+    "noMarket": "Dieser Termin gehört zu keinem Markt. Notizen fürs nächste Mal gibt es nur bei Märkten.",
+    "nextDate": "Der nächste Termin ist {date}. Dort stehen die offenen Notizen oben.",
+    "nextDateLink": "Zum nächsten Termin",
+    "isNextDate": "Dieser Termin ist der nächste: die offenen Notizen stehen auch in der Zusammenfassung.",
+    "doneToggle": "Erledigt ({count})",
+    "doneMore": "Die letzten {shown} von {count}.",
+    "markDone": "Erledigt",
+    "doneAria": "„{text}“ als erledigt markieren",
+    "reopen": "Wieder öffnen",
+    "reopenAria": "„{text}“ wieder öffnen",
+    "meta": {
+      "unknownAuthor": "Unbekannt",
+      "written": "notiert am {date}",
+      "atDate": "Termin {date}",
+      "marketPage": "auf der Marktseite",
+      "task": "Aufgabe „{title}“",
+      "done": "erledigt am {date} von {name}",
+      "doneNoName": "erledigt am {date}"
+    },
+    "toast": {
+      "added": "Notiert fürs nächste Mal",
+      "done": "Erledigt: „{text}“",
+      "reopened": "Wieder offen: „{text}“",
+      "removed": "Notiz entfernt",
+      "undo": "Rückgängig"
+    },
+    "errors": {
+      "empty": "Bitte einen Text eingeben.",
+      "too_long": "Der Text ist zu lang (höchstens {max} Zeichen).",
+      "not_found": "Diese Notiz oder dieser Termin ist nicht mehr da.",
+      "no_market": "Dieser Termin gehört zu keinem Markt. Notizen fürs nächste Mal gibt es nur bei Märkten.",
+      "failed": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+    },
+    "overview": {
+      "intro": "Notiert bei früheren Terminen von „{market}“. Abhaken, was erledigt ist.",
+      "link": "Alle Notizen"
+    },
+    "drawer": {
+      "open": "Fürs nächste Mal notieren",
+      "hint": "Kommt zum Markt „{market}“ und steht beim nächsten Termin oben.",
+      "cancel": "Abbrechen"
+    },
+    "market": {
+      "intro": "Notizen von den Terminen dieses Marktes. Offene stehen beim nächsten Termin oben und in „Markt planen“."
+    },
+    "generate": {
+      "title": "Fürs nächste Mal",
+      "intro": "Offene Notizen zu diesem Markt. Abhaken, was erledigt ist; der Rest steht beim nächsten Termin wieder oben.",
+      "loading": "Notizen werden geladen …",
+      "failed": "Die Notizen fürs nächste Mal konnten nicht geladen werden.",
+      "retry": "Noch einmal"
     }
   }
 }

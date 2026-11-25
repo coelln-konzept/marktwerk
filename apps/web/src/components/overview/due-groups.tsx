@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Truck,
   Wallet,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -18,6 +19,7 @@ import { SnoozeMenu } from "@/components/task/snooze";
 import { DueBadge, dueLook } from "@/components/ui/due-badge";
 import { KeyTaskMark } from "@/components/ui/key-task-mark";
 import { MarketMarker } from "@/components/ui/market-marker";
+import { rowFocus } from "@/components/ui/table";
 import { formatDateShortYear } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,7 @@ const KIND_ICONS: Record<DueKind, LucideIcon> = {
   installment: Wallet,
   task: CircleCheck,
   hours: Clock,
+  issue: Wrench,
   obligation: Truck,
 };
 
@@ -57,10 +60,15 @@ export const DUE_PER_MARKET = 3;
 export const DUE_PREVIEW_CLUSTERS = 10;
 
 type Cluster = {
+  /** The market bar: an event, or a Saison ("<Markt> · Saison <Jahr>", research 13 §6.3). */
   event: {
-    id: string;
+    /** The cluster's key: the event id, or `season:<id>`. */
+    key: string;
+    /** The event (its Vorschau eye); null for a Saison, which has no Vorschau. */
+    eventId: string | null;
     name: string;
-    href: string;
+    /** The event's Überblick or the market page; null when the actor may not open the market page. */
+    href: string | null;
     typeKey: string | null;
     color: string | null;
     startsOn: string | null;
@@ -70,31 +78,44 @@ type Cluster = {
 
 /**
  * Items of one urgency group, bundled by market in ranking order (a market appears where its first item
- * ranks); items without a market stay single rows.
+ * ranks); season tasks are bundled per Saison the same way; items without either stay single rows.
+ * `seasonName` gives a Saison its label.
  */
-function clusters(rows: DueItem[]): Cluster[] {
+function clusters(rows: DueItem[], seasonName: (item: DueItem) => string): Cluster[] {
   const out: Cluster[] = [];
-  const byEvent = new Map<string, Cluster>();
+  const byKey = new Map<string, Cluster>();
   for (const item of rows) {
-    if (!item.eventId || !item.meta) {
+    const head: Cluster["event"] =
+      item.eventId && item.meta
+        ? {
+            key: item.eventId,
+            eventId: item.eventId,
+            name: item.meta,
+            // Every link to a market opens its Überblick.
+            href: item.metaHref ?? `/veranstaltungen/${item.eventId}`,
+            typeKey: item.eventTypeKey ?? null,
+            color: item.eventColor ?? null,
+            startsOn: item.eventStartsOn ?? null,
+          }
+        : item.season
+          ? {
+              key: `season:${item.season.id}`,
+              eventId: null,
+              name: seasonName(item),
+              href: item.season.href,
+              typeKey: item.eventTypeKey ?? null,
+              color: item.eventColor ?? null,
+              startsOn: null,
+            }
+          : null;
+    if (!head) {
       out.push({ event: null, items: [item] });
       continue;
     }
-    let cluster = byEvent.get(item.eventId);
+    let cluster = byKey.get(head.key);
     if (!cluster) {
-      cluster = {
-        event: {
-          id: item.eventId,
-          name: item.meta,
-          // Every link to a market opens its Überblick.
-          href: item.metaHref ?? `/veranstaltungen/${item.eventId}`,
-          typeKey: item.eventTypeKey ?? null,
-          color: item.eventColor ?? null,
-          startsOn: item.eventStartsOn ?? null,
-        },
-        items: [],
-      };
-      byEvent.set(item.eventId, cluster);
+      cluster = { event: head, items: [] };
+      byKey.set(head.key, cluster);
       out.push(cluster);
     }
     cluster.items.push(item);
@@ -125,6 +146,9 @@ function DueRow({
   const Icon = KIND_ICONS[item.kind];
   const editable = item.kind === "task" && canSnooze;
   const meta = nested ? null : item.meta;
+  // A Pflicht or a Mangel has no market around it, so the row names its kind in words (research 10).
+  const kindLabel =
+    item.kind === "obligation" || item.kind === "issue" ? t(`kind.${item.kind}`) : null;
   const assignee =
     item.assigneeName && isModuleVisible("team")
       ? t("assignee", { name: item.assigneeName })
@@ -134,15 +158,25 @@ function DueRow({
       data-row
       data-href={href}
       data-peek={itemPeek(item)}
+      // Quick done opens the drawer instead of asking when subtasks are still open (R29); e2e reads it.
+      data-open-subtasks={(item.subtasks?.open ?? 0) > 0 ? item.subtasks?.open : undefined}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: rows are focusable for J/K/Enter/Space (KeyboardRows)
       tabIndex={0}
       className={cn(
-        "grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 py-1.5 pr-4 hover:bg-hover focus-visible:bg-selected @md:flex @md:items-center",
+        "grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 py-1.5 pr-4 hover:bg-hover @md:flex @md:items-center",
+        rowFocus,
         nested ? "pl-8" : "border-border-subtle border-b py-2 pl-4 last:border-b-0",
       )}
     >
       {editable ? (
-        <TaskDoneButton task={{ id: item.id, title: item.title, status: "todo" }} />
+        <TaskDoneButton
+          task={{
+            id: item.id,
+            title: item.title,
+            status: "todo",
+            openSubtasks: item.subtasks?.open ?? 0,
+          }}
+        />
       ) : (
         <span
           title={t(`kind.${item.kind}`)}
@@ -168,13 +202,19 @@ function DueRow({
             {item.title}
           </Link>
         </div>
-        {(meta || assignee) && (
+        {(kindLabel || meta || assignee) && (
           <span
             className={cn(
               "block break-words text-muted-foreground text-small",
               reserveStar && "pl-[22px]",
             )}
           >
+            {kindLabel && (
+              <>
+                <span className="font-medium text-foreground-2">{kindLabel}</span>
+                {(meta || assignee) && " · "}
+              </>
+            )}
             {meta && item.metaHref ? (
               <Link href={item.metaHref as never} className="hover:underline">
                 {meta}
@@ -196,8 +236,13 @@ function DueRow({
           dueOn={item.dueOn}
           today={today}
           waiting={item.urgency === "waiting"}
-          // What the week needs reads by day: "Sa 31.10. · In 2 Tagen".
-          withDate={item.urgency === "soon" || item.urgency === "upcoming"}
+          // What the week needs reads by day: "Sa 31.10. · In 2 Tagen". A Pflicht always names its due date
+          // (its reminder runs from "Erinnerung ab", weeks before the date).
+          withDate={
+            item.urgency === "soon" ||
+            item.urgency === "upcoming" ||
+            (item.kind === "obligation" && item.dueOn !== today)
+          }
         />
         {editable && (
           <SnoozeMenu task={{ id: item.id, title: item.title, status: "todo" }} today={today} />
@@ -276,17 +321,23 @@ function MarketCluster({
     <li className="border-border-subtle border-b last:border-b-0">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-4 pt-3 pb-1">
         <MarketMarker color={event.color} typeKey={event.typeKey} />
-        <Link
-          href={event.href as never}
-          className="min-w-0 break-words font-semibold hover:underline"
-        >
-          {event.name}
-        </Link>
+        {event.href ? (
+          <Link
+            href={event.href as never}
+            className="min-w-0 break-words font-semibold hover:underline"
+          >
+            {event.name}
+          </Link>
+        ) : (
+          <span className="min-w-0 break-words font-semibold">{event.name}</span>
+        )}
         {event.startsOn && <MarketDate date={event.startsOn} today={today} />}
         <span className="tabular text-muted-foreground text-small">
           · {t("eventCount", { count: items.length })}
         </span>
-        <PeekLink eventId={event.id} name={event.name} className="-my-1 ml-auto" />
+        {event.eventId && (
+          <PeekLink eventId={event.eventId} name={event.name} className="-my-1 ml-auto" />
+        )}
       </div>
       <ul className="m-0 flex list-none flex-col p-0 pb-1.5">
         {items.slice(0, DUE_PER_MARKET).map(row)}
@@ -296,9 +347,9 @@ function MarketCluster({
               className="pl-7"
               label={t("moreAtMarket", { count: items.length - DUE_PER_MARKET, name: event.name })}
               link={
-                items.length - DUE_PER_MARKET > MORE_IN_PLACE_MAX
+                items.length - DUE_PER_MARKET > MORE_IN_PLACE_MAX && event.href
                   ? {
-                      href: `/veranstaltungen/${event.id}`,
+                      href: event.href,
                       label: t("moreAtMarketLink", {
                         count: items.length - DUE_PER_MARKET,
                         name: event.name,
@@ -328,9 +379,9 @@ async function MarketDate({ date, today }: { date: string; today: string }) {
 }
 
 /**
- * Due items by urgency group (Überfällig · Heute · Diese Woche · Genehmigungen demnächst · Wartet), each
+ * Due items by urgency group (Überfällig · Heute · Nächste Tage · Genehmigungen demnächst · Wartet), each
  * group bundled per market in ranking order. A market shows its first three items and a group its first
- * ten markets; "+ N weitere" opens the rest in place. `bandless` groups skip their band (the panel title
+ * ten markets; "+ N weitere" opens the rest in place. `bandless` groups skip their band (the section heading
  * already names them).
  */
 export async function DueGroups({
@@ -347,11 +398,16 @@ export async function DueGroups({
   bandless?: DueUrgency[];
 }) {
   const t = await getTranslations("overview.due");
+  const tTasks = await getTranslations("tasks");
+  const seasonName = (item: DueItem) =>
+    item.season
+      ? tTasks("seasonContext", { name: item.season.name, year: String(item.season.year) })
+      : "";
   const reserveStar = isModuleVisible("keyTasks") && items.some((i) => i.isKey);
   const render = (cluster: Cluster) =>
     cluster.event ? (
       <MarketCluster
-        key={`event-${cluster.event.id}`}
+        key={`event-${cluster.event.key}`}
         cluster={cluster as Cluster & { event: NonNullable<Cluster["event"]> }}
         today={today}
         canSnooze={canSnooze}
@@ -374,7 +430,7 @@ export async function DueGroups({
       {groups.map((urgency) => {
         const rows = items.filter((i) => i.urgency === urgency);
         if (rows.length === 0) return null;
-        const all = clusters(rows);
+        const all = clusters(rows, seasonName);
         const shown = all.slice(0, DUE_PREVIEW_CLUSTERS);
         const hidden = all.slice(DUE_PREVIEW_CLUSTERS);
         const Band = BAND[urgency].icon;
@@ -402,7 +458,12 @@ export async function DueGroups({
               {shown.map(render)}
               {hidden.length > 0 && (
                 <li className="list-none border-border-subtle border-t px-3 py-1">
-                  <MoreDisclosure label={t("moreMarkets", { count: hidden.length })}>
+                  <MoreDisclosure
+                    // Rows without a market (Pflichten, permits no market needs) are not "Märkte".
+                    label={t(hidden.every((c) => c.event) ? "moreMarkets" : "moreEntries", {
+                      count: hidden.length,
+                    })}
+                  >
                     <ul className="m-0 -mx-3 flex list-none flex-col border-border-subtle border-t p-0">
                       {hidden.map(render)}
                     </ul>

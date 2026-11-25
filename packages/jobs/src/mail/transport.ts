@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { fenceMail, parseMailFence } from "@marktwerk/core";
 import { sendSmtp } from "./smtp";
 
 export type MailMessage = {
@@ -31,15 +32,23 @@ export function createLogTransport(log: (line: string) => void = console.log): M
   };
 }
 
-/** SMTP from the `SMTP_*` environment variables (see .env.example), or the log transport. */
+/**
+ * SMTP from the `SMTP_*` environment variables (see .env.example), or the log transport.
+ * Every SMTP mail passes the outbound mail fence (ADR 0023, `fenceMail` in @marktwerk/core): unless `APP_ENV` is
+ * `production`, recipients off `MAIL_ALLOWLIST` go to `MAIL_CATCH_ALL` and without a catch-all nothing is sent.
+ * Throws on an invalid `APP_ENV`, `MAIL_ALLOWLIST` or `MAIL_CATCH_ALL`. Without `SMTP_HOST` nothing leaves the
+ * system, so the log transport is not fenced.
+ */
 export function createMailTransport(env: Env = process.env): MailTransport {
   const host = env.SMTP_HOST?.trim();
   if (!host) return createLogTransport();
+  const fence = parseMailFence(env);
   const port = Number(env.SMTP_PORT || 587);
   const from = env.SMTP_FROM?.trim() || DEFAULT_FROM;
   return {
     name: "smtp",
     async send(message) {
+      const fenced = fenceMail(fence, message);
       const domain = from.split("@")[1]?.replace(/[>\s].*$/, "") ?? "marktwerk.local";
       const messageId = `${randomUUID()}@${domain}`;
       await sendSmtp(
@@ -50,7 +59,7 @@ export function createMailTransport(env: Env = process.env): MailTransport {
           user: env.SMTP_USER || undefined,
           password: env.SMTP_PASSWORD || undefined,
         },
-        { from, ...message, messageId },
+        { from, ...message, ...fenced, messageId },
       );
       return { externalId: messageId };
     },

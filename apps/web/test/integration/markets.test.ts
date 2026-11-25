@@ -1,9 +1,10 @@
-import { MARKET_COLORS } from "@marktwerk/core";
+import { defaultSchedule, MARKET_COLORS, type ScheduleRow } from "@marktwerk/core";
 import {
   auditLog,
   checklistTemplate,
   eventPreset,
   eventPresetTemplate,
+  event as eventTable,
   task,
   templateItem,
   templateVersion,
@@ -45,7 +46,6 @@ const market = (patch: Partial<MarketInput> = {}): MarketInput => ({
   name: "Flohmarkt Nippes",
   eventTypeId: cat.type.id,
   venueId: cat.venue.id,
-  times: { setup: "06:00", open: "08:00", close: "16:00", teardown: "18:00" },
   pricePerMCents: 1500,
   bookingFeeCents: 500,
   rrule: null,
@@ -79,6 +79,30 @@ const itemsOf = (versionId: string) =>
 const audits = (action: string) => db.select().from(auditLog).where(eq(auditLog.action, action));
 
 describe("createMarket", () => {
+  it("starts a market with the default Zeitplan; its events get a copy", async () => {
+    const created = await createMarket(owner, market());
+    const [row] = await db.select().from(eventPreset).where(eq(eventPreset.id, created.id));
+    expect(row?.schedule).toEqual(defaultSchedule());
+
+    const own = [
+      ...defaultSchedule(),
+      { audience: "team", kind: "setup", day: "first", from: "05:00", to: "06:00" } as const,
+    ];
+    const withOwn = await createMarket(owner, market({ name: "Nachtmarkt", schedule: own }));
+    const [event] = await createEventsFromPreset(owner, withOwn.id, ["2026-12-05"]);
+    const [stored] = await db
+      .select({ schedule: eventTable.schedule })
+      .from(eventTable)
+      .where(eq(eventTable.id, event?.id as string));
+    expect(stored?.schedule).toEqual(own);
+  });
+
+  it("rejects a Zeitplan with issues", async () => {
+    await expect(
+      createMarket(owner, market({ schedule: [defaultSchedule()[0] as ScheduleRow] })),
+    ).rejects.toMatchObject({ code: "invalid_schedule", field: "schedule" });
+  });
+
   it("gives the market its own copy of the master, published and linked", async () => {
     const master = await seedMaster();
     const created = await createMarket(owner, market());

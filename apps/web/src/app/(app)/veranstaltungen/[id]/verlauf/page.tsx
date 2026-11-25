@@ -12,5 +12,11 @@ export default async function EventHistoryPage({
   const { id } = await params;
   const actor = await getActor();
   const entries = await listEventHistory(actor, id);
-  return <HistoryTable entries={entries} canRestore={can(actor.role, "task", "write")} />;
+  return (
+    <HistoryTable
+      entries={entries}
+      canRestore={can(actor.role, "task", "write")}
+      canRestoreDeleted={can(actor.role, "task", "delete")}
+    />
+  );
 }

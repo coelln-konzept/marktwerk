@@ -54,7 +54,7 @@ export function AgreementGenerateForm({
   const tGen = useTranslations("generate");
   const locale = useLocale();
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorId = useId();
   const [source, setSource] = useState<string>(presets[0]?.id ?? MANUAL);
   const [fields, setFields] = useState<EventFieldsValue>(() =>
@@ -108,7 +108,6 @@ export function AgreementGenerateForm({
     } else {
       const parsed = parseFields(fields, { needsVenue: false, needsStart: false });
       if (!parsed.ok) return setProblem(parsed.problem);
-      setFields((v) => ({ ...v, times: parsed.input.times }));
       const { venueId: _venue, startsOn: _start, ...manual } = parsed.input;
       plan = { manual };
     }
@@ -125,7 +124,8 @@ export function AgreementGenerateForm({
         message: tGen("created", { count: ids.length }),
         actionLabel: tGen("undo"),
         onAction: async () => {
-          await undoCreateEvents(ids);
+          const undone = await undoCreateEvents(ids);
+          if (!undone.ok) showError(errorText(undone.error));
         },
       });
     });

@@ -25,7 +25,10 @@ const DOT: Record<RulerItem["phase"], string> = {
 /** Width of a marker in percent of the ruler; markers closer than this go to the next lane. */
 const DOT_GAP = 3.2;
 const LANE_HEIGHT = 18;
+/** Season anchors first, like the grid's Saison section. */
 const ANCHOR_ORDER = [
+  "season_start",
+  "season_end",
   "event_day",
   "setup_day",
   "teardown_day",

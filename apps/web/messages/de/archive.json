@@ -77,7 +77,7 @@
       },
       "system": "System",
       "empty": "Noch keine Änderungen.",
-      "noAccess": "Das Firmenprotokoll sehen Inhaber:in und Leitung.",
+      "noAccess": "Das Firmenprotokoll sehen Geschäftsführung und Büroleitung.",
       "actions": {
         "task_status": "Aufgabe: Status → {status}",
         "task_undo": "Aufgabe: rückgängig gemacht",
@@ -106,6 +106,7 @@
         "document_restore": "Dokument wiederhergestellt",
         "preset_create": "Markt angelegt",
         "preset_update": "Markt bearbeitet",
+        "preset_rules": "Marktregeln geändert",
         "template_create": "Vorlage angelegt",
         "template_publish": "Vorlage veröffentlicht",
         "notification_snooze": "Hinweis zurückgestellt",

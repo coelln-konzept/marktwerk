@@ -1,3 +1,4 @@
+import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -16,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function EditPayablePage({
   params,
 }: PageProps<"/finanzen/posten/[id]/bearbeiten">) {
-  await requirePermission("finance", "write");
+  const user = await requirePermission("finance", "write");
   const { id } = await params;
   const payable = await getPayable(await getActor(), id, todayIn());
   if (!payable) notFound();
@@ -49,6 +50,7 @@ export default async function EditPayablePage({
       <PayableForm
         options={options}
         today={todayIn()}
+        canCreateContact={can(user.role, "contact", "write")}
         edit={{ id: payable.id, updatedAt: payable.updatedAt, locked }}
         initialPlan={editable}
         initial={{

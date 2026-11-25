@@ -3,14 +3,20 @@ import { randomBytes } from "node:crypto";
 import {
   can,
   checkPresetFields,
-  type EventTimesInput,
+  defaultSchedule,
   isMarketColor,
   type MarketColor,
+  type MarketRules,
   nextMarketColor,
-  normalizeClockTime,
+  normalizeMarketRules,
+  normalizeMarketShortCode,
   type PresetFieldsInput,
   type PresetIssueCode,
+  parseSchedule,
   presetKeyBase,
+  type Schedule,
+  type ScheduleRow,
+  sameMarketRules,
 } from "@marktwerk/core";
 import {
   checklistTemplate,
@@ -22,7 +28,7 @@ import {
   staffMember,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
@@ -36,11 +42,15 @@ export type PresetError =
   | "not_found"
   | "invalid_type"
   | "invalid_color"
+  /** Another active market already has this Kürzel. */
+  | "short_code_taken"
   | "invalid_venue"
   | "invalid_duty_role"
   | "invalid_staff"
   | "invalid_input"
   | "event_not_found"
+  | "invalid_share"
+  | "invalid_banned_goods"
   | "conflict";
 
 /**
@@ -68,20 +78,22 @@ export type PresetInput = PresetFieldsInput & {
    * the least used colour, an edit keeps the stored one.
    */
   color?: string | null;
+  /**
+   * Kürzel as typed ("alt" is stored as "ALT"); blank or null = none (the name-derived one is shown).
+   * Left out: a new preset has none, an edit keeps the stored one.
+   */
+  shortCode?: string | null;
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const UUID = /^[0-9a-f-]{36}$/i;
-const TIME_KEYS = ["setup", "open", "close", "teardown"] as const;
 
-/** Trims and normalises what can be normalised ("5.30" → "05:30", blank text → null). */
+/**
+ * Trims and normalises what can be normalised ("5.30" → "05:30", blank text → null); the Zeitplan keeps
+ * exactly the row fields (assertShape made sure it parses).
+ */
 function normalize(input: PresetInput): PresetInput {
-  const times = { ...input.times };
-  for (const key of TIME_KEYS) {
-    const value = typeof times[key] === "string" ? normalizeClockTime(times[key]) : null;
-    if (value !== null) times[key] = value;
-  }
   const blankToNull = (text: string | null) => {
     const trimmed = typeof text === "string" ? text.trim() : "";
     return trimmed === "" ? null : trimmed;
@@ -91,8 +103,10 @@ function normalize(input: PresetInput): PresetInput {
     name: typeof input.name === "string" ? input.name.trim() : "",
     publicTitle: blankToNull(input.publicTitle),
     publicText: blankToNull(input.publicText),
-    times,
+    schedule: parseSchedule(input.schedule) ?? [],
     rrule: input.rrule === null || input.rrule === "" ? null : input.rrule,
+    shortCode:
+      input.shortCode === undefined ? undefined : normalizeMarketShortCode(input.shortCode),
   };
 }
 
@@ -106,8 +120,10 @@ function assertShape(input: PresetInput) {
     typeof input.durationDays === "number" &&
     typeof input.pricePerMCents === "number" &&
     typeof input.bookingFeeCents === "number" &&
-    typeof input.times === "object" &&
-    input.times !== null &&
+    (input.shortCode === undefined ||
+      input.shortCode === null ||
+      typeof input.shortCode === "string") &&
+    parseSchedule(input.schedule) !== null &&
     typeof input.defaultDuties === "object" &&
     input.defaultDuties !== null &&
     !Array.isArray(input.defaultDuties) &&
@@ -205,13 +221,14 @@ type Fields = {
   durationDays: number;
   publicTitle: string | null;
   publicText: string | null;
-  defaultTimes: EventTimesInput;
+  schedule: Schedule;
   pricePerMCents: number;
   bookingFeeCents: number;
   rrule: string | null;
   defaultDuties: Record<string, string>;
   active: boolean;
   color: string | null;
+  shortCode: string | null;
 };
 
 /** The audited fields of a stored preset. */
@@ -222,31 +239,74 @@ const storedFields = (row: typeof eventPreset.$inferSelect): Fields => ({
   durationDays: row.durationDays,
   publicTitle: row.publicTitle,
   publicText: row.publicText,
-  defaultTimes: timesOf(row.defaultTimes),
+  schedule: scheduleOf(row.schedule),
   pricePerMCents: row.pricePerMCents,
   bookingFeeCents: row.bookingFeeCents,
   rrule: row.rrule,
   defaultDuties: row.defaultDuties,
   active: row.active,
   color: row.color,
+  shortCode: row.shortCode,
 });
 
-/** The same fields of a (normalised) form input; `color` is what ends up stored. */
-const inputFields = (input: PresetInput, color: string | null): Fields => ({
+/** The same fields of a (normalised) form input; `color` and `shortCode` are what ends up stored. */
+const inputFields = (
+  input: PresetInput,
+  color: string | null,
+  shortCode: string | null,
+): Fields => ({
   name: input.name,
   eventTypeId: input.eventTypeId,
   venueId: input.venueId,
   durationDays: input.durationDays,
   publicTitle: input.publicTitle,
   publicText: input.publicText,
-  defaultTimes: timesOf(input.times),
+  schedule: scheduleOf(input.schedule),
   pricePerMCents: input.pricePerMCents,
   bookingFeeCents: input.bookingFeeCents,
   rrule: input.rrule,
   defaultDuties: input.defaultDuties,
   active: input.active,
   color,
+  shortCode,
 });
+
+/**
+ * A Kürzel is unique among the active (non-archived, `active`) markets. Checked before the write so
+ * the form gets a field error; the partial unique index `event_preset_active_short_code` catches a race
+ * (`rethrowShortCodeTaken`).
+ */
+async function checkShortCodeFree(
+  tx: Tx,
+  shortCode: string | null,
+  active: boolean,
+  exceptId?: string,
+) {
+  if (shortCode === null || !active) return;
+  const [taken] = await tx
+    .select({ id: eventPreset.id })
+    .from(eventPreset)
+    .where(
+      and(
+        eq(eventPreset.shortCode, shortCode),
+        eq(eventPreset.active, true),
+        isNull(eventPreset.archivedAt),
+        exceptId ? ne(eventPreset.id, exceptId) : undefined,
+      ),
+    )
+    .limit(1);
+  if (taken) throw new PresetInputError("short_code_taken", "shortCode");
+}
+
+/** Maps the unique violation of a racing save to the same error as `checkShortCodeFree`. */
+function rethrowShortCodeTaken(error: unknown): never {
+  for (let e = error as { code?: string; constraint?: string; cause?: unknown } | null; e; ) {
+    if (e.code === "23505" && e.constraint === "event_preset_active_short_code")
+      throw new PresetInputError("short_code_taken", "shortCode");
+    e = e.cause as typeof e;
+  }
+  throw error;
+}
 
 function diffOf(from: Fields | null, to: Fields) {
   const changes: Record<string, { from: unknown; to: unknown }> = {};
@@ -257,8 +317,9 @@ function diffOf(from: Fields | null, to: Fields) {
   return changes;
 }
 
-function timesOf(times: EventTimesInput): EventTimesInput {
-  return { setup: times.setup, open: times.open, close: times.close, teardown: times.teardown };
+/** A copy with exactly the row fields, in a fixed key order (stored and audited as is). */
+function scheduleOf(rows: readonly ScheduleRow[]): Schedule {
+  return rows.map(({ audience, kind, day, from, to }) => ({ audience, kind, day, from, to }));
 }
 
 /**
@@ -273,6 +334,8 @@ async function insertPreset(
   extraDiff: Record<string, unknown> = {},
 ): Promise<{ id: string; key: string }> {
   await checkReferences(tx, input);
+  const shortCode = input.shortCode ?? null;
+  await checkShortCodeFree(tx, shortCode, input.active);
   const base = presetKeyBase(input.name);
   let key = "";
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -287,6 +350,12 @@ async function insertPreset(
     }
   }
   if (!key) throw new Error("could not find a free preset key");
+  // Marktregeln (D2-3): a new market starts with a copy of its event type's rules.
+  const [type] = await tx
+    .select({ rules: eventType.rules })
+    .from(eventType)
+    .where(eq(eventType.id, input.eventTypeId));
+  if (!type) throw new PresetInputError("invalid_type", "type");
 
   const [row] = await tx
     .insert(eventPreset)
@@ -299,12 +368,14 @@ async function insertPreset(
       publicText: input.publicText,
       pricePerMCents: input.pricePerMCents,
       bookingFeeCents: input.bookingFeeCents,
-      defaultTimes: timesOf(input.times),
+      schedule: scheduleOf(input.schedule),
       rrule: input.rrule,
       durationDays: input.durationDays,
       defaultDuties: input.defaultDuties,
       active: input.active,
       color,
+      shortCode,
+      rules: type.rules,
     })
     .returning({ id: eventPreset.id });
   if (!row) throw new Error("insert failed");
@@ -313,7 +384,7 @@ async function insertPreset(
       action: "preset.create",
       entityType: "event_preset",
       entityId: row.id,
-      diff: { key, changes: diffOf(null, inputFields(input, color)), ...extraDiff },
+      diff: { key, changes: diffOf(null, inputFields(input, color, shortCode)), ...extraDiff },
     },
   ]);
   return { id: row.id, key };
@@ -331,14 +402,16 @@ export async function createPreset(
   assertShape(rawInput);
   const input = normalize(rawInput);
   checkFields(input);
-  return db.transaction(async (tx) =>
-    insertPreset(
-      tx,
-      actor,
-      input,
-      input.color === undefined ? await leastUsedColor(tx) : input.color,
-    ),
-  );
+  return db
+    .transaction(async (tx) =>
+      insertPreset(
+        tx,
+        actor,
+        input,
+        input.color === undefined ? await leastUsedColor(tx) : input.color,
+      ),
+    )
+    .catch(rethrowShortCodeTaken);
 }
 
 /** The colour for a new market: the least used one among the existing (non-archived) markets. */
@@ -353,9 +426,11 @@ async function leastUsedColor(tx: Tx): Promise<MarketColor> {
 /** What the "Neuen Markt anlegen" form asks for; everything else starts with its default. */
 export type MarketInput = Pick<
   PresetInput,
-  "name" | "eventTypeId" | "venueId" | "times" | "pricePerMCents" | "bookingFeeCents" | "rrule"
+  "name" | "eventTypeId" | "venueId" | "pricePerMCents" | "bookingFeeCents" | "rrule"
 > & {
   durationDays?: number;
+  /** The market's Zeitplan; left out = the three default rows of a new market (ADR 0022). */
+  schedule?: Schedule;
   /** A colour key; `null` = no colour; omitted = the least used one (the form's suggestion). */
   color?: string | null;
 };
@@ -383,6 +458,7 @@ export async function createMarket(
   const full: PresetInput = {
     ...rawInput,
     durationDays: rawInput?.durationDays ?? 1,
+    schedule: rawInput?.schedule ?? defaultSchedule(),
     publicTitle: null,
     publicText: null,
     defaultDuties: {},
@@ -461,44 +537,104 @@ export async function updatePreset(
   const input = normalize(rawInput);
   checkFields(input);
 
+  return db
+    .transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(eventPreset)
+        .where(and(eq(eventPreset.id, id), isNull(eventPreset.archivedAt)))
+        .for("update");
+      if (!current) throw new PresetInputError("not_found");
+      if (current.updatedAt.getTime() !== expected.getTime())
+        throw new PresetInputError("conflict");
+
+      await checkReferences(tx, input, current);
+      const color = input.color === undefined ? current.color : input.color;
+      const shortCode = input.shortCode === undefined ? current.shortCode : input.shortCode;
+      const changes = diffOf(storedFields(current), inputFields(input, color, shortCode));
+      if (Object.keys(changes).length === 0)
+        return { changed: false, updatedAt: current.updatedAt };
+      // A new Kürzel, or a market made active again, must not clash with another active market.
+      if (changes.shortCode || changes.active)
+        await checkShortCodeFree(tx, shortCode, input.active, id);
+
+      // Strictly newer than the version the editor saw, even within the same millisecond.
+      const updatedAt = new Date(Math.max(Date.now(), current.updatedAt.getTime() + 1));
+      await tx
+        .update(eventPreset)
+        .set({
+          eventTypeId: input.eventTypeId,
+          venueId: input.venueId,
+          name: input.name,
+          publicTitle: input.publicTitle,
+          publicText: input.publicText,
+          pricePerMCents: input.pricePerMCents,
+          bookingFeeCents: input.bookingFeeCents,
+          schedule: scheduleOf(input.schedule),
+          rrule: input.rrule,
+          durationDays: input.durationDays,
+          defaultDuties: input.defaultDuties,
+          active: input.active,
+          color,
+          shortCode,
+          updatedAt,
+        })
+        .where(eq(eventPreset.id, id));
+      await audit(tx, actor.id, [
+        { action: "preset.update", entityType: "event_preset", entityId: id, diff: { changes } },
+      ]);
+      return { changed: true, updatedAt };
+    })
+    .catch(rethrowShortCodeTaken);
+}
+
+/**
+ * "Marktregeln bearbeiten" on the event page (UT2-12, decision D2-3): the market's own rules, which apply
+ * to every event of this market (permission template:write, like every other change to a market). The
+ * event type's rules stay as they are. `expected` (undo toast) applies the change only while the market
+ * still has those rules. Nothing to change → no write, no audit entry. Audited as "preset.rules" with
+ * {from, to}.
+ */
+export async function updateMarketRules(
+  actor: Actor,
+  presetId: string,
+  rawRules: MarketRules,
+  expected?: MarketRules,
+): Promise<{ changed: boolean; previous: MarketRules; rules: MarketRules }> {
+  if (!can(actor.role, "template", "write")) forbidden();
+  if (typeof presetId !== "string" || !UUID_RE.test(presetId))
+    throw new PresetInputError("not_found");
+  const checked = normalizeMarketRules(rawRules);
+  if (!checked.ok) throw new PresetInputError(checked.error);
+  const rules = checked.rules;
+  let expectedRules: MarketRules | undefined;
+  if (expected !== undefined) {
+    const parsed = normalizeMarketRules(expected);
+    if (!parsed.ok) throw new PresetInputError("invalid_input");
+    expectedRules = parsed.rules;
+  }
+
   return db.transaction(async (tx) => {
     const [current] = await tx
-      .select()
+      .select({ rules: eventPreset.rules })
       .from(eventPreset)
-      .where(and(eq(eventPreset.id, id), isNull(eventPreset.archivedAt)))
+      .where(and(eq(eventPreset.id, presetId), isNull(eventPreset.archivedAt)))
       .for("update");
     if (!current) throw new PresetInputError("not_found");
-    if (current.updatedAt.getTime() !== expected.getTime()) throw new PresetInputError("conflict");
+    const previous = current.rules;
+    if (expectedRules && !sameMarketRules(previous, expectedRules))
+      throw new PresetInputError("conflict");
+    if (sameMarketRules(previous, rules)) return { changed: false, previous, rules };
 
-    await checkReferences(tx, input, current);
-    const color = input.color === undefined ? current.color : input.color;
-    const changes = diffOf(storedFields(current), inputFields(input, color));
-    if (Object.keys(changes).length === 0) return { changed: false, updatedAt: current.updatedAt };
-
-    // Strictly newer than the version the editor saw, even within the same millisecond.
-    const updatedAt = new Date(Math.max(Date.now(), current.updatedAt.getTime() + 1));
-    await tx
-      .update(eventPreset)
-      .set({
-        eventTypeId: input.eventTypeId,
-        venueId: input.venueId,
-        name: input.name,
-        publicTitle: input.publicTitle,
-        publicText: input.publicText,
-        pricePerMCents: input.pricePerMCents,
-        bookingFeeCents: input.bookingFeeCents,
-        defaultTimes: timesOf(input.times),
-        rrule: input.rrule,
-        durationDays: input.durationDays,
-        defaultDuties: input.defaultDuties,
-        active: input.active,
-        color,
-        updatedAt,
-      })
-      .where(eq(eventPreset.id, id));
+    await tx.update(eventPreset).set({ rules }).where(eq(eventPreset.id, presetId));
     await audit(tx, actor.id, [
-      { action: "preset.update", entityType: "event_preset", entityId: id, diff: { changes } },
+      {
+        action: "preset.rules",
+        entityType: "event_preset",
+        entityId: presetId,
+        diff: { from: previous, to: rules, ...(expectedRules ? { undo: true } : {}) },
+      },
     ]);
-    return { changed: true, updatedAt };
+    return { changed: true, previous, rules };
   });
 }

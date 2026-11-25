@@ -2,7 +2,7 @@
 
 import { Menu } from "@base-ui/react/menu";
 import type { EventStatus } from "@marktwerk/core/events/lifecycle";
-import { CalendarClock, Ellipsis, Pencil, Trash2 } from "lucide-react";
+import { CalendarClock, Ellipsis, Pencil, Trash2, Undo2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { EVENT_STATUS } from "@/lib/status";
@@ -31,6 +31,7 @@ export function EventActions({
   types,
   canMove,
   canDelete = false,
+  openTasks,
   triggerClassName,
 }: {
   eventId: string;
@@ -43,15 +44,16 @@ export function EventActions({
   canMove: boolean;
   /** Owner and manager: the last, destructive entry "Veranstaltung löschen". */
   canDelete?: boolean;
+  /** Open tasks a cancellation would close (named in the dialog); the list rows don't know it. */
+  openTasks?: number;
   /** The list rows use a borderless trigger. */
   triggerClassName?: string;
 }) {
   const t = useTranslations("eventDetail");
-  const tStatus = useTranslations("status.event");
   const [basicsOpen, setBasicsOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const change = useStatusChange({ eventId, eventName, status });
+  const change = useStatusChange({ eventId, eventName, status, openTasks });
 
   return (
     <>
@@ -80,17 +82,24 @@ export function EventActions({
                   {t("move.open")}
                 </Menu.Item>
               )}
-              {change.targets.length > 0 && (
+              {(change.targets.length > 0 || change.canRestore) && (
                 <Menu.Group>
                   <Menu.GroupLabel className="px-2 pt-2 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider">
                     {t("status.menu")}
                   </Menu.GroupLabel>
+                  {change.canRestore && (
+                    <Menu.Item className={item} onClick={change.restore}>
+                      <Undo2 aria-hidden className="size-4 text-muted-foreground" />
+                      {t("status.actions.restore")}
+                    </Menu.Item>
+                  )}
+                  {/* Verb first (UX-034): what the item does, not the adjective of the status. */}
                   {change.targets.map((to) => {
                     const Icon = EVENT_STATUS[to].icon;
                     return (
                       <Menu.Item key={to} className={item} onClick={() => change.choose(to)}>
                         <Icon aria-hidden className="size-4 text-muted-foreground" />
-                        {tStatus(to)}
+                        {t(`status.actions.${to}`)}
                       </Menu.Item>
                     );
                   })}

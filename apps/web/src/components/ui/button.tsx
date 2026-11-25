@@ -1,5 +1,6 @@
 // Hand-written in the shadcn/ui shape, styled after the Claude Design prototype (`.btn`).
 // Default variant is the outlined button; `variant="default"` is the teal primary.
+// On touch screens and phone widths every size is at least 44 × 44 px (`tap:`, UX-029), whatever the density.
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
@@ -16,11 +17,11 @@ const buttonVariants = cva(
         link: "border-transparent text-accent-soft-foreground underline-offset-4 hover:underline",
       },
       size: {
-        default: "min-h-8 px-3 py-1 in-data-[density=compact]:min-h-7",
-        sm: "min-h-7 gap-1 rounded-md px-2 py-0.5 text-tiny in-data-[density=compact]:min-h-6",
+        default: "min-h-8 px-3 py-1 in-data-[density=compact]:min-h-7 tap:min-h-11 tap:min-w-11",
+        sm: "min-h-7 gap-1 rounded-md px-2 py-0.5 text-tiny in-data-[density=compact]:min-h-6 tap:min-h-11 tap:min-w-11",
         lg: "min-h-[52px] rounded-xl px-5 text-base font-semibold",
-        icon: "size-8",
-        "icon-sm": "size-7 rounded-md",
+        icon: "size-8 tap:size-11",
+        "icon-sm": "size-7 rounded-md tap:size-11",
       },
     },
     defaultVariants: { variant: "outline", size: "default" },

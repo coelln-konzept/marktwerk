@@ -243,7 +243,7 @@
         "editTitle": "Schicht bearbeiten",
         "description": "Plan- und Ist-Zeiten als Uhrzeit, zum Beispiel 8:30. Eine Schicht über Mitternacht endet am nächsten Tag.",
         "person": "Person",
-        "choose": "Bitte wählen",
+        "choose": "Auswählen …",
         "role": "Aufgabe",
         "noRole": "Keine Angabe",
         "event": "Veranstaltung",

@@ -1,0 +1,19 @@
+{
+  "dateField": {
+    "placeholder": "DD.MM.YY",
+    "hint": "Type a date, e.g. 5.3., 05.03.26, today or tomorrow",
+    "pick": "Pick a date in the calendar",
+    "errors": {
+      "incomplete": "Please enter the full date, e.g. 5.3. or 05.03.26.",
+      "invalid": "Please enter a valid date, e.g. 5.3. or 05.03.26.",
+      "required": "Please enter a date.",
+      "tooEarly": "Please enter a date on or after {date}.",
+      "tooLate": "Please enter a date on or before {date}."
+    }
+  },
+  "emptyState": {
+    "query": "Nothing found for “{query}”",
+    "filtered": "Nothing found for these filters",
+    "reset": "Reset filters"
+  }
+}

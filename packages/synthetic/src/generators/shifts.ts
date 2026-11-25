@@ -1,10 +1,8 @@
-import { MINIJOB_LIMIT_2026_CENTS } from "../constants";
+import { minijobLimitCents } from "../constants";
 import { addDays, berlinInstant } from "../lib/dates";
 import type { Rng } from "../lib/rng";
 import type { EmploymentContract, Event, Shift } from "../types";
 
-/** Minijob cap used by the generator for 2026 (the dataset also stores the legal parameter). */
-const CAP_CENTS = MINIJOB_LIMIT_2026_CENTS;
 /** Two person-months may take one extra shift past the cap ("slightly over"), as in the brief. */
 
 function minutesOf(time: string): number {
@@ -21,6 +19,8 @@ function timeOf(totalMinutes: number): string {
 export interface ShiftContext {
   events: Event[];
   today: string;
+  /** The current season: only its past events get shifts. */
+  season: number;
   contracts: EmploymentContract[];
   crewStaffIds: string[];
   recordedById: string;
@@ -29,11 +29,12 @@ export interface ShiftContext {
 }
 
 /**
- * Field-crew shifts for past 2026 events (one shift per person per event day). Minijob earnings are
- * capped at the 2026 limit by choosing the least-earning eligible person first. Two person-months get a
+ * Field-crew shifts for past events of the current season (one shift per person per event day). Minijob earnings are
+ * capped at that year's limit by choosing the least-earning eligible person first. Two person-months get a
  * slight overrun. Events in the last seven days keep their shifts without actual times (not yet recorded).
  */
 export function buildShifts(rng: Rng, ctx: ShiftContext): Shift[] {
+  const capCents = minijobLimitCents(ctx.season);
   const contractByStaff = new Map(
     ctx.contracts.map((contract) => [contract.staffMemberId, contract]),
   );
@@ -42,12 +43,13 @@ export function buildShifts(rng: Rng, ctx: ShiftContext): Shift[] {
   // person|month → extra shifts that may push earnings past the cap (one each, two in total).
   const overrunAllowance = new Map<string, number>();
   const minijobCrew = crew.filter((id) => contractByStaff.get(id)?.type === "minijob");
-  if (minijobCrew[1]) overrunAllowance.set(`${minijobCrew[1]}|2026-08`, 1);
-  if (minijobCrew[4]) overrunAllowance.set(`${minijobCrew[4]}|2026-08`, 1);
+  if (minijobCrew[1]) overrunAllowance.set(`${minijobCrew[1]}|${ctx.season}-08`, 1);
+  if (minijobCrew[4]) overrunAllowance.set(`${minijobCrew[4]}|${ctx.season}-08`, 1);
 
   const pastEvents = ctx.events
     .filter(
-      (event) => event.season === 2026 && event.status !== "cancelled" && event.endsOn < ctx.today,
+      (event) =>
+        event.season === ctx.season && event.status !== "cancelled" && event.endsOn < ctx.today,
     )
     .sort((a, b) => (a.startsOn < b.startsOn ? -1 : a.startsOn > b.startsOn ? 1 : 0));
 
@@ -75,7 +77,7 @@ export function buildShifts(rng: Rng, ctx: ShiftContext): Shift[] {
 
       const key = `${staffId}|${month}`;
       const current = earnings.get(key) ?? 0;
-      if (contract.type === "minijob" && current + shiftCents > CAP_CENTS) {
+      if (contract.type === "minijob" && current + shiftCents > capCents) {
         const allowance = overrunAllowance.get(key) ?? 0;
         if (allowance <= 0) continue;
         overrunAllowance.set(key, allowance - 1);

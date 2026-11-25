@@ -15,4 +15,5 @@ export function createDb(connectionString: string, options: { max?: number } = {
 
 export * from "./notify";
 export * from "./schema";
+export * from "./task-tree";
 export { schema };

@@ -12,7 +12,10 @@ import {
 import { getCurrentUser } from "@/server/session";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = { title: "Login" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("login");
+  return { title: t("title") };
+}
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   if (await getCurrentUser()) redirect("/");

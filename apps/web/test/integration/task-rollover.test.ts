@@ -4,7 +4,14 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import { resetDatabase, seedCatalogue } from "../helpers/fixtures";
-import { dueOn, getTask, insertEvent, insertStaff, insertTask } from "../helpers/tasks";
+import {
+  dueOn,
+  getTask,
+  insertEvent,
+  insertSeason,
+  insertStaff,
+  insertTask,
+} from "../helpers/tasks";
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
 let eventId: string;
@@ -77,6 +84,33 @@ describe("taskRollover", () => {
     expect(forAnna?.title).toContain("Schilder abholen");
   });
 
+  it("carries over season tasks and names their market and season (R13)", async () => {
+    const season = await insertSeason(cat);
+    const t = await insertTask({
+      title: "Termine planen",
+      seasonId: season.id,
+      dueAt: dueOn("2026-10-20"),
+      assigneeId: cat.staff.anna.id,
+      rolloverCount: 2,
+    });
+    expect(await taskRollover(db, nightOf("2026-10-21"))).toEqual({
+      rolled: 1,
+      notified: 1,
+      escalated: 1,
+    });
+    expect((await getTask(t.id)).rolloverCount).toBe(3);
+    const [note] = await mails("rolled_over");
+    expect(note).toMatchObject({
+      recipientStaffMemberId: cat.staff.anna.id,
+      link: `/?aufgabe=${t.id}`,
+      body: "Die Aufgabe (Testflohmarkt · Saison 2027) wurde jetzt 3× übertragen und ist noch offen.",
+    });
+    const [escalation] = await mails("escalated");
+    expect(escalation?.body).toBe(
+      "Anna Test hat die Aufgabe (Testflohmarkt · Saison 2027) 3× nicht abgeschlossen.",
+    );
+  });
+
   it("leaves finished, future, today's and undated tasks alone", async () => {
     const ids = [
       await insertTask({
@@ -123,7 +157,7 @@ describe("taskRollover", () => {
     });
     await taskRollover(db, nightOf("2026-10-21"));
     expect((await getTask(t.id)).rolloverCount).toBe(1);
-    expect((await mails("rolled_over"))[0]?.link).toBe(`/board?aufgabe=${t.id}`);
+    expect((await mails("rolled_over"))[0]?.link).toBe(`/?aufgabe=${t.id}`);
   });
 
   it("counts a task once per Berlin day, however often the job runs", async () => {

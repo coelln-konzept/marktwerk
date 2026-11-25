@@ -1,5 +1,5 @@
-import { can, isUnfiled } from "@marktwerk/core";
-import { Building2, FileQuestion, Landmark } from "lucide-react";
+import { can, isAnswerUnwatched, isUnfiled } from "@marktwerk/core";
+import { Building2, EyeOff, FileQuestion, Landmark } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { DocumentList } from "@/components/documents/document-list";
@@ -90,6 +90,17 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
         permitId={permit.id}
         status={permit.status}
         canWrite={can(actor.role, "permit", "write")}
+        today={today}
+        dates={{
+          appliedAt: permit.appliedAt,
+          expectedDecisionOn: permit.expectedDecisionOn,
+          grantedAt: permit.grantedAt,
+          validFrom: permit.validFrom,
+          validUntil: permit.validUntil,
+          referenceNo: permit.referenceNo,
+        }}
+        typicalDecisionMd={permit.requirement?.expectedDecisionMd ?? null}
+        answerOverdue={permit.state === "answer_overdue"}
       />
 
       <section aria-labelledby="permit-facts-title" className="flex flex-col gap-3">
@@ -100,6 +111,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
           {canWrite && (
             <PermitEditForm
               permitId={permit.id}
+              status={permit.status}
+              today={today}
               initial={{
                 title: permit.title,
                 referenceNo: permit.referenceNo ?? "",
@@ -116,7 +129,8 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
                 notes: permit.notes ?? "",
               }}
               deliverables={permit.deliverablesReceived}
-              contacts={contacts.map((c) => ({ id: c.id, name: c.name }))}
+              contacts={contacts.map((c) => ({ id: c.id, name: c.name, city: c.city }))}
+              canCreateContact={can(actor.role, "contact", "write")}
               staff={staff}
             />
           )}
@@ -177,7 +191,17 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
             },
             {
               label: t("decision"),
-              value: <span className="tabular">{date(permit.expectedDecisionOn)}</span>,
+              // Filed: how the wait stands ("3 Tage überfällig"), or that nobody watches it (UX-017).
+              value:
+                permit.status === "applied" && permit.expectedDecisionOn ? (
+                  <DueBadge dueOn={permit.expectedDecisionOn} today={today} withDate />
+                ) : isAnswerUnwatched(permit) ? (
+                  <StatusBadge tone="warn" icon={EyeOff}>
+                    {t("decisionUnwatched")}
+                  </StatusBadge>
+                ) : (
+                  <span className="tabular">{date(permit.expectedDecisionOn)}</span>
+                ),
             },
             {
               label: t("grantedAt"),
@@ -290,6 +314,11 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
                   {task.eventName && task.eventStartsOn && (
                     <span className="text-muted-foreground text-tiny">
                       {task.eventName} · {formatDateShort(task.eventStartsOn, locale)}
+                    </span>
+                  )}
+                  {task.seasonMarketName && task.seasonYear !== null && (
+                    <span className="text-muted-foreground text-tiny">
+                      {t("taskSeason", { market: task.seasonMarketName, year: task.seasonYear })}
                     </span>
                   )}
                 </span>

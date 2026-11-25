@@ -27,9 +27,9 @@ export const baseItem = (patch: Partial<TemplateItemFields> = {}): TemplateItemF
   requiresAttachment: false,
   isKey: false,
   permitType: null,
-  checkItems: [],
+  parentKey: null,
   approverDutyRoleId: null,
-  dependsOnKeys: [],
+  ownDue: false,
   condition: null,
   ...patch,
 });
@@ -45,7 +45,6 @@ export function flohmarktItems(cat: Awaited<ReturnType<typeof seedCatalogue>>) {
       estimateMinutes: 30,
       priority: "high",
       isKey: true,
-      checkItems: ["Formular ausfüllen", "Gebühr prüfen"],
     }),
     baseItem({
       title: "Plakate aufhängen",
@@ -54,7 +53,6 @@ export function flohmarktItems(cat: Awaited<ReturnType<typeof seedCatalogue>>) {
       dayMode: "business",
       dueTime: "17:30",
       dutyRoleId: cat.roles.setup.id,
-      dependsOnKeys: ["marktgenehmigung_beantragen"],
       requiresPhoto: true,
     }),
     baseItem({

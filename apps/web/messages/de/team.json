@@ -1,7 +1,7 @@
 {
   "team": {
     "title": "Team",
-    "subtitle": "{people, plural, one {# Person} other {# Personen}} · {logins} mit Login",
+    "subtitle": "{people, plural, one {# Person} other {# Personen}} · davon {logins} Benutzer",
     "tabsLabel": "Team-Bereiche",
     "tabs": {
       "people": "Personen",
@@ -13,14 +13,14 @@
     "cols": {
       "person": "Name",
       "duties": "Zuständigkeiten",
-      "login": "Login",
+      "login": "Benutzer",
       "phone": "Telefon",
       "email": "E-Mail",
       "defaultFor": "Standard für",
       "upcoming": "Veranstaltungen kommend",
       "status": "Status"
     },
-    "noLogin": "kein Login",
+    "noLogin": "kein Benutzer",
     "noValue": "–",
     "active": "aktiv",
     "inactive": "inaktiv",
@@ -40,7 +40,7 @@
       "notes": "Notizen",
       "duties": "Zuständigkeiten",
       "defaultFor": "Standard für",
-      "login": "Login",
+      "login": "Benutzer",
       "nextEvents": "Nächste Veranstaltungen",
       "noEvents": "Keine kommenden Veranstaltungen.",
       "noDuties": "Keine bevorzugten Zuständigkeiten.",

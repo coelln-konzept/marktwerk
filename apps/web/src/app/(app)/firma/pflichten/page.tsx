@@ -1,10 +1,11 @@
-import { can, OBLIGATION_STATUS_ORDER, type ObligationStatus } from "@marktwerk/core";
+import { can, OBLIGATION_DISPLAY_ORDER, type ObligationDisplayStatus } from "@marktwerk/core";
 import { ClipboardList, Plus, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { CompanyHeader } from "@/components/company/company-header";
 import { CompleteButton } from "@/components/company/complete-dialog";
+import { completeTargetOf } from "@/components/company/complete-target";
 import { KindIcon } from "@/components/company/kind-icon";
 import { DueCell, IntervalText, TargetCell } from "@/components/company/obligation-cells";
 import { ObligationStatusBadge } from "@/components/company/status";
@@ -39,14 +40,14 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
   const canWrite = can(actor.role, "company", "write");
 
   const statusParam = param(sp.status);
-  const status = OBLIGATION_STATUS_ORDER.find((s) => s === statusParam);
+  const status = OBLIGATION_DISPLAY_ORDER.find((s) => s === statusParam);
   const scopeParam = param(sp.bereich);
   const scope = SCOPES.find((s) => s === scopeParam);
 
   const all = await listObligations(today);
   const byScope = scope ? all.filter((o) => o.scope === scope) : all;
   const rows = status ? byScope.filter((o) => o.status === status) : byScope;
-  const count = (s: ObligationStatus) => byScope.filter((o) => o.status === s).length;
+  const count = (s: ObligationDisplayStatus) => byScope.filter((o) => o.status === s).length;
 
   return (
     <Page crumbs={[{ label: t("title") }]}>
@@ -75,7 +76,7 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
           >
             {to("all")}
           </FilterChip>
-          {OBLIGATION_STATUS_ORDER.map((s) => (
+          {OBLIGATION_DISPLAY_ORDER.map((s) => (
             <FilterChip
               key={s}
               href={hrefWith(PATH, sp, { status: s })}
@@ -176,15 +177,7 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
                     <CompleteButton
                       className="min-h-11 w-full"
                       today={today}
-                      target={{
-                        id: o.id,
-                        title: o.title,
-                        kind: o.kind,
-                        intervalKm: o.intervalKm,
-                        onVehicle: o.scope === "vehicle",
-                        createsPayable: o.createsPayable,
-                        currentKm: o.currentKm,
-                      }}
+                      target={completeTargetOf(o)}
                     />
                   )}
                 </li>
@@ -257,19 +250,7 @@ export default async function ObligationsPage({ searchParams }: PageProps<"/firm
                       <TD>{o.responsibleName}</TD>
                       {canWrite && (
                         <TD className="w-px whitespace-nowrap text-right">
-                          <CompleteButton
-                            size="sm"
-                            today={today}
-                            target={{
-                              id: o.id,
-                              title: o.title,
-                              kind: o.kind,
-                              intervalKm: o.intervalKm,
-                              onVehicle: o.scope === "vehicle",
-                              createsPayable: o.createsPayable,
-                              currentKm: o.currentKm,
-                            }}
-                          />
+                          <CompleteButton size="sm" today={today} target={completeTargetOf(o)} />
                         </TD>
                       )}
                     </TR>

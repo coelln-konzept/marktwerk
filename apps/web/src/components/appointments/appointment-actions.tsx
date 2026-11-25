@@ -38,26 +38,25 @@ export function AppointmentActions({
   const t = useTranslations("appointments.vorschau");
   const tToast = useTranslations("appointments.toast");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function archive() {
     startTransition(async () => {
       const result = await guardedCall(() => archiveAppointmentAction(id));
       if (!result.ok) {
-        showToast({ message: t("failed"), tone: "error" });
+        showError(t("failed"));
         return;
       }
       router.replace(closeHref as never, { scroll: false });
       showToast({
-        message: t("archived"),
+        message: t("archived", { title }),
         actionLabel: tToast("undo"),
         onAction: async () => {
           const undone = await guardedCall(() => restoreAppointmentAction(id));
           if (undone.ok) router.replace(reopenHref as never, { scroll: false });
-          showToast(
-            undone.ok ? { message: t("restored") } : { message: t("failed"), tone: "error" },
-          );
+          if (undone.ok) showToast({ message: t("restored", { title }) });
+          else showError(t("failed"));
         },
       });
     });

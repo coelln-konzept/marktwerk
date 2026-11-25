@@ -2,8 +2,8 @@
 
 import {
   checkPresetFields,
-  type EventTimesInput,
-  normalizeClockTime,
+  marketShortCodes,
+  normalizeMarketShortCode,
   parseEuroCents,
 } from "@marktwerk/core";
 import { useRouter } from "next/navigation";
@@ -11,18 +11,23 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState, useTransition } from "react";
 import { createPresetAction, updatePresetAction } from "@/app/(app)/vorlagen/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
+import {
+  fromScheduleDraft,
+  type ScheduleDraftRow,
+  ScheduleEditor,
+  scheduleDraftIssues,
+  toScheduleDraft,
+} from "@/components/schedule/schedule-editor";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MarketColorPicker } from "@/components/ui/market-color-picker";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import type { PresetFormOptions } from "@/server/queries/presets";
 import type { PresetInput } from "@/server/services/presets";
 import { NO_RHYTHM, type Rhythm, rhythmFromRule, rhythmToRule } from "./rhythm";
 import { RhythmBuilder } from "./rhythm-builder";
-
-const TIME_FIELDS = ["setup", "open", "close", "teardown"] as const;
 
 const SELECT_CLASS =
   "flex min-h-(--control-h) w-full rounded-lg border border-input bg-card px-3 py-1 text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-1 aria-invalid:border-destructive";
@@ -38,11 +43,12 @@ const FIELD_ORDER = [
   "name",
   "type",
   "venue",
-  "color",
   "duration",
+  "shortCode",
+  "color",
   "publicTitle",
   "publicText",
-  ...TIME_FIELDS,
+  "schedule",
   "price",
   "fee",
   "rrule",
@@ -63,6 +69,7 @@ export function PresetForm({
   initial,
   options,
   colorUsage,
+  otherMarkets = [],
 }: {
   /** Set when editing: the preset and its `updated_at` (ISO) as loaded, for the concurrency check. */
   edit?: { id: string; updatedAt: string };
@@ -70,6 +77,11 @@ export function PresetForm({
   options: PresetFormOptions;
   /** Colour key → names of the other active markets using it (legend of the colour picker). */
   colorUsage: Record<string, string[]>;
+  /**
+   * The other non-archived markets with their own Kürzel: for the derived code shown in the hint (the
+   * same one the Kalender shows) and the "already taken" check among the active ones.
+   */
+  otherMarkets?: { id: string; name: string; shortCode: string | null; active: boolean }[];
 }) {
   const t = useTranslations("templates.form");
   const locale = useLocale();
@@ -84,13 +96,16 @@ export function PresetForm({
   const [duration, setDuration] = useState(String(initial.durationDays));
   const [publicTitle, setPublicTitle] = useState(initial.publicTitle ?? "");
   const [publicText, setPublicText] = useState(initial.publicText ?? "");
-  const [times, setTimes] = useState<EventTimesInput>(initial.times);
+  const [schedule, setSchedule] = useState<ScheduleDraftRow[]>(() =>
+    toScheduleDraft(initial.schedule),
+  );
   const [price, setPrice] = useState(centsToInput(initial.pricePerMCents, locale));
   const [fee, setFee] = useState(centsToInput(initial.bookingFeeCents, locale));
   const [rhythm, setRhythm] = useState<Rhythm>(editing ? rhythmFromRule(initial.rrule) : NO_RHYTHM);
   const [duties, setDuties] = useState<Record<string, string>>(initial.defaultDuties);
   const [active, setActive] = useState(initial.active);
   const [color, setColor] = useState<string | null>(initial.color ?? null);
+  const [shortCode, setShortCode] = useState(initial.shortCode ?? "");
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
@@ -100,6 +115,14 @@ export function PresetForm({
   const latestUpdatedAt = useRef(edit?.updatedAt);
   latestUpdatedAt.current = edit?.updatedAt;
   const loadedUpdatedAt = useRef(edit?.updatedAt);
+
+  /** The Kürzel the market gets from its name while the field is empty (as the Kalender would show it). */
+  const selfId = edit?.id ?? "";
+  const derivedCode =
+    marketShortCodes([
+      ...otherMarkets.filter((m) => m.id !== selfId),
+      { id: selfId, name: name.trim(), shortCode: null },
+    ]).get(selfId) ?? "";
 
   const message = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
@@ -118,13 +141,6 @@ export function PresetForm({
   /** Form state → service input, or the errors that keep it from being one. */
   function build(): { input: PresetInput } | { errors: Errors } {
     const found: Errors = {};
-    const normalizedTimes = { ...times };
-    for (const key of TIME_FIELDS) {
-      const value = normalizeClockTime(times[key]);
-      if (value === null) found[key] = "invalid_time";
-      else normalizedTimes[key] = value;
-    }
-    setTimes(normalizedTimes);
     const pricePerMCents = parseEuroCents(price);
     if (pricePerMCents === null) found.price = "invalid_price";
     const bookingFeeCents = parseEuroCents(fee);
@@ -135,6 +151,13 @@ export function PresetForm({
     if (rrule === undefined) found.rrule = "rrule_empty";
     if (!typeId) found.type = "invalid_type";
     if (!venueId) found.venue = "invalid_venue";
+    const code = normalizeMarketShortCode(shortCode);
+    if (
+      code !== null &&
+      active &&
+      otherMarkets.some((m) => m.id !== selfId && m.active && m.shortCode === code)
+    )
+      found.shortCode = "short_code_taken";
 
     const input: PresetInput = {
       name: name.trim(),
@@ -143,13 +166,14 @@ export function PresetForm({
       durationDays,
       publicTitle: publicTitle.trim() === "" ? null : publicTitle.trim(),
       publicText: publicText.trim() === "" ? null : publicText.trim(),
-      times: normalizedTimes,
+      schedule: fromScheduleDraft(schedule),
       pricePerMCents: pricePerMCents ?? 0,
       bookingFeeCents: bookingFeeCents ?? 0,
       rrule: rrule ?? null,
       defaultDuties: Object.fromEntries(Object.entries(duties).filter(([, id]) => id !== "")),
       active,
       color,
+      shortCode: code,
     };
     // The same rules the server applies; parse problems found above come first.
     for (const issue of checkPresetFields({
@@ -165,8 +189,20 @@ export function PresetForm({
     const first =
       FIELD_ORDER.find((f) => fields.includes(f)) ?? fields.find((f) => f.startsWith("duty."));
     if (!first) return;
-    const id = first.startsWith("duty.") ? `preset-duty-${first.slice(5)}` : `preset-${first}`;
+    const id = first.startsWith("duty.")
+      ? `preset-duty-${first.slice(5)}`
+      : first === "schedule"
+        ? scheduleFocusId()
+        : `preset-${first}`;
     document.getElementById(id)?.focus();
+  }
+
+  /** The first Zeitplan row with an issue, or "Zeile hinzufügen" when a row is missing. */
+  function scheduleFocusId() {
+    const days = /^\d{1,2}$/.test(duration.trim()) ? Number(duration) : 1;
+    const row = scheduleDraftIssues(schedule, days).find((issue) => issue.row !== null)?.row;
+    const key = row != null ? schedule[row]?.key : undefined;
+    return key ? `preset-schedule-${key}-audience` : "preset-schedule-add";
   }
 
   function submit(overwrite: boolean) {
@@ -235,10 +271,7 @@ export function PresetForm({
         {t("propagationHint")}
       </p>
 
-      <Panel aria-labelledby="preset-basics-title">
-        <PanelHeader>
-          <PanelTitle id="preset-basics-title">{t("basics.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("basics.title")} titleId="preset-basics-title">
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="preset-name">{t("basics.name")}</Label>
@@ -308,6 +341,36 @@ export function PresetForm({
             />
             {fieldError("duration")}
           </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="preset-shortCode" optional>
+              {t("basics.shortCode")}
+            </Label>
+            <Input
+              id="preset-shortCode"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              maxLength={4}
+              placeholder={derivedCode}
+              value={shortCode}
+              onChange={(e) =>
+                setShortCode(e.target.value.replace(/\s+/g, "").toLocaleUpperCase("de-DE"))
+              }
+              aria-describedby={
+                errors.shortCode
+                  ? "preset-shortCode-error preset-shortCode-hint"
+                  : "preset-shortCode-hint"
+              }
+              aria-invalid={errors.shortCode ? true : undefined}
+              className="max-w-24 font-semibold tracking-wide"
+            />
+            <p id="preset-shortCode-hint" className="text-faint-foreground text-small">
+              {shortCode === ""
+                ? t("basics.shortCodeHint", { code: derivedCode })
+                : t("basics.shortCodeHintOwn")}
+            </p>
+            {fieldError("shortCode")}
+          </div>
           <MarketColorPicker
             name="preset-color"
             value={color}
@@ -337,10 +400,7 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-public-title-heading">
-        <PanelHeader>
-          <PanelTitle id="preset-public-title-heading">{t("public.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("public.title")} titleId="preset-public-title-heading">
         <PanelBody className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="preset-publicTitle" optional>
@@ -372,45 +432,20 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-times-title">
-        <PanelHeader>
-          <PanelTitle id="preset-times-title">{t("times.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("schedule.title")} titleId="preset-schedule-title">
         <PanelBody className="flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {TIME_FIELDS.map((key) => (
-              <div key={key} className="flex flex-col gap-1.5">
-                <Label htmlFor={`preset-${key}`}>{t(`times.${key}`)}</Label>
-                <Input
-                  id={`preset-${key}`}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="HH:MM"
-                  maxLength={9}
-                  required
-                  value={times[key]}
-                  onChange={(e) => setTimes({ ...times, [key]: e.target.value })}
-                  onBlur={(e) => {
-                    const value = normalizeClockTime(e.target.value);
-                    if (value) setTimes((prev) => ({ ...prev, [key]: value }));
-                  }}
-                  className="tabular"
-                  {...fieldProps(key)}
-                />
-              </div>
-            ))}
-          </div>
-          {TIME_FIELDS.map((key) => (
-            <div key={key}>{fieldError(key)}</div>
-          ))}
-          <p className="text-faint-foreground text-small">{t("times.hint")}</p>
+          <ScheduleEditor
+            value={schedule}
+            onChange={setSchedule}
+            durationDays={/^\d{1,2}$/.test(duration.trim()) ? Number(duration) : 1}
+            showErrors={Boolean(errors.schedule)}
+            idPrefix="preset-schedule"
+          />
+          {fieldError("schedule")}
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-prices-title">
-        <PanelHeader>
-          <PanelTitle id="preset-prices-title">{t("prices.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("prices.title")} titleId="preset-prices-title">
         <PanelBody className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="preset-price">{t("prices.price")}</Label>
@@ -460,10 +495,7 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-rhythm-title">
-        <PanelHeader>
-          <PanelTitle id="preset-rhythm-title">{t("rhythm.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("rhythm.title")} titleId="preset-rhythm-title">
         <PanelBody>
           <RhythmBuilder
             rhythm={rhythm}
@@ -475,10 +507,7 @@ export function PresetForm({
         </PanelBody>
       </Panel>
 
-      <Panel aria-labelledby="preset-team-title">
-        <PanelHeader>
-          <PanelTitle id="preset-team-title">{t("team.title")}</PanelTitle>
-        </PanelHeader>
+      <Panel title={t("team.title")} titleId="preset-team-title">
         <PanelBody className="flex flex-col gap-4">
           <p className="text-faint-foreground text-small">{t("team.hint")}</p>
           {options.roles.length === 0 ? (

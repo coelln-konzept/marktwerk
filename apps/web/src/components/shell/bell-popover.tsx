@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { setNotificationStateAction } from "@/app/(app)/benachrichtigungen/actions";
 import { MarkAllReadButton } from "@/components/notifications/mark-all-read-button";
+import { rowFocus } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 type Item = {
@@ -79,8 +80,10 @@ export function BellPopover({ count, items }: { count: number; items: Item[] }) 
                       )}
                     </>
                   );
-                  const cls =
-                    "flex items-start gap-2 border-border-subtle border-b px-4 py-2.5 outline-hidden last:border-b-0 hover:bg-hover focus-visible:bg-hover";
+                  const cls = cn(
+                    "flex items-start gap-2 border-border-subtle border-b px-4 py-2.5 last:border-b-0 hover:bg-hover",
+                    rowFocus,
+                  );
                   return (
                     <li key={item.id}>
                       {item.link ? (

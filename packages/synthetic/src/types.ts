@@ -1,3 +1,7 @@
+import type { MarketColor, ScheduleRow } from "@marktwerk/core";
+
+export type { ScheduleRow } from "@marktwerk/core";
+
 /**
  * Entity types for the synthetic dataset. They mirror docs/architecture/data-model.md (v0.3) with
  * camelCase fields. Conventions: money in integer cents (`...Cents`), lengths in integer centimetres
@@ -9,7 +13,8 @@ export type TimeString = string;
 export type Instant = string;
 
 export type EventTypeKey = "flea" | "antique" | "city_festival" | "food_wine";
-export type VenueKind = "outdoor_public" | "outdoor_private" | "indoor";
+/** "Städtisch" / "Privat" (UT2-03). */
+export type VenueKind = "municipal" | "private";
 export type ContactKind = "authority" | "landowner" | "supplier" | "service" | "other";
 export type DutyRoleKey =
   | "market_lead"
@@ -18,7 +23,11 @@ export type DutyRoleKey =
   | "permits"
   | "communication"
   | "cash"
-  | "water_power";
+  | "water_power"
+  | "briefing"
+  | "steward"
+  | "night_watch"
+  | "traffic";
 export type PermissionRole = "owner" | "manager" | "staff" | "field";
 export type EmploymentType =
   | "minijob"
@@ -27,7 +36,14 @@ export type EmploymentType =
   | "part_time"
   | "full_time"
   | "freelance";
-export type AnchorKey = "eventDay" | "setupDay" | "bookingCutoff";
+/** Named dates of an event (`event_anchor.key`). */
+export type EventAnchorKey = "eventDay" | "setupDay" | "teardownDay" | "bookingCutoff";
+/** Named dates of a Saison record (`event_season_anchor.key`): the first and the last market day of the season. */
+export type SeasonAnchorKey = "seasonStart" | "seasonEnd";
+/** What a template item or task hangs on: event anchors for `event` items, season anchors for `season` items. */
+export type AnchorKey = EventAnchorKey | SeasonAnchorKey;
+/** Saison status (`event_season_status`, research 13 §6.2). */
+export type SeasonStatus = "planning" | "dates_set" | "closed";
 export type EventStatus =
   | "draft"
   | "planned"
@@ -56,13 +72,17 @@ export type TaskStatus =
   | "cancelled";
 export type EffortFeedback = "as_planned" | "longer" | "shorter";
 export type PermitCategory = "city" | "external";
+/** The permit types the dataset seeds (research 13 §4). `other` is the Hoffnungsthal Schaustellerliste. */
 export type PermitType =
   | "market_permit"
+  | "market_fixing"
   | "water"
   | "signage"
   | "no_parking"
+  | "traffic_order"
   | "toilets"
-  | "landowner_ok";
+  | "landowner_ok"
+  | "other";
 /** Permit types a template item can apply for: the seeded ones plus those without a seeded permit. */
 export type TemplatePermitType = PermitType | "gema" | "safety_concept" | "catering";
 export type PermitCadence = "per_event" | "per_season" | "per_year" | "multi_year" | "standing";
@@ -252,13 +272,6 @@ export interface EmploymentContract {
   validUntil: DateString | null;
 }
 
-export interface DefaultTimes {
-  setup: TimeString;
-  open: TimeString;
-  close: TimeString;
-  teardown: TimeString;
-}
-
 export interface EventPreset {
   id: string;
   key: string;
@@ -270,9 +283,19 @@ export interface EventPreset {
   publicText: string;
   pricePerMCents: number;
   bookingFeeCents: number;
-  defaultTimes: DefaultTimes;
-  /** RFC 5545 recurrence rule (subset: FREQ=MONTHLY|YEARLY, BYMONTH, BYDAY, BYSETPOS). */
-  rrule: string;
+  /** The market's Zeitplan (ADR 0022), copied into every event. */
+  schedule: ScheduleRow[];
+  /** "Marktregeln" (D2-3): a copy of the event type's rules, changed where the market differs. */
+  rules: EventTypeRules;
+  /** "Marktfarbe": a key of the market palette in @marktwerk/core. */
+  color: MarketColor;
+  /** The market's Kürzel (Fahrplan R15), unique, 1–4 upper-case letters or digits ("ALT", "KST", "P6"). */
+  shortCode: string;
+  /**
+   * The rhythm shown on the market page (RFC 5545 subset: FREQ=MONTHLY|YEARLY, BYMONTH, BYDAY, BYSETPOS), or null
+   * when the dates are irregular. The generator's dates come from the date rules in dictionaries/presets.ts.
+   */
+  rrule: string | null;
   durationDays: number;
   defaultDuties: Record<DutyRoleKey, string>;
   active: boolean;
@@ -287,7 +310,8 @@ export interface Event {
   season: number;
   startsOn: DateString;
   endsOn: DateString;
-  times: DefaultTimes;
+  /** Copied from the market; shorter opening hours on single-day markets in winter. */
+  schedule: ScheduleRow[];
   status: EventStatus;
   bookingOpen: boolean;
   fullyBooked: boolean;
@@ -302,21 +326,53 @@ export interface Event {
 export interface EventAnchor {
   id: string;
   eventId: string;
-  key: AnchorKey;
+  key: EventAnchorKey;
   date: DateString;
 }
+
+/**
+ * "Saison" (`event_season`, research 13 §6): one record per market (preset) and calendar year. It carries the work
+ * done once per market and season (Termine planen, Genehmigung beantragen) in its own checklist.
+ */
+export interface EventSeason {
+  id: string;
+  presetId: string;
+  /** The calendar year (same meaning as `Event.season`). */
+  season: number;
+  /** Last season's first date moved to the same weekday and ISO week, else 1 January (core's rule). */
+  expectedStart: DateString;
+  /** From its dates as of the reference date (`initialSeasonStatus` in core). */
+  status: SeasonStatus;
+  notes: string | null;
+}
+
+/** `event_season_anchor`: `seasonStart` (first non-cancelled date, else `expectedStart`), `seasonEnd` (last day). */
+export interface EventSeasonAnchor {
+  id: string;
+  seasonId: string;
+  key: SeasonAnchorKey;
+  date: DateString;
+}
+
+/**
+ * `template_item.scope`. `event`: one task per event, due relative to the event anchors. `season`: one task per
+ * market and season on its Saison record (`Task.seasonId`), due relative to the season anchors (research 13 §6).
+ */
+export type TemplateItemScope = "event" | "season";
 
 export interface TemplateItem {
   id: string;
   stableKey: string;
   sort: number;
   title: string;
+  description: string | null;
   phase: TaskPhase;
   category: TaskCategory;
   anchorKey: AnchorKey;
   offsetDays: number;
   dueTime: TimeString | null;
-  dutyRoleKey: DutyRoleKey;
+  /** Null only on child items that take the parent's duty role. */
+  dutyRoleKey: DutyRoleKey | null;
   priority: TaskPriority;
   estimateMinutes: number;
   requiresPhoto: boolean;
@@ -324,12 +380,30 @@ export interface TemplateItem {
   isKey: boolean;
   /** The permit this item applies for (its task counts as done once that permit is applied for / granted). */
   permitType: TemplatePermitType | null;
+  /** Child item (ADR 0021): the stable key of its parent item in the same template. One level only. */
+  parentKey: string | null;
+  /**
+   * Child items only: true = own anchor, offset and due time; false = the parent's (the child then carries the
+   * parent's values, as migration 0019 does).
+   */
+  ownDue: boolean;
+  scope: TemplateItemScope;
 }
+
+/** Where a template's content comes from (the seed writes it as the version's change note). */
+export type TemplateSource = "master" | "client_checklist" | "master_copy";
 
 export interface ChecklistTemplate {
   id: string;
-  eventTypeId: string;
+  /** Null for the Grundvorlage (any event type). */
+  eventTypeId: string | null;
   name: string;
+  description: string | null;
+  /** The one Grundvorlage (`checklist_template.is_master`). */
+  isMaster: boolean;
+  /** A market's own copy (`checklist_template.owner_preset_id`); null for the Grundvorlage. */
+  ownerPresetId: string | null;
+  source: TemplateSource;
   version: number;
   status: "published";
   publishedOn: DateString;
@@ -338,12 +412,18 @@ export interface ChecklistTemplate {
 
 export interface Task {
   id: string;
-  eventId: string;
+  /** The event of an `event` item's task; null for season tasks. */
+  eventId: string | null;
+  /** The Saison record of a `season` item's task; null for event tasks. Exactly one of the two is set. */
+  seasonId: string | null;
   templateItemId: string;
   templateStableKey: string;
+  /** Subtask (ADR 0021): the task made from the parent item, on the same event or season. One level only. */
+  parentTaskId: string | null;
   phase: TaskPhase;
   category: TaskCategory;
   title: string;
+  description: string | null;
   anchorKey: AnchorKey;
   offsetDays: number;
   dueAt: Instant;
@@ -366,6 +446,8 @@ export interface Task {
 export interface PermitRequirement {
   id: string;
   venueId: string;
+  /** Only markets of this event type need it (`permit_requirement.event_type_id`); null = every market there. */
+  eventTypeId: string | null;
   category: PermitCategory;
   permitType: PermitType;
   title: string;
@@ -385,6 +467,8 @@ export interface Permit {
   requirementId: string;
   venueId: string;
   season: number;
+  /** Season permits (one per market and season): that market's Saison record (`permit.season_id`); else null. */
+  seasonId: string | null;
   category: PermitCategory;
   permitType: PermitType;
   title: string;
@@ -563,6 +647,8 @@ export interface Dataset {
   eventPresets: EventPreset[];
   events: Event[];
   eventAnchors: EventAnchor[];
+  eventSeasons: EventSeason[];
+  eventSeasonAnchors: EventSeasonAnchor[];
   checklistTemplates: ChecklistTemplate[];
   tasks: Task[];
   permitRequirements: PermitRequirement[];

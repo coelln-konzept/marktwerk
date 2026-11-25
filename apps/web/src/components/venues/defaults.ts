@@ -18,7 +18,7 @@ export type VenueFormValues = {
 /** A new venue starts as a public outdoor place in Nordrhein-Westfalen (the company's home state). */
 export const EMPTY_VENUE: VenueFormValues = {
   name: "",
-  kind: "outdoor_public",
+  kind: "municipal",
   street: null,
   postalCode: null,
   city: "",

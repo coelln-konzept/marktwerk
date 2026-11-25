@@ -20,20 +20,23 @@ export function ArchivePermitButton({
 }) {
   const t = useTranslations("permitDrawer");
   const router = useRouter();
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
+  const errorText = (code: string) =>
+    t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
 
   function archive() {
     startTransition(async () => {
       const result = await archivePermitAction(permitId);
-      if (!result.ok) return showToast({ message: t("errors.generic") });
+      if (!result.ok) return showError(t("errors.generic"));
       router.replace(closeHref as never, { scroll: false });
       showToast({
         message: t("archived", { title }),
         actionLabel: t("undoArchive"),
         onAction: async () => {
-          await restorePermitAction(permitId);
-          showToast({ message: t("restored") });
+          const undone = await restorePermitAction(permitId);
+          if (undone.ok) showToast({ message: t("restored") });
+          else showError(errorText(undone.error));
         },
       });
     });

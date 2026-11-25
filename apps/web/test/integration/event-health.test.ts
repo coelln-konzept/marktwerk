@@ -96,6 +96,17 @@ describe("listEvents", () => {
     expect((await getEvent(owner, busy))?.reasons).toEqual(reasons(busy));
   });
 
+  it("carries the open and overdue task counts and the Zeitplan for the Kalender popover", async () => {
+    const rows = await listEvents(owner, {});
+    const row = (id: string) => rows.find((r) => r.id === id);
+    expect(row(busy)?.taskCounts).toEqual({ open: 5, overdue: 5 });
+    expect(row(calm)?.taskCounts).toEqual({ open: 1, overdue: 0 });
+    expect(row(empty)?.taskCounts).toEqual({ open: 0, overdue: 0 });
+    expect(row(busy)?.schedule).toContainEqual(
+      expect.objectContaining({ audience: "visitors", kind: "open" }),
+    );
+  });
+
   it("agrees with getEvent for the same actor", async () => {
     const listed = await healthOf(owner);
     for (const id of [busy, calm, empty]) {

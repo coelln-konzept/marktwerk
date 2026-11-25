@@ -27,7 +27,6 @@
       "duration": "Dauer",
       "publicTitle": "Öffentlicher Titel",
       "times": "Zeiten",
-      "timesValue": "Aufbau {setup} · {open}–{close} Uhr · Abbau {teardown}",
       "price": "Standpreis",
       "fee": "Buchungsgebühr",
       "team": "Standard-Team",
@@ -54,11 +53,14 @@
         "name": "Name",
         "type": "Art",
         "venue": "Ort",
-        "choose": "Bitte wählen",
+        "choose": "Auswählen …",
         "retired": "(nicht mehr aktiv)",
         "duration": "Dauer (Tage)",
         "active": "Aktiv",
-        "activeHint": "Inaktive Märkte erscheinen nicht unter „Markt planen“. Mit dem Haken erscheint er wieder."
+        "activeHint": "Inaktive Märkte erscheinen nicht unter „Markt planen“. Mit dem Haken erscheint er wieder.",
+        "shortCode": "Kürzel",
+        "shortCodeHint": "Steht im Kalender neben der Farbe, 1 bis 4 Buchstaben oder Ziffern. Leer lassen, dann gilt „{code}“ aus dem Namen.",
+        "shortCodeHintOwn": "Steht im Kalender neben der Farbe, 1 bis 4 Buchstaben oder Ziffern."
       },
       "color": {
         "legend": "Farbe des Markts",
@@ -83,14 +85,6 @@
         "title": "Öffentliche Angaben",
         "publicTitle": "Öffentlicher Titel",
         "publicText": "Öffentlicher Text"
-      },
-      "times": {
-        "title": "Zeiten (Uhr)",
-        "setup": "Aufbau",
-        "open": "Beginn",
-        "close": "Ende",
-        "teardown": "Abbau",
-        "hint": "24-Stunden-Format, z. B. 08:00. Eingaben wie 8 oder 8.30 ergänzen wir."
       },
       "prices": {
         "title": "Preise",
@@ -137,10 +131,6 @@
         "invalid_duration": "Bitte 1 bis 14 Tage angeben.",
         "invalid_public_title": "Der öffentliche Titel darf höchstens 200 Zeichen lang sein.",
         "invalid_public_text": "Der öffentliche Text darf höchstens 5.000 Zeichen lang sein.",
-        "invalid_time": "Bitte die Zeit als HH:MM angeben, z. B. 08:00.",
-        "open_after_close": "Das Ende muss nach dem Beginn liegen.",
-        "close_after_teardown": "Der Abbau kann nicht vor dem Ende liegen.",
-        "setup_after_open": "Der Aufbau kann bei eintägigen Märkten nicht nach dem Beginn liegen.",
         "invalid_price": "Bitte einen Betrag in Euro angeben, z. B. 12,50 (höchstens 10.000 €).",
         "invalid_fee": "Bitte einen Betrag in Euro angeben, z. B. 5 (höchstens 10.000 €).",
         "invalid_rrule": "Dieser Rhythmus ist nicht gültig. Bitte Wochentage und Monate prüfen.",
@@ -152,10 +142,109 @@
         "invalid_staff": "Diese Person ist nicht (mehr) aktiv. Bitte jemand anderen wählen.",
         "not_found": "Diese Vorlage gibt es nicht mehr.",
         "invalid_input": "Die Angaben sind unvollständig. Bitte die Seite neu laden.",
-        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+        "invalid_schedule": "Bitte den Zeitplan prüfen (Hinweise an den Zeilen).",
+        "invalid_short_code": "Bitte 1 bis 4 Buchstaben oder Ziffern angeben, z. B. ALT.",
+        "short_code_taken": "Dieses Kürzel hat schon ein anderer aktiver Markt. Bitte ein anderes wählen."
       },
       "tasksLink": "Aufgaben dieses Markts:",
-      "tasksOwn": "Eigene Aufgabenvorlage"
+      "tasksOwn": "Eigene Aufgabenvorlage",
+      "schedule": {
+        "title": "Zeitplan"
+      }
+    },
+    "season": {
+      "title": "Saison {season}",
+      "statusLabel": "Status",
+      "statusChange": "Status der Saison ändern (jetzt: {status})",
+      "status": {
+        "planning": "In Planung",
+        "dates_set": "Termine stehen",
+        "closed": "Abgeschlossen"
+      },
+      "openCount": "{count} offen",
+      "start": {
+        "first": "Erster Termin {date} · {week}",
+        "dates": "{count, plural, one {# Termin} other {# Termine}}, letzter am {last}",
+        "expected": "Erwartet ab {date}",
+        "expectedHint": "{week} · noch keine Termine. Mit dem ersten Termin gilt dessen Datum.",
+        "expectedLabel": "Erwartet ab",
+        "edit": "Ändern",
+        "editLabel": "Erwarteten Start der Saison {season} ändern",
+        "save": "Speichern",
+        "cancel": "Abbrechen"
+      },
+      "suggest": {
+        "dates_set": {
+          "hint": "Die Termine sind angelegt.",
+          "action": "Auf „Termine stehen“ setzen"
+        },
+        "closed": {
+          "hint": "Der letzte Termin ist vorbei und keine Saisonaufgabe ist offen.",
+          "action": "Saison abschließen"
+        },
+        "planning": {
+          "hint": "Die Saison hat keine Termine mehr.",
+          "action": "Zurück auf „In Planung“"
+        }
+      },
+      "tasks": {
+        "title": "Saisonaufgaben",
+        "none": "Keine Saisonaufgaben. Sie kommen aus den Saison-Punkten der Ablaufvorlage.",
+        "allDone": "Alle Saisonaufgaben erledigt",
+        "finished": "Erledigt ({count})"
+      },
+      "assignee": "Zuständig",
+      "unassigned": "Niemand zuständig",
+      "snoozedUntil": "Zurückgestellt bis {date}",
+      "missing": {
+        "title": "Noch keine Saison {season}",
+        "hint": "Die Saisonaufgaben richten sich nach dem ersten Termin."
+      },
+      "create": "Saison anlegen",
+      "toast": {
+        "status": "Saison {season}: {status}",
+        "expected": "Saison {season} erwartet ab {date}",
+        "shifted": "{count, plural, =0 {keine Aufgaben verschoben} one {# Aufgabe verschoben} other {# Aufgaben verschoben}}",
+        "subtasksShifted": "{count, plural, one {# Unteraufgabe verschoben} other {# Unteraufgaben verschoben}}",
+        "created": "Saison {season} angelegt · {count, plural, =0 {keine Aufgaben} one {# Aufgabe} other {# Aufgaben}}",
+        "undo": "Rückgängig",
+        "subtasks": "+{count, plural, one {# Unteraufgabe} other {# Unteraufgaben}}",
+        "dueToday": "{count, plural, one {# davon war schon fällig und ist jetzt heute fällig} other {# davon waren schon fällig und sind jetzt heute fällig}}"
+      },
+      "errors": {
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+        "conflict": "Die Saison wurde inzwischen geändert. Die Seite zeigt jetzt den aktuellen Stand.",
+        "season_not_found": "Diese Saison gibt es nicht mehr.",
+        "preset_not_found": "Diesen Markt gibt es nicht mehr.",
+        "invalid_season": "Bitte ein gültiges Jahr angeben.",
+        "invalid_status": "Bitte einen gültigen Status wählen.",
+        "invalid_transition": "Die Saison hat diesen Status schon.",
+        "invalid_date": "Bitte ein gültiges Datum eingeben.",
+        "outside_season": "Bitte ein Datum im Jahr {season} wählen.",
+        "has_dates": "Die Saison hat schon Termine; ihr erster Termin ist der Saisonstart.",
+        "no_dates": "Die Saison hat noch keine Termine. Bitte zuerst Termine anlegen.",
+        "not_over": "Die Saison läuft noch. Abschließen geht erst nach dem letzten Termin.",
+        "open_tasks": "Es sind noch Saisonaufgaben offen. Bitte sie zuerst erledigen oder überspringen."
+      },
+      "intro": "Eine Saison sammelt die Arbeit, die bei diesem Markt einmal im Jahr anfällt, zum Beispiel Termine planen oder die Genehmigung beantragen.",
+      "statusHint": {
+        "planning": "Die Termine stehen noch nicht fest.",
+        "dates_set": "Die Termine des Jahres sind angelegt.",
+        "closed": "Die Saison ist vorbei, nichts ist mehr offen."
+      },
+      "statusBlocked": {
+        "no_dates": "Geht erst, wenn die Saison Termine hat.",
+        "not_over": "Geht erst nach dem letzten Termin.",
+        "open_tasks": "{count, plural, one {Noch # Saisonaufgabe offen.} other {Noch # Saisonaufgaben offen.}}"
+      },
+      "createForm": {
+        "label": "Erwartet ab",
+        "hint": "Ab wann erwartest du den ersten Termin? Die Saisonaufgaben richten sich danach.",
+        "suggested": "Vorschlag aus dem Vorjahr: gleicher Wochentag, gleiche KW.",
+        "hasDates": "Die Saison hat schon Termine. Die Saisonaufgaben richten sich nach dem ersten.",
+        "required": "Bitte ein Datum eingeben."
+      }
     }
   },
   "library": {
@@ -188,7 +277,14 @@
       "tplOwn": "Eigene Vorlage",
       "tplShared": "gemeinsam genutzt",
       "tplDraft": "Entwurf",
-      "tplMeta": "{kind} · {version} · {count, plural, one {# Aufgabe} other {# Aufgaben}}"
+      "tplMeta": "{kind} · {version} · {count, plural, one {# Aufgabe} other {# Aufgaben}}",
+      "codeTitle": "Kürzel",
+      "new": "Neuer Markt",
+      "searchLabel": "Märkte durchsuchen",
+      "search": "Name, Kürzel, Ort oder Art",
+      "searchResult": "{count, plural, one {# Treffer} other {# Treffer}} für „{query}“",
+      "resetSearch": "Suche zurücksetzen",
+      "emptySearch": "Kein Markt passt zu dieser Suche."
     },
     "others": {
       "title": "Nicht verwendete Ablaufvorlagen",

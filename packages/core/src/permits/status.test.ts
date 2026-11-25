@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   canTransitionPermit,
+  DISPLAY_STATE_SEVERITY,
   eventPermitHealth,
+  isAnswerOverdue,
+  isAnswerUnwatched,
   isOpenPermit,
   isUnfiled,
   PERMIT_STATUSES,
   PERMIT_TRANSITIONS,
+  permitDateIssues,
   permitDisplayState,
   splitPermitTransitions,
 } from "./status";
@@ -83,19 +87,19 @@ describe("splitPermitTransitions", () => {
     });
   });
 
-  it("offers going back from granted in the menu and replacing as the visible action", () => {
+  it("shows no next step after granted: going back and replacing wait in the menu", () => {
     expect(splitPermitTransitions("granted")).toEqual({
       primary: null,
-      secondary: ["superseded"],
-      menu: ["applied"],
+      secondary: [],
+      menu: ["applied", "superseded"],
     });
   });
 
   it("treats the road as forward from a rejected or not-required permit", () => {
     expect(splitPermitTransitions("rejected")).toEqual({
       primary: "preparing",
-      secondary: ["applied", "superseded"],
-      menu: ["not_required"],
+      secondary: ["applied"],
+      menu: ["not_required", "superseded"],
     });
     expect(splitPermitTransitions("not_required").primary).toBe("not_started");
     expect(splitPermitTransitions("superseded")).toEqual({
@@ -264,5 +268,123 @@ describe("eventPermitHealth", () => {
     expect(eventPermitHealth([expiring], "2027-04-10", today)).toBe("ok");
     expect(eventPermitHealth([expiring], "2027-04-14", today, "2027-04-16")).toBe("warn");
     expect(eventPermitHealth([expiring], "2027-05-02", today)).toBe("critical");
+  });
+});
+
+describe("isAnswerOverdue", () => {
+  const applied = (expectedDecisionOn: string | null) => ({
+    status: "applied" as const,
+    expectedDecisionOn,
+  });
+
+  it("is overdue from the day after the expected decision, not on the day itself", () => {
+    expect(isAnswerOverdue(applied("2026-11-12"), "2026-11-13")).toBe(true);
+    expect(isAnswerOverdue(applied("2026-11-13"), "2026-11-13")).toBe(false);
+    expect(isAnswerOverdue(applied("2026-11-14"), "2026-11-13")).toBe(false);
+  });
+
+  it("works across month, year and leap-day boundaries and around the DST switches", () => {
+    expect(isAnswerOverdue(applied("2026-12-31"), "2027-01-01")).toBe(true);
+    expect(isAnswerOverdue(applied("2027-01-01"), "2026-12-31")).toBe(false);
+    expect(isAnswerOverdue(applied("2028-02-29"), "2028-03-01")).toBe(true);
+    expect(isAnswerOverdue(applied("2026-10-31"), "2026-11-01")).toBe(true);
+    // Berlin calendar days: the 23 h / 25 h days count as one day each.
+    expect(isAnswerOverdue(applied("2027-03-28"), "2027-03-28")).toBe(false);
+    expect(isAnswerOverdue(applied("2027-03-28"), "2027-03-29")).toBe(true);
+    expect(isAnswerOverdue(applied("2026-10-25"), "2026-10-26")).toBe(true);
+  });
+
+  it("never without an expected decision date", () => {
+    expect(isAnswerOverdue(applied(null), "2026-11-13")).toBe(false);
+    expect(isAnswerOverdue({ status: "applied" }, "2026-11-13")).toBe(false);
+  });
+
+  it("only while filed: every other status has its own state", () => {
+    for (const status of PERMIT_STATUSES.filter((s) => s !== "applied"))
+      expect(isAnswerOverdue({ status, expectedDecisionOn: "2026-01-01" }, "2026-11-13")).toBe(
+        false,
+      );
+  });
+});
+
+describe("DISPLAY_STATE_SEVERITY", () => {
+  it("puts 'Antwort überfällig' after 'Fehlt' and before everything waiting or held", () => {
+    const worstFirst = Object.entries(DISPLAY_STATE_SEVERITY)
+      .sort(([, a], [, b]) => a - b)
+      .map(([state]) => state);
+    expect(worstFirst).toEqual([
+      "rejected",
+      "expired",
+      "missing",
+      "answer_overdue",
+      "preparing",
+      "not_due",
+      "applied",
+      "expiring",
+      "granted",
+      "not_required",
+      "past",
+      "superseded",
+    ]);
+  });
+});
+
+describe("isAnswerUnwatched", () => {
+  it("is true only for a filed permit without an expected decision", () => {
+    expect(isAnswerUnwatched({ status: "applied", expectedDecisionOn: null })).toBe(true);
+    expect(isAnswerUnwatched({ status: "applied" })).toBe(true);
+    expect(isAnswerUnwatched({ status: "applied", expectedDecisionOn: "2027-01-15" })).toBe(false);
+    expect(isAnswerUnwatched({ status: "granted", expectedDecisionOn: null })).toBe(false);
+    expect(isAnswerUnwatched({ status: "not_started", expectedDecisionOn: null })).toBe(false);
+  });
+});
+
+describe("permitDateIssues", () => {
+  const today = "2026-11-13";
+
+  it("accepts consistent and missing dates", () => {
+    expect(permitDateIssues({}, today)).toEqual([]);
+    expect(
+      permitDateIssues(
+        {
+          appliedAt: "2026-11-02",
+          expectedDecisionOn: "2026-11-02",
+          grantedAt: "2026-11-13",
+          validFrom: "2027-01-01",
+          validUntil: "2027-01-01",
+        },
+        today,
+      ),
+    ).toEqual([]);
+  });
+
+  it("refuses a decision or grant before the application", () => {
+    expect(
+      permitDateIssues({ appliedAt: "2026-11-13", expectedDecisionOn: "2026-11-01" }, today),
+    ).toEqual([{ code: "decision_before_applied", field: "expectedDecisionOn" }]);
+    expect(permitDateIssues({ appliedAt: "2026-11-02", grantedAt: "2026-10-01" }, today)).toEqual([
+      { code: "granted_before_applied", field: "grantedAt" },
+    ]);
+  });
+
+  it("refuses an application or grant in the future and an inverted validity", () => {
+    expect(permitDateIssues({ appliedAt: "2026-11-14" }, today)).toEqual([
+      { code: "applied_in_future", field: "appliedAt" },
+    ]);
+    expect(permitDateIssues({ grantedAt: "2026-12-01" }, today)).toEqual([
+      { code: "granted_in_future", field: "grantedAt" },
+    ]);
+    expect(permitDateIssues({ validFrom: "2027-02-01", validUntil: "2027-01-31" }, today)).toEqual([
+      { code: "invalid_period", field: "validUntil" },
+    ]);
+  });
+
+  it("checks only issues touching the changed fields when asked to", () => {
+    const old = { appliedAt: "2026-11-13", expectedDecisionOn: "2026-11-01" };
+    expect(permitDateIssues({ ...old, validUntil: "2027-12-31" }, today, ["validUntil"])).toEqual(
+      [],
+    );
+    expect(permitDateIssues(old, today, ["expectedDecisionOn"])).toHaveLength(1);
+    expect(permitDateIssues(old, today, ["appliedAt"])).toHaveLength(1);
   });
 });

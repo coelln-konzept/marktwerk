@@ -12,6 +12,7 @@ import {
   type HealthLevel,
   type HiringSignal,
   hiringSignal,
+  isSubtaskOverdue,
   isWaitingPastDue,
   type LoadLevel,
   loadLevel,
@@ -30,6 +31,7 @@ import {
   weeklyCapacityHours,
   weekStarts,
 } from "@marktwerk/core";
+import { isOverdueWithSubtasks, isOwnWorkItem, isTopLevel, subtaskAggregates } from "@marktwerk/db";
 import {
   auditLog,
   dutyRole,
@@ -40,7 +42,6 @@ import {
   eventType,
   staffMember,
   task,
-  taskCheckItem,
   user,
 } from "@marktwerk/db/schema";
 import {
@@ -63,7 +64,8 @@ import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
 import { deadlineScope, notOfPastEvent, visibleTasks } from "../task-scope";
 import { type DocumentRow, listLinkedDocuments } from "./documents";
-import type { CalendarItem, DueItem } from "./due";
+import type { CalendarItem, DueItem, TaskSeason } from "./due";
+import { seasonContext, toTaskSeason } from "./season-context";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const OPEN = [...OPEN_STATUSES];
@@ -87,10 +89,17 @@ export type BoardTask = {
   eventName: string | null;
   /** Event type key (`flea`, …), for the colour marker. */
   eventTypeKey: string | null;
-  /** The market colour of the event's preset (`MARKET_COLORS` key), null = fall back to the type. */
+  /**
+   * The market colour of the event's preset (`MARKET_COLORS` key), null = fall back to the type. A season task
+   * carries its market's colour (and type in `eventTypeKey`) here.
+   */
   eventColor: string | null;
+  /** Season tasks (research 13 §6.3): their market and season, shown where an event task names its event. */
+  season: TaskSeason | null;
   /** Kernaufgabe: a task every market needs. */
   isKey: boolean;
+  /** The parent task when this is a subtask (ADR 0021; only in `BoardData.subtasks`), else null. */
+  parentId: string | null;
   dueOn: string | null;
   estimateMinutes: number;
   assigneeId: string | null;
@@ -101,8 +110,12 @@ export type BoardTask = {
   /** The column the card shows in (override or derived). */
   column: BoardColumn;
   rolloverCount: number;
-  checkTotal: number;
-  checkDone: number;
+  /** Subtasks (ADR 0021): not deleted ones, finished ones, open overdue ones (an overdue one flags the card). */
+  subtasksTotal: number;
+  subtasksDone: number;
+  subtasksOverdue: number;
+  /** Subtasks still open: "Erledigt" on the card opens the drawer instead (done gate, R29). */
+  openSubtasks: number;
   /** Day the task was finished (done tasks), `YYYY-MM-DD`. */
   completedOn: string | null;
   requiresNote: boolean;
@@ -131,10 +144,118 @@ export type BoardScope = {
 /** Hard cap per query; `truncated` tells the page to say so. */
 const BOARD_LIMIT = 1500;
 
-export type BoardData = { tasks: BoardTask[]; truncated: boolean };
+export type BoardData = {
+  /** Top-level tasks, each with its subtask progress. */
+  tasks: BoardTask[];
+  /**
+   * One event's board (its Checkliste): the subtasks of the tasks in `tasks` (not deleted ones), shown under their
+   * parent (D2-12), in their order under it (board order, then due date and creation, like `listSubtasks`). Never
+   * counted on their own. Across events: empty (the parent carries the progress only).
+   */
+  subtasks: BoardTask[];
+  truncated: boolean;
+};
+
+/** The columns of a board card (the `task` row joined with its event, type, preset, Saison and assignee). */
+function boardFields(today: string, sc: ReturnType<typeof seasonContext>) {
+  const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
+  return {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    category: task.category,
+    priority: task.priority,
+    source: task.source,
+    eventId: task.eventId,
+    eventName: event.name,
+    eventTypeKey: eventType.key,
+    eventColor: eventPreset.color,
+    seasonId: sc.seasonId,
+    seasonYear: sc.seasonYear,
+    seasonPresetId: sc.seasonPresetId,
+    seasonName: sc.seasonName,
+    seasonColor: sc.seasonColor,
+    seasonTypeKey: sc.seasonTypeKey,
+    isKey: task.isKey,
+    parentId: task.parentTaskId,
+    dueAt: task.dueAt,
+    estimateMinutes: task.estimateMinutes,
+    assigneeId: task.assigneeId,
+    assigneeName: staffMember.displayName,
+    waitingReason: task.waitingReason,
+    boardColumn: task.boardColumn,
+    boardSort: task.boardSort,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    completedAt: task.completedAt,
+    rolloverCount: task.rolloverCount,
+    requiresNote: task.requiresNote,
+    requiresPhoto: task.requiresPhoto,
+    requiresAttachment: task.requiresAttachment,
+    snoozedUntil: task.snoozedUntil,
+    removedFromTemplate: task.removedFromTemplate,
+    subtasksTotal: sub.subtasksTotal,
+    subtasksDone: sub.subtasksDone,
+    subtasksOverdue: sub.subtasksOverdue,
+    subtasksOpen: sub.subtasksOpen,
+  };
+}
+
+function selectBoardRows(today: string) {
+  const sc = seasonContext();
+  return db
+    .select(boardFields(today, sc))
+    .from(task)
+    .leftJoin(event, eq(event.id, task.eventId))
+    .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
+    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
+    .leftJoin(staffMember, eq(staffMember.id, task.assigneeId));
+}
+
+type BoardRow = Awaited<ReturnType<typeof selectBoardRows>>[number];
+
+function toBoardTask(r: BoardRow, today: string, actor: Actor): BoardTask {
+  return {
+    id: r.id,
+    title: r.title,
+    status: r.status,
+    category: r.category,
+    priority: r.priority,
+    source: r.source,
+    eventId: r.eventId,
+    eventName: r.eventName,
+    eventTypeKey: r.eventTypeKey ?? r.seasonTypeKey,
+    eventColor: r.eventColor ?? r.seasonColor,
+    season: toTaskSeason(actor, r),
+    isKey: r.isKey,
+    parentId: r.parentId,
+    dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
+    estimateMinutes: r.estimateMinutes,
+    assigneeId: r.assigneeId,
+    assigneeName: r.assigneeName,
+    waitingReason: r.waitingReason,
+    boardColumn: r.boardColumn,
+    boardSort: r.boardSort,
+    column: boardColumnFor(r, today),
+    rolloverCount: r.rolloverCount,
+    subtasksTotal: r.subtasksTotal,
+    subtasksDone: r.subtasksDone,
+    subtasksOverdue: r.subtasksOverdue,
+    openSubtasks: r.subtasksOpen,
+    completedOn: r.completedAt ? berlinDay(r.completedAt) : null,
+    requiresNote: r.requiresNote,
+    requiresPhoto: r.requiresPhoto,
+    requiresAttachment: r.requiresAttachment,
+    snoozedUntil: r.snoozedUntil && r.snoozedUntil > today ? r.snoozedUntil : null,
+    removedFromTemplate: r.removedFromTemplate,
+  };
+}
 
 /**
  * Cards for the board: open tasks plus finished ones of the last 14 days (Erledigt), cancelled ones never.
+ * Top-level tasks only, each with its subtask progress (ADR 0021); one event's board also gets the subtasks of
+ * those tasks (one more query for all of them, see `BoardData.subtasks`).
  * One event's board is its Checkliste (user test 2026-11), so there every finished task counts.
  * Within a column they are in display order (`board_sort`, then due date).
  */
@@ -143,56 +264,19 @@ export async function listBoardTasks(
   scope: BoardScope,
   today: string,
 ): Promise<BoardData> {
-  if (scope.eventId && !UUID.test(scope.eventId)) return { tasks: [], truncated: false };
+  if (scope.eventId && !UUID.test(scope.eventId))
+    return { tasks: [], subtasks: [], truncated: false };
   const since = resolveRelativeDue(doneVisibleSince(today), 0, "00:00");
   const horizonDays = scope.horizonDays ?? null;
   // Event-less tasks have no market to measure against, so their due date is cut at the horizon.
   const horizon =
     horizonDays === null ? null : resolveRelativeDue(addDays(today, horizonDays + 1), 0, "00:00");
 
-  const checkTotal = sql<number>`(select count(*)::int from ${taskCheckItem} where ${taskCheckItem.taskId} = ${task.id})`;
-  const checkDone = sql<number>`(select count(*)::int from ${taskCheckItem} where ${taskCheckItem.taskId} = ${task.id} and ${taskCheckItem.done})`;
-
-  const rows = await db
-    .select({
-      id: task.id,
-      title: task.title,
-      status: task.status,
-      category: task.category,
-      priority: task.priority,
-      source: task.source,
-      eventId: task.eventId,
-      eventName: event.name,
-      eventTypeKey: eventType.key,
-      eventColor: eventPreset.color,
-      isKey: task.isKey,
-      dueAt: task.dueAt,
-      estimateMinutes: task.estimateMinutes,
-      assigneeId: task.assigneeId,
-      assigneeName: staffMember.displayName,
-      waitingReason: task.waitingReason,
-      boardColumn: task.boardColumn,
-      boardSort: task.boardSort,
-      createdAt: task.createdAt,
-      updatedAt: task.updatedAt,
-      completedAt: task.completedAt,
-      rolloverCount: task.rolloverCount,
-      requiresNote: task.requiresNote,
-      requiresPhoto: task.requiresPhoto,
-      requiresAttachment: task.requiresAttachment,
-      snoozedUntil: task.snoozedUntil,
-      removedFromTemplate: task.removedFromTemplate,
-      checkTotal,
-      checkDone,
-    })
-    .from(task)
-    .leftJoin(event, eq(event.id, task.eventId))
-    .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
-    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
-    .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
+  const rows = await selectBoardRows(today)
     .where(
       and(
         visibleTasks(actor),
+        isTopLevel(),
         scope.eventId ? eq(task.eventId, scope.eventId) : notOfPastEvent(today),
         or(
           and(
@@ -220,39 +304,33 @@ export async function listBoardTasks(
     .limit(BOARD_LIMIT + 1);
 
   const truncated = rows.length > BOARD_LIMIT;
-  const cards = rows.slice(0, BOARD_LIMIT).map((r): BoardTask & { sortKey: typeof r } => ({
-    id: r.id,
-    title: r.title,
-    status: r.status,
-    category: r.category,
-    priority: r.priority,
-    source: r.source,
-    eventId: r.eventId,
-    eventName: r.eventName,
-    eventTypeKey: r.eventTypeKey,
-    eventColor: r.eventColor,
-    isKey: r.isKey,
-    dueOn: r.dueAt ? berlinDay(r.dueAt) : null,
-    estimateMinutes: r.estimateMinutes,
-    assigneeId: r.assigneeId,
-    assigneeName: r.assigneeName,
-    waitingReason: r.waitingReason,
-    boardColumn: r.boardColumn,
-    boardSort: r.boardSort,
-    column: boardColumnFor(r, today),
-    rolloverCount: r.rolloverCount,
-    checkTotal: r.checkTotal,
-    checkDone: r.checkDone,
-    completedOn: r.completedAt ? berlinDay(r.completedAt) : null,
-    requiresNote: r.requiresNote,
-    requiresPhoto: r.requiresPhoto,
-    requiresAttachment: r.requiresAttachment,
-    snoozedUntil: r.snoozedUntil && r.snoozedUntil > today ? r.snoozedUntil : null,
-    removedFromTemplate: r.removedFromTemplate,
-    sortKey: r,
-  }));
-  cards.sort((a, b) => compareCards(a.sortKey, b.sortKey));
-  return { tasks: cards.map(({ sortKey: _sortKey, ...card }) => card), truncated };
+  const kept = rows.slice(0, BOARD_LIMIT);
+  kept.sort(compareCards);
+  const tasks = kept.map((r) => toBoardTask(r, today, actor));
+
+  const subtasks =
+    scope.eventId && tasks.length > 0
+      ? (
+          await selectBoardRows(today)
+            .where(
+              and(
+                visibleTasks(actor),
+                inArray(
+                  task.parentTaskId,
+                  tasks.map((t) => t.id),
+                ),
+                ne(task.status, "cancelled"),
+              ),
+            )
+            .orderBy(
+              asc(task.boardSort),
+              sql`${task.dueAt} asc nulls last`,
+              asc(task.createdAt),
+              asc(task.id),
+            )
+        ).map((r) => toBoardTask(r, today, actor))
+      : [];
+  return { tasks, subtasks, truncated };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -375,6 +453,8 @@ export async function getPeopleRail(
       .where(
         and(
           visibleTasks(actor),
+          // Per person: their top-level tasks and the subtasks they have of somebody else's task (ADR 0021).
+          isOwnWorkItem(),
           inArray(task.status, OPEN),
           scope.eventId && UUID.test(scope.eventId)
             ? eq(task.eventId, scope.eventId)
@@ -391,6 +471,7 @@ export async function getPeopleRail(
       .where(
         and(
           visibleTasks(actor),
+          isOwnWorkItem(),
           inArray(task.status, OPEN),
           notOfPastEvent(today),
           isNotNull(task.assigneeId),
@@ -488,6 +569,7 @@ export async function getWorkload(actor: Actor, today: string, count = 8): Promi
       .where(
         and(
           visibleTasks(actor),
+          isOwnWorkItem(),
           inArray(task.status, OPEN),
           notOfPastEvent(today),
           isNotNull(task.dueAt),
@@ -505,6 +587,7 @@ export async function getWorkload(actor: Actor, today: string, count = 8): Promi
       .where(
         and(
           visibleTasks(actor),
+          isOwnWorkItem(),
           inArray(task.status, OPEN),
           notOfPastEvent(today),
           isNull(task.dueAt),
@@ -637,7 +720,10 @@ export type EventTaskSummary = {
   health: ReturnType<typeof taskHealth>;
 };
 
-/** Count and health for the "Board" tab of the event header. */
+/**
+ * Count and health for the "Board" tab of the event header: top-level tasks; a task counts as overdue when it
+ * or one of its open subtasks is (ADR 0021).
+ */
 export async function eventTaskSummary(
   actor: Actor,
   eventId: string,
@@ -649,12 +735,14 @@ export async function eventTaskSummary(
   const [row] = await db
     .select({
       open: sql<number>`count(*)::int`,
-      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart} and ${task.status} <> 'waiting_external'))::int`,
+      overdue: sql<number>`(count(*) filter (where ${isOverdueWithSubtasks(today, todayStart)}))::int`,
       blocked: sql<number>`(count(*) filter (where ${task.status} = 'blocked'))::int`,
       maxRollover: sql<number>`coalesce(max(${task.rolloverCount}), 0)::int`,
     })
     .from(task)
-    .where(and(visibleTasks(actor), eq(task.eventId, eventId), inArray(task.status, OPEN)));
+    .where(
+      and(visibleTasks(actor), isTopLevel(), eq(task.eventId, eventId), inArray(task.status, OPEN)),
+    );
   if (!row) return none;
   return { ...row, health: taskHealth(row) };
 }
@@ -673,7 +761,10 @@ export async function taskHealthByEvent(
   return new Map([...summary].map(([id, s]) => [id, s.health]));
 }
 
-/** Open tasks, overdue ones (waiting tasks are not overdue), blocked ones and the health per event. */
+/**
+ * Open top-level tasks, overdue ones (waiting tasks are not overdue; an overdue subtask makes its parent
+ * overdue), blocked ones and the health per event.
+ */
 export async function taskSummaryByEvent(
   actor: Actor,
   eventIds: string[],
@@ -687,15 +778,58 @@ export async function taskSummaryByEvent(
     .select({
       eventId: task.eventId,
       open: sql<number>`count(*)::int`,
-      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart} and ${task.status} <> 'waiting_external'))::int`,
+      overdue: sql<number>`(count(*) filter (where ${isOverdueWithSubtasks(today, todayStart)}))::int`,
       blocked: sql<number>`(count(*) filter (where ${task.status} = 'blocked'))::int`,
       maxRollover: sql<number>`coalesce(max(${task.rolloverCount}), 0)::int`,
     })
     .from(task)
-    .where(and(visibleTasks(actor), inArray(task.eventId, eventIds), inArray(task.status, OPEN)))
+    .where(
+      and(
+        visibleTasks(actor),
+        isTopLevel(),
+        inArray(task.eventId, eventIds),
+        inArray(task.status, OPEN),
+      ),
+    )
     .groupBy(task.eventId);
   for (const { eventId, ...row } of rows)
     if (eventId) result.set(eventId, { ...row, health: taskHealth(row) });
+  return result;
+}
+
+/** How far an event's Checkliste is: finished (done or skipped) of all top-level tasks, cancelled ones left out. */
+export type ChecklistProgress = { done: number; total: number };
+
+/**
+ * Checkliste progress of several events at once (the Übersicht's weekend box), one query for all of them;
+ * the same count as the event's Zusammenfassung (`taskProgress`: top-level tasks the actor may see, without
+ * cancelled ones). Events without tasks map to 0 of 0.
+ */
+export async function checklistProgressByEvent(
+  actor: Actor,
+  eventIds: string[],
+): Promise<Map<string, ChecklistProgress>> {
+  const result = new Map<string, ChecklistProgress>(
+    eventIds.map((id) => [id, { done: 0, total: 0 }]),
+  );
+  if (eventIds.length === 0) return result;
+  const rows = await db
+    .select({
+      eventId: task.eventId,
+      total: sql<number>`count(*)::int`,
+      done: sql<number>`(count(*) filter (where ${task.status} in ('done', 'skipped')))::int`,
+    })
+    .from(task)
+    .where(
+      and(
+        visibleTasks(actor),
+        isTopLevel(),
+        inArray(task.eventId, eventIds),
+        ne(task.status, "cancelled"),
+      ),
+    )
+    .groupBy(task.eventId);
+  for (const { eventId, done, total } of rows) if (eventId) result.set(eventId, { done, total });
   return result;
 }
 
@@ -714,6 +848,12 @@ export type TaskDetail = {
   source: BoardTask["source"];
   eventId: string | null;
   eventName: string | null;
+  /** Its event is cancelled ("abgesagt"): a `cancelled` task then went with the event, not by "Löschen". */
+  eventCancelled: boolean;
+  /** Season tasks: the drawer's header names "<Markt> · Saison <Jahr>" and links to the market page instead. */
+  season: TaskSeason | null;
+  /** The market of its date or Saison ("Fürs nächste Mal notieren", Fahrplan R25); null for an Einzeltermin. */
+  market: { presetId: string; name: string } | null;
   isKey: boolean;
   dueOn: string | null;
   dueOverridden: boolean;
@@ -738,7 +878,10 @@ export type TaskDetail = {
   requiresAttachment: boolean;
   completedAt: string | null;
   completedByName: string | null;
-  checkItems: { id: string; title: string; done: boolean }[];
+  /** The parent when this task is a subtask (ADR 0021), else null. */
+  parent: { id: string; title: string; status: TaskStatusKey } | null;
+  /** Subtasks (not deleted ones), in their order. Empty for a subtask (one level). */
+  subtasks: SubtaskRow[];
   /** Files attached to the task (photos and attachments: the evidence), newest first. */
   documents: DocumentRow[];
   hasPhoto: boolean;
@@ -753,7 +896,22 @@ export type TaskDetail = {
   link: string;
 };
 
-/** One task with check items and activity (its audit entries), or null if the actor may not see it. */
+/** One subtask as the task drawer lists it (tick, title, assignee, due). */
+export type SubtaskRow = {
+  id: string;
+  title: string;
+  status: TaskStatusKey;
+  dueOn: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  /** Open and due before today (not waiting, not snoozed). */
+  overdue: boolean;
+  /** For the undo of a due-date edit in the drawer (`TaskPatch.restoreFlags`). */
+  dueOverridden: boolean;
+  customized: boolean;
+};
+
+/** One task with its subtasks and activity (its audit entries), or null if the actor may not see it. */
 export async function getTaskDetail(
   actor: Actor,
   taskId: string,
@@ -771,10 +929,18 @@ export async function getTaskDetail(
     })
     .from(staffMember)
     .as("assignee");
+  const sc = seasonContext();
   const [row] = await db
     .select({
       t: task,
       eventName: event.name,
+      eventStatus: event.status,
+      eventPresetId: eventPreset.id,
+      eventPresetName: eventPreset.name,
+      seasonId: sc.seasonId,
+      seasonYear: sc.seasonYear,
+      seasonPresetId: sc.seasonPresetId,
+      seasonName: sc.seasonName,
       assigneeName: assignee.name,
       assigneeHasEmail: assignee.hasEmail,
       assigneeHasPhone: assignee.hasPhone,
@@ -784,6 +950,8 @@ export async function getTaskDetail(
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
+    .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .leftJoin(assignee, eq(assignee.id, task.assigneeId))
     .leftJoin(user, eq(user.id, task.notifyUserId))
     .leftJoin(dutyRole, eq(dutyRole.id, task.dutyRoleId))
@@ -792,12 +960,14 @@ export async function getTaskDetail(
   const notifySelf = await getNotifySelf(actor);
   const t = row.t;
 
-  const [items, activity, completedBy, documents] = await Promise.all([
-    db
-      .select({ id: taskCheckItem.id, title: taskCheckItem.title, done: taskCheckItem.done })
-      .from(taskCheckItem)
-      .where(eq(taskCheckItem.taskId, taskId))
-      .orderBy(asc(taskCheckItem.sort), asc(taskCheckItem.createdAt)),
+  const [subtasks, parent, activity, completedBy, documents] = await Promise.all([
+    listSubtasks(taskId, today),
+    t.parentTaskId
+      ? db
+          .select({ id: task.id, title: task.title, status: task.status })
+          .from(task)
+          .where(eq(task.id, t.parentTaskId))
+      : Promise.resolve([]),
     db
       .select({
         id: auditLog.id,
@@ -842,6 +1012,14 @@ export async function getTaskDetail(
     source: t.source,
     eventId: t.eventId,
     eventName: row.eventName,
+    eventCancelled: row.eventStatus === "cancelled",
+    season: toTaskSeason(actor, row),
+    market:
+      row.eventPresetId && row.eventPresetName
+        ? { presetId: row.eventPresetId, name: row.eventPresetName }
+        : row.seasonPresetId && row.seasonName
+          ? { presetId: row.seasonPresetId, name: row.seasonName }
+          : null,
     isKey: t.isKey,
     dueOn: t.dueAt ? berlinDay(t.dueAt) : null,
     dueOverridden: t.dueOverridden,
@@ -866,7 +1044,8 @@ export async function getTaskDetail(
     requiresAttachment: t.requiresAttachment,
     completedAt: t.completedAt ? t.completedAt.toISOString() : null,
     completedByName: completedBy[0]?.name ?? null,
-    checkItems: items,
+    parent: parent[0] ?? null,
+    subtasks,
     documents: files,
     hasPhoto: evidence.hasPhoto,
     hasAttachment: evidence.hasAttachment,
@@ -878,12 +1057,55 @@ export async function getTaskDetail(
   };
 }
 
+/** The subtasks of a task (not deleted ones): board order, then due date and creation. */
+export async function listSubtasks(parentId: string, today: string): Promise<SubtaskRow[]> {
+  if (!UUID.test(parentId)) return [];
+  const rows = await db
+    .select({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      dueAt: task.dueAt,
+      snoozedUntil: task.snoozedUntil,
+      assigneeId: task.assigneeId,
+      assigneeName: staffMember.displayName,
+      dueOverridden: task.dueOverridden,
+      customized: task.customized,
+    })
+    .from(task)
+    .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
+    .where(and(eq(task.parentTaskId, parentId), ne(task.status, "cancelled")))
+    .orderBy(
+      asc(task.boardSort),
+      sql`${task.dueAt} asc nulls last`,
+      asc(task.createdAt),
+      asc(task.id),
+    );
+  return rows.map((r) => {
+    const dueOn = r.dueAt ? berlinDay(r.dueAt) : null;
+    return {
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      dueOn,
+      assigneeId: r.assigneeId,
+      assigneeName: r.assigneeName,
+      overdue: isSubtaskOverdue({ status: r.status, dueOn, snoozedUntil: r.snoozedUntil }, today),
+      dueOverridden: r.dueOverridden,
+      customized: r.customized,
+    };
+  });
+}
+
 // ---------------------------------------------------------------------------------------------
 // Übersicht + Kalender feeds (shapes in ./due)
 
 const DUE_LIMIT = 300;
 
-/** Open and overdue tasks in the actor's Übersicht scope (KPI "Offene Aufgaben"). */
+/**
+ * Open and overdue tasks in the actor's Übersicht scope (KPI "Offene Aufgaben"): top-level tasks (or the actor's
+ * own list); a task with an overdue subtask counts as overdue, once.
+ */
 export async function openTaskCounts(
   actor: Actor,
   today: string,
@@ -892,7 +1114,7 @@ export async function openTaskCounts(
   const [row] = await db
     .select({
       open: sql<number>`count(*)::int`,
-      overdue: sql<number>`(count(*) filter (where ${task.dueAt} < ${todayStart} and ${task.status} <> 'waiting_external'))::int`,
+      overdue: sql<number>`(count(*) filter (where ${isOverdueWithSubtasks(today, todayStart)}))::int`,
     })
     .from(task)
     .where(
@@ -970,9 +1192,19 @@ export async function openEffortByEvent(
   return new Map(rows.flatMap((r) => (r.eventId ? [[r.eventId, r.minutes] as const] : [])));
 }
 
-/** Open tasks that are overdue, due today or within the next 7 days (Übersicht "Heute fällig"). */
+/**
+ * Open tasks that are overdue, due today or within the next 7 days (Übersicht "Heute fällig"), plus tasks with
+ * an overdue subtask (flagged as overdue through their parent, ADR 0021; an undated one shows that subtask's
+ * date). Each carries its subtask progress.
+ */
 export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> {
   const until = resolveRelativeDue(addDays(today, 8), 0, "00:00");
+  const todayStart = resolveRelativeDue(today, 0, "00:00");
+  const sub = subtaskAggregates(today, todayStart);
+  const firstOverdueSubtask = sql<Date | null>`(select min(st."due_at") from "app"."task" st
+    where st."parent_task_id" = ${task.id} and st."status" in ('todo', 'in_progress', 'blocked')
+      and st."due_at" < ${todayStart} and (st."snoozed_until" is null or st."snoozed_until" <= ${today}))`;
+  const sc = seasonContext();
   const rows = await db
     .select({
       id: task.id,
@@ -983,14 +1215,26 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
       eventTypeKey: eventType.key,
       eventColor: eventPreset.color,
       eventStartsOn: event.startsOn,
+      seasonId: sc.seasonId,
+      seasonYear: sc.seasonYear,
+      seasonPresetId: sc.seasonPresetId,
+      seasonName: sc.seasonName,
+      seasonColor: sc.seasonColor,
+      seasonTypeKey: sc.seasonTypeKey,
       isKey: task.isKey,
       status: task.status,
       assigneeName: staffMember.displayName,
+      subtasksTotal: sub.subtasksTotal,
+      subtasksDone: sub.subtasksDone,
+      subtasksOverdue: sub.subtasksOverdue,
+      subtasksOpen: sub.subtasksOpen,
+      firstOverdueSubtask,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
     .leftJoin(eventType, eq(eventType.id, event.eventTypeId))
     .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .leftJoin(staffMember, eq(staffMember.id, task.assigneeId))
     .where(
       and(
@@ -998,35 +1242,49 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
         inArray(task.status, OPEN),
         notSnoozed(today),
         notOfPastEvent(today),
-        isNotNull(task.dueAt),
-        lt(task.dueAt, until),
+        or(and(isNotNull(task.dueAt), lt(task.dueAt, until)), sql`${sub.subtasksOverdue} > 0`),
       ),
     )
     .orderBy(asc(task.dueAt), asc(task.title))
     .limit(DUE_LIMIT);
   return rows.map((r) => {
-    const dueOn = berlinDay(r.dueAt as Date);
+    const overdueSubtask = r.subtasksOverdue > 0;
+    const dueOn = berlinDay((r.dueAt ?? new Date(r.firstOverdueSubtask as Date | string)) as Date);
     return {
       kind: "task" as const,
       id: r.id,
       title: r.title,
       dueOn,
-      urgency: isWaitingPastDue({ status: r.status, dueOn }, today)
-        ? ("waiting" as const)
-        : dueOn < today
-          ? ("overdue" as const)
-          : dueOn === today
-            ? ("today" as const)
-            : ("soon" as const),
+      urgency: overdueSubtask
+        ? ("overdue" as const)
+        : isWaitingPastDue({ status: r.status, dueOn }, today)
+          ? ("waiting" as const)
+          : dueOn < today
+            ? ("overdue" as const)
+            : dueOn === today
+              ? ("today" as const)
+              : ("soon" as const),
       href: taskLink(r.id, r.eventId),
       meta: r.eventName ?? undefined,
       metaHref: r.eventId ? `/veranstaltungen/${r.eventId}` : undefined,
       eventId: r.eventId,
-      eventTypeKey: r.eventTypeKey,
-      eventColor: r.eventColor,
+      eventTypeKey: r.eventTypeKey ?? r.seasonTypeKey,
+      eventColor: r.eventColor ?? r.seasonColor,
       eventStartsOn: r.eventStartsOn,
+      // The label ("<Markt> · Saison <Jahr>") is the UI's: the row carries the parts (`tasks.seasonContext`).
+      season: toTaskSeason(actor, r),
       isKey: r.isKey,
       assigneeName: r.assigneeName,
+      ...(r.subtasksTotal > 0
+        ? {
+            subtasks: {
+              done: r.subtasksDone,
+              total: r.subtasksTotal,
+              open: r.subtasksOpen,
+              overdue: r.subtasksOverdue,
+            },
+          }
+        : {}),
     };
   });
 }
@@ -1044,6 +1302,8 @@ export async function calendarItems(
 ): Promise<CalendarItem[]> {
   const start = resolveRelativeDue(from, 0, "00:00");
   const end = resolveRelativeDue(addDays(to, 1), 0, "00:00");
+  const sub = subtaskAggregates(today, resolveRelativeDue(today, 0, "00:00"));
+  const sc = seasonContext();
   const rows = await db
     .select({
       id: task.id,
@@ -1051,8 +1311,14 @@ export async function calendarItems(
       dueAt: task.dueAt,
       eventId: task.eventId,
       status: task.status,
+      subtasksOverdue: sub.subtasksOverdue,
+      seasonId: sc.seasonId,
+      seasonYear: sc.seasonYear,
+      seasonPresetId: sc.seasonPresetId,
+      seasonName: sc.seasonName,
     })
     .from(task)
+    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .where(
       and(
         deadlineScope(actor, mineOnly),
@@ -1074,13 +1340,18 @@ export async function calendarItems(
       date,
       title: r.title,
       href: taskLink(r.id, r.eventId),
-      tone: isWaitingPastDue({ status: r.status, dueOn: date }, today)
-        ? ("neutral" as const)
-        : date < today
+      season: toTaskSeason(actor, r),
+      // An overdue subtask flags its parent (ADR 0021).
+      tone:
+        r.subtasksOverdue > 0
           ? ("critical" as const)
-          : date === today
-            ? ("warn" as const)
-            : ("neutral" as const),
+          : isWaitingPastDue({ status: r.status, dueOn: date }, today)
+            ? ("neutral" as const)
+            : date < today
+              ? ("critical" as const)
+              : date === today
+                ? ("warn" as const)
+                : ("neutral" as const),
     };
   });
 }

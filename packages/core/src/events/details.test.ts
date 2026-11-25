@@ -1,38 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { eventDateRange } from "./date-range";
 import {
   canMoveEvent,
-  checkEventTimes,
   isAnnounced,
   isClockTime,
+  isEventDateInRange,
   isHappening,
   normalizeClockTime,
   parseEuroCents,
 } from "./details";
 
-const times = { setup: "05:00", open: "08:00", close: "16:00", teardown: "18:00" };
-
-describe("checkEventTimes", () => {
-  it("accepts the usual market day", () => {
-    expect(checkEventTimes(times, false)).toBeNull();
-    expect(checkEventTimes({ ...times, teardown: "16:00" }, false)).toBeNull();
-  });
-
-  it("rejects malformed times", () => {
+describe("isClockTime", () => {
+  it("accepts only HH:mm from 00:00 to 23:59", () => {
     expect(isClockTime("24:00")).toBe(false);
     expect(isClockTime("7:00")).toBe(false);
+    expect(isClockTime("8 Uhr")).toBe(false);
     expect(isClockTime("23:59")).toBe(true);
-    expect(checkEventTimes({ ...times, open: "8 Uhr" }, false)).toBe("invalid_time");
-  });
-
-  it("needs open < close ≤ teardown", () => {
-    expect(checkEventTimes({ ...times, close: "08:00" }, false)).toBe("open_after_close");
-    expect(checkEventTimes({ ...times, teardown: "15:00" }, false)).toBe("close_after_teardown");
-  });
-
-  it("allows a late setup time only for multi-day events (set up the day before)", () => {
-    const late = { ...times, setup: "14:00" };
-    expect(checkEventTimes(late, false)).toBe("setup_after_open");
-    expect(checkEventTimes(late, true)).toBeNull();
+    expect(isClockTime("00:00")).toBe(true);
   });
 });
 
@@ -82,6 +66,28 @@ describe("moving events", () => {
     );
     expect(isAnnounced("draft")).toBe(false);
     expect(isAnnounced("confirmed")).toBe(true);
+  });
+});
+
+describe("event date range", () => {
+  it("runs from 1 January last year to 31 December five years ahead", () => {
+    expect(eventDateRange("2026-11-14")).toMatchObject({ min: "2025-01-01", max: "2031-12-31" });
+    // New Year's Eve and New Year's Day: the range follows the calendar year of today.
+    expect(eventDateRange("2026-12-31").max).toBe("2031-12-31");
+    expect(eventDateRange("2027-01-01")).toMatchObject({ min: "2026-01-01", max: "2032-12-31" });
+  });
+
+  it("accepts dates inside and rejects typos, far years and non-dates", () => {
+    const today = "2026-11-14";
+    expect(isEventDateInRange("2025-01-01", today)).toBe(true);
+    expect(isEventDateInRange("2031-12-31", today)).toBe(true);
+    expect(isEventDateInRange("2024-12-31", today)).toBe(false);
+    expect(isEventDateInRange("2032-01-01", today)).toBe(false);
+    expect(isEventDateInRange("9999-12-31", today)).toBe(false);
+    expect(isEventDateInRange("0001-01-01", today)).toBe(false);
+    expect(isEventDateInRange("2026-02-30", today)).toBe(false);
+    expect(isEventDateInRange("", today)).toBe(false);
+    expect(isEventDateInRange(null, today)).toBe(false);
   });
 });
 

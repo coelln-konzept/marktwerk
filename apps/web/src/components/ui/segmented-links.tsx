@@ -68,7 +68,7 @@ export function Segments({ items }: { items: SegmentItem[] }) {
             // One segmented style app-wide: a raised card pill. A near-white/near-black fill would
             // out-shout the primary button (V6); the outline keeps it visible in dark mode.
             className={cn(
-              "inline-flex min-h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-3 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring",
+              "inline-flex min-h-7 tap:min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md px-3 font-medium text-small focus-visible:outline-2 focus-visible:outline-ring",
               active
                 ? "bg-card font-semibold text-foreground shadow-card ring-1 ring-input"
                 : "text-foreground-2 hover:bg-hover",
@@ -78,7 +78,7 @@ export function Segments({ items }: { items: SegmentItem[] }) {
             {item.count !== undefined && (
               <span
                 className={cn(
-                  "tabular inline-grid h-5 min-w-5 place-items-center rounded-full px-1 font-semibold text-[11.5px]",
+                  "tabular inline-grid h-5 min-w-5 place-items-center rounded-full px-1 font-semibold text-micro",
                   active
                     ? "bg-accent-soft text-accent-soft-foreground"
                     : "bg-status-neutral-bg text-foreground-2",

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventStatusBadge } from "@/components/events/event-status";
-import { addressLine } from "@/components/ui/phone";
+import { AddressLink } from "@/components/ui/phone";
 import { Facts, Vorschau } from "@/components/ui/vorschau";
 import { formatDateRange, formatLength, todayIn } from "@/lib/format";
 import { getActor } from "@/server/actor";
@@ -17,7 +17,6 @@ export async function VenueVorschau({ id, closeHref }: { id: string; closeHref: 
   const locale = await getLocale();
   const events = await listVenueEvents(actor, id, todayIn());
   const next = events.upcoming.filter((e) => e.status !== "cancelled").slice(0, 3);
-  const address = addressLine(venue);
   return (
     <Vorschau
       kind={t("vorschau.kind")}
@@ -28,17 +27,26 @@ export async function VenueVorschau({ id, closeHref }: { id: string; closeHref: 
     >
       <Facts
         items={[
-          { label: t("vorschau.address"), value: address || t("none") },
+          // A maps link (UX-016); "Kapazität offen" instead of "0,00 m" (UX-056).
+          {
+            label: t("vorschau.address"),
+            value: <AddressLink place={venue} fallback={t("none")} />,
+          },
           {
             label: t("vorschau.zones"),
             value:
-              venue.zones.length > 0
-                ? t("vorschau.zonesSummary", {
-                    zones: venue.zones.length,
-                    rows: venue.rowCount,
-                    length: formatLength(venue.capacityCm ?? 0, locale),
-                  })
-                : t("vorschau.noZones"),
+              venue.zones.length === 0
+                ? t("vorschau.noZones")
+                : venue.capacityCm
+                  ? t("vorschau.zonesSummary", {
+                      zones: venue.zones.length,
+                      rows: venue.rowCount,
+                      length: formatLength(venue.capacityCm, locale),
+                    })
+                  : t("vorschau.zonesSummaryOpen", {
+                      zones: venue.zones.length,
+                      rows: venue.rowCount,
+                    }),
           },
           {
             label: t("vorschau.landowner"),

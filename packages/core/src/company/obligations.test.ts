@@ -6,6 +6,7 @@ import {
   nextAnnualDate,
   OBLIGATION_PRESETS,
   obligationDedupeKey,
+  obligationDueMissing,
   obligationReminderPlan,
   obligationStatus,
   rollForward,
@@ -199,6 +200,33 @@ describe("obligationStatus", () => {
       currentKm: 90_000,
     });
     expect(d).toMatchObject({ status: "overdue", trigger: "date" });
+  });
+});
+
+describe("obligationDueMissing", () => {
+  const base = {
+    nextDueOn: null,
+    nextDueKm: null,
+    intervalMonths: 24,
+    intervalKm: null,
+    lastDoneOn: null,
+  };
+
+  it("is missing without a date and without a km target", () => {
+    expect(obligationDueMissing(base)).toBe(true);
+    expect(obligationDueMissing({ ...base, lastDoneOn: "2026-01-01" })).toBe(true);
+    expect(obligationDueMissing({ ...base, intervalMonths: null, intervalKm: 30_000 })).toBe(true);
+  });
+
+  it("is not missing with a date or a km target", () => {
+    expect(obligationDueMissing({ ...base, nextDueOn: "2027-01-01" })).toBe(false);
+    expect(obligationDueMissing({ ...base, nextDueKm: 120_000 })).toBe(false);
+  });
+
+  it("a one-off duty is missing until it is done, then finished", () => {
+    const oneOff = { ...base, intervalMonths: null };
+    expect(obligationDueMissing(oneOff)).toBe(true);
+    expect(obligationDueMissing({ ...oneOff, lastDoneOn: "2026-10-01" })).toBe(false);
   });
 });
 

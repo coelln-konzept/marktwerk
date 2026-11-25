@@ -3,14 +3,14 @@ import type { EventTypeKey, VendorCategory } from "../types";
 /** Sentences for event presets' public text. Each preset gets one or two of these plus a venue sentence. */
 export const PUBLIC_TEXT_SENTENCES: Record<EventTypeKey, readonly string[]> = {
   flea: [
-    "Trödel, Bücher, Kleidung und kleine Schätze aus Haushaltsauflösungen warten auf neue Besitzer:innen.",
-    "Privatleute und kleine Händler:innen bieten ihre Sachen an, zum Stöbern und Feilschen.",
+    "Trödel, Bücher, Kleidung und kleine Schätze aus Haushaltsauflösungen warten auf neue Besitzer.",
+    "Privatleute und kleine Händler bieten ihre Sachen an, zum Stöbern und Feilschen.",
     "Die Stände sind ab 08:00 Uhr geöffnet, Kaffee und Kuchen gibt es am Rand des Platzes.",
   ],
   antique: [
-    "Porzellan, Silber, Möbel und Gemälde von Antiquar:innen aus der Region.",
+    "Porzellan, Silber, Möbel und Gemälde von Antiquaren aus der Region.",
     "Auf dem Antikmarkt gibt es ausschließlich Antiquitäten und Sammlerstücke, keine Neuware.",
-    "Ein Termin für Sammler:innen und alle, die es gern alt mögen.",
+    "Ein Termin für Sammler und alle, die es gern alt mögen.",
   ],
   city_festival: [
     "Musik, Kulinarik und ein Programm für die ganze Familie.",
@@ -18,8 +18,8 @@ export const PUBLIC_TEXT_SENTENCES: Record<EventTypeKey, readonly string[]> = {
     "Der Eintritt ist frei, Essen und Getränke gibt es an den Ständen.",
   ],
   food_wine: [
-    "Regionale Weine, Käse und Spezialitäten von Produzent:innen aus dem Rheinland.",
-    "Verkostungen und Gespräche mit den Winzer:innen direkt am Stand.",
+    "Regionale Weine, Käse und Spezialitäten von Produzenten aus dem Rheinland.",
+    "Verkostungen und Gespräche mit den Winzern direkt am Stand.",
     "Mit Sitzplätzen und Musik am Nachmittag.",
   ],
 };

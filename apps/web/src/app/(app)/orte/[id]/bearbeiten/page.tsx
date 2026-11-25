@@ -1,3 +1,4 @@
+import { can } from "@marktwerk/core";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -14,7 +15,9 @@ export async function generateMetadata({
 }
 
 export default async function EditVenuePage({ params }: PageProps<"/orte/[id]/bearbeiten">) {
-  await requirePermission("venue", "write");
+  const user = await requirePermission("venue", "write");
+  // "Was braucht dieser Ort?" sets permit requirements (Fahrplan R30).
+  const canSetNeeds = can(user.role, "permit", "write") && can(user.role, "permit", "delete");
   const { id } = await params;
   const venue = await getVenueForEdit(id);
   if (!venue) notFound();
@@ -33,6 +36,7 @@ export default async function EditVenuePage({ params }: PageProps<"/orte/[id]/be
       <PageHeader title={tm("editTitle")} subtitle={tm("editSubtitle")} />
       <VenueForm
         venueId={venue.id}
+        canSetNeeds={canSetNeeds}
         initial={{
           name: venue.name,
           kind: venue.kind,

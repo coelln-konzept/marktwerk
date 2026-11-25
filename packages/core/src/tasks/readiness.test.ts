@@ -272,3 +272,28 @@ describe("shortLabel", () => {
     expect(shortLabel("Donaudampfschifffahrtsgesellschaft")).toBe("Donaudampfschifffa…");
   });
 });
+
+describe("subtasks (ADR 0021)", () => {
+  const base = {
+    id: "p",
+    title: "Parent",
+    status: "todo" as const,
+    category: "general",
+    isKey: true,
+    dueOn: "2026-12-01",
+    snoozedUntil: null,
+  };
+  it("counts a parent with an overdue subtask as overdue once, also undated", () => {
+    const today = "2026-11-13";
+    expect(
+      summarizeReadiness([{ ...base, subtasksOverdue: 2 }], [], "2026-12-05", today).overdue,
+    ).toBe(1);
+    expect(
+      summarizeReadiness([{ ...base, dueOn: null, subtasksOverdue: 1 }], [], "2026-12-05", today)
+        .overdue,
+    ).toBe(1);
+    expect(summarizeReadiness([base], [], "2026-12-05", today).overdue).toBe(0);
+    expect(matrixCellState({ ...base, subtasksOverdue: 1 }, today)).toBe("overdue");
+    expect(matrixCellState({ ...base, subtasksOverdue: 1, status: "done" }, today)).toBe("done");
+  });
+});

@@ -149,6 +149,36 @@ export const OBLIGATION_STATUS_ORDER: readonly ObligationStatus[] = [
   "ok",
 ];
 
+/**
+ * An active obligation without any target: no due date and no km target, so `obligationStatus` says "ok"
+ * forever and no reminder ever runs (UX-022). Shown as "Fälligkeit fehlt" (warn) instead of "in Ordnung"
+ * (round-1 default, open-questions §7). A one-off duty (no interval) that was done has no next target by
+ * design (`rollForward`) and is not missing anything.
+ */
+export function obligationDueMissing(input: {
+  nextDueOn: string | null;
+  nextDueKm: number | null;
+  intervalMonths: number | null;
+  intervalKm: number | null;
+  lastDoneOn: string | null;
+}): boolean {
+  if (input.nextDueOn !== null || input.nextDueKm !== null) return false;
+  const oneOff = input.intervalMonths === null && input.intervalKm === null;
+  return !(oneOff && input.lastDoneOn !== null);
+}
+
+/** What the screens show: the reminder status, or `missing` when there is no target at all. */
+export type ObligationDisplayStatus = ObligationStatus | "missing";
+
+/** Worst first; "Fälligkeit fehlt" sits between the running reminders and "in Ordnung". */
+export const OBLIGATION_DISPLAY_ORDER: readonly ObligationDisplayStatus[] = [
+  "overdue",
+  "due",
+  "soon",
+  "missing",
+  "ok",
+];
+
 // ---------------------------------------------------------------------------------------------
 // Reminders (job)
 

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { DocumentList } from "@/components/documents/document-list";
 import { DocumentUpload } from "@/components/documents/upload";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { getActor } from "@/server/actor";
 import { canWriteDocuments, listLinkedDocuments } from "@/server/queries/documents";
 import { getEvent } from "@/server/queries/events";
@@ -24,10 +24,7 @@ export default async function EventDocumentsPage({
   const documents = (await listLinkedDocuments(actor, "eventId", [event.id])).get(event.id) ?? [];
   const canWrite = canWriteDocuments(actor, "eventId");
   return (
-    <Panel aria-labelledby="documents-title">
-      <PanelHeader>
-        <PanelTitle id="documents-title">{t("title")}</PanelTitle>
-      </PanelHeader>
+    <Panel title={t("title")} titleId="documents-title">
       <PanelBody className="flex flex-col gap-4">
         {documents.length === 0 ? (
           <p className="m-0 text-muted-foreground">{t("empty")}</p>

@@ -3,7 +3,7 @@ import { CalendarPlus } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EventStatusBadge } from "@/components/events/event-status";
-import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel, PanelBody, PanelHeader, PanelHeading, PanelTitle } from "@/components/ui/panel";
 import { formatDate } from "@/lib/format";
 import { getActor } from "@/server/actor";
 import { listContactOptions, listVenueAgreements } from "@/server/queries/agreements";
@@ -21,6 +21,7 @@ export async function AgreementsSection({ venueId }: { venueId: string }) {
   const locale = await getLocale();
   const canWrite = can(actor.role, "venue", "write");
   const canGenerate = can(actor.role, "event", "write");
+  const canCreateContact = can(actor.role, "contact", "write");
   const showEvents = can(actor.role, "event", "read");
   const [agreements, contacts] = await Promise.all([
     listVenueAgreements(venueId),
@@ -29,12 +30,21 @@ export async function AgreementsSection({ venueId }: { venueId: string }) {
 
   return (
     <section aria-labelledby="agreements-title" className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="agreements-title" className="font-semibold text-[15px]">
-          {t("title")}
-        </h2>
-        {canWrite && <AgreementDialog venueId={venueId} contacts={contacts} />}
-      </div>
+      <PanelHeading
+        id="agreements-title"
+        className="mb-0"
+        actions={
+          canWrite ? (
+            <AgreementDialog
+              venueId={venueId}
+              contacts={contacts}
+              canCreateContact={canCreateContact}
+            />
+          ) : undefined
+        }
+      >
+        {t("title")}
+      </PanelHeading>
       {agreements.length === 0 ? (
         <Panel>
           <PanelBody className="text-muted-foreground">{t("empty")}</PanelBody>
@@ -117,6 +127,7 @@ export async function AgreementsSection({ venueId }: { venueId: string }) {
                       <AgreementDialog
                         venueId={venueId}
                         contacts={contacts}
+                        canCreateContact={canCreateContact}
                         agreement={{
                           id: a.id,
                           counterpartyContactId: a.counterpartyContactId,

@@ -1,9 +1,11 @@
 import { DISPLAY_STATE_SEVERITY, isHeld, isUnfiled } from "@marktwerk/core";
+import { CircleHelp } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useDueText } from "@/components/ui/due-badge";
 import { Panel } from "@/components/ui/panel";
 import { ScrollX } from "@/components/ui/scroll-x";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { TH, THead, TR } from "@/components/ui/table";
 import { formatDateShortYear, todayIn } from "@/lib/format";
 import { PERMIT_TYPE_KEYS } from "@/lib/permit-status";
@@ -28,17 +30,22 @@ const dayMonth = (date: string, locale: string, today: string) =>
   formatDateShortYear(date, locale, today).replace(/^\S+\s/, "");
 
 /**
- * What a cell says beyond the state: the earliest apply-by date of the permits still to be filed, and how
- * many of the upcoming events the permits of the cell cover ("7/7", granted ones count as covering).
+ * What a cell says beyond the state: the earliest apply-by date of the permits still to be filed, the
+ * earliest expected answer of the filed ones (UX-047), and how many of the upcoming events the permits
+ * of the cell cover ("7/7", granted ones count as covering).
  */
 function cellFacts(cell: LogbookRow[]) {
   const dates = cell
     .filter((r) => isUnfiled(r.status) && r.applyBy)
     .map((r) => r.applyBy as string)
     .sort();
+  const decisions = cell
+    .filter((r) => r.status === "applied" && r.expectedDecisionOn)
+    .map((r) => r.expectedDecisionOn as string)
+    .sort();
   const total = cell.reduce((sum, r) => sum + r.upcomingEvents, 0);
   const held = cell.reduce((sum, r) => sum + (isHeld(r.state) ? r.upcomingEvents : 0), 0);
-  return { until: dates[0] ?? null, total, held };
+  return { until: dates[0] ?? null, decision: decisions[0] ?? null, total, held };
 }
 
 /**
@@ -52,11 +59,14 @@ export function LogbookMatrix({
   path,
   sp,
   selectedId,
+  unclearVenues = [],
 }: {
   rows: LogbookRow[];
   path: string;
   sp: Record<string, string | string[] | undefined>;
   selectedId?: string;
+  /** Orte with upcoming events and no requirements: a row "Noch nicht geklärt" each (UX-011). */
+  unclearVenues?: { id: string; name: string; nextEventOn: string }[];
 }) {
   const t = useTranslations("logbook");
   const tTypes = useTranslations("permitTypes");
@@ -142,10 +152,16 @@ export function LogbookMatrix({
                     const showCoverage =
                       facts.total > 0 && top !== null && (cell.length > 1 || isHeld(top.state));
                     const overdue = facts.until !== null && facts.until < today;
+                    // The answer date only when nothing is still to be filed in this cell.
+                    const decision = facts.until === null ? facts.decision : null;
+                    const answerLate = decision !== null && decision < today;
                     // Tooltip and screen reader get the words the cell abbreviates.
                     const detail = [
                       facts.until
                         ? `${t("cellDetailUntil", { date: dayMonth(facts.until, locale, today) })} (${dueText(facts.until, today)})`
+                        : null,
+                      decision
+                        ? `${t("cellDetailDecision", { date: dayMonth(decision, locale, today) })} (${dueText(decision, today)})`
                         : null,
                       showCoverage
                         ? t("cellDetailCoverage", { held: facts.held, total: facts.total })
@@ -189,7 +205,7 @@ export function LogbookMatrix({
                             className="inline-flex flex-col items-start gap-0.5 rounded-lg focus-visible:outline-2 focus-visible:outline-ring aria-[current=true]:ring-2 aria-[current=true]:ring-ring"
                           >
                             <PermitStateBadge state={top.state} />
-                            {(facts.until || showCoverage) && (
+                            {(facts.until || decision || showCoverage) && (
                               <span
                                 aria-hidden
                                 className="tabular flex items-center gap-1.5 whitespace-nowrap px-1 text-tiny"
@@ -203,6 +219,15 @@ export function LogbookMatrix({
                                     {t("cellUntil", {
                                       date: dayMonth(facts.until, locale, today),
                                     })}
+                                  </span>
+                                )}
+                                {decision && (
+                                  <span
+                                    className={
+                                      answerLate ? "text-status-critical" : "text-muted-foreground"
+                                    }
+                                  >
+                                    {t("cellDecision", { date: dayMonth(decision, locale, today) })}
                                   </span>
                                 )}
                                 {showCoverage && (
@@ -220,6 +245,46 @@ export function LogbookMatrix({
                 )}
               </TR>
             ))}
+            {unclearVenues.map((v) => (
+              <TR key={`unclear-${v.id}`}>
+                <th
+                  scope="row"
+                  className="sticky left-0 z-[1] h-row min-w-40 max-w-56 bg-card px-3 py-(--cell-y) text-left font-semibold group-hover/row:bg-hover"
+                >
+                  <Link
+                    href={`/orte/${v.id}` as never}
+                    className="hover:text-accent-soft-foreground hover:underline"
+                  >
+                    {v.name}
+                  </Link>
+                </th>
+                <td
+                  colSpan={Math.max(
+                    1,
+                    groups.reduce((n, g) => n + g.types.length, 0),
+                  )}
+                  className="h-row border-l px-2 py-(--cell-y) align-middle"
+                >
+                  <span className="flex flex-wrap items-center gap-2">
+                    <StatusBadge tone="warn" icon={CircleHelp}>
+                      {t("unclear.state")}
+                    </StatusBadge>
+                    <span className="text-muted-foreground text-tiny">
+                      {t("unclear.next", {
+                        date: formatDateShortYear(v.nextEventOn, locale, today),
+                      })}
+                    </span>
+                    <Link
+                      href={`/orte/${v.id}/genehmigungen/neu` as never}
+                      aria-label={t("unclear.actionNamed", { venue: v.name })}
+                      className="font-medium text-accent-soft-foreground text-small hover:underline"
+                    >
+                      {t("unclear.action")}
+                    </Link>
+                  </span>
+                </td>
+              </TR>
+            ))}
           </tbody>
         </table>
       </ScrollX>
@@ -233,6 +298,7 @@ export function LogbookMatrix({
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
           <li>{t("legendCell")}</li>
           <li>{t("legendUntil")}</li>
+          <li>{t("legendDecision")}</li>
           <li>{t("legendCoverage")}</li>
           <li>{t("legendNone")}</li>
         </ul>

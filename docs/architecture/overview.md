@@ -42,7 +42,7 @@ flowchart LR
 | Unit | Tech | Responsibility |
 |---|---|---|
 | `apps/web` | Next.js 16 (App Router, React 19, Server Actions), Better Auth, next-intl, Tailwind 4 + shadcn/ui (Base UI) | Back office UI, staff magic-link pages, field PWA (P3), webhooks (Graph, WhatsApp), new public booking form (P4) |
-| `apps/worker` | Node 22+/24, pg-boss 12 | Cron jobs (deadline sweep, nightly carry-over, digests, payroll reminders; all email paths are gated by `settings.email_enabled`, off by default), async jobs (event generation, messages, PDFs, legacy-site/mailbox sync, bank import) |
+| `apps/worker` | Node 22+/24, pg-boss 12 | Cron jobs (deadline sweep, nightly carry-over, digests, payroll reminders, nightly Saison records `event-seasons`; all email paths are gated by `settings.email_enabled`, off by default), async jobs (event generation, messages, PDFs, legacy-site/mailbox sync, bank import) |
 | PostgreSQL | v17 (Scalingo addon in prod, Docker in dev) | Single source of truth incl. job queue (`pgboss` schema) |
 
 Both units import the same internal packages, so domain rules exist exactly once.
@@ -67,15 +67,20 @@ marktwerk/
 ├── packages/
 │   ├── core/                    pure domain logic (no I/O): permissions, relative dates,
 │   │                            reminders, holidays, pricing (P2), health computation
-│   └── db/                      Drizzle schema, migrations (drizzle/), db client
+│   ├── db/                      Drizzle schema, migrations (drizzle/), db client
+│   └── jobs/                    job handlers (worker + /api/cron) and the service paths they share
+│                                with the web app: template instantiation, Saison records
 └── docs/                        research, product, architecture, ADRs, development
 ```
 
 **Layering rule:** UI (pages/components) → server actions/route handlers → **services**
 (`apps/web/src/server/services/*`, transactional, audited, permission-checked) → db. Pure
 calculations live in `packages/core` and are unit-tested. The worker calls the same services
-and core functions, never duplicates them. When the worker needs a service, move it to a
-shared `packages/services` package (planned in M2, once the first one exists).
+and core functions, never duplicates them. The first service paths a job needs, template instantiation
+(`task-instantiation.ts`) and the Saison records (`seasons.ts`, nightly `event-seasons`), moved to
+`packages/jobs` and are re-exported by the web services; they take the transaction and an actor
+(`{ id }`, null for a job), while permission checks stay in the web wrappers. A separate
+`packages/services` package is still the plan once more paths follow.
 
 ## Cross-cutting concerns
 
@@ -91,7 +96,7 @@ shared `packages/services` package (planned in M2, once the first one exists).
 | **Email out** | Nodemailer via SMTP (Mailpit in dev) for system mail; vendor-facing mail (confirmations) via Graph from the shared mailbox (P2); React Email templates; per-recipient locale. |
 | **Staff messaging** | `outbound_message` queue with debounce + quiet hours; WhatsApp via wa.me links (step 1) then Cloud API (step 2), ADR 0011; signed magic links for staff pages. |
 | **Legal parameters** | Minimum wage, Minijob limit, inspection intervals etc. in a dated `legal_parameter` table, never in code. |
-| **Search** | Postgres full-text search (`tsvector`, German + simple configs) and `pg_trgm`; no external engine. |
+| **Search** | Postgres full-text search (`tsvector`, German + simple configs) and `pg_trgm`; no external engine. Strg+K (`server/search-core.ts`): umlaut-folded word matches first; only when nothing starts a word anywhere, a second pass allows typos (`pg_trgm` `word_similarity` ≥ 0.5, or two swapped letters at a word start: "Flomarkt", "bnon"), ranked below every literal match. `pg_trgm` lives in schema `app` (migration 0021). |
 | **Real-time** | Not in MVP. Revalidate on mutation; later SSE or Postgres LISTEN/NOTIFY for the inbox collision indicator (P2). |
 | **Offline (P3)** | Serwist service worker for the shell + IndexedDB (Dexie) snapshot of the day sheet + an outbox of append-only commands with idempotency keys. No general offline editing. |
 | **Observability** | Structured logs (pino) in both apps; Sentry (EU region) or GlitchTip self-hosted; uptime check. |

@@ -37,17 +37,22 @@ export function sortPermits<T extends Sortable>(rows: readonly T[], sort: Permit
 }
 
 /** The groups of the list when it is sorted by "Antrag bis". */
-export type PermitListGroup = "now" | "later" | "other";
+export type PermitListGroup = "now" | "chase" | "later" | "other";
+export const PERMIT_LIST_GROUPS = ["now", "chase", "later", "other"] as const;
 
 /**
  * Which group a permit belongs to: "now" = apply for it now (overdue or due within the horizon),
- * "later" = still to be applied for, not due yet, "other" = needs nothing from the office (filed,
- * granted, not needed) or no upcoming market asks for it. Same split as the sidebar badge.
+ * "chase" = filed, but the expected answer is overdue ("Antwort überfällig (nachfragen)"), "later" =
+ * still to be applied for, not due yet, "other" = needs nothing from the office (filed, granted, not
+ * needed) or no upcoming market asks for it. Same split as the sidebar badge.
  */
 export function permitListGroup(row: {
   tier: PermitActionTier | null;
   upcomingEvents: number;
+  state?: PermitDisplayState;
 }): PermitListGroup {
-  if (row.upcomingEvents === 0 || row.tier === null) return "other";
+  if (row.upcomingEvents === 0) return "other";
+  if (row.state === "answer_overdue") return "chase";
+  if (row.tier === null) return "other";
   return row.tier === "not_due" ? "later" : "now";
 }

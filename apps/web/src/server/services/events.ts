@@ -1,20 +1,22 @@
 import "server-only";
 import {
   can,
-  checkEventTimes,
   defaultAnchors,
+  defaultSchedule,
   endsOnFor,
   groupConsecutiveDates,
+  isInEventDateRange,
   isIsoDate,
   MAX_PRICE_CENTS,
-  normalizeClockTime,
+  parseSchedule,
+  type Schedule,
   type ScheduledEvent,
+  validateSchedule,
 } from "@marktwerk/core";
 import {
   auditLog,
   type DefaultDuties,
   dutyRole,
-  type EventTimes,
   event,
   eventAnchor,
   eventDuty,
@@ -24,10 +26,17 @@ import {
 } from "@marktwerk/db/schema";
 import { and, eq, gte, inArray, isNull, lte, ne } from "drizzle-orm";
 import { forbidden } from "next/navigation";
+import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { fillLogbookForEvents } from "./permits";
+import {
+  completeDatesPlanningTx,
+  ensureSeasonsTx,
+  seasonsWithoutDatesTx,
+  syncSeasonsTx,
+} from "./seasons";
 import { instantiateTemplatesForEvents } from "./task-instantiation";
 
 /** At most this many events per run (a full season of one preset is ~10). */
@@ -89,7 +98,8 @@ export type EventTemplate = {
   venueId: string;
   name: string;
   durationDays: number;
-  times: EventTimes;
+  /** The Zeitplan every new event gets a copy of (ADR 0022). */
+  schedule: Schedule;
   pricePerMCents: number;
   bookingFeeCents: number;
   /** duty_role.key → staff_member.id; empty for events without a preset. */
@@ -103,7 +113,7 @@ export type EventDay = string | { startsOn: string; durationDays: number };
 
 /**
  * THE one service path that creates events (CLAUDE.md, data model "Generating events"): copies type,
- * venue, times and prices from the template, sets the named anchors and the default duties, all inside
+ * venue, Zeitplan and prices from the template, sets the named anchors and the default duties, all inside
  * the caller's transaction with an audit entry per event. Presets, single events and location
  * agreements only differ in where the template comes from (and the audit `source`); nothing else may
  * insert into `event`. Warnings (holidays, weekend cap, venue already booked) never block; the office
@@ -127,6 +137,16 @@ export async function instantiateEvents(
     ? await tx.select({ id: dutyRole.id, key: dutyRole.key }).from(dutyRole)
     : [];
   const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
+  // "Markt planen" that gives a season its first dates completes its "Termine planen" (UX-009), read before
+  // the insert.
+  const firstDates =
+    template.presetId && source !== "agreement"
+      ? await seasonsWithoutDatesTx(
+          tx,
+          template.presetId,
+          days.map((day) => Number((typeof day === "string" ? day : day.startsOn).slice(0, 4))),
+        )
+      : [];
 
   const created: CreatedEvent[] = [];
   for (const day of days) {
@@ -146,7 +166,7 @@ export async function instantiateEvents(
         season: Number(startsOn.slice(0, 4)),
         startsOn,
         endsOn,
-        times: template.times,
+        schedule: template.schedule.map((row) => ({ ...row })),
         status: "planned",
         pricePerMCents: template.pricePerMCents,
         bookingFeeCents: template.bookingFeeCents,
@@ -170,6 +190,21 @@ export async function instantiateEvents(
     actor,
     created.map((c) => c.id),
   );
+  // Saison (research 13 §6.2): the market has its record for every season it now has dates in, and the anchors
+  // of records that existed already follow the new dates (their open season tasks move along). Before the logbook
+  // fill, so a season permit belongs to its record and its season task applies for it (Fahrplan R11).
+  if (template.presetId) {
+    const presetId = template.presetId;
+    const seasons = [...new Set(created.map((c) => Number(c.startsOn.slice(0, 4))))].sort();
+    const keys = seasons.map((season) => ({ presetId, season }));
+    await ensureSeasonsTx(tx, actor, keys, source === "agreement" ? "agreement" : "markt_planen");
+    await syncSeasonsTx(tx, actor, keys, "event_create");
+    await completeDatesPlanningTx(
+      tx,
+      actor,
+      firstDates.map((season) => ({ presetId, season })),
+    );
+  }
   // M3: logbook fill for the new events (covering permits, missing ones + their tasks).
   await fillLogbookForEvents(
     tx,
@@ -208,7 +243,7 @@ export async function presetTemplate(presetId: string): Promise<EventTemplate> {
     venueId: preset.venueId,
     name: preset.name,
     durationDays: preset.durationDays,
-    times: preset.defaultTimes,
+    schedule: preset.schedule,
     pricePerMCents: preset.pricePerMCents,
     bookingFeeCents: preset.bookingFeeCents,
     defaultDuties: preset.defaultDuties,
@@ -221,7 +256,8 @@ export type ManualEventInput = {
   eventTypeId: string;
   venueId: string;
   durationDays: number;
-  times: EventTimes;
+  /** The Zeitplan as edited; left out = the default Zeitplan of a new market (ADR 0022). */
+  schedule?: Schedule;
   pricePerMCents: number;
   bookingFeeCents: number;
 };
@@ -242,15 +278,9 @@ export async function manualTemplate(input: ManualEventInput): Promise<EventTemp
     input.durationDays > MAX_EVENT_DAYS
   )
     throw new EventInputError("invalid_duration");
-  const clock = (value: unknown) => normalizeClockTime(String(value ?? "")) ?? "";
-  const times: EventTimes = {
-    setup: clock(input.times?.setup),
-    open: clock(input.times?.open),
-    close: clock(input.times?.close),
-    teardown: clock(input.times?.teardown),
-  };
-  const timesError = checkEventTimes(times, input.durationDays > 1);
-  if (timesError) throw new EventInputError(timesError);
+  const schedule = input.schedule === undefined ? defaultSchedule() : parseSchedule(input.schedule);
+  if (!schedule || validateSchedule(schedule, input.durationDays).length > 0)
+    throw new EventInputError("invalid_schedule");
   if (!validCents(input.pricePerMCents) || !validCents(input.bookingFeeCents))
     throw new EventInputError("invalid_price");
 
@@ -275,7 +305,7 @@ export async function manualTemplate(input: ManualEventInput): Promise<EventTemp
     venueId: place.id,
     name,
     durationDays: input.durationDays,
-    times,
+    schedule,
     pricePerMCents: input.pricePerMCents,
     bookingFeeCents: input.bookingFeeCents,
     defaultDuties: {},
@@ -308,6 +338,9 @@ export async function createManualEvent(
 ): Promise<CreatedEvent> {
   if (!can(actor.role, "event", "write")) forbidden();
   const days = validateDates([input.startsOn]);
+  // A typo like 9999 or 0001 would create an event nobody finds again (UX-041).
+  if (!isInEventDateRange(input.startsOn, todayIn()))
+    throw new EventInputError("date_out_of_range");
   const template = await manualTemplate(input);
   const [created] = await db.transaction((tx) =>
     instantiateEvents(tx, actor, template, days, "manual"),
@@ -371,7 +404,7 @@ export async function undoGeneratedEvents(actor: Actor, ids: string[]) {
           untouched.map((u) => u.id),
         ),
       )
-      .returning({ id: event.id });
+      .returning({ id: event.id, presetId: event.presetId, season: event.season });
     await audit(
       tx,
       actor.id,
@@ -382,6 +415,8 @@ export async function undoGeneratedEvents(actor: Actor, ids: string[]) {
         diff: { reason: "undo" },
       })),
     );
+    // Archived dates no longer count for their season (R10).
+    await syncSeasonsTx(tx, actor, archived, "event_archive");
     return archived.length;
   });
 }

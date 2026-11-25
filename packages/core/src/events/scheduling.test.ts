@@ -33,6 +33,30 @@ describe("checkCandidates", () => {
     expect(check?.holidays.map((h) => h.key)).toEqual(["whit_sunday"]);
   });
 
+  it("flags stille Feiertage that are no holiday (Volkstrauertag) with their hours", () => {
+    const [check] = checkCandidates(
+      [{ venueId: "v1", startsOn: "2026-11-14", endsOn: "2026-11-15" }],
+      [],
+    );
+    expect(check?.holidays).toEqual([
+      expect.objectContaining({
+        key: "national_mourning_day",
+        date: "2026-11-15",
+        quiet: { fromHour: 5, untilHour: 13 },
+      }),
+    ]);
+    expect(check?.holidayWeekends).toEqual([]);
+  });
+
+  it("names the holiday weekend once for a two-day event on Karsamstag and Ostersonntag", () => {
+    const [check] = checkCandidates(
+      [{ venueId: "v1", startsOn: "2026-04-04", endsOn: "2026-04-05" }],
+      [],
+    );
+    expect(check?.holidayWeekends.map((w) => w.key)).toEqual(["easter"]);
+    expect(check?.holidays.map((h) => h.key)).toEqual(["easter_sunday"]);
+  });
+
   it("flags a venue that already has an event that day", () => {
     const [check] = checkCandidates(
       [{ venueId: "v1", startsOn: "2026-06-07", endsOn: "2026-06-07" }],
@@ -52,32 +76,19 @@ describe("checkCandidates", () => {
     expect(checks.map((c) => c.overlapsCandidate)).toEqual([null, "2026-06-06"]);
   });
 
-  it("counts existing events and earlier candidates against the weekend cap of 4", () => {
-    const existing = [
-      event("a", "v1", "2026-05-16"),
-      event("b", "v2", "2026-05-16"),
-      event("c", "v3", "2026-05-17"),
-    ];
-    const checks = checkCandidates(
-      [
-        { venueId: "v4", startsOn: "2026-05-17", endsOn: "2026-05-17" },
-        { venueId: "v5", startsOn: "2026-05-16", endsOn: "2026-05-16" },
-      ],
+  it("gives no hint for a busy weekend at other venues (UT2-11: no weekend count)", () => {
+    const existing = ["a", "b", "c", "d", "e"].map((id, i) => event(id, `v${i + 1}`, "2026-05-16"));
+    const [check] = checkCandidates(
+      [{ venueId: "v9", startsOn: "2026-05-16", endsOn: "2026-05-17" }],
       existing,
     );
-    expect(checks.map((c) => [c.startsOn, c.weekendLoad[0]?.count, c.overWeekendCap])).toEqual([
-      ["2026-05-16", 4, false],
-      ["2026-05-17", 5, true],
-    ]);
-  });
-
-  it("does not count weekday events against a weekend", () => {
-    const [check] = checkCandidates(
-      [{ venueId: "v1", startsOn: "2026-05-13", endsOn: "2026-05-13" }],
-      [],
-    );
-    expect(check?.weekendLoad).toEqual([]);
-    expect(check?.overWeekendCap).toBe(false);
+    expect(check).toMatchObject({
+      holidays: [],
+      holidayWeekends: [],
+      venueConflicts: [],
+      overlapsCandidate: null,
+    });
+    expect(Object.keys(check ?? {})).not.toContain("weekendLoad");
   });
 });
 

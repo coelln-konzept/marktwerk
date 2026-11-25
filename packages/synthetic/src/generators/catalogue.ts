@@ -1,3 +1,4 @@
+import { venueNameFromAddress } from "@marktwerk/core";
 import { COMPANY_NAME } from "../constants";
 import { EVENT_TYPE_BLUEPRINTS } from "../dictionaries/event-types";
 import { VENUE_BLUEPRINTS, type VenueBlueprint, ZONE_NAMES } from "../dictionaries/venues";
@@ -64,8 +65,7 @@ function buildRows(
   blueprint: VenueBlueprint,
 ): Row[] {
   return Array.from({ length: rowCount }, (_, index) => {
-    const indoor = blueprint.kind === "indoor";
-    const carAllowed = !indoor && rng.chance(blueprint.kind === "outdoor_private" ? 0.7 : 0.4);
+    const carAllowed = rng.chance(blueprint.kind === "private" ? 0.7 : 0.4);
     return {
       id: rng.uuid(),
       zoneId,
@@ -84,12 +84,21 @@ function buildRows(
   });
 }
 
-/** Twelve venues with 2–5 zones each and 3–5 rows per zone. Capacity is the sum of all row lengths. */
+/** The Ort's name: the blueprint's, or derived from the address like the app does when none is typed (UT2-02). */
+export function venueName(blueprint: VenueBlueprint): string {
+  return blueprint.name ?? venueNameFromAddress(blueprint.city, blueprint.street);
+}
+
+/**
+ * The venues of VENUE_BLUEPRINTS: named zones where several markets share the place, else 2–4 generic zones; 3–5
+ * rows per zone. Capacity is the sum of all row lengths.
+ */
 export function buildVenues(rng: Rng, landownerIdByKey: Map<string, string>): Venue[] {
   return VENUE_BLUEPRINTS.map((blueprint) => {
     const venueId = rng.uuid();
-    const zoneCount = rng.int(2, 5);
-    const zoneNames = rng.shuffle(ZONE_NAMES).slice(0, zoneCount);
+    const zoneNames = blueprint.zones
+      ? [...blueprint.zones]
+      : rng.shuffle(ZONE_NAMES).slice(0, rng.int(2, 4));
     let rowOffset = 0;
     const zones: Zone[] = zoneNames.map((name) => {
       const zoneId = rng.uuid();
@@ -104,7 +113,7 @@ export function buildVenues(rng: Rng, landownerIdByKey: Map<string, string>): Ve
     );
     return {
       id: venueId,
-      name: blueprint.name,
+      name: venueName(blueprint),
       kind: blueprint.kind,
       street: blueprint.street,
       postalCode: blueprint.postalCode,

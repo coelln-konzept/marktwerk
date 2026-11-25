@@ -322,7 +322,7 @@ describe("uploading documents", () => {
     const { venue } = await import("@marktwerk/db/schema");
     const [place] = await db
       .insert(venue)
-      .values({ name: "Platz", kind: "outdoor_public", city: "Köln" })
+      .values({ name: "Platz", kind: "municipal", city: "Köln" })
       .returning();
     if (!place) throw new Error("venue");
     // Venue documents follow the venue grants (staff may read, only owner/manager write).

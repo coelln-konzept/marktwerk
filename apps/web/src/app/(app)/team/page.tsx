@@ -12,7 +12,7 @@ import { Panel, PanelBody, PanelHeader, PanelTitle } from "@/components/ui/panel
 import { PhoneLink } from "@/components/ui/phone";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Table, TD, TH, THead, TR } from "@/components/ui/table";
+import { rowFocus, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { todayIn } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
 import { cn } from "@/lib/utils";
@@ -110,11 +110,8 @@ export default async function TeamPage({ searchParams }: PageProps<"/team">) {
                         data-row
                         data-href={p.peek}
                         data-peek={p.peek}
-                        aria-selected={personId === p.id}
-                        className={cn(
-                          "outline-hidden focus-visible:bg-selected",
-                          !p.active && "text-muted-foreground",
-                        )}
+                        aria-current={personId === p.id}
+                        className={cn(rowFocus, !p.active && "text-muted-foreground")}
                       >
                         <TD>
                           <Link

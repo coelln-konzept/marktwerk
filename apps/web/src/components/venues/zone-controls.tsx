@@ -3,11 +3,11 @@
 import { Menu } from "@base-ui/react/menu";
 import { ArrowDown, ArrowUp, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { deleteZoneAction, moveZoneAction, restoreZoneAction } from "@/app/(app)/orte/actions";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
-import { RowDialog } from "./row-dialog";
+import { RowDialog, type ZoneRef } from "./row-dialog";
 import { useErrorText } from "./shared";
 import { ZoneDialog } from "./zone-dialog";
 
@@ -40,22 +40,23 @@ export function ZoneControls({
   count,
 }: {
   venueId: string;
-  zone: { id: string; name: string };
+  zone: ZoneRef;
   index: number;
   count: number;
 }) {
   const t = useTranslations("venues.manage");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const errorText = useErrorText();
   const [renaming, setRenaming] = useState(false);
   const [addingRow, setAddingRow] = useState(false);
+  const addRowButton = useRef<HTMLButtonElement>(null);
   const [pending, startTransition] = useTransition();
 
   function move(direction: "up" | "down") {
     startTransition(async () => {
       const result = await moveZoneAction(zone.id, direction);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       showToast({
@@ -74,7 +75,7 @@ export function ZoneControls({
     startTransition(async () => {
       const result = await deleteZoneAction(zone.id);
       if (!result.ok) {
-        showToast({ message: errorText(result.error) });
+        showError(errorText(result.error));
         return;
       }
       const { name, rowCount } = result.data;
@@ -86,11 +87,8 @@ export function ZoneControls({
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await restoreZoneAction(zone.id);
-          showToast({
-            message: undone.ok
-              ? t("zone.restored", { zone: undone.data.name })
-              : errorText(undone.error),
-          });
+          if (undone.ok) showToast({ message: t("zone.restored", { zone: undone.data.name }) });
+          else showError(errorText(undone.error));
         },
       });
     });
@@ -98,7 +96,7 @@ export function ZoneControls({
 
   return (
     <div className="flex items-center gap-1">
-      <Button size="sm" onClick={() => setAddingRow(true)}>
+      <Button ref={addRowButton} size="sm" onClick={() => setAddingRow(true)}>
         <Plus aria-hidden />
         {t("row.add")}
       </Button>
@@ -145,7 +143,12 @@ export function ZoneControls({
         </Menu.Portal>
       </Menu.Root>
       <ZoneDialog open={renaming} onOpenChange={setRenaming} venueId={venueId} zone={zone} />
-      <RowDialog open={addingRow} onOpenChange={setAddingRow} zone={zone} />
+      <RowDialog
+        open={addingRow}
+        onOpenChange={setAddingRow}
+        zone={zone}
+        returnFocus={addRowButton}
+      />
     </div>
   );
 }

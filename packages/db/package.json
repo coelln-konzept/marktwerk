@@ -12,7 +12,9 @@
     "typecheck": "tsc",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "studio": "drizzle-kit studio"
+    "migrate:build": "node scripts/migrate-on-build.ts",
+    "studio": "drizzle-kit studio",
+    "test": "node --test scripts/*.test.ts"
   },
   "dependencies": {
     "drizzle-orm": "0.45.4",

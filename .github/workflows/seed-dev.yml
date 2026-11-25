@@ -4,6 +4,7 @@ name: Seed dev database
 # Some synthetic ids depend on the day the data is generated for, so a database that already holds synthetic
 # data is only seeded again "as of" its original seed day (input reference_date); then the run is idempotent
 # (ON CONFLICT DO NOTHING). Without it the seed refuses a seeded database. Existing logins are never changed.
+# To replace the data with a new dataset, set input wipe = "wipe": all app data is emptied first (logins kept).
 # Needs the repository secret DATABASE_MIGRATION_URL (Supabase session pooler, port 5432).
 # Migrations are applied by the Vercel build, not here. See docs/development/deployment.md.
 
@@ -16,6 +17,10 @@ on:
         type: string
       reference_date:
         description: 'Only for an already seeded database: its original seed day (YYYY-MM-DD). Empty = today.'
+        required: false
+        type: string
+      wipe:
+        description: 'Wipe ALL app data first (logins are kept), then seed as of today. Type "wipe" to confirm.'
         required: false
         type: string
 
@@ -36,6 +41,13 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Replacing the dataset (Fahrplan R20): empty every app table except the sign-in tables
+      # (apps/web/scripts/wipe-app-data.ts), so the seed runs on an empty database as of today.
+      - name: Wipe app data (logins kept)
+        if: inputs.wipe == 'wipe'
+        run: pnpm db:wipe -- --yes
+        env:
+          DATABASE_MIGRATION_URL: ${{ secrets.DATABASE_MIGRATION_URL }}
       - name: Seed
         run: pnpm db:seed
         env:

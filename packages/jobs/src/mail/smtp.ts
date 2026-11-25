@@ -3,6 +3,8 @@ import tls from "node:tls";
 
 /**
  * A small SMTP client (RFC 5321) for plain text mail: implicit TLS (port 465) or plain/STARTTLS, AUTH PLAIN.
+ * Credentials only ever travel encrypted: with a user set and no implicit TLS, the server must offer STARTTLS
+ * (otherwise the send fails before AUTH), and the certificate is verified as usual.
  * It exists because no mail library is a dependency of the project yet; swapping it for nodemailer later only
  * means replacing `createSmtpTransport`'s `send`.
  */
@@ -13,6 +15,8 @@ export type SmtpConfig = {
   secure: boolean;
   user?: string;
   password?: string;
+  /** Extra trusted CA certificates (PEM), e.g. a private relay's or a test server's. Default: the system CAs. */
+  ca?: string | Buffer;
   /** Name announced in EHLO. */
   clientName?: string;
   timeoutMs?: number;
@@ -25,6 +29,8 @@ export type SmtpMessage = {
   text: string;
   messageId: string;
   date?: Date;
+  /** Extra headers, e.g. `X-Marktwerk-Original-To` from the mail fence. */
+  headers?: Readonly<Record<string, string>>;
 };
 
 type Reply = { code: number; lines: string[] };
@@ -92,11 +98,11 @@ class Connection {
   }
 
   /** STARTTLS: wraps the open socket. */
-  upgrade(host: string, timeoutMs: number): Promise<void> {
+  upgrade(config: SmtpConfig, timeoutMs: number): Promise<void> {
     return new Promise((resolve, reject) => {
       this.socket.removeAllListeners("data");
       this.socket.removeAllListeners("close");
-      const secured = tls.connect({ socket: this.socket as net.Socket, servername: host });
+      const secured = tls.connect({ socket: this.socket as net.Socket, ...tlsOptions(config) });
       secured.setTimeout(timeoutMs);
       secured.once("secureConnect", () => resolve());
       secured.once("error", reject);
@@ -111,11 +117,20 @@ class Connection {
   }
 }
 
+/** Certificate checks stay on (Node's default); SNI only for host names, never for IP addresses (RFC 6066). */
+function tlsOptions(config: SmtpConfig): tls.ConnectionOptions {
+  return {
+    host: config.host,
+    ...(net.isIP(config.host) ? {} : { servername: config.host }),
+    ...(config.ca ? { ca: config.ca } : {}),
+  };
+}
+
 function open(config: SmtpConfig): Promise<Connection> {
   const timeout = config.timeoutMs ?? 20_000;
   return new Promise((resolve, reject) => {
     const socket = config.secure
-      ? tls.connect({ host: config.host, port: config.port, servername: config.host })
+      ? tls.connect({ ...tlsOptions(config), port: config.port })
       : net.connect({ host: config.host, port: config.port });
     socket.setTimeout(timeout);
     socket.once("error", reject);
@@ -162,6 +177,16 @@ function encodeHeader(value: string): string {
 
 const wrap76 = (base64: string) => base64.replace(/(.{76})/g, "$1\r\n");
 
+const HEADER_NAME = /^X-[A-Za-z0-9-]+$/;
+
+/** Only `X-` headers, so an extra header can never replace or duplicate a standard one. */
+function extraHeaders(headers: Readonly<Record<string, string>> = {}): string[] {
+  return Object.entries(headers).map(([name, value]) => {
+    if (!HEADER_NAME.test(name)) throw new Error(`Invalid extra header name: ${name}`);
+    return `${name}: ${encodeHeader(value)}`;
+  });
+}
+
 /** The full message (headers + base64 body), CRLF line ends. */
 export function buildMessage(message: SmtpMessage): string {
   const date = (message.date ?? new Date()).toUTCString();
@@ -171,6 +196,7 @@ export function buildMessage(message: SmtpMessage): string {
     `Subject: ${encodeHeader(message.subject)}`,
     `Date: ${date}`,
     `Message-ID: <${noBreaks(message.messageId)}>`,
+    ...extraHeaders(message.headers),
     "MIME-Version: 1.0",
     "Content-Type: text/plain; charset=utf-8",
     "Content-Transfer-Encoding: base64",
@@ -190,9 +216,14 @@ export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promis
     await expectReply(conn, [220], "greeting");
     let ehlo = await command(conn, `EHLO ${clientName}`, [250], "EHLO");
     const offersTls = ehlo.lines.some((l) => /STARTTLS/i.test(l));
-    if (!config.secure && offersTls && config.user) {
+    if (!config.secure && config.user) {
+      // Never send the password in plain text: no STARTTLS, no AUTH, no mail.
+      if (!offersTls)
+        throw new Error(
+          "SMTP STARTTLS: the server does not offer TLS, refusing to send credentials",
+        );
       await command(conn, "STARTTLS", [220]);
-      await conn.upgrade(config.host, timeout);
+      await conn.upgrade(config, timeout);
       ehlo = await command(conn, `EHLO ${clientName}`, [250], "EHLO");
     }
     if (config.user) {

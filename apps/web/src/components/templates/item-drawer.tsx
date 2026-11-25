@@ -2,21 +2,33 @@
 
 import { Dialog } from "@base-ui/react/dialog";
 import {
+  anchorFitsScope,
   checkTemplateItem,
   defaultAnchors,
   dueDateForNrw,
   type ItemCondition,
   insertPoint,
+  isSeasonAnchorKey,
   normalizeCondition,
   PERMIT_TYPES,
+  SEASON_ANCHOR_KEYS,
   STANDARD_ANCHOR_KEYS,
+  TEMPLATE_ITEM_SCOPES,
   type TemplateItemFields,
+  type TemplateItemScope,
 } from "@marktwerk/core";
-import { X } from "lucide-react";
+import { ArrowDown, ArrowUp, CornerLeftUp, Plus, Trash2, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
-import { addItemAction, updateItemAction } from "@/app/(app)/vorlagen/ablauf/actions";
+import { type MouseEvent, useRef, useState, useTransition } from "react";
+import {
+  addItemAction,
+  deleteItemAction,
+  moveItemAction,
+  restoreItemsAction,
+  updateItemAction,
+} from "@/app/(app)/vorlagen/ablauf/actions";
 import { TEXTAREA_CLASS } from "@/components/event-detail/textarea-class";
 import { useShell } from "@/components/shell/shell-context";
 import { Button } from "@/components/ui/button";
@@ -24,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label, OptionalMark } from "@/components/ui/label";
 import { formatDateWithWeekday } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
+import { cn } from "@/lib/utils";
 import { PHASES, VENUE_KINDS } from "./labels";
 import { useOffsetText } from "./offset-text";
 import type { ItemView, RoleChoice, TypeChoice } from "./types";
@@ -59,8 +72,12 @@ type Form = {
   requiresAttachment: boolean;
   isKey: boolean;
   permitType: string;
-  checkItems: string;
-  dependsOnKeys: string[];
+  /** Child item (ADR 0021): the key of its parent item; null = top-level. */
+  parentKey: string | null;
+  /** Child item: own anchor/offset/day mode/time instead of the parent's. */
+  ownDue: boolean;
+  /** "Gilt für" (research 13 §6.1): every date of the market, or once per season. A child item takes its parent's. */
+  scope: TemplateItemScope;
   eventTypeKeys: string[];
   venueKinds: string[];
   venueIds: string[];
@@ -72,14 +89,24 @@ const DEFAULT_OFFSET: Record<TemplateItemFields["phase"], string> = {
   post: "1",
 };
 
-function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]): Form {
+/** The anchor a row gets when it switches to a scope its current anchor does not fit. */
+const SCOPE_ANCHOR: Record<TemplateItemScope, string> = {
+  event: "event_day",
+  season: "season_start",
+};
+
+function initialForm(
+  item: ItemView | null,
+  phase: TemplateItemFields["phase"],
+  scope: TemplateItemScope = "event",
+): Form {
   if (!item)
     return {
       title: "",
       description: "",
       phase,
       category: "general",
-      anchorKey: "event_day",
+      anchorKey: SCOPE_ANCHOR[scope],
       offsetDays: DEFAULT_OFFSET[phase],
       dayMode: "calendar",
       dueTime: "",
@@ -92,8 +119,9 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
       requiresAttachment: false,
       isKey: false,
       permitType: "",
-      checkItems: "",
-      dependsOnKeys: [],
+      parentKey: null,
+      ownDue: false,
+      scope,
       eventTypeKeys: [],
       venueKinds: [],
       venueIds: [],
@@ -116,8 +144,9 @@ function initialForm(item: ItemView | null, phase: TemplateItemFields["phase"]):
     requiresAttachment: item.requiresAttachment,
     isKey: item.isKey,
     permitType: item.permitType ?? "",
-    checkItems: item.checkItems.join("\n"),
-    dependsOnKeys: item.dependsOnKeys,
+    parentKey: item.parentKey,
+    ownDue: item.ownDue,
+    scope: item.scope ?? "event",
     eventTypeKeys: item.condition?.eventTypeKeys ?? [],
     venueKinds: item.condition?.venueKinds ?? [],
     venueIds: item.condition?.venueIds ?? [],
@@ -149,26 +178,51 @@ function toFields(form: Form): TemplateItemFields {
     requiresAttachment: form.requiresAttachment,
     isKey: form.isKey,
     permitType: (form.permitType || null) as TemplateItemFields["permitType"],
-    checkItems: form.checkItems
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean),
     approverDutyRoleId: form.approverDutyRoleId || null,
-    dependsOnKeys: form.dependsOnKeys,
+    parentKey: form.parentKey,
+    ownDue: form.ownDue,
+    scope: form.scope,
     condition: normalizeCondition(condition),
+  };
+}
+
+/** A new child item: just a title; it inherits the parent's due date and role (ADR 0021). */
+function newChildFields(parent: ItemView, title: string): TemplateItemFields {
+  const { key, ...fields } = parent;
+  return {
+    ...fields,
+    title,
+    description: null,
+    parentKey: key,
+    ownDue: false,
+    dutyRoleId: null,
+    approverDutyRoleId: null,
+    priority: "normal",
+    estimateMinutes: 0,
+    requiresPhoto: false,
+    requiresNote: false,
+    requiresAttachment: false,
+    isKey: false,
+    permitType: null,
+    condition: null,
   };
 }
 
 /**
  * Detail drawer for one row of a template version (UX concept §4: real work on one record while the list
  * stays visible; addressed as `?zeile=<key>`, `?zeile=neu&phase=pre` for a new row). Editable only in the
- * draft; published versions show the same fields read-only.
+ * draft; published versions show the same fields read-only. A top-level row lists its child items
+ * ("Unteraufgaben", ADR 0021): add by title, open, reorder, remove (with undo). A child item opens in the same
+ * drawer and inherits the parent's due date ("Eigene Fälligkeit" off) and role ("Wie Hauptaufgabe").
+ * "Gilt für" (research 13 §6.1) makes a top-level row a season row ("Ganze Saison": once per season, due from
+ * Saisonbeginn or Saisonende) or a row of every date; child rows take their parent's and show no choice.
  */
 export function ItemDrawer({
   versionId,
   editable,
   item,
   newPhase,
+  newScope = "event",
   items,
   roles,
   eventTypes,
@@ -182,6 +236,8 @@ export function ItemDrawer({
   /** null = a new row */
   item: ItemView | null;
   newPhase: TemplateItemFields["phase"];
+  /** Scope of a new row (`?gilt=saison` from the grid's Saison section). */
+  newScope?: TemplateItemScope;
   items: ItemView[];
   roles: RoleChoice[];
   eventTypes: TypeChoice[];
@@ -197,12 +253,26 @@ export function ItemDrawer({
   const offsetText = useOffsetText();
   const locale = useLocale();
   const router = useRouter();
-  const { showToast } = useShell();
-  const [form, setForm] = useState(() => initialForm(item, newPhase));
+  const { showToast, showError: showErrorToast } = useShell();
+  const [form, setForm] = useState(() => initialForm(item, newPhase, newScope));
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [childPending, startChildTransition] = useTransition();
+  const [childTitle, setChildTitle] = useState("");
+  const [childError, setChildError] = useState<string | null>(null);
+  const childInput = useRef<HTMLInputElement>(null);
   const set = (patch: Partial<Form>) => setForm((f) => ({ ...f, ...patch }));
   const disabled = !editable || pending;
+
+  // Child items (ADR 0021): one level. A row with children can't become a child; a child has no children.
+  const parent = form.parentKey ? items.find((i) => i.key === form.parentKey) : undefined;
+  const isChild = form.parentKey !== null;
+  const children = item ? items.filter((i) => i.parentKey === item.key) : [];
+  const parentChoices = items.filter((i) => i.parentKey === null && i.key !== item?.key);
+  const showChildren = item !== null && item.parentKey === null && !isChild;
+  const roleName = new Map(roles.map((r) => [r.id, r.name]));
+  const rowHref = (key: string) => `${closeHref}&zeile=${encodeURIComponent(key)}`;
 
   const errorText = (code: string) =>
     t.has(`errors.${code}` as never) ? t(`errors.${code}` as never) : t("errors.generic");
@@ -210,28 +280,172 @@ export function ItemDrawer({
   const toggle = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
-  const anchorOptions = [...new Set([...STANDARD_ANCHOR_KEYS, ...extraAnchors, form.anchorKey])];
+  const season = form.scope === "season";
+  // Season rows hang only on the season anchors, rows of every date never on them (core `anchorFitsScope`).
+  const anchorOptions = season
+    ? [...new Set<string>([...SEASON_ANCHOR_KEYS, form.anchorKey])]
+    : [
+        ...new Set([
+          ...STANDARD_ANCHOR_KEYS,
+          ...extraAnchors.filter((key) => !isSeasonAnchorKey(key)),
+          form.anchorKey,
+        ]),
+      ];
   const anchorName = (key: string) =>
     t.has(`anchors.${key}` as never) ? t(`anchors.${key}` as never) : key;
 
   const fields = toFields(form);
-  const issue = checkTemplateItem(fields)[0];
+  const issues = checkTemplateItem(fields);
+  const issue = issues[0];
+  // The offset is checked while typing ("abc", -9999), not only on "Speichern"; an empty field waits for saving.
+  const offsetIssue =
+    form.offsetDays.trim() === ""
+      ? undefined
+      : issues.find((i) => i.field === "offsetDays" && i.code === "invalid_offset");
+  const dirty =
+    editable &&
+    JSON.stringify(fields) !== JSON.stringify(toFields(initialForm(item, newPhase, newScope)));
+
+  /** Going to another row (a child, the parent) would drop the typed changes: ask to save first. */
+  function guard(event: MouseEvent) {
+    if (!dirty) return;
+    event.preventDefault();
+    setNotice(t("drawer.children.saveFirst"));
+  }
+
+  /** The parent's schedule as form values (what an inheriting child is due by). */
+  const parentDue = (p: ItemView) => ({
+    anchorKey: p.anchorKey,
+    offsetDays: String(p.offsetDays),
+    dayMode: p.dayMode,
+    dueTime: p.dueTime ?? "",
+  });
+
+  /** "Gilt für": an anchor that does not fit the new scope moves to the scope's main anchor. */
+  function chooseScope(scope: TemplateItemScope) {
+    set(
+      anchorFitsScope(scope, form.anchorKey)
+        ? { scope }
+        : { scope, anchorKey: SCOPE_ANCHOR[scope] },
+    );
+  }
+
+  function chooseParent(key: string) {
+    const next = key ? items.find((i) => i.key === key) : undefined;
+    const nextScope = next?.scope ?? "event";
+    // A child stands in its parent's phase and scope (the service keeps it so as well); an own date that does
+    // not fit the parent's scope starts again from the parent's.
+    if (next)
+      set({
+        parentKey: next.key,
+        phase: next.phase,
+        scope: nextScope,
+        ...(form.ownDue && !anchorFitsScope(nextScope, form.anchorKey) ? parentDue(next) : {}),
+      });
+    // An inheriting child that becomes standalone keeps what it was due by and assigned to so far.
+    else if (parent && !form.ownDue)
+      set({
+        parentKey: null,
+        ...parentDue(parent),
+        dutyRoleId: form.dutyRoleId || (parent.dutyRoleId ?? ""),
+      });
+    else set({ parentKey: null, dutyRoleId: form.dutyRoleId || (parent?.dutyRoleId ?? "") });
+  }
+
+  /**
+   * "Eigene Fälligkeit": starts from the parent's schedule, so nothing jumps when it is ticked (a child that had
+   * its own schedule already keeps it).
+   */
+  function chooseOwnDue(own: boolean) {
+    set(own && parent && !item?.ownDue ? { ownDue: true, ...parentDue(parent) } : { ownDue: own });
+  }
+
+  function addChild() {
+    if (!item) return;
+    setChildError(null);
+    const title = childTitle.trim().replace(/\s+/g, " ");
+    const childFields = newChildFields(item, title);
+    const childIssue = checkTemplateItem(childFields)[0];
+    if (childIssue) {
+      setChildError(errorText(childIssue.code));
+      childInput.current?.focus();
+      return;
+    }
+    const afterKey = children.at(-1)?.key ?? item.key;
+    startChildTransition(async () => {
+      const result = await addItemAction(versionId, childFields, afterKey);
+      if (!result.ok) {
+        setChildError(errorText(result.error));
+        return;
+      }
+      setChildTitle("");
+      childInput.current?.focus();
+      showToast({ message: t("drawer.children.added", { title }) });
+    });
+  }
+
+  function moveChild(child: ItemView, direction: "up" | "down") {
+    setChildError(null);
+    startChildTransition(async () => {
+      const result = await moveItemAction(versionId, child.key, direction);
+      if (!result.ok) setChildError(errorText(result.error));
+    });
+  }
+
+  /**
+   * Removes a child item; the toast puts it back at the same place with its own key, so the tasks of existing
+   * events still match it (undo over a confirmation).
+   */
+  function removeChild(child: ItemView) {
+    setChildError(null);
+    const index = items.findIndex((i) => i.key === child.key);
+    const beforeKey = items[index + 1]?.key ?? null;
+    const afterKey = items[index - 1]?.key ?? null;
+    startChildTransition(async () => {
+      const result = await deleteItemAction(versionId, child.key);
+      if (!result.ok) {
+        setChildError(errorText(result.error));
+        return;
+      }
+      showToast({
+        message: t("drawer.children.removed", { title: child.title }),
+        actionLabel: t("drawer.children.undo"),
+        onAction: async () => {
+          const back = await restoreItemsAction(versionId, [child], afterKey, beforeKey);
+          if (!back.ok) showErrorToast(errorText(back.error));
+        },
+      });
+    });
+  }
   const showError = error?.field ?? (error ? "form" : undefined);
 
-  // "Beispiel": when this row would be due for a one-day event on the sample day.
-  const anchors = new Map<string, string>(Object.entries(defaultAnchors(exampleDay, 1)));
+  // "Beispiel": when this row would be due for a one-day event on the sample day (a season row: for a season
+  // that starts or ends on that day).
+  const anchors = new Map<string, string>(
+    season
+      ? SEASON_ANCHOR_KEYS.map((key) => [key, exampleDay])
+      : Object.entries(defaultAnchors(exampleDay, 1)),
+  );
   const anchorDay = anchors.get(form.anchorKey);
   const example =
     anchorDay && Number.isInteger(fields.offsetDays)
       ? dueDateForNrw(anchorDay, fields.offsetDays, form.dayMode)
       : null;
 
-  // A new row goes where its due date puts it, so the phase stays in order (A7-05).
-  const point = insertPoint(items, {
-    phase: form.phase,
-    anchorKey: form.anchorKey,
-    offsetDays: Number.isInteger(fields.offsetDays) ? fields.offsetDays : 0,
-  });
+  // A new row goes where its due date puts it, so the phase stays in order (A7-05). Season rows stand in one
+  // section of their own, whatever their phase.
+  const offsetDays = Number.isInteger(fields.offsetDays) ? fields.offsetDays : 0;
+  const point = season
+    ? insertPoint(
+        items
+          .filter((i) => i.scope === "season" && i.parentKey === null)
+          .map((i) => ({ ...i, phase: "pre" as const })),
+        { phase: "pre", anchorKey: form.anchorKey, offsetDays },
+      )
+    : insertPoint(
+        items.filter((i) => (i.scope ?? "event") === "event"),
+        { phase: form.phase, anchorKey: form.anchorKey, offsetDays },
+      );
 
   function submit() {
     setError(null);
@@ -266,6 +480,15 @@ export function ItemDrawer({
       </p>
     ) : null;
 
+  // The offset's message: the error of "Speichern" wins (announced at once), else the check while typing. One
+  // paragraph with one id, so the field's `aria-describedby` always points at it.
+  const offsetMessage =
+    error?.field === "offsetDays"
+      ? { text: error.text, alert: true }
+      : offsetIssue
+        ? { text: errorText(offsetIssue.code), alert: false }
+        : undefined;
+
   return (
     <Dialog.Root open onOpenChange={(open) => !open && !pending && close()}>
       <Dialog.Portal>
@@ -280,6 +503,18 @@ export function ItemDrawer({
                     : t("drawer.viewTitle")
                   : t("drawer.newTitle")}
               </Dialog.Title>
+              {item?.parentKey && parent && (
+                <Link
+                  href={rowHref(parent.key) as never}
+                  scroll={false}
+                  onClick={guard}
+                  aria-label={t("drawer.openParent", { title: parent.title })}
+                  className="mt-0.5 inline-flex items-center gap-1 text-accent-soft-foreground text-small hover:underline"
+                >
+                  <CornerLeftUp aria-hidden className="size-3.5" />
+                  {t("drawer.childOf", { title: parent.title })}
+                </Link>
+              )}
             </div>
             <Dialog.Close
               aria-label={t("drawer.close")}
@@ -298,6 +533,14 @@ export function ItemDrawer({
             }}
           >
             <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
+              {notice && (
+                <p
+                  role="alert"
+                  className="rounded-md bg-status-warn-bg px-3 py-2 text-small text-status-warn"
+                >
+                  {notice}
+                </p>
+              )}
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="item-title">{t("drawer.title")}</Label>
                 <Input
@@ -326,23 +569,213 @@ export function ItemDrawer({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="item-phase">{t("drawer.phase")}</Label>
-                  <select
-                    id="item-phase"
-                    className={SELECT_CLASS}
-                    value={form.phase}
-                    disabled={disabled}
-                    onChange={(e) => set({ phase: e.target.value as Form["phase"] })}
-                  >
-                    {PHASES.map((p) => (
-                      <option key={p} value={p}>
-                        {t(`phases.${p}`)}
-                      </option>
+              {children.length > 0
+                ? editable && (
+                    <p className="text-muted-foreground text-tiny">{t("drawer.hasChildrenHint")}</p>
+                  )
+                : (editable || isChild) && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="item-parent">{t("drawer.parent")}</Label>
+                      <select
+                        id="item-parent"
+                        className={SELECT_CLASS}
+                        value={form.parentKey ?? ""}
+                        disabled={disabled}
+                        aria-invalid={invalid("parentKey")}
+                        onChange={(e) => chooseParent(e.target.value)}
+                      >
+                        <option value="">{t("drawer.standalone")}</option>
+                        {form.parentKey && !parent && (
+                          <option value={form.parentKey}>{form.parentKey}</option>
+                        )}
+                        {parentChoices.map((p) => (
+                          <option key={p.key} value={p.key}>
+                            {p.title}
+                          </option>
+                        ))}
+                      </select>
+                      {fieldError("parentKey")}
+                      <p className="text-muted-foreground text-tiny">
+                        {parent?.scope === "season"
+                          ? t("drawer.parentHintSeason")
+                          : t("drawer.parentHint")}
+                      </p>
+                    </div>
+                  )}
+
+              {isChild ? (
+                parent?.scope === "season" && (
+                  <p className="text-muted-foreground text-tiny">{t("drawer.scopeInherited")}</p>
+                )
+              ) : (
+                <fieldset className="flex flex-col gap-1.5">
+                  <legend className="mb-1.5 font-semibold text-small">{t("drawer.scope")}</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {TEMPLATE_ITEM_SCOPES.map((scope) => (
+                      <label
+                        key={scope}
+                        className={cn(
+                          "flex min-h-(--control-h) items-center gap-2 rounded-lg border px-3 py-1.5",
+                          !disabled && "cursor-pointer hover:bg-hover",
+                          form.scope === scope && "border-primary bg-selected",
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="item-scope"
+                          value={scope}
+                          className="size-4 accent-(--primary)"
+                          checked={form.scope === scope}
+                          disabled={disabled}
+                          aria-invalid={invalid("scope")}
+                          onChange={() => chooseScope(scope)}
+                        />
+                        <span className="font-medium">{t(`drawer.scopes.${scope}`)}</span>
+                      </label>
                     ))}
-                  </select>
-                </div>
+                  </div>
+                  {fieldError("scope")}
+                  <p className="text-muted-foreground text-tiny">{t("drawer.scopeHint")}</p>
+                </fieldset>
+              )}
+
+              {showChildren && (
+                <section
+                  aria-labelledby="item-children-title"
+                  className="flex flex-col gap-2 rounded-lg border p-3"
+                >
+                  <h3 id="item-children-title" className="font-semibold text-small">
+                    {t("drawer.children.legend")}
+                    {children.length > 0 && (
+                      <span className="tabular ml-1.5 font-normal text-muted-foreground">
+                        {children.length}
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-muted-foreground text-tiny">{t("drawer.children.hint")}</p>
+                  {children.length === 0 ? (
+                    <p className="text-muted-foreground text-small">{t("drawer.children.empty")}</p>
+                  ) : (
+                    <ul className="flex flex-col divide-y divide-border-subtle">
+                      {children.map((child, index) => (
+                        <li key={child.key} className="flex items-center gap-2 py-1.5">
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <Link
+                              href={rowHref(child.key) as never}
+                              scroll={false}
+                              onClick={guard}
+                              aria-label={t("drawer.children.edit", { title: child.title })}
+                              className="truncate font-medium text-accent-soft-foreground hover:underline"
+                            >
+                              {child.title}
+                            </Link>
+                            {(child.dutyRoleId || child.ownDue) && (
+                              <span className="tabular text-muted-foreground text-tiny">
+                                {[
+                                  child.dutyRoleId ? (roleName.get(child.dutyRoleId) ?? "?") : null,
+                                  child.ownDue
+                                    ? t("drawer.children.ownDue", {
+                                        text: offsetText.full(child.offsetDays, child.dayMode),
+                                      })
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            )}
+                          </span>
+                          {editable && (
+                            <span className="flex shrink-0 gap-1">
+                              <Button
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={t("drawer.children.up", { title: child.title })}
+                                disabled={childPending || index === 0}
+                                onClick={() => moveChild(child, "up")}
+                              >
+                                <ArrowUp aria-hidden />
+                              </Button>
+                              <Button
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={t("drawer.children.down", { title: child.title })}
+                                disabled={childPending || index === children.length - 1}
+                                onClick={() => moveChild(child, "down")}
+                              >
+                                <ArrowDown aria-hidden />
+                              </Button>
+                              <Button
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={t("drawer.children.remove", { title: child.title })}
+                                disabled={childPending}
+                                onClick={() => removeChild(child)}
+                              >
+                                <Trash2 aria-hidden />
+                              </Button>
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {editable && (
+                    <div className="flex gap-2">
+                      <Input
+                        ref={childInput}
+                        value={childTitle}
+                        maxLength={200}
+                        aria-label={t("drawer.children.newLabel")}
+                        placeholder={t("drawer.children.newPlaceholder")}
+                        disabled={childPending}
+                        aria-invalid={childError !== null}
+                        onChange={(e) => setChildTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          // Enter adds the child here instead of saving the whole row.
+                          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                            e.preventDefault();
+                            addChild();
+                          }
+                        }}
+                      />
+                      <Button aria-busy={childPending} disabled={childPending} onClick={addChild}>
+                        <Plus aria-hidden />
+                        {t("drawer.children.add")}
+                      </Button>
+                    </div>
+                  )}
+                  {childError && (
+                    <p role="alert" className="text-small text-status-critical">
+                      {childError}
+                    </p>
+                  )}
+                </section>
+              )}
+              {item === null && !isChild && editable && (
+                <p className="text-muted-foreground text-tiny">
+                  {t("drawer.children.newItemHint")}
+                </p>
+              )}
+
+              <div className={cn("grid gap-3", !isChild && "grid-cols-2")}>
+                {!isChild && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="item-phase">{t("drawer.phase")}</Label>
+                    <select
+                      id="item-phase"
+                      className={SELECT_CLASS}
+                      value={form.phase}
+                      disabled={disabled}
+                      onChange={(e) => set({ phase: e.target.value as Form["phase"] })}
+                    >
+                      {PHASES.map((p) => (
+                        <option key={p} value={p}>
+                          {t(`phases.${p}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="item-category">{t("drawer.category")}</Label>
                   <select
@@ -377,91 +810,136 @@ export function ItemDrawer({
                 </div>
               )}
 
-              <fieldset className="flex flex-col gap-3 rounded-lg border p-3">
-                <legend className="px-1 font-semibold text-small">{t("drawer.dueLegend")}</legend>
-                <div className="grid grid-cols-[1fr_7rem] gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="item-anchor">{t("drawer.anchor")}</Label>
-                    <select
-                      id="item-anchor"
-                      className={SELECT_CLASS}
-                      value={form.anchorKey}
+              {isChild && (
+                <div className="flex flex-col gap-1">
+                  <label className="flex items-center gap-2 font-semibold text-small">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-(--primary)"
+                      checked={form.ownDue}
                       disabled={disabled}
-                      aria-invalid={invalid("anchorKey")}
-                      onChange={(e) => set({ anchorKey: e.target.value })}
-                    >
-                      {anchorOptions.map((key) => (
-                        <option key={key} value={key}>
-                          {anchorName(key)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="item-offset">{t("drawer.offset")}</Label>
-                    <Input
-                      id="item-offset"
-                      inputMode="numeric"
-                      value={form.offsetDays}
-                      disabled={disabled}
-                      className="tabular"
-                      aria-invalid={invalid("offsetDays")}
-                      onChange={(e) => set({ offsetDays: e.target.value })}
+                      onChange={(e) => chooseOwnDue(e.target.checked)}
                     />
-                  </div>
+                    {t("drawer.ownDue")}
+                  </label>
+                  <p className="text-muted-foreground text-tiny">{t("drawer.ownDueHint")}</p>
+                  {!form.ownDue && parent && (
+                    <p className="tabular rounded-md bg-sunken px-3 py-2 text-small">
+                      {t("drawer.inheritedDue", {
+                        text: `${offsetText.full(parent.offsetDays, parent.dayMode)} · ${anchorName(parent.anchorKey)}`,
+                      })}
+                    </p>
+                  )}
                 </div>
-                {fieldError("anchorKey")}
-                {fieldError("offsetDays")}
-                {Number.isInteger(fields.offsetDays) && (
-                  <p className="tabular font-medium text-small" aria-live="polite">
-                    {t("drawer.offsetNow", {
-                      text: offsetText.full(fields.offsetDays, form.dayMode),
-                    })}
+              )}
+
+              {(!isChild || form.ownDue) && (
+                <fieldset className="flex flex-col gap-3 rounded-lg border p-3">
+                  <legend className="px-1 font-semibold text-small">{t("drawer.dueLegend")}</legend>
+                  <div className="grid grid-cols-[1fr_7rem] gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="item-anchor">{t("drawer.anchor")}</Label>
+                      <select
+                        id="item-anchor"
+                        className={SELECT_CLASS}
+                        value={form.anchorKey}
+                        disabled={disabled}
+                        aria-invalid={invalid("anchorKey")}
+                        onChange={(e) => set({ anchorKey: e.target.value })}
+                      >
+                        {anchorOptions.map((key) => (
+                          <option key={key} value={key}>
+                            {anchorName(key)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="item-offset">{t("drawer.offset")}</Label>
+                      <Input
+                        id="item-offset"
+                        inputMode="numeric"
+                        value={form.offsetDays}
+                        disabled={disabled}
+                        className="tabular"
+                        aria-invalid={invalid("offsetDays") || offsetIssue !== undefined}
+                        aria-describedby={offsetMessage ? "item-offset-error" : undefined}
+                        onChange={(e) => set({ offsetDays: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  {fieldError("anchorKey")}
+                  {offsetMessage && (
+                    <p
+                      id="item-offset-error"
+                      role={offsetMessage.alert ? "alert" : undefined}
+                      className="text-small text-status-critical"
+                    >
+                      {offsetMessage.text}
+                    </p>
+                  )}
+                  {offsetIssue === undefined && Number.isInteger(fields.offsetDays) && (
+                    <p className="tabular font-medium text-small" aria-live="polite">
+                      {t("drawer.offsetNow", {
+                        text: offsetText.full(fields.offsetDays, form.dayMode),
+                      })}
+                    </p>
+                  )}
+                  <p className="text-muted-foreground text-tiny">{t("drawer.offsetHint")}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="item-daymode">{t("drawer.dayMode")}</Label>
+                      <select
+                        id="item-daymode"
+                        className={SELECT_CLASS}
+                        value={form.dayMode}
+                        disabled={disabled}
+                        onChange={(e) => set({ dayMode: e.target.value as Form["dayMode"] })}
+                      >
+                        <option value="calendar">{t("dayModes.calendar")}</option>
+                        <option value="business">{t("dayModes.business")}</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="item-time" optional>
+                        {t("drawer.time")}
+                      </Label>
+                      <Input
+                        id="item-time"
+                        type="time"
+                        value={form.dueTime}
+                        disabled={disabled}
+                        className="tabular"
+                        aria-invalid={invalid("dueTime")}
+                        onChange={(e) => set({ dueTime: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  {fieldError("dueTime")}
+                  <p className="text-muted-foreground text-tiny">
+                    {t("drawer.timeHint", { time: defaultDueTime })}
                   </p>
-                )}
-                <p className="text-muted-foreground text-tiny">{t("drawer.offsetHint")}</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="item-daymode">{t("drawer.dayMode")}</Label>
-                    <select
-                      id="item-daymode"
-                      className={SELECT_CLASS}
-                      value={form.dayMode}
-                      disabled={disabled}
-                      onChange={(e) => set({ dayMode: e.target.value as Form["dayMode"] })}
-                    >
-                      <option value="calendar">{t("dayModes.calendar")}</option>
-                      <option value="business">{t("dayModes.business")}</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="item-time" optional>
-                      {t("drawer.time")}
-                    </Label>
-                    <Input
-                      id="item-time"
-                      type="time"
-                      value={form.dueTime}
-                      disabled={disabled}
-                      className="tabular"
-                      aria-invalid={invalid("dueTime")}
-                      onChange={(e) => set({ dueTime: e.target.value })}
-                    />
-                  </div>
-                </div>
-                {fieldError("dueTime")}
-                <p className="text-muted-foreground text-tiny">
-                  {t("drawer.timeHint", { time: defaultDueTime })}
-                </p>
-                <p className="rounded-md bg-sunken px-3 py-2 text-small" aria-live="polite">
-                  {example
-                    ? t("drawer.example", {
-                        day: formatDateWithWeekday(exampleDay, locale),
-                        due: formatDateWithWeekday(example, locale),
-                      })
-                    : t("drawer.exampleNone")}
-                </p>
-              </fieldset>
+                  <p className="rounded-md bg-sunken px-3 py-2 text-small" aria-live="polite">
+                    {!example
+                      ? t("drawer.exampleNone")
+                      : season
+                        ? t("drawer.exampleSeason", {
+                            anchor: anchorName(form.anchorKey),
+                            day: formatDateWithWeekday(exampleDay, locale),
+                            due: formatDateWithWeekday(example, locale),
+                          })
+                        : t("drawer.example", {
+                            day: formatDateWithWeekday(exampleDay, locale),
+                            due: formatDateWithWeekday(example, locale),
+                          })}
+                  </p>
+                  {form.anchorKey === "season_end" && (
+                    <p className="text-muted-foreground text-tiny">
+                      {t("drawer.exampleSeasonEnd")}
+                    </p>
+                  )}
+                </fieldset>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
@@ -475,7 +953,9 @@ export function ItemDrawer({
                     disabled={disabled}
                     onChange={(e) => set({ dutyRoleId: e.target.value })}
                   >
-                    <option value="">{t("drawer.noRole")}</option>
+                    <option value="">
+                      {isChild ? t("drawer.roleAsParent") : t("drawer.noRole")}
+                    </option>
                     {roles.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
@@ -503,7 +983,9 @@ export function ItemDrawer({
                   </select>
                 </div>
               </div>
-              <p className="-mt-2 text-muted-foreground text-tiny">{t("drawer.roleHint")}</p>
+              <p className="-mt-2 text-muted-foreground text-tiny">
+                {season ? t("drawer.roleHintSeason") : t("drawer.roleHint")}
+              </p>
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="item-permit" optional>
@@ -586,58 +1068,14 @@ export function ItemDrawer({
                 ))}
               </fieldset>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="item-steps" optional>
-                  {t("drawer.checkItems")}
-                </Label>
-                <textarea
-                  id="item-steps"
-                  rows={4}
-                  className={TEXTAREA_CLASS}
-                  value={form.checkItems}
-                  disabled={disabled}
-                  aria-invalid={invalid("checkItems")}
-                  onChange={(e) => set({ checkItems: e.target.value })}
-                />
-                <p className="text-muted-foreground text-tiny">{t("drawer.checkItemsHint")}</p>
-                {fieldError("checkItems")}
-              </div>
-
-              {items.filter((i) => i.key !== item?.key).length > 0 && (
-                <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-1 flex gap-2 font-semibold text-small">
-                    {t("drawer.dependsOn")}
-                    <OptionalMark />
-                  </legend>
-                  <div className="flex max-h-44 flex-col gap-1.5 overflow-y-auto rounded-lg border p-2">
-                    {items
-                      .filter((i) => i.key !== item?.key)
-                      .map((i) => (
-                        <label key={i.key} className="flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 size-4 accent-(--primary)"
-                            checked={form.dependsOnKeys.includes(i.key)}
-                            disabled={disabled}
-                            onChange={() =>
-                              set({ dependsOnKeys: toggle(form.dependsOnKeys, i.key) })
-                            }
-                          />
-                          {i.title}
-                        </label>
-                      ))}
-                  </div>
-                  <p className="text-muted-foreground text-tiny">{t("drawer.dependsOnHint")}</p>
-                  {fieldError("dependsOnKeys")}
-                </fieldset>
-              )}
-
               <fieldset className="flex flex-col gap-2 rounded-lg border p-3">
                 <legend className="flex gap-2 px-1 font-semibold text-small">
                   {t("drawer.conditionLegend")}
                   <OptionalMark />
                 </legend>
-                <p className="text-muted-foreground text-tiny">{t("drawer.conditionHint")}</p>
+                <p className="text-muted-foreground text-tiny">
+                  {season ? t("drawer.conditionHintSeason") : t("drawer.conditionHint")}
+                </p>
                 <div className="flex flex-col gap-1">
                   <span className="font-medium text-small">{t("drawer.conditionTypes")}</span>
                   <div className="flex flex-wrap gap-x-4 gap-y-1">

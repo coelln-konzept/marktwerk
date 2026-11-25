@@ -1,4 +1,4 @@
-import type { Role } from "@marktwerk/core";
+import { type Role, scheduleFromTimes } from "@marktwerk/core";
 import { dutyRole, eventPreset, eventType, staffMember, user, venue } from "@marktwerk/db/schema";
 import { sql } from "drizzle-orm";
 import type { Actor } from "@/server/actor";
@@ -55,7 +55,7 @@ export async function seedCatalogue() {
     .returning();
   const [place] = await db
     .insert(venue)
-    .values({ name: "Messeplatz Test", kind: "outdoor_public", city: "Köln" })
+    .values({ name: "Messeplatz Test", kind: "municipal", city: "Köln" })
     .returning();
   const [anna, ben] = await db
     .insert(staffMember)
@@ -73,7 +73,13 @@ export async function seedCatalogue() {
     .returning();
   if (!type || !place || !anna || !ben || !lead || !setup) throw new Error("seed failed");
 
-  const times = { setup: "05:00", open: "08:00", close: "16:00", teardown: "18:00" };
+  // Market Zeitplan: vendors set up 05:00–08:00, visitors 08:00–16:00, vendors tear down 16:00–18:00.
+  const schedule = scheduleFromTimes({
+    setup: "05:00",
+    open: "08:00",
+    close: "16:00",
+    teardown: "18:00",
+  });
   const [flea, festival] = await db
     .insert(eventPreset)
     .values([
@@ -84,10 +90,11 @@ export async function seedCatalogue() {
         name: "Testflohmarkt",
         pricePerMCents: 1200,
         bookingFeeCents: 500,
-        defaultTimes: times,
+        schedule,
         durationDays: 1,
         // "ghost" has no duty_role row and must be skipped, not fail.
         defaultDuties: { market_lead: anna.id, setup: ben.id, ghost: ben.id },
+        rules: type.rules,
       },
       {
         key: "test-festival",
@@ -96,8 +103,9 @@ export async function seedCatalogue() {
         name: "Teststadtfest",
         pricePerMCents: 2000,
         bookingFeeCents: 0,
-        defaultTimes: times,
+        schedule,
         durationDays: 3,
+        rules: type.rules,
       },
     ])
     .returning();
@@ -109,6 +117,6 @@ export async function seedCatalogue() {
     staff: { anna, ben },
     roles: { lead, setup },
     presets: { flea, festival },
-    times,
+    schedule,
   };
 }

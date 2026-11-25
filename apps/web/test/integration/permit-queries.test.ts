@@ -9,6 +9,7 @@ import {
   task,
 } from "@marktwerk/db/schema";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { todayIn } from "@/lib/format";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import { listEvents } from "@/server/queries/events";
@@ -50,7 +51,7 @@ async function makeEvent(startsOn: string, name = "Flohmarkt") {
       season: Number(startsOn.slice(0, 4)),
       startsOn,
       endsOn: startsOn,
-      times: cat.times,
+      schedule: cat.schedule,
       pricePerMCents: 0,
       bookingFeeCents: 0,
     })
@@ -233,6 +234,104 @@ describe("logbook query", () => {
     expect(detail?.linkableEvents.map((e) => e.name)).toEqual(["Zwei"]);
     expect(await getPermit(owner, "nope", TODAY)).toBeNull();
     expect(await getPermit(field, p.id, TODAY)).toBeNull();
+
+    // A deleted (cancelled) task, e.g. a season permit's duplicate apply task, is not listed.
+    await db.insert(task).values({
+      permitId: p.id,
+      source: "template",
+      title: "Wasser beantragen (Duplikat)",
+      status: "cancelled",
+    });
+    expect((await getPermit(owner, p.id, TODAY))?.tasks).toHaveLength(1);
+  });
+
+  it("shows 'Antwort überfällig' for a filed permit past its expected decision date", async () => {
+    const e = await makeEvent("2026-12-06", "Advent");
+    const overdue = await makePermit({
+      title: "Überfällig",
+      status: "applied",
+      expectedDecisionOn: "2026-10-20",
+    });
+    const today = await makePermit({
+      title: "Heute",
+      status: "applied",
+      expectedDecisionOn: TODAY,
+    });
+    await makePermit({ title: "Ohne Datum", status: "applied" });
+    await makePermit({ title: "Erteilt", status: "granted", expectedDecisionOn: "2026-10-01" });
+    await db.insert(eventPermit).values([
+      { eventId: e.id, permitId: overdue.id },
+      { eventId: e.id, permitId: today.id },
+    ]);
+
+    const logbook = await listLogbook(owner, { season: 2026 }, TODAY);
+    expect(Object.fromEntries(logbook.rows.map((r) => [r.title, r.state]))).toEqual({
+      Überfällig: "answer_overdue",
+      Heute: "applied",
+      "Ohne Datum": "applied",
+      Erteilt: "granted",
+    });
+    expect(logbook.counts.answer_overdue).toBe(1);
+    expect(
+      (await listLogbook(owner, { season: 2026, state: "answer_overdue" }, TODAY)).rows.map(
+        (r) => r.title,
+      ),
+    ).toEqual(["Überfällig"]);
+    // Chasing the authority is "Jetzt zu tun" and counts in the sidebar badge (product owner 2026-11-13);
+    // the one decided today is not overdue yet.
+    expect(logbook.needsAction).toBe(1);
+    expect((await listLogbook(owner, { focus: "fehlt" }, TODAY)).rows.map((r) => r.title)).toEqual([
+      "Überfällig",
+    ]);
+    expect(await missingPermitCount(owner, TODAY)).toBe(1);
+    // The drawer reads the same; a day later the one due today is overdue too.
+    expect((await getPermit(owner, overdue.id, TODAY))?.state).toBe("answer_overdue");
+    expect((await getPermit(owner, today.id, TODAY))?.state).toBe("applied");
+    expect((await getPermit(owner, today.id, "2026-10-22"))?.state).toBe("answer_overdue");
+  });
+
+  it("names an Ort with upcoming events but no requirements as 'noch nicht geklärt' (UX-011)", async () => {
+    await makeEvent("2026-12-06", "Advent");
+    await makeEvent("2026-11-08", "Herbst");
+    // A past event does not count.
+    await makeEvent("2026-09-01", "Sommer");
+    const unclear = (await listLogbook(owner, { season: "upcoming" }, TODAY)).unclearVenues;
+    expect(unclear).toEqual([
+      { id: cat.venue.id, name: cat.venue.name, nextEventOn: "2026-11-08" },
+    ]);
+    // The Ort filter narrows it.
+    expect(
+      (await listLogbook(owner, { venueId: "11111111-1111-4111-8111-111111111111" }, TODAY))
+        .unclearVenues,
+    ).toEqual([]);
+
+    // A requirement (or a permit) settles it.
+    await db.insert(permitRequirement).values({
+      venueId: cat.venue.id,
+      category: "city",
+      permitType: "water",
+      title: "Wasser",
+      cadence: "per_event",
+      leadTimeDays: 14,
+    });
+    expect((await listLogbook(owner, {}, TODAY)).unclearVenues).toEqual([]);
+  });
+
+  it("gives the drawer the requirement's usual decision day for the 'beantragt' step", async () => {
+    const [req] = await db
+      .insert(permitRequirement)
+      .values({
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "market_permit",
+        title: "Marktgenehmigung",
+        cadence: "per_season",
+        leadTimeDays: 120,
+        expectedDecisionMd: "01-15",
+      })
+      .returning();
+    const p = await makePermit({ requirementId: req?.id ?? null });
+    expect((await getPermit(owner, p.id, TODAY))?.requirement?.expectedDecisionMd).toBe("01-15");
   });
 });
 
@@ -266,9 +365,11 @@ describe("event permits and health", () => {
     const healthy = await permitHealthByEvent([{ id: ev.id, startsOn: ev.startsOn }], TODAY);
     expect(healthy.get(ev.id)).toBe("warn");
 
-    // The events list carries it as the permit dimension.
+    // The events list carries it as the permit dimension. The list judges by the real today (not TODAY), so it
+    // is compared with the same query for that day: a fixed date here turns critical once the event is near.
     const rows = await listEvents(owner, {});
-    expect(rows.find((r) => r.id === ev.id)?.health.permits).toBe("warn");
+    const asOfNow = await permitHealthByEvent([{ id: ev.id, startsOn: ev.startsOn }], todayIn());
+    expect(rows.find((r) => r.id === ev.id)?.health.permits).toBe(asOfNow.get(ev.id));
 
     // Nothing applied for and close to the event: critical. An event without permits: not tracked.
     const soon = await makeEvent("2026-10-25", "Bald");
@@ -465,7 +566,7 @@ describe("a permit judged for its event (UX pass 2026-10-22)", () => {
         season: 2026,
         startsOn: "2026-11-06",
         endsOn: "2026-11-08",
-        times: cat.times,
+        schedule: cat.schedule,
         pricePerMCents: 0,
         bookingFeeCents: 0,
       })

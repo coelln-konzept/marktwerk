@@ -99,6 +99,83 @@
       "when": 1794301535965,
       "tag": "0013_drop_unused_watcher_sidebar",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794571327416,
+      "tag": "0014_permit_type_market_fixing",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794571644167,
+      "tag": "0015_preset_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794572790258,
+      "tag": "0016_venue_kind_municipal_private",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794573518175,
+      "tag": "0017_zeitplan",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794573596555,
+      "tag": "0018_drop_times",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794575786963,
+      "tag": "0019_subtasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794575841710,
+      "tag": "0020_drop_check_items_dependencies",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794580682343,
+      "tag": "0021_search_trgm",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794590958540,
+      "tag": "0022_saison",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794605788761,
+      "tag": "0023_market_short_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794608208922,
+      "tag": "0024_next_time_note",
+      "breakpoints": true
     }
   ]
 }

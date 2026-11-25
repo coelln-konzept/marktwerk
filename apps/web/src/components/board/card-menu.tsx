@@ -7,8 +7,11 @@ import {
   CalendarSearch,
   Check,
   ChevronRight,
+  CornerDownRight,
+  CornerLeftUp,
   Ellipsis,
   ExternalLink,
+  Trash2,
   UserMinus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -28,8 +31,9 @@ const item =
 const subTrigger = cn(item, "justify-between data-[popup-open]:bg-hover");
 
 /**
- * The "⋯" menu of a card: *Zuweisen an…*, *Verschieben nach…*, *Status*, *Erledigt* (UX concept §6, drag
- * alternatives). Everything a drag could do is here, so the board never depends on a pointer.
+ * The "⋯" menu of a card or Checkliste row: *Zuweisen an…*, *Verschieben nach…* (kanban only), *Status*,
+ * *Erledigt* (UX concept §6, drag alternatives). Everything a drag could do is here, so the board never depends
+ * on a pointer.
  */
 export function CardMenu({
   task,
@@ -43,7 +47,19 @@ export function CardMenu({
   const t = useTranslations("board");
   const tTasks = useTranslations("tasks");
   const router = useRouter();
-  const { staff, canWrite, canAssign, actions, askReason, askSnoozeDate, today } = useBoard();
+  const {
+    staff,
+    canWrite,
+    canAssign,
+    canDelete,
+    hasColumns,
+    actions,
+    askReason,
+    askSnoozeDate,
+    askParent,
+    taskById,
+    today,
+  } = useBoard();
   const tSnooze = useTranslations("tasks.snooze");
   const presets = useSnoozePresets(today);
   const finished = task.status === "done" || task.status === "skipped";
@@ -124,7 +140,8 @@ export function CardMenu({
               </Menu.SubmenuRoot>
             )}
 
-            {canWrite && (
+            {/* Only where the columns are on screen; the Checkliste changes the due date in the drawer. */}
+            {canWrite && hasColumns && (
               <Menu.SubmenuRoot>
                 <Menu.SubmenuTrigger className={subTrigger}>
                   {t("menu.move")}
@@ -240,6 +257,32 @@ export function CardMenu({
             {canWrite && (
               <>
                 <Menu.Separator className="my-1 h-px bg-border" />
+                {/* The drag alternative for subtasks (ADR 0021): nest under a task, or lift out. */}
+                <Menu.Item className={item} onClick={() => askParent(task)}>
+                  <CornerDownRight aria-hidden className="size-4 text-muted-foreground" />
+                  {t("nest.menuNest")}
+                </Menu.Item>
+                {task.parentId && (
+                  <Menu.Item
+                    className={item}
+                    onClick={() =>
+                      actions.setParent(
+                        task,
+                        null,
+                        task.parentId ? (taskById(task.parentId) ?? null) : null,
+                      )
+                    }
+                  >
+                    <CornerLeftUp aria-hidden className="size-4 text-muted-foreground" />
+                    {t("nest.menuUnnest")}
+                  </Menu.Item>
+                )}
+              </>
+            )}
+
+            {canWrite && (
+              <>
+                <Menu.Separator className="my-1 h-px bg-border" />
                 {finished ? (
                   <Menu.Item className={item} onClick={() => actions.setStatus(task, "todo")}>
                     {t("menu.reopen")}
@@ -250,6 +293,15 @@ export function CardMenu({
                     <Kbd className="ml-auto">E</Kbd>
                   </Menu.Item>
                 )}
+              </>
+            )}
+            {canDelete && (
+              <>
+                <Menu.Separator className="my-1 h-px bg-border" />
+                <Menu.Item className={item} onClick={() => actions.remove(task)}>
+                  <Trash2 aria-hidden className="size-4 text-muted-foreground" />
+                  {t("menu.delete")}
+                </Menu.Item>
               </>
             )}
           </Menu.Popup>

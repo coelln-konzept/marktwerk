@@ -19,10 +19,19 @@ export type HistoryEntry = {
    * finishing entry and the task is still done or skipped; null otherwise.
    */
   restoreTaskId: string | null;
+  /** The restore brings back a deleted task (`task.delete`) rather than reopening a finished one. */
+  restoreDeleted: boolean;
 };
 
 /** Task changes worth a line in the event's Verlauf (ticks, snoozes and their undo), not every check item or comment. */
-const TASK_ACTIONS = ["task.status", "task.snooze", "task.unsnooze", "task.undo"];
+const TASK_ACTIONS = [
+  "task.status",
+  "task.snooze",
+  "task.unsnooze",
+  "task.undo",
+  "task.delete",
+  "task.restore",
+];
 /** Document changes of the event's Dokumente tab. */
 const DOCUMENT_ACTIONS = ["document.upload", "document.archive", "document.restore"];
 
@@ -83,12 +92,22 @@ export async function listEventHistory(
 
   // Newest first, so the first finishing entry seen per task is the one that still holds.
   const seen = new Set<string>();
+  // Same for deletes: the newest delete or restore of a task decides whether it can be brought back.
+  const seenDelete = new Set<string>();
   return rows.map(({ taskTitle, taskStatus, entityId, ...row }) => {
     const diff = (row.diff && typeof row.diff === "object" ? row.diff : {}) as {
       fileName?: unknown;
       to?: unknown;
     };
     let restoreTaskId: string | null = null;
+    let restoreDeleted = false;
+    if ((row.action === "task.delete" || row.action === "task.restore") && entityId) {
+      if (!seenDelete.has(entityId) && row.action === "task.delete" && taskStatus === "cancelled") {
+        restoreTaskId = entityId;
+        restoreDeleted = true;
+      }
+      seenDelete.add(entityId);
+    }
     if (row.action === "task.status" && entityId && !seen.has(entityId)) {
       seen.add(entityId);
       const finishedHere = diff.to === "done" || diff.to === "skipped";
@@ -98,6 +117,7 @@ export async function listEventHistory(
       ...row,
       subject: taskTitle ?? (typeof diff.fileName === "string" ? diff.fileName : null),
       restoreTaskId,
+      restoreDeleted,
     };
   });
 }

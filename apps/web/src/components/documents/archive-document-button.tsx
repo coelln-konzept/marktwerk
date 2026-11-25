@@ -9,14 +9,14 @@ import { archiveDocumentAction, restoreDocumentAction } from "./actions";
 /** "Entfernen" next to a document: soft delete with an undo toast instead of a confirmation. */
 export function ArchiveDocumentButton({ id, fileName }: { id: string; fileName: string }) {
   const t = useTranslations("documents");
-  const { showToast } = useShell();
+  const { showToast, showError } = useShell();
   const [pending, startTransition] = useTransition();
 
   function archive() {
     startTransition(async () => {
       const result = await archiveDocumentAction(id);
       if (!result.ok) {
-        showToast({ message: t("toast.failed") });
+        showError(t("toast.failed"));
         return;
       }
       showToast({
@@ -24,11 +24,9 @@ export function ArchiveDocumentButton({ id, fileName }: { id: string; fileName: 
         actionLabel: t("toast.undo"),
         onAction: async () => {
           const undone = await restoreDocumentAction(id);
-          showToast({
-            message: undone.ok
-              ? t("toast.restored", { name: undone.data.fileName })
-              : t("toast.failed"),
-          });
+          if (undone.ok)
+            showToast({ message: t("toast.restored", { name: undone.data.fileName }) });
+          else showError(t("toast.failed"));
         },
       });
     });

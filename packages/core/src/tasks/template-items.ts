@@ -1,3 +1,4 @@
+import { isSeasonAnchorKey } from "../events/season";
 import { PERMIT_TYPES, type PermitTypeKey } from "../permits/status";
 import { clockTime, type DayMode, MAX_OFFSET_DAYS } from "./due";
 
@@ -20,6 +21,21 @@ export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
 export const DAY_MODES = ["calendar", "business"] as const;
 
+/**
+ * What an item belongs to (research 13 §6.1): `event` items become tasks of every event of the market, `season`
+ * items tasks of its Saison record, once per season.
+ */
+export const TEMPLATE_ITEM_SCOPES = ["event", "season"] as const;
+export type TemplateItemScope = (typeof TEMPLATE_ITEM_SCOPES)[number];
+
+/**
+ * Season items hang only on season anchors (`season_start`, `season_end`), event items never on them. Custom
+ * event anchors stay free text.
+ */
+export function anchorFitsScope(scope: TemplateItemScope, anchorKey: string): boolean {
+  return scope === "season" ? isSeasonAnchorKey(anchorKey) : !isSeasonAnchorKey(anchorKey);
+}
+
 /** Named event dates a template item can hang on (more can exist: custom anchors, permit decision). */
 export const STANDARD_ANCHOR_KEYS = [
   "event_day",
@@ -31,7 +47,6 @@ export const STANDARD_ANCHOR_KEYS = [
 
 export const TEMPLATE_TITLE_MAX = 200;
 export const TEMPLATE_TEXT_MAX = 5000;
-export const MAX_CHECK_ITEMS = 30;
 export const MAX_ESTIMATE_MINUTES = 100_000;
 export const MAX_ITEMS_PER_VERSION = 300;
 
@@ -121,9 +136,19 @@ export type TemplateItemFields = {
   isKey: boolean;
   /** The permit this item applies for ("Gehört zur Genehmigung"); its task links to the event's permit of that type. */
   permitType: PermitTypeKey | null;
-  checkItems: string[];
   approverDutyRoleId: string | null;
-  dependsOnKeys: string[];
+  /**
+   * Child item (ADR 0021): the `stable_key` of the item whose task this item's task becomes a subtask of; null =
+   * a top-level item. Checked against the version by `checkItemTree`.
+   */
+  parentKey: string | null;
+  /** Child items: own anchor, offset, day mode and time (true) or the parent's (false). */
+  ownDue: boolean;
+  /**
+   * `event` or `season` (research 13 §6.1); absent = unchanged on update, `event` for a new item. A child item
+   * always takes its parent's scope (the template service sets it).
+   */
+  scope?: TemplateItemScope;
   condition: ItemCondition | null;
 };
 
@@ -138,9 +163,9 @@ export type ItemIssueCode =
   | "invalid_offset"
   | "invalid_time"
   | "invalid_estimate"
-  | "invalid_check_items"
-  | "invalid_depends"
+  | "invalid_parent"
   | "invalid_permit_type"
+  | "invalid_scope"
   | "invalid_condition";
 
 export type ItemIssueField =
@@ -154,9 +179,9 @@ export type ItemIssueField =
   | "offsetDays"
   | "dueTime"
   | "estimateMinutes"
-  | "checkItems"
-  | "dependsOnKeys"
+  | "parentKey"
   | "permitType"
+  | "scope"
   | "condition";
 
 export type ItemIssue = { code: ItemIssueCode; field: ItemIssueField };
@@ -181,7 +206,18 @@ export function checkTemplateItem(item: TemplateItemFields): ItemIssue[] {
   if (!isOneOf(TASK_CATEGORIES, item.category)) add("invalid_category", "category");
   if (!isOneOf(TASK_PRIORITIES, item.priority)) add("invalid_priority", "priority");
   if (!isOneOf(DAY_MODES, item.dayMode)) add("invalid_day_mode", "dayMode");
+  const scopeValid = item.scope === undefined || isOneOf(TEMPLATE_ITEM_SCOPES, item.scope);
+  if (!scopeValid) add("invalid_scope", "scope");
   if (typeof item.anchorKey !== "string" || !ANCHOR_KEY.test(item.anchorKey))
+    add("invalid_anchor", "anchorKey");
+  // Own schedule (a top-level item, or a child with its own due date): its anchor must fit its scope. Checked once
+  // the scope is known: the service resolves it first (the stored one, the parent's for a child, else `event`).
+  else if (
+    item.scope !== undefined &&
+    scopeValid &&
+    (item.parentKey === null || item.ownDue === true) &&
+    !anchorFitsScope(item.scope, item.anchorKey)
+  )
     add("invalid_anchor", "anchorKey");
   if (
     !Number.isInteger(item.offsetDays) ||
@@ -196,16 +232,9 @@ export function checkTemplateItem(item: TemplateItemFields): ItemIssue[] {
     item.estimateMinutes > MAX_ESTIMATE_MINUTES
   )
     add("invalid_estimate", "estimateMinutes");
-  if (
-    !Array.isArray(item.checkItems) ||
-    item.checkItems.length > MAX_CHECK_ITEMS ||
-    item.checkItems.some(
-      (c) => typeof c !== "string" || c.trim() === "" || c.length > TEMPLATE_TITLE_MAX,
-    )
-  )
-    add("invalid_check_items", "checkItems");
-  if (!Array.isArray(item.dependsOnKeys) || item.dependsOnKeys.some((k) => typeof k !== "string"))
-    add("invalid_depends", "dependsOnKeys");
+  if (item.parentKey !== null && (typeof item.parentKey !== "string" || item.parentKey === ""))
+    add("invalid_parent", "parentKey");
+  if (typeof item.ownDue !== "boolean") add("invalid_parent", "parentKey");
   if (item.permitType !== null && !isOneOf(PERMIT_TYPES, item.permitType))
     add("invalid_permit_type", "permitType");
   const c = item.condition;
@@ -218,45 +247,6 @@ export function checkTemplateItem(item: TemplateItemFields): ItemIssue[] {
       ))
   )
     add("invalid_condition", "condition");
-  return issues;
-}
-
-export type DependencyIssue = {
-  key: string;
-  code: "unknown_dependency" | "self_dependency" | "dependency_cycle";
-};
-
-/**
- * Dependencies must point at other items of the same version and must not form a loop. Dependencies are
- * informational (they never move dates), but a loop would make "waits for" unanswerable.
- */
-export function checkDependencies(
-  items: readonly { stableKey: string; dependsOnKeys: readonly string[] }[],
-): DependencyIssue[] {
-  const issues: DependencyIssue[] = [];
-  const known = new Map(items.map((i) => [i.stableKey, i.dependsOnKeys]));
-  for (const item of items) {
-    for (const dep of item.dependsOnKeys) {
-      if (dep === item.stableKey) issues.push({ key: item.stableKey, code: "self_dependency" });
-      else if (!known.has(dep)) issues.push({ key: item.stableKey, code: "unknown_dependency" });
-    }
-  }
-  // Depth-first search for loops (white/grey/black colouring).
-  const state = new Map<string, 1 | 2>();
-  const reported = new Set<string>();
-  const visit = (key: string, path: string[]) => {
-    state.set(key, 1);
-    for (const dep of known.get(key) ?? []) {
-      if (dep === key || !known.has(dep)) continue;
-      if (state.get(dep) === 1) {
-        for (const member of path.slice(path.indexOf(dep))) reported.add(member);
-        reported.add(dep);
-      } else if (!state.has(dep)) visit(dep, [...path, dep]);
-    }
-    state.set(key, 2);
-  };
-  for (const item of items) if (!state.has(item.stableKey)) visit(item.stableKey, [item.stableKey]);
-  for (const key of reported) issues.push({ key, code: "dependency_cycle" });
   return issues;
 }
 

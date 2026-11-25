@@ -1,7 +1,24 @@
-import { auditLog, event, eventPreset, eventType, staffMember, venue } from "@marktwerk/db/schema";
+import {
+  defaultSchedule,
+  type ScheduleRow,
+  scheduleFromTimes,
+  suggestPlanRule,
+} from "@marktwerk/core";
+import {
+  auditLog,
+  event,
+  eventPreset,
+  eventType,
+  permitRequirement,
+  staffMember,
+  venue,
+} from "@marktwerk/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
+import { previewGeneration } from "@/server/queries/generation-preview";
+import { getMarketShortCodes } from "@/server/queries/market-short-codes";
+import { listPresets, listPresetsForGeneration } from "@/server/queries/presets";
 import { createEventsFromPreset } from "@/server/services/events";
 import {
   createPreset,
@@ -34,7 +51,12 @@ const input = (patch: Partial<PresetInput> = {}): PresetInput => ({
   durationDays: 1,
   publicTitle: "Frühjahrs-Flohmarkt",
   publicText: "Trödeln im Park.",
-  times: { setup: "6", open: "8.00", close: "16:00", teardown: "18:00" },
+  // As typed: "6" and "8.00" are normalised.
+  schedule: [
+    { audience: "vendors", kind: "setup", day: "first", from: "6", to: "8.00" },
+    { audience: "visitors", kind: "open", day: "each", from: "8.00", to: "16:00" },
+    { audience: "vendors", kind: "teardown", day: "last", from: "16:00", to: "18:00" },
+  ],
   pricePerMCents: 1500,
   bookingFeeCents: 500,
   rrule: "FREQ=MONTHLY;BYMONTH=4,5;BYDAY=SU;BYSETPOS=1",
@@ -63,7 +85,7 @@ const audits = (action: string) =>
   db.select().from(auditLog).where(eq(auditLog.action, action)).orderBy(auditLog.at);
 
 describe("createPreset", () => {
-  it("stores the preset with normalised times and a unique key", async () => {
+  it("stores the preset with a normalised Zeitplan and a unique key", async () => {
     const { id, key } = await createPreset(owner, input());
     expect(key).toMatch(/^fruehjahrsmarkt-[0-9a-f]{6}$/);
     const row = await load(id);
@@ -82,12 +104,7 @@ describe("createPreset", () => {
       active: true,
       archivedAt: null,
     });
-    expect(row.defaultTimes).toEqual({
-      setup: "06:00",
-      open: "08:00",
-      close: "16:00",
-      teardown: "18:00",
-    });
+    expect(row.schedule).toEqual(defaultSchedule());
   });
 
   it("gives presets with the same name different keys, trims, and turns blank texts into null", async () => {
@@ -117,12 +134,7 @@ describe("createPreset", () => {
     expect(diff.key).toBe(key);
     expect(diff.changes.name).toEqual({ from: null, to: "Frühjahrsmarkt" });
     expect(diff.changes.pricePerMCents).toEqual({ from: null, to: 1500 });
-    expect(diff.changes.defaultTimes?.to).toEqual({
-      setup: "06:00",
-      open: "08:00",
-      close: "16:00",
-      teardown: "18:00",
-    });
+    expect(diff.changes.schedule?.to).toEqual(defaultSchedule());
   });
 });
 
@@ -172,6 +184,139 @@ describe("market colour", () => {
   });
 });
 
+describe("Kürzel (short code)", () => {
+  it("stores a typed Kürzel normalised, and none when left out or blank", async () => {
+    const a = await createPreset(owner, input({ name: "Altstadt", shortCode: " alt " }));
+    const b = await createPreset(owner, input({ name: "Nippes" }));
+    const c = await createPreset(owner, input({ name: "Südstadt", shortCode: "  " }));
+    expect((await load(a.id)).shortCode).toBe("ALT");
+    expect((await load(b.id)).shortCode).toBeNull();
+    expect((await load(c.id)).shortCode).toBeNull();
+    const created = (await audits("preset.create")).find((e) => e.entityId === a.id);
+    expect(created?.diff).toMatchObject({ changes: { shortCode: { from: null, to: "ALT" } } });
+  });
+
+  it("edits the Kürzel (audited), keeps it when left out and allows clearing it", async () => {
+    const { id } = await createPreset(owner, input({ shortCode: "FM" }));
+    let { updatedAt } = await load(id);
+    await updatePreset(owner, id, input({ name: "Anders" }), updatedAt);
+    expect((await load(id)).shortCode).toBe("FM");
+    ({ updatedAt } = await load(id));
+    const result = await updatePreset(
+      owner,
+      id,
+      input({ name: "Anders", shortCode: "p6" }),
+      updatedAt,
+    );
+    expect(result.changed).toBe(true);
+    expect((await load(id)).shortCode).toBe("P6");
+    const entry = (await audits("preset.update")).at(-1);
+    expect(entry?.diff).toMatchObject({ changes: { shortCode: { from: "FM", to: "P6" } } });
+    await updatePreset(owner, id, input({ name: "Anders", shortCode: "" }), result.updatedAt);
+    expect((await load(id)).shortCode).toBeNull();
+  });
+
+  it("rejects codes that are not 1–4 letters or digits", async () => {
+    for (const shortCode of ["ABCDE", "A-B", "straß", "É"])
+      await rejects(createPreset(owner, input({ shortCode })), "invalid_short_code", "shortCode");
+    await rejects(
+      createPreset(owner, input({ shortCode: 42 as unknown as string })),
+      "invalid_input",
+    );
+    const { id } = await createPreset(owner, input());
+    const { updatedAt } = await load(id);
+    await rejects(
+      updatePreset(owner, id, input({ shortCode: "TOOLONG" }), updatedAt),
+      "invalid_short_code",
+      "shortCode",
+    );
+  });
+
+  it("keeps a Kürzel unique among active markets only", async () => {
+    await createPreset(owner, input({ name: "Altstadt", shortCode: "ALT" }));
+    await rejects(
+      createPreset(owner, input({ name: "Altenberg", shortCode: "alt" })),
+      "short_code_taken",
+      "shortCode",
+    );
+    // An inactive market may keep (or get) a code an active one has.
+    const inactive = await createPreset(
+      owner,
+      input({ name: "Altenberg", shortCode: "ALT", active: false }),
+    );
+    const row = await load(inactive.id);
+    // … but cannot become active again while the code is taken.
+    await rejects(
+      updatePreset(owner, inactive.id, input({ name: "Altenberg", active: true }), row.updatedAt),
+      "short_code_taken",
+      "shortCode",
+    );
+    expect((await load(inactive.id)).active).toBe(false);
+    // With another code it can.
+    await updatePreset(
+      owner,
+      inactive.id,
+      input({ name: "Altenberg", active: true, shortCode: "ABG" }),
+      row.updatedAt,
+    );
+    expect(await load(inactive.id)).toMatchObject({ active: true, shortCode: "ABG" });
+  });
+
+  it("rejects taking another active market's Kürzel on edit, but saving its own again is fine", async () => {
+    await createPreset(owner, input({ name: "Altstadt", shortCode: "ALT" }));
+    const { id } = await createPreset(owner, input({ name: "Nippes", shortCode: "NIP" }));
+    const before = await load(id);
+    await rejects(
+      updatePreset(owner, id, input({ name: "Nippes", shortCode: "ALT" }), before.updatedAt),
+      "short_code_taken",
+      "shortCode",
+    );
+    expect((await load(id)).shortCode).toBe("NIP");
+    const same = await updatePreset(
+      owner,
+      id,
+      input({ name: "Nippes", shortCode: "NIP" }),
+      before.updatedAt,
+    );
+    expect(same.changed).toBe(false);
+  });
+
+  it("is backed by a partial unique index (a racing save is caught by the database)", async () => {
+    const a = await createPreset(owner, input({ name: "A", shortCode: "ALT" }));
+    const b = await createPreset(owner, input({ name: "B" }));
+    // Bypasses the service's check, as a concurrent save would.
+    await expect(
+      db.update(eventPreset).set({ shortCode: "ALT" }).where(eq(eventPreset.id, b.id)),
+    ).rejects.toThrow();
+    // Archived markets don't count.
+    await db.update(eventPreset).set({ archivedAt: new Date() }).where(eq(eventPreset.id, a.id));
+    await db.update(eventPreset).set({ shortCode: "ALT" }).where(eq(eventPreset.id, b.id));
+    expect((await load(b.id)).shortCode).toBe("ALT");
+    // The check constraint refuses lower case and long codes.
+    await expect(
+      db.update(eventPreset).set({ shortCode: "alt" }).where(eq(eventPreset.id, b.id)),
+    ).rejects.toThrow();
+    await expect(
+      db.update(eventPreset).set({ shortCode: "ABCDE" }).where(eq(eventPreset.id, b.id)),
+    ).rejects.toThrow();
+  });
+
+  it("resolves the Kürzel to show: own codes first, derived ones kept apart", async () => {
+    const own = await createPreset(owner, input({ name: "Südbrücke", shortCode: "SÜD" }));
+    const derived = await createPreset(owner, input({ name: "Südstadt" }));
+    const kerpen = await createPreset(owner, input({ name: "Kerpen Stadtfest" }));
+    const codes = await getMarketShortCodes();
+    expect(codes.get(own.id)).toBe("SÜD");
+    expect(codes.get(derived.id)).toBe("SÜDS");
+    expect(codes.get(kerpen.id)).toBe("KS");
+    // The seeded catalogue's markets get one too, all different.
+    expect(new Set(codes.values()).size).toBe(codes.size);
+    // The Bibliothek shows the same codes.
+    const listed = await listPresets();
+    for (const p of listed) expect(p.code).toBe(codes.get(p.id));
+  });
+});
+
 describe("validation", () => {
   it("rejects bad names", async () => {
     await rejects(createPreset(owner, input({ name: "  " })), "invalid_name", "name");
@@ -185,35 +330,32 @@ describe("validation", () => {
     await createPreset(owner, input({ durationDays: 14 }));
   });
 
-  it("names the time field that is wrong", async () => {
+  it("checks the Zeitplan with the core rules for the preset's length", async () => {
+    const visitors = (from: string, to: string): ScheduleRow => ({
+      audience: "visitors",
+      kind: "open",
+      day: "each",
+      from,
+      to,
+    });
+    for (const schedule of [
+      [visitors("08:00", "25:00")],
+      [visitors("17:00", "16:00")],
+      [{ ...visitors("06:00", "08:00"), audience: "vendors", kind: "setup" } as ScheduleRow],
+      [visitors("08:00", "16:00"), visitors("08:00", "16:00")],
+    ])
+      await rejects(createPreset(owner, input({ schedule })), "invalid_schedule", "schedule");
     await rejects(
-      createPreset(
-        owner,
-        input({ times: { setup: "06:00", open: "08:00", close: "16:00", teardown: "25:00" } }),
-      ),
-      "invalid_time",
-      "teardown",
+      createPreset(owner, input({ schedule: "08–16" as unknown as ScheduleRow[] })),
+      "invalid_input",
     );
-    await rejects(
-      createPreset(
-        owner,
-        input({ times: { setup: "06:00", open: "17:00", close: "16:00", teardown: "18:00" } }),
-      ),
-      "open_after_close",
-      "close",
-    );
-    await rejects(
-      createPreset(
-        owner,
-        input({ times: { setup: "06:00", open: "08:00", close: "19:00", teardown: "18:00" } }),
-      ),
-      "close_after_teardown",
-      "teardown",
-    );
-    // A late setup is fine for multi-day presets (set up the day before), not for single-day ones.
-    const late = { setup: "09:00", open: "08:00", close: "16:00", teardown: "18:00" };
-    await rejects(createPreset(owner, input({ times: late })), "setup_after_open", "setup");
-    await createPreset(owner, input({ times: late, durationDays: 3 }));
+    // An early tear-down on the last morning is fine for multi-day markets, not for single-day ones.
+    const early: ScheduleRow[] = [
+      ...defaultSchedule(),
+      { audience: "vendors", kind: "teardown", day: "last", from: "07:00", to: "10:00" },
+    ];
+    await rejects(createPreset(owner, input({ schedule: early })), "invalid_schedule", "schedule");
+    await createPreset(owner, input({ schedule: early, durationDays: 3 }));
   });
 
   it("limits prices to 0 – 1.000.000 cents", async () => {
@@ -289,7 +431,7 @@ describe("updatePreset", () => {
         name: "Testflohmarkt",
         pricePerMCents: 1300,
         bookingFeeCents: before.bookingFeeCents,
-        times: before.defaultTimes,
+        schedule: before.schedule,
         rrule: null,
         defaultDuties: before.defaultDuties,
         publicTitle: null,
@@ -330,7 +472,12 @@ describe("updatePreset", () => {
         pricePerMCents: before.pricePerMCents,
         bookingFeeCents: before.bookingFeeCents,
         defaultDuties: { market_lead: cat.staff.ben.id, setup: cat.staff.anna.id },
-        times: { setup: "07:30", open: "10:00", close: "22:00", teardown: "23:30" },
+        schedule: scheduleFromTimes({
+          setup: "07:30",
+          open: "10:00",
+          close: "22:00",
+          teardown: "23:30",
+        }),
         active: false,
       }),
       before.updatedAt,
@@ -341,16 +488,11 @@ describe("updatePreset", () => {
       rrule: "FREQ=MONTHLY;BYMONTH=4,5;BYDAY=SU;BYSETPOS=1",
       defaultDuties: { market_lead: cat.staff.ben.id, setup: cat.staff.anna.id },
     });
-    expect(after.defaultTimes.setup).toBe("07:30");
+    expect(after.schedule[0]).toMatchObject({ kind: "setup", from: "07:30", to: "10:00" });
     const [entry] = await audits("preset.update");
     const changes =
       (entry?.diff as { changes: Record<string, unknown> } | undefined)?.changes ?? {};
-    expect(Object.keys(changes).sort()).toEqual([
-      "active",
-      "defaultDuties",
-      "defaultTimes",
-      "rrule",
-    ]);
+    expect(Object.keys(changes).sort()).toEqual(["active", "defaultDuties", "rrule", "schedule"]);
   });
 
   it("reactivating an inactive preset is just another update", async () => {
@@ -496,7 +638,12 @@ describe("existing events", () => {
         durationDays: 5,
         pricePerMCents: 9900,
         bookingFeeCents: 900,
-        times: { setup: "04:00", open: "09:00", close: "20:00", teardown: "22:00" },
+        schedule: scheduleFromTimes({
+          setup: "04:00",
+          open: "09:00",
+          close: "20:00",
+          teardown: "22:00",
+        }),
         defaultDuties: {},
       }),
       preset.updatedAt,
@@ -512,6 +659,60 @@ describe("existing events", () => {
   });
 });
 
+describe("listPresetsForGeneration: past dates for the Markt planen rule (UX-015)", () => {
+  it("lists the market's held dates of the last two years, without cancelled and future ones", async () => {
+    const festival = cat.presets.festival;
+    // A Fr–So market (3 days) on the first Friday of the month.
+    const created = await createEventsFromPreset(owner, festival.id, [
+      "2024-05-03",
+      "2026-04-03",
+      "2026-05-01",
+      "2026-06-05",
+      "2026-07-03",
+      "2027-04-02",
+    ]);
+    const cancelled = created.find((c) => c.startsOn === "2026-07-03");
+    if (!cancelled) throw new Error("not created");
+    await db.update(event).set({ status: "cancelled" }).where(eq(event.id, cancelled.id));
+
+    const rows = await listPresetsForGeneration("2026-11-14");
+    const row = rows.find((r) => r.id === festival.id);
+    expect(row?.pastDates).toEqual([
+      { startsOn: "2026-04-03", endsOn: "2026-04-05" },
+      { startsOn: "2026-05-01", endsOn: "2026-05-03" },
+      { startsOn: "2026-06-05", endsOn: "2026-06-07" },
+    ]);
+    expect(rows.find((r) => r.id === cat.presets.flea.id)?.pastDates).toEqual([]);
+    // What step 2 makes of them: "jeden 1. Freitag, April bis Juni".
+    expect(
+      suggestPlanRule(row?.pastDates ?? [], festival.durationDays, "2026-11-14"),
+    ).toMatchObject({
+      weekdays: [5],
+      setPos: 1,
+      months: [4, 5, 6],
+      regular: true,
+    });
+  });
+});
+
+describe("previewGeneration: an Ort without requirements (UX-011)", () => {
+  it("says so, so step 3 shows 'noch nicht geklärt' instead of 'keine Genehmigungen nötig'", async () => {
+    const before = await previewGeneration(cat.presets.flea.id, ["2027-04-04"]);
+    expect(before.noRequirements).toBe(true);
+
+    await db.insert(permitRequirement).values({
+      venueId: cat.venue.id,
+      category: "city",
+      permitType: "market_permit",
+      title: "Marktgenehmigung",
+      cadence: "per_season",
+      leadTimeDays: 120,
+    });
+    const after = await previewGeneration(cat.presets.flea.id, ["2027-04-04"]);
+    expect(after.noRequirements).toBe(false);
+  });
+});
+
 /** A stored preset as form input, with some fields changed. */
 function same(row: typeof eventPreset.$inferSelect, patch: Partial<PresetInput> = {}): PresetInput {
   return {
@@ -521,7 +722,7 @@ function same(row: typeof eventPreset.$inferSelect, patch: Partial<PresetInput> 
     durationDays: row.durationDays,
     publicTitle: row.publicTitle,
     publicText: row.publicText,
-    times: row.defaultTimes,
+    schedule: row.schedule,
     pricePerMCents: row.pricePerMCents,
     bookingFeeCents: row.bookingFeeCents,
     rrule: row.rrule,

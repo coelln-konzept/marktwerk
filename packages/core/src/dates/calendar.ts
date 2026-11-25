@@ -99,3 +99,26 @@ export function weekendsTouched(from: string, to: string): string[] {
   }
   return [...saturdays].sort();
 }
+
+/** One row of a compact month grid: its ISO week ("KW") and Monday … Sunday, null outside the month. */
+export type MonthWeek = { week: number; days: (string | null)[] };
+
+/**
+ * The weeks of a month for a grid with a KW column (Jahresübersicht, Fahrplan R22): weeks start on
+ * Monday, days of the neighbour months are null, so every month stands on its own (4–6 rows).
+ */
+export function monthWeeks(year: number, month: number): MonthWeek[] {
+  const first = isoDate(year, month, 1);
+  const last = isoDate(year, month, daysInMonth(year, month));
+  const weeks: MonthWeek[] = [];
+  for (let monday = mondayOf(first); monday <= last; monday = addDays(monday, 7)) {
+    weeks.push({
+      week: isoWeek(monday).week,
+      days: Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(monday, i);
+        return day >= first && day <= last ? day : null;
+      }),
+    });
+  }
+  return weeks;
+}

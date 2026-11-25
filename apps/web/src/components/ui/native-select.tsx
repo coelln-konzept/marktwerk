@@ -3,9 +3,9 @@ import { ChevronDown } from "lucide-react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-/** Classes of the select element itself: same height, border and radius as `Input`. */
+/** Classes of the select element itself: same height (44 px on touch, `tap:`), border and radius as `Input`. */
 export const nativeSelectClass =
-  "min-h-(--control-h) w-full min-w-0 appearance-none rounded-lg border border-input bg-card py-1 pr-9 pl-3 text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-1 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive";
+  "min-h-(--control-h) tap:min-h-11 w-full min-w-0 appearance-none rounded-lg border border-input bg-card py-1 pr-9 pl-3 text-foreground focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-1 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive";
 
 /**
  * `appearance-none` select with a lucide chevron (the browser chevron differs per OS and ignores the

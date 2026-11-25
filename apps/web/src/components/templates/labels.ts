@@ -11,4 +11,4 @@ export function dateOfInstant(at: Date, timeZone = "Europe/Berlin"): string {
 export const PHASES = ["pre", "live", "post"] as const;
 
 /** Venue kinds a condition can name (venue.kind enum). */
-export const VENUE_KINDS = ["outdoor_public", "outdoor_private", "indoor"] as const;
+export { VENUE_KINDS } from "@marktwerk/core";

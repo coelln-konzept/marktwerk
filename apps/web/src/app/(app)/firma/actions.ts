@@ -25,6 +25,7 @@ import {
   updateObligation,
   updateVehicle,
   type VehicleInput,
+  withdrawVehicleIssue,
 } from "@/server/services/company";
 import { requirePermission } from "@/server/session";
 
@@ -137,6 +138,12 @@ export async function undoCompletionAction(
 export async function reportIssueAction(input: IssueInput) {
   await requirePermission("company", "write");
   return run((actor) => reportVehicleIssue(actor, input));
+}
+
+/** Undo toast of "Mangel melden": removes the report while it is untouched. */
+export async function withdrawIssueAction(issueId: string) {
+  await requirePermission("company", "write");
+  return run((actor) => withdrawVehicleIssue(actor, issueId));
 }
 
 /** `expected` makes it the undo of a status change: it applies only while the issue still has that status. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  anchorFitsScope,
   applicableItems,
-  checkDependencies,
   checkTemplateItem,
   hasCondition,
   insertPoint,
@@ -11,11 +11,12 @@ import {
   offsetLabel,
   offsetWords,
   rulerPosition,
+  TEMPLATE_ITEM_SCOPES,
   type TemplateItemFields,
   uniqueItemKey,
 } from "./template-items";
 
-const facts = { eventTypeKey: "flea", venueId: "v1", venueKind: "outdoor_public" };
+const facts = { eventTypeKey: "flea", venueId: "v1", venueKind: "municipal" };
 
 const item = (patch: Partial<TemplateItemFields> = {}): TemplateItemFields => ({
   title: "Marktgenehmigung beantragen",
@@ -34,9 +35,9 @@ const item = (patch: Partial<TemplateItemFields> = {}): TemplateItemFields => ({
   requiresAttachment: false,
   isKey: false,
   permitType: null,
-  checkItems: [],
   approverDutyRoleId: null,
-  dependsOnKeys: [],
+  parentKey: null,
+  ownDue: false,
   condition: null,
   ...patch,
 });
@@ -54,14 +55,12 @@ describe("itemApplies", () => {
     expect(itemApplies({ eventTypeKeys: ["street_fair"] }, facts)).toBe(false);
     expect(itemApplies({ venueIds: ["v1"] }, facts)).toBe(true);
     expect(itemApplies({ venueIds: ["v2"] }, facts)).toBe(false);
-    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["indoor"] }, facts)).toBe(false);
-    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["outdoor_public"] }, facts)).toBe(
-      true,
-    );
+    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["private"] }, facts)).toBe(false);
+    expect(itemApplies({ eventTypeKeys: ["flea"], venueKinds: ["municipal"] }, facts)).toBe(true);
   });
 
   it("a venue kind condition does not match a venue without kind", () => {
-    expect(itemApplies({ venueKinds: ["indoor"] }, { ...facts, venueKind: null })).toBe(false);
+    expect(itemApplies({ venueKinds: ["private"] }, { ...facts, venueKind: null })).toBe(false);
   });
 
   it("filters a list of items and keeps their order", () => {
@@ -100,38 +99,38 @@ describe("checkTemplateItem", () => {
     expect(codes({ offsetDays: -366 })).toEqual(["invalid_offset"]);
     expect(codes({ dueTime: "25:00" })).toEqual(["invalid_time"]);
     expect(codes({ estimateMinutes: -1 })).toEqual(["invalid_estimate"]);
-    expect(codes({ checkItems: ["ok", " "] })).toEqual(["invalid_check_items"]);
+    expect(codes({ parentKey: "" })).toEqual(["invalid_parent"]);
+    expect(codes({ parentKey: "marktgenehmigung" })).toEqual([]);
     expect(codes({ phase: "later" as never })).toEqual(["invalid_phase"]);
     expect(codes({ category: "misc" as never })).toEqual(["invalid_category"]);
     expect(codes({ priority: "urgent" as never })).toEqual(["invalid_priority"]);
     expect(codes({ dayMode: "weekdays" as never })).toEqual(["invalid_day_mode"]);
     expect(codes({ permitType: "visa" as never })).toEqual(["invalid_permit_type"]);
     expect(codes({ permitType: "market_permit" })).toEqual([]);
+    expect(codes({ scope: "market" as never })).toEqual(["invalid_scope"]);
   });
-});
 
-describe("checkDependencies", () => {
-  it("accepts a chain and an independent item", () => {
+  it("keeps season items on season anchors and event items off them (research 13 §6.1)", () => {
+    const codes = (patch: Partial<TemplateItemFields>) =>
+      checkTemplateItem(item(patch)).map((i) => i.code);
+    expect(codes({ scope: "season", anchorKey: "season_start", offsetDays: -240 })).toEqual([]);
+    expect(codes({ scope: "season", anchorKey: "season_end", offsetDays: 7 })).toEqual([]);
+    expect(codes({ scope: "season", anchorKey: "event_day" })).toEqual(["invalid_anchor"]);
+    expect(codes({ scope: "event", anchorKey: "season_start" })).toEqual(["invalid_anchor"]);
+    // No scope given: not known yet (the service resolves it, then checks again).
+    expect(codes({ anchorKey: "season_end" })).toEqual([]);
+    expect(codes({ scope: "event", anchorKey: "my_custom_anchor" })).toEqual([]);
+    // A child without its own schedule takes the parent's anchor; one with its own must fit too.
     expect(
-      checkDependencies([
-        { stableKey: "a", dependsOnKeys: [] },
-        { stableKey: "b", dependsOnKeys: ["a"] },
-        { stableKey: "c", dependsOnKeys: ["a", "b"] },
-      ]),
+      codes({ scope: "season", parentKey: "termine", ownDue: false, anchorKey: "event_day" }),
     ).toEqual([]);
-  });
-
-  it("finds unknown targets, self references and loops", () => {
-    const issues = checkDependencies([
-      { stableKey: "a", dependsOnKeys: ["c"] },
-      { stableKey: "b", dependsOnKeys: ["a", "zzz"] },
-      { stableKey: "c", dependsOnKeys: ["b"] },
-      { stableKey: "d", dependsOnKeys: ["d"] },
-    ]);
-    expect(issues).toContainEqual({ key: "b", code: "unknown_dependency" });
-    expect(issues).toContainEqual({ key: "d", code: "self_dependency" });
-    const cycle = issues.filter((i) => i.code === "dependency_cycle").map((i) => i.key);
-    expect(new Set(cycle)).toEqual(new Set(["a", "b", "c"]));
+    expect(
+      codes({ scope: "season", parentKey: "termine", ownDue: true, anchorKey: "event_day" }),
+    ).toEqual(["invalid_anchor"]);
+    expect(anchorFitsScope("season", "season_start")).toBe(true);
+    expect(anchorFitsScope("event", "setup_day")).toBe(true);
+    expect(anchorFitsScope("event", "season_start")).toBe(false);
+    expect(TEMPLATE_ITEM_SCOPES).toEqual(["event", "season"]);
   });
 });
 
