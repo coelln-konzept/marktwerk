@@ -4,6 +4,7 @@ import { deadlineSweep } from "./deadline-sweep";
 import { installmentReminders } from "./installment-reminders";
 import { obligationReminders } from "./obligation-reminders";
 import { payrollReminders } from "./payroll-reminders";
+import { seasonPermits } from "./season-permits";
 import { sendQueuedEmails } from "./send-emails";
 import { taskRollover } from "./task-rollover";
 
@@ -21,6 +22,8 @@ export const JOBS = {
   "obligation-reminders": { cron: "5 * * * *", run: (db: Database) => obligationReminders(db) },
   "installment-reminders": { cron: "10 * * * *", run: (db: Database) => installmentReminders(db) },
   "payroll-reminders": { cron: "5 7 * * *", run: (db: Database) => payrollReminders(db) },
+  /** Next season's permits from the Ort's requirements, with their own apply task (ADR 0024, SAI4). */
+  "season-permits": { cron: "25 0 * * *", run: (db: Database) => seasonPermits(db) },
   /** Delivers the queued emails (immediate ones and the digest) every 5 minutes. */
   "send-emails": { cron: "*/5 * * * *", run: (db: Database) => sendQueuedEmails(db) },
 } as const satisfies Record<string, { cron: string; run: (db: Database) => Promise<unknown> }>;
@@ -42,6 +45,7 @@ export {
   installmentReminders,
   obligationReminders,
   payrollReminders,
+  seasonPermits,
   sendQueuedEmails,
   taskRollover,
 };

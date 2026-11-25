@@ -13,12 +13,13 @@ import {
   type PermitDateIssueCode,
   type PermitDates,
   type PermitStatus,
+  permitApplyDueAt,
+  permitApplyTaskTitle,
   permitCovers,
   permitCoversApplication,
   permitCoversSeveralEvents,
   permitDateIssues,
   permitInstanceTitle,
-  resolveRelativeDue,
   seasonFor,
 } from "@marktwerk/core";
 import { insertNotifications } from "@marktwerk/db";
@@ -107,13 +108,11 @@ const MAX_NOTES = 4000;
 const MAX_CONDITIONS = 30;
 const MAX_CONDITION_LENGTH = 300;
 const MAX_DELIVERABLE_KEYS = 20;
-/** Clock time of a deadline that is only a day ("bis 30.11."): the end of that day. */
-const DEADLINE_TIME = "23:59";
 
 /** Tasks that are still to be done (the statuses before done / skipped / cancelled). */
 const OPEN_TASK = ["todo", "in_progress", "waiting_external", "blocked"] as const;
 
-const dueAtOf = (day: string) => resolveRelativeDue(day, 0, DEADLINE_TIME);
+const dueAtOf = (day: string) => permitApplyDueAt(day);
 
 // ---------------------------------------------------------------------------------------------
 // Logbook fill (called by instantiateEvents)
@@ -161,7 +160,7 @@ export function permitApplyTaskValues(input: {
     eventId: input.eventId,
     permitId: input.permitId,
     source: "permit" as const,
-    title: `${input.requirementTitle} beantragen`,
+    title: permitApplyTaskTitle(input.requirementTitle),
     phase: "pre" as const,
     category: "permits" as const,
     priority: "normal" as const,
