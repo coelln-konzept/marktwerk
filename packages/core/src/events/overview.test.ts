@@ -3,6 +3,7 @@ import type { EventPermitInput } from "../permits/status";
 import { berlinDay } from "../tasks/board";
 import {
   eventCountdown,
+  eventPermitLine,
   keyTaskState,
   keyTasks,
   missingPermits,
@@ -138,6 +139,81 @@ describe("permits", () => {
       "x",
       "z",
     ]);
+  });
+});
+
+describe("eventPermitLine", () => {
+  const permit = (id: string, partial: Partial<EventPermitInput>): OverviewPermit => ({
+    id,
+    title: id,
+    status: "granted",
+    applyBy: null,
+    validUntil: null,
+    required: true,
+    ...partial,
+  });
+  // A two-day market more than 14 days out (the critical window does not apply).
+  const line = (permits: OverviewPermit[], startsOn = "2026-11-28", endsOn = "2026-11-29") =>
+    eventPermitLine(permits, startsOn, TODAY, endsOn);
+
+  it("is open while no permit is linked", () => {
+    expect(line([])).toEqual({ line: "open", missing: 0 });
+  });
+
+  it("is ok only when every needed permit covers the whole event", () => {
+    expect(line([permit("a", {}), permit("b", { validUntil: "2026-11-29" })])).toEqual({
+      line: "ok",
+      missing: 0,
+    });
+    // Optional, not needed and replaced permits do not keep it from being complete.
+    expect(
+      line([
+        permit("a", {}),
+        permit("o", { required: false, status: "not_started" }),
+        permit("n", { status: "not_required" }),
+        permit("s", { status: "superseded" }),
+      ]).line,
+    ).toBe("ok");
+    // Only optional or "nicht nötig" ones linked: nothing to get, so complete.
+    expect(line([permit("n", { status: "not_required" })]).line).toBe("ok");
+  });
+
+  it("is pending, never ok, while a permit is filed and waiting or not due yet", () => {
+    // Filed, expected decision still ahead: not missing ("Was fehlt"), but not in hand either.
+    const applied = permit("w", { status: "applied", expectedDecisionOn: "2026-11-10" });
+    expect(line([permit("a", {}), applied])).toEqual({ line: "pending", missing: 0 });
+    // Not filed, apply-by beyond the 30-day horizon.
+    expect(
+      line([permit("a", {}), permit("l", { status: "not_started", applyBy: "2026-12-30" })]).line,
+    ).toBe("pending");
+    // Granted, but it ends before the first day: missing, not pending.
+    expect(line([permit("x", { validUntil: "2026-11-27" })]).line).toBe("missing");
+  });
+
+  it("is missing when the office has to act, with the count", () => {
+    expect(
+      line([
+        permit("a", { status: "not_started" }),
+        permit("b", { status: "applied", expectedDecisionOn: "2026-10-20" }),
+        permit("w", { status: "applied" }),
+      ]),
+    ).toEqual({ line: "missing", missing: 2 });
+    // Within 14 days of the market a filed permit counts as missing too.
+    expect(line([permit("w", { status: "applied" })], "2026-10-31", "2026-11-01")).toEqual({
+      line: "missing",
+      missing: 1,
+    });
+  });
+
+  it("is ending when all are held but one ends before the last day", () => {
+    expect(line([permit("a", {}), permit("e", { validUntil: "2026-11-28" })])).toEqual({
+      line: "ending",
+      missing: 0,
+    });
+    // A pending one outranks it.
+    expect(
+      line([permit("e", { validUntil: "2026-11-28" }), permit("w", { status: "applied" })]).line,
+    ).toBe("pending");
   });
 });
 
