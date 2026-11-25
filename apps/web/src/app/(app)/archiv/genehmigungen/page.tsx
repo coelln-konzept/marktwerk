@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { ArchiveFrame } from "@/components/archive/archive-frame";
+import { LiveSearch } from "@/components/archive/live-search";
 import { PermitDrawer } from "@/components/permits/permit-drawer";
 import { PermitStateBadge } from "@/components/permits/permit-state-badge";
 import { formatPermitTitle } from "@/components/permits/permit-title";
@@ -51,13 +52,12 @@ export default async function ArchivePermitsPage({
         <label className="sr-only" htmlFor="q">
           {t("search")}
         </label>
-        <input
+        <LiveSearch
           id="q"
-          name="q"
-          type="search"
           defaultValue={q}
           placeholder={t("search")}
-          className="min-h-(--control-h) w-72 rounded-lg border border-input bg-card px-3 max-sm:w-full"
+          resetKeys={["seite", "genehmigung"]}
+          className="w-72 max-sm:w-full"
         />
       </form>
 

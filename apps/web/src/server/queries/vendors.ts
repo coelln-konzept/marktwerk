@@ -30,7 +30,7 @@ export type VendorFilters = {
 
 /** Same folding as the command palette search: "koln" finds "Köln", "muller" finds "Müller". */
 function fold(column: unknown) {
-  return sql`translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aousseeeaaaoooiiiuuuc')`;
+  return sql`translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aouseeeaaaoooiiiuuuc')`;
 }
 
 function foldQuery(q: string): string {

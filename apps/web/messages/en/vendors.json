@@ -71,6 +71,8 @@
       "notes": "Notes",
       "noNotes": "No notes.",
       "readOnly": "Read only: these vendors come from the old website and cannot be edited here yet."
-    }
+    },
+    "searchShort": "Name, company, city, email",
+    "filterButton": "Filters"
   }
 }

@@ -403,13 +403,33 @@
       "invalid_form": "The request was incomplete.",
       "too_long": "The description is too long.",
       "forbidden": "You don't have permission for that.",
-      "unauthorized": "Please sign in again."
+      "unauthorized": "Please sign in again.",
+      "duplicateOf": "This file is already attached here as “{name}”.",
+      "empty_name": "Please enter a name."
     },
     "toast": {
       "removed": "{name} removed.",
       "restored": "{name} is back.",
       "undo": "Undo",
-      "failed": "That didn't work. Please try again."
+      "failed": "That didn't work. Please try again.",
+      "saved": "{name} saved."
+    },
+    "storedSome": "{stored} saved, {failed} not saved.",
+    "cancelled": "Upload cancelled.",
+    "cancel": "Cancel",
+    "progressOf": "File {index} of {count}: {name}",
+    "progressLabel": "Progress: {name}",
+    "failedTitle": "{count, plural, one {# file not saved} other {# files not saved}}",
+    "dismissErrors": "Close notice",
+    "edit": {
+      "open": "Edit: {name}",
+      "title": "Edit document",
+      "name": "Name",
+      "caption": "Description",
+      "captionPlaceholder": "e.g. notice from the public order office",
+      "kind": "Type",
+      "save": "Save",
+      "cancel": "Cancel"
     }
   },
   "eventMoney": {

@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/format";
 import type { DocumentRow } from "@/server/queries/finance";
 import { ArchiveDocumentButton } from "./archive-document-button";
+import { EditDocumentButton } from "./edit-document-button";
 
 /** "240 KB" / "1.2 MB" (also the Archiv's document list). */
 export const kb = (bytes: number) =>
@@ -11,8 +12,9 @@ export const kb = (bytes: number) =>
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
 /**
- * Files attached to a record, newest first: opens/downloads through /api/documents/<id>. Removing is a
- * soft delete with an undo toast (the file and the audit trail stay).
+ * Files attached to a record, newest first: opens/downloads through /api/documents/<id>, with its
+ * description below. "Bearbeiten" renames it, sets the description and the kind; removing is a soft delete
+ * with an undo toast (the file and the audit trail stay; Archiv › Dokumente › Entfernte brings it back).
  */
 export async function DocumentList({
   documents,
@@ -49,7 +51,20 @@ export async function DocumentList({
                 {d.uploadedByName ? ` · ${d.uploadedByName}` : ""}
               </span>
             )}
-            {canWrite && <ArchiveDocumentButton id={d.id} fileName={d.fileName} />}
+            {canWrite && (
+              <span className="inline-flex items-center gap-0.5">
+                <EditDocumentButton
+                  id={d.id}
+                  fileName={d.fileName}
+                  caption={d.caption}
+                  kind={d.kind}
+                />
+                <ArchiveDocumentButton id={d.id} fileName={d.fileName} />
+              </span>
+            )}
+            {!compact && d.caption && (
+              <p className="m-0 basis-full pl-6 text-muted-foreground text-small">{d.caption}</p>
+            )}
           </li>
         );
       })}

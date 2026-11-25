@@ -26,38 +26,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const PATH = "/archiv/aktivitaet";
 
-type Diff = {
-  to?: unknown;
-  fileName?: unknown;
-  name?: unknown;
-  changes?: { name?: { to?: unknown } };
-};
-
-/** What an entry was about, as text and (when there is a page for it) a link. */
-function about(e: ActivityEntry): { label: string; href?: string } | null {
-  const diff = (e.diff && typeof e.diff === "object" ? e.diff : {}) as Diff;
-  if (e.taskTitle)
-    return {
-      label: e.taskTitle,
-      href: e.taskEventId ? `/veranstaltungen/${e.taskEventId}?aufgabe=${e.entityId}` : undefined,
-    };
-  if (e.permitTitle)
-    return { label: e.permitTitle, href: `/genehmigungen?genehmigung=${e.entityId}` };
-  if (e.eventName) return { label: e.eventName, href: `/veranstaltungen/${e.entityId}` };
-  const text =
-    typeof diff.fileName === "string"
-      ? diff.fileName
-      : typeof diff.changes?.name?.to === "string"
-        ? diff.changes.name.to
-        : typeof diff.name === "string"
-          ? diff.name
-          : null;
-  return text ? { label: text } : null;
-}
-
 /**
  * Archiv › Aktivität: the company-wide log (who changed what, when) from the audit log, newest first, 50 per
- * page, narrowed by area. Owner and management only (`audit:read`); everyone else sees why it is empty.
+ * page, narrowed by area. Every entry reads as German text: a wording for the action (`actions.*`), else the
+ * kind of record plus what happened to it (`nouns.*` + `verbs.*`, "Kontakt angelegt"), else a plain
+ * "Geändert" — never the raw code. "Betrifft" names the record and links to it. Owner and management only
+ * (`audit:read`); everyone else sees why it is empty.
  */
 export default async function ArchiveActivityPage({
   searchParams,
@@ -90,47 +64,59 @@ export default async function ArchiveActivityPage({
   const { rows, total } =
     page === 1 ? first : await listActivity(actor, { area, page, size: PAGE_SIZE });
 
-  const statusText = (e: ActivityEntry) => {
+  /** The new status in words, or null when there is no wording for it. */
+  const statusText = (e: ActivityEntry): string | null => {
     const to = (e.diff as { to?: unknown } | null)?.to;
-    if (typeof to !== "string") return "?";
+    if (typeof to !== "string") return null;
     if (e.entityType === "task" && tTask.has(to as never)) return tTask(to as never);
     if (e.entityType === "event" && tEvent.has(to as never)) return tEvent(to as never);
     if (e.entityType === "permit") {
       const key = to === "not_started" ? "missing" : to;
       if (tPermit.has(key as never)) return tPermit(key as never);
     }
-    return to;
+    return null;
   };
-  const describe = (e: ActivityEntry) => {
-    const key = `actions.${e.action.replace(".", "_")}`;
-    return t.has(key as never)
-      ? t(key as never, { status: statusText(e) } as never)
-      : t("other", { action: e.action });
+  const describe = (e: ActivityEntry): string => {
+    const status = statusText(e);
+    const noun = t.has(`nouns.${e.entityType}` as never)
+      ? t(`nouns.${e.entityType}` as never)
+      : null;
+    const verb = e.action.split(".").pop() ?? "";
+    // "venue.zone.update" -> "venue_zone_update" (message keys have no dots).
+    const key = `actions.${e.action.replaceAll(".", "_")}`;
+    // Status wordings need the status; without one, fall through to "<noun>: Status geändert".
+    if (t.has(key as never) && (verb !== "status" || status))
+      return t(key as never, { status: status ?? "" } as never);
+    if (noun && t.has(`verbs.${verb}` as never))
+      return t(`verbs.${verb}` as never, { noun } as never);
+    return noun ? t("changedNoun", { noun }) : t("other");
   };
 
   return (
     <ArchiveFrame section="activity">
-      <form method="get" action={PATH} className="flex flex-wrap items-center gap-2">
-        <label className="sr-only" htmlFor="bereich">
-          {t("area")}
-        </label>
-        <AutoSubmitSelect id="bereich" name="bereich" defaultValue={area ?? ""}>
-          <option value="">{t("areaAll")}</option>
-          {ACTIVITY_AREAS.map((a) => (
-            <option key={a} value={a}>
-              {t(`areas.${a}`)}
-            </option>
-          ))}
-        </AutoSubmitSelect>
+      <form method="get" action={PATH} className="flex flex-wrap items-end gap-2">
+        <div className="flex flex-col gap-1">
+          <label className="font-medium text-muted-foreground text-tiny" htmlFor="bereich">
+            {t("area")}
+          </label>
+          <AutoSubmitSelect id="bereich" name="bereich" defaultValue={area ?? ""}>
+            <option value="">{t("areaAll")}</option>
+            {ACTIVITY_AREAS.map((a) => (
+              <option key={a} value={a}>
+                {t(`areas.${a}`)}
+              </option>
+            ))}
+          </AutoSubmitSelect>
+        </div>
       </form>
 
       <Panel className="overflow-hidden">
         {rows.length === 0 ? (
           <EmptyState icon={History} title={t("empty")} />
         ) : (
-          <Table>
+          <Table className="max-sm:block">
             <caption className="sr-only">{t("caption")}</caption>
-            <THead>
+            <THead className="max-sm:sr-only">
               <tr>
                 <TH>{t("cols.when")}</TH>
                 <TH>{t("cols.who")}</TH>
@@ -138,17 +124,24 @@ export default async function ArchiveActivityPage({
                 <TH>{t("cols.about")}</TH>
               </tr>
             </THead>
-            <tbody>
+            <tbody className="max-sm:block">
               {rows.map((e) => {
-                const target = about(e);
+                const target = e.target;
                 return (
-                  <TR key={e.id}>
-                    <TD className="tabular whitespace-nowrap text-muted-foreground text-small">
+                  <TR
+                    key={e.id}
+                    className="max-sm:flex max-sm:flex-wrap max-sm:items-baseline max-sm:gap-x-2 max-sm:gap-y-0.5 max-sm:px-3 max-sm:py-2.5"
+                  >
+                    <TD className="tabular whitespace-nowrap text-muted-foreground text-small max-sm:h-auto max-sm:p-0">
                       {formatInstant(new Date(e.at), locale)}
                     </TD>
-                    <TD className="whitespace-nowrap text-small">{e.actorName ?? t("system")}</TD>
-                    <TD className="text-small">{describe(e)}</TD>
-                    <TD className="max-w-72 truncate text-small">
+                    <TD className="whitespace-nowrap text-small max-sm:h-auto max-sm:p-0 max-sm:text-muted-foreground">
+                      {e.actorName ?? t("system")}
+                    </TD>
+                    <TD className="text-small max-sm:h-auto max-sm:basis-full max-sm:p-0 max-sm:font-medium">
+                      {describe(e)}
+                    </TD>
+                    <TD className="max-w-72 truncate text-small max-sm:h-auto max-sm:max-w-full max-sm:basis-full max-sm:p-0">
                       {target?.href ? (
                         <Link
                           href={target.href as never}
@@ -156,8 +149,10 @@ export default async function ArchiveActivityPage({
                         >
                           {target.label}
                         </Link>
+                      ) : target ? (
+                        target.label
                       ) : (
-                        (target?.label ?? "")
+                        <span className="text-faint-foreground">{t("noTarget")}</span>
                       )}
                     </TD>
                   </TR>

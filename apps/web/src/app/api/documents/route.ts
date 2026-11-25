@@ -55,7 +55,11 @@ export async function POST(request: Request) {
   } catch (error) {
     if (isForbiddenError(error)) return forbiddenResponse();
     if (error instanceof DocumentInputError)
-      return Response.json({ error: error.code }, { status: STATUS[error.code] ?? 400 });
+      return Response.json(
+        // `existing`: the file that already hangs there, so the message can name it.
+        error.existing ? { error: error.code, existing: error.existing } : { error: error.code },
+        { status: STATUS[error.code] ?? 400 },
+      );
     throw error;
   }
 }

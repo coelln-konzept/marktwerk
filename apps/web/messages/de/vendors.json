@@ -71,6 +71,8 @@
       "notes": "Notizen",
       "noNotes": "Keine Notizen.",
       "readOnly": "Nur zum Lesen: Die Aussteller stammen aus der alten Website und lassen sich hier noch nicht bearbeiten."
-    }
+    },
+    "searchShort": "Name, Firma, Ort, E-Mail",
+    "filterButton": "Filter"
   }
 }

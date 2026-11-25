@@ -814,7 +814,12 @@ test("Archiv: 50 rows per page with a pager; Aktivität, Alte Genehmigungen and 
   await expect(page).toHaveURL(/genehmigung=/);
 
   await page.goto("/archiv/dokumente");
-  await expect(page.getByPlaceholder("Dateiname oder Beschreibung")).toBeVisible();
+  // The search covers file, owner (event, Markt, Ort …) and description; Art, Markt and Jahr narrow it.
+  await expect(page.getByLabel("Suche", { exact: true })).toHaveAttribute(
+    "placeholder",
+    "Datei, Markt, Ort …",
+  );
+  await expect(page.getByLabel("Art", { exact: true })).toBeVisible();
 });
 
 test("Ort page: address first, then events and markets above the zones; Alle Veranstaltungen opens the filtered list", async ({
