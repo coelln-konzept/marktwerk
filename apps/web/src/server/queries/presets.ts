@@ -1,5 +1,5 @@
 import "server-only";
-import { marketShortCodes } from "@marktwerk/core";
+import { addDays, marketShortCodes } from "@marktwerk/core";
 import {
   checklistTemplate,
   dutyRole,
@@ -10,7 +10,7 @@ import {
   staffMember,
   venue,
 } from "@marktwerk/db/schema";
-import { and, asc, count, eq, gte, isNull, lte, max, ne } from "drizzle-orm";
+import { and, asc, count, eq, gte, isNotNull, isNull, lte, max, ne } from "drizzle-orm";
 import { db } from "../db";
 
 /**
@@ -60,8 +60,34 @@ export async function listPresetsForGeneration(today: string) {
   for (const p of planned) {
     if (p.presetId) plannedOf.set(p.presetId, { ...plannedOf.get(p.presetId), [p.season]: p.n });
   }
+  // The market's own dates of the last two years up to today: step 2 reads its usual rule from them (UX-015).
+  const past = await db
+    .select({ presetId: event.presetId, startsOn: event.startsOn, endsOn: event.endsOn })
+    .from(event)
+    .where(
+      and(
+        isNotNull(event.presetId),
+        gte(event.startsOn, addDays(today, -730)),
+        lte(event.startsOn, today),
+        ne(event.status, "cancelled"),
+        isNull(event.archivedAt),
+      ),
+    )
+    .orderBy(asc(event.startsOn));
+  const pastOf = new Map<string, { startsOn: string; endsOn: string }[]>();
+  for (const p of past) {
+    if (!p.presetId) continue;
+    const list = pastOf.get(p.presetId) ?? [];
+    list.push({ startsOn: p.startsOn, endsOn: p.endsOn });
+    pastOf.set(p.presetId, list);
+  }
   return rows
-    .map((r) => ({ ...r, plannedBySeason: plannedOf.get(r.id) ?? ({} as Record<number, number>) }))
+    .map((r) => ({
+      ...r,
+      plannedBySeason: plannedOf.get(r.id) ?? ({} as Record<number, number>),
+      /** Held dates of the last two years, oldest first. */
+      pastDates: pastOf.get(r.id) ?? [],
+    }))
     .sort((a, b) => {
       if (a.lastHeldOn !== b.lastHeldOn) {
         if (!a.lastHeldOn) return 1;

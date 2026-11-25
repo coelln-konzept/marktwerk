@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-type Hrefs = { t: string; m: string; l: string; prev: string; next: string };
+type Hrefs = { t: string; m: string; l: string; prev?: string; next?: string };
 
 /**
  * Kalender keys (UX concept §6): T = heute, M = Monat, L = Liste, ← / → = zurück / weiter (previous or
@@ -13,7 +13,7 @@ type Hrefs = { t: string; m: string; l: string; prev: string; next: string };
 export function KalenderShortcuts({ hrefs }: { hrefs: Hrefs }) {
   const router = useRouter();
   useEffect(() => {
-    const keys: Record<string, string> = {
+    const keys: Record<string, string | undefined> = {
       t: hrefs.t,
       m: hrefs.m,
       l: hrefs.l,
