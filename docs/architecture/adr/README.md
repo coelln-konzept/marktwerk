@@ -28,3 +28,4 @@ consequences. Statuses: *proposed*, *accepted*, *superseded by NNNN*, *open* (a 
 | [0021](0021-subtasks.md) | Subtasks (one level) replace task checklists and task dependencies | accepted |
 | [0022](0022-zeitplan.md) | A market's times are a Zeitplan of windows (team / vendors / visitors) | accepted |
 | [0023](0023-test-environments.md) | Test environments: deployed dev app + Neon branch environments; mail fence; no staging/simulation for now | accepted |
+| [0024](0024-recurring-work-three-levels.md) | Recurring work on three levels (per date, per season from the Ort, per year as Pflichten); no Saison record | accepted |
