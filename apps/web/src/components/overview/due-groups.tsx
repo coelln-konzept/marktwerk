@@ -68,14 +68,14 @@ export const DUE_PER_MARKET = 3;
 export const GROUP_ROWS = 5;
 
 type Cluster = {
-  /** The market bar: an event, or a Saison ("<Markt> · Saison <Jahr>", research 13 §6.3). */
+  /** The market bar: the event. */
   event: {
-    /** The cluster's key: the event id, or `season:<id>`. */
+    /** The cluster's key: the event id. */
     key: string;
-    /** The event (its Vorschau eye); null for a Saison, which has no Vorschau. */
+    /** The event (its Vorschau eye). */
     eventId: string | null;
     name: string;
-    /** The event's Überblick or the market page; null when the actor may not open the market page. */
+    /** The event's Überblick. */
     href: string | null;
     typeKey: string | null;
     color: string | null;
@@ -86,10 +86,9 @@ type Cluster = {
 
 /**
  * Items of one urgency group, bundled by market in ranking order (a market appears where its first item
- * ranks); season tasks are bundled per Saison the same way; items without either stay single rows.
- * `seasonName` gives a Saison its label.
+ * ranks); items without an event stay single rows.
  */
-function clusters(rows: DueItem[], seasonName: (item: DueItem) => string): Cluster[] {
+function clusters(rows: DueItem[]): Cluster[] {
   const out: Cluster[] = [];
   const byKey = new Map<string, Cluster>();
   for (const item of rows) {
@@ -105,17 +104,7 @@ function clusters(rows: DueItem[], seasonName: (item: DueItem) => string): Clust
             color: item.eventColor ?? null,
             startsOn: item.eventStartsOn ?? null,
           }
-        : item.season
-          ? {
-              key: `season:${item.season.id}`,
-              eventId: null,
-              name: seasonName(item),
-              href: item.season.href,
-              typeKey: item.eventTypeKey ?? null,
-              color: item.eventColor ?? null,
-              startsOn: null,
-            }
-          : null;
+        : null;
     if (!head) {
       out.push({ event: null, items: [item] });
       continue;
@@ -435,11 +424,6 @@ export async function DueGroups({
   phoneCollapsed?: DueUrgency[];
 }) {
   const t = await getTranslations("overview.due");
-  const tTasks = await getTranslations("tasks");
-  const seasonName = (item: DueItem) =>
-    item.season
-      ? tTasks("seasonContext", { name: item.season.name, year: String(item.season.year) })
-      : "";
   const reserveStar = isModuleVisible("keyTasks") && items.some((i) => i.isKey);
   const render = (cluster: Cluster) =>
     cluster.event ? (
@@ -468,7 +452,7 @@ export async function DueGroups({
         const rows = items.filter((i) => i.urgency === urgency);
         if (rows.length === 0) return null;
         const [shown, hidden] = splitByRows(
-          clusters(rows, seasonName),
+          clusters(rows),
           (c) => (c.event ? Math.min(c.items.length, DUE_PER_MARKET) : c.items.length),
           GROUP_ROWS,
         );

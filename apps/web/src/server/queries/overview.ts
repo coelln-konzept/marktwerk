@@ -269,7 +269,6 @@ export async function listOtherTasks(
         deadlineScope(actor),
         inArray(task.status, [...OPEN_STATUSES]),
         isNull(task.eventId),
-        isNull(task.seasonId),
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         or(isNull(task.dueAt), gte(task.dueAt, until)),
         sql`${sub.subtasksOverdue} = 0`,

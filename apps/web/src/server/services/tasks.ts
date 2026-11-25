@@ -25,7 +25,6 @@ import {
   PAST_EVENT_SKIP_REASON,
   pastEventCutoff,
   resolveRelativeDue,
-  seasonContextName,
   sortBetween,
   TASK_STATUSES,
   type TaskStatusKey,
@@ -37,8 +36,6 @@ import {
   document,
   event,
   eventDuty,
-  eventPreset,
-  eventSeason,
   notification,
   staffMember,
   task,
@@ -207,25 +204,14 @@ async function loadTask(tx: Tx, actor: Actor, taskId: string): Promise<TaskRow> 
   return row;
 }
 
-/** What a notification about the task names: its event, or for a season task "<Markt> · Saison <Jahr>". */
-async function contextNameOf(
-  tx: Tx,
-  row: Pick<TaskRow, "eventId" | "seasonId">,
-): Promise<string | null> {
-  if (row.eventId) {
-    const [found] = await tx
-      .select({ name: event.name })
-      .from(event)
-      .where(eq(event.id, row.eventId));
-    return found?.name ?? null;
-  }
-  if (!row.seasonId) return null;
+/** What a notification about the task names: its event, if any. */
+async function contextNameOf(tx: Tx, row: Pick<TaskRow, "eventId">): Promise<string | null> {
+  if (!row.eventId) return null;
   const [found] = await tx
-    .select({ name: eventPreset.name, season: eventSeason.season })
-    .from(eventSeason)
-    .innerJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
-    .where(eq(eventSeason.id, row.seasonId));
-  return found ? seasonContextName(found.name, found.season) : null;
+    .select({ name: event.name })
+    .from(event)
+    .where(eq(event.id, row.eventId));
+  return found?.name ?? null;
 }
 
 async function activeStaff(tx: Tx, staffMemberId: string): Promise<{ id: string; name: string }> {
@@ -492,47 +478,6 @@ export async function completeTasksForPermit(
 ): Promise<string[]> {
   // Sorted like the lock order, so the audit entries keep their former order.
   return completeTasksAuto(tx, actor, [...taskIds].sort(), PERMIT_COVERED_REASON, { permitId }, at);
-}
-
-/** Audit reason of a template apply task removed because its season permit has one already. */
-export const PERMIT_SHARED_REASON =
-  "Genehmigung gilt für mehrere Veranstaltungen: eine Antragsaufgabe";
-
-/**
- * Removes open template apply tasks that would apply a second time for a permit covering several events
- * (research 10, Fahrplan 18: one apply task per season permit). Same change as "Löschen" (`deleteTask`):
- * status `cancelled`, open subtasks go with it, audited as `task.delete` (`auto: true`, reason
- * {@link PERMIT_SHARED_REASON}) when there is an actor, so the Verlauf can restore it. Inside the caller's
- * transaction and without the task-scope check, like {@link completeTasksForPermit}. Returns the ids removed.
- */
-export async function cancelDuplicatePermitTasks(
-  tx: Tx,
-  actor: Pick<Actor, "id"> | undefined,
-  permitId: string,
-  taskIds: readonly string[],
-): Promise<string[]> {
-  if (taskIds.length === 0) return [];
-  const rows = await tx
-    .select()
-    .from(task)
-    .where(and(inArray(task.id, [...taskIds]), inArray(task.status, [...OPEN_STATUSES])))
-    .orderBy(task.id)
-    .for("update");
-  for (const row of rows) {
-    const before = stateOf(row);
-    await tx.update(task).set({ status: "cancelled" }).where(eq(task.id, row.id));
-    const subtasks = await cancelOpenSubtasks(tx, row.id);
-    if (actor)
-      await writeAudit(tx, actor, "task.delete", row.id, {
-        ...stateDiff(before, { ...before, status: "cancelled" }),
-        title: row.title,
-        ...(subtasks.length > 0 ? { subtasks } : {}),
-        auto: true,
-        reason: PERMIT_SHARED_REASON,
-        permitId,
-      });
-  }
-  return rows.map((r) => r.id);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -929,15 +874,7 @@ async function assertUndoKeepsTree(tx: Tx, row: TaskRow, before: Partial<TaskSta
 
 type ParentRow = Pick<
   TaskRow,
-  | "id"
-  | "title"
-  | "eventId"
-  | "seasonId"
-  | "parentTaskId"
-  | "status"
-  | "checklistId"
-  | "phase"
-  | "category"
+  "id" | "title" | "eventId" | "parentTaskId" | "status" | "checklistId" | "phase" | "category"
 >;
 
 /** The parent row, locked (no scope check: the caller checked the task and the nesting rules decide). */
@@ -947,7 +884,6 @@ async function lockedParent(tx: Tx, parentId: string): Promise<ParentRow | null>
       id: task.id,
       title: task.title,
       eventId: task.eventId,
-      seasonId: task.seasonId,
       parentTaskId: task.parentTaskId,
       status: task.status,
       checklistId: task.checklistId,
@@ -1549,8 +1485,6 @@ export async function createTask(actor: Actor, input: NewTask): Promise<{ id: st
       .insert(task)
       .values({
         eventId,
-        // A subtask belongs where its parent belongs: the parent's Saison too (R13).
-        seasonId: eventId ? null : (parent?.seasonId ?? null),
         parentTaskId: parent?.id ?? null,
         checklistId: parent?.checklistId ?? null,
         phase: parent?.phase ?? null,

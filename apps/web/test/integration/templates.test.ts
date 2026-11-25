@@ -574,7 +574,7 @@ describe("draft items", () => {
         owner,
         draftId,
         [
-          forged({ title: "Kind", parentKey: "vater", phase: "post", scope: "event" }, "kind"),
+          forged({ title: "Kind", parentKey: "vater", phase: "post" }, "kind"),
           forged({ title: "Vater", phase: "live" }, "vater"),
         ],
         "eins",

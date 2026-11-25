@@ -38,9 +38,7 @@ import type { EventStatus } from "@/lib/status";
 import { type Actor, visibleEvents } from "./actor";
 import { db } from "./db";
 import { listContacts } from "./queries/contacts";
-import type { TaskSeason } from "./queries/due";
 import { countEvents } from "./queries/events";
-import { seasonContext, toTaskSeason } from "./queries/season-context";
 import { listVendors } from "./queries/vendors";
 import { listVenues } from "./queries/venues";
 import { visibleTasks } from "./task-scope";
@@ -59,8 +57,6 @@ export type SearchHit = {
     | "action";
   title: string;
   subtitle?: string;
-  /** A season task's market and season: the palette adds "<Markt> · Saison <Jahr>" to the subtitle. */
-  season?: TaskSeason;
   /** A permit's season (year): the palette adds "Saison <Jahr>", so the same permit of two years differs. */
   seasonYear?: number;
   /** The record's state, shown as a badge (colour + icon + text) next to the hit. */
@@ -349,12 +345,8 @@ export async function searchAs(
     if (can(actor.role, "task", "read")) {
       // Same row scope as the board: field users only find tasks of their events (and their own).
       // With several words the event's name counts ("halteverbot bonn"); one word only looks at the title,
-      // or "bonn" would list every task of every Bonn market. A season task counts its market and year instead.
-      const sc = seasonContext();
-      const m = match(
-        task.title,
-        tokens.length > 1 ? [event.name, sc.seasonName, sql`${sc.seasonYear}::text`] : [],
-      );
+      // or "bonn" would list every task of every Bonn market.
+      const m = match(task.title, tokens.length > 1 ? [event.name] : []);
       // Subtasks are found too (ADR 0021); their parent's title tells where they sit.
       const parentTask = alias(task, "parent_task");
       const result = await db
@@ -366,10 +358,6 @@ export async function searchAs(
           parentTitle: parentTask.title,
           eventName: event.name,
           eventStartsOn: event.startsOn,
-          seasonId: sc.seasonId,
-          seasonYear: sc.seasonYear,
-          seasonPresetId: sc.seasonPresetId,
-          seasonName: sc.seasonName,
           score: m.score,
           total: m.total,
           strong: m.strong,
@@ -377,7 +365,6 @@ export async function searchAs(
         })
         .from(task)
         .leftJoin(event, sql`${event.id} = ${task.eventId}`)
-        .leftJoin(sc, eq(sc.seasonId, task.seasonId))
         .leftJoin(parentTask, eq(parentTask.id, task.parentTaskId))
         // A deleted task (status `cancelled`) is gone from every list; "Wiederherstellen" lives in the Verlauf.
         .where(and(visibleTasks(actor), ne(task.status, "cancelled"), m.where))
@@ -392,11 +379,9 @@ export async function searchAs(
       const { rows, total, weak, typos } = settle(result);
       record("task", total, weak, typos);
       for (const r of rows) {
-        const season = toTaskSeason(actor, r);
         hits.push({
           kind: "task",
           title: r.title,
-          ...(season ? { season } : {}),
           // The same task title exists once per event: name and date tell them apart.
           subtitle:
             [

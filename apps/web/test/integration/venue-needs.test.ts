@@ -3,7 +3,6 @@ import {
   auditLog,
   dutyRole,
   eventPreset,
-  eventSeason,
   permit,
   permitRequirement,
   task,
@@ -21,8 +20,8 @@ import { baseItem, seedPublishedTemplate } from "../helpers/templates";
 
 /*
  * "Was braucht dieser Ort?" (product owner 2026-11-13, Fahrplan R28/R30): the dialog sets an Ort's permit
- * requirements from its kind, and a "Genehmigung" item (market_permit) applies for the Ort's main permit: the
- * Marktgenehmigung on city ground, the owner's OK (landowner_ok) on private ground.
+ * requirements from its kind. ADR 0024: a permit covering several dates is applied for by its own task; template
+ * items only apply for per-date permits.
  */
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
@@ -58,19 +57,16 @@ const liveRequirements = () =>
 
 const typesOf = async () => (await liveRequirements()).map((r) => r.permitType).sort();
 
-/** The flea market's template: the season item "Genehmigung beantragen" (market_permit) next to an event item. */
-async function seasonTemplate(extra: Parameters<typeof baseItem>[0][] = []) {
+/** The flea market's template: an item "Genehmigung beantragen" (market_permit) next to "Aufbau". */
+async function marketTemplate(extra: Parameters<typeof baseItem>[0][] = []) {
   return seedPublishedTemplate(
     owner,
     [
       baseItem({
         title: GENEHMIGUNG,
         category: "permits",
-        scope: "season",
-        anchorKey: "season_start",
         offsetDays: -180,
         permitType: "market_permit",
-        isKey: true,
       }),
       baseItem({ title: "Aufbau", phase: "live", anchorKey: "setup_day", offsetDays: 0 }),
       ...extra.map((patch) => baseItem(patch)),
@@ -175,77 +171,50 @@ describe("setVenueNeeds: the dialog's ticks become requirements", () => {
   });
 });
 
-describe("a Genehmigung item applies for the Ort's main permit (Fahrplan R30)", () => {
-  it("private Ort: after Markt planen the season task links to the Einverständnis permit", async () => {
+describe("permits of the Ort's needs and their apply tasks (ADR 0024)", () => {
+  it("private Ort: each season permit gets its own '… beantragen' task, template items never apply for it", async () => {
     await makePrivate();
     await setVenueNeeds(owner, cat.venue.id, suggestedVenueNeeds("private", []));
-    await seasonTemplate();
+    await marketTemplate();
     await createEventsFromPreset(owner, cat.presets.flea.id, DATES);
 
-    const [season] = await db
-      .select()
-      .from(eventSeason)
-      .where(eq(eventSeason.presetId, cat.presets.flea.id));
-    const landowner = await permitOfType("landowner_ok");
-    expect(landowner.seasonId).toBe(season?.id);
-    const tasks = await openApplyTasks(landowner.id);
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0]).toMatchObject({
-      title: GENEHMIGUNG,
-      source: "template",
-      seasonId: season?.id,
-    });
-
-    // No own "… beantragen" task for the OK (the season task applies for it) and nothing cleaned up.
-    const own = await db.select().from(task).where(eq(task.source, "permit"));
-    expect(own.map((t) => t.title)).toEqual(["Festsetzung (§ 69 GewO) beantragen"]);
+    for (const [type, title] of [
+      ["landowner_ok", "Einverständnis des Eigentümers beantragen"],
+      ["market_fixing", "Festsetzung (§ 69 GewO) beantragen"],
+    ] as const) {
+      const p = await permitOfType(type);
+      const tasks = await openApplyTasks(p.id);
+      expect(
+        tasks.map((t) => [t.title, t.source, t.eventId]),
+        type,
+      ).toEqual([[title, "permit", null]]);
+    }
+    // The template's "Genehmigung beantragen" (market_permit) applies for no season permit: it stays unlinked.
+    const items = await db.select().from(task).where(eq(task.title, GENEHMIGUNG));
+    expect(items).toHaveLength(DATES.length);
+    for (const t of items) expect(t.permitId).toBeNull();
     expect(await db.select().from(task).where(eq(task.status, "cancelled"))).toHaveLength(0);
-    // There is no Marktgenehmigung at all.
-    expect(await db.select().from(permit).where(eq(permit.permitType, "market_permit"))).toEqual(
-      [],
-    );
   });
 
-  it("the Markt planen preview counts the same: no extra task for the owner's OK", async () => {
+  it("the Markt planen preview counts the season permit's own task", async () => {
     await makePrivate();
     await setVenueNeeds(owner, cat.venue.id, ["landowner_ok"]);
-    await seasonTemplate();
+    await marketTemplate();
     const preview = await previewGeneration(cat.presets.flea.id, ["2027-04-04"]);
-    // Aufbau only (the season item lives on the Saison record): the OK adds no "beantragen" task.
-    expect(preview.dates[0]).toMatchObject({ permitsNew: 1, tasks: 1 });
+    // Genehmigung + Aufbau from the template, plus the OK's own "beantragen" task.
+    expect(preview.dates[0]).toMatchObject({ permitsNew: 1, tasks: 3 });
   });
 
-  it("where the Ort needs both, the Marktgenehmigung keeps the item and the OK gets its own task", async () => {
-    await setVenueNeeds(owner, cat.venue.id, ["market_permit", "landowner_ok"]);
-    await seasonTemplate();
-    await createEventsFromPreset(owner, cat.presets.flea.id, DATES);
-
-    const market = await permitOfType("market_permit");
-    expect((await openApplyTasks(market.id)).map((t) => t.title)).toEqual([GENEHMIGUNG]);
-    const landowner = await permitOfType("landowner_ok");
-    expect((await openApplyTasks(landowner.id)).map((t) => t.title)).toEqual([
-      "Einverständnis des Eigentümers beantragen",
-    ]);
-  });
-
-  it("an event item naming market_permit links to a per-date owner's OK too", async () => {
-    await makePrivate();
-    await db.insert(permitRequirement).values({
-      venueId: cat.venue.id,
-      category: "external",
-      permitType: "landowner_ok",
-      title: "Einverständnis Stadionverwaltung",
-      cadence: "per_event",
-      leadTimeDays: 30,
-    });
+  it("a per-date permit is applied for by the template task of its date, without an own task", async () => {
+    await setVenueNeeds(owner, cat.venue.id, ["no_parking"]);
     await seedPublishedTemplate(
       owner,
       [
         baseItem({
-          title: "Genehmigung beim Eigentümer einholen",
+          title: "Halteverbot beantragen",
           category: "permits",
-          offsetDays: -30,
-          permitType: "market_permit",
+          offsetDays: -21,
+          permitType: "no_parking",
         }),
       ],
       { presetIds: [cat.presets.flea.id] },
@@ -257,18 +226,9 @@ describe("a Genehmigung item applies for the Ort's main permit (Fahrplan R30)", 
     for (const p of permits) {
       const tasks = await openApplyTasks(p.id);
       expect(tasks.map((t) => [t.title, t.source])).toEqual([
-        ["Genehmigung beim Eigentümer einholen", "template"],
+        ["Halteverbot beantragen", "template"],
       ]);
     }
     expect(await db.select().from(task).where(eq(task.source, "permit"))).toHaveLength(0);
-  });
-
-  it("city ground is unchanged: the season task links to the Marktgenehmigung", async () => {
-    await setVenueNeeds(owner, cat.venue.id, suggestedVenueNeeds("municipal", []));
-    await seasonTemplate();
-    await createEventsFromPreset(owner, cat.presets.flea.id, DATES);
-    const market = await permitOfType("market_permit");
-    expect((await openApplyTasks(market.id)).map((t) => t.title)).toEqual([GENEHMIGUNG]);
-    expect(await db.select().from(permit).where(eq(permit.permitType, "landowner_ok"))).toEqual([]);
   });
 });

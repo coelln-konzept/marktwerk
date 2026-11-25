@@ -42,7 +42,7 @@ flowchart LR
 | Unit | Tech | Responsibility |
 |---|---|---|
 | `apps/web` | Next.js 16 (App Router, React 19, Server Actions), Better Auth, next-intl, Tailwind 4 + shadcn/ui (Base UI) | Back office UI, staff magic-link pages, field PWA (P3), webhooks (Graph, WhatsApp), new public booking form (P4) |
-| `apps/worker` | Node 22+/24, pg-boss 12 | Cron jobs (deadline sweep, nightly carry-over, digests, payroll reminders, nightly Saison records `event-seasons`; all email paths are gated by `settings.email_enabled`, off by default), async jobs (event generation, messages, PDFs, legacy-site/mailbox sync, bank import) |
+| `apps/worker` | Node 22+/24, pg-boss 12 | Cron jobs (deadline sweep, nightly carry-over, digests, payroll reminders; all email paths are gated by `settings.email_enabled`, off by default), async jobs (event generation, messages, PDFs, legacy-site/mailbox sync, bank import) |
 | PostgreSQL | v17 (Scalingo addon in prod, Docker in dev) | Single source of truth incl. job queue (`pgboss` schema) |
 
 Both units import the same internal packages, so domain rules exist exactly once.
@@ -69,16 +69,15 @@ marktwerk/
 │   │                            reminders, holidays, pricing (P2), health computation
 │   ├── db/                      Drizzle schema, migrations (drizzle/), db client
 │   └── jobs/                    job handlers (worker + /api/cron) and the service paths they share
-│                                with the web app: template instantiation, Saison records
+│                                with the web app: template instantiation
 └── docs/                        research, product, architecture, ADRs, development
 ```
 
 **Layering rule:** UI (pages/components) → server actions/route handlers → **services**
 (`apps/web/src/server/services/*`, transactional, audited, permission-checked) → db. Pure
 calculations live in `packages/core` and are unit-tested. The worker calls the same services
-and core functions, never duplicates them. The first service paths a job needs, template instantiation
-(`task-instantiation.ts`) and the Saison records (`seasons.ts`, nightly `event-seasons`), moved to
-`packages/jobs` and are re-exported by the web services; they take the transaction and an actor
+and core functions, never duplicates them. The first service path a job needs, template instantiation
+(`task-instantiation.ts`), moved to `packages/jobs` and is re-exported by the web services; they take the transaction and an actor
 (`{ id }`, null for a job), while permission checks stay in the web wrappers. A separate
 `packages/services` package is still the plan once more paths follow.
 

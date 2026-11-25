@@ -1,4 +1,3 @@
-import { itemPermitType } from "@marktwerk/core";
 import {
   PERMIT_TYPE_BLUEPRINTS,
   type RequirementSpec,
@@ -114,8 +113,6 @@ export interface PermitContext {
   venueBlueprintByName: Map<string, VenueBlueprint>;
   venues: Venue[];
   permitsStaffId: string;
-  /** The market's Saison record, which a season permit (one per market and season) belongs to. */
-  seasonIdOf: (presetId: string, season: number) => string;
   clock: Clock;
 }
 
@@ -231,14 +228,6 @@ function decideWithMarketPermit(
   return filed(clock.today, marketPermit.appliedAt, decisionOn);
 }
 
-/** Events grouped by market (preset), in the order of their first date. */
-function byMarket(events: readonly Event[]): Event[][] {
-  const groups = new Map<string, Event[]>();
-  for (const event of [...events].sort((a, b) => a.startsOn.localeCompare(b.startsOn)))
-    groups.set(event.presetId, [...(groups.get(event.presetId) ?? []), event]);
-  return [...groups.values()];
-}
-
 export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
   const clock = ctx.clock;
   const permits: Permit[] = [];
@@ -248,11 +237,10 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
   const lateCandidates: [Permit, string][] = [];
   /** Filed permits whose decision may turn overdue afterwards: [permit, first event date it covers]. */
   const decisionCandidates: [Permit, string][] = [];
-  /** The Marktgenehmigung of each market and season, for its Festsetzung. */
+  /** The Marktgenehmigung of each Ort and season, for its Festsetzung. */
   const marketPermitBy = new Map<string, Permit>();
 
   const typeKeyById = new Map(ctx.eventTypes.map((type) => [type.id, type.key]));
-  const presetNameById = new Map(ctx.presets.map((preset) => [preset.id, preset.name]));
   const blueprintByVenueId = new Map(
     ctx.venues.map((venue) => [venue.id, ctx.venueBlueprintByName.get(venue.name)]),
   );
@@ -265,10 +253,6 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
       const venueEvents = ctx.events.filter(
         (e) => applies(e) && e.season === season && e.status !== "cancelled",
       );
-      // Several markets at one place (Rodenkirchen, Kerpen, Stadion + P6): season permits carry the market's name.
-      const sharedPlace =
-        new Set(ctx.presets.filter((p) => p.venueId === requirement.venueId).map((p) => p.id))
-          .size > 1;
       const window = windowOf(requirement, blueprintByVenueId.get(requirement.venueId));
 
       const makePermit = (
@@ -277,7 +261,6 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
         validFrom: string,
         validUntil: string,
         decision: Decision,
-        seasonId: string | null = null,
       ): Permit => {
         const stickers = requirement.deliverables.stickers;
         const received =
@@ -294,7 +277,6 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
           requirementId: requirement.id,
           venueId: requirement.venueId,
           season,
-          seasonId,
           category: requirement.category,
           permitType: requirement.permitType,
           title,
@@ -324,36 +306,31 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
       };
 
       if (requirement.cadence === "per_season") {
-        // One permit per market and season, from the market's first date.
-        for (const marketEvents of byMarket(venueEvents)) {
-          const [first] = marketEvents;
-          if (!first) continue;
-          const applyBy = window
-            ? `${season - 1}-${window.endMd}`
-            : addDays(first.startsOn, -requirement.leadTimeDays);
-          const marketPermit = marketPermitBy.get(`${first.presetId}|${season}`);
-          const decision =
-            requirement.permitType === "market_fixing" && marketPermit
-              ? decideWithMarketPermit(rng, clock, marketPermit, first.startsOn)
-              : decide(rng, clock, requirement, season, applyBy, first.startsOn);
-          const marketName = presetNameById.get(first.presetId) ?? first.name;
-          const title = sharedPlace ? `${requirement.title} – ${marketName}` : requirement.title;
-          const permit = makePermit(
-            title,
-            applyBy,
-            `${season}-01-01`,
-            `${season}-12-31`,
-            decision,
-            ctx.seasonIdOf(first.presetId, season),
-          );
-          if (requirement.permitType === "market_permit")
-            marketPermitBy.set(`${first.presetId}|${season}`, permit);
-          if (!window && LATE_TYPES.includes(requirement.permitType))
-            lateCandidates.push([permit, first.startsOn]);
-          if (!window && DECISION_OVERDUE_TYPES.includes(requirement.permitType))
-            decisionCandidates.push([permit, first.startsOn]);
-          for (const event of marketEvents) link(permit, event);
-        }
+        // One permit per Ort and season (ADR 0024), from the first date there; it covers every market at the Ort.
+        const [first] = [...venueEvents].sort((a, b) => a.startsOn.localeCompare(b.startsOn));
+        if (!first) continue;
+        const applyBy = window
+          ? `${season - 1}-${window.endMd}`
+          : addDays(first.startsOn, -requirement.leadTimeDays);
+        const marketPermit = marketPermitBy.get(`${requirement.venueId}|${season}`);
+        const decision =
+          requirement.permitType === "market_fixing" && marketPermit
+            ? decideWithMarketPermit(rng, clock, marketPermit, first.startsOn)
+            : decide(rng, clock, requirement, season, applyBy, first.startsOn);
+        const permit = makePermit(
+          requirement.title,
+          applyBy,
+          `${season}-01-01`,
+          `${season}-12-31`,
+          decision,
+        );
+        if (requirement.permitType === "market_permit")
+          marketPermitBy.set(`${requirement.venueId}|${season}`, permit);
+        if (!window && LATE_TYPES.includes(requirement.permitType))
+          lateCandidates.push([permit, first.startsOn]);
+        if (!window && DECISION_OVERDUE_TYPES.includes(requirement.permitType))
+          decisionCandidates.push([permit, first.startsOn]);
+        for (const event of venueEvents) link(permit, event);
         continue;
       }
 
@@ -442,8 +419,7 @@ const LINK_STATUS_ORDER: readonly PermitStatus[] = [
 
 /**
  * The permit a template task of `permitType` is linked to on its event: the seed's and the app's
- * `linkPermitTasks` rule (required links first, then the permit that is furthest along). A "Genehmigung" item
- * (market_permit) applies for the owner's OK on private ground (Fahrplan R30, core `itemPermitType`).
+ * `linkPermitTasks` rule (required links first, then the permit that is furthest along).
  */
 export function linkedPermit(
   candidates: readonly { permit: Permit; required: boolean }[],
@@ -452,12 +428,8 @@ export function linkedPermit(
   const rank = ({ permit, required }: { permit: Permit; required: boolean }) =>
     (required && permit.status !== "not_required" ? 0 : 100) +
     LINK_STATUS_ORDER.indexOf(permit.status);
-  const type = itemPermitType(
-    permitType,
-    candidates.map((c) => c.permit.permitType),
-  );
   return [...candidates]
-    .filter((c) => c.permit.permitType === type)
+    .filter((c) => c.permit.permitType === permitType)
     .sort((a, b) => rank(a) - rank(b))[0]?.permit;
 }
 

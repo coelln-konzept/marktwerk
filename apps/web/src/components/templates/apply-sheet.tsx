@@ -3,8 +3,6 @@
 import { Dialog } from "@base-ui/react/dialog";
 import {
   Ban,
-  CalendarCheck,
-  CalendarClock,
   ChevronRight,
   CircleAlert,
   CircleCheck,
@@ -19,7 +17,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { type ReactNode, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { applyVersionAction } from "@/app/(app)/vorlagen/ablauf/actions";
 import { EventStatusBadge } from "@/components/events/event-status";
 import { useShell } from "@/components/shell/shell-context";
@@ -29,20 +27,20 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateRangeYear, formatDateShortYear, formatWeek } from "@/lib/format";
 import type { EventStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
-import type { ApplyEventPlan, ApplySeasonPlan } from "@/server/services/template-propagation";
+import type { ApplyEventPlan } from "@/server/services/template-propagation";
 import { dateOfInstant } from "./labels";
 
 /** "Anwenden" ignores clicks this long after the step changed (the second click of a double click). */
 const STEP_GUARD_MS = 400;
 
-/** One row of the list: an event, or a Saison record ("<Markt> · Saison 2027"). */
+/** One row of the list: an event. */
 type Target = {
-  /** `event:<id>` or `season:<id>` */
+  /** `event:<id>` */
   key: string;
-  plan: ApplyEventPlan | ApplySeasonPlan;
+  plan: ApplyEventPlan;
   /** Name as the list and the toast show it. */
   label: string;
-  /** Date text next to the name (event dates, or the season start). */
+  /** Date text next to the name (the event's dates). */
   when: string;
   /** What the search looks at. */
   haystack: string;
@@ -50,12 +48,11 @@ type Target = {
 
 /**
  * "Auf Veranstaltungen anwenden…" (UX concept §4: side sheet with steps). Deliberate by design: nothing is
- * pre-selected, every chosen event or season shows what would change, and only "Anwenden" writes. Rules (data model):
+ * pre-selected, every chosen event shows what would change, and only "Anwenden" writes. Rules (data model):
  * new rows become tasks, open untouched tasks take over the changes, tasks of removed rows stay open and are
- * marked, subtasks of removed child rows are cancelled (ADR 0021); done and edited tasks are never touched. Saison
- * records (research 13 §6.2) stand above the events and take only the rows for the whole season; events take the
- * rows of every date. The list shows only targets with changes by default (a season has 50+ events, most of them
- * unchanged), dates carry the year when it is not the current one.
+ * marked, subtasks of removed child rows are cancelled (ADR 0021); done and edited tasks are never touched. The
+ * list shows only events with changes by default (a season has 50+ events, most of them unchanged), dates carry
+ * the year when it is not the current one.
  *
  * Applying cannot be undone (open questions, UX audit round 1), so step 2 says so, and the step change guards
  * against running through: "Weiter zur Vorschau" and "Auf … anwenden" are different buttons (own keys), focus moves
@@ -68,7 +65,6 @@ export function ApplySheet({
   templateName,
   version,
   events,
-  seasons,
   today,
   closeHref,
 }: {
@@ -76,7 +72,6 @@ export function ApplySheet({
   templateName: string;
   version: { version: number; changeNote: string | null };
   events: ApplyEventPlan[];
-  seasons: ApplySeasonPlan[];
   /** Business date of today (company time zone). */
   today: string;
   closeHref: string;
@@ -103,19 +98,6 @@ export function ApplySheet({
     stepHeading.current?.focus();
   }, [step]);
 
-  const seasonTargets: Target[] = seasons.map((s) => {
-    const label = t("seasonLabel", { name: s.name, season: s.season });
-    const when = s.seasonStart
-      ? t("seasonStart", { date: formatDateShortYear(s.seasonStart, locale, today) })
-      : t("noSeasonStart");
-    return {
-      key: `season:${s.seasonId}`,
-      plan: s,
-      label,
-      when,
-      haystack: [label, when, String(s.season), s.seasonStart ?? ""].join(" "),
-    };
-  });
   const eventTargets: Target[] = events.map((e) => {
     const when = formatDateRangeYear(e.startsOn, e.endsOn, locale, today);
     return {
@@ -126,18 +108,12 @@ export function ApplySheet({
       haystack: [e.name, when, e.startsOn].join(" "),
     };
   });
-  const all = [...seasonTargets, ...eventTargets];
+  const all = eventTargets;
 
   // Only targets that are still in the list count: after a refresh one may be gone (applied in another tab).
   const chosen = all.filter((x) => selected.has(x.key));
-  const chosenEvents = chosen.flatMap((x) => ("eventId" in x.plan ? [x.plan.eventId] : []));
-  const chosenSeasons = chosen.flatMap((x) => ("seasonId" in x.plan ? [x.plan.seasonId] : []));
-  const targets = (eventCount: number, seasonCount: number) =>
-    t("targets", {
-      events: eventCount,
-      seasons: seasonCount,
-      both: eventCount > 0 && seasonCount > 0 ? "yes" : "no",
-    });
+  const chosenEvents = chosen.map((x) => x.plan.eventId);
+  const targets = (eventCount: number) => t("targets", { events: eventCount });
   const totals = chosen.reduce(
     (sum, { plan: e }) => ({
       add: sum.add + e.add.length,
@@ -154,16 +130,14 @@ export function ApplySheet({
   const visible = (x: Target) =>
     (!onlyChanged || x.plan.size > 0) &&
     (needle === "" || x.haystack.toLocaleLowerCase(locale).includes(needle));
-  const shownSeasons = seasonTargets.filter(visible);
-  const shownEvents = eventTargets.filter(visible);
-  const shown = [...shownSeasons, ...shownEvents];
+  const shown = eventTargets.filter(visible);
   const selectable = shown.filter((x) => x.plan.size > 0);
   const hiddenUnchanged = onlyChanged ? all.filter((x) => x.plan.size === 0).length : 0;
 
   function dueOn(dueAt: number | null) {
     return dueAt === null ? null : dateOfInstant(new Date(dueAt));
   }
-  function overdueAdds(e: ApplyEventPlan | ApplySeasonPlan) {
+  function overdueAdds(e: ApplyEventPlan) {
     return e.add.filter((a) => {
       const due = dueOn(a.dueAt);
       return due !== null && due < today;
@@ -200,7 +174,7 @@ export function ApplySheet({
     if (chosen.length === 0) return;
     setError(null);
     startTransition(async () => {
-      const result = await applyVersionAction(templateId, chosenEvents, chosenSeasons);
+      const result = await applyVersionAction(templateId, chosenEvents);
       if (!result.ok) {
         // A target stopped qualifying: back to the list (refreshed by the action) to check the selection.
         if (result.error === "not_applicable") setStep(1);
@@ -212,9 +186,7 @@ export function ApplySheet({
         return;
       }
       const label = (x: Target) =>
-        "eventId" in x.plan
-          ? `${x.label} (${formatDateShortYear(x.plan.startsOn, locale, today)})`
-          : x.label;
+        `${x.label} (${formatDateShortYear(x.plan.startsOn, locale, today)})`;
       const names =
         chosen.length <= 2
           ? chosen.map(label).join(", ")
@@ -236,10 +208,7 @@ export function ApplySheet({
   }
 
   /** The non-zero counts of one target, each with its icon; `keep` only where it is not noise. */
-  const summary = (
-    e: ApplyEventPlan | ApplySeasonPlan,
-    opts: { keep?: boolean; overdue?: boolean } = {},
-  ) => {
+  const summary = (e: ApplyEventPlan, opts: { keep?: boolean; overdue?: boolean } = {}) => {
     const overdue = opts.overdue ? overdueAdds(e) : 0;
     return (
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-small">
@@ -283,21 +252,6 @@ export function ApplySheet({
     );
   };
 
-  /** Status of the target: the event's, or the season's ("In Planung", "Termine stehen"). */
-  const statusBadge = (plan: ApplyEventPlan | ApplySeasonPlan) => {
-    if ("eventId" in plan) return <EventStatusBadge status={plan.status as EventStatus} />;
-    const status =
-      plan.status === "dates_set" || plan.status === "closed" ? plan.status : "planning";
-    return (
-      <StatusBadge
-        tone={status === "dates_set" ? "ok" : status === "closed" ? "neutral" : "info"}
-        icon={status === "planning" ? CalendarClock : CalendarCheck}
-      >
-        {t(`seasonStatus.${status}`)}
-      </StatusBadge>
-    );
-  };
-
   const row = (x: Target) => (
     <li key={x.key}>
       <label
@@ -317,9 +271,10 @@ export function ApplySheet({
             <span className="font-semibold">{x.label}</span>
             <span className="tabular text-muted-foreground text-small">
               {x.when}
-              {"eventId" in x.plan && <> · {formatWeek(x.plan.startsOn, locale)}</>}
+              {" · "}
+              {formatWeek(x.plan.startsOn, locale)}
             </span>
-            {statusBadge(x.plan)}
+            <EventStatusBadge status={x.plan.status as EventStatus} />
           </span>
           <span className="text-muted-foreground text-tiny">
             {x.plan.fromVersion === null
@@ -335,21 +290,6 @@ export function ApplySheet({
       </label>
     </li>
   );
-
-  /** A group of the list ("Saisons", "Veranstaltungen") with its heading when both kinds are there. */
-  const group = (id: string, heading: string, hint: string | null, rows: Target[]): ReactNode =>
-    rows.length === 0 ? null : seasonTargets.length === 0 ? (
-      <ul className="flex flex-col gap-2">{rows.map(row)}</ul>
-    ) : (
-      <section aria-labelledby={id} className="flex flex-col gap-2">
-        <h3 id={id} className="flex flex-wrap items-baseline gap-x-2 font-semibold text-small">
-          {heading}
-          <span className="tabular font-normal text-muted-foreground">{rows.length}</span>
-          {hint && <span className="font-normal text-muted-foreground text-tiny">{hint}</span>}
-        </h3>
-        <ul className="flex flex-col gap-2">{rows.map(row)}</ul>
-      </section>
-    );
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && !pending && close()}>
@@ -489,10 +429,7 @@ export function ApplySheet({
                         {onlyChanged && needle === "" ? t("nothingChanged") : t("noMatch")}
                       </p>
                     ) : (
-                      <>
-                        {group("apply-seasons", t("groupSeasons"), t("seasonItems"), shownSeasons)}
-                        {group("apply-events", t("groupEvents"), null, shownEvents)}
-                      </>
+                      <ul className="flex flex-col gap-2">{shown.map(row)}</ul>
                     )}
                   </>
                 )}
@@ -516,12 +453,10 @@ export function ApplySheet({
                 <p className="text-small">
                   {parts(totals)
                     ? t("previewIntro", {
-                        targets: targets(chosenEvents.length, chosenSeasons.length),
+                        targets: targets(chosenEvents.length),
                         what: parts(totals),
                       })
-                    : t("previewIntroNone", {
-                        targets: targets(chosenEvents.length, chosenSeasons.length),
-                      })}
+                    : t("previewIntroNone", { targets: targets(chosenEvents.length) })}
                 </p>
                 {totals.overdue > 0 && (
                   <p className="flex items-start gap-2 rounded-lg bg-status-critical-bg px-3 py-2 text-small text-status-critical">
@@ -688,9 +623,7 @@ export function ApplySheet({
                   disabled={pending || chosen.length === 0}
                   onClick={apply}
                 >
-                  {t("confirm", {
-                    targets: targets(chosenEvents.length, chosenSeasons.length),
-                  })}
+                  {t("confirm", { targets: targets(chosenEvents.length) })}
                 </Button>
               )}
             </span>

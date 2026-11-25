@@ -7,7 +7,6 @@ import {
   resolveRelativeDue,
   rolledOverText,
   rolloverDedupeKey,
-  seasonContextName,
   shouldEscalate,
   taskLink,
 } from "@marktwerk/core";
@@ -15,8 +14,6 @@ import {
   type Database,
   escalationLog,
   event,
-  eventPreset,
-  eventSeason,
   insertNotifications,
   parentIsOpen,
   staffMember,
@@ -77,7 +74,6 @@ export async function taskRollover(
         id: task.id,
         title: task.title,
         eventId: task.eventId,
-        seasonId: task.seasonId,
         assigneeId: task.assigneeId,
         count: task.rolloverCount,
         parentTaskId: task.parentTaskId,
@@ -103,21 +99,13 @@ export async function taskRollover(
       });
 
     const eventIds = [...new Set(rolled.flatMap((r) => (r.eventId ? [r.eventId] : [])))];
-    const seasonIds = [...new Set(rolled.flatMap((r) => (r.seasonId ? [r.seasonId] : [])))];
     const people = [...new Set(rolled.flatMap((r) => (r.assigneeId ? [r.assigneeId] : [])))];
-    const [events, seasons, staff, managers] = await Promise.all([
+    const [events, staff, managers] = await Promise.all([
       eventIds.length
         ? tx
             .select({ id: event.id, name: event.name })
             .from(event)
             .where(inArray(event.id, eventIds))
-        : [],
-      seasonIds.length
-        ? tx
-            .select({ id: eventSeason.id, name: eventPreset.name, season: eventSeason.season })
-            .from(eventSeason)
-            .innerJoin(eventPreset, eq(eventPreset.id, eventSeason.presetId))
-            .where(inArray(eventSeason.id, seasonIds))
         : [],
       people.length
         ? tx
@@ -138,16 +126,10 @@ export async function taskRollover(
         ),
     ]);
     const eventName = new Map(events.map((e) => [e.id, e.name]));
-    // A season task names its market and season where an event task names its event (research 13 §6.3).
-    const seasonName = new Map(seasons.map((s) => [s.id, seasonContextName(s.name, s.season)]));
     const staffName = new Map(staff.map((s) => [s.id, s.name]));
     const subject = (r: (typeof rolled)[number]) => ({
       title: r.title,
-      eventName: r.eventId
-        ? (eventName.get(r.eventId) ?? null)
-        : r.seasonId
-          ? (seasonName.get(r.seasonId) ?? null)
-          : null,
+      eventName: r.eventId ? (eventName.get(r.eventId) ?? null) : null,
     });
 
     const notified = await insertNotifications(

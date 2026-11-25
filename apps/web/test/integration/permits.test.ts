@@ -102,8 +102,8 @@ describe("logbook fill on event creation", () => {
       season: 2027,
       category: "city",
       permitType: "market_permit",
-      // The place holds two markets (flea market and Stadtfest): the permit names its market (Fahrplan R27).
-      title: "Marktgenehmigung – Testflohmarkt",
+      // One permit per Ort and season, named after the requirement (ADR 0024), also where two markets share the Ort.
+      title: "Marktgenehmigung",
       status: "not_started",
       // 120 days before 02.05.2027 is 02.01.2027: the city collected applications until 30.11.2026.
       applyBy: "2026-11-30",
@@ -238,8 +238,8 @@ describe("logbook fill on event creation", () => {
     const ids = await generate("2027-05-02", "2027-06-06");
     const permits = await db.select().from(permit).orderBy(asc(permit.applyBy));
     expect(permits.map((p) => [p.title, p.season, p.applyBy])).toEqual([
-      ["Halteverbot – Testflohmarkt – 2027-05-02", 2027, "2027-04-11"],
-      ["Halteverbot – Testflohmarkt – 2027-06-06", 2027, "2027-05-16"],
+      ["Halteverbot – 2027-05-02", 2027, "2027-04-11"],
+      ["Halteverbot – 2027-06-06", 2027, "2027-05-16"],
     ]);
     const tasks = await db.select().from(task);
     expect(tasks.map((t) => t.eventId).sort()).toEqual([...ids].sort());
@@ -259,7 +259,7 @@ describe("logbook fill on event creation", () => {
     await requirement({ eventTypeId: cat.type.id, title: "Marktgenehmigung" });
     await generate("2027-05-02");
     const permits = await db.select().from(permit);
-    expect(permits.map((p) => p.title)).toEqual(["Marktgenehmigung – Testflohmarkt"]);
+    expect(permits.map((p) => p.title)).toEqual(["Marktgenehmigung"]);
   });
 
   it("is idempotent and moves the deadline when an earlier event joins an unfiled permit", async () => {
@@ -583,7 +583,7 @@ describe("permit status flow", () => {
       }),
     ).rejects.toSatisfy(isForbidden);
 
-    expect((await archivePermit(owner, p.id)).title).toBe("Marktgenehmigung – Testflohmarkt");
+    expect((await archivePermit(owner, p.id)).title).toBe("Marktgenehmigung");
     await expect(setPermitStatus(owner, p.id, "applied")).rejects.toMatchObject({
       code: "not_found",
     });
@@ -869,11 +869,11 @@ describe("auto-confirmation of planned events", () => {
     await requirement();
     await requirement({ title: "Sondernutzung", permitType: "other" });
     const [id] = await generate("2027-05-02");
-    await setPermitStatus(owner, await permitOf("Marktgenehmigung – Testflohmarkt"), "granted");
+    await setPermitStatus(owner, await permitOf("Marktgenehmigung"), "granted");
     expect(await statusOf(id ?? "")).toBe("planned");
     expect(await autoAudit()).toHaveLength(0);
 
-    await setPermitStatus(owner, await permitOf("Sondernutzung – Testflohmarkt"), "granted");
+    await setPermitStatus(owner, await permitOf("Sondernutzung"), "granted");
     expect(await statusOf(id ?? "")).toBe("confirmed");
   });
 

@@ -153,37 +153,17 @@ erDiagram
   `health_override?` + reason, `custom_fields`, notes, `cancelled_reason?`.
 - **event_anchor**: `(event_id, key)` → `date`. Keys: `event_day` (= starts_on), `setup_day`, `teardown_day`,
   `booking_cutoff` (default: **Monday before** the event), `permit_decision`, custom. Missing anchor → task has no due date yet.
-- **event_season** ("Saison", research 13 §6, migration `0022_saison`): one record per market and calendar year for the
-  work done **once per market and season** (Termine planen, Genehmigung beantragen …), existing before any date of that
-  season does. `preset_id` → `event_preset` (`on delete restrict`), `season` (integer year, same meaning as
-  `event.season`, check 1900–9999), unique `(preset_id, season)`; `expected_start` (`date`: the first date expected
-  before any event exists = last season's first non-cancelled date moved to the same weekday and ISO week, core
-  `expectedStartFromLastSeason`; **1 January** without history, decision 2026-11-13); `status` (enum
-  `event_season_status`: `planning | dates_set | closed`; a new record starts `planning` without dates, `dates_set`
-  with dates and `closed` when its last date has already passed (`initialSeasonStatus`); later changes are manual
-  only (`canChangeSeasonStatus`, `suggestedSeasonStatus` says what the UI offers; no automatic switch)); `notes?`,
-  `archived_at?`, timestamps. **One path creates records**: `ensureEventSeasonTx` (`packages/jobs/src/seasons.ts`;
-  web wrapper `ensureEventSeason` with the `event:write` check), idempotent (an existing record is never changed),
-  audit `season.create` (`diff`: preset, season, expected start, status, anchors, `source` `job | markt_planen |
-  agreement | event_move | manual`, tasks). Called by the nightly job `event-seasons` (current and next Berlin year for
-  every active, not archived market; actor null), by "Markt planen" / agreement dates for every season they create
-  dates in, and when an event is moved into another year. A record created `closed` gets no season tasks (nothing
-  left to prepare; its overdue tasks would only be noise).
-- **event_season_anchor**: `(season_id, key)` → `date`, the same shape as `event_anchor` (`season_id` →
-  `event_season`, `on delete cascade`). Keys (core `SEASON_ANCHOR_KEYS`): **`season_start`** = first day of the
-  season's earliest non-cancelled, not archived event, else `expected_start`; **`season_end`** = last day of its latest
-  non-cancelled event, **no row** while the season has no date (a task on it then has no due date, or keeps its
-  date). Recomputed by `syncSeasonsTx` (`apps/web/src/server/services/seasons.ts`) whenever an event of the season is
-  created, moved (also its length), cancelled or reopened, deleted, or archived by the generation undo; open, not
-  overridden season tasks follow through the event shift path (`planTaskShift` / `shiftTasks` with a season owner;
-  done tasks never move). Audit `season.anchors` (`{from, to}` per key, `cause`, `tasksShifted`); `event.move` /
-  `event.update` add `seasonTasksShifted`. The Verschieben preview lists the season tasks that would move
-  (`seasonShifting`, not shown in the UI yet).
+- *(Removed, [ADR 0024](adr/0024-recurring-work-three-levels.md), migration `0025_remove_saison`: the Saison record
+  `event_season` / `event_season_anchor` of research 13 §6 (migration 0022). Recurring work lives on three levels:
+  per date (the event and its template), per Ort and season (the Genehmigungen logbook), company per year
+  (Pflichten, `obligation`). The migration deleted season tasks, season checklists and season-scoped template items,
+  moved files attached to a season task to its permit (else the market's Ort), gave every open permit covering
+  several dates its own "… beantragen" task and dropped the tables, `task/checklist/permit.season_id`,
+  `template_item.scope` and their enums.)*
 - **next_time_note** ("Fürs nächste Mal", Fahrplan R25, research 13 G9, migration `0024_next_time_note`): a short note
   against a **market**, written during or after one of its dates and shown when the next date is prepared. `preset_id`
   → `event_preset` (`on delete cascade`), `event_id?` → `event` (`on delete set null`: the date it was written at; null
-  = written on the market page), `task_id?` → `task` (`on delete set null`: written from the task drawer; a Saison
-  task gives the market and no date), `body` (check: 1–500 characters, trimmed, core `nextTimeNoteProblem`),
+  = written on the market page), `task_id?` → `task` (`on delete set null`: written from the task drawer), `body` (check: 1–500 characters, trimmed, core `nextTimeNoteProblem`),
   `created_by_id?` / `done_by_id?` → `user` (`on delete set null`), `done_at?` (null = open), timestamps; index
   `(preset_id, done_at)`. `event.notes` stays the free text of one date; this is the market's list that carries over.
   **Next date** (core `nextDateToPrepare`): the market's first not cancelled, not archived date that starts after
@@ -214,20 +194,13 @@ erDiagram
   type/venue attributes), sort), `permit_type?` (0008: the item applies for a permit of that type, e.g.
   "Marktgenehmigung beantragen" → `market_permit`; its tasks get `task.permit_id` = the event's permit of that type
   via `linkPermitTasks` and complete automatically once that permit is applied for or granted). A permit that
-  covers several events (cadence `per_season | per_year | multi_year | standing`) gets **one** apply task. Since
-  Fahrplan R11 that is the **season task**: a `season` item with a `permit_type` ("Genehmigung beantragen") links
-  through `linkPermitTasks` to the permit of its Saison record (`permit.season_id`; else a multi-year / standing
-  permit of the same market that the season's events are linked to), the fill adds no own "beantragen" task for it,
-  and once the permit's own season has that task every other untouched apply task of the permit (event template
-  tasks, its own task, a later season's task under a multi-year permit) is deleted (`cancelled`, audited
-  `task.delete`, restorable), see core `seasonApplyDuplicates`. Fallback for permits without a record and markets
-  without season items (the interim rule of Fahrplan 18): the first covered event carries it, the untouched
-  duplicates of the other events are deleted the same way, see `splitApplyTasks`. Worked-on and finished tasks are
-  never removed. The permit drawer lists the season task as "<Markt> · Saison 2027". **Main permit** (Fahrplan R30,
-  no migration): an item naming `market_permit` applies for the Ort's main permit, so where the event or season has
-  no Marktgenehmigung but an owner's OK (`landowner_ok`, private ground) it links to that one (core
-  `itemPermitType`; the logbook fill, the Markt planen preview and the seed count the same way). Where an Ort needs
-  both, the Marktgenehmigung keeps the item and the OK gets its own "beantragen" task.
+  covers several dates (cadence `per_season | per_year | multi_year | standing`) is one per Ort (requirement) and
+  season and is applied for by **its own** "… beantragen" task ([ADR 0024](adr/0024-recurring-work-three-levels.md)):
+  `linkPermitTasks` links template tasks **only to per-date permits** (`per_event`, or a hand-made permit without a
+  requirement linked to the event), and the logbook fill leaves out a per-date permit's own task when a template task
+  of that date names its type. So no task ever applies twice for the same permit. (The interim "one apply task on the
+  first covered event" rule of Fahrplan 18, the season task of R11 and the "main permit" rule of R30 are gone with
+  it.)
   *(implemented 0002: `task_category` also has `office` (the synthetic Büro tasks); `phase` is `pre | live | post`;
   `priority` is `low | normal | high`; `checklist_template.kind` (`event | permit`, a permit-prep template has
   kind `permit`) and `event_type_id?`; `template_version` has `published_at`, `published_by_id`, `change_note`, a
@@ -250,19 +223,10 @@ erDiagram
   child without `duty_role_id` takes the parent's role (`inheritedItem`). A child applies only together with its parent
   (`parentsFirst`). Migration: each `check_items` entry became a child item `<parent key>__teil_<n>` with the parent's
   phase, category, priority and schedule, placed right below the parent.)*
-  *(0022, research 13 §6.1: **`scope`** (enum `template_item_scope`: `event | season`, default `event`). `event` items
-  become tasks of every event of the market, `season` items tasks of its Saison record once per season; one template
-  (the Grundvorlage, a market's own copy) holds both kinds. A season item hangs only on a season anchor
-  (`season_start`, `season_end`), an event item never on one (core `anchorFitsScope`, checked by `checkTemplateItem`
-  once the scope is known). A child item always has its parent's scope (the template service sets it like the phase;
-  changing a parent's scope moves its children and is refused when a child's own date no longer fits). An update
-  without a scope keeps the stored one. Event instantiation, propagation and the generation preview skip season
-  items.)*
+  *(0022 added `scope` (`event | season`) for Saison items; removed again by 0025, ADR 0024.)*
 - **checklist**: `event_id?`, `permit_id?`, `template_version_id?`, name. *(implemented 0002: + `template_id?`, `sort`,
-  `archived_at`; a check forbids both `event_id` and `permit_id`.)* *(0022: + `season_id?` → `event_season`
-  (`on delete cascade`); check `checklist_one_owner` is now **exactly one** of event, permit or season
-  (`num_nonnulls(...) = 1`; the migration stops with a readable message if a checklist without owner exists). A
-  season checklist is made only for templates that have season items for that market.)*
+  `archived_at`; a check forbids both `event_id` and `permit_id` (`checklist_one_owner`; 0022 made it "exactly one of
+  event, permit or season", 0025 restored the original rule).)*
 - **task**: origin (`event_id?`, `checklist_id?`, `template_item_id?`, `template_stable_key?`, `permit_id?`,
   `payable_id?`, `parent_task_id?`, `source` (`template | manual | permit | permit_condition | obligation |
   rental | email | system`)), title, description, `phase?`, `category`, `priority`, labels;
@@ -272,12 +236,6 @@ erDiagram
   skipped | cancelled`, `waiting_reason?`, `completed_at?`, `completed_by?`, `approval_status?`);
   **kanban** (`board_column?` override, `board_sort`); **carry-over** (`rollover_count`, `last_rolled_at`);
   template tracking (`customized`, `removed_from_template`).
-  *(0022: **`season_id?`** → `event_season` (`on delete cascade`, index `(season_id, status)`): a task of a Saison
-  record (`event_id` null), made by the season instantiation from `season` items, assigned through the market's
-  `default_duties`, due relative to the season anchors. Since R13 every task list carries the Saison (market name,
-  colour, year; `seasonContext()` in `apps/web/src/server/queries/season-context.ts`, `seasonContext(db)` in
-  `packages/jobs/src/shared.ts`) and labels it "<Markt> · Saison 2027" (UI key `tasks.seasonContext`, stored
-  German texts `seasonContextName`); the market-page panel is Fahrplan R12.)*
   *(0019, [ADR 0021](adr/0021-subtasks.md): **subtasks** use `parent_task_id` (`on delete set null`). One level: the
   trigger `task_one_level_subtasks` refuses a parent that is itself a subtask and a task with subtasks becoming one
   (check `task_not_own_parent` refuses itself); the services check first (`nestingProblem`: same event, parent not
@@ -350,19 +308,9 @@ erDiagram
   groups by location without a join and ad-hoc permits work); all dates are `date`; `apply_by`, `status` default
   `not_started`; `conditions` is `text[]`; `permit_requirement.event_type_id?`, `archived_at`; month-days are text
   `MM-DD` with a check; `permit_type` has the full list of the data model, the synthetic data uses six.)*
-  *(0022: `season_id?` → `event_season` (`on delete set null`, indexed), next to `venue_id` / `season`: the Saison
-  record a season permit belongs to.)* *(Fahrplan R11/R27, no migration: the logbook fill sets `season_id` on every
-  permit it makes for a requirement covering several events (`per_season | per_year | multi_year | standing`) for an
-  event of a market: the record of that market and the event's year, made through `ensureEventSeasonTx` (audit
-  source `logbook_fill`) if it is missing. A permit with a record covers **only its own market's** events, a
-  season or year permit only those of the record's year, a multi-year / standing one also later years within its
-  validity (core `permitServesMarket`, part of `permitCovers`; the Markt planen preview counts the same way). So at a
-  place with several markets (Rodenkirchen ×3, Kerpen ×4, Stadion + P6, Altstadt + Altstadt Lifestyle) a new date
-  never attaches to another market's season permit; each market gets its own, titled "<requirement> – <market>"
-  where the place holds more than one (not archived) market (core `permitInstanceTitle`; single-event permits
-  "<requirement> – <market> – <date>"). A permit of the market's own record is preferred over one without. Permits
-  **without** a record (older data, events without a market, permits made by hand) keep the `venue_id` / `season`
-  rule. The permit drawer offers only the record's market's dates for linking; linking by hand stays possible.)*
+  *(ADR 0024, migration 0025: one permit per Ort (requirement) and season for a cadence covering several dates; it
+  covers every market at the Ort (shared Orte are handled by hand: R27's per-market split and `permit.season_id`
+  are gone). Single-date permits are titled "<requirement> – <date>", the others by the requirement.)*
 - **event_permit**: `(event_id, permit_id, required)`. *(implemented 0002: primary key `(event_id, permit_id)`.)*
 - **Logbook** = a view over permits + agreements + (M11) equipment + documents, grouped by location and category,
   showing *held / pending / missing* for upcoming events.
@@ -501,35 +449,18 @@ createEvent(preset | agreement, date [, durationDays]):
       for template in preset.templates (current published version): checklist + tasks
           (due_at from anchor/offset/day_mode; assignee from duty; estimate from item)
       status = planned
-      Saison (R8/R10): ensureEventSeasonTx for every (preset, year) with a new date, then syncSeasonsTx
-          (existing records recompute season_start/season_end; open season tasks follow); before the
-          logbook fill, so a season permit gets its record (R11)
       logbook fill: for each permit requirement of venue/type:
-          valid covering permit exists → link (ticked, with document link); a permit with a Saison record
-              covers only its own market (and, per season/year, its year: permitServesMarket, R27)
-          else → new permit (apply_by = event_day − lead_time, or window end; season_id = the market's
-              record when the cadence covers several events; title names the market at shared places)
-              + its "beantragen" task unless a template task or the season task applies for it
-          linkPermitTasks: template and season tasks with a permit_type → that permit (market_permit →
-              the owner's OK where the Ort has no Marktgenehmigung, R30); one apply task
-              per season permit (the season task, else the first covered event)
+          valid covering permit exists → link (ticked, with document link); one permit per Ort and season
+              for cadences covering several dates (ADR 0024)
+          else → new permit (apply_by = event_day − lead_time, or window end)
+              + its "beantragen" task: always for a permit covering several dates (no event), for a per-date
+              permit unless a template task of the date names its type
+          linkPermitTasks: template tasks with a permit_type → the date's per-date permit of that type
       auto-confirm: all required permits already granted → planned → confirmed (audit auto, same tx)
       (undo "Rückgängig" after a run: audit-based, an event qualifies while its audit trail holds only
        event.create (+ that automatic confirmation); status is not looked at)
       (M11) equipment requirements ← preset
       audit; grouped "assigned" notifications (debounced)
-```
-
-### Saison records (research 13 §6; nightly 00:20, idempotent)
-```
-event-seasons (packages/jobs/src/seasons.ts, cron 20 0 * * * Europe/Berlin):
-  for each active, not archived preset, for season in [current Berlin year, next year]:
-    ensureEventSeasonTx(preset, season)   -- one transaction per market; existing records untouched
-      expected_start = expectedStartFromLastSeason(first non-cancelled date of season − 1) or 1 January
-      anchors from the season's events; status = initialSeasonStatus
-      unless closed: instantiate the season items of the preset's templates
-          (the event path in packages/jobs/src/task-instantiation.ts with a season context)
-      audit season.create (actor null)
 ```
 
 ### Kanban columns (derived, overridable)
@@ -563,13 +494,7 @@ remaining_hours = max(0, limit − earned_month) / rate
 ### Template propagation (deliberate)
 Publishing creates version n+1 and changes nothing else. "Apply to events…" opens a picker with **no events
 pre-selected**, a per-event preview and the merge rules (add / update non-customized open tasks / cancel
-untouched removed tasks; done tasks, comments, evidence never touched). *(Fahrplan R14, research 13 §6.2: the same
-path brings **Saison records** to the new version: `applyTemplateVersion(actor, templateId, eventIds, seasonIds)`.
-Targets are open records (`event_season` not archived, status not `closed`, season ≥ the current year) with an older
-checklist of the template or linked to it through their market; a record without a checklist only when the version
-has season items for it, like instantiation. A season takes the `season` items (due from its anchors, assigned through
-the market's default duties), an event the `event` items; the merge rules are the same. Audit `template.apply` on
-`event_season`. Season permits are not linked here yet (R11).)*
+untouched removed tasks; done tasks, comments, evidence never touched).
 
 ## Phase 2 sketch: bookings (M7–M10)
 - **vendor**: kind (private/commercial), name, contact, categories (antique, design, handmade, food…), default

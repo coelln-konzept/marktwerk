@@ -38,12 +38,8 @@ export type EmploymentType =
   | "freelance";
 /** Named dates of an event (`event_anchor.key`). */
 export type EventAnchorKey = "eventDay" | "setupDay" | "teardownDay" | "bookingCutoff";
-/** Named dates of a Saison record (`event_season_anchor.key`): the first and the last market day of the season. */
-export type SeasonAnchorKey = "seasonStart" | "seasonEnd";
-/** What a template item or task hangs on: event anchors for `event` items, season anchors for `season` items. */
-export type AnchorKey = EventAnchorKey | SeasonAnchorKey;
-/** Saison status (`event_season_status`, research 13 §6.2). */
-export type SeasonStatus = "planning" | "dates_set" | "closed";
+/** What a template item or task hangs on. */
+export type AnchorKey = EventAnchorKey;
 export type EventStatus =
   | "draft"
   | "planned"
@@ -330,36 +326,6 @@ export interface EventAnchor {
   date: DateString;
 }
 
-/**
- * "Saison" (`event_season`, research 13 §6): one record per market (preset) and calendar year. It carries the work
- * done once per market and season (Termine planen, Genehmigung beantragen) in its own checklist.
- */
-export interface EventSeason {
-  id: string;
-  presetId: string;
-  /** The calendar year (same meaning as `Event.season`). */
-  season: number;
-  /** Last season's first date moved to the same weekday and ISO week, else 1 January (core's rule). */
-  expectedStart: DateString;
-  /** From its dates as of the reference date (`initialSeasonStatus` in core). */
-  status: SeasonStatus;
-  notes: string | null;
-}
-
-/** `event_season_anchor`: `seasonStart` (first non-cancelled date, else `expectedStart`), `seasonEnd` (last day). */
-export interface EventSeasonAnchor {
-  id: string;
-  seasonId: string;
-  key: SeasonAnchorKey;
-  date: DateString;
-}
-
-/**
- * `template_item.scope`. `event`: one task per event, due relative to the event anchors. `season`: one task per
- * market and season on its Saison record (`Task.seasonId`), due relative to the season anchors (research 13 §6).
- */
-export type TemplateItemScope = "event" | "season";
-
 export interface TemplateItem {
   id: string;
   stableKey: string;
@@ -387,7 +353,6 @@ export interface TemplateItem {
    * parent's values, as migration 0019 does).
    */
   ownDue: boolean;
-  scope: TemplateItemScope;
 }
 
 /** Where a template's content comes from (the seed writes it as the version's change note). */
@@ -412,13 +377,10 @@ export interface ChecklistTemplate {
 
 export interface Task {
   id: string;
-  /** The event of an `event` item's task; null for season tasks. */
-  eventId: string | null;
-  /** The Saison record of a `season` item's task; null for event tasks. Exactly one of the two is set. */
-  seasonId: string | null;
+  eventId: string;
   templateItemId: string;
   templateStableKey: string;
-  /** Subtask (ADR 0021): the task made from the parent item, on the same event or season. One level only. */
+  /** Subtask (ADR 0021): the task made from the parent item, on the same event. One level only. */
   parentTaskId: string | null;
   phase: TaskPhase;
   category: TaskCategory;
@@ -467,8 +429,6 @@ export interface Permit {
   requirementId: string;
   venueId: string;
   season: number;
-  /** Season permits (one per market and season): that market's Saison record (`permit.season_id`); else null. */
-  seasonId: string | null;
   category: PermitCategory;
   permitType: PermitType;
   title: string;
@@ -647,8 +607,6 @@ export interface Dataset {
   eventPresets: EventPreset[];
   events: Event[];
   eventAnchors: EventAnchor[];
-  eventSeasons: EventSeason[];
-  eventSeasonAnchors: EventSeasonAnchor[];
   checklistTemplates: ChecklistTemplate[];
   tasks: Task[];
   permitRequirements: PermitRequirement[];

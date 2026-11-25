@@ -1,12 +1,4 @@
-import {
-  expectedStartFromLastSeason,
-  initialSeasonStatus,
-  isMarketColor,
-  isMarketShortCode,
-  itemPermitType,
-  seasonAnchors,
-  validateSchedule,
-} from "@marktwerk/core";
+import { isMarketColor, isMarketShortCode, validateSchedule } from "@marktwerk/core";
 import { beforeAll, describe, expect, it } from "vitest";
 import { MAX_EVENTS_PER_DAY, minijobLimitCents, REFERENCE_DATE } from "./constants";
 import { generateDataset } from "./dataset";
@@ -80,8 +72,7 @@ function eventDays(event: Pick<Event, "startsOn" | "endsOn">): string[] {
 }
 
 /**
- * The permit a task is linked to: its item's permit type on its event (the seed's `linkPermitTasks` rule), or for
- * a season task the season permit of that type on its Saison record (`permit.seasonId`).
+ * The permit a task is linked to: its item's permit type on its event (the seed's `linkPermitTasks` rule).
  */
 function permitLinks(d: Dataset): (task: Task) => Permit | undefined {
   const itemById = new Map<string, TemplateItem>(
@@ -100,24 +91,14 @@ function permitLinks(d: Dataset): (task: Task) => Permit | undefined {
   return (task) => {
     const type = itemById.get(task.templateItemId)?.permitType;
     if (!type) return undefined;
-    if (task.seasonId !== null) {
-      const own = d.permits.filter((p) => p.seasonId === task.seasonId);
-      const resolved = itemPermitType(
-        type,
-        own.map((p) => p.permitType),
-      );
-      return own.find((p) => p.permitType === resolved);
-    }
-    return linkedPermit(byEvent.get(task.eventId ?? "") ?? [], type);
+    return linkedPermit(byEvent.get(task.eventId) ?? [], type);
   };
 }
 
-/** The market (preset) a task belongs to, through its event or its Saison record. */
+/** The market (preset) a task belongs to, through its event. */
 function presetOfTask(d: Dataset): (task: Task) => string | undefined {
   const byEvent = new Map(d.events.map((e) => [e.id, e.presetId]));
-  const bySeason = new Map(d.eventSeasons.map((s) => [s.id, s.presetId]));
-  return (task) =>
-    task.seasonId !== null ? bySeason.get(task.seasonId) : byEvent.get(task.eventId ?? "");
+  return (task) => byEvent.get(task.eventId);
 }
 
 const FILED = new Set(["applied", "granted"]);
@@ -207,7 +188,7 @@ describe("catalogue", () => {
       expect(own?.eventTypeId).toBe(preset.eventTypeId);
     }
     for (const template of data.checklistTemplates) {
-      expect(template.items.length).toBeGreaterThanOrEqual(15);
+      expect(template.items.length).toBeGreaterThanOrEqual(10);
       expect(template.items.length).toBeLessThanOrEqual(60);
       expect(template.version).toBe(1);
       expect(template.status).toBe("published");
@@ -237,7 +218,6 @@ describe("referential integrity", () => {
     const dutyRoleIds = idsOf(data.dutyRoles);
     const presetIds = idsOf(data.eventPresets);
     const eventIds = idsOf(data.events);
-    const seasonIds = idsOf(data.eventSeasons);
     const templateIds = idsOf(data.checklistTemplates);
     const templateItemIds = new Set(
       data.checklistTemplates.flatMap((t) => t.items.map((i) => i.id)),
@@ -309,14 +289,6 @@ describe("referential integrity", () => {
         data.eventAnchors.map((a) => a.eventId),
         eventIds,
       ),
-      eventSeasons: unresolved(
-        data.eventSeasons.map((s) => s.presetId),
-        presetIds,
-      ),
-      eventSeasonAnchors: unresolved(
-        data.eventSeasonAnchors.map((a) => a.seasonId),
-        seasonIds,
-      ),
       checklistTemplates: [
         ...unresolved(
           data.checklistTemplates.map((t) => t.eventTypeId),
@@ -335,10 +307,6 @@ describe("referential integrity", () => {
         ...unresolved(
           data.tasks.map((t) => t.eventId),
           eventIds,
-        ),
-        ...unresolved(
-          data.tasks.map((t) => t.seasonId),
-          seasonIds,
         ),
         ...unresolved(
           data.tasks.map((t) => t.templateItemId),
@@ -379,10 +347,6 @@ describe("referential integrity", () => {
         ...unresolved(
           data.permits.map((p) => p.venueId),
           venueIds,
-        ),
-        ...unresolved(
-          data.permits.map((p) => p.seasonId),
-          seasonIds,
         ),
         ...unresolved(
           data.permits.map((p) => p.authorityContactId),
@@ -730,14 +694,8 @@ describe("markets and the wall calendar", () => {
 
 describe("tasks", () => {
   let eventById = new Map<string, Event>();
-  let seasonStartById = new Map<string, string>();
   beforeAll(() => {
     eventById = new Map(data.events.map((event) => [event.id, event]));
-    seasonStartById = new Map(
-      data.eventSeasonAnchors
-        .filter((a) => a.key === "seasonStart")
-        .map((a) => [a.seasonId, a.date]),
-    );
   });
   const open = (task: Task): boolean => !["done", "skipped", "cancelled"].includes(task.status);
 
@@ -751,15 +709,13 @@ describe("tasks", () => {
         open(task) &&
         task.status !== "waiting_external",
     );
-    // current: a market that is not over, or a season that has not started yet (its work is still ahead)
-    const current = overdue.filter((task) =>
-      task.seasonId !== null
-        ? (seasonStartById.get(task.seasonId) ?? "") >= REFERENCE_DATE
-        : (eventById.get(task.eventId ?? "")?.endsOn ?? "") >= REFERENCE_DATE,
+    // current: a market that is not over
+    const current = overdue.filter(
+      (task) => (eventById.get(task.eventId)?.endsOn ?? "") >= REFERENCE_DATE,
     );
     const pastCutoff = isoDay(Date.parse(`${REFERENCE_DATE}T00:00:00Z`) - 7 * DAY_MS);
     const leftovers = overdue.filter(
-      (task) => task.eventId !== null && (eventById.get(task.eventId)?.endsOn ?? "") < pastCutoff,
+      (task) => (eventById.get(task.eventId)?.endsOn ?? "") < pastCutoff,
     );
     expect(current).toHaveLength(OVERDUE_CURRENT);
     expect(leftovers).toHaveLength(OVERDUE_LEFTOVERS);
@@ -779,11 +735,7 @@ describe("tasks", () => {
     for (const task of data.tasks) {
       if (task.dueAt < today && task.status === "waiting_external") {
         expect(task.category).toBe("permits");
-        const ahead =
-          task.seasonId !== null
-            ? (seasonStartById.get(task.seasonId) ?? "") >= REFERENCE_DATE
-            : (eventById.get(task.eventId ?? "")?.endsOn ?? "") >= REFERENCE_DATE;
-        expect(ahead).toBe(true);
+        expect((eventById.get(task.eventId)?.endsOn ?? "") >= REFERENCE_DATE).toBe(true);
       }
     }
   });
@@ -817,9 +769,7 @@ describe("tasks", () => {
         t.items.filter((i) => i.isKey).map((i) => i.stableKey),
       ),
     );
-    expect([...keyKeys].sort()).toEqual(
-      ["bringto_einladen", "saison_genehmigung", "saison_termine_planen", "schichtplan"].sort(),
-    );
+    expect([...keyKeys].sort()).toEqual(["bringto_einladen", "schichtplan"].sort());
     for (const task of data.tasks) expect(task.isKey).toBe(keyKeys.has(task.templateStableKey));
     expect(data.tasks.some((task) => task.isKey)).toBe(true);
   });
@@ -865,7 +815,6 @@ describe("templates and subtasks (ADR 0021)", () => {
         expect(parent?.parentKey).toBeNull();
         expect(item.sort).toBeGreaterThan(parent?.sort ?? Number.POSITIVE_INFINITY);
         expect(item.phase).toBe(parent?.phase);
-        expect(item.scope).toBe(parent?.scope);
         if (!item.ownDue) {
           expect(item.anchorKey).toBe(parent?.anchorKey);
           expect(item.offsetDays).toBe(parent?.offsetDays);
@@ -879,8 +828,6 @@ describe("templates and subtasks (ADR 0021)", () => {
   it("builds the Grundvorlage from the core of the client's sheets", () => {
     const master = data.checklistTemplates.find((t) => t.isMaster);
     expect(master?.items.filter((i) => i.parentKey === null).map((i) => i.stableKey)).toEqual([
-      "saison_termine_planen",
-      "saison_genehmigung",
       "schichtplan",
       "einzeichnen",
       "bringto_einladen",
@@ -891,12 +838,8 @@ describe("templates and subtasks (ADR 0021)", () => {
       "reinigung",
       "nachbereitung",
     ]);
-    expect(master?.items.find((i) => i.stableKey === "saison_genehmigung")?.permitType).toBe(
-      "market_permit",
-    );
-    expect(
-      master?.items.find((i) => i.stableKey === "saison_genehmigung__festsetzung")?.permitType,
-    ).toBe("market_fixing");
+    // No template item applies for a season permit: those have their own "… beantragen" task (ADR 0024).
+    expect(master?.items.filter((i) => i.permitType !== null)).toEqual([]);
   });
 
   it("gives the four client markets their own sheets and marks assumptions on every other market", () => {
@@ -909,7 +852,6 @@ describe("templates and subtasks (ADR 0021)", () => {
     expect(altstadt.map((i) => i.stableKey)).toEqual(
       expect.arrayContaining(["nachtwache", "leihstaende_abbauen", "reinigung"]),
     );
-    expect(altstadt.find((i) => i.stableKey === "saison_genehmigung")?.offsetDays).toBe(-210);
     expect(altstadt.find((i) => i.stableKey === "reinigung")?.anchorKey).toBe("teardownDay");
     expect(itemsOf(presetKeyOf("nippes")).find((i) => i.stableKey === "einzeichnen")?.phase).toBe(
       "live",
@@ -962,7 +904,6 @@ describe("templates and subtasks (ADR 0021)", () => {
       const parent = byId.get(task.parentTaskId);
       expect(parent?.parentTaskId).toBeNull();
       expect(parent?.eventId).toBe(task.eventId);
-      expect(parent?.seasonId).toBe(task.seasonId);
       expect(item?.parentKey).toBe(parent?.templateStableKey);
       if (item && !item.ownDue) expect(task.dueAt).toBe(parent?.dueAt);
       if (item?.dutyRoleKey === null) expect(task.dutyRoleId).toBe(parent?.dutyRoleId);
@@ -999,156 +940,6 @@ describe("templates and subtasks (ADR 0021)", () => {
       if (open(task) && subs.some((sub) => sub.status === "done")) openParentsWithDone += 1;
     }
     expect(openParentsWithDone).toBeGreaterThan(0);
-  });
-});
-
-/* ------------------------------------------------------- Saison records (research 13 §6) */
-
-describe("Saison records and season tasks", () => {
-  const itemById = () =>
-    new Map(data.checklistTemplates.flatMap((t) => t.items.map((i) => [i.id, i] as const)));
-  const seasonEvents = (presetId: string, season: number) =>
-    data.events.filter((e) => e.presetId === presetId && e.season === season);
-
-  it("has one Saison record per market and year, for both seasons", () => {
-    const keys = data.eventSeasons.map((s) => `${s.presetId}|${s.season}`);
-    expect(new Set(keys).size).toBe(keys.length);
-    const expected = data.eventPresets.flatMap((p) => [
-      `${p.id}|${SEASON}`,
-      `${p.id}|${SEASON + 1}`,
-    ]);
-    expect(new Set(keys)).toEqual(new Set(expected));
-    // every active market has both, so the nightly job (`event-seasons`) finds them and creates nothing
-    for (const preset of data.eventPresets.filter((p) => p.active))
-      for (const season of [SEASON, SEASON + 1]) expect(keys).toContain(`${preset.id}|${season}`);
-  });
-
-  it("follows core's rules for expected start, anchors and status", () => {
-    const anchorsOf = (seasonId: string) =>
-      new Map(
-        data.eventSeasonAnchors.filter((a) => a.seasonId === seasonId).map((a) => [a.key, a.date]),
-      );
-    for (const season of data.eventSeasons) {
-      const events = seasonEvents(season.presetId, season.season).map((e) => ({
-        startsOn: e.startsOn,
-        endsOn: e.endsOn,
-        status: e.status,
-      }));
-      const previous = seasonEvents(season.presetId, season.season - 1).filter(
-        (e) => e.status !== "cancelled",
-      );
-      const lastFirst =
-        previous.length > 0 ? (previous.map((e) => e.startsOn).sort()[0] ?? null) : null;
-      expect(season.expectedStart).toBe(expectedStartFromLastSeason(lastFirst, season.season));
-      const anchors = seasonAnchors(events, season.expectedStart);
-      const stored = anchorsOf(season.id);
-      expect(stored.get("seasonStart")).toBe(anchors.season_start);
-      expect(stored.get("seasonEnd") ?? null).toBe(anchors.season_end);
-      expect(season.status).toBe(initialSeasonStatus(events, REFERENCE_DATE));
-    }
-    // the current season starts from 1 January (no history), the next one from this season's first date
-    const current = data.eventSeasons.filter((s) => s.season === SEASON);
-    for (const s of current) expect(s.expectedStart).toBe(`${SEASON}-01-01`);
-    // as of the default date the current season is still running for some markets, over for others
-    expect(new Set(current.map((s) => s.status))).toEqual(new Set(["closed", "dates_set"]));
-    for (const s of data.eventSeasons.filter((s) => s.season === SEASON + 1))
-      expect(s.status).toBe("dates_set");
-  });
-
-  it("puts season items on season anchors and their tasks on the Saison record only, none on events", () => {
-    const items = itemById();
-    for (const template of data.checklistTemplates)
-      for (const item of template.items) {
-        expect(item.scope === "season").toBe(item.stableKey.startsWith("saison_"));
-        if (item.scope === "season") expect(["seasonStart", "seasonEnd"]).toContain(item.anchorKey);
-        else expect(["seasonStart", "seasonEnd"]).not.toContain(item.anchorKey);
-      }
-    for (const task of data.tasks) {
-      // exactly one owner
-      expect((task.eventId === null) !== (task.seasonId === null)).toBe(true);
-      expect(task.seasonId !== null).toBe(items.get(task.templateItemId)?.scope === "season");
-    }
-    const seasonTasks = data.tasks.filter((t) => t.seasonId !== null);
-    expect(seasonTasks.length).toBeGreaterThan(0);
-    // keys keep their prefix, titles lose the interim "Saison: " (the UI says "<Markt> · Saison <Jahr>")
-    for (const task of seasonTasks) {
-      expect(task.templateStableKey.startsWith("saison_")).toBe(true);
-      expect(task.title.startsWith("Saison")).toBe(false);
-    }
-    const titles = new Set(seasonTasks.filter((t) => t.parentTaskId === null).map((t) => t.title));
-    expect(titles).toEqual(
-      new Set(["Termine planen", "Genehmigung beantragen", "Anträge stellen"]),
-    );
-    // two season tasks (Termine planen, Genehmigung) per Saison record, each due relative to `seasonStart`
-    const topLevel = seasonTasks.filter((t) => t.parentTaskId === null);
-    expect(topLevel).toHaveLength(data.eventSeasons.length * 2);
-    const startOf = new Map(
-      data.eventSeasonAnchors
-        .filter((a) => a.key === "seasonStart")
-        .map((a) => [a.seasonId, a.date]),
-    );
-    for (const task of topLevel) {
-      expect(task.anchorKey).toBe("seasonStart");
-      const start = Date.parse(`${startOf.get(task.seasonId ?? "")}T00:00:00Z`);
-      expect(task.dueAt.slice(0, 10)).toBe(isoDay(start + task.offsetDays * DAY_MS));
-    }
-    // subtasks stay with their parent
-    expect(seasonTasks.some((t) => t.parentTaskId !== null)).toBe(true);
-  });
-
-  it("assigns season tasks through the market's default duties", () => {
-    const presetOf = presetOfTask(data);
-    const roleKeyById = new Map(data.dutyRoles.map((r) => [r.id, r.key]));
-    for (const task of data.tasks.filter((t) => t.seasonId !== null)) {
-      const preset = data.eventPresets.find((p) => p.id === presetOf(task));
-      const key = roleKeyById.get(task.dutyRoleId);
-      expect(key).toBeDefined();
-      if (preset && key) expect(task.assigneeId).toBe(preset.defaultDuties[key]);
-    }
-  });
-
-  it("has the current season's work done and next season's open or in progress by due date", () => {
-    const today = `${REFERENCE_DATE}T00:00:00.000Z`;
-    const permitOf = permitLinks(data);
-    const seasonById = new Map(data.eventSeasons.map((s) => [s.id, s]));
-    const topLevel = data.tasks.filter((t) => t.seasonId !== null && t.parentTaskId === null);
-    let late = 0;
-    for (const task of topLevel) {
-      const season = seasonById.get(task.seasonId ?? "");
-      if (season?.season === SEASON) expect(task.status, task.title).toBe("done");
-      if (FILED.has(permitOf(task)?.status ?? "")) expect(task.status).toBe("done");
-      else if (task.dueAt >= today) expect(["todo", "in_progress"]).toContain(task.status);
-      else if (task.status !== "done") {
-        // one of the few overdue (or waiting) samples, only for next season (its work is still ahead)
-        expect(season?.season).toBe(SEASON + 1);
-        expect(["todo", "in_progress", "waiting_external"]).toContain(task.status);
-        late += 1;
-      }
-    }
-    // the samples are shared with the event tasks (OVERDUE_CURRENT overdue, up to two waiting on an authority)
-    expect(late).toBeLessThanOrEqual(OVERDUE_CURRENT + 2);
-    const next = topLevel.filter((t) => seasonById.get(t.seasonId ?? "")?.season === SEASON + 1);
-    expect(next.some((t) => t.status === "todo")).toBe(true);
-    expect(next.some((t) => t.status === "done")).toBe(true);
-  });
-
-  it("links season permits (one per market and season) to that market's Saison record", () => {
-    const seasonByKey = new Map(data.eventSeasons.map((s) => [`${s.presetId}|${s.season}`, s.id]));
-    const eventById = new Map(data.events.map((e) => [e.id, e]));
-    const requirementById = new Map(data.permitRequirements.map((r) => [r.id, r]));
-    for (const permit of data.permits) {
-      const perSeason = requirementById.get(permit.requirementId)?.cadence === "per_season";
-      expect(permit.seasonId !== null).toBe(perSeason);
-      if (!perSeason) continue;
-      const presets = new Set(
-        data.eventPermits
-          .filter((l) => l.permitId === permit.id)
-          .map((l) => eventById.get(l.eventId)?.presetId),
-      );
-      expect(presets.size).toBe(1);
-      const [presetId] = [...presets];
-      expect(permit.seasonId).toBe(seasonByKey.get(`${presetId}|${permit.season}`));
-    }
   });
 });
 
@@ -1254,26 +1045,25 @@ describe("permits per market (research 13 §4)", () => {
     }
   });
 
-  it("keeps a market's season permits to that market's dates, even where markets share a place", () => {
-    const eventById = new Map(data.events.map((e) => [e.id, e]));
-    const presetsByPermit = new Map<string, Set<string>>();
-    for (const link of data.eventPermits) {
-      const presetId = eventById.get(link.eventId)?.presetId ?? "";
-      const set = presetsByPermit.get(link.permitId) ?? new Set<string>();
-      presetsByPermit.set(link.permitId, set.add(presetId));
-    }
-    for (const permit of data.permits) {
-      if (!["market_permit", "market_fixing", "landowner_ok"].includes(permit.permitType)) continue;
-      expect(presetsByPermit.get(permit.id)?.size, permit.title).toBe(1);
-    }
-    // Rodenkirchen hosts three markets: each has its own Festsetzung per season, named after it
+  it("has one season permit per Ort and season, covering every market there (ADR 0024)", () => {
+    const requirementById = new Map(data.permitRequirements.map((r) => [r.id, r]));
+    const seasonal = data.permits.filter(
+      (p) => requirementById.get(p.requirementId)?.cadence !== "per_event",
+    );
+    const keys = seasonal.map((p) => `${p.requirementId}|${p.season}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const permit of seasonal)
+      expect(permit.title).toBe(requirementById.get(permit.requirementId)?.title);
+    // Rodenkirchen hosts three markets: they share one Festsetzung per season
     const rodenkirchen = data.eventPresets.filter((p) => p.key.startsWith("rodenkirchen-"));
     expect(rodenkirchen).toHaveLength(3);
-    for (const preset of rodenkirchen) {
-      const own = permitsOf(preset.key, "market_fixing");
-      expect(own.length).toBeGreaterThan(0);
-      for (const permit of own) expect(permit.title.endsWith(`– ${preset.name}`)).toBe(true);
-    }
+    const ids = rodenkirchen.map((preset) =>
+      permitsOf(preset.key, "market_fixing")
+        .map((p) => p.id)
+        .sort(),
+    );
+    expect(ids[0]?.length).toBeGreaterThan(0);
+    for (const own of ids) expect(own).toEqual(ids[0]);
   });
 
   it("follows the client's sheets: PVBT, Plakatierung, Standrohr, Schaustellerliste, Verkehr", () => {
@@ -1343,43 +1133,17 @@ describe("permits per market (research 13 §4)", () => {
     }
   });
 
-  it("links the Saison Genehmigung and its Festsetzung subtask to the market's permits", () => {
+  it("lets template tasks apply only for per-date permits (ADR 0024)", () => {
     const permitOf = permitLinks(data);
     const presetOf = presetOfTask(data);
-    const municipal = new Set(
-      data.eventPresets
-        .filter((p) => data.venues.find((v) => v.id === p.venueId)?.kind === "municipal")
-        .map((p) => p.id),
-    );
-    const genehmigung = data.tasks.filter(
-      (t) =>
-        t.templateStableKey === "saison_genehmigung" &&
-        t.status !== "cancelled" &&
-        municipal.has(presetOf(t) ?? ""),
-    );
-    expect(genehmigung.length).toBeGreaterThan(0);
-    for (const task of genehmigung) expect(permitOf(task)?.permitType).toBe("market_permit");
-    // Private ground (Stadion, P6, Südbrücke): the same season task applies for the owner's OK (Fahrplan R30)
-    const onPrivate = data.tasks.filter(
-      (t) =>
-        t.templateStableKey === "saison_genehmigung" &&
-        t.status !== "cancelled" &&
-        t.seasonId !== null &&
-        !municipal.has(presetOf(t) ?? ""),
-    );
-    expect(onPrivate.length).toBeGreaterThan(0);
-    for (const task of onPrivate) expect(permitOf(task)?.permitType).toBe("landowner_ok");
-    const festsetzung = data.tasks.filter(
-      (t) => t.templateStableKey === "saison_genehmigung__festsetzung" && t.status !== "cancelled",
-    );
-    expect(festsetzung.length).toBeGreaterThan(0);
-    for (const task of festsetzung) expect(permitOf(task)?.permitType).toBe("market_fixing");
-    // Hoffnungsthal: Standrohr, Plakatierung and Schaustellerliste find their permits too
-    for (const key of [
-      "standrohr_bestellen",
-      "saison_genehmigung__plakatierung",
-      "schaustellerliste",
-    ]) {
+    const requirementById = new Map(data.permitRequirements.map((r) => [r.id, r]));
+    for (const task of data.tasks) {
+      const permit = permitOf(task);
+      if (permit)
+        expect(requirementById.get(permit.requirementId)?.cadence, task.title).toBe("per_event");
+    }
+    // Hoffnungsthal: Standrohr and Schaustellerliste find their per-date permits
+    for (const key of ["standrohr_bestellen", "schaustellerliste"]) {
       const tasks = data.tasks.filter(
         (t) =>
           t.templateStableKey === key &&
@@ -1756,21 +1520,6 @@ describe.each(REFERENCE_DATES)("as of %s", (today) => {
         expect(event.status).toBe(event.season === season ? "confirmed" : "planned");
       }
     }
-  });
-
-  it("has one Saison record per market and year, with the season tasks on it and none on events", () => {
-    const keys = d.eventSeasons.map((s) => `${s.presetId}|${s.season}`);
-    expect(new Set(keys).size).toBe(keys.length);
-    expect(keys).toHaveLength(d.eventPresets.length * 2);
-    for (const s of d.eventSeasons) expect([season, season + 1]).toContain(s.season);
-    for (const task of d.tasks)
-      expect(task.seasonId !== null).toBe(task.templateStableKey.startsWith("saison_"));
-    // a season that is over is closed, one with dates ahead has its dates set
-    const endOf = new Map(
-      d.eventSeasonAnchors.filter((a) => a.key === "seasonEnd").map((a) => [a.seasonId, a.date]),
-    );
-    for (const s of d.eventSeasons)
-      expect(s.status).toBe((endOf.get(s.id) ?? "9999") < today ? "closed" : "dates_set");
   });
 
   it(

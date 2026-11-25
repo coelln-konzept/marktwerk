@@ -26,8 +26,6 @@ import {
   notOfPastEvent,
   OPEN_TASK_STATUSES,
   openSubtaskDues,
-  seasonContext,
-  taskContextName,
 } from "./shared";
 
 /** Logins that work in the office get the morning mail; the field crew does not (decision: office users). */
@@ -97,7 +95,6 @@ export async function dailyDigest(db: Database, now: Date = new Date()): Promise
 async function itemsOf(db: Database, staffMemberId: string, today: string): Promise<DigestItem[]> {
   const items: DigestItem[] = [];
 
-  const sc = seasonContext(db);
   const tasks = await db
     .select({
       id: task.id,
@@ -105,14 +102,10 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
       dueAt: task.dueAt,
       eventId: task.eventId,
       eventName: event.name,
-      seasonName: sc.seasonName,
-      seasonYear: sc.seasonYear,
       parentTaskId: task.parentTaskId,
     })
     .from(task)
     .leftJoin(event, eq(event.id, task.eventId))
-    // A season task names its market and season instead (research 13 §6.3).
-    .leftJoin(sc, eq(sc.seasonId, task.seasonId))
     .where(
       and(
         eq(task.assigneeId, staffMemberId),
@@ -149,7 +142,7 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
         ? `/veranstaltungen/${t.eventId}/board?detail=task:${t.id}`
         : // A task without an event opens on the Übersicht: the global board is hidden (UX-052).
           `/?aufgabe=${t.id}`,
-      context: taskContextName(t),
+      context: t.eventName,
     });
   }
 

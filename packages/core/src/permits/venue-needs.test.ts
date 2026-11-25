@@ -3,7 +3,6 @@ import { PERMIT_TYPES } from "./status";
 import {
   defaultVenueNeeds,
   isVenueNeedType,
-  itemPermitType,
   mainPermitType,
   planVenueNeeds,
   suggestedVenueNeeds,
@@ -100,31 +99,5 @@ describe("planVenueNeeds", () => {
       create: [],
       archive: [],
     });
-  });
-});
-
-describe("itemPermitType", () => {
-  it("lets a Marktgenehmigung item stand for the owner's OK on private ground", () => {
-    expect(itemPermitType("market_permit", ["landowner_ok", "market_fixing"])).toBe("landowner_ok");
-  });
-
-  it("keeps the Marktgenehmigung where the Ort needs one, also next to an owner's OK", () => {
-    expect(itemPermitType("market_permit", ["market_permit", "market_fixing"])).toBe(
-      "market_permit",
-    );
-    expect(itemPermitType("market_permit", ["market_permit", "landowner_ok"])).toBe(
-      "market_permit",
-    );
-  });
-
-  it("stays market_permit where neither is needed (nothing to link)", () => {
-    expect(itemPermitType("market_permit", [])).toBe("market_permit");
-    expect(itemPermitType("market_permit", ["water"])).toBe("market_permit");
-  });
-
-  it("leaves every other type alone", () => {
-    expect(itemPermitType("market_fixing", ["landowner_ok"])).toBe("market_fixing");
-    expect(itemPermitType("landowner_ok", ["market_permit"])).toBe("landowner_ok");
-    expect(itemPermitType("water", new Set(["landowner_ok"]))).toBe("water");
   });
 });

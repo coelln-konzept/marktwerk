@@ -122,16 +122,12 @@ function HitStatus({ status }: { status: SearchStatus }) {
  */
 export function CommandPalette({ actions }: { actions: SearchHit[] }) {
   const t = useTranslations("palette");
-  const tTasks = useTranslations("tasks");
+  const _tTasks = useTranslations("tasks");
   const tEvents = useTranslations("events");
-  // A season task names its market and season where an event task names its event (research 13 §6.3);
-  // a permit names its season, so the same permit of two years differs.
+  // A permit names its season, so the same permit of two years differs.
   const subtitleOf = (hit: SearchHit) =>
     [
       hit.subtitle,
-      hit.season
-        ? tTasks("seasonContext", { name: hit.season.name, year: String(hit.season.year) })
-        : null,
       hit.seasonYear != null ? tEvents("seasonOption", { season: String(hit.seasonYear) }) : null,
     ]
       .filter(Boolean)

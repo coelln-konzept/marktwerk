@@ -208,7 +208,6 @@ describe("moving an event", () => {
       from: "2026-12-04",
       to: "2027-01-08",
       tasksShifted: 0,
-      seasonTasksShifted: 0,
     });
     expect(await load(id)).toMatchObject({
       startsOn: "2027-01-08",

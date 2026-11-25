@@ -104,16 +104,3 @@ export function planVenueNeeds<R extends { id: string; permitType: string }>(
     archive: current.filter((r) => isVenueNeedType(r.permitType) && !ticked.has(r.permitType)),
   };
 }
-
-/**
- * The permit type a template task applies for, at a place that needs `available` (the permit types of the permits
- * or requirements in question). An item naming the Marktgenehmigung ("Genehmigung beantragen", `market_permit`)
- * stands for the Ort's **main** permit (Fahrplan R30): on private ground without a Marktgenehmigung that is the
- * owner's OK (`landowner_ok`). Where both exist, the Marktgenehmigung keeps its own task and the OK gets its own.
- * Every other type stays as it is. Pure.
- */
-export function itemPermitType(itemType: string, available: Iterable<string>): string {
-  if (itemType !== "market_permit") return itemType;
-  const types = new Set(available);
-  return !types.has("market_permit") && types.has("landowner_ok") ? "landowner_ok" : itemType;
-}

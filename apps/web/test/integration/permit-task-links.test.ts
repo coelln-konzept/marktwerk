@@ -1,7 +1,5 @@
 import {
-  auditLog,
   dutyRole,
-  event,
   eventPermit,
   eventPreset,
   permit,
@@ -19,7 +17,7 @@ import {
   restorePermitStatus,
   setPermitStatus,
 } from "@/server/services/permits";
-import { PERMIT_SHARED_REASON, restoreTask, setTaskStatus } from "@/server/services/tasks";
+import { setTaskStatus } from "@/server/services/tasks";
 import { applyTemplateVersion } from "@/server/services/template-propagation";
 import { createDraft, publishDraft, updateTemplateItem } from "@/server/services/templates";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
@@ -27,8 +25,9 @@ import { baseItem, seedPublishedTemplate } from "../helpers/templates";
 
 /*
  * Template tasks that apply for a permit (template_item.permit_type, UX pass 2026-10-22): they are linked
- * to the event's permit of that type, done when it is applied for / granted, and the logbook fill does not
- * add a second "beantragen" task for them.
+ * to the event's per-date permit of that type, done when it is applied for / granted, and the logbook fill does
+ * not add a second "beantragen" task for them. A permit covering several dates is one per Ort and season with its
+ * own "beantragen" task; template tasks never apply for it (ADR 0024).
  */
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
@@ -75,7 +74,7 @@ async function requirement(patch: Partial<typeof permitRequirement.$inferInsert>
       category: "city",
       permitType: "market_permit",
       title: "Marktgenehmigung",
-      cadence: "per_season",
+      cadence: "per_event",
       leadTimeDays: 120,
       ...patch,
     })
@@ -99,7 +98,7 @@ const taskTitled = async (eventId: string, title: string) => {
 };
 
 describe("creating events", () => {
-  it("links the template task to the new permit and adds no duplicate permit task", async () => {
+  it("links the template task to the new per-date permit and adds no duplicate permit task", async () => {
     await requirement();
     const [id] = await generate("2027-05-02");
     const [p] = await db.select().from(permit);
@@ -117,8 +116,8 @@ describe("creating events", () => {
     expect(own.map((t) => t.title)).toEqual(["Wasserentnahme beantragen"]);
   });
 
-  it("completes the task at creation when the permit is already granted", async () => {
-    const req = await requirement();
+  it("a date joining a granted season permit adds no task, and the template task stays unlinked", async () => {
+    const req = await requirement({ cadence: "per_season" });
     await db.insert(permit).values({
       requirementId: req.id,
       venueId: cat.venue.id,
@@ -132,22 +131,13 @@ describe("creating events", () => {
       validUntil: "2027-12-31",
     });
     const [id] = await generate("2027-05-02");
-    const done = await taskTitled(id as string, MARKT);
-    expect(done.status).toBe("done");
-    expect(done.completedAt).not.toBeNull();
-    expect(done.permitId).not.toBeNull();
-    // The check task stays open.
-    expect((await taskTitled(id as string, PRUEFEN)).status).toBe("todo");
-    const [entry] = await db.select().from(auditLog).where(eq(auditLog.entityId, done.id));
-    expect(entry).toMatchObject({
-      action: "task.status",
-      diff: { from: "todo", to: "done", auto: true, reason: "Genehmigung beantragt/erteilt" },
-    });
+    expect(await db.select().from(eventPermit)).toHaveLength(1);
+    expect(await taskTitled(id as string, MARKT)).toMatchObject({ permitId: null, status: "todo" });
     expect(await db.select().from(task).where(eq(task.source, "permit"))).toHaveLength(0);
   });
 });
 
-describe("one apply task per permit covering several events (Fahrplan 18)", () => {
+describe("one permit per Ort and season with its own apply task (ADR 0024)", () => {
   const SEVEN = [
     "2027-04-04",
     "2027-05-02",
@@ -164,8 +154,8 @@ describe("one apply task per permit covering several events (Fahrplan 18)", () =
       .from(task)
       .where(and(eq(task.permitId, permitId), ne(task.status, "cancelled")));
 
-  it("a season permit covering 7 markets creates 1 apply task, on the first market", async () => {
-    await requirement();
+  it("a season permit covering 7 dates has exactly its own apply task; template tasks never apply for it", async () => {
+    await requirement({ cadence: "per_season" });
     await generate(...SEVEN.slice().reverse());
     const permits = await db.select().from(permit);
     expect(permits).toHaveLength(1);
@@ -173,33 +163,17 @@ describe("one apply task per permit covering several events (Fahrplan 18)", () =
     expect(await db.select().from(eventPermit)).toHaveLength(7);
 
     const tasks = await applyTasks(p.id);
-    expect(tasks).toHaveLength(1);
-    const [first] = await db.select().from(event).where(eq(event.startsOn, "2027-04-04"));
-    const firstEvent = first?.id as string;
-    expect(tasks[0]).toMatchObject({ title: MARKT, eventId: firstEvent, status: "todo" });
-
-    // The other six markets' template tasks are deleted (cancelled), audited and linked for the record.
-    const removed = await db
-      .select()
-      .from(task)
-      .where(and(eq(task.title, MARKT), eq(task.status, "cancelled")));
-    expect(removed).toHaveLength(6);
-    expect(removed.every((t) => t.permitId === p.id && t.eventId !== firstEvent)).toBe(true);
-    const [entry] = await db
-      .select()
-      .from(auditLog)
-      .where(
-        and(eq(auditLog.entityId, removed[0]?.id as string), eq(auditLog.action, "task.delete")),
-      );
-    expect(entry?.diff).toMatchObject({ auto: true, reason: PERMIT_SHARED_REASON, permitId: p.id });
-    // No own "beantragen" task on top, and the check items stay on every market.
-    expect(await db.select().from(task).where(eq(task.source, "permit"))).toHaveLength(0);
-    expect(
-      await db
-        .select()
-        .from(task)
-        .where(and(eq(task.title, PRUEFEN), eq(task.status, "todo"))),
-    ).toHaveLength(7);
+    expect(tasks.map((t) => [t.title, t.source, t.eventId])).toEqual([
+      ["Marktgenehmigung beantragen", "permit", null],
+    ]);
+    // Due at apply-by (lead time before the first date), end of the day in Berlin.
+    expect(p.applyBy).toBe("2026-12-05");
+    expect(tasks[0]?.dueAt?.toISOString()).toBe("2026-12-05T22:59:00.000Z");
+    // Nothing is deleted: the template's items stay on every date, unlinked.
+    expect(await db.select().from(task).where(eq(task.status, "cancelled"))).toHaveLength(0);
+    const items = await db.select().from(task).where(eq(task.title, MARKT));
+    expect(items).toHaveLength(7);
+    expect(items.every((t) => t.permitId === null)).toBe(true);
 
     // Applying for it closes the one task.
     const applied = await setPermitStatus(owner, p.id, "applied");
@@ -207,7 +181,7 @@ describe("one apply task per permit covering several events (Fahrplan 18)", () =
   });
 
   it("per_event permits keep one apply task per event", async () => {
-    await requirement({ cadence: "per_event" });
+    await requirement();
     await generate(...SEVEN.slice(0, 3));
     const permits = await db.select().from(permit);
     expect(permits).toHaveLength(3);
@@ -215,78 +189,31 @@ describe("one apply task per permit covering several events (Fahrplan 18)", () =
     expect(await db.select().from(task).where(eq(task.status, "cancelled"))).toHaveLength(0);
   });
 
-  it("a season permit without a template task gets its own one task, not one per market", async () => {
-    await requirement({ permitType: "water", title: "Wasserentnahme" });
-    await generate(...SEVEN);
-    const [p] = await db.select().from(permit);
-    const tasks = await applyTasks(p?.id as string);
-    expect(tasks.map((t) => [t.title, t.source, t.eventId])).toEqual([
-      ["Wasserentnahme beantragen", "permit", null],
-    ]);
-  });
-
-  it("markets added later join the season permit without a second apply task", async () => {
+  it("dates added later join the season permit without a second apply task; an earlier one moves its deadline", async () => {
     await requirement({ cadence: "per_year" });
-    const [june] = await generate("2027-06-06");
+    await generate("2027-06-06");
     const [p] = await db.select().from(permit);
     const [kept] = await applyTasks(p?.id as string);
-    expect(kept?.eventId).toBe(june);
-    // An earlier and a later market: both link to the permit, the existing task stays the one.
+    expect(kept).toMatchObject({ source: "permit", eventId: null });
     await generate("2027-04-04", "2027-09-05");
     expect((await applyTasks(p?.id as string)).map((t) => t.id)).toEqual([kept?.id]);
     expect(await db.select().from(permit)).toHaveLength(1);
+    const [moved] = await db.select().from(permit);
+    expect(moved?.applyBy).toBe("2026-12-05");
+    const [task2] = await applyTasks(p?.id as string);
+    expect(task2?.dueAt?.toISOString()).toBe("2026-12-05T22:59:00.000Z");
   });
 
-  it("a restored duplicate stays (the person's choice); linking again leaves it alone", async () => {
-    await requirement();
+  it("a season requirement added later gets its permit and own task; worked-on template tasks stay as they are", async () => {
     const ids = await generate("2027-04-04", "2027-05-02");
-    const [p] = await db.select().from(permit);
-    const second = await taskTitled(ids[1] as string, MARKT);
-    expect(second.status).toBe("cancelled");
-    await restoreTask(owner, second.id);
-    expect((await taskTitled(ids[1] as string, MARKT)).status).toBe("todo");
-    const again = await db.transaction((tx) => linkPermitTasks(tx, ids, owner));
-    expect(again.cancelledTaskIds).toEqual([]);
-    expect(await applyTasks(p?.id as string)).toHaveLength(2);
-  });
-
-  it("a requirement added later keeps the tasks somebody worked on and removes untouched ones", async () => {
-    const ids = await generate("2027-04-04", "2027-05-02", "2027-06-06", "2027-07-04");
-    const [april, may, june, july] = ids as [string, string, string, string];
+    const [april, may] = ids as [string, string];
     await setTaskStatus(owner, (await taskTitled(may, MARKT)).id, "in_progress");
-    await setTaskStatus(owner, (await taskTitled(june, MARKT)).id, "done");
-    await requirement();
+    await requirement({ cadence: "per_season" });
     await applyRequirementsToUpcomingEvents(owner, cat.venue.id);
     const [p] = await db.select().from(permit);
-    const byEvent = new Map(
-      (await db.select().from(task).where(eq(task.title, MARKT))).map((t) => [t.eventId, t]),
-    );
-    expect(byEvent.get(may)).toMatchObject({ status: "in_progress", permitId: p?.id });
-    expect(byEvent.get(june)).toMatchObject({ status: "done", permitId: p?.id });
-    expect(byEvent.get(april)?.status).toBe("cancelled");
-    expect(byEvent.get(july)?.status).toBe("cancelled");
-  });
-
-  it("two items of one template that both apply for the permit stay on the carrier event", async () => {
-    const draft = await createDraft(owner, templateId);
-    const [id] = await generate("2027-05-02");
-    const check = await taskTitled(id as string, PRUEFEN);
-    await updateTemplateItem(owner, draft.versionId, check.templateStableKey as string, {
-      ...baseItem({ title: PRUEFEN, category: "permits", offsetDays: -100 }),
-      permitType: "market_permit",
-    });
-    await publishDraft(owner, draft.versionId, "Version 2");
-    await requirement();
-    const ids = await generate("2027-06-06", "2027-07-04");
-    const [p] = await db.select().from(permit);
-    // The first market of the batch carries both items, the second one has none left.
-    const open = await applyTasks(p?.id as string);
-    expect(open.map((t) => [t.eventId, t.title]).sort()).toEqual(
-      [
-        [ids[0], MARKT],
-        [ids[0], PRUEFEN],
-      ].sort(),
-    );
+    expect((await applyTasks(p?.id as string)).map((t) => t.source)).toEqual(["permit"]);
+    expect(await taskTitled(april, MARKT)).toMatchObject({ status: "todo", permitId: null });
+    expect(await taskTitled(may, MARKT)).toMatchObject({ status: "in_progress", permitId: null });
   });
 });
 
@@ -380,7 +307,7 @@ describe("linking permits to existing events", () => {
     expect(first.linked).toBe(1);
     expect((await taskTitled(id as string, MARKT)).permitId).toBe(held?.id);
     const again = await db.transaction((tx) => linkPermitTasks(tx, [id as string], owner));
-    expect(again).toEqual({ linked: 0, completedTaskIds: [], cancelledTaskIds: [] });
+    expect(again).toEqual({ linked: 0, completedTaskIds: [] });
   });
 });
 

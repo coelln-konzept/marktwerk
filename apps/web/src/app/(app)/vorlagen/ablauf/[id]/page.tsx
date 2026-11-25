@@ -52,7 +52,7 @@ function sampleEventDay(today: string): string {
 /**
  * Timeline template editor (`/vorlagen/ablauf/[id]`): version chips, timeline ruler, the grid of rows and the
  * links to presets. Only the draft is editable (template:write); published versions are immutable.
- * Overlays are addressed by search params: `?v=<version>`, `?zeile=<key>|neu[&phase=…|&gilt=saison]`, `?anwenden=1`.
+ * Overlays are addressed by search params: `?v=<version>`, `?zeile=<key>|neu[&phase=…]`, `?anwenden=1`.
  */
 export default async function TemplateEditorPage({
   params,
@@ -100,8 +100,6 @@ export default async function TemplateEditorPage({
   const zeile = param(sp.zeile);
   const drawerItem = zeile && zeile !== "neu" ? items.find((i) => i.key === zeile) : undefined;
   const newPhase = PHASES.find((p) => p === param(sp.phase)) ?? "pre";
-  // "Saison-Aufgabe hinzufügen" in the grid's Saison section: a new row for the whole season.
-  const newScope = param(sp.gilt) === "saison" ? "season" : "event";
   const drawerOpen = Boolean(drawerItem) || (editable && zeile === "neu");
 
   let apply = null;
@@ -306,12 +304,11 @@ export default async function TemplateEditorPage({
 
       {drawerOpen && (
         <ItemDrawer
-          key={drawerItem ? `${drawerItem.key}:${selected.id}` : `neu:${newPhase}:${newScope}`}
+          key={drawerItem ? `${drawerItem.key}:${selected.id}` : `neu:${newPhase}`}
           versionId={selected.id}
           editable={editable}
           item={drawerItem ?? null}
           newPhase={newPhase}
-          newScope={newScope}
           items={items}
           roles={roles}
           eventTypes={eventTypes}
@@ -328,7 +325,6 @@ export default async function TemplateEditorPage({
           templateName={template.name}
           version={{ version: apply.version.version, changeNote: apply.version.changeNote }}
           events={apply.events}
-          seasons={apply.seasons}
           today={apply.today}
           closeHref={baseHref}
         />

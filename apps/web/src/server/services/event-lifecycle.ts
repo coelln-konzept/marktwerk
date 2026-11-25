@@ -31,7 +31,6 @@ import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
-import { syncSeasonsTx } from "./seasons";
 
 export type EventLifecycleError =
   | "not_found"
@@ -143,26 +142,13 @@ async function reopenTasksOfEvent(tx: Tx, eventId: string): Promise<string[]> {
   return reopened;
 }
 
-/**
- * The task side of a status change: cancel when entering "abgesagt", reopen when leaving it. Either way the
- * event's Saison record recomputes its dates (a cancelled date does not count, R10) and its open season tasks
- * follow.
- */
-async function cascadeToTasks(
-  tx: Tx,
-  actor: Actor,
-  current: { id: string; presetId: string | null; season: number },
-  from: EventStatus,
-  to: EventStatus,
-) {
-  const cancelling = to === "cancelled" && from !== "cancelled";
-  const reopening = from === "cancelled" && to !== "cancelled";
-  if (!cancelling && !reopening) return {};
-  const cascade = cancelling
-    ? { cancelledTasks: await cancelOpenTasksOfEvent(tx, current.id) }
-    : { reopenedTaskIds: await reopenTasksOfEvent(tx, current.id) };
-  await syncSeasonsTx(tx, actor, [current], "event_status");
-  return cascade;
+/** The task side of a status change: cancel when entering "abgesagt", reopen when leaving it. */
+async function cascadeToTasks(tx: Tx, eventId: string, from: EventStatus, to: EventStatus) {
+  if (to === "cancelled" && from !== "cancelled")
+    return { cancelledTasks: await cancelOpenTasksOfEvent(tx, eventId) };
+  if (from === "cancelled" && to !== "cancelled")
+    return { reopenedTaskIds: await reopenTasksOfEvent(tx, eventId) };
+  return {};
 }
 
 /** How many tasks a status change cancelled or reopened. */
@@ -193,7 +179,7 @@ export async function changeEventStatus(
       .update(event)
       .set({ status: to, cancelledReason: requiresReason(to) ? trimmed : null })
       .where(eq(event.id, id));
-    const cascade = await cascadeToTasks(tx, actor, current, current.status, to);
+    const cascade = await cascadeToTasks(tx, current.id, current.status, to);
     await audit(tx, actor.id, [
       {
         action: "event.status",
@@ -344,7 +330,7 @@ export async function revertEventStatus(
       .update(event)
       .set({ status: previous, cancelledReason: reason })
       .where(eq(event.id, id));
-    const cascade = await cascadeToTasks(tx, actor, current, expected, previous);
+    const cascade = await cascadeToTasks(tx, current.id, expected, previous);
     await audit(tx, actor.id, [
       {
         action: "event.status",
@@ -421,7 +407,7 @@ export async function restoreCancelledEvent(
     if (current.status !== "cancelled") throw new EventLifecycleInputError("conflict");
     const to = statusBeforeCancel((await lastCancellation(tx, id))?.from);
     await tx.update(event).set({ status: to, cancelledReason: null }).where(eq(event.id, id));
-    const cascade = await cascadeToTasks(tx, actor, current, "cancelled", to);
+    const cascade = await cascadeToTasks(tx, current.id, "cancelled", to);
     await audit(tx, actor.id, [
       {
         action: "event.status",
@@ -648,8 +634,6 @@ async function deleteEventTx(actor: Actor, id: string, confirmName: string) {
       },
     ]);
     await tx.delete(event).where(eq(event.id, id));
-    // The date no longer counts for its season (R10).
-    await syncSeasonsTx(tx, actor, [row], "event_delete");
     return { name: row.name };
   });
 }

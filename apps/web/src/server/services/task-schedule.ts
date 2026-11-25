@@ -24,16 +24,15 @@ export type ShiftedTask = {
   to: Date;
 };
 
-/** Whose tasks follow the anchors: an event's, or a Saison record's (research 13 §6.2). */
-export type ShiftOwner = { eventId: string } | { seasonId: string };
+/** Whose tasks follow the anchors: an event's. */
+export type ShiftOwner = { eventId: string };
 
 /**
- * Anchor changes → tasks follow (data model principle 2): which open tasks of an event or a season get a new
+ * Anchor changes → tasks follow (data model principle 2): which open tasks of an event get a new
  * due date when the named dates become `anchors`. Open = not done/skipped/cancelled; tasks whose date was
  * edited by hand (`due_overridden`) and tasks without an anchor rule stay, and so does a task whose anchor is
  * missing from `anchors`. With `changed`, only tasks on one of those anchors are recomputed: a task on an anchor
- * that kept its date keeps its due date too (a season task set to today when its record was made late stays
- * there until its own anchor moves, UX-009). A task keeps its time of day. Nothing is written.
+ * that kept its date keeps its due date too. A task keeps its time of day. Nothing is written.
  */
 export async function planTaskShift(
   x: Executor,
@@ -56,7 +55,7 @@ export async function planTaskShift(
     .from(task)
     .where(
       and(
-        "eventId" in owner ? eq(task.eventId, owner.eventId) : eq(task.seasonId, owner.seasonId),
+        eq(task.eventId, owner.eventId),
         eq(task.dueOverridden, false),
         changed ? inArray(task.anchorKey, [...changed]) : isNotNull(task.anchorKey),
         isNotNull(task.offsetDays),

@@ -135,11 +135,11 @@ Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Appli
 | Postfach | Mailbox | `mailbox` | Connected Microsoft 365 mailbox. |
 
 ## The client's own words (research 13)
-Terms from Coelln Konzept's checklists (2026-11). Most become task titles; only Saison is a record.
+Terms from Coelln Konzept's checklists (2026-11). Most become task titles.
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
-| Saison | Season | `event_season` (planned) | One market's year: its season tasks (Termine planen, Genehmigung) relative to the first date, which exist before the dates do. |
-| Termine planen | Plan the dates | season task | Picking next season's dates by hand, about 8 months before the first one. |
+| Saison | Season | `event.season`, `permit.season` (the year) | One market year (the season starts in March). Not a record ([ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md)): work per season lives in the Genehmigungen logbook (one permit per Ort and season) and in Pflichten. |
+| Termine planen | Plan the dates | Pflicht (company, yearly; SAI6) | Picking next season's dates by hand, about 8 months before the first one. |
 | Einzeichnen | Mark out | task | Chalking the stall plots on the ground, the day before or on the morning. |
 | Abflattern | Tape off | task | Closing the area with barrier tape (Flatterband) the day before. |
 | PVBT (Parkverbot) | No-parking signs | permit type `no_parking` | Set up at least 96 hours before; the client reminds 6 days before. |
