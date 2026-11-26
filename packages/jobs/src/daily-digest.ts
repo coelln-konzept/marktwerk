@@ -16,6 +16,7 @@ import {
   staffMember,
   task,
   user,
+  venue,
 } from "@marktwerk/db";
 import { and, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import {
@@ -156,8 +157,10 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
       status: permit.status,
       applyBy: permit.applyBy,
       expectedDecisionOn: permit.expectedDecisionOn,
+      venueName: venue.name,
     })
     .from(permit)
+    .leftJoin(venue, eq(venue.id, permit.venueId))
     .where(
       and(
         eq(permit.responsibleStaffMemberId, staffMemberId),
@@ -178,6 +181,8 @@ async function itemsOf(db: Database, staffMemberId: string, today: string): Prom
       dueOn,
       urgency,
       href: `/genehmigungen?genehmigung=${p.id}`,
+      // The Ort tells the many "Standrohr" of a season apart (SAI8).
+      context: p.venueName,
     });
   }
   return items;

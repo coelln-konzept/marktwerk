@@ -273,6 +273,8 @@
       "set": "Kontakt „{name}“ bei „{title}“ eingetragen",
       "setUnnamed": "Kontakt bei „{title}“ eingetragen",
       "removed": "Kontakt bei „{title}“ entfernt"
-    }
+    },
+    "permitLink": "Genehmigung: {title} · {place}",
+    "permitLinkNoPlace": "Genehmigung: {title}"
   }
 }

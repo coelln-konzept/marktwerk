@@ -21,13 +21,13 @@ test("Übersicht loads after login", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).first()).toBeVisible();
 });
 
-test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the weekend box right with its link, permits last, no "Diese Woche"; "+ N weitere" opens in place; no KPI or season strip', async ({
+test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the weekend box right with its link, Genehmigungen last, no "Diese Woche"; "+ N weitere" opens in place; no KPI or season strip', async ({
   page,
 }) => {
   await page.goto("/");
   const due = page.getByRole("heading", { level: 2, name: "Heute & nächste Tage" });
   const weekend = page.getByRole("heading", { level: 2, name: "Dieses Wochenende" });
-  const permits = page.getByRole("heading", { level: 2, name: "Genehmigungen demnächst" });
+  const permits = page.getByRole("heading", { level: 2, name: "Genehmigungen", exact: true });
   for (const heading of [due, weekend, permits]) await expect(heading).toBeVisible();
   const [dueBox, weekendBox, permitsBox] = await Promise.all(
     [due, weekend, permits].map((h) => h.boundingBox()),
@@ -73,9 +73,9 @@ test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the 
     await expect(box).toContainText("An diesem Wochenende ist nichts geplant");
   }
 
-  // The permits coming up are the last section of the page, below both columns.
+  // "Genehmigungen" (season applications and the permits coming up) is the last section, below both columns.
   expect(permitsBox?.y ?? 0).toBeGreaterThan(Math.max(dueBox?.y ?? 0, weekendBox?.y ?? 0));
-  await expect(page.locator("main h2").last()).toHaveText("Genehmigungen demnächst");
+  await expect(page.locator("main h2").last()).toHaveText("Genehmigungen");
 
   // "+ N weitere" opens the rest in place instead of navigating away.
   const more = page
@@ -139,14 +139,61 @@ test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the 
   ).toBeLessThanOrEqual(0);
 });
 
+test("Übersicht: one Genehmigungen section; Saison-Anträge first, one line per Ort that opens in place; a row opens its permit; its task is in no task list here (SAI8)", async ({
+  page,
+}) => {
+  await page.goto("/");
+  // One permit section (2026-11-26): its first group is Saison-Anträge, "Demnächst" follows when there is any.
+  const permits = page.getByRole("region", { name: "Genehmigungen", exact: true });
+  await expect(permits).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Genehmigungen demnächst" }),
+  ).toHaveCount(0);
+  await expect(permits.getByRole("link", { name: "Zu den Genehmigungen" })).toHaveAttribute(
+    "href",
+    "/genehmigungen",
+  );
+  const panel = permits.getByRole("region", { name: /^Saison-Anträge/ });
+  await expect(panel).toBeVisible();
+  const bands = permits.getByRole("heading", { level: 3 });
+  await expect(bands.first()).toHaveText(/^Saison-Anträge\s*\d+$/);
+  if ((await bands.count()) > 1) await expect(bands.nth(1)).toHaveText(/^Demnächst\s*\d+$/);
+
+  // One line per Ort and season, closed: "<Ort> · Saison 2027 · 3 Anträge offen".
+  const line = panel.locator("details[data-season-line]").first();
+  const summary = line.locator("summary");
+  await expect(summary).toContainText(/ · Saison \d{4} · \d+ Antr(ag|äge) offen/);
+  await expect(line).not.toHaveAttribute("open", "");
+  const url = page.url();
+  await summary.click();
+  await expect(line).toHaveAttribute("open", "");
+  expect(page.url()).toBe(url);
+  await expect(line.getByRole("link", { name: /^Alle Genehmigungen in / })).toHaveAttribute(
+    "href",
+    /\/genehmigungen\?ort=/,
+  );
+
+  // Its "… beantragen" task is not among the Übersicht's tasks: the permit shows once.
+  const link = line.getByRole("link", { name: /^Genehmigung öffnen: / }).first();
+  const title = ((await link.textContent()) ?? "").trim();
+  expect(title).not.toBe("");
+  const main = page.getByRole("region", { name: "Heute & nächste Tage" });
+  await expect(main.getByRole("link", { name: `Öffnen: ${title} beantragen` })).toHaveCount(0);
+
+  // A row opens the permit drawer on Genehmigungen.
+  await link.click();
+  await expect(page).toHaveURL(/\/genehmigungen\?genehmigung=/);
+  await expect(permitDrawer(page)).toContainText(title);
+});
+
 test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a market and undoes", async ({
   page,
 }) => {
   await page.goto("/");
   const line = page.getByText(/offene Aufgaben? aus vergangenen Märkten/);
   await expect(line).toBeVisible();
-  // Below everything else: the permits coming up are the last section, the line comes after them.
-  const permits = page.getByRole("region", { name: "Genehmigungen demnächst" });
+  // Below everything else: "Genehmigungen" is the last section, the line comes after it.
+  const permits = page.getByRole("region", { name: "Genehmigungen", exact: true });
   const permitsBox = await permits.boundingBox();
   expect((await line.boundingBox())?.y ?? 0).toBeGreaterThan(
     (permitsBox?.y ?? 0) + (permitsBox?.height ?? 0),

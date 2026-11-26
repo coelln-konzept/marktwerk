@@ -273,14 +273,22 @@ export function useTaskActions({
         if (patch) apply?.(patch);
         const result = await callAction(call);
         if (result.ok) {
-          if (result.data.changed) showUndo(success, result.data.auditId, task);
+          if (result.data.changed)
+            showUndo(
+              // A permit's own apply task filed its permit with it (SAI8): the toast says so.
+              result.data.permitFiled
+                ? `${success} · ${t("toast.permitFiled", { permit: result.data.permitFiled })}`
+                : success,
+              result.data.auditId,
+              task,
+            );
           if (result.data.parentReady) offerParent(result.data.parentReady);
           return;
         }
         fail(result, task);
       });
     },
-    [apply, showUndo, fail, offerParent],
+    [apply, showUndo, fail, offerParent, t],
   );
 
   /** Resolves to whether the move ran (false: "Abbrechen" in the question, or open subtasks). */
@@ -501,6 +509,8 @@ type Result =
         auditId: string | null;
         /** Status changes: the parent whose subtasks are all finished now (ADR 0021). */
         parentReady?: { id: string; title: string } | null;
+        /** Done on a permit's own apply task: the permit it marked "Beantragt" (SAI8). */
+        permitFiled?: string | null;
       };
     }
   | { ok: false; error: string; detail?: string[]; count?: number };

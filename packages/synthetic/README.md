@@ -107,8 +107,8 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
   **owner's agreement** per season takes the Erlaubnis's place, in addition to the city's Festsetzung. A season permit
   is one per Ort (requirement) and season and covers every market there (shared Orte are handled by hand), titled by
   the requirement; the seed gives each its own "… beantragen" task (no event, due at apply-by, done once filed). Its
-  apply-by is fixed in the calendar: lead time before the season starts on 1 March (as the app's `season-permits`
-  job sets it; the Erlaubnis and its partners ≈ early September), or earlier where the Ort's first date requires it.
+  apply-by is fixed in the calendar: lead time before the season starts on 1 March (as the app's logbook fill
+  sets it, `fillApplyBy`; the Erlaubnis and its partners ≈ early September), or earlier where the Ort's first date requires it.
   The rest follows the client's sheets: **Halteverbot (PVBT)** per date (Riehler Gürtel, Hoffnungsthal 96 h; assumed
   for Südstadt and the Rodenkirchen Straßenfest), each with its own "… beantragen" task on its date (seed);
   **GEMA** per date only where music is played (Stadtfeste in Rodenkirchen and Kerpen, the Food & Wine markets at

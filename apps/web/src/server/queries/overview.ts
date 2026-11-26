@@ -16,7 +16,7 @@ import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-or
 import { type ModuleHide, maskHealth } from "@/lib/modules";
 import type { Actor } from "../actor";
 import { db } from "../db";
-import { deadlineScope } from "../task-scope";
+import { deadlineScope, notSeasonApplyTask } from "../task-scope";
 import * as company from "./company";
 import type { DueItem } from "./due";
 import { type EventRow, listEvents } from "./events";
@@ -60,8 +60,9 @@ export type WeekendBlock = {
 };
 
 /**
- * A task of "Weitere Aufgaben" (UX-013): an open task outside every market and Saison that no other group
- * of the Übersicht shows (no due date, or due after "Nächste Tage").
+ * A task of "Weitere Aufgaben" (UX-013): an open task outside every market that no other group of the Übersicht
+ * shows (no due date, or due after "Nächste Tage"). A season permit's own "… beantragen" task is not one: its
+ * permit is under "Saison-Anträge" (SAI8).
  */
 export type OtherTask = {
   id: string;
@@ -116,6 +117,8 @@ export type Overview = {
   otherTasks: OtherTask[];
   /** Open tasks of markets that ended more than 7 days ago (in none of the lists above): the "Aufräumen" line. */
   pastMarketTasks: number;
+  /** "Saison-Anträge" (Fahrplan SAI8): the season permits not filed yet, one line per Ort and season. */
+  seasonApplications: permits.SeasonApplicationsLine[];
 };
 
 /**
@@ -162,13 +165,14 @@ export async function getOverview(
   hide: ModuleHide = {},
 ): Promise<Overview> {
   const weekend = upcomingWeekend(today);
-  const [all, dueItems, past, otherTasks] = await Promise.all([
+  const [all, dueItems, past, otherTasks, seasonApplications] = await Promise.all([
     listEvents(actor, {}).then((rows) =>
       rows.map((r) => ({ ...r, health: maskHealth(r.health, hide) })),
     ),
     listDueItems(actor, today, hide).then(withWaiting),
     tasks.pastEventCleanup(actor, today),
     listOtherTasks(actor, today, hide),
+    permits.seasonApplications(actor, today),
   ]);
   const active = all.filter((e) => e.status !== "cancelled");
   const onWeekend = active.filter(
@@ -211,6 +215,7 @@ export async function getOverview(
     },
     otherTasks,
     pastMarketTasks: past.total,
+    seasonApplications,
   };
 }
 
@@ -235,8 +240,8 @@ async function withWaiting(items: DueItem[]): Promise<DueItem[]> {
 }
 
 /**
- * "Weitere Aufgaben" (UX-013, default of UX audit round 1): the open tasks without a market and without a
- * Saison ("Aufgabe ohne Veranstaltung") that no due group shows: no due date, or due after the 7 days of
+ * "Weitere Aufgaben" (UX-013, default of UX audit round 1): the open tasks without a market ("Aufgabe ohne
+ * Veranstaltung") that no due group shows, except a season permit's own apply task (`notSeasonApplyTask`): no due date, or due after the 7 days of
  * "Nächste Tage". Same scope as the due groups (`deadlineScope`: top-level tasks, field users and staff only
  * their own), snoozed ones stay out until their day. A task with an overdue open subtask stays out too: the
  * due groups show it under Überfällig whatever its own date (`tasks.dueItems`, ADR 0021). Due ones first (soonest first), then the undated ones
@@ -269,6 +274,7 @@ export async function listOtherTasks(
         deadlineScope(actor),
         inArray(task.status, [...OPEN_STATUSES]),
         isNull(task.eventId),
+        notSeasonApplyTask(actor),
         or(isNull(task.snoozedUntil), lte(task.snoozedUntil, today)),
         or(isNull(task.dueAt), gte(task.dueAt, until)),
         sql`${sub.subtasksOverdue} = 0`,

@@ -843,7 +843,7 @@ export async function getPermitHorizonDays(): Promise<number> {
 /**
  * Permits to act on: unfiled ones by their apply-by date, applied ones by the expected decision. They
  * appear up to the company's permit horizon ahead (`settings.permit_horizon_days`, default 30 days, not
- * the 7 days of tasks); beyond a week they are "upcoming" (own group "Genehmigungen demnächst").
+ * the 7 days of tasks); beyond a week they are "upcoming" (the group "Demnächst" of the Übersicht's "Genehmigungen").
  */
 export async function dueItems(
   actor: Actor,
@@ -866,10 +866,12 @@ export async function dueItems(
       linked: linkedCount,
       eventIds: upcomingEventIds(today),
       nextEventOn: nextEventOn(today),
+      cadence: permitRequirement.cadence,
     })
     .from(permit)
     .leftJoin(venue, eq(venue.id, permit.venueId))
     .leftJoin(staffMember, eq(staffMember.id, permit.responsibleStaffMemberId))
+    .leftJoin(permitRequirement, eq(permitRequirement.id, permit.requirementId))
     .where(
       and(
         isNull(permit.archivedAt),
@@ -907,9 +909,120 @@ export async function dueItems(
       assigneeName: r.responsibleName,
       eventIds: r.eventIds ?? [],
       eventStartsOn: r.nextEventOn,
+      ...(unfiled && isSeasonCadence(r.cadence) ? { seasonApplication: true } : {}),
     });
   }
   return items.sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.title.localeCompare(b.title));
+}
+
+/** A requirement whose permit covers several dates: one per Ort and season (ADR 0024). */
+const isSeasonCadence = (cadence: Cadence | null): boolean =>
+  cadence !== null && cadence !== "per_event";
+
+/** One open application of "Saison-Anträge" (SAI8). */
+export type SeasonApplication = {
+  id: string;
+  title: string;
+  /** As the logbook shows it: "Fehlt", "In Vorbereitung", "Noch nicht fällig". */
+  state: PermitDisplayState;
+  applyBy: string | null;
+  responsibleName: string | null;
+  overdue: boolean;
+};
+
+/** One line of "Saison-Anträge": an Ort and season with the applications still to file there. */
+export type SeasonApplicationsLine = {
+  venueId: string;
+  venueName: string;
+  /** Null for a multi-year or standing permit whose dates have no season in common. */
+  season: number | null;
+  permits: SeasonApplication[];
+  overdue: number;
+  /** The soonest apply-by of the line. */
+  nextApplyBy: string | null;
+};
+
+/**
+ * "Saison-Anträge" on the Übersicht (Fahrplan SAI8): the season permits (a requirement covering several dates, one
+ * per Ort and season) not filed yet (`not_started`, `preparing`), whatever their deadline, so next season's
+ * applications are visible from the day the dates are planned. One line per Ort and season, lines with an overdue
+ * application first, then by the soonest apply-by. A permit whose dates are all over or cancelled is history and
+ * left out (as in `dueItems`). Their own "… beantragen" tasks stay out of the Übersicht's task lists.
+ */
+export async function seasonApplications(
+  actor: Actor,
+  today: string,
+): Promise<SeasonApplicationsLine[]> {
+  if (!can(actor.role, "permit", "read")) return [];
+  const rows = await db
+    .select({
+      id: permit.id,
+      title: permit.title,
+      status: permit.status,
+      season: permit.season,
+      applyBy: permit.applyBy,
+      validUntil: permit.validUntil,
+      venueId: venue.id,
+      venueName: venue.name,
+      responsibleName: staffMember.displayName,
+      upcoming: upcomingCount(today),
+      linked: linkedCount,
+      nextEventOn: nextEventOn(today),
+    })
+    .from(permit)
+    .innerJoin(permitRequirement, eq(permitRequirement.id, permit.requirementId))
+    .innerJoin(venue, eq(venue.id, permit.venueId))
+    .leftJoin(staffMember, eq(staffMember.id, permit.responsibleStaffMemberId))
+    .where(
+      and(
+        isNull(permit.archivedAt),
+        inArray(permit.status, ["not_started", "preparing"]),
+        ne(permitRequirement.cadence, "per_event"),
+      ),
+    );
+  const horizon = rows.length > 0 ? await getPermitHorizonDays() : PERMIT_HORIZON_DEFAULT_DAYS;
+  const lines = new Map<string, SeasonApplicationsLine>();
+  for (const r of rows) {
+    if (r.linked > 0 && r.upcoming === 0) continue;
+    const season = r.season ?? (r.nextEventOn ? Number(r.nextEventOn.slice(0, 4)) : null);
+    const key = `${r.venueId}|${season ?? ""}`;
+    const line = lines.get(key) ?? {
+      venueId: r.venueId,
+      venueName: r.venueName,
+      season,
+      permits: [],
+      overdue: 0,
+      nextApplyBy: null,
+    };
+    const overdue = r.applyBy !== null && r.applyBy < today;
+    const derived = permitDisplayState(r, today);
+    line.permits.push({
+      id: r.id,
+      title: r.title,
+      state: logbookDisplayState(
+        derived,
+        permitActionTier({ state: derived, applyBy: r.applyBy }, today, horizon),
+      ),
+      applyBy: r.applyBy,
+      responsibleName: r.responsibleName,
+      overdue,
+    });
+    if (overdue) line.overdue += 1;
+    if (r.applyBy && (!line.nextApplyBy || r.applyBy < line.nextApplyBy))
+      line.nextApplyBy = r.applyBy;
+    lines.set(key, line);
+  }
+  const byDeadline = (a: string | null, b: string | null) =>
+    a === b ? 0 : a === null ? 1 : b === null ? -1 : a.localeCompare(b);
+  for (const line of lines.values())
+    line.permits.sort((a, b) => byDeadline(a.applyBy, b.applyBy) || a.title.localeCompare(b.title));
+  return [...lines.values()].sort(
+    (a, b) =>
+      Number(b.overdue > 0) - Number(a.overdue > 0) ||
+      byDeadline(a.nextApplyBy, b.nextApplyBy) ||
+      a.venueName.localeCompare(b.venueName, "de") ||
+      (a.season ?? 0) - (b.season ?? 0),
+  );
 }
 
 /** Application deadlines, expected decisions and expiries in [from, to] for the calendar's permit layer. */

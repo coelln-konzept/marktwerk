@@ -401,7 +401,7 @@ async function MarketDate({ date, today }: { date: string; today: string }) {
 }
 
 /**
- * Due items by urgency group (Überfällig · Heute · Nächste Tage · Genehmigungen demnächst · Wartet), each
+ * Due items by urgency group (Überfällig · Heute · Nächste Tage · Demnächst · Wartet), each
  * group bundled per market in ranking order. A market shows its first three items and a group about
  * {@link GROUP_ROWS} rows; "+ N weitere" opens the rest in place. `bandless` groups skip their band (the
  * section heading already names them). On phones (below 768 px) `phoneFirst` moves to the top and the

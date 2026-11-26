@@ -26,7 +26,7 @@
         "overdue": "Overdue",
         "today": "Today",
         "soon": "Next few days",
-        "upcoming": "Permits coming up",
+        "upcoming": "Coming up",
         "waiting": "Waiting for a reply",
         "other": "More tasks"
       },
@@ -48,7 +48,9 @@
         "title": "Meetings today",
         "count": "{count, plural, one {# meeting} other {# meetings}}",
         "open": "Open meeting"
-      }
+      },
+      "permitsTitle": "Permits",
+      "toPermits": "Go to permits"
     },
     "weekend": {
       "title": "This weekend",
@@ -92,6 +94,17 @@
       "nothingToSkip": "Nothing is open here any more.",
       "error": "That didn't work. Please try again.",
       "empty": "All tidy. Nothing is open from past markets."
+    },
+    "seasonApplications": {
+      "title": "Season applications",
+      "season": "Season {season}",
+      "open": "{count, plural, one {# application open} other {# applications open}}",
+      "overdue": "{count} overdue",
+      "next": "next deadline",
+      "responsible": "responsible: {name}",
+      "openPermit": "Open permit: {title}",
+      "noDeadline": "No deadline",
+      "allOfOrt": "All permits at {name}"
     }
   }
 }

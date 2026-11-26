@@ -138,7 +138,8 @@
       "completeParent": "Complete main task",
       "nested": "“{title}” is now a subtask of “{parent}”",
       "unnestedFrom": "“{title}” taken out of “{parent}”",
-      "unnested": "“{title}” is no longer a subtask"
+      "unnested": "“{title}” is no longer a subtask",
+      "permitFiled": "permit “{permit}” marked as applied"
     },
     "confirmDone": {
       "title": "Task done?",

@@ -2,10 +2,10 @@ import "server-only";
 import { createHash } from "node:crypto";
 import {
   addDays,
-  applyByFor,
   can,
   canTransitionPermit,
   expectedDecisionAfter,
+  fillApplyBy,
   isIsoDate,
   isUnfiled,
   PERMIT_STATUSES,
@@ -173,21 +173,24 @@ export function permitApplyTaskValues(input: {
 /**
  * Logbook fill for new events (data model, "Generating events"): for each permit requirement of the
  * event's venue (narrowed by event type) attach an existing permit that covers the event (season, year,
- * multi-year or standing), or create a missing permit instance (`not_started`, `apply_by` = event day
- * minus lead time, respecting the submission window, expected decision from the requirement) with one
+ * multi-year or standing), or create a missing permit instance (`not_started`, `apply_by` from `fillApplyBy`:
+ * event day minus lead time respecting the submission window, for a season permit the season's calendar deadline;
+ * expected decision from the requirement) with one
  * task for it (`source = permit`, category permits, due at `apply_by`, assigned to the event's "permits"
  * duty holder). Idempotent: an event that already has a permit for a requirement is skipped. Runs inside
  * the caller's transaction; `actor` only decides whether the audit entries are written.
  *
  * ADR 0024: a permit covering several dates is one per Ort (requirement) and season, whatever market the dates
  * belong to (shared Orte are handled by hand); it always gets its own "… beantragen" task without an event, and
- * template tasks never apply for it. Only a per-date permit leaves its application to a template task of that
+ * template tasks never apply for it. Planning the dates is what makes it (SAI8, no nightly job): the first date of
+ * a season at the Ort creates it with the season's calendar apply-by (`fillApplyBy`), later dates link to it. Only a per-date permit leaves its application to a template task of that
  * event that names its type (`linkPermitTasks`), so no task applies twice for the same permit.
  */
 export async function fillLogbookForEvents(
   tx: Tx,
   eventIds: string[],
   actor?: Pick<Actor, "id"> & { staffMemberId?: string | null },
+  today: string = todayIn(),
 ): Promise<FillResult> {
   const result: FillResult = { createdPermits: [], linked: 0, tasks: 0 };
   if (eventIds.length === 0) return result;
@@ -289,10 +292,7 @@ export async function fillLogbookForEvents(
       const own = permits.filter((p) => p.requirementId === req.id);
       if (own.some((p) => linked.has(`${ev.id}:${p.id}`))) continue;
 
-      const applyBy = applyByFor(ev.startsOn, req.leadTimeDays, {
-        startMd: req.submissionWindowStartMd,
-        endMd: req.submissionWindowEndMd,
-      });
+      const applyBy = fillApplyBy(req, ev.startsOn, ev.season, today);
 
       // The permit that is already held comes first.
       const covering = own

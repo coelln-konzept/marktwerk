@@ -374,11 +374,12 @@ describe("deadline sweep: permits", () => {
       subjectType: "permit",
       subjectId: p.id,
       link: `/genehmigungen?genehmigung=${p.id}`,
-      title: "Antrag überfällig: Wasser 2027",
+      // The Ort tells the many applications of a season apart (SAI8).
+      title: "Antrag überfällig: Wasser 2027 · Messeplatz Test",
     });
     const ben = await notificationsOf(benId);
     expect(ben.map((n) => n.reason)).toEqual(["escalated"]);
-    expect(ben[0]?.title).toContain("Wasser 2027 ist seit 3 Tagen überfällig");
+    expect(ben[0]?.title).toContain("Wasser 2027 · Messeplatz Test ist seit 3 Tagen überfällig");
     expect(await deadlineSweep(db, NOW)).toMatchObject({ created: 0, escalated: 0, emails: 0 });
   });
 
@@ -520,7 +521,7 @@ describe("daily digest", () => {
     expect(text).toContain("Überfälliges");
     expect(text).toContain("Heutiges");
     expect(text).toContain("Nächste Woche");
-    expect(text).toContain("Genehmigung: Wasser (fällig 23.10.2026)");
+    expect(text).toContain("Genehmigung: Wasser · Messeplatz Test (fällig 23.10.2026)");
     expect(text).not.toContain("Später");
     expect(text).not.toContain("Fremd");
     expect(text).not.toContain("Beantragen");

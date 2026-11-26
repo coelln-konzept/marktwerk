@@ -25,6 +25,7 @@ import {
   permit,
   staffMember,
   task,
+  venue,
 } from "@marktwerk/db";
 import { and, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { type CompanySweepResult, companySweep } from "./company-notifications";
@@ -189,7 +190,12 @@ type OpenPermit = {
   validUntil: string | null;
   responsibleStaffMemberId: string | null;
   responsibleName: string | null;
+  venueName: string | null;
 };
+
+/** The permit as reminders name it: with its Ort, which tells the many "Standrohr" of a season apart (SAI8). */
+const permitName = (p: Pick<OpenPermit, "title" | "venueName">) =>
+  p.venueName ? `${p.title} · ${p.venueName}` : p.title;
 
 /**
  * Permits worth reminding about: not archived, and either without events (a one-off) or covering at least
@@ -209,9 +215,11 @@ async function relevantPermits(db: Database, today: string): Promise<OpenPermit[
       validUntil: permit.validUntil,
       responsibleStaffMemberId: permit.responsibleStaffMemberId,
       responsibleName: staffMember.displayName,
+      venueName: venue.name,
     })
     .from(permit)
     .leftJoin(staffMember, eq(staffMember.id, permit.responsibleStaffMemberId))
+    .leftJoin(venue, eq(venue.id, permit.venueId))
     .where(
       and(
         isNull(permit.archivedAt),
@@ -260,8 +268,8 @@ async function stagePermits(
             subjectId: p.id,
             title:
               state.kind === "overdue"
-                ? `Antrag überfällig: ${p.title}`
-                : `Antrag stellen bis ${germanDate(p.applyBy)}: ${p.title}`,
+                ? `Antrag überfällig: ${permitName(p)}`
+                : `Antrag stellen bis ${germanDate(p.applyBy)}: ${permitName(p)}`,
             body: `Frist: ${germanDate(p.applyBy)}`,
             link,
             dedupeKey: reminderDedupeKey("permit", p.id, state, dueAt),
@@ -284,8 +292,8 @@ async function stagePermits(
             subjectId: p.id,
             title:
               state.kind === "overdue"
-                ? `Entscheidung ausstehend, nachfragen: ${p.title}`
-                : `Entscheidung erwartet bis ${germanDate(p.expectedDecisionOn)}: ${p.title}`,
+                ? `Entscheidung ausstehend, nachfragen: ${permitName(p)}`
+                : `Entscheidung erwartet bis ${germanDate(p.expectedDecisionOn)}: ${permitName(p)}`,
             body: `Erwartet: ${germanDate(p.expectedDecisionOn)}`,
             link,
             dedupeKey: reminderDedupeKey("permit_decision", p.id, state, dueAt),
@@ -305,7 +313,7 @@ async function stagePermits(
             severity: "warning",
             subjectType: "permit",
             subjectId: p.id,
-            title: `Genehmigung läuft ab (${germanDate(p.validUntil)}): ${p.title}`,
+            title: `Genehmigung läuft ab (${germanDate(p.validUntil)}): ${permitName(p)}`,
             body: "Erneuerung beantragen, falls sie noch gebraucht wird.",
             link,
             dedupeKey: reminderDedupeKey("permit_expiry", p.id, state, dueAt),
@@ -386,7 +394,7 @@ async function escalate(
       targets.push({
         type: "permit",
         id: p.id,
-        title: p.title,
+        title: permitName(p),
         dueAt: endOfDay(p.applyBy),
         who: p.responsibleName,
         link: `/genehmigungen?genehmigung=${p.id}`,

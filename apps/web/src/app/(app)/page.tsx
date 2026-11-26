@@ -10,7 +10,7 @@ import { AppointmentVorschau } from "@/components/appointments/appointment-vorsc
 import { NewTaskButton } from "@/components/board/new-task-dialog";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
-import { TodayCard, UpcomingPermitsCard } from "@/components/overview/today-card";
+import { PermitsCard, TodayCard } from "@/components/overview/today-card";
 import { WeekendCard } from "@/components/overview/weekend-card";
 import { Page, PageHeader } from "@/components/shell/page";
 import { TaskDrawer } from "@/components/task/task-drawer";
@@ -44,7 +44,7 @@ function berlinHour(timeZone = "Europe/Berlin"): number {
 /**
  * The Übersicht (decision 2026-11-13): the main panel "Heute & nächste Tage" (Überfällig · Heute · Nächste
  * Tage, per market) on the left, the weekend box (the weekend's events with their Checkliste progress) top
- * right, the permits coming up at the bottom. A task opens its drawer here (`?aufgabe=<id>`, like on the
+ * right, then "Genehmigungen" at the bottom (Saison-Anträge, one line per Ort, and the permits coming up; SAI8). A task opens its drawer here (`?aufgabe=<id>`, like on the
  * board), a market its Vorschau (`?vorschau=<id>`).
  */
 export default async function OverviewPage({ searchParams }: PageProps<"/">) {
@@ -112,7 +112,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         title={t(`greeting.${part}`, { name: actor.firstName })}
       />
       {/* One KeyboardRows around all sections: J/K walk the main panel, then the weekend box, then the
-          permits. Phones stack them in that order (a market running today moves its box to the top); from
+          season applications and the permits. Phones stack them in that order (a market running today moves its box to the top); from
           1024 px the weekend box sits top right. */}
       <KeyboardRows className="grid items-start gap-x-6 gap-y-8 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_23rem]">
         <TodayCard
@@ -131,8 +131,9 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           marketToday={marketToday}
           className={marketToday ? "max-lg:order-first" : undefined}
         />
-        <UpcomingPermitsCard
+        <PermitsCard
           due={overview.due}
+          seasonApplications={overview.seasonApplications}
           today={today}
           canSnooze={canWrite}
           className="lg:col-span-2"

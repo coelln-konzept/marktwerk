@@ -138,7 +138,8 @@
       "completeParent": "Hauptaufgabe erledigen",
       "nested": "„{title}“ ist jetzt Unteraufgabe von „{parent}“",
       "unnestedFrom": "„{title}“ aus „{parent}“ gelöst",
-      "unnested": "„{title}“ ist keine Unteraufgabe mehr"
+      "unnested": "„{title}“ ist keine Unteraufgabe mehr",
+      "permitFiled": "Genehmigung „{permit}“ als beantragt markiert"
     },
     "confirmDone": {
       "title": "Aufgabe erledigt?",

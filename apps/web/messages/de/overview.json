@@ -26,7 +26,7 @@
         "overdue": "Überfällig",
         "today": "Heute",
         "soon": "Nächste Tage",
-        "upcoming": "Genehmigungen demnächst",
+        "upcoming": "Demnächst",
         "waiting": "Wartet auf Rückmeldung",
         "other": "Weitere Aufgaben"
       },
@@ -48,7 +48,9 @@
         "title": "Besprechungen heute",
         "count": "{count, plural, one {# Besprechung} other {# Besprechungen}}",
         "open": "Besprechung öffnen"
-      }
+      },
+      "permitsTitle": "Genehmigungen",
+      "toPermits": "Zu den Genehmigungen"
     },
     "weekend": {
       "title": "Dieses Wochenende",
@@ -92,6 +94,17 @@
       "nothingToSkip": "Hier ist nichts mehr offen.",
       "error": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
       "empty": "Alles aufgeräumt. Aus vergangenen Märkten ist nichts mehr offen."
+    },
+    "seasonApplications": {
+      "title": "Saison-Anträge",
+      "season": "Saison {season}",
+      "open": "{count, plural, one {# Antrag offen} other {# Anträge offen}}",
+      "overdue": "{count} überfällig",
+      "next": "nächste Frist",
+      "responsible": "zuständig: {name}",
+      "openPermit": "Genehmigung öffnen: {title}",
+      "noDeadline": "Ohne Frist",
+      "allOfOrt": "Alle Genehmigungen in {name}"
     }
   }
 }

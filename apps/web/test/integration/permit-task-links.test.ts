@@ -7,7 +7,7 @@ import {
   task,
 } from "@marktwerk/db/schema";
 import { and, eq, ne } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import { createEventsFromPreset } from "@/server/services/events";
 import { applyRequirementsToUpcomingEvents } from "@/server/services/permit-requirements";
@@ -138,6 +138,15 @@ describe("creating events", () => {
 });
 
 describe("one permit per Ort and season with its own apply task (ADR 0024)", () => {
+  // A season permit's apply-by depends on whether its season has started (core `fillApplyBy`): fix the day.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-26T10:00:00+01:00"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const SEVEN = [
     "2027-04-04",
     "2027-05-02",
@@ -166,9 +175,9 @@ describe("one permit per Ort and season with its own apply task (ADR 0024)", () 
     expect(tasks.map((t) => [t.title, t.source, t.eventId])).toEqual([
       ["Marktgenehmigung beantragen", "permit", null],
     ]);
-    // Due at apply-by (lead time before the first date), end of the day in Berlin.
-    expect(p.applyBy).toBe("2026-12-05");
-    expect(tasks[0]?.dueAt?.toISOString()).toBe("2026-12-05T22:59:00.000Z");
+    // Due at apply-by (lead time before the season starts on 1 March, SAI8), end of the day in Berlin.
+    expect(p.applyBy).toBe("2026-11-01");
+    expect(tasks[0]?.dueAt?.toISOString()).toBe("2026-11-01T22:59:00.000Z");
     // Nothing is deleted: the template's items stay on every date, unlinked.
     expect(await db.select().from(task).where(eq(task.status, "cancelled"))).toHaveLength(0);
     const items = await db.select().from(task).where(eq(task.title, MARKT));
@@ -189,19 +198,22 @@ describe("one permit per Ort and season with its own apply task (ADR 0024)", () 
     expect(await db.select().from(task).where(eq(task.status, "cancelled"))).toHaveLength(0);
   });
 
-  it("dates added later join the season permit without a second apply task; an earlier one moves its deadline", async () => {
+  it("dates added later join the season permit without a second apply task; one before 1 March moves its deadline", async () => {
     await requirement({ cadence: "per_year" });
     await generate("2027-06-06");
     const [p] = await db.select().from(permit);
     const [kept] = await applyTasks(p?.id as string);
     expect(kept).toMatchObject({ source: "permit", eventId: null });
+    expect(p?.applyBy).toBe("2026-11-01");
     await generate("2027-04-04", "2027-09-05");
     expect((await applyTasks(p?.id as string)).map((t) => t.id)).toEqual([kept?.id]);
     expect(await db.select().from(permit)).toHaveLength(1);
+    expect((await db.select().from(permit))[0]?.applyBy).toBe("2026-11-01");
+    await generate("2027-01-10");
     const [moved] = await db.select().from(permit);
-    expect(moved?.applyBy).toBe("2026-12-05");
+    expect(moved?.applyBy).toBe("2026-09-12");
     const [task2] = await applyTasks(p?.id as string);
-    expect(task2?.dueAt?.toISOString()).toBe("2026-12-05T22:59:00.000Z");
+    expect(task2?.dueAt?.toISOString()).toBe("2026-09-12T21:59:00.000Z");
   });
 
   it("a season requirement added later gets its permit and own task; worked-on template tasks stay as they are", async () => {
