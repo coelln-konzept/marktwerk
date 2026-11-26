@@ -102,7 +102,7 @@ export type SearchResult = {
  * "Straße". List pages that search like the palette use this on their columns and `foldText` on the query.
  */
 export function foldSql(column: SQL | unknown): SQL {
-  return sql`replace(regexp_replace(translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aousseeeaaaoooiiiuuuc'), '([aou])e', '\\1', 'g'), 'ss', 's')`;
+  return sql`replace(regexp_replace(translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aouseeeaaaoooiiiuuuc'), '([aou])e', '\\1', 'g'), 'ss', 's')`;
 }
 
 const fold = foldSql;

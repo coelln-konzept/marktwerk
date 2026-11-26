@@ -55,6 +55,14 @@ describe("events list search", () => {
     expect(rows).toHaveLength(5);
   });
 
+  it("folds accents: 'cafe' finds 'Café Flohmarkt' as typed", async () => {
+    await insertEvent(cat, "Café Flohmarkt", "2026-12-06");
+    const mode = await eventSearchMode(owner, "cafe");
+    expect(mode).toBe("wordStarts");
+    const rows = await listEvents(owner, { q: "cafe", qMode: mode });
+    expect(rows.map((r) => r.name)).toEqual(["Café Flohmarkt"]);
+  });
+
   it("prefers word starts: 'bonn' finds the Bonn venue, not 'Abonnentenmarkt'", async () => {
     const mode = await eventSearchMode(owner, "bonn");
     expect(mode).toBe("wordStarts");

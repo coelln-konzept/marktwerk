@@ -226,6 +226,16 @@ describe("searchAs", () => {
     expect(koeln.hits.every((h) => (h.score ?? 0) < 4)).toBe(true);
   });
 
+  it("folds accents: 'cafe andre' finds 'Café André' as typed", async () => {
+    await insertTask({ title: "Café André anfragen" });
+    const found = await searchAs(owner, "de", "cafe andre");
+    expect(found.hits.filter((h) => h.kind === "task").map((h) => h.title)).toEqual([
+      "Café André anfragen",
+    ]);
+    // A literal match, not a typo guess.
+    expect(found.hits.every((h) => (h.score ?? 0) < 4)).toBe(true);
+  });
+
   it("leaves out deleted tasks and opens tasks without an event on the Übersicht (UX-060, UX-013)", async () => {
     await deleteTask(owner, ownTask);
     const tasks = (await search(owner, "plakate")).filter((h) => h.kind === "task");
