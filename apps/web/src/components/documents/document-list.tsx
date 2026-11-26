@@ -1,6 +1,6 @@
 import { FileText, Image as ImageIcon } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
-import { formatDate } from "@/lib/format";
+import { formatDate, todayIn } from "@/lib/format";
 import type { DocumentRow } from "@/server/queries/finance";
 import { ArchiveDocumentButton } from "./archive-document-button";
 import { EditDocumentButton } from "./edit-document-button";
@@ -47,7 +47,7 @@ export async function DocumentList({
             {!compact && (
               <span className="text-muted-foreground text-tiny">
                 {t(`kinds.${d.kind}` as never)} · {kb(d.sizeBytes)} ·{" "}
-                {formatDate(d.createdAt.slice(0, 10), locale)}
+                {formatDate(todayIn("Europe/Berlin", new Date(d.createdAt)), locale)}
                 {d.uploadedByName ? ` · ${d.uploadedByName}` : ""}
               </span>
             )}

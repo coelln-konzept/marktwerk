@@ -11,7 +11,7 @@ import { PAGE_SIZE, Pager, pageOf } from "@/components/ui/pager";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
-import { formatDate, formatDateRangeYear } from "@/lib/format";
+import { formatDate, formatDateRangeYear, todayIn } from "@/lib/format";
 import { hrefWith, param } from "@/lib/url";
 import { getActor } from "@/server/actor";
 import {
@@ -225,8 +225,10 @@ export default async function ArchiveDocumentsPage({
             <tbody className="max-sm:block">
               {rows.map((d) => {
                 const target = owner(d, labels, locale);
-                const date = formatDate(d.createdAt.slice(0, 10), locale);
-                const removedOn = d.archivedAt ? formatDate(d.archivedAt.slice(0, 10), locale) : "";
+                const date = formatDate(todayIn("Europe/Berlin", new Date(d.createdAt)), locale);
+                const removedOn = d.archivedAt
+                  ? formatDate(todayIn("Europe/Berlin", new Date(d.archivedAt)), locale)
+                  : "";
                 return (
                   <TR
                     key={d.id}
