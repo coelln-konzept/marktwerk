@@ -1,8 +1,9 @@
 "use server";
 
-import type { BoardColumn, TaskStatusKey } from "@marktwerk/core";
+import { type BoardColumn, can, type TaskStatusKey } from "@marktwerk/core";
 import { refresh } from "next/cache";
 import { getActor } from "@/server/actor";
+import { listContactOptions } from "@/server/queries/contacts";
 import {
   assignTask,
   createTask,
@@ -145,4 +146,20 @@ export async function makeTask(input: NewTask) {
   await requirePermission("task", "write");
   const actor = await getActor();
   return run(() => createTask(actor, input));
+}
+
+/**
+ * The contacts the task drawer's picker offers (Fahrplan R24), loaded when "Kontakt wählen" / "Ändern" opens it:
+ * live contacts only, plus whether the picker may create one in place (`contact:write`).
+ */
+export async function loadTaskContactOptions() {
+  const user = await requirePermission("contact", "read");
+  const contacts = await listContactOptions();
+  return {
+    ok: true as const,
+    data: {
+      options: contacts.map((c) => ({ id: c.id, name: c.name, kind: c.kind, city: c.city })),
+      canCreate: can(user.role, "contact", "write"),
+    },
+  };
 }

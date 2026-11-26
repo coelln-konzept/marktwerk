@@ -65,6 +65,7 @@ import { db } from "../db";
 import { deadlineScope, notOfPastEvent, visibleTasks } from "../task-scope";
 import { type DocumentRow, listLinkedDocuments } from "./documents";
 import type { CalendarItem, DueItem } from "./due";
+import { type TaskContactInfo, taskContactInfo } from "./task-contact";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const OPEN = [...OPEN_STATUSES];
@@ -877,6 +878,8 @@ export type TaskDetail = {
   removedFromTemplate: boolean;
   /** The optional note given when the task was marked done (from the audit entry), else null. */
   completionNote: string | null;
+  /** The contact the task is about and the suggestion while it has none (Fahrplan R24). */
+  contact: TaskContactInfo;
   activity: { id: string; action: string; at: string; actorName: string | null; diff: unknown }[];
   link: string;
 };
@@ -939,7 +942,7 @@ export async function getTaskDetail(
   const notifySelf = await getNotifySelf(actor);
   const t = row.t;
 
-  const [subtasks, parent, activity, completedBy, documents] = await Promise.all([
+  const [subtasks, parent, activity, completedBy, documents, contactInfo] = await Promise.all([
     listSubtasks(taskId, today),
     t.parentTaskId
       ? db
@@ -967,6 +970,7 @@ export async function getTaskDetail(
           .where(eq(staffMember.id, t.completedByStaffMemberId))
       : Promise.resolve([]),
     listLinkedDocuments(actor, "taskId", [taskId]),
+    taskContactInfo(actor, t),
   ]);
   const files = documents.get(taskId) ?? [];
   const evidence = fileEvidenceOf(files.map((f) => f.kind));
@@ -1028,6 +1032,7 @@ export async function getTaskDetail(
     snoozedUntil: t.snoozedUntil && t.snoozedUntil > today ? t.snoozedUntil : null,
     removedFromTemplate: t.removedFromTemplate,
     completionNote: typeof completionNote === "string" ? completionNote : null,
+    contact: contactInfo,
     activity: activity.map((a) => ({ ...a, at: a.at.toISOString() })),
     link: taskLink(t.id, t.eventId),
   };

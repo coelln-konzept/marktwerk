@@ -1,6 +1,7 @@
 export * from "./ablauf";
 export * from "./board";
 export * from "./board-drop";
+export * from "./contact";
 export * from "./evidence";
 export * from "./health";
 export * from "./notification-text";
