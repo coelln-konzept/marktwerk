@@ -9,8 +9,10 @@ import { isModuleVisible } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { AppointmentView } from "@/server/queries/appointments";
 import type { OtherTask, OverviewDue } from "@/server/queries/overview";
+import type { SeasonApplicationsLine } from "@/server/queries/permits";
 import { DueGroups } from "./due-groups";
 import { OtherTasks } from "./other-tasks";
+import { SeasonApplicationsGroup } from "./season-applications";
 
 /**
  * "Heute & nächste Tage", the main panel of the Übersicht (decision 2026-11-13): what to do today and what the
@@ -145,47 +147,56 @@ async function AppointmentsToday({
 }
 
 /**
- * "Genehmigungen demnächst" (CF9-6): permits further out than 7 days but inside the permit horizon, except the
- * season applications not filed yet (they have "Saison-Anträge", SAI8). Since
- * 2026-11-13 the last section of the Übersicht, full width under the main panel and the weekend box. The
- * same rows as everywhere (snooze, J/K); the shield marks the heading in the info colour. Empty → one line.
+ * "Genehmigungen", the last section of the Übersicht (one section since 2026-11-26, Fahrplan SAI8), full width under
+ * the main panel and the weekend box, with two groups:
+ * - **Saison-Anträge**: the season permits not filed yet, one line per Ort and season (`SeasonApplicationsGroup`);
+ * - **Demnächst** (CF9-6, formerly the section "Genehmigungen demnächst"): the other permits further out than 7 days
+ *   but inside the permit horizon (per-date applications, expected decisions), the same rows, snooze and J/K as
+ *   elsewhere. A season application comes back here as a row only once it is due within 7 days (then it is under
+ *   Nächste Tage in the main panel).
+ * A group without entries is left out; both empty → one line.
  */
-export async function UpcomingPermitsCard({
+export async function PermitsCard({
   due,
+  seasonApplications,
   today,
   canSnooze,
   className,
 }: {
   due: OverviewDue;
+  seasonApplications: SeasonApplicationsLine[];
   today: string;
   canSnooze: boolean;
   className?: string;
 }) {
   const t = await getTranslations("overview.due");
-  // A season application is under "Saison-Anträge" already (SAI8); it comes back here once it is due within 7 days.
   const upcoming = due.later.filter((i) => i.urgency === "upcoming" && !i.seasonApplication);
   return (
     <Panel
       title={
         <span className="inline-flex items-center gap-2">
           <ShieldCheck aria-hidden className="size-[18px] text-status-info" />
-          {t("groups.upcoming")}
+          {t("permitsTitle")}
         </span>
       }
-      titleId="upcoming-title"
+      titleId="permits-title"
+      actions={
+        <Link href="/genehmigungen" className={panelActionLink}>
+          {t("toPermits")}
+        </Link>
+      }
       className={className}
       cardClassName="overflow-hidden"
     >
-      {upcoming.length === 0 ? (
+      {upcoming.length === 0 && seasonApplications.length === 0 ? (
         <p className="m-0 px-4 py-3 text-muted-foreground text-small">{t("upcomingEmpty")}</p>
       ) : (
-        <DueGroups
-          items={upcoming}
-          groups={["upcoming"]}
-          bandless={["upcoming"]}
-          today={today}
-          canSnooze={canSnooze}
-        />
+        <>
+          <SeasonApplicationsGroup lines={seasonApplications} today={today} />
+          {upcoming.length > 0 && (
+            <DueGroups items={upcoming} groups={["upcoming"]} today={today} canSnooze={canSnooze} />
+          )}
+        </>
       )}
     </Panel>
   );

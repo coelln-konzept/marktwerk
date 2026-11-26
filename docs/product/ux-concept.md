@@ -37,7 +37,7 @@ win**; the prototype is historical reference only.
 
 ```
 marktwerk
-├── Übersicht                 ← start screen for everyone (Heute & nächste Tage, Dieses Wochenende, Saison-Anträge, Genehmigungen demnächst; no KPI or season strip)
+├── Übersicht                 ← start screen for everyone (Heute & nächste Tage, Dieses Wochenende, Genehmigungen; no KPI or season strip)
 ├── (Board)                   ← hidden since 2026-11-03 (`globalBoard`), route answers by URL: Bereitschaft · Spalten
 ├── Veranstaltungen           ← list · calendar · "Markt planen"
 │   └── Veranstaltung         ← tabs: Zusammenfassung · Checkliste · Genehmigungen · Dokumente · Notizen · Verlauf (Team, Geld hidden)
@@ -168,7 +168,7 @@ Every view is a route-level page; drawers are listed where a record usually open
 
 | View | Route | Purpose |
 |---|---|---|
-| Übersicht | `/` | Start screen for everyone: Heute & nächste Tage (main panel), Dieses Wochenende (info box), Saison-Anträge (one line per Ort, SAI8), Genehmigungen demnächst (bottom; no KPI or season strip) |
+| Übersicht | `/` | Start screen for everyone: Heute & nächste Tage (main panel), Dieses Wochenende (info box), Genehmigungen (bottom: Saison-Anträge one line per Ort, then Demnächst; SAI8; no KPI or season strip) |
 | Kalender | `/kalender` | Company-wide calendar with layers (below) |
 | Board | `/board` (**hidden** since 2026-11-03: no sidebar entry, nothing links here; the route still answers) | Views in the "Ansicht" control (`?ansicht=`): **Bereitschaft** (default), Spalten (kanban); **Matrix** is hidden with the Kernaufgaben (2026-11, an old link falls back to Bereitschaft); Nach Person and Arbeitslast return with the team module; the old `gruppiert` falls back to Bereitschaft. See "Board views" below |
 | Aufgabe | drawer `?aufgabe=<id>` on the event's Checkliste (`/veranstaltungen/[id]/board`), its Zusammenfassung and the Übersicht (also on the hidden `/board`; `?detail=task:<id>` also opens it) | Description, check items, evidence, optional completion note, snooze ("Zurückstellen"), activity (a closed disclosure), status: **Erledigt** as a toggle (primary while open; pressed and green with the filled tick while done or skipped, a second click reopens), **Wartet auf Amt** toggle, and the status badge itself ("Status: <badge> ⌄", colour + icon + text) opens a menu with every status (Offen · In Arbeit · Wartet · Blockiert · Übersprungen · Erledigt, the current one ticked); Wartet, Blockiert and Übersprungen ask for a reason as before (HN-04). The carried-over count and the origin of the task are not shown; the "Kernaufgabe" toggle explains itself in one line and the star carries the tooltip "Kernaufgabe – eine Aufgabe, die jeder Markt braucht" (no comments, client decision 2026-10-22). **Benachrichtigung** (CF9-3): one line "Mail · 1 Tag vorher an dich" (Team visible: "… an Anna") with "Ändern" opening the same fields as "Neue Aufgabe" inline (saved through `updateTask`, undo toast): checkboxes Mail / WhatsApp, select "Wann" (Sofort beim Anlegen · Am Fälligkeitstag · 1 Tag vorher · 3 Tage vorher · 1 Woche vorher · Eigenes Datum/Uhrzeit, the relative ones disabled without a due date; custom shows a date-time field read as Berlin time), recipient line "An: dich (<E-Mail>)" while Team is hidden (the signed-in user who sets it, stored as `notify_user_id`; WhatsApp hint "Du hast keine Telefonnummer hinterlegt."), "An: <Zuständig>" once Team is visible (hints for a missing assignee / email / phone from has-flags only, no staff contact data in the browser), and the always-visible note "Versand folgt, sobald Mail und WhatsApp angebunden sind." (nothing is sent yet). "Neue Aufgabe" shows the same fields below the category row. **Kontakt** (Fahrplan R24, gap G7; below the fields, above Beschreibung; only with `contact` read, so field users see nothing): the contact the task is about in a card: name, the kind as a badge ("Behörde", "Eigentümer" …) and "Ansprechpartner: …", **Anrufen** (`tel:`, primary) and **E-Mail** (`mailto:`) as 44 px buttons on phones (`ContactReach`), "Keine Telefonnummer und keine E-Mail hinterlegt." when it has neither, **"In Kontakte öffnen"** (`/kontakte?vorschau=<id>`), and for writers **Ändern** and **Entfernen**. Without a contact a dashed card says **"Vorschlag: <Name> (aus der Genehmigung | Behörde des Orts | Eigentümer des Orts)"** with **Übernehmen** (one click sets it) and **Anderen wählen**; the suggestion is never saved by itself (rules: core `suggestTaskContact`, see the data model) and only writers see it. With no suggestion: "Kein Kontakt" and **"Kontakt wählen"**. Choosing opens the shared contact picker inline ("Kontakt suchen", the contacts load when it opens; "+ Neu …" creates one in place for `contact` writers) with Abbrechen; every set, change and removal toasts ("Kontakt „Ordnungsamt“ bei „…“ eingetragen" / "Kontakt bei „…“ entfernt") with Rückgängig. Aktivität says "… hat den Kontakt „…“ eingetragen / entfernt". A task of a market's date has **"Fürs nächste Mal notieren"** above Aktivität (R25, see "Fürs nächste Mal"). **A season permit's own "… beantragen" task** (no event, SAI8) names its permit where others name their event: "Genehmigung: Standrohr · Kerpen Innenstadt" links to the permit drawer; ticking it **Erledigt marks the permit "Beantragt"** (today as application date, only for `permit` writers and while it is not filed) and the toast says so ("… erledigt · Genehmigung „Standrohr“ als beantragt markiert"), Rückgängig takes both back |
@@ -285,22 +285,23 @@ permits at the bottom. No KPI strip, no season strip. Section titles sit outside
    at most 4) under the line "An diesem Wochenende ist nichts geplant. Als Nächstes:". The former verdict (Im Plan ·
    Achtung · Nicht startklar), the "Top-5-Aufgaben" toggle and the "Nächstes Wochenende" row are gone: the tasks
    themselves live in the main panel. Entries are J/K rows (Enter opens the event, Space its Vorschau).
-4. **Saison-Anträge** (Fahrplan SAI8, 2026-11-26), full width under both, only when there are any and only with
-   `permit:read`: the season permits (one per Ort and season, created when the dates are planned) not filed yet,
-   whatever their deadline. **One line per Ort and season**: chevron, "Kerpen Innenstadt · Saison 2027 · 3 Anträge
-   offen", then "1 überfällig" (red, circle "!") or "nächste Frist" with the due badge and date; lines with an overdue
-   application first, then by the soonest apply-by. A line is a native disclosure (a J/K row; Enter and Space open
-   it): opened, it lists the applications (title, "zuständig: …" while Team is visible, the logbook's state badge,
-   the due badge with date; a row opens the permit drawer on Genehmigungen) and links "Alle Genehmigungen in <Ort>"
-   (`/genehmigungen?ort=<id>`). "Zu den Genehmigungen" sits next to the heading, the count ("5 Anträge an 2 Orten")
-   after it. Their own "… beantragen" tasks are left out of the task lists of the Übersicht (Überfällig … Weitere
-   Aufgaben; a field user, who reads no permits, keeps them), so an application shows once: here, and as the permit
-   row in Überfällig / Heute / Nächste Tage once it is that close.
-5. **Genehmigungen demnächst** (CF9-6), the **last section**, full width under both: permits further out than 7 days
-   but inside the permit horizon (except the season applications not filed yet: they are under Saison-Anträge); the
-   shield in the info colour next to the heading, the same rows, snooze and J/K as elsewhere; empty → "Keine
-   Genehmigungen in Sicht."
-6. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
+4. **Genehmigungen**, the **last section**, full width under both (one section since 2026-11-26, Fahrplan SAI8;
+   before, "Genehmigungen demnächst" alone): the shield in the info colour next to the heading, "Zu den
+   Genehmigungen" on the right. Two groups, each opened by a band like the main panel's (icon + text + count), a group
+   without entries left out; both empty → "Keine Genehmigungen in Sicht."
+   - **Saison-Anträge**: only with `permit:read`, the season permits (one per Ort and season, created when the dates
+     are planned) not filed yet, whatever their deadline. **One line per Ort and season**: chevron, "Kerpen
+     Innenstadt · Saison 2027 · 3 Anträge offen", then "1 überfällig" (red, circle "!") or "nächste Frist" with the
+     due badge and date; lines with an overdue application first, then by the soonest apply-by. A line is a native
+     disclosure (a J/K row; Enter and Space open it): opened, it lists the applications (title, "zuständig: …" while
+     Team is visible, the logbook's state badge, the due badge with date; a row opens the permit drawer on
+     Genehmigungen) and links "Alle Genehmigungen in <Ort>" (`/genehmigungen?ort=<id>`). Their own "… beantragen"
+     tasks are left out of the task lists of the Übersicht (Überfällig … Weitere Aufgaben; a field user, who reads no
+     permits, keeps them), so an application shows once: here, and as the permit row in Überfällig / Heute / Nächste
+     Tage once it is that close.
+   - **Demnächst** (CF9-6): the other permits further out than 7 days but inside the permit horizon (per-date
+     applications such as Halteverbot, expected decisions), the same rows, snooze and J/K as elsewhere.
+5. One calm line for tasks of past markets → Aufräumen (the cleanup drawer lists the titles it will skip).
 **Phone (390 px):** everything stacks: main panel, weekend box, permits; a market running today moves the weekend box
 to the top (below 1024 px). Inside the main panel (below 768 px) **Heute comes first** and **Überfällig shrinks to one
 line** with its count and "Anzeigen" / "Ausblenden" (UX-006). The moves are CSS `order` only: DOM, Tab and J/K order

@@ -62,9 +62,11 @@ job. So:
 - **The apply-by stays fixed in the calendar** (core `fillApplyBy`): while the season has not started, the end of
   the last submission window before 1 March, else lead time before 1 March; a date in January or February can make
   it earlier; once the season runs, a new date's own deadline.
-- **The Übersicht shows them as "Saison-Anträge"**: one line per Ort and season ("Kerpen · Saison 2027 · 3 Anträge
-  offen", overdue first), opened in place to the permits; their tasks leave the Übersicht's task lists (for those
-  who read permits), and "Genehmigungen demnächst" leaves them to that panel until they are due within 7 days.
+- **The Übersicht shows them as "Saison-Anträge"**, the first group of its one permit section "Genehmigungen" (the
+  former "Genehmigungen demnächst" is its second group, "Demnächst"): one line per Ort and season ("Kerpen · Saison
+  2027 · 3 Anträge offen", overdue first), opened in place to the permits; their tasks leave the Übersicht's task
+  lists (for those who read permits), and "Demnächst" leaves them to the first group until they are due within 7
+  days.
 - **The task and its permit stay in step**: the task drawer names the permit and its Ort; ticking the task done
   marks the permit "Beantragt" (undo takes both back), as "Als beantragt markieren" already closed the task.
 - Reminders and the digest name the Ort.

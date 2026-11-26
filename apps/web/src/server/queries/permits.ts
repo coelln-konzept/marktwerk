@@ -843,7 +843,7 @@ export async function getPermitHorizonDays(): Promise<number> {
 /**
  * Permits to act on: unfiled ones by their apply-by date, applied ones by the expected decision. They
  * appear up to the company's permit horizon ahead (`settings.permit_horizon_days`, default 30 days, not
- * the 7 days of tasks); beyond a week they are "upcoming" (own group "Genehmigungen demnächst").
+ * the 7 days of tasks); beyond a week they are "upcoming" (the group "Demnächst" of the Übersicht's "Genehmigungen").
  */
 export async function dueItems(
   actor: Actor,

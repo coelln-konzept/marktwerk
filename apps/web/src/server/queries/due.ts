@@ -12,7 +12,7 @@ export type DueKind = (typeof DUE_KINDS)[number];
 
 /**
  * `upcoming` is only used by permits: further out than a week but inside the company's permit horizon.
- * The Übersicht shows it as its own group "Genehmigungen demnächst" after "Diese Woche".
+ * The Übersicht shows it as the group "Demnächst" of its section "Genehmigungen".
  * `waiting` is only used by tasks that wait for somebody else (status "Wartet") and are past their due date:
  * neutral, never counted as overdue ("wartet seit …").
  */
@@ -59,7 +59,7 @@ export type DueItem = {
   waiting?: { reason: string | null };
   /**
    * A season permit not filed yet (one per Ort and season, Fahrplan SAI8): "Saison-Anträge" lists it already, so
-   * "Genehmigungen demnächst" leaves it out; Überfällig, Heute and Nächste Tage still show it.
+   * "Demnächst" (in the Übersicht's "Genehmigungen") leaves it out; Überfällig, Heute and Nächste Tage still show it.
    */
   seasonApplication?: boolean;
 };

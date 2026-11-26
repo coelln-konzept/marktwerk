@@ -4,7 +4,6 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { PermitStateBadge } from "@/components/permits/permit-state-badge";
 import { DueBadge } from "@/components/ui/due-badge";
-import { Panel, panelActionLink } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { rowFocus } from "@/components/ui/table";
 import { isModuleVisible } from "@/lib/modules";
@@ -120,46 +119,39 @@ function OrtLine({ line, today }: { line: SeasonApplicationsLine; today: string 
 }
 
 /**
- * "Saison-Anträge" (Fahrplan SAI8): the season permits still to apply for (one per Ort and season, made when the
- * dates are planned), whatever their deadline, so they no longer hide among "Weitere Aufgaben". One line per Ort and
- * season, those with an overdue application first. Their own "… beantragen" tasks stay out of the task lists here.
- * Left out when there is nothing to apply for (and for roles that do not read permits).
+ * "Saison-Anträge" (Fahrplan SAI8), the first group of the Übersicht's "Genehmigungen" section: the season permits
+ * still to apply for (one per Ort and season, made when the dates are planned), whatever their deadline, so they no
+ * longer hide among "Weitere Aufgaben". A band like the main panel's groups (with the number of applications), then
+ * one line per Ort and season, those with an overdue application first. Their own "… beantragen" tasks stay out of
+ * the task lists here. Left out when there is nothing to apply for (and for roles that do not read permits).
  */
-export async function SeasonApplicationsCard({
+export async function SeasonApplicationsGroup({
   lines,
   today,
-  className,
 }: {
   lines: SeasonApplicationsLine[];
   today: string;
-  className?: string;
 }) {
   if (lines.length === 0) return null;
   const t = await getTranslations("overview.seasonApplications");
   const total = lines.reduce((n, l) => n + l.permits.length, 0);
   return (
-    <Panel
-      title={
-        <span className="inline-flex items-center gap-2">
-          <FileClock aria-hidden className="size-[18px] text-status-info" />
-          {t("title")}
+    <section aria-labelledby="season-applications-title">
+      <h3
+        id="season-applications-title"
+        className="m-0 flex items-center gap-2 border-border border-b bg-status-info-bg px-4 py-2 font-semibold text-body text-status-info"
+      >
+        <FileClock aria-hidden className="size-4 shrink-0" />
+        {t("title")}
+        <span className="tabular inline-grid h-5 min-w-6 place-items-center rounded-full bg-card/80 px-1.5 font-semibold text-tiny">
+          {total}
         </span>
-      }
-      titleId="season-applications-title"
-      meta={t("count", { count: total, places: lines.length })}
-      actions={
-        <Link href="/genehmigungen" className={panelActionLink}>
-          {t("toLogbook")}
-        </Link>
-      }
-      className={className}
-      cardClassName="overflow-hidden"
-    >
+      </h3>
       <ul className="m-0 list-none p-0">
         {lines.map((line) => (
           <OrtLine key={`${line.venueId}|${line.season ?? ""}`} line={line} today={today} />
         ))}
       </ul>
-    </Panel>
+    </section>
   );
 }

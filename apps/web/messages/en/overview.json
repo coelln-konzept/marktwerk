@@ -26,7 +26,7 @@
         "overdue": "Overdue",
         "today": "Today",
         "soon": "Next few days",
-        "upcoming": "Permits coming up",
+        "upcoming": "Coming up",
         "waiting": "Waiting for a reply",
         "other": "More tasks"
       },
@@ -48,7 +48,9 @@
         "title": "Meetings today",
         "count": "{count, plural, one {# meeting} other {# meetings}}",
         "open": "Open meeting"
-      }
+      },
+      "permitsTitle": "Permits",
+      "toPermits": "Go to permits"
     },
     "weekend": {
       "title": "This weekend",
@@ -95,8 +97,6 @@
     },
     "seasonApplications": {
       "title": "Season applications",
-      "count": "{count, plural, one {# application} other {# applications}} at {places, plural, one {# place} other {# places}}",
-      "toLogbook": "Go to permits",
       "season": "Season {season}",
       "open": "{count, plural, one {# application open} other {# applications open}}",
       "overdue": "{count} overdue",

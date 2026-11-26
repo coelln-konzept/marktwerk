@@ -10,8 +10,7 @@ import { AppointmentVorschau } from "@/components/appointments/appointment-vorsc
 import { NewTaskButton } from "@/components/board/new-task-dialog";
 import { EventVorschau } from "@/components/events/event-vorschau";
 import { PastMarketsDrawer, PastMarketsLine } from "@/components/overview/past-markets";
-import { SeasonApplicationsCard } from "@/components/overview/season-applications";
-import { TodayCard, UpcomingPermitsCard } from "@/components/overview/today-card";
+import { PermitsCard, TodayCard } from "@/components/overview/today-card";
 import { WeekendCard } from "@/components/overview/weekend-card";
 import { Page, PageHeader } from "@/components/shell/page";
 import { TaskDrawer } from "@/components/task/task-drawer";
@@ -45,7 +44,7 @@ function berlinHour(timeZone = "Europe/Berlin"): number {
 /**
  * The Übersicht (decision 2026-11-13): the main panel "Heute & nächste Tage" (Überfällig · Heute · Nächste
  * Tage, per market) on the left, the weekend box (the weekend's events with their Checkliste progress) top
- * right, then "Saison-Anträge" (one line per Ort, SAI8) and the permits coming up at the bottom. A task opens its drawer here (`?aufgabe=<id>`, like on the
+ * right, then "Genehmigungen" at the bottom (Saison-Anträge, one line per Ort, and the permits coming up; SAI8). A task opens its drawer here (`?aufgabe=<id>`, like on the
  * board), a market its Vorschau (`?vorschau=<id>`).
  */
 export default async function OverviewPage({ searchParams }: PageProps<"/">) {
@@ -132,13 +131,9 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           marketToday={marketToday}
           className={marketToday ? "max-lg:order-first" : undefined}
         />
-        <SeasonApplicationsCard
-          lines={overview.seasonApplications}
-          today={today}
-          className="lg:col-span-2"
-        />
-        <UpcomingPermitsCard
+        <PermitsCard
           due={overview.due}
+          seasonApplications={overview.seasonApplications}
           today={today}
           canSnooze={canWrite}
           className="lg:col-span-2"

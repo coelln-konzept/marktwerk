@@ -26,7 +26,7 @@
         "overdue": "Überfällig",
         "today": "Heute",
         "soon": "Nächste Tage",
-        "upcoming": "Genehmigungen demnächst",
+        "upcoming": "Demnächst",
         "waiting": "Wartet auf Rückmeldung",
         "other": "Weitere Aufgaben"
       },
@@ -48,7 +48,9 @@
         "title": "Besprechungen heute",
         "count": "{count, plural, one {# Besprechung} other {# Besprechungen}}",
         "open": "Besprechung öffnen"
-      }
+      },
+      "permitsTitle": "Genehmigungen",
+      "toPermits": "Zu den Genehmigungen"
     },
     "weekend": {
       "title": "Dieses Wochenende",
@@ -95,8 +97,6 @@
     },
     "seasonApplications": {
       "title": "Saison-Anträge",
-      "count": "{count, plural, one {# Antrag} other {# Anträge}} an {places, plural, one {# Ort} other {# Orten}}",
-      "toLogbook": "Zu den Genehmigungen",
       "season": "Saison {season}",
       "open": "{count, plural, one {# Antrag offen} other {# Anträge offen}}",
       "overdue": "{count} überfällig",
