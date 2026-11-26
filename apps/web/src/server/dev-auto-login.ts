@@ -35,5 +35,6 @@ export function devAutoLoginAccount(
 
 /** Only same-origin paths may be used as the target after signing in. */
 export function safeNext(next: string | null | undefined): string {
-  return next?.startsWith("/") && !next.startsWith("//") ? next : "/";
+  // "//host" and "/\\host" are read by browsers as another origin.
+  return next && /^\/(?![/\\])/.test(next) ? next : "/";
 }

@@ -23,7 +23,7 @@ export function proxy(request: NextRequest) {
       return NextResponse.redirect(url);
     }
     const url = new URL("/login", request.url);
-    url.searchParams.set("next", request.nextUrl.pathname);
+    url.searchParams.set("next", next);
     return NextResponse.redirect(url);
   }
   return NextResponse.next();

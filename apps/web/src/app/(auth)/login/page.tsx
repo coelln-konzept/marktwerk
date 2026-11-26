@@ -40,7 +40,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <CardDescription>{t("app.tagline")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <LoginForm next={typeof next === "string" && next.startsWith("/") ? next : "/"} />
+          <LoginForm next={safeNext(typeof next === "string" ? next : null)} />
         </CardContent>
       </Card>
     </main>
