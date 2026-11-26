@@ -314,8 +314,8 @@ export function buildPermits(rng: Rng, ctx: PermitContext): PermitsBundle {
 
       if (requirement.cadence === "per_season") {
         // One permit per Ort and season (ADR 0024); it covers every market at the Ort. Its apply-by is fixed in the
-        // calendar (lead time before the season starts on 1 March, as the nightly season-permits job sets it), or
-        // earlier where a date comes before that allows (as the logbook fill moves it when such a date joins).
+        // calendar (lead time before the season starts on 1 March, as the logbook fill sets it, core `fillApplyBy`),
+        // or earlier where a date before 1 March comes first.
         const [first] = [...venueEvents].sort((a, b) => a.startsOn.localeCompare(b.startsOn));
         if (!first) continue;
         const applyBy = window

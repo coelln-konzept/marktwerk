@@ -273,6 +273,8 @@
       "set": "Contact “{name}” added to “{title}”",
       "setUnnamed": "Contact added to “{title}”",
       "removed": "Contact removed from “{title}”"
-    }
+    },
+    "permitLink": "Permit: {title} · {place}",
+    "permitLinkNoPlace": "Permit: {title}"
   }
 }

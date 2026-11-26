@@ -5,6 +5,7 @@ import {
   berlinDay,
   boardColumnFor,
   type CapacityContract,
+  can,
   compareCards,
   DEFAULT_WEEKLY_CAPACITY_HOURS,
   doneVisibleSince,
@@ -40,9 +41,11 @@ import {
   eventDuty,
   eventPreset,
   eventType,
+  permit,
   staffMember,
   task,
   user,
+  venue,
 } from "@marktwerk/db/schema";
 import {
   and,
@@ -62,7 +65,7 @@ import {
 } from "drizzle-orm";
 import { type Actor, visibleEvents } from "../actor";
 import { db } from "../db";
-import { deadlineScope, notOfPastEvent, visibleTasks } from "../task-scope";
+import { deadlineScope, notOfPastEvent, notSeasonApplyTask, visibleTasks } from "../task-scope";
 import { type DocumentRow, listLinkedDocuments } from "./documents";
 import type { CalendarItem, DueItem } from "./due";
 import { type TaskContactInfo, taskContactInfo } from "./task-contact";
@@ -880,8 +883,23 @@ export type TaskDetail = {
   completionNote: string | null;
   /** The contact the task is about and the suggestion while it has none (Fahrplan R24). */
   contact: TaskContactInfo;
+  /**
+   * The permit the task applies for ("… beantragen", or a template task linked to one), with its Ort: the drawer
+   * links to it, above all for a season permit's own task, which has no event (Fahrplan SAI8). Null without one
+   * or without `permit:read`.
+   */
+  permit: TaskPermit | null;
   activity: { id: string; action: string; at: string; actorName: string | null; diff: unknown }[];
   link: string;
+};
+
+/** The permit a task applies for, as the task drawer names it. */
+export type TaskPermit = {
+  id: string;
+  title: string;
+  venueName: string | null;
+  season: number | null;
+  status: (typeof permit.status.enumValues)[number];
 };
 
 /** One subtask as the task drawer lists it (tick, title, assignee, due). */
@@ -942,36 +960,50 @@ export async function getTaskDetail(
   const notifySelf = await getNotifySelf(actor);
   const t = row.t;
 
-  const [subtasks, parent, activity, completedBy, documents, contactInfo] = await Promise.all([
-    listSubtasks(taskId, today),
-    t.parentTaskId
-      ? db
-          .select({ id: task.id, title: task.title, status: task.status })
-          .from(task)
-          .where(eq(task.id, t.parentTaskId))
-      : Promise.resolve([]),
-    db
-      .select({
-        id: auditLog.id,
-        action: auditLog.action,
-        at: auditLog.at,
-        actorName: user.name,
-        diff: auditLog.diff,
-      })
-      .from(auditLog)
-      .leftJoin(user, eq(user.id, auditLog.actorId))
-      .where(and(eq(auditLog.entityType, "task"), eq(auditLog.entityId, taskId)))
-      .orderBy(desc(auditLog.at), desc(auditLog.id))
-      .limit(100),
-    t.completedByStaffMemberId
-      ? db
-          .select({ name: staffMember.displayName })
-          .from(staffMember)
-          .where(eq(staffMember.id, t.completedByStaffMemberId))
-      : Promise.resolve([]),
-    listLinkedDocuments(actor, "taskId", [taskId]),
-    taskContactInfo(actor, t),
-  ]);
+  const [subtasks, parent, activity, completedBy, documents, contactInfo, permitOf] =
+    await Promise.all([
+      listSubtasks(taskId, today),
+      t.parentTaskId
+        ? db
+            .select({ id: task.id, title: task.title, status: task.status })
+            .from(task)
+            .where(eq(task.id, t.parentTaskId))
+        : Promise.resolve([]),
+      db
+        .select({
+          id: auditLog.id,
+          action: auditLog.action,
+          at: auditLog.at,
+          actorName: user.name,
+          diff: auditLog.diff,
+        })
+        .from(auditLog)
+        .leftJoin(user, eq(user.id, auditLog.actorId))
+        .where(and(eq(auditLog.entityType, "task"), eq(auditLog.entityId, taskId)))
+        .orderBy(desc(auditLog.at), desc(auditLog.id))
+        .limit(100),
+      t.completedByStaffMemberId
+        ? db
+            .select({ name: staffMember.displayName })
+            .from(staffMember)
+            .where(eq(staffMember.id, t.completedByStaffMemberId))
+        : Promise.resolve([]),
+      listLinkedDocuments(actor, "taskId", [taskId]),
+      taskContactInfo(actor, t),
+      t.permitId && can(actor.role, "permit", "read")
+        ? db
+            .select({
+              id: permit.id,
+              title: permit.title,
+              venueName: venue.name,
+              season: permit.season,
+              status: permit.status,
+            })
+            .from(permit)
+            .leftJoin(venue, eq(venue.id, permit.venueId))
+            .where(eq(permit.id, t.permitId))
+        : Promise.resolve([]),
+    ]);
   const files = documents.get(taskId) ?? [];
   const evidence = fileEvidenceOf(files.map((f) => f.kind));
 
@@ -1033,6 +1065,7 @@ export async function getTaskDetail(
     removedFromTemplate: t.removedFromTemplate,
     completionNote: typeof completionNote === "string" ? completionNote : null,
     contact: contactInfo,
+    permit: permitOf[0] ?? null,
     activity: activity.map((a) => ({ ...a, at: a.at.toISOString() })),
     link: taskLink(t.id, t.eventId),
   };
@@ -1215,6 +1248,7 @@ export async function dueItems(actor: Actor, today: string): Promise<DueItem[]> 
         inArray(task.status, OPEN),
         notSnoozed(today),
         notOfPastEvent(today),
+        notSeasonApplyTask(actor),
         or(and(isNotNull(task.dueAt), lt(task.dueAt, until)), sql`${sub.subtasksOverdue} > 0`),
       ),
     )

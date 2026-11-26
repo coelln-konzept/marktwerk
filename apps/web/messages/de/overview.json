@@ -92,6 +92,19 @@
       "nothingToSkip": "Hier ist nichts mehr offen.",
       "error": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
       "empty": "Alles aufgeräumt. Aus vergangenen Märkten ist nichts mehr offen."
+    },
+    "seasonApplications": {
+      "title": "Saison-Anträge",
+      "count": "{count, plural, one {# Antrag} other {# Anträge}} an {places, plural, one {# Ort} other {# Orten}}",
+      "toLogbook": "Zu den Genehmigungen",
+      "season": "Saison {season}",
+      "open": "{count, plural, one {# Antrag offen} other {# Anträge offen}}",
+      "overdue": "{count} überfällig",
+      "next": "nächste Frist",
+      "responsible": "zuständig: {name}",
+      "openPermit": "Genehmigung öffnen: {title}",
+      "noDeadline": "Ohne Frist",
+      "allOfOrt": "Alle Genehmigungen in {name}"
     }
   }
 }

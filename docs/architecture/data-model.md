@@ -344,9 +344,8 @@ erDiagram
   "Was braucht dieser Ort?" dialog no longer offers them and offers the Ausschankgenehmigung as an extra instead.)*
   *(ADR 0024, migration 0025: one permit per Ort (requirement) and season for a cadence covering several dates; it
   covers every market at the Ort (shared Orte are handled by hand: R27's per-market split and `permit.season_id`
-  are gone). Single-date permits are titled "<requirement> – <date>", the others by the requirement. The nightly job
-  `season-permits` creates next season's permit with its own apply task before any date exists ("Season permits"
-  below).)*
+  are gone). Single-date permits are titled "<requirement> – <date>", the others by the requirement. The first date of a
+  season at the Ort creates its permit with its own apply task (SAI8; "Season permits" below).)*
 - **event_permit**: `(event_id, permit_id, required)`. *(implemented 0002: primary key `(event_id, permit_id)`.)*
 - **Logbook** = a view over permits + agreements + (M11) equipment + documents, grouped by location and category,
   showing *held / pending / missing* for upcoming events.
@@ -503,27 +502,23 @@ createEvent(preset | agreement, date [, durationDays]):
       audit; grouped "assigned" notifications (debounced)
 ```
 
-### Season permits (ADR 0024, Fahrplan SAI4; nightly from 00:25 Berlin, idempotent)
+### Season permits (ADR 0024, amended by Fahrplan SAI8: planning the dates creates them)
 ```
-season-permits (packages/jobs/src/season-permits.ts, cron 25 0 * * * Europe/Berlin):
-  for each live requirement with cadence per_season | per_year | multi_year | standing (Ort not archived),
-  one transaction each (requirement row locked, its permits read again):
-    core dueSeasonPermits(requirement, its permits, today):
-      seasons looked at: this year and next; a season that has started (1 March, SEASON_START_MD) is
-          left to the logbook fill
-      apply-by = end of the last submission window before 1 March, else 1 March − lead_time_days
-      due once today ≥ apply-by − 30 days (SEASON_PERMIT_CREATE_DAYS) and
-          per_season / per_year: no permit of that season yet (superseded ones do not count)
-          multi_year / standing: none stands for the season (validity null or ≥ 31.12. of the season);
-              at most one
-    → permit (not_started, apply-by, expected decision, title = requirement title,
-          responsible = duty role "permits" default holder)
-      + its own "… beantragen" task (no event, due apply-by 23:59 Berlin, same person)
-      audit permit.create (actor null, source season_job); one grouped "assigned" notification
-  dates created later: the logbook fill links them to that permit (permitCovers), no second permit or task
+logbook fill (fillLogbookForEvents), for a requirement with cadence per_season | per_year | multi_year | standing:
+  a permit of the Ort's requirement already covers the date (permitCovers) → link the date to it
+  else → permit (not_started, title = requirement title, season = the date's season,
+            apply-by = core fillApplyBy(requirement, date, season, today):
+              season not started yet (before 1 March, SEASON_START_MD):
+                  end of the last submission window before 1 March, else 1 March − lead_time_days
+                  (a date in January / February: its own deadline when that is earlier)
+              season running: the date's own deadline (lead time before the date, submission window)
+            responsible = the date's "permits" duty holder, else the role's default holder)
+       + its own "… beantragen" task (no event, due apply-by 23:59 Berlin, same person)
+  no nightly job: an Ort without dates in a season gets no permit for it (the Pflicht
+      "Termine für die neue Saison planen" is due before the applications)
 ```
-The 30 days are chosen so the task appears a month ahead under "Genehmigungen demnächst" (default horizon 30 days)
-without filling the logbook with next year's permits all year round (decision for the product owner to confirm).
+Migration 0027 archived the permits the former nightly job `season-permits` had created for Orte without dates (never
+touched: still `not_started`, no date linked) and cancelled their open "… beantragen" tasks.
 
 ### Kanban columns (derived, overridable)
 `Erledigt` if done; `Heute` if due today or overdue (rolled over); `Diese Woche` if due ≤ 7 days;

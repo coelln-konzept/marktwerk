@@ -13,6 +13,7 @@ import {
   fileEvidenceOf,
   isIsoDate,
   isOpenStatus,
+  isUnfiled,
   isValidSnoozeDate,
   missingEvidence,
   type NestingProblem,
@@ -38,6 +39,7 @@ import {
   event,
   eventDuty,
   notification,
+  permit,
   staffMember,
   task,
 } from "@marktwerk/db/schema";
@@ -361,10 +363,94 @@ async function parentReadyAfter(
   return { id: parent.id, title: parent.title };
 }
 
+/** What marking a permit's own "… beantragen" task done changed on its permit (kept in the task's audit entry). */
+type PermitFiled = {
+  permitId: string;
+  title: string;
+  from: string;
+  /** The application date before (undo writes it back) and the one set now. */
+  appliedAtBefore: string | null;
+  appliedAt: string;
+};
+
+/**
+ * A permit's own "… beantragen" task (`source = permit`) marked done files its permit (Fahrplan SAI8): "Beantragt",
+ * today as the application date when it has none. That is what "Als beantragt markieren" in the permit drawer does,
+ * which closes this task the other way round, so the two cannot drift apart. Only while the permit is not filed yet
+ * and only for those who may write permits (for the others the task just closes). Inside the caller's transaction;
+ * audited on the permit. Returns what changed, for the task's audit entry and its undo.
+ */
+async function fileOwnPermit(
+  tx: Tx,
+  actor: Pick<Actor, "id" | "role">,
+  row: TaskRow,
+  today: string,
+): Promise<PermitFiled | null> {
+  if (row.source !== "permit" || !row.permitId || !can(actor.role, "permit", "write")) return null;
+  const [p] = await tx
+    .select({
+      id: permit.id,
+      title: permit.title,
+      status: permit.status,
+      appliedAt: permit.appliedAt,
+    })
+    .from(permit)
+    .where(and(eq(permit.id, row.permitId), isNull(permit.archivedAt)))
+    .for("update");
+  if (!p || !isUnfiled(p.status)) return null;
+  const appliedAt = p.appliedAt ?? today;
+  await tx.update(permit).set({ status: "applied", appliedAt }).where(eq(permit.id, p.id));
+  await tx.insert(auditLog).values({
+    actorId: actor.id,
+    action: "permit.status",
+    entityType: "permit",
+    entityId: p.id,
+    diff: { from: p.status, to: "applied", viaTaskId: row.id, closedTaskIds: [row.id] },
+  });
+  return {
+    permitId: p.id,
+    title: p.title,
+    from: p.status,
+    appliedAtBefore: p.appliedAt,
+    appliedAt,
+  };
+}
+
+/**
+ * Undo of {@link fileOwnPermit}: the permit goes back to the status it had, but only while it still is "Beantragt"
+ * with the date the task set (nobody filed or changed it since; then it is left alone).
+ */
+async function unfileOwnPermit(
+  tx: Tx,
+  actor: Pick<Actor, "id">,
+  taskId: string,
+  filed: PermitFiled,
+) {
+  const [p] = await tx
+    .select({ status: permit.status, appliedAt: permit.appliedAt })
+    .from(permit)
+    .where(eq(permit.id, filed.permitId))
+    .for("update");
+  if (p?.status !== "applied" || p.appliedAt !== filed.appliedAt) return;
+  await tx
+    .update(permit)
+    .set({ status: filed.from as typeof p.status, appliedAt: filed.appliedAtBefore })
+    .where(eq(permit.id, filed.permitId));
+  await tx.insert(auditLog).values({
+    actorId: actor.id,
+    action: "permit.status",
+    entityType: "permit",
+    entityId: filed.permitId,
+    diff: { from: "applied", to: filed.from, undo: true, viaTaskId: taskId },
+  });
+}
+
 export type TaskChange = {
   changed: boolean;
   /** Audit entry to pass to {@link undoTaskChange}; null when nothing changed. */
   auditId: string | null;
+  /** Marking a permit's own apply task done filed that permit: its title, for the toast (SAI8). */
+  permitFiled?: string | null;
 };
 
 /** A status change of a subtask that finished the last open one names the parent to offer completing. */
@@ -385,7 +471,7 @@ export async function setTaskStatus(
   at?: TaskClock,
 ): Promise<TaskChange & ParentReady & { from: TaskStatusKey }> {
   need(actor, "write");
-  const { now } = clock(at);
+  const { now, today } = clock(at);
   return db.transaction(async (tx) => {
     const row = await loadTask(tx, actor, taskId);
     const before = stateOf(row);
@@ -396,18 +482,21 @@ export async function setTaskStatus(
       return { changed: false, auditId: null, from: row.status, parentReady: null };
 
     await tx.update(task).set(columnsOf(patch)).where(eq(task.id, row.id));
+    const filed = to === "done" ? await fileOwnPermit(tx, actor, row, today) : null;
     const auditId = await writeAudit(tx, actor, "task.status", row.id, {
       from: row.status,
       to,
       before: diff.before,
       after: diff.after,
       ...(note ? { note } : {}),
+      ...(filed ? { permitFiled: filed } : {}),
     });
     return {
       changed: true,
       auditId,
       from: row.status,
       parentReady: await parentReadyAfter(tx, row, to),
+      permitFiled: filed?.title ?? null,
     };
   });
 }
@@ -567,14 +656,16 @@ export async function moveTask(
     if (diff.keys.length === 0) return { changed: false, auditId: null, column, parentReady: null };
 
     await tx.update(task).set(columnsOf(patch)).where(eq(task.id, row.id));
+    const filed = column === "done" ? await fileOwnPermit(tx, actor, row, today) : null;
     const auditId = await writeAudit(tx, actor, "task.move", row.id, {
       column,
       before: diff.before,
       after: diff.after,
       ...(note ? { note } : {}),
+      ...(filed ? { permitFiled: filed } : {}),
     });
     const parentReady = column === "done" ? await parentReadyAfter(tx, row, "done") : null;
-    return { changed: true, auditId, column, parentReady };
+    return { changed: true, auditId, column, parentReady, permitFiled: filed?.title ?? null };
   });
 }
 
@@ -809,6 +900,7 @@ async function undoEntry(
     before?: Partial<TaskState>;
     after?: Partial<TaskState>;
     subtasks?: SubtaskChange[];
+    permitFiled?: PermitFiled;
   } | null;
   if (!entry?.entityId || !diff?.before || !diff.after) throw new TaskInputError("not_undoable");
   if ("assigneeId" in diff.before) need(actor, "assign");
@@ -829,6 +921,8 @@ async function undoEntry(
   // A delete took the open subtasks with it, a restore brought them back: undo does the reverse.
   if (entry.action === "task.delete") await reopenSubtasks(tx, row.id, diff.subtasks ?? []);
   if (entry.action === "task.restore") await cancelSubtasks(tx, row.id, diff.subtasks ?? []);
+  // Marking the task done filed its permit (SAI8): undo takes that back too.
+  if (diff.permitFiled) await unfileOwnPermit(tx, actor, row.id, diff.permitFiled);
   if (entry.action === "task.assign") {
     // the person was told "assigned"; take that back while they have not read it
     await tx

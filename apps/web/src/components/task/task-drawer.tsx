@@ -666,6 +666,16 @@ export function TaskDrawer({
               >
                 {task.eventName}
               </Link>
+            ) : task.permit ? (
+              // A season permit's own "… beantragen" task has no event: it names its permit and Ort (SAI8).
+              <Link
+                href={`/genehmigungen?genehmigung=${task.permit.id}` as never}
+                className="truncate hover:underline"
+              >
+                {task.permit.venueName
+                  ? t("permitLink", { title: task.permit.title, place: task.permit.venueName })
+                  : t("permitLinkNoPlace", { title: task.permit.title })}
+              </Link>
             ) : (
               <span>{t("noEvent")}</span>
             )}

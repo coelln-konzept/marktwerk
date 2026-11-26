@@ -55,7 +55,6 @@ person or stage), so a repeated run changes nothing and the next tick catches up
 | same | `task-rollover` | from 00:05 Berlin until midnight (rolls over once per day) | 00:05 |
 | same | `daily-digest` | 07:00–11:59 Berlin (one mail per person and day; none after noon) | 07:00 |
 | same | `payroll-reminders` | from 07:05 Berlin until midnight (once per person, month and stage) | 07:05 |
-| same | `season-permits` | from 00:25 Berlin until midnight (next season's permits from the Ort's requirements, ADR 0024; a permit that exists is left alone) | 00:25 |
 
 The minutes avoid :00/:15/:30/:45, when GitHub's load peaks. Cron times are UTC, but the windows are evaluated in
 `Europe/Berlin` on the runner, so daylight saving time needs no second set of ticks. *Run workflow* runs any single

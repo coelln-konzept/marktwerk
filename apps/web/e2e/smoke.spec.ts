@@ -139,6 +139,52 @@ test('Übersicht: the main panel (Überfällig, Heute, Nächste Tage) left, the 
   ).toBeLessThanOrEqual(0);
 });
 
+test("Übersicht: Saison-Anträge, one line per Ort that opens in place; a row opens its permit; its task is in no task list here (SAI8)", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const panel = page.getByRole("region", { name: "Saison-Anträge" });
+  await expect(panel).toBeVisible();
+  // Under the weekend box, above "Genehmigungen demnächst".
+  const [weekendY = 0, panelY = 0, permitsY = 0] = await Promise.all(
+    ["Dieses Wochenende", "Saison-Anträge", "Genehmigungen demnächst"].map(
+      async (name) => (await page.getByRole("heading", { level: 2, name }).boundingBox())?.y ?? 0,
+    ),
+  );
+  expect(panelY).toBeGreaterThan(weekendY);
+  expect(panelY).toBeLessThan(permitsY);
+  await expect(panel.getByRole("link", { name: "Zu den Genehmigungen" })).toHaveAttribute(
+    "href",
+    "/genehmigungen",
+  );
+
+  // One line per Ort and season, closed: "<Ort> · Saison 2027 · 3 Anträge offen".
+  const line = panel.locator("details[data-season-line]").first();
+  const summary = line.locator("summary");
+  await expect(summary).toContainText(/ · Saison \d{4} · \d+ Antr(ag|äge) offen/);
+  await expect(line).not.toHaveAttribute("open", "");
+  const url = page.url();
+  await summary.click();
+  await expect(line).toHaveAttribute("open", "");
+  expect(page.url()).toBe(url);
+  await expect(line.getByRole("link", { name: /^Alle Genehmigungen in / })).toHaveAttribute(
+    "href",
+    /\/genehmigungen\?ort=/,
+  );
+
+  // Its "… beantragen" task is not among the Übersicht's tasks: the permit shows once.
+  const link = line.getByRole("link", { name: /^Genehmigung öffnen: / }).first();
+  const title = ((await link.textContent()) ?? "").trim();
+  expect(title).not.toBe("");
+  const main = page.getByRole("region", { name: "Heute & nächste Tage" });
+  await expect(main.getByRole("link", { name: `Öffnen: ${title} beantragen` })).toHaveCount(0);
+
+  // A row opens the permit drawer on Genehmigungen.
+  await link.click();
+  await expect(page).toHaveURL(/\/genehmigungen\?genehmigung=/);
+  await expect(permitDrawer(page)).toContainText(title);
+});
+
 test("Übersicht: tasks of past markets are one calm line; Aufräumen skips a market and undoes", async ({
   page,
 }) => {

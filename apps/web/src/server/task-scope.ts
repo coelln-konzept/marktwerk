@@ -1,8 +1,8 @@
 import "server-only";
-import { pastEventCutoff, resolveRelativeDue } from "@marktwerk/core";
+import { can, pastEventCutoff, resolveRelativeDue } from "@marktwerk/core";
 import { isOwnWorkItem, isTopLevel } from "@marktwerk/db";
 import { event, task } from "@marktwerk/db/schema";
-import { and, eq, exists, gte, isNull, or, type SQL, sql } from "drizzle-orm";
+import { and, eq, exists, gte, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { type Actor, visibleEvents } from "./actor";
 import { db } from "./db";
 
@@ -56,4 +56,14 @@ export function deadlineScope(actor: Actor, mineOnly = false): SQL {
     return and(visibleTasks(actor), isTopLevel()) as SQL;
   if (!actor.staffMemberId) return sql`false`;
   return and(visibleTasks(actor), eq(task.assigneeId, actor.staffMemberId), isOwnWorkItem()) as SQL;
+}
+
+/**
+ * The Übersicht leaves out a season permit's own "… beantragen" task (source `permit`, no event, Fahrplan SAI8):
+ * "Saison-Anträge" shows its permit, with the Ort and the status, so the same application does not show twice. Only
+ * for those who read permits (the others do not see that panel and keep the task). The task stays everywhere else.
+ */
+export function notSeasonApplyTask(actor: Actor): SQL {
+  if (!can(actor.role, "permit", "read")) return sql`true`;
+  return or(ne(task.source, "permit"), sql`${task.eventId} is not null`) as SQL;
 }

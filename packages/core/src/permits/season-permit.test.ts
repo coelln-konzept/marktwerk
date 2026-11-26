@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  dueSeasonPermits,
+  fillApplyBy,
   permitApplyDueAt,
   permitApplyTaskTitle,
-  SEASON_PERMIT_CREATE_DAYS,
   SEASON_START_MD,
   type SeasonPermitRequirement,
   seasonPermitApplyBy,
@@ -68,91 +67,25 @@ describe("season start and apply-by (ADR 0024)", () => {
   });
 });
 
-describe("dueSeasonPermits: which season's permit the job creates on a day", () => {
-  const req = lead(180);
-  // Apply-by 2026-09-02, created 30 days before: 2026-08-03.
-
-  it("creates next season's permit 30 days before its apply-by, not earlier", () => {
-    expect(SEASON_PERMIT_CREATE_DAYS).toBe(30);
-    expect(dueSeasonPermits(req, [], "2026-08-02")).toEqual([]);
-    expect(dueSeasonPermits(req, [], "2026-08-03")).toEqual([
-      { season: 2027, applyBy: "2026-09-02", createOn: "2026-08-03" },
-    ]);
-    // Still due later (a missed night, or apply-by already passed) until the season starts.
-    expect(dueSeasonPermits(req, [], "2026-12-31").map((d) => d.season)).toEqual([2027]);
-    expect(dueSeasonPermits(req, [], "2027-02-28").map((d) => d.season)).toEqual([2027]);
+describe("fillApplyBy: the apply-by of the permit a new date makes (SAI8)", () => {
+  it("fixes a season permit in the calendar while its season has not started", () => {
+    // Planned in September 2026 for May 2027: 180 days before 1 March, not before the date.
+    expect(fillApplyBy(lead(180), "2027-05-02", 2027, "2026-09-01")).toBe("2026-09-02");
+    expect(fillApplyBy(windowed("10-01", "11-30"), "2027-05-02", 2027, "2026-09-01")).toBe(
+      "2026-11-30",
+    );
+    // Even when the calendar deadline has passed already: the date was planned late, the permit is overdue.
+    expect(fillApplyBy(lead(180), "2027-05-02", 2027, "2026-12-01")).toBe("2026-09-02");
+    for (const cadence of ["per_year", "multi_year", "standing"] as const)
+      expect(fillApplyBy(lead(180, cadence), "2027-05-02", 2027, "2026-09-01")).toBe("2026-09-02");
   });
 
-  it("leaves a season that has started to the logbook fill", () => {
-    expect(dueSeasonPermits(req, [], "2027-03-01")).toEqual([]);
-    expect(dueSeasonPermits(req, [], "2027-06-15")).toEqual([]);
-    // From the next creation day on, the season after it (2028 is a leap year: one day later).
-    expect(dueSeasonPermits(req, [], "2027-08-03")).toEqual([]);
-    expect(dueSeasonPermits(req, [], "2027-08-04").map((d) => d.season)).toEqual([2028]);
+  it("takes the date's own deadline when that is earlier (a date before 1 March)", () => {
+    expect(fillApplyBy(lead(60), "2027-01-17", 2027, "2026-09-01")).toBe("2026-11-18");
   });
 
-  it("creates nothing when the season has its permit already (any status but superseded)", () => {
-    const of = (season: number, status = "not_started" as const) => ({
-      season,
-      status,
-      validUntil: null,
-    });
-    expect(dueSeasonPermits(req, [of(2027)], "2026-09-01")).toEqual([]);
-    expect(dueSeasonPermits(req, [{ ...of(2027), status: "rejected" }], "2026-09-01")).toEqual([]);
-    expect(
-      dueSeasonPermits(req, [{ ...of(2027), status: "superseded" }], "2026-09-01").map(
-        (d) => d.season,
-      ),
-    ).toEqual([2027]);
-    // Last season's permit does not count for this one.
-    expect(dueSeasonPermits(req, [of(2026, "granted" as never)], "2026-09-01")).toHaveLength(1);
-  });
-
-  it("treats per_year like per_season and never makes one for per_event", () => {
-    expect(dueSeasonPermits(lead(180, "per_year"), [], "2026-09-01")).toHaveLength(1);
-    expect(dueSeasonPermits(lead(180, "per_event"), [], "2026-09-01")).toEqual([]);
-  });
-
-  it("renews a multi-year or standing permit only when it runs out, or when there is none", () => {
-    const multi = lead(90, "multi_year"); // apply-by 2026-12-01, created 2026-11-01
-    const valid = (validUntil: string | null) => ({
-      season: null,
-      status: "granted" as const,
-      validUntil,
-    });
-    expect(dueSeasonPermits(multi, [], "2026-11-01")).toEqual([
-      { season: 2027, applyBy: "2026-12-01", createOn: "2026-11-01" },
-    ]);
-    expect(dueSeasonPermits(multi, [valid("2027-12-31")], "2026-11-01")).toEqual([]);
-    expect(dueSeasonPermits(multi, [valid(null)], "2026-11-01")).toEqual([]);
-    // Runs out during the coming season (30.06.2027): the renewal is due.
-    expect(dueSeasonPermits(multi, [valid("2027-06-30")], "2026-11-01")).toHaveLength(1);
-    expect(dueSeasonPermits(lead(90, "standing"), [], "2026-11-01")).toHaveLength(1);
-    expect(dueSeasonPermits(lead(90, "standing"), [valid(null)], "2026-11-01")).toEqual([]);
-  });
-
-  it("with a very long lead time makes at most one multi-year permit, but both seasons' season permits", () => {
-    // Apply-by 2026-03-01 for 2027 (created 2026-01-30) and 2025-03-01 … for 2026: on 2026-02-10 both are due.
-    expect(dueSeasonPermits(lead(365), [], "2026-02-10").map((d) => d.season)).toEqual([
-      2026, 2027,
-    ]);
-    expect(
-      dueSeasonPermits(lead(365, "multi_year"), [], "2026-02-10").map((d) => d.season),
-    ).toEqual([2026]);
-  });
-
-  it("works across the year end and in leap years", () => {
-    const late = lead(1); // apply-by the last day of February, created 30 days before
-    expect(dueSeasonPermits(late, [], "2027-01-29")).toEqual([
-      { season: 2027, applyBy: "2027-02-28", createOn: "2027-01-29" },
-    ]);
-    expect(dueSeasonPermits(late, [], "2028-01-30")).toEqual([
-      { season: 2028, applyBy: "2028-02-29", createOn: "2028-01-30" },
-    ]);
-    expect(dueSeasonPermits(late, [], "2028-01-29")).toEqual([]);
-    // A window closing 30.11.: created 31.10. of the year before the season.
-    expect(dueSeasonPermits(windowed("10-01", "11-30"), [], "2026-10-31")).toEqual([
-      { season: 2027, applyBy: "2026-11-30", createOn: "2026-10-31" },
-    ]);
+  it("takes the date's own deadline once the season is running, and always for a per-date permit", () => {
+    expect(fillApplyBy(lead(60), "2027-07-04", 2027, "2027-03-01")).toBe("2027-05-05");
+    expect(fillApplyBy(lead(14, "per_event"), "2027-05-02", 2027, "2026-09-01")).toBe("2027-04-18");
   });
 });

@@ -145,7 +145,8 @@ async function AppointmentsToday({
 }
 
 /**
- * "Genehmigungen demnächst" (CF9-6): permits further out than 7 days but inside the permit horizon. Since
+ * "Genehmigungen demnächst" (CF9-6): permits further out than 7 days but inside the permit horizon, except the
+ * season applications not filed yet (they have "Saison-Anträge", SAI8). Since
  * 2026-11-13 the last section of the Übersicht, full width under the main panel and the weekend box. The
  * same rows as everywhere (snooze, J/K); the shield marks the heading in the info colour. Empty → one line.
  */
@@ -161,7 +162,8 @@ export async function UpcomingPermitsCard({
   className?: string;
 }) {
   const t = await getTranslations("overview.due");
-  const upcoming = due.later.filter((i) => i.urgency === "upcoming");
+  // A season application is under "Saison-Anträge" already (SAI8); it comes back here once it is due within 7 days.
+  const upcoming = due.later.filter((i) => i.urgency === "upcoming" && !i.seasonApplication);
   return (
     <Panel
       title={

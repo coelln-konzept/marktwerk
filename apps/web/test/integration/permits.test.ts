@@ -13,7 +13,7 @@ import {
   venue,
 } from "@marktwerk/db/schema";
 import { and, asc, eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { todayIn } from "@/lib/format";
 import { db } from "@/server/db";
 import { changeEventStatus } from "@/server/services/event-lifecycle";
@@ -90,6 +90,15 @@ async function generate(...days: string[]) {
 }
 
 describe("logbook fill on event creation", () => {
+  // A season permit's apply-by depends on whether its season has started (core `fillApplyBy`): fix the day.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-26T10:00:00+01:00"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("creates one season permit for several events, with apply-by from the window, a task and links", async () => {
     const req = await requirement();
     const ids = await generate("2027-05-02", "2027-06-06");
@@ -151,13 +160,13 @@ describe("logbook fill on event creation", () => {
     const ids = await generate("2027-05-02", "2028-05-07");
 
     const permits = await db.select().from(permit).orderBy(asc(permit.season));
-    // 2027 is covered; 2028 is missing and gets its own application.
+    // 2027 is covered; 2028 is missing and gets its own application, due 120 days before the season starts.
     expect(permits).toHaveLength(2);
     expect(permits[0]?.id).toBe(held?.id);
     expect(permits[1]).toMatchObject({
       season: 2028,
       status: "not_started",
-      applyBy: "2028-01-08",
+      applyBy: "2027-11-02",
     });
 
     const links = await db.select().from(eventPermit);
@@ -217,11 +226,11 @@ describe("logbook fill on event creation", () => {
     const permits = await db.select().from(permit).orderBy(asc(permit.createdAt));
     expect(permits).toHaveLength(2);
     expect(permits[0]?.id).toBe(held?.id);
-    // 2029 is outside the validity: a new multi-year permit with no season.
+    // 2029 is outside the validity: a new multi-year permit with no season, due 30 days before 1 March 2029.
     expect(permits[1]).toMatchObject({
       season: null,
       status: "not_started",
-      applyBy: "2029-04-06",
+      applyBy: "2029-01-30",
     });
   });
 
@@ -262,7 +271,7 @@ describe("logbook fill on event creation", () => {
     expect(permits.map((p) => p.title)).toEqual(["Marktgenehmigung"]);
   });
 
-  it("is idempotent and moves the deadline when an earlier event joins an unfiled permit", async () => {
+  it("is idempotent and moves the deadline when a date before the season start joins an unfiled permit", async () => {
     await requirement({
       title: "Wasser",
       permitType: "water",
@@ -274,20 +283,24 @@ describe("logbook fill on event creation", () => {
     const [first] = await generate("2027-06-06");
     expect(first).toBeDefined();
     const before = await db.select().from(permit);
-    expect(before[0]?.applyBy).toBe("2027-05-07");
+    // Fixed in the calendar: 30 days before the season starts on 1 March (SAI8), not before the date.
+    expect(before[0]?.applyBy).toBe("2027-01-30");
 
     // Same event again: nothing new.
     await db.transaction((tx) => fillLogbookForEvents(tx, [first as string], owner));
     expect(await db.select().from(permit)).toHaveLength(1);
     expect(await db.select().from(eventPermit)).toHaveLength(1);
 
+    // A date after 1 March changes nothing; one in January needs the permit earlier.
     await generate("2027-05-02");
+    expect((await db.select().from(permit))[0]?.applyBy).toBe("2027-01-30");
+    await generate("2027-01-17");
     const after = await db.select().from(permit);
     expect(after).toHaveLength(1);
-    expect(after[0]?.applyBy).toBe("2027-04-02");
+    expect(after[0]?.applyBy).toBe("2026-12-18");
     const [t] = await db.select().from(task);
-    expect(t?.dueAt?.toISOString()).toBe("2027-04-02T21:59:00.000Z");
-    expect(await db.select().from(eventPermit)).toHaveLength(2);
+    expect(t?.dueAt?.toISOString()).toBe("2026-12-18T22:59:00.000Z");
+    expect(await db.select().from(eventPermit)).toHaveLength(3);
   });
 
   it("creates events without requirements untouched and sends one grouped notification", async () => {

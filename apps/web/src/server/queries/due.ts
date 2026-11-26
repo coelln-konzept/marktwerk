@@ -57,6 +57,11 @@ export type DueItem = {
    * (`task.waiting_reason`). Set by the Übersicht (`getOverview`); the row says "Wartet auf <Grund>".
    */
   waiting?: { reason: string | null };
+  /**
+   * A season permit not filed yet (one per Ort and season, Fahrplan SAI8): "Saison-Anträge" lists it already, so
+   * "Genehmigungen demnächst" leaves it out; Überfällig, Heute and Nächste Tage still show it.
+   */
+  seasonApplication?: boolean;
 };
 
 export const CALENDAR_LAYERS = [

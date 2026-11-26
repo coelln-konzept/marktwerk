@@ -1,6 +1,7 @@
 # 0024: Recurring work lives on three levels; no Saison record
 
-**Status:** accepted (2026-11-25, product owner, option A of the Saison rethink, Fahrplan SAI1).
+**Status:** accepted (2026-11-25, product owner, option A of the Saison rethink, Fahrplan SAI1); amended
+2026-11-26 (SAI8: planning the dates creates the season permits, no nightly job, see "Amendment" below).
 Replaces the Saison record of research 13 §6 (Fahrplan R6–R14, R18, R27, migration 0022).
 
 ## Context
@@ -50,3 +51,22 @@ started). `permit.season` (the year) stays.
 - Open: whether the owner's agreement on private ground is per season (assumed) or multi-year; the exact application
   window per authority (taken from each requirement).
 - Steps: Fahrplan SAI2–SAI6.
+
+## Amendment 2026-11-26: the dates create the season permits (Fahrplan SAI8)
+Asked where the event-less "… beantragen" tasks show, the product owner found them hard to find (they piled up under
+"Weitere Aufgaben") and decided that **planning the Termine is what creates the need for a season permit**, not a
+job. So:
+- **No nightly `season-permits` job.** The first date of a season at an Ort creates the Ort's season permits with
+  their own "… beantragen" tasks (`fillLogbookForEvents`); later dates link to them. An Ort without dates in a season
+  gets none. The Pflicht "Termine für die neue Saison planen" (due before the applications) is the reminder to plan.
+- **The apply-by stays fixed in the calendar** (core `fillApplyBy`): while the season has not started, the end of
+  the last submission window before 1 March, else lead time before 1 March; a date in January or February can make
+  it earlier; once the season runs, a new date's own deadline.
+- **The Übersicht shows them as "Saison-Anträge"**: one line per Ort and season ("Kerpen · Saison 2027 · 3 Anträge
+  offen", overdue first), opened in place to the permits; their tasks leave the Übersicht's task lists (for those
+  who read permits), and "Genehmigungen demnächst" leaves them to that panel until they are due within 7 days.
+- **The task and its permit stay in step**: the task drawer names the permit and its Ort; ticking the task done
+  marks the permit "Beantragt" (undo takes both back), as "Als beantragt markieren" already closed the task.
+- Reminders and the digest name the Ort.
+- Migration 0027 archived the permits the job had made for Orte without dates (untouched only) and cancelled their
+  tasks.
