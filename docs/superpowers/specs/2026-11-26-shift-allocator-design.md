@@ -50,11 +50,13 @@ pattern as the Zeitplan, ADR 0022). Later preset edits never reach existing even
 | `event_id` | uuid → event, cascade | |
 | `work_date` | date | within the event's days |
 | `duty_role_id` | uuid → duty_role, restrict | |
+| `schedule_kind` | enum setup/open/teardown | which Zeitplan part; the same role can be needed for Aufbau and Abbau |
 | `headcount` | integer ≥ 0 | 0 = role not needed that day |
 | `planned_start`, `planned_end` | time, nullable | from the Zeitplan row of `scheduleKind` that day |
 | timestamps | | |
 
-Unique `(event_id, work_date, duty_role_id)`.
+Unique `(event_id, work_date, duty_role_id, schedule_kind)`. Times come from the team row of that kind that day,
+or else from any row of that kind that day (default Zeitplans have no team rows).
 
 **`shift.need_id`** (new): nullable uuid → `shift_need`, `on delete set null`. A shift without a need (office
 hours, an extra helper) keeps working. Nothing else on `shift` changes, so the hours, payroll and ArbZG code is
@@ -174,7 +176,8 @@ All screens follow the UX concept:
 - "+ Person" opens the picker: a popover on desktop, a sheet on mobile. It shows the ranked groups with their flags
   ("noch 8 h → 3 h", "nicht verfügbar: nur bis 15 Uhr") and a search box.
 - The headcount and times of a need can be edited for that day only.
-- Shifts without a need are listed under "Weitere Schichten". These day blocks replace `EventShifts`.
+- Shifts without a need are listed under "Weitere Schichten". These day blocks replace `EventShifts` for planning.
+  `EventShifts` (time recording) stays below them once the event has started.
 - Without needs and with preset staffing available, the tab shows the button "Personalbedarf aus Vorlage
   übernehmen".
 - TeamSummaryPanel shows "N offene Schichten".
