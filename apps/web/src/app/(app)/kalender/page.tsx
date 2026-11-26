@@ -147,7 +147,6 @@ export default async function KalenderPage({ searchParams }: PageProps<"/kalende
   const tCal = await getTranslations("calendar");
   const tAppt = await getTranslations("appointments");
   const tStatus = await getTranslations("status.event");
-  const _tTasks = await getTranslations("tasks");
   const tNotes = await getTranslations("holidayNotes");
   const locale = await getLocale();
   const today = todayIn();
