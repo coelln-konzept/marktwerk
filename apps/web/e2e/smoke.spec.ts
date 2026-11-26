@@ -1775,7 +1775,7 @@ async function appointmentId(page: Page, name: string): Promise<string> {
   return (href ?? "").split("besprechung:")[1] ?? "";
 }
 
-test("Veranstaltung löschen: the button stays disabled until the exact name is typed; a throwaway event is gone afterwards", async ({
+test("Veranstaltung löschen: the button stays disabled until the exact name is typed; a throwaway event is gone afterwards, with the season permits it made (SAI7)", async ({
   page,
 }) => {
   const name = `E2E-Löschen ${Date.now()}`;
@@ -1801,6 +1801,10 @@ test("Veranstaltung löschen: the button stays disabled until the exact name is 
   const input = dialog.getByLabel(/Zum Bestätigen den Namen/);
   await expect(input).toBeEnabled(); // the blockers are loaded
   await expect(remove).toBeDisabled();
+  // The only date of 2031 at its Ort made that season's permits: nobody touched them, so they go with it (SAI7).
+  await expect(dialog).toContainText(
+    /\d+ unbearbeitete Genehmigungen?, die kein anderer Termin braucht/,
+  );
   await input.fill(name.toLowerCase());
   await expect(remove).toBeDisabled();
   await input.fill(`${name} `); // surrounding spaces do not matter
@@ -1814,6 +1818,11 @@ test("Veranstaltung löschen: the button stays disabled until the exact name is 
   await page.goto(eventUrl); // the page is gone (streamed 404: the status is 200, the event is not shown)
   await expect(page.getByRole("heading", { level: 1, name })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Weitere Aktionen für/ })).toHaveCount(0);
+  // No application for 2031 is left behind on the Übersicht.
+  await page.goto("/");
+  await expect(
+    page.locator("details[data-season-line]").filter({ hasText: "Saison 2031" }),
+  ).toHaveCount(0);
 });
 
 test('Task drawer: subtasks are added with Enter, ticked off, and "Hauptaufgabe auch erledigen?" completes the parent', async ({

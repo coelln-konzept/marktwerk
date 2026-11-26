@@ -366,9 +366,10 @@
         "permitLinks": "{count, plural, one {# Verknüpfung zu einer Genehmigung} other {# Verknüpfungen zu Genehmigungen}}",
         "duties": "{count, plural, one {# Zuständigkeit} other {# Zuständigkeiten}}",
         "checklists": "{count, plural, one {# Checkliste} other {# Checklisten}}",
-        "notes": "die Notizen"
+        "notes": "die Notizen",
+        "permits": "{count, plural, one {# unbearbeitete Genehmigung, die kein anderer Termin braucht (wird archiviert, im Logbuch wiederherstellbar)} other {# unbearbeitete Genehmigungen, die kein anderer Termin braucht (werden archiviert, im Logbuch wiederherstellbar)}}"
       },
-      "kept": "Das lässt sich nicht rückgängig machen. Die Genehmigungen selbst und „Fürs nächste Mal“ bleiben."
+      "kept": "Das lässt sich nicht rückgängig machen. Die übrigen Genehmigungen und „Fürs nächste Mal“ bleiben."
     },
     "move": {
       "open": "Verschieben",

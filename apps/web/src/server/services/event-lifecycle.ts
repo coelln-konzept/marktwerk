@@ -31,6 +31,7 @@ import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
+import { archiveUntouchedPermits, untouchedPermitsOnlyFor } from "./permit-orphans";
 
 export type EventLifecycleError =
   | "not_found"
@@ -507,10 +508,15 @@ export async function countEventDeleteBlockers(
   return { payables, expenses, shifts, documents };
 }
 
-/** What a deletion takes with it that people work with (UX-061); the permits themselves and "Fürs nächste Mal" stay. */
+/**
+ * What a deletion takes with it that people work with (UX-061). The permits and "Fürs nächste Mal" stay, except
+ * the permits nobody has touched that no other date needs: they are archived (`permits`, SAI7).
+ */
 export type EventDeleteLosses = {
   tasks: number;
   permitLinks: number;
+  /** Untouched permits of only this date, archived with it (restorable in the logbook). */
+  permits: number;
   duties: number;
   checklists: number;
   notes: boolean;
@@ -538,19 +544,27 @@ export async function getEventDeleteInfo(actor: Actor, id: string): Promise<Even
     .where(eq(event.id, id));
   if (!row) throw new EventLifecycleInputError("not_found");
   const n = async (q: PromiseLike<{ n: number }[]>) => (await q)[0]?.n ?? 0;
-  const [blockers, tasks, permitLinks, duties, checklists] = await Promise.all([
+  const [blockers, tasks, permitLinks, duties, checklists, untouched] = await Promise.all([
     countEventDeleteBlockers(db, id),
     n(db.select({ n: count() }).from(task).where(eq(task.eventId, id))),
     n(db.select({ n: count() }).from(eventPermit).where(eq(eventPermit.eventId, id))),
     n(db.select({ n: count() }).from(eventDuty).where(eq(eventDuty.eventId, id))),
     n(db.select({ n: count() }).from(checklist).where(eq(checklist.eventId, id))),
+    untouchedPermitsOnlyFor(db, id),
   ]);
   return {
     name: row.name,
     startsOn: row.startsOn,
     endsOn: row.endsOn,
     blockers,
-    losses: { tasks, permitLinks, duties, checklists, notes: !!row.notes?.trim() },
+    losses: {
+      tasks,
+      permitLinks,
+      permits: untouched.length,
+      duties,
+      checklists,
+      notes: !!row.notes?.trim(),
+    },
   };
 }
 
@@ -559,7 +573,9 @@ export async function getEventDeleteInfo(actor: Actor, id: string): Promise<Even
  * (surrounding spaces ignored, case-sensitive). Refused while payments, expenses, shifts or documents hang
  * on it. Everything that only belongs to the event goes with it through the foreign-key cascades (tasks and
  * their comments / check items, checklists, duties, permit links, anchors, budget lines, income); the
- * permit itself stays. The audit entry is written first and keeps a snapshot, since the event is gone after.
+ * permit itself stays, unless nobody has touched it and no other date needs it: then it is archived with its open
+ * "… beantragen" task cancelled (SAI7, `untouchedPermitsOnlyFor`; restorable in the logbook). The audit entry is
+ * written first and keeps a snapshot, since the event is gone after.
  */
 export async function deleteEvent(
   actor: Actor,
@@ -614,6 +630,7 @@ async function deleteEventTx(actor: Actor, id: string, confirmName: string) {
         tx.select({ n: count() }).from(eventIncome).where(eq(eventIncome.eventId, id)),
       ),
     };
+    const archivedPermits = await untouchedPermitsOnlyFor(tx, id);
     await audit(tx, actor.id, [
       {
         action: "event.delete",
@@ -630,9 +647,11 @@ async function deleteEventTx(actor: Actor, id: string, confirmName: string) {
           cancelledReason: row.cancelledReason,
           archived: row.archivedAt !== null,
           cascaded,
+          ...(archivedPermits.length > 0 ? { archivedPermits } : {}),
         },
       },
     ]);
+    await archiveUntouchedPermits(tx, actor.id, archivedPermits, id);
     await tx.delete(event).where(eq(event.id, id));
     return { name: row.name };
   });

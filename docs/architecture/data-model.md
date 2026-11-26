@@ -144,8 +144,13 @@ erDiagram
   **Deleting an event** (`deleteEvent`, owner/manager, name typed): `payable`, `expense`, `shift` and `document` reference it
   with `on delete restrict` (documents also through `document.task_id` on the event's tasks), so any of them, archived
   ones included, blocks the deletion (`blocked` with counts). Everything else cascades: tasks (with their subtasks and
-  old comments), checklists, duties, anchors, budget lines, income and permit links; the permit stays.
-  Audit `event.delete` (written first; `entity_id` is no foreign key) keeps a snapshot incl. the cascaded counts.
+  old comments), checklists, duties, anchors, budget lines, income and permit links; the permit stays, unless it is
+  **untouched and only this date needs it** (SAI7, `untouchedPermitsOnlyFor`: made by the logbook fill, still
+  `not_started`, nothing in its audit history but `permit.create` / `permit.link`, no document, its own task never
+  started): then it is archived (audit `permit.archive`, source `event_delete`, with the tasks it cancelled) and its
+  own open task without an event cancelled; restoring it in the logbook reopens that task (`restorePermit`).
+  Audit `event.delete` (written first; `entity_id` is no foreign key) keeps a snapshot incl. the cascaded counts and
+  `archivedPermits`.
   No required permit → stays planned (manual confirmation). Never moves back,
   the permit health keeps showing a withdrawn permit,
   **booking flags**: `booking_open` (bool), `fully_booked` (bool), `car_spaces_full` (bool);
