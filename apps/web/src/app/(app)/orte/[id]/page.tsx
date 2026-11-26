@@ -216,7 +216,7 @@ export default async function VenuePage({ params }: PageProps<"/orte/[id]">) {
             cardClassName="overflow-hidden"
             actions={
               <Link
-                href={`/veranstaltungen?ort=${venue.id}&status=alle` as never}
+                href={`/veranstaltungen?ort=${venue.id}&status=alle&saison=alle` as never}
                 className={panelActionLink}
               >
                 {td("allEvents")}
