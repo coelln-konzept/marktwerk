@@ -260,9 +260,20 @@ async function cascadeToTasks(
   return cascade;
 }
 
+type Cascade = {
+  cancelledTasks?: unknown[];
+  reopenedTaskIds?: unknown[];
+  cancelledShifts?: unknown[];
+  reopenedShiftIds?: unknown[];
+};
+
 /** How many tasks a status change cancelled or reopened. */
-const cascadeCount = (cascade: { cancelledTasks?: unknown[]; reopenedTaskIds?: unknown[] }) =>
+const cascadeCount = (cascade: Cascade) =>
   (cascade.cancelledTasks?.length ?? 0) + (cascade.reopenedTaskIds?.length ?? 0);
+
+/** How many planned shifts it cancelled or restored. */
+const cascadeShifts = (cascade: Cascade) =>
+  (cascade.cancelledShifts?.length ?? 0) + (cascade.reopenedShiftIds?.length ?? 0);
 
 /**
  * Moves an event through its lifecycle (packages/core events/lifecycle). Cancelling needs a reason.
@@ -274,7 +285,13 @@ export async function changeEventStatus(
   id: string,
   to: string,
   reason?: string | null,
-): Promise<{ from: EventStatus; to: EventStatus; previousReason: string | null; tasks: number }> {
+): Promise<{
+  from: EventStatus;
+  to: EventStatus;
+  previousReason: string | null;
+  tasks: number;
+  shifts: number;
+}> {
   if (!can(actor.role, "event", "write")) forbidden();
   if (!isEventStatus(to)) throw new EventLifecycleInputError("invalid_status");
   const trimmed = reason?.trim().slice(0, MAX_REASON_LENGTH) || null;
@@ -307,6 +324,7 @@ export async function changeEventStatus(
       to,
       previousReason: current.cancelledReason,
       tasks: cascadeCount(cascade),
+      shifts: cascadeShifts(cascade),
     };
   });
 }
@@ -448,7 +466,12 @@ export async function revertEventStatus(
         diff: { from: expected, to: previous, undo: true, ...cascade },
       },
     ]);
-    return { from: expected, to: previous, tasks: cascadeCount(cascade) };
+    return {
+      from: expected,
+      to: previous,
+      tasks: cascadeCount(cascade),
+      shifts: cascadeShifts(cascade),
+    };
   });
 }
 
@@ -509,7 +532,13 @@ async function lastCancelledTaskCount(x: Pick<typeof db, "select">, eventId: str
 export async function restoreCancelledEvent(
   actor: Actor,
   id: string,
-): Promise<{ from: EventStatus; to: EventStatus; previousReason: string | null; tasks: number }> {
+): Promise<{
+  from: EventStatus;
+  to: EventStatus;
+  previousReason: string | null;
+  tasks: number;
+  shifts: number;
+}> {
   if (!can(actor.role, "event", "write")) forbidden();
   return db.transaction(async (tx) => {
     const current = await lockEvent(tx, id);
@@ -530,6 +559,7 @@ export async function restoreCancelledEvent(
       to,
       previousReason: current.cancelledReason,
       tasks: cascadeCount(cascade),
+      shifts: cascadeShifts(cascade),
     };
   });
 }

@@ -48,6 +48,8 @@
       "restored": "Cancellation lifted: {to} again",
       "tasksCancelled": "{count, plural, one {# task cancelled with it} other {# tasks cancelled with it}}",
       "tasksReopened": "{count, plural, one {# task open again} other {# tasks open again}}",
+      "shiftsCancelled": "{count, plural, one {# shift cancelled} other {# shifts cancelled}}",
+      "shiftsRestored": "{count, plural, one {# shift restored} other {# shifts restored}}",
       "actions": {
         "draft": "Set to draft",
         "planned": "Set to planned",
@@ -269,6 +271,8 @@
       "statusRestored": "Cancellation lifted: {from} → {to}",
       "tasksCancelled": "{count, plural, one {# task cancelled with it} other {# tasks cancelled with it}}",
       "tasksReopened": "{count, plural, one {# task open again} other {# tasks open again}}",
+      "shiftsCancelled": "{count, plural, one {# shift cancelled} other {# shifts cancelled}}",
+      "shiftsRestored": "{count, plural, one {# shift restored} other {# shifts restored}}",
       "tasksShifted": "{count, plural, one {# task moved} other {# tasks moved}}",
       "seasonTasksShifted": "{count, plural, one {# season task moved} other {# season tasks moved}}",
       "confirmationsReset": "{count, plural, one {# confirmation reset} other {# confirmations reset}}",

@@ -601,11 +601,11 @@ describe("final review: side effects and integrity", () => {
     const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
     const { need, shiftId } = await confirmedShift(ev!.id);
     const moved = await moveEvent(owner, ev!.id, "2026-12-20", "2026-12-13");
-    expect(moved.resetShiftIds).toEqual([shiftId]);
+    expect(moved.resetShifts).toEqual([{ id: shiftId, version: 3 }]);
     expect(await shiftRow(shiftId)).toMatchObject({ status: "requested", workDate: "2026-12-20" });
     await moveEvent(owner, ev!.id, "2026-12-13", "2026-12-20", {
       undo: true,
-      restoreConfirmed: moved.resetShiftIds,
+      restoreConfirmed: moved.resetShifts,
     });
     const back = await shiftRow(shiftId);
     expect(back).toMatchObject({ status: "confirmed", workDate: "2026-12-13", needId: need.id });
@@ -670,6 +670,117 @@ describe("final review: side effects and integrity", () => {
       version: 4,
     });
     expect(await reasonsOf(shiftId)).toContain("Bedarf wieder da");
+  });
+
+  async function zeitplanFixture(
+    staffing: { count: number; kind: "open" | "setup" | "teardown" }[],
+    keep: string[],
+  ) {
+    const schedule = defaultSchedule();
+    await db
+      .update(eventPreset)
+      .set({
+        schedule: schedule.filter((r) => keep.includes(r.kind)),
+        staffing: staffing.map((r) => ({
+          dutyRoleKey: crewKey,
+          count: r.count,
+          scheduleKind: r.kind,
+        })),
+      })
+      .where(eq(eventPreset.id, cat.presets.flea.id));
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const [row] = await db.select().from(event).where(eq(event.id, ev!.id));
+    const facts = (kinds: string[]) => ({
+      schedule: schedule.filter((r) => kinds.includes(r.kind)),
+      pricePerMCents: row!.pricePerMCents,
+      bookingFeeCents: row!.bookingFeeCents,
+    });
+    return { eventId: ev!.id, facts };
+  }
+
+  it("a loose setup shift does not jump onto a new teardown need without overlapping times", async () => {
+    const { eventId, facts } = await zeitplanFixture(
+      [
+        { count: 1, kind: "setup" },
+        { count: 1, kind: "teardown" },
+      ],
+      defaultSchedule()
+        .map((r) => r.kind)
+        .filter((k) => k !== "teardown"),
+    );
+    const setup = (await needsOf(eventId)).find((n) => n.scheduleKind === "setup")!;
+    const anna = await person("Anna");
+    const { shiftId } = await assignToNeed(owner, setup.id, anna.id, { today: "2026-11-26" });
+    const all = defaultSchedule().map((r) => r.kind);
+    await updateEventFacts(
+      owner,
+      eventId,
+      facts(all.filter((k) => k !== "setup" && k !== "teardown")),
+    );
+    expect((await shiftRow(shiftId)).needId).toBeNull();
+    await updateEventFacts(owner, eventId, facts(all.filter((k) => k !== "setup")));
+    const teardown = (await needsOf(eventId)).find((n) => n.scheduleKind === "teardown");
+    expect(teardown).toBeDefined();
+    expect((await shiftRow(shiftId)).needId).toBeNull();
+    expect(await reasonsOf(shiftId)).not.toContain("Bedarf wieder da");
+  });
+
+  it("a new need takes no more loose shifts than its headcount", async () => {
+    const all = defaultSchedule().map((r) => r.kind);
+    const { eventId, facts } = await zeitplanFixture(
+      [{ count: 1, kind: "setup" }],
+      all.filter((k) => k !== "setup"),
+    );
+    expect(await needsOf(eventId)).toHaveLength(0);
+    const [need] = await db
+      .insert(shiftNeed)
+      .values({
+        eventId,
+        workDate: "2026-12-13",
+        dutyRoleId: crewRoleId,
+        scheduleKind: "setup",
+        headcount: 2,
+        plannedStart: "06:00",
+        plannedEnd: "08:00",
+      })
+      .returning();
+    const anna = await person("Anna");
+    const ben = await person("Ben");
+    const a = await assignToNeed(owner, need!.id, anna.id, { today: "2026-11-26" });
+    const b = await assignToNeed(owner, need!.id, ben.id, { today: "2026-11-26" });
+    await db.update(shift).set({ needId: null }).where(eq(shift.eventId, eventId));
+    await db.delete(shiftNeed).where(eq(shiftNeed.id, need!.id));
+    await updateEventFacts(owner, eventId, facts(all));
+    const rows = [await shiftRow(a.shiftId), await shiftRow(b.shiftId)];
+    expect(rows.filter((r) => r.needId !== null)).toHaveLength(1);
+  });
+
+  it("undo of a move leaves a shift alone that the office changed after the move", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const { shiftId } = await confirmedShift(ev!.id);
+    const moved = await moveEvent(owner, ev!.id, "2026-12-20", "2026-12-13");
+    expect(moved.resetShifts).toEqual([{ id: shiftId, version: 3 }]);
+    await setShiftStatus(owner, shiftId, "declined", 3);
+    await setShiftStatus(owner, shiftId, "requested", 4);
+    await moveEvent(owner, ev!.id, "2026-12-13", "2026-12-20", {
+      undo: true,
+      restoreConfirmed: moved.resetShifts,
+    });
+    expect(await shiftRow(shiftId)).toMatchObject({ status: "requested" });
+  });
+
+  it("a Zeitplan edit of an event that has ended adds no needs", async () => {
+    const all = defaultSchedule().map((r) => r.kind);
+    const { eventId, facts } = await zeitplanFixture(
+      [{ count: 1, kind: "teardown" }],
+      all.filter((k) => k !== "teardown"),
+    );
+    await db
+      .update(event)
+      .set({ startsOn: "2026-11-20", endsOn: "2026-11-20" })
+      .where(eq(event.id, eventId));
+    await updateEventFacts(owner, eventId, facts(all));
+    expect(await needsOf(eventId)).toHaveLength(0);
   });
 
   it("updateShift to another day unlinks the shift from its need", async () => {

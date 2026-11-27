@@ -77,6 +77,9 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
+/** A shift a move set back to angefragt and the version it wrote; the undo restores it only at that version. */
+export type ResetShift = { id: string; version: number };
+
 async function lockEvent(tx: Tx, id: string) {
   if (!UUID.test(id)) throw new EventDetailsInputError("not_found");
   const [row] = await tx
@@ -166,11 +169,13 @@ export async function updateEventFacts(
       .where(eq(event.id, id));
     // A new Zeitplan rebuilds the needs like a new length (decision 2026-11-27): fitting needs keep their
     // people and per-day edits (also their times), new parts get needs, needs of a removed part go.
-    const rebuilt = changes.schedule
-      ? await inOpenPayroll(() =>
-          rebuildNeedsTx(tx, actor, id, { startsOn: current.startsOn, durationDays }, "schedule"),
-        )
-      : undefined;
+    // A finished event gets no new open needs for its past days.
+    const rebuilt =
+      changes.schedule && current.endsOn >= todayIn()
+        ? await inOpenPayroll(() =>
+            rebuildNeedsTx(tx, actor, id, { startsOn: current.startsOn, durationDays }, "schedule"),
+          )
+        : undefined;
     const needsRemoved = rebuilt?.removed ?? 0;
     const shiftsUnlinked = rebuilt?.unlinked.length ?? 0;
     await audit(tx, actor.id, [
@@ -476,13 +481,13 @@ async function applySchedule(
   current: EventRow,
   next: { startsOn: string; endsOn: string; durationDays: number },
   cause: "event_move" | "event_update",
-  opts: { restoreConfirmed?: readonly string[] } = {},
+  opts: { restoreConfirmed?: readonly ResetShift[] } = {},
 ): Promise<{
   anchors: Record<string, { from: string | null; to: string }>;
   shifted: ShiftedTask[];
   seasonShifted: number;
   confirmationsReset: number;
-  resetShiftIds: string[];
+  resetShifts: ResetShift[];
   confirmationsRestored: number;
   needsRemoved: number;
   shiftsUnlinked: number;
@@ -558,7 +563,7 @@ async function applySchedule(
     shifted,
     seasonShifted,
     confirmationsReset: staffingMove.reset.length,
-    resetShiftIds: staffingMove.reset,
+    resetShifts: staffingMove.reset,
     confirmationsRestored: staffingMove.restored.length,
     needsRemoved: rebuilt?.removed ?? 0,
     shiftsUnlinked: rebuilt?.unlinked.length ?? 0,
@@ -587,7 +592,7 @@ export async function moveEvent(
   id: string,
   startsOn: string,
   expectedStartsOn: string,
-  options: { undo?: boolean; restoreConfirmed?: readonly string[] } = {},
+  options: { undo?: boolean; restoreConfirmed?: readonly ResetShift[] } = {},
 ): Promise<{
   changed: boolean;
   from: string;
@@ -596,7 +601,7 @@ export async function moveEvent(
   seasonTasksShifted: number;
   confirmationsReset: number;
   /** The shifts that went from bestätigt to angefragt; the undo passes them back as `restoreConfirmed`. */
-  resetShiftIds: string[];
+  resetShifts: ResetShift[];
 }> {
   if (!can(actor.role, "event", "write")) forbidden();
   if (options.undo) {
@@ -615,19 +620,21 @@ export async function moveEvent(
         tasksShifted: 0,
         seasonTasksShifted: 0,
         confirmationsReset: 0,
-        resetShiftIds: [],
+        resetShifts: [],
       };
 
     const next = target(current, { startsOn });
     const restoreConfirmed = options.undo
-      ? (options.restoreConfirmed ?? []).filter((x) => UUID.test(x)).slice(0, 1000)
+      ? (options.restoreConfirmed ?? [])
+          .filter((x) => UUID.test(x.id) && Number.isInteger(x.version))
+          .slice(0, 1000)
       : [];
     const {
       anchors,
       shifted,
       seasonShifted,
       confirmationsReset,
-      resetShiftIds,
+      resetShifts,
       confirmationsRestored,
     } = await applySchedule(tx, actor, current, next, "event_move", { restoreConfirmed });
     const retracted = options.undo
@@ -658,7 +665,7 @@ export async function moveEvent(
       tasksShifted: shifted.length,
       seasonTasksShifted: seasonShifted,
       confirmationsReset,
-      resetShiftIds,
+      resetShifts,
     };
   });
 }

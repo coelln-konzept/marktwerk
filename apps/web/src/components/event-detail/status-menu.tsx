@@ -21,17 +21,25 @@ function useStatusMessages() {
   const t = useTranslations("eventDetail");
   const tStatus = useTranslations("status.event");
   const name = (s: string) => tStatus(s as EventStatus);
-  const withTasks = (text: string, to: string, tasks: number) =>
-    tasks > 0
-      ? `${text} · ${t(to === "cancelled" ? "status.tasksCancelled" : "status.tasksReopened", { count: tasks })}`
-      : text;
+  const withTasks = (text: string, to: string, tasks: number, shifts: number) => {
+    const cancelling = to === "cancelled";
+    return [
+      text,
+      ...(tasks > 0
+        ? [t(cancelling ? "status.tasksCancelled" : "status.tasksReopened", { count: tasks })]
+        : []),
+      ...(shifts > 0
+        ? [t(cancelling ? "status.shiftsCancelled" : "status.shiftsRestored", { count: shifts })]
+        : []),
+    ].join(" · ");
+  };
   return {
-    changed: (from: string, to: string, tasks: number) =>
-      withTasks(t("status.changed", { from: name(from), to: name(to) }), to, tasks),
-    reverted: (to: string, tasks: number) =>
-      withTasks(t("status.reverted", { to: name(to) }), to, tasks),
-    restored: (to: string, tasks: number) =>
-      withTasks(t("status.restored", { to: name(to) }), to, tasks),
+    changed: (from: string, to: string, tasks: number, shifts: number) =>
+      withTasks(t("status.changed", { from: name(from), to: name(to) }), to, tasks, shifts),
+    reverted: (to: string, tasks: number, shifts: number) =>
+      withTasks(t("status.reverted", { to: name(to) }), to, tasks, shifts),
+    restored: (to: string, tasks: number, shifts: number) =>
+      withTasks(t("status.restored", { to: name(to) }), to, tasks, shifts),
   };
 }
 
@@ -56,13 +64,16 @@ export function useRestoreCancelled(eventId: string) {
         showError(errorText(result.error));
         return;
       }
-      const { to, previousReason, tasks } = result.data;
+      const { to, previousReason, tasks, shifts } = result.data;
       showToast({
-        message: messages.restored(to, tasks),
+        message: messages.restored(to, tasks, shifts),
         actionLabel: t("status.undo"),
         onAction: async () => {
           const undone = await undoStatus(eventId, to, "cancelled", previousReason);
-          if (undone.ok) showToast({ message: messages.reverted("cancelled", undone.data.tasks) });
+          if (undone.ok)
+            showToast({
+              message: messages.reverted("cancelled", undone.data.tasks, undone.data.shifts),
+            });
           else showError(errorText(undone.error));
         },
       });
@@ -134,13 +145,14 @@ export function useStatusChange({
       }
       setCancelOpen(false);
       setReason("");
-      const { from, previousReason, tasks } = result.data;
+      const { from, previousReason, tasks, shifts } = result.data;
       showToast({
-        message: messages.changed(from, to, tasks),
+        message: messages.changed(from, to, tasks, shifts),
         actionLabel: t("status.undo"),
         onAction: async () => {
           const undone = await undoStatus(eventId, to, from, previousReason);
-          if (undone.ok) showToast({ message: messages.reverted(from, undone.data.tasks) });
+          if (undone.ok)
+            showToast({ message: messages.reverted(from, undone.data.tasks, undone.data.shifts) });
           else showError(errorText(undone.error));
         },
       });

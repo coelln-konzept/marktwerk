@@ -104,8 +104,9 @@ export async function reviseShiftTx(
 /**
  * Part of the one anchor-shift path (`applySchedule`): the event's needs and their linked planned shifts move by
  * the same number of days. Moved "bestätigt" shifts go back to "angefragt" (the person agreed to the old date), with
- * a shift_revision each; their ids come back as `reset`. The undo of a move passes them as `restoreConfirmed`: those
- * that are still "angefragt" become "bestätigt" again ("Verschieben rückgängig"). Linked shifts with any other status
+ * a shift_revision each; their ids and the version written come back as `reset`. The undo of a move passes them as
+ * `restoreConfirmed`: those still "angefragt" at exactly that version (nobody touched them since) become "bestätigt"
+ * again ("Verschieben rückgängig"). Linked shifts with any other status
  * (abgesagt, entfernt, …) stay on their day and are unlinked. Refused (`period_locked`) when a changed shift lies in
  * a locked payroll month. A move never changes the length; `rebuildNeedsTx` handles that.
  */
@@ -114,9 +115,9 @@ export async function moveNeedsTx(
   actor: Actor,
   eventId: string,
   offsetDays: number,
-  opts: { restoreConfirmed?: readonly string[] } = {},
-): Promise<{ reset: string[]; restored: string[]; unlinked: string[] }> {
-  const reset: string[] = [];
+  opts: { restoreConfirmed?: readonly { id: string; version: number }[] } = {},
+): Promise<{ reset: { id: string; version: number }[]; restored: string[]; unlinked: string[] }> {
+  const reset: { id: string; version: number }[] = [];
   const restored: string[] = [];
   const unlinked: string[] = [];
   if (offsetDays === 0) return { reset, restored, unlinked };
@@ -134,7 +135,7 @@ export async function moveNeedsTx(
       .set({ workDate: addDays(need.workDate, offsetDays) })
       .where(eq(shiftNeed.id, need.id));
 
-  const restore = new Set(opts.restoreConfirmed ?? []);
+  const restore = new Map((opts.restoreConfirmed ?? []).map((r) => [r.id, r.version]));
   const linked = await tx
     .select()
     .from(shift)
@@ -160,7 +161,7 @@ export async function moveNeedsTx(
       continue;
     }
     const workDate = addDays(current.workDate, offsetDays);
-    if (current.status === "requested" && restore.has(current.id)) {
+    if (current.status === "requested" && restore.get(current.id) === current.version) {
       restored.push(current.id);
       await reviseShiftTx(
         tx,
@@ -172,7 +173,8 @@ export async function moveNeedsTx(
       );
       continue;
     }
-    if (current.status === "confirmed") reset.push(current.id);
+    if (current.status === "confirmed")
+      reset.push({ id: current.id, version: current.version + 1 });
     await reviseShiftTx(
       tx,
       actor,
@@ -249,6 +251,8 @@ export async function rebuildNeedsTx(
         workDate: shiftNeed.workDate,
         dutyRoleId: shiftNeed.dutyRoleId,
         plannedStart: shiftNeed.plannedStart,
+        plannedEnd: shiftNeed.plannedEnd,
+        headcount: shiftNeed.headcount,
       });
     added = inserted.length;
     relinked = await relinkTx(tx, actor, eventId, inserted, why);
@@ -290,9 +294,24 @@ export async function rebuildNeedsTx(
   return { added, removed: gone.length, unlinked, relinked };
 }
 
+/** "HH:MM[:SS]" to minutes. */
+const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+/** Planned times overlap (a missing time never overlaps). */
+const overlaps = (
+  a: { plannedStart: string | null; plannedEnd: string | null },
+  b: { plannedStart: string | null; plannedEnd: string | null },
+) =>
+  a.plannedStart !== null &&
+  a.plannedEnd !== null &&
+  b.plannedStart !== null &&
+  b.plannedEnd !== null &&
+  minutes(a.plannedStart) < minutes(b.plannedEnd) &&
+  minutes(b.plannedStart) < minutes(a.plannedEnd);
+
 /**
- * Unlinked angefragt/bestätigt shifts of the event go back onto a newly added need of the same day and role: the
- * one with the same start time, or the only one of that day and role. Revision "Bedarf wieder da" each.
+ * Unlinked angefragt/bestätigt shifts of the event go back onto a newly added need only when day and role match
+ * and the planned times overlap (the need with the same start time first). A need that is full (requested +
+ * confirmed shifts already linked reach its headcount) takes no more. Revision "Bedarf wieder da" each.
  */
 async function relinkTx(
   tx: Tx,
@@ -303,6 +322,8 @@ async function relinkTx(
     workDate: string;
     dutyRoleId: string;
     plannedStart: string | null;
+    plannedEnd: string | null;
+    headcount: number;
   }[],
   why: "length" | "schedule",
 ): Promise<string[]> {
@@ -323,15 +344,34 @@ async function relinkTx(
     )
     .orderBy(asc(shift.createdAt))
     .for("update");
+  const taken = new Map<string, number>();
+  const linkedNow = await tx
+    .select({ needId: shift.needId })
+    .from(shift)
+    .where(
+      and(
+        inArray(
+          shift.needId,
+          added.map((n) => n.id),
+        ),
+        inArray(shift.status, ["requested", "confirmed"]),
+      ),
+    );
+  for (const r of linkedNow) if (r.needId) taken.set(r.needId, (taken.get(r.needId) ?? 0) + 1);
   const relinked: string[] = [];
   for (const current of loose) {
-    const same = added.filter(
-      (n) => n.workDate === current.workDate && n.dutyRoleId === current.dutyRoleId,
+    const fits = added.filter(
+      (n) =>
+        n.workDate === current.workDate &&
+        n.dutyRoleId === current.dutyRoleId &&
+        overlaps(n, current) &&
+        (taken.get(n.id) ?? 0) < n.headcount,
     );
     const need =
-      same.find((n) => n.plannedStart !== null && n.plannedStart === current.plannedStart) ??
-      (same.length === 1 ? same[0] : undefined);
+      fits.find((n) => n.plannedStart !== null && n.plannedStart === current.plannedStart) ??
+      fits[0];
     if (!need) continue;
+    taken.set(need.id, (taken.get(need.id) ?? 0) + 1);
     relinked.push(current.id);
     await reviseShiftTx(
       tx,

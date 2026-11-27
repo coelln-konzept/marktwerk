@@ -16,6 +16,8 @@ type StatusDiff = {
   restored?: boolean;
   cancelledTasks?: unknown[];
   reopenedTaskIds?: unknown[];
+  cancelledShifts?: unknown[];
+  reopenedShiftIds?: unknown[];
 };
 type CreateDiff = { source?: string };
 type DutyDiff = {
@@ -80,10 +82,14 @@ export async function HistoryTable({
         // What happened to the tasks with it (UX-049): "12 Aufgaben mit abgesagt" / "… wieder offen".
         const cancelled = countOf(d.cancelledTasks);
         const reopened = countOf(d.reopenedTaskIds);
+        const shiftsCancelled = countOf(d.cancelledShifts);
+        const shiftsRestored = countOf(d.reopenedShiftIds);
         const details = [
           ...(d.reason ? [t("reason", { reason: d.reason })] : []),
           ...(cancelled > 0 ? [t("tasksCancelled", { count: cancelled })] : []),
           ...(reopened > 0 ? [t("tasksReopened", { count: reopened })] : []),
+          ...(shiftsCancelled > 0 ? [t("shiftsCancelled", { count: shiftsCancelled })] : []),
+          ...(shiftsRestored > 0 ? [t("shiftsRestored", { count: shiftsRestored })] : []),
         ];
         return {
           text: t(d.restored ? "statusRestored" : d.undo ? "statusUndone" : "statusChanged", {

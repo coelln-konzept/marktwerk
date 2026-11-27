@@ -225,7 +225,7 @@ describe("Absage aufheben (UX-049)", () => {
     const res = await changeEventStatus(owner, eventId, "cancelled", "Sturm");
     expect(res).toMatchObject({ from: "planned", to: "cancelled", tasks: 4 });
     const undone = await revertEventStatus(owner, eventId, "cancelled", "planned", null);
-    expect(undone).toEqual({ from: "cancelled", to: "planned", tasks: 4 });
+    expect(undone).toEqual({ from: "cancelled", to: "planned", tasks: 4, shifts: 0 });
   });
 
   it("goes back to the status before the cancellation and reopens the tasks, long after the toast", async () => {
@@ -241,6 +241,7 @@ describe("Absage aufheben (UX-049)", () => {
       from: "cancelled",
       to: "confirmed",
       previousReason: "Sturm",
+      shifts: 0,
       tasks: 4,
     });
     const [row] = await db

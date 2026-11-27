@@ -210,7 +210,7 @@ describe("moving an event", () => {
       tasksShifted: 0,
       seasonTasksShifted: 0,
       confirmationsReset: 0,
-      resetShiftIds: [],
+      resetShifts: [],
     });
     expect(await load(id)).toMatchObject({
       startsOn: "2027-01-08",
