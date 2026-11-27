@@ -61,6 +61,7 @@ const minijob = (patch: Partial<ContractInput> = {}): ContractInput => ({
   otherMinijobDeclared: false,
   validFrom: "2026-01-01",
   validUntil: null,
+  monthlyHourBudget: null,
   ...patch,
 });
 

@@ -200,6 +200,17 @@
         "minijob_max_overrun_months_12": "Minijob: months over the limit within 12 months",
         "hu_interval_months_up_to_3500kg": "Vehicle inspection up to 3.5 t",
         "hu_interval_months_over_3500kg": "Vehicle inspection over 3.5 t"
+      },
+      "planning": {
+        "title": "Planning",
+        "budget": "Default hour budget per month",
+        "unit": "hrs",
+        "value": "{hours} h",
+        "save": "Save",
+        "saved": "Default hour budget: {hours} h",
+        "invalid": "Please enter 0 to 200 hours in half hours, e.g. 40 or 37.5.",
+        "error": "That didn't work. Please try again.",
+        "note": "Company rule, not a legal value. 40 h stay below the Minijob limit at minimum wage."
       }
     },
     "subtitleWithLegal": "Company data, logins with roles, the legal values marktwerk calculates with, and the library of markets and task templates.",

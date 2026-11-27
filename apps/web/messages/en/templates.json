@@ -145,12 +145,28 @@
         "generic": "That didn't work. Please try again.",
         "invalid_schedule": "Please check the schedule (see the notes at the rows).",
         "invalid_short_code": "Please enter 1 to 4 letters or digits, e.g. ALT.",
-        "short_code_taken": "Another active market already has this short code. Please choose a different one."
+        "short_code_taken": "Another active market already has this short code. Please choose a different one.",
+        "staffing_count": "Staffing: count as a whole number from 0 to 30.",
+        "staffing_duplicate": "Staffing: each duty only once per schedule part."
       },
       "tasksLink": "Tasks of this market:",
       "tasksOwn": "Own task template",
       "schedule": {
         "title": "Schedule"
+      },
+      "staffing": {
+        "title": "Staffing",
+        "help": "Applies to new dates. Existing dates take it over on their Team tab.",
+        "role": "Duty",
+        "count": "Count",
+        "part": "Schedule part",
+        "kind": {
+          "setup": "Setup",
+          "open": "Market",
+          "teardown": "Teardown"
+        },
+        "add": "+ Row",
+        "remove": "Remove row {row}"
       }
     },
     "season": {

@@ -148,6 +148,22 @@
         "worktime": "Working hours act",
         "unavailable": "unavailable"
       }
+    },
+    "unavailability": {
+      "title": "Unavailable",
+      "add": "Add",
+      "addTitle": "Add unavailable days",
+      "addDescription": "Planning won't suggest the person on these days. Scheduling them asks first.",
+      "from": "From",
+      "to": "To",
+      "note": "Note",
+      "remove": "Remove",
+      "removeLabel": "Remove unavailable {range}",
+      "empty": "No days entered for the next 90 days.",
+      "invalid": "Please enter From and To (To not before From, at most 62 days).",
+      "saved": "{count, plural, one {# day marked unavailable} other {# days marked unavailable}}",
+      "cancel": "Cancel",
+      "save": "Save"
     }
   }
 }

@@ -200,6 +200,17 @@
         "minijob_max_overrun_months_12": "Minijob: Monate mit Überschreitung in 12 Monaten",
         "hu_interval_months_up_to_3500kg": "Hauptuntersuchung bis 3,5 t",
         "hu_interval_months_over_3500kg": "Hauptuntersuchung über 3,5 t"
+      },
+      "planning": {
+        "title": "Planung",
+        "budget": "Standard-Stundenbudget pro Monat",
+        "unit": "Std.",
+        "value": "{hours} h",
+        "save": "Speichern",
+        "saved": "Standard-Stundenbudget: {hours} h",
+        "invalid": "Bitte 0 bis 200 Stunden in halben Stunden angeben, z. B. 40 oder 37,5.",
+        "error": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+        "note": "Firmenregel, kein gesetzlicher Wert. 40 h liegen unter der Minijob-Grenze bei Mindestlohn."
       }
     },
     "subtitleWithLegal": "Firmendaten, Benutzer mit Rollen, die gesetzlichen Werte, mit denen marktwerk rechnet, und die Bibliothek der Märkte und Aufgabenvorlagen.",

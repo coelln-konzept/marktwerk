@@ -351,3 +351,44 @@ export async function listCandidates(needId: string): Promise<ShiftCandidate[]> 
   });
   return rankCandidates(slot, inputs);
 }
+
+/** Consecutive "nicht verfügbar" days of one person with the same note. */
+export type UnavailabilityRange = {
+  from: string;
+  to: string;
+  dates: string[];
+  note: string | null;
+};
+
+/**
+ * The person's "nicht verfügbar" days from `from` to `to`, grouped into ranges of consecutive days with
+ * the same note ("12.–14.12. · Urlaub"), oldest first.
+ */
+export async function listUnavailabilityRanges(
+  staffMemberId: string,
+  from: string,
+  to: string,
+): Promise<UnavailabilityRange[]> {
+  const rows = await db
+    .select({ date: staffUnavailability.date, note: staffUnavailability.note })
+    .from(staffUnavailability)
+    .where(
+      and(
+        eq(staffUnavailability.staffMemberId, staffMemberId),
+        gte(staffUnavailability.date, from),
+        lte(staffUnavailability.date, to),
+      ),
+    )
+    .orderBy(asc(staffUnavailability.date));
+  const ranges: UnavailabilityRange[] = [];
+  for (const row of rows) {
+    const last = ranges.at(-1);
+    if (last && addDays(last.to, 1) === row.date && last.note === row.note) {
+      last.to = row.date;
+      last.dates.push(row.date);
+    } else {
+      ranges.push({ from: row.date, to: row.date, dates: [row.date], note: row.note });
+    }
+  }
+  return ranges;
+}

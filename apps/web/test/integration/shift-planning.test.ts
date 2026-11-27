@@ -2,6 +2,7 @@ import { defaultSchedule } from "@marktwerk/core";
 import {
   auditLog,
   dutyRole,
+  employmentContract,
   event,
   eventPreset,
   shift,
@@ -14,9 +15,21 @@ import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
-import { getEventPlanning, getPlanningMonth, listCandidates } from "@/server/queries/planning";
+import {
+  getEventPlanning,
+  getPlanningMonth,
+  listCandidates,
+  listUnavailabilityRanges,
+} from "@/server/queries/planning";
+import { ContractInputError, saveContract } from "@/server/services/contracts";
 import { moveEvent, updateEventBasics } from "@/server/services/event-details";
 import { createEventsFromPreset } from "@/server/services/events";
+import {
+  createPreset,
+  type PresetInput,
+  PresetInputError,
+  updatePreset,
+} from "@/server/services/presets";
 import {
   applyPresetStaffing,
   assignToNeed,
@@ -439,5 +452,114 @@ describe("planning queries: edge cases", () => {
     expect((await getEventPlanning(ev!.id)).canApplyPreset).toBe(true);
     await db.update(event).set({ archivedAt: new Date() }).where(eq(event.id, ev!.id));
     expect((await getEventPlanning(ev!.id)).canApplyPreset).toBe(false);
+  });
+});
+
+describe("budget and staffing inputs", () => {
+  const contract = (monthlyHourBudget: number | null) => ({
+    type: "minijob" as const,
+    hourlyRateCents: 1600,
+    contractedHoursPerWeek: 10,
+    fixedMonthlyPayCents: null,
+    workingTimeAccount: false,
+    otherMinijobDeclared: false,
+    validFrom: "2026-01-01",
+    validUntil: null,
+    notes: null,
+    monthlyHourBudget,
+  });
+  const budgetOf = async (staffMemberId: string) => {
+    const [c] = await db
+      .select()
+      .from(employmentContract)
+      .where(eq(employmentContract.staffMemberId, staffMemberId));
+    return c?.monthlyHourBudget;
+  };
+
+  it("saves a contract's monthly hour budget, edits and clears it (audited)", async () => {
+    const anna = await person("Anna");
+    const { id } = await saveContract(owner, anna.id, contract(35));
+    expect(await budgetOf(anna.id)).toBe(35);
+    await saveContract(owner, anna.id, contract(37.5), id);
+    expect(await budgetOf(anna.id)).toBe(37.5);
+    await saveContract(owner, anna.id, contract(null), id);
+    expect(await budgetOf(anna.id)).toBeNull();
+    const updates = await db.select().from(auditLog).where(eq(auditLog.action, "contract.update"));
+    expect(updates[0]?.diff).toMatchObject({
+      before: { monthlyHourBudget: 35 },
+      after: { monthlyHourBudget: 37.5 },
+    });
+  });
+
+  it("refuses budgets outside 0–200 or off the half hour", async () => {
+    const anna = await person("Anna");
+    for (const bad of [-1, 200.5, 10.3, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const error = await saveContract(owner, anna.id, contract(bad)).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ContractInputError);
+      expect((error as ContractInputError).code).toBe("invalid_amount");
+    }
+    await saveContract(owner, anna.id, contract(0));
+    expect(await budgetOf(anna.id)).toBe(0);
+  });
+
+  const presetInput = (patch: Partial<PresetInput> = {}): PresetInput => ({
+    name: "Personalbedarf-Test",
+    eventTypeId: cat.type.id,
+    venueId: cat.venue.id,
+    durationDays: 1,
+    publicTitle: "Test",
+    publicText: "Test.",
+    schedule: [
+      { audience: "vendors", kind: "setup", day: "first", from: "6:00", to: "8:00" },
+      { audience: "visitors", kind: "open", day: "each", from: "8:00", to: "16:00" },
+      { audience: "vendors", kind: "teardown", day: "last", from: "16:00", to: "18:00" },
+    ],
+    pricePerMCents: 1500,
+    bookingFeeCents: 500,
+    rrule: "FREQ=MONTHLY;BYDAY=SU;BYSETPOS=1",
+    defaultDuties: {},
+    active: true,
+    ...patch,
+  });
+
+  it("a Vorlage stores its Personalbedarf; unknown roles are refused", async () => {
+    const { id } = await createPreset(owner, presetInput());
+    const load = async () => {
+      const [row] = await db.select().from(eventPreset).where(eq(eventPreset.id, id));
+      if (!row) throw new Error("preset missing");
+      return row;
+    };
+    const staffing = [
+      { dutyRoleKey: crewKey, count: 3, scheduleKind: "setup" as const },
+      { dutyRoleKey: crewKey, count: 2, scheduleKind: "open" as const },
+    ];
+    await updatePreset(owner, id, presetInput({ staffing }), (await load()).updatedAt);
+    expect((await load()).staffing).toEqual(staffing);
+
+    const error = await updatePreset(
+      owner,
+      id,
+      presetInput({ staffing: [{ dutyRoleKey: "no_such_role", count: 1, scheduleKind: "open" }] }),
+      (await load()).updatedAt,
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PresetInputError);
+    expect((error as PresetInputError).code).toBe("invalid_input");
+    expect((await load()).staffing).toEqual(staffing);
+  });
+});
+
+describe("unavailability on the person", () => {
+  it("groups consecutive days with the same note into ranges", async () => {
+    const anna = await person("Anna");
+    await setUnavailability(owner, anna.id, "2026-12-12", "2026-12-14", "Urlaub");
+    await setUnavailability(owner, anna.id, "2026-12-15", "2026-12-15", null);
+    await setUnavailability(owner, anna.id, "2026-12-20", "2026-12-21", "Urlaub");
+    const ranges = await listUnavailabilityRanges(anna.id, "2026-12-01", "2026-12-31");
+    expect(ranges.map((r) => [r.from, r.to, r.note, r.dates.length])).toEqual([
+      ["2026-12-12", "2026-12-14", "Urlaub", 3],
+      ["2026-12-15", "2026-12-15", null, 1],
+      ["2026-12-20", "2026-12-21", "Urlaub", 2],
+    ]);
+    expect(await listUnavailabilityRanges(anna.id, "2026-12-13", "2026-12-13")).toHaveLength(1);
   });
 });

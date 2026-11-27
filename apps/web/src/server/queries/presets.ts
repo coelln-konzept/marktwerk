@@ -212,6 +212,7 @@ export async function getPresetForEdit(id: string) {
       bookingFeeCents: eventPreset.bookingFeeCents,
       rrule: eventPreset.rrule,
       defaultDuties: eventPreset.defaultDuties,
+      staffing: eventPreset.staffing,
       color: eventPreset.color,
       shortCode: eventPreset.shortCode,
       updatedAt: eventPreset.updatedAt,

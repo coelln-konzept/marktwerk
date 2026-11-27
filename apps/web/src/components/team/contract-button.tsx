@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatMoney, formatNumber } from "@/lib/format";
 import { SELECT_CLASS } from "../settings/select-class";
 
 export type ContractView = {
@@ -23,6 +23,8 @@ export type ContractView = {
   otherMinijobDeclared: boolean;
   validFrom: string;
   validUntil: string | null;
+  /** Planning budget in hours per month; null = the company default. */
+  monthlyHourBudget: number | null;
 };
 
 const euro = (cents: number | null, locale: string) =>
@@ -46,6 +48,7 @@ export function ContractButton({
   openEnded,
   today,
   minimumWageCents,
+  defaultBudget,
   variant = "ghost",
 }: {
   staffMemberId: string;
@@ -55,6 +58,8 @@ export function ContractButton({
   openEnded: ContractView | null;
   today: string;
   minimumWageCents: number | null;
+  /** The company's default hour budget per month (used while the field is empty). */
+  defaultBudget: number;
   variant?: "ghost" | "outline";
 }) {
   const t = useTranslations("hours.contract");
@@ -72,6 +77,7 @@ export function ContractButton({
   const [rate, setRate] = useState("");
   const [hours, setHours] = useState("");
   const [fixed, setFixed] = useState("");
+  const [budget, setBudget] = useState("");
   const [account, setAccount] = useState(false);
   const [other, setOther] = useState(false);
   const [endPrevious, setEndPrevious] = useState(true);
@@ -87,6 +93,11 @@ export function ContractButton({
         : "",
     );
     setFixed(euro(base?.fixedMonthlyPayCents ?? null, locale));
+    setBudget(
+      base?.monthlyHourBudget != null
+        ? String(base.monthlyHourBudget).replace(".", locale === "en" ? "." : ",")
+        : "",
+    );
     setAccount(base?.workingTimeAccount ?? false);
     setOther(base?.otherMinijobDeclared ?? false);
     setEndPrevious(true);
@@ -108,6 +119,14 @@ export function ContractButton({
     const hourlyRateCents = rate.trim() === "" ? null : parseEuroCents(rate);
     const fixedMonthlyPayCents = fixed.trim() === "" ? null : parseEuroCents(fixed);
     const contractedHoursPerWeek = hours.trim() === "" ? null : parseDecimal(hours);
+    const monthlyHourBudget = budget.trim() === "" ? null : parseDecimal(budget);
+    if (
+      budget.trim() !== "" &&
+      (monthlyHourBudget === null ||
+        monthlyHourBudget > 200 ||
+        Math.round(monthlyHourBudget * 2) !== monthlyHourBudget * 2)
+    )
+      return setError({ code: "invalid_budget" });
     if (
       (rate.trim() !== "" && hourlyRateCents === null) ||
       (fixed.trim() !== "" && fixedMonthlyPayCents === null) ||
@@ -128,6 +147,7 @@ export function ContractButton({
           otherMinijobDeclared: other,
           validFrom,
           validUntil: validUntil === "" ? null : validUntil,
+          monthlyHourBudget,
         },
         contract?.id,
         !contract && endPrevious,
@@ -143,6 +163,18 @@ export function ContractButton({
 
   const bad = (...codes: string[]) =>
     error && codes.includes(error.code) ? { "aria-invalid": true as const } : {};
+  // "≈ 40 h × 13,90 € = 556,00 €": plain information, only with an hourly rate.
+  const hintRate = rate.trim() === "" ? null : parseEuroCents(rate);
+  const typedBudget = budget.trim() === "" ? null : parseDecimal(budget);
+  const hintHours = budget.trim() === "" ? defaultBudget : typedBudget;
+  const budgetHint =
+    hintRate !== null && hintHours !== null
+      ? t("budgetHint", {
+          hours: formatNumber(hintHours, locale, 2),
+          rate: formatMoney(hintRate, locale),
+          pay: formatMoney(Math.round(hintHours * hintRate), locale),
+        })
+      : null;
   const showEndPrevious =
     !contract && openEnded !== null && validFrom !== "" && openEnded.validFrom < validFrom;
 
@@ -246,7 +278,32 @@ export function ContractButton({
               </div>
               <span className="text-faint-foreground text-tiny">{t("hoursHint")}</span>
             </div>
-            <div className="col-span-2 flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contract-budget" optional>
+                {t("budget")}
+              </Label>
+              <div className="relative">
+                <Input
+                  id="contract-budget"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={budget}
+                  placeholder={formatNumber(defaultBudget, locale, 2)}
+                  onChange={(e) => setBudget(e.target.value)}
+                  className="tabular pr-12"
+                  aria-describedby="contract-budget-hint"
+                  {...bad("invalid_budget")}
+                />
+                <span className="-translate-y-1/2 pointer-events-none absolute top-1/2 right-3 text-muted-foreground text-small">
+                  {t("hoursUnit")}
+                </span>
+              </div>
+              <span id="contract-budget-hint" className="text-faint-foreground text-tiny">
+                {t("budgetEmpty", { hours: formatNumber(defaultBudget, locale, 2) })}
+                {budgetHint && <span className="block tabular">{budgetHint}</span>}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="contract-fixed">{t("fixedPay")}</Label>
               <div className="relative">
                 <Input

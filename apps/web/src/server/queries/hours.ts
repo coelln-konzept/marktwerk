@@ -77,6 +77,8 @@ export type ContractRow = ContractTerms & {
   id: string;
   staffMemberId: string;
   notes: string | null;
+  /** Planning budget in hours per month; null = the company default. */
+  monthlyHourBudget: number | null;
 };
 
 const contractColumns = {
@@ -91,6 +93,7 @@ const contractColumns = {
   validFrom: employmentContract.validFrom,
   validUntil: employmentContract.validUntil,
   notes: employmentContract.notes,
+  monthlyHourBudget: employmentContract.monthlyHourBudget,
 };
 
 /** Contract history of one person, newest first. */

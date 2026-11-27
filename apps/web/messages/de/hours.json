@@ -177,8 +177,16 @@
         "overlap": "Der Zeitraum überschneidet sich mit dem Vertrag ab {date}. Beende ihn zuerst oder wähle andere Daten.",
         "period_locked": "Ein betroffener Monat ist schon gesperrt. Entsperre ihn zuerst unter Stunden › Abschluss.",
         "not_found": "Der Vertrag wurde nicht gefunden.",
-        "invalid_person": "Die Person wurde nicht gefunden."
-      }
+        "invalid_person": "Die Person wurde nicht gefunden.",
+        "invalid_budget": "Stundenbudget: 0 bis 200 Stunden in halben Stunden, z. B. 37,5."
+      },
+      "budget": "Stundenbudget pro Monat",
+      "budgetShort": "Stundenbudget",
+      "budgetHours": "{hours} h",
+      "budgetDefault": "{hours} h (Standard)",
+      "budgetHint": "≈ {hours} h × {rate} = {pay}",
+      "budgetEmpty": "Leer = Standard ({hours} h). Für die Schichtplanung.",
+      "hoursUnit": "Std."
     },
     "shift": {
       "pageTitle": "Schichten",

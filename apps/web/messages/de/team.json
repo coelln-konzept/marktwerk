@@ -148,6 +148,22 @@
         "worktime": "ArbZG",
         "unavailable": "nicht verfügbar"
       }
+    },
+    "unavailability": {
+      "title": "Nicht verfügbar",
+      "add": "Hinzufügen",
+      "addTitle": "Nicht verfügbar eintragen",
+      "addDescription": "An diesen Tagen schlägt die Planung die Person nicht vor. Einplanen geht nur nach Rückfrage.",
+      "from": "Von",
+      "to": "Bis",
+      "note": "Notiz",
+      "remove": "Entfernen",
+      "removeLabel": "Nicht verfügbar {range} entfernen",
+      "empty": "In den nächsten 90 Tagen keine Tage eingetragen.",
+      "invalid": "Bitte Von und Bis angeben (Bis nicht vor Von, höchstens 62 Tage).",
+      "saved": "{count, plural, one {# Tag nicht verfügbar eingetragen} other {# Tage nicht verfügbar eingetragen}}",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
     }
   }
 }
