@@ -35,6 +35,7 @@ there is no self-service.
 | 12 | Limits | Nothing blocks. Over budget, unavailable, ArbZG problems and overlaps each ask for one confirmation |
 | 13 | Date moves | Needs and linked shifts move with the event; confirmed shifts go back to angefragt |
 | 14 | Existing events | No backfill. The event Team tab offers "Personalbedarf aus Vorlage übernehmen" (a deliberate click) |
+| 15 | Length changes | Needs are rebuilt for the new length; fitting needs keep their people, the rest go to "Weitere Schichten" (2026-11-27) |
 
 ## 3. Data model
 
