@@ -6,6 +6,7 @@ import {
   eventPreset,
   shift,
   shiftNeed,
+  shiftRevision,
   staffMember,
   staffUnavailability,
 } from "@marktwerk/db/schema";
@@ -13,7 +14,7 @@ import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
-import { moveEvent } from "@/server/services/event-details";
+import { moveEvent, updateEventBasics } from "@/server/services/event-details";
 import { createEventsFromPreset } from "@/server/services/events";
 import {
   applyPresetStaffing,
@@ -230,5 +231,123 @@ describe("needs and unavailability", () => {
       .where(eq(eventPreset.id, cat.presets.flea.id));
     expect((await applyPresetStaffing(owner, ev!.id)).created).toBe(1);
     expect((await applyPresetStaffing(owner, ev!.id)).created).toBe(0);
+  });
+});
+
+describe("a new event length rebuilds the needs", () => {
+  async function setLength(eventId: string, durationDays: number) {
+    const [row] = await db.select().from(event).where(eq(event.id, eventId));
+    if (!row) throw new Error("no event");
+    return updateEventBasics(owner, eventId, {
+      name: row.name,
+      durationDays,
+      venueId: row.venueId,
+      eventTypeId: row.eventTypeId,
+    });
+  }
+
+  it("longer: fitting needs keep their people, missing days are added, the teardown moves to the new last day", async () => {
+    await db
+      .update(eventPreset)
+      .set({
+        staffing: [
+          { dutyRoleKey: crewKey, count: 2, scheduleKind: "setup" },
+          { dutyRoleKey: crewKey, count: 1, scheduleKind: "open" },
+          { dutyRoleKey: crewKey, count: 1, scheduleKind: "teardown" },
+        ],
+      })
+      .where(eq(eventPreset.id, cat.presets.flea.id));
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    if (!ev) throw new Error("no event");
+    const before = await needsOf(ev.id);
+    const setup = before.find((n) => n.scheduleKind === "setup");
+    const oldTeardown = before.find((n) => n.scheduleKind === "teardown");
+    if (!setup || !oldTeardown) throw new Error("needs missing");
+    const anna = await person("Anna");
+    const { shiftId } = await assignToNeed(owner, setup.id, anna.id, { today: "2026-11-26" });
+
+    const result = await setLength(ev.id, 2);
+    expect(result).toMatchObject({ changed: true, needsRemoved: 1, shiftsUnlinked: 0 });
+
+    const after = await needsOf(ev.id);
+    expect(after.find((n) => n.id === setup.id)).toMatchObject({
+      workDate: "2026-12-13",
+      scheduleKind: "setup",
+    });
+    expect(after.some((n) => n.id === oldTeardown.id)).toBe(false);
+    expect(after.some((n) => n.workDate === "2026-12-14" && n.scheduleKind === "open")).toBe(true);
+    expect(after.some((n) => n.workDate === "2026-12-14" && n.scheduleKind === "teardown")).toBe(
+      true,
+    );
+    expect(after.some((n) => n.workDate === "2026-12-13" && n.scheduleKind === "teardown")).toBe(
+      false,
+    );
+    const [linked] = await db.select().from(shift).where(eq(shift.id, shiftId));
+    expect(linked?.needId).toBe(setup.id);
+  });
+
+  it("shorter: shifts of removed needs stay, unlinked, with a revision; the teardown lands on day 1", async () => {
+    await db
+      .update(eventPreset)
+      .set({
+        staffing: [
+          { dutyRoleKey: crewKey, count: 2, scheduleKind: "setup" },
+          { dutyRoleKey: crewKey, count: 1, scheduleKind: "open" },
+          { dutyRoleKey: crewKey, count: 1, scheduleKind: "teardown" },
+        ],
+      })
+      .where(eq(eventPreset.id, cat.presets.flea.id));
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    if (!ev) throw new Error("no event");
+    await setLength(ev.id, 2);
+    const day2Open = (await needsOf(ev.id)).find(
+      (n) => n.workDate === "2026-12-14" && n.scheduleKind === "open",
+    );
+    if (!day2Open) throw new Error("no day-2 open need");
+    const anna = await person("Anna");
+    const { shiftId } = await assignToNeed(owner, day2Open.id, anna.id, { today: "2026-11-26" });
+    const [before] = await db.select().from(shift).where(eq(shift.id, shiftId));
+
+    const result = await setLength(ev.id, 1);
+    expect(result).toMatchObject({ needsRemoved: 2, shiftsUnlinked: 1 });
+
+    const [after] = await db.select().from(shift).where(eq(shift.id, shiftId));
+    expect(after?.needId).toBeNull();
+    expect(after?.version).toBe((before?.version ?? 0) + 1);
+    const revisions = await db
+      .select()
+      .from(shiftRevision)
+      .where(eq(shiftRevision.shiftId, shiftId));
+    expect(revisions.map((r) => r.reason)).toContain("Bedarf entfällt (Dauer geändert)");
+    expect(
+      (await needsOf(ev.id)).some(
+        (n) => n.workDate === "2026-12-13" && n.scheduleKind === "teardown",
+      ),
+    ).toBe(true);
+  });
+
+  it("per-day edits of fitting needs survive", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    if (!ev) throw new Error("no event");
+    await setLength(ev.id, 2);
+    const open1 = (await needsOf(ev.id)).find(
+      (n) => n.workDate === "2026-12-13" && n.scheduleKind === "open",
+    );
+    if (!open1) throw new Error("no open need on day 1");
+    await db.update(shiftNeed).set({ headcount: 3 }).where(eq(shiftNeed.id, open1.id));
+    await setLength(ev.id, 3);
+    const [kept] = await db.select().from(shiftNeed).where(eq(shiftNeed.id, open1.id));
+    expect(kept?.headcount).toBe(3);
+  });
+
+  it("moving a 2-day event by 7 days keeps its 2 days of needs", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    if (!ev) throw new Error("no event");
+    await setLength(ev.id, 2);
+    const ids = (await needsOf(ev.id)).map((n) => n.id).sort();
+    await moveEvent(owner, ev.id, "2026-12-20", "2026-12-13");
+    const after = await needsOf(ev.id);
+    expect(after.map((n) => n.id).sort()).toEqual(ids);
+    expect([...new Set(after.map((n) => n.workDate))].sort()).toEqual(["2026-12-20", "2026-12-21"]);
   });
 });

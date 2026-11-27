@@ -347,6 +347,8 @@ describe("updateEventBasics", () => {
         eventTypeId: cat.type.id,
       },
       tasksShifted: 0,
+      needsRemoved: 0,
+      shiftsUnlinked: 0,
     });
     expect(await load(id)).toMatchObject({
       name: "Herbstflohmarkt Test",

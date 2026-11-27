@@ -38,7 +38,7 @@ import { db } from "../db";
 import { audit } from "./audit";
 import { scheduledEventsBetween } from "./events";
 import { ensureSeasonsTx, planSeasonShiftForMove, syncSeasonsTx } from "./seasons";
-import { moveNeedsTx } from "./staffing";
+import { moveNeedsTx, rebuildNeedsTx } from "./staffing";
 import {
   notifyDatesShifted,
   planTaskShift,
@@ -458,6 +458,8 @@ async function applySchedule(
   shifted: ShiftedTask[];
   seasonShifted: number;
   confirmationsReset: number;
+  needsRemoved: number;
+  shiftsUnlinked: number;
 }> {
   await tx
     .update(event)
@@ -494,8 +496,15 @@ async function applySchedule(
     actor,
     current.id,
     daysBetween(current.startsOn, next.startsOn),
-    { startsOn: next.startsOn, endsOn: next.endsOn },
   );
+  // A new length recalculates the needs; fitting ones keep their people and edits.
+  const rebuilt =
+    next.durationDays !== durationOf(current)
+      ? await rebuildNeedsTx(tx, actor, current.id, {
+          startsOn: next.startsOn,
+          durationDays: next.durationDays,
+        })
+      : undefined;
   let seasonShifted = 0;
   if (current.presetId) {
     const nextSeason = Number(next.startsOn.slice(0, 4));
@@ -522,6 +531,8 @@ async function applySchedule(
     shifted,
     seasonShifted,
     confirmationsReset: staffingMove.reset.length,
+    needsRemoved: rebuilt?.removed ?? 0,
+    shiftsUnlinked: rebuilt?.unlinked.length ?? 0,
   };
 }
 
@@ -628,7 +639,13 @@ export async function updateEventBasics(
   id: string,
   next: EventBasics,
   expected?: EventBasics,
-): Promise<{ changed: boolean; previous: EventBasics; tasksShifted: number }> {
+): Promise<{
+  changed: boolean;
+  previous: EventBasics;
+  tasksShifted: number;
+  needsRemoved: number;
+  shiftsUnlinked: number;
+}> {
   if (!can(actor.role, "event", "write")) forbidden();
   const name = next.name.trim().replace(/\s+/g, " ");
   if (name === "" || name.length > MAX_NAME_LENGTH)
@@ -688,7 +705,8 @@ export async function updateEventBasics(
         toName: newType.nameDe,
       };
     }
-    if (Object.keys(changes).length === 0) return { changed: false, previous, tasksShifted: 0 };
+    if (Object.keys(changes).length === 0)
+      return { changed: false, previous, tasksShifted: 0, needsRemoved: 0, shiftsUnlinked: 0 };
 
     await tx
       .update(event)
@@ -712,10 +730,20 @@ export async function updateEventBasics(
           ...(applied && applied.seasonShifted > 0
             ? { seasonTasksShifted: applied.seasonShifted }
             : {}),
+          ...(applied && applied.needsRemoved > 0 ? { needsRemoved: applied.needsRemoved } : {}),
+          ...(applied && applied.shiftsUnlinked > 0
+            ? { shiftsUnlinked: applied.shiftsUnlinked }
+            : {}),
           ...(expected ? { undo: true } : {}),
         },
       },
     ]);
-    return { changed: true, previous, tasksShifted: shifted.length };
+    return {
+      changed: true,
+      previous,
+      tasksShifted: shifted.length,
+      needsRemoved: applied?.needsRemoved ?? 0,
+      shiftsUnlinked: applied?.shiftsUnlinked ?? 0,
+    };
   });
 }
