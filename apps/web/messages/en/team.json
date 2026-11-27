@@ -4,6 +4,7 @@
     "subtitle": "{people, plural, one {# person} other {# people}} · {logins} with login",
     "tabsLabel": "Team sections",
     "tabs": {
+      "planning": "Planning",
       "people": "People",
       "hours": "Hours",
       "shifts": "Shifts",
@@ -48,5 +49,67 @@
       "upcomingCount": "{count, plural, =0 {no upcoming events} one {# upcoming event} other {# upcoming events}}"
     },
     "empty": "No people yet."
+  },
+  "planning": {
+    "title": "Planning",
+    "allDays": "All days",
+    "marketDays": "Market days only",
+    "daysLabel": "Days shown",
+    "noDays": "No staffing needs this month. Add them in the template under “Staffing”.",
+    "caption": "Planning {month}: people and market days",
+    "person": "Person",
+    "budget": "{used} / {budget} h · {left} h left",
+    "budgetOver": "{used} / {budget} h · {over} h over budget",
+    "requestedPart": "{hours} h of it requested",
+    "noContract": "no contract",
+    "level": {
+      "ok": "Within budget",
+      "tight": "Tight",
+      "over": "Over budget"
+    },
+    "weekTotal": "CW {week}",
+    "weekTotalLabel": "Total CW {week}",
+    "open": "{count} open",
+    "full": "Filled",
+    "overNeed": "+{count} over need",
+    "status": {
+      "requested": "requested",
+      "confirmed": "confirmed",
+      "declined": "declined",
+      "cancelled": "removed",
+      "worked": "worked",
+      "no_show": "no-show"
+    },
+    "unavailable": "unavailable",
+    "menu": {
+      "label": "Planning {name}, {date}",
+      "assign": "Schedule…",
+      "assignTo": "{market} · {role} · {from}–{to}",
+      "markUnavailable": "Unavailable",
+      "clearUnavailable": "Available again",
+      "confirm": "Confirmed",
+      "decline": "Declined",
+      "request": "Requested again",
+      "editTimes": "Change times",
+      "remove": "Remove"
+    },
+    "toast": {
+      "assigned": "{name} scheduled on {date} (requested)",
+      "shortNotice": "Short notice: only with consent (§ 12 TzBfG)",
+      "status": "{name}: {status}",
+      "unavailableSet": "{name} unavailable on {date}",
+      "unavailableCleared": "{name} available again on {date}",
+      "undo": "Undo"
+    },
+    "confirm": {
+      "title": "Schedule anyway?",
+      "unavailable": "{name} is unavailable that day{note}.",
+      "over_budget_after": "Over the hour budget afterwards.",
+      "overlap": "Overlaps with another shift.",
+      "worktime": "Working Hours Act: maximum hours, rest period or break violated.",
+      "action": "Schedule anyway",
+      "cancel": "Cancel"
+    },
+    "error": "That didn't work. Please reload and try again."
   }
 }

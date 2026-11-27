@@ -12,17 +12,18 @@ export function monthParam(value: string | undefined, today: string): string {
   return `${month}-01`;
 }
 
-/** The tabs of the Team page: Personen · Stunden · Schichten (each its own URL). */
+/** The tabs of the Team page: Planung · Personen · Stunden · Schichten (each its own URL). */
 export async function TeamTabs({
   active,
   month,
 }: {
-  active: "people" | "hours" | "shifts";
+  active: "planning" | "people" | "hours" | "shifts";
   month?: string;
 }) {
   const t = await getTranslations("team");
   const suffix = month ? `?month=${month.slice(0, 7)}` : "";
   const tabs = [
+    { key: "planning", href: `/team/planung${suffix}` },
     { key: "people", href: "/team" },
     { key: "hours", href: `/team/stunden${suffix}` },
     { key: "shifts", href: `/team/schichten${suffix}` },

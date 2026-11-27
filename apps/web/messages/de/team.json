@@ -4,6 +4,7 @@
     "subtitle": "{people, plural, one {# Person} other {# Personen}} · davon {logins} Benutzer",
     "tabsLabel": "Team-Bereiche",
     "tabs": {
+      "planning": "Planung",
       "people": "Personen",
       "hours": "Stunden",
       "shifts": "Schichten",
@@ -48,5 +49,67 @@
       "upcomingCount": "{count, plural, =0 {keine kommenden Veranstaltungen} one {# kommende Veranstaltung} other {# kommende Veranstaltungen}}"
     },
     "empty": "Noch keine Personen angelegt."
+  },
+  "planning": {
+    "title": "Planung",
+    "allDays": "Alle Tage",
+    "marketDays": "Nur Markttage",
+    "daysLabel": "Angezeigte Tage",
+    "noDays": "In diesem Monat gibt es keinen Personalbedarf. Lege ihn in der Vorlage unter „Personalbedarf“ an.",
+    "caption": "Planung {month}: Personen und Markttage",
+    "person": "Person",
+    "budget": "{used} / {budget} h · {left} h frei",
+    "budgetOver": "{used} / {budget} h · {over} h über Budget",
+    "requestedPart": "davon {hours} h angefragt",
+    "noContract": "kein Vertrag",
+    "level": {
+      "ok": "Im Budget",
+      "tight": "Knapp",
+      "over": "Über Budget"
+    },
+    "weekTotal": "KW {week}",
+    "weekTotalLabel": "Summe KW {week}",
+    "open": "{count} offen",
+    "full": "Besetzt",
+    "overNeed": "+{count} über Bedarf",
+    "status": {
+      "requested": "angefragt",
+      "confirmed": "bestätigt",
+      "declined": "abgesagt",
+      "cancelled": "entfernt",
+      "worked": "gearbeitet",
+      "no_show": "nicht erschienen"
+    },
+    "unavailable": "nicht verfügbar",
+    "menu": {
+      "label": "Planung {name}, {date}",
+      "assign": "Einplanen…",
+      "assignTo": "{market} · {role} · {from}–{to}",
+      "markUnavailable": "Nicht verfügbar",
+      "clearUnavailable": "Wieder verfügbar",
+      "confirm": "Bestätigt",
+      "decline": "Abgesagt",
+      "request": "Wieder angefragt",
+      "editTimes": "Zeiten ändern",
+      "remove": "Entfernen"
+    },
+    "toast": {
+      "assigned": "{name} am {date} eingeplant (angefragt)",
+      "shortNotice": "Kurzfristig: nur mit Zustimmung (§ 12 TzBfG)",
+      "status": "{name}: {status}",
+      "unavailableSet": "{name} am {date} nicht verfügbar",
+      "unavailableCleared": "{name} am {date} wieder verfügbar",
+      "undo": "Rückgängig"
+    },
+    "confirm": {
+      "title": "Trotzdem einplanen?",
+      "unavailable": "{name} ist an dem Tag nicht verfügbar{note}.",
+      "over_budget_after": "Danach über dem Stundenbudget.",
+      "overlap": "Überschneidet sich mit einer anderen Schicht.",
+      "worktime": "Arbeitszeitgesetz: Höchstarbeitszeit, Ruhezeit oder Pause verletzt.",
+      "action": "Trotzdem einplanen",
+      "cancel": "Abbrechen"
+    },
+    "error": "Das hat nicht geklappt. Bitte neu laden und noch einmal versuchen."
   }
 }
