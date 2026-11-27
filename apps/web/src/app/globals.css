@@ -3,7 +3,7 @@
 
 /*
  * marktwerk design tokens, extracted from the Claude Design prototype (direction A,
- * docs/design/claude-design/a-classic/). Change colours here only.
+ * docs/archive/claude-design/a-classic/). Change colours here only.
  *
  * Theme: <html data-theme="light|dark|system">. Every colour is a light-dark() pair, so the
  * three modes share one definition; `color-scheme` picks the side.

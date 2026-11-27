@@ -1,6 +1,6 @@
 # UX audit, round 1 (2026-11-13)
 
-Method: 17 research digests (multiple sources each) → 3 evaluation frameworks ([F1 heuristic scorecard](frameworks/F1-heuristic-scorecard.md), [F2 task efficiency](frameworks/F2-task-efficiency.md), [F3 robustness/a11y](frameworks/F3-robustness-a11y.md)) → 30 simulated flows driven with Playwright against a seeded local app → 353 raw findings, deduplicated and checked against the source into 72 findings.
+Method: 17 research digests (multiple sources each) → 3 evaluation frameworks ([F1 heuristic scorecard](../../ux-audit/frameworks/F1-heuristic-scorecard.md), [F2 task efficiency](../../ux-audit/frameworks/F2-task-efficiency.md), [F3 robustness/a11y](../../ux-audit/frameworks/F3-robustness-a11y.md)) → 30 simulated flows driven with Playwright against a seeded local app → 353 raw findings, deduplicated and checked against the source into 72 findings.
 
 ## Summary
 

@@ -1,6 +1,6 @@
 # 0022: A market's times are a Zeitplan of windows, not four fixed fields
 
-**Status:** accepted (2026-11-13, product owner, user test 2: [research 12](../../research/12-user-test-2026-11-13.md) UT2-09/10, D2-5).
+**Status:** accepted (2026-11-13, product owner, user test 2: [research 12](../../archive/research/12-user-test-2026-11-13.md) UT2-09/10, D2-5).
 Implemented 2026-11-13 (Fahrplan E1–E4), see "Implementation notes" below.
 
 ## Context

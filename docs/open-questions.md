@@ -30,7 +30,7 @@
 | 2026-10-21 | Look | Light theme default + dark/system option; Standard density + personal "Kompakt" switch |
 | 2026-10-21 | Panes | Simple "folgt" linking; every view is both a page (own URL) and a pane; single pane below 1024 px → superseded 2026-10-21 by ADR 0019 |
 | 2026-10-21 | From the client meeting | Internal first (old website stays); no AI in operations; manual payment reminders; WhatsApp for staff; time estimates per task (ADRs 0011–0015) |
-| 2026-10-21 (session 2) | Design direction | **A: classic screens** (sidebar, pages with own URLs, Vorschau, detail drawers, event tabs) with all research-based improvements; no docking, workspace tabs, saved/team workspaces or "folgt" (ADR 0019, supersedes ADR 0018). Prototype: `docs/design/claude-design/a-classic/` |
+| 2026-10-21 (session 2) | Design direction | **A: classic screens** (sidebar, pages with own URLs, Vorschau, detail drawers, event tabs) with all research-based improvements; no docking, workspace tabs, saved/team workspaces or "folgt" (ADR 0019, supersedes ADR 0018). Prototype: `docs/archive/claude-design/a-classic/` |
 | 2026-10-21 (session 3) | Moving an event | **Own action "Verschieben" with a preview**: new first day, duration stays, the named dates (Aufbau, Abbau, Buchungsschluss = Monday before) are **recomputed**; same hints as the generation. One service path `moveEvent`; M2 extends it to tasks |
 | 2026-10-21 (session 3) | Moving announced events | Allowed for Entwurf, geplant and bestätigt; for geplant/bestätigt the preview **warns** that vendors and the website need the new date. Not once the event runs |
 | 2026-10-21 (session 3) | Editing while an event happens | Duties, Eckdaten, booking flags stay editable on every event (also abgeschlossen/abgesagt); **while it is happening** (läuft, or today is one of its days) each change is **confirmed first** |
@@ -169,7 +169,7 @@
    says "Wenn es ein Konto gibt, kommt gleich eine E-Mail" (no account enumeration); the link works once for one
    hour; a reset revokes all sessions and writes `audit_log`. Done when the reset works locally against Mailpit.
 
-**UX audit round 1 (2026-11-13, details in [ux-audit/round-1.md](ux-audit/round-1.md)): not built until decided**
+**UX audit round 1 (2026-11-13, details in [archive/ux-audit/round-1.md](archive/ux-audit/round-1.md)): not built until decided**
 - **UX-D1 Tick confirm:** keep the "Aufgabe erledigt?" dialog (decision D1) or drop it for a struck-through row with inline Rückgängig? Measured: clearing 5 tasks costs 10 clicks. Audit recommends dropping it; until then the dialog stays, focus moves to "Ja, erledigt", and every completion path uses the same rule.
 - **UX-D3 Moving a Termin and "Antrag bis":** recompute permit deadlines on a move (hand-edited ones untouched, shown in the preview, undo), only warn, or ask per move? Today nothing changes.
 - **UX-D6 "Meine Aufgaben" while Team is hidden:** a light "Zuständig" picker over users plus a "Meine" filter, scope field users to their events, or wait for Team?

@@ -1,8 +1,9 @@
 # marktwerk documentation
 
-Start here: **[HANDOFF.md](HANDOFF.md)** (current state & next steps), then **[product/vision.md](product/vision.md)** → **[product/roadmap.md](product/roadmap.md)**.
-Design output: [design/claude-design/](design/claude-design/README.md) → [a-classic/](design/claude-design/a-classic/INDEX.md) (clickable prototype, direction A, ADR 0019; historical reference, the UX concept and the code win).
-Historical documents (finished plans, early prompts, wireframes, component inventory): [archive/](archive/README.md), not maintained.
+Start here: **[HANDOFF.md](HANDOFF.md)** (how we work, gotchas), then **[product/vision.md](product/vision.md)** → **[product/roadmap.md](product/roadmap.md)**.
+Current steps and progress: the **Marktwerk Fahrplan** tracker (https://claude.ai/artifact/Ei3Xy9VGSDWr5WsEujn639), the source of truth for what is done and what is next.
+Historical documents (finished plans, finished research and review records, early prompts, the Claude Design
+prototype, wireframes, component inventory): [archive/](archive/README.md), not maintained.
 
 ## Product
 - [Vision & scope](product/vision.md): goals, non-goals, success metrics
@@ -16,17 +17,21 @@ Historical documents (finished plans, early prompts, wireframes, component inven
 - [01 Market landscape, German domain rules, payments](research/01-market-and-domain.md)
 - [02 Market & vendor-booking tools teardown](research/02-market-booking-teardown.md)
 - [03 Task, checklist, compliance & shared-inbox tools teardown](research/03-ops-tasks-inbox-teardown.md)
-- [04 Festival & event production tools teardown](research/04-festival-event-ops-teardown.md)
 - **[05 Client meeting, October 2026: workflows, pain points, wishes](research/05-client-meeting-2026-10.md)** ← most important input
 - [06 Staff: WhatsApp notifications, shifts & Minijob hours, kanban](research/06-staff-whatsapp-shifts-kanban.md)
 - [07 Inventory & rentals, payables & receipts, event P&L, vehicles](research/07-inventory-finance-fleet.md)
 - [08 Booking intake, confirmations/invoices, payment checks, newsletter, marketing](research/08-bookings-comms-newsletter.md)
-- [09 UI/UX: standards and references](research/09-ui-ux-workspace.md) (its workspace half is superseded by ADR 0019)
-- [10 UX/UI review and industry comparison (October 2026)](research/10-ux-review-2026-10.md)
-- **[11 User test, November 2026: findings, tasks (UT-xx), open decisions](research/11-user-test-2026-11.md)**
+- **[13 The client's own checklists and wall calendar (November 2026)](research/13-client-checklists-and-wall-calendar.md)**: source for the Vorlagen, market dates and the synthetic data
+
+Archived research records ([archive/research/](archive/README.md)): 04 festival & event production tools, 09 UI/UX
+standards and references, 10 UX review (October 2026), 11 user test (November 2026, UT-xx), 12 user test 2
+(2026-11-13, UT2-xx).
+
+## UX audit
+- [UX audit](ux-audit/README.md): method and the reusable frameworks F1–F3; round 1 (2026-11-13) is archived
 
 ## Architecture
-- [Overview](architecture/overview.md): system context, code layout, cross-cutting concerns, M365 integration, hosting options
+- [Overview](architecture/overview.md): system context, code layout, cross-cutting concerns, M365 integration, environments
 - [Data model](architecture/data-model.md): entities, ERD, key algorithms
 - [ADRs](architecture/adr/README.md)
 
@@ -34,6 +39,8 @@ Historical documents (finished plans, early prompts, wireframes, component inven
 - [Setup](development/setup.md)
 - [Conventions](development/conventions.md)
 - [Testing](development/testing.md): unit, integration and e2e tests
-- [Deployment](development/deployment.md): dev on Vercel + Supabase (ADR 0017); Scalingo is the production candidate (ADR 0006)
+- [Release routine](development/release.md): how a change reaches the deployed dev app (ADR 0023)
+- [Deployment](development/deployment.md): dev on Vercel + Supabase (ADR 0017), branch environments on Neon (ADR 0023); Scalingo is the production candidate (ADR 0006, deferred)
+- [Synthetic data](../packages/synthetic/README.md): what the seeded development dataset contains (ADR 0016)
 
 ## [Open questions & decisions log](open-questions.md)

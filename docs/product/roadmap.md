@@ -7,8 +7,8 @@ the follow-up research ([06](../research/06-staff-whatsapp-shifts-kanban.md), [0
 module, start screen **Übersicht**. *Rev. 3.2:* status after Phase 1 was built (below).
 
 ## Status (2026-11-10)
-**Phase 1 (M1–M6) is built in code**, then reshaped by the UX review ([research 10](../research/10-ux-review-2026-10.md),
-PR #20), the user test and handwritten notes ([research 11](../research/11-user-test-2026-11.md), PR #21), client
+**Phase 1 (M1–M6) is built in code**, then reshaped by the UX review ([research 10](../archive/research/10-ux-review-2026-10.md),
+PR #20), the user test and handwritten notes ([research 11](../archive/research/11-user-test-2026-11.md), PR #21), client
 feedback 9 (PR #22: Besprechungen, Übersicht layout, task notification setting, market colours, A–Z) and PR #23
 (cancelled events cancel their tasks, Veranstaltung löschen). Decisions: [open-questions.md](../open-questions.md).
 
@@ -103,7 +103,7 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 ### M1: Events, presets, locations, vendors (≈ 3 weeks)
 - **App shell** (ADR 0019, [UX concept v2](./ux-concept.md)): sidebar, top bar with search/Strg+K + Neu + notifications,
   pages with Vorschau and detail drawers, event tabs, theme (light/dark/system) and density switch, design tokens +
-  base components from the Claude Design output ([`docs/design/claude-design/a-classic/`](../design/claude-design/a-classic/INDEX.md))
+  base components from the Claude Design output ([`docs/archive/claude-design/a-classic/`](../archive/claude-design/a-classic/INDEX.md))
 - **Übersicht** (start screen, `/`): KPI strip and Dieses Wochenende from events; Heute fällig and the season strip
   fill up as M2–M5 add tasks, permits, hours and payables *(KPI and season strip removed 2026-10-22/29; the Übersicht
   is now Heute & überfällig, Dieses Wochenende, Genehmigungen demnächst, Diese Woche)*

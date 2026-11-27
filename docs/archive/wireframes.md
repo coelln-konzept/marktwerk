@@ -6,7 +6,7 @@ the Kalender module (the workspace operations were removed). Low fidelity: struc
 visual design. German UI. Desktop frames ≈ 1440 px wide unless noted.
 
 **High-fidelity reference:** the Claude Design prototype in
-[`docs/design/claude-design/a-classic/`](../design/claude-design/a-classic/INDEX.md) (`index.html`, 53 screens,
+[`docs/archive/claude-design/a-classic/`](claude-design/a-classic/INDEX.md) (`index.html`, 53 screens,
 `INDEX.md` maps screens → `index.html#<ScreenId>`). Where the prototype and these wireframes differ, the prototype
 wins unless a decision says otherwise.
 

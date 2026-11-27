@@ -2,10 +2,10 @@
 
 **Version 2 (2026-10-21, design direction A: classic screens).** Version 1 described a customisable workspace with
 docking panes; the product owner chose classic screens instead ([ADR 0019](../architecture/adr/0019-classic-screens.md),
-superseding ADR 0018). Based on [research 09](../research/09-ui-ux-workspace.md) (standards, references), the client
+superseding ADR 0018). Based on [research 09](../archive/research/09-ui-ux-workspace.md) (standards, references), the client
 meeting ([research 05](../research/05-client-meeting-2026-10.md)) and the product owner's decisions of 2026-10-21
 (decisions log in [open-questions.md](../open-questions.md)). Historical references: the Claude Design prototype in
-[`docs/design/claude-design/a-classic/`](../design/claude-design/a-classic/INDEX.md) (53 screens, 2026-10-21) and the
+[`docs/archive/claude-design/a-classic/`](../archive/claude-design/a-classic/INDEX.md) (53 screens, 2026-10-21) and the
 archived [wireframes](../archive/wireframes.md). Where they and this document differ, **this document and the code
 win**; the prototype is historical reference only.
 

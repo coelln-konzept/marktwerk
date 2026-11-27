@@ -5,10 +5,10 @@
 
 ## Where things stand
 - **Phase 1 (M1–M6) is built in code.** Since then:
-  - UX review (PR #20, 2026-10-29): [research 10](./research/10-ux-review-2026-10.md).
+  - UX review (PR #20, 2026-10-29): [research 10](./archive/research/10-ux-review-2026-10.md).
   - User test + handwritten notes (PR #21, 2026-11-03): event **Checkliste** tab (done items stay in place),
     **Zusammenfassung** (was Überblick), **Archiv** under Stammdaten; global Board, Kernaufgaben, the bell and the
-    Kalender's Aufgaben layer hidden. [Research 11](./research/11-user-test-2026-11.md).
+    Kalender's Aufgaben layer hidden. [Research 11](./archive/research/11-user-test-2026-11.md).
   - Client feedback 9 (PR #22, 2026-11-04): **Besprechungen**, Übersicht layout, task notification setting (nothing
     sent yet), market colours, A–Z on Aussteller/Kontakte.
   - PR #23: cancelling an event cancels its open tasks; **Veranstaltung löschen**.
