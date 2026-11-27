@@ -1,11 +1,13 @@
 # Data model
 
-Status: **v0.6 (2026-11-10), current through migration `0013_drop_unused_watcher_sidebar`** (the 2026-11-10
-cleanup), which drops the table `task_watcher` and the column `user_preference.sidebar_collapsed` (both
-unused). `task_comment` stays, read-only, for old data: no UI or service writes comments any more. Change in v0.5: the Phase 1 schema for M2–M6 exists (migration
+Status: **v0.6, current through migration `0027_season_permits_by_dates`** (2026-11-26, Fahrplan SAI8: planning the
+dates creates the season permits). Migration `0013_drop_unused_watcher_sidebar` (the 2026-11-10 cleanup) dropped the
+table `task_watcher` and the column `user_preference.sidebar_collapsed` (both unused). `task_comment` stays, read-only, for old data: no UI or service writes comments any more. Change in v0.5: the Phase 1 schema for M2–M6 exists (migration
 `0002_phase1_modules`); where it deliberately differs from this text the line is marked "(implemented 0002: …)".
-Table list by file in `packages/db/src/schema/`: `templates.ts`, `tasks.ts`, `permits.ts`, `notifications.ts`,
-`staff.ts`, `money.ts`, `company.ts`, `documents.ts`. Change in v0.4: `workspace` removed; `user_preference` keeps theme, density,
+Table list by file in `packages/db/src/schema/`: `auth.ts`, `people.ts`, `catalogue.ts`, `events.ts`,
+`templates.ts`, `tasks.ts`, `permits.ts`, `permit-type.ts`, `appointments.ts`, `notes.ts`, `notifications.ts`,
+`staff.ts`, `money.ts`, `company.ts`, `documents.ts`, `vendors.ts`, `legal.ts`, `settings.ts`, `preferences.ts`,
+`audit.ts`. Change in v0.4: `workspace` removed; `user_preference` keeps theme, density,
 sidebar and `saved_views` (ADR 0019, classic screens). v0.3 was revised after the client meeting (research 05) and
 follow-up research 06–08. Changes from v0.2: **`event` replaces `market`** (ADR 0010), **event presets** (the old website's
 "presets") replace market series, **staff members** separate from login users (ADR 0012), time estimates,
@@ -107,7 +109,7 @@ erDiagram
   day: before|first|each|last, from, to}` ("HH:mm", Berlin), not null, checked with core `validateSchedule` for
   the preset's length; new markets start with core `DEFAULT_SCHEDULE`, migration 0017 converted the old
   `default_times` with the rules of core `scheduleFromTimes`, 0018 dropped `default_times`), `rrule?`, `default_duties` (duty_role → staff_member),
-  `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M11), active,
+  `checklist_template_ids`, `permit_requirement_ids` (via venue + type), `equipment_requirements` (M12), active,
   **`color`** (Marktfarbe: a key of the palette in `packages/core/src/events/market-colors.ts`, shown as a thin
   bar next to the market's name; assigned as the least used one when a market is created, editable in the
   market editor; null = fall back to the event type's colour), **`short_code`** (Kürzel, Fahrplan R15, migration
@@ -182,7 +184,7 @@ erDiagram
   `listNextTimeNotes`, `listOpenNextTimeNotes`, `getEventNextTimeNotes`.
 - **event_duty**: `(event_id, duty_role_id)` → `staff_member_id`. Reassigning reassigns open, not individually
   reassigned tasks of that duty role.
-- **appointment** (Termin, CF9-1): a dated appointment of the business that is not a task and not an event.
+- **appointment** (Besprechung in the UI, CF9-1; "Termin" stays an event date): a dated appointment of the business that is not a task and not an event.
   `title`, `on_date` (date), `starts_at?`/`ends_at?` (`time`; all-day when empty; no overnight, the end is after the
   start), `venue_id?` **or** `location_text?` (never both), `notes?`, who to reach out to: `contact_id?` (a saved
   contact) **or** inline `contact_name?`/`contact_phone_e164?`/`contact_email?` (a typed contact can be saved as a
@@ -249,7 +251,7 @@ erDiagram
   `payable_id?`, `parent_task_id?`, `source` (`template | manual | permit | permit_condition | obligation |
   rental | email | system`)), title, description, `phase?`, `category`, `priority`, labels;
   assignment (`duty_role_id?`, `assignee_id → staff_member`, `assignee_overridden`); timing (`anchor_key?`,
-  `offset_days?`, `day_mode`, `due_at?`, `due_overridden`); `is_key` (Kernaufgabe: editable on the task, ranks first in the Übersicht due list); **effort** (`estimate_minutes`, `effort_feedback`
+  `offset_days?`, `day_mode`, `due_at?`, `due_overridden`); `is_key` (Kernaufgabe: editable on the task, ranks first in the Übersicht due list; hidden for now (`HIDDEN_MODULES.keyTasks`), so the ranking is neutral and the data stays); **effort** (`estimate_minutes`, `effort_feedback`
   `as_planned | longer | shorter`); state (`status` `todo | in_progress | waiting_external | blocked | done |
   skipped | cancelled`, `waiting_reason?`, `completed_at?`, `completed_by?`, `approval_status?`);
   **kanban** (`board_column?` override, `board_sort`); **carry-over** (`rollover_count`, `last_rolled_at`);
@@ -352,7 +354,7 @@ erDiagram
   are gone). Single-date permits are titled "<requirement> – <date>", the others by the requirement. The first date of a
   season at the Ort creates its permit with its own apply task (SAI8; "Season permits" below).)*
 - **event_permit**: `(event_id, permit_id, required)`. *(implemented 0002: primary key `(event_id, permit_id)`.)*
-- **Logbook** = a view over permits + agreements + (M11) equipment + documents, grouped by location and category,
+- **Logbook** = a view over permits + agreements + (M12) equipment + documents, grouped by location and category,
   showing *held / pending / missing* for upcoming events.
 
 ### Staff hours & Minijob (M4; times entered by the office in Phase 1, by staff via magic link from M7)
@@ -478,7 +480,8 @@ erDiagram
   (classic screens, ADR 0019).
 
 ### Files, KB, audit
-**file / file_link** (as before), **kb_article** (+ revisions), **audit_log** *(exists)*.
+Files are **`document`** rows (see *Payables, receipts, event P&L*), **audit_log** *(exists)*. The knowledge base
+(Wissen) has no table yet: its page is a placeholder and hidden from the sidebar (`HIDDEN_MODULES.knowledgeBase`).
 
 ## Key algorithms (Phase 1)
 
@@ -503,7 +506,7 @@ createEvent(preset | agreement, date [, durationDays]):
       auto-confirm: all required permits already granted → planned → confirmed (audit auto, same tx)
       (undo "Rückgängig" after a run: audit-based, an event qualifies while its audit trail holds only
        event.create (+ that automatic confirmation); status is not looked at)
-      (M11) equipment requirements ← preset
+      (M12) equipment requirements ← preset
       audit; grouped "assigned" notifications (debounced)
 ```
 
@@ -558,7 +561,7 @@ Publishing creates version n+1 and changes nothing else. "Apply to events…" op
 pre-selected**, a per-event preview and the merge rules (add / update non-customized open tasks / cancel
 untouched removed tasks; done tasks, comments, evidence never touched).
 
-## Phase 2 sketch: bookings (M7–M10)
+## Phase 2 sketch: bookings (M8–M10)
 - **vendor**: kind (private/commercial), name, contact, categories (antique, design, handmade, food…), default
   length, car + car length, documents, `is_regular`, notes incl. vendor talks, `legacy_id`, newsletter consent
   (`consent_basis`: `soft_opt_in | double_opt_in`, `unsubscribed_at`).
@@ -571,9 +574,9 @@ untouched removed tasks; done tasks, comments, evidence never touched).
 - **stall_ticket** (Platzkarte PDF), **invoice / invoice_line / invoice_recipient / number_sequence**,
   **payment_check_session** + `bank_line` (imported CSV/CAMT) + `payment_match`.
 - **reminder** (manual, logged: who/when/template).
-- **mailbox / email_thread / email_message / thread_link / reply_template** (M10).
+- **mailbox / email_thread / email_message / thread_link / reply_template** (M11).
 
-## Phase 2–3 sketch: inventory (M11), field, maps, communication
+## Phase 2–3 sketch: inventory (M12), field, maps, communication
 - **item_type** (bulk; `tracking` column reserved), **preset_requirement / event_requirement** (qty),
   availability = owned − out_of_service − overlapping requirements (setup→teardown window) + active rentals;
   **rental** (supplier, item, qty, events, pickup, `due_return_on`, returned_at, deposit, late fee terms,

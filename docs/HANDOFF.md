@@ -1,36 +1,25 @@
 # Handoff
 
-**Updated 2026-11-10.** One current handoff; earlier session handoffs are in git history. Repository:
-[`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk).
+The session-start doc: how the product owner works, local setup, the deployed version and gotchas. Earlier session
+handoffs are in git history. Repository: [`coelln-konzept/marktwerk`](https://github.com/coelln-konzept/marktwerk).
 
-## Where things stand
-- **Phase 1 (M1–M6) is built in code.** Since then:
-  - UX review (PR #20, 2026-10-29): [research 10](./research/10-ux-review-2026-10.md).
-  - User test + handwritten notes (PR #21, 2026-11-03): event **Checkliste** tab (done items stay in place),
-    **Zusammenfassung** (was Überblick), **Archiv** under Stammdaten; global Board, Kernaufgaben, the bell and the
-    Kalender's Aufgaben layer hidden. [Research 11](./research/11-user-test-2026-11.md).
-  - Client feedback 9 (PR #22, 2026-11-04): **Besprechungen**, Übersicht layout, task notification setting (nothing
-    sent yet), market colours, A–Z on Aussteller/Kontakte.
-  - PR #23: cancelling an event cancels its open tasks; **Veranstaltung löschen**.
-- **Hidden modules** (UI only, data stays): `HIDDEN_MODULES` in `apps/web/src/lib/modules.ts`: `team`, `finance`,
-  `estimates`, `notificationBell`, `calendarTasks`, `keyTasks`, `globalBoard`, `booking`. Flip a flag to bring a
-  module back. Why each is hidden: [roadmap, Status](./product/roadmap.md#status-2026-11-10).
+## Status and next steps
+Not kept here, so it can't go stale:
+- **Steps, progress, the next step:** the **[Marktwerk Fahrplan](https://claude.ai/artifact/Ei3Xy9VGSDWr5WsEujn639)**
+  (source of truth; how to use it at the start of a session: `CLAUDE.md`).
+- **Milestones, scope and the hidden modules** (`HIDDEN_MODULES` in `apps/web/src/lib/modules.ts`; flip a flag to
+  bring a module back): [roadmap](./product/roadmap.md#status).
 - **Decisions:** [open-questions.md](./open-questions.md) (Decided table; superseded rows are marked).
-- **PR #28 (2026-11-10):** a task's photo/attachment evidence can be switched on or off in the task drawer's edit mode.
-- **Cleanup (PR #26, merged 2026-11-10):** docs tidy-up (this file, archive, roadmap status) plus code
-  cleanup: the unused task-comment service goes (`task_comment` table kept for old data), `task_watcher` and
-  `user_preference.sidebar_collapsed` are dropped, the `/wissen` sidebar entry is hidden (route stays, placeholder),
-  and `/api/finanzen/belege` follows the Finance hide.
 
 ## Local setup
 Follow [development/setup.md](./development/setup.md). Notes for the macOS machine:
 - Postgres + Mailpit via Docker: `pnpm db:up`. Postgres is mapped to **port 5433** by a local, git-excluded
   `docker-compose.override.yml` (a system Postgres owns 5432); `.env` points `DATABASE_URL` / `TEST_DATABASE_URL` there.
-- Dev server: `preview_start` name **`marktwerk`** (`.claude/launch.json`, `pnpm dev`, port **3001**; 3000 is taken by
-  another container). Restart it after branch jumps or merges (Turbopack keeps stale modules).
+- Dev server: `preview_start` name **`marktwerk`** (a local `.claude/launch.json`, not in the repo; `pnpm dev`, port
+  **3001**; 3000 is taken by another container). Restart it after branch jumps or merges (Turbopack keeps stale modules).
 - `DEV_AUTO_LOGIN_EMAIL` / `DEV_AUTO_LOGIN_PASSWORD` in `.env` sign a fresh localhost browser in (setup.md).
-- Reseed: drop + create the database, then `pnpm db:migrate && pnpm db:seed` (setup.md, "Reset the data"). The seed
-  refuses an already seeded database.
+- Reseed: drop + create the database, then `pnpm db:migrate && pnpm db:seed` (setup.md, "Reset the data"), or empty
+  the app data with `pnpm db:wipe -- --yes` (logins kept) and seed again. The seed refuses an already seeded database.
 - E2E: `E2E_BASE_URL=http://localhost:3001 E2E_CHROMIUM_PATH=<path to Chrome> pnpm test:e2e`
   ([testing.md](./development/testing.md)). Earlier runs can leave saved views in `app.user_preference.saved_views`
   that break the next run; reset them for the e2e owner.
@@ -41,7 +30,9 @@ Follow [development/setup.md](./development/setup.md). Notes for the macOS machi
   (Scalingo candidate, ADR 0006). Details: [deployment.md](./development/deployment.md).
 - Seeding: Actions → **Seed dev database** (`gh workflow run seed-dev.yml --ref main -f confirm=seed`), using the repo
   secrets `SEED_OWNER_EMAIL`, `SEED_OWNER_PASSWORD`, `DATABASE_MIGRATION_URL` (values only in GitHub/Vercel, never in
-  chat). The seed refuses a seeded database, and there is no wipe workflow yet: ask before building one (destructive).
+  chat). The seed refuses a seeded database. To replace the data, the same workflow takes `-f wipe=wipe`: it empties
+  every app table except the sign-in tables first (destructive: ask the product owner before running it; details in
+  [deployment.md](./development/deployment.md#seeding-the-dev-database-github-actions)).
 - Auth is email + password. Magic link and invitations come once an email provider exists.
 
 ## How the product owner likes to work
@@ -54,14 +45,8 @@ Follow [development/setup.md](./development/setup.md). Notes for the macOS machi
 - Less clutter, but **all tasks of a market visible together**: the problem is the display, not the amount.
   German UI wording; market colours.
 
-## Next steps
-The step-by-step plan lives in the **[Marktwerk Fahrplan](https://claude.ai/artifact/Ei3Xy9VGSDWr5WsEujn639)**: every
-step from today to production and the pilot, each under 30 minutes with a done-check, ticked off there. Start every
-session from its "Next step" card. A stalled step is split into 23a, 23b … in the tracker; new bugs and user-test
-findings become steps there, not separate lists. Big picture and milestones stay in the
-[roadmap](./product/roadmap.md); decisions in [open-questions.md](./open-questions.md).
-
-Outside the Fahrplan: `exp/stand-allocation` (Postfach + Standplan prototype) has its own plan and runs in a Neon
+## Outside the Fahrplan
+`exp/stand-allocation` (Postfach + Standplan prototype) has its own plan and runs in a Neon
 branch environment ([deployment.md](./development/deployment.md#branch-environments-on-neon-manual-for-now), ADR 0023).
 
 ## Gotchas worth keeping
@@ -75,5 +60,5 @@ branch environment ([deployment.md](./development/deployment.md#branch-environme
   text on solid status dots.
 - **`notFound()` answers HTTP 200:** the app-wide `app/(app)/loading.tsx` makes routes stream, so not-found pages
   return 200 with the German not-found page. Accepted for an internal tool; e2e asserts the page, not the status.
-- **Prototype vs. docs:** the Claude Design prototype is historical. [ux-concept.md](./product/ux-concept.md) and the
+- **Prototype vs. docs:** the Claude Design prototype ([archive](./archive/claude-design/a-classic/INDEX.md)) is historical. [ux-concept.md](./product/ux-concept.md) and the
   code win.

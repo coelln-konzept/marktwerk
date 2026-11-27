@@ -1,7 +1,7 @@
 # Research 09 — UI/UX: standards, references, customisable workspace
 
 > **Partly superseded (2026-10-21):** the customisable-workspace half (docking panes, workspace tabs, saved workspaces) was
-> replaced by classic screens ([ADR 0019](../architecture/adr/0019-classic-screens.md)). The standards and references still apply.
+> replaced by classic screens ([ADR 0019](../../architecture/adr/0019-classic-screens.md)). The standards and references still apply.
 
 *Dedicated UI/UX research (2026-10-21) for the from-scratch redesign. Web claims from search snippets (direct page fetching was blocked); library facts verified with npm and inspected tarballs; (unverified) marks background knowledge. Decisions taken on this basis are recorded in docs/product/ux-concept.md and ADR 0018.*
 

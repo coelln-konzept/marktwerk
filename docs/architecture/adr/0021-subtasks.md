@@ -1,6 +1,6 @@
 # 0021: Subtasks replace task checklists and task dependencies
 
-**Status:** accepted (2026-11-13, product owner, user test 2: [research 12](../../research/12-user-test-2026-11-13.md) UT2-14, D2-10…D2-14).
+**Status:** accepted (2026-11-13, product owner, user test 2: [research 12](../../archive/research/12-user-test-2026-11-13.md) UT2-14, D2-10…D2-14).
 
 ## Context
 Tasks have three ways of structuring work today:

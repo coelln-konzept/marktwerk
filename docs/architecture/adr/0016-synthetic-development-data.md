@@ -21,6 +21,8 @@ UX testing need realistic volumes (a full season, ~1,500 vendors, booking histor
   events per season (January–November, mostly Sundays, at most 3 per day) from date rules that reproduce the 2027 wall
   calendar; markets carry their own rules and Zeitplan.
 - The M1 seed script loads it into the database (`pnpm db:seed`); staging uses it until the pilot.
+  *(Amended by [ADR 0023](0023-test-environments.md), 2026-11-13: there is no staging; the deployed dev app and the
+  branch environments use it.)*
 - When real data arrives, it is imported through the same services (never mixed with synthetic data in one database).
 
 ## Consequences

@@ -7,7 +7,8 @@
 Clickable mid-fidelity prototype of the Phase 1 screens, produced in Claude Design from the v1 prompt
 (`git show a241381:docs/product/claude-design-prompt.md`) plus the follow-up
 [`claude-design-prompt-v1-update.md`](../../../archive/claude-design-prompt-v1-update.md) (archived). Uploaded 2026-10-21.
-Chosen direction: **A, classic screens** ([ADR 0019](../../../architecture/adr/0019-classic-screens.md)).
+Chosen direction: **A, classic screens** ([ADR 0019](../../../architecture/adr/0019-classic-screens.md)), chosen
+2026-10-21. Direction B (customisable workspace, v2 prompt) was never produced; the direction was dropped.
 
 **How to view:** open `index.html` in a browser (self-contained; only Inter is loaded from Google Fonts). The
 floating button *Bildschirme (53)* switches screens; each screen also has its own anchor, e.g.

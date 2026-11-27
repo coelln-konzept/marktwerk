@@ -84,7 +84,7 @@ Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Appli
 ## Interface
 | German (UI-DE) | English (UI-EN) | Code | Meaning |
 |---|---|---|---|
-| Übersicht | Overview | route `/` | Start screen, the same for everyone: KPIs, season strip, Heute fällig, Dieses Wochenende. |
+| Übersicht | Overview | route `/` | Start screen, the same for everyone: Heute & nächste Tage, a Dieses Wochenende info box, and Genehmigungen (Saison-Anträge, then Demnächst). No KPI or season strip any more. |
 | Kalender (Ebenen) | Calendar (layers) | route `/kalender`, `user_preference.saved_views` | Company-wide calendar; layers (events by type, deadlines, shifts, holidays) switched on per person. |
 | Vorschau | Preview | `?vorschau=<type>:<id>` | Small read-only card for a list row (👁 or Space); Enter opens the page, Esc closes. |
 | Drawer (Detailansicht) | Detail drawer | `?detail=<type>:<id>` | Panel from the right for real work on one record (task, permit, payable) while the list stays visible. |
@@ -100,8 +100,8 @@ Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Appli
 | Vorlage (Ablaufvorlage) | Template | `checklist_template` | Versioned; published deliberately. |
 | Vorbereitung / Durchführung / Nachbereitung | Before / During / After | `phase: pre \| live \| post` | |
 | T-30 | T-minus 30 days | `offset_days = -30` | Relative to an anchor date. |
-| Zeitaufwand (geschätzt) | Estimated effort | `estimate_minutes` | Per task/template item; drives workload & hiring view. |
-| Board / Kanban | Board | board view | Drag tasks onto people to assign. |
+| Zeitaufwand (geschätzt) | Estimated effort | `estimate_minutes` | Per task/template item; drives the workload & hiring view. Hidden for now (`HIDDEN_MODULES.estimates`), the data stays. |
+| Board / Kanban | Board | board view | Drag tasks onto people to assign. Hidden for now: the global Board (`/board`, `HIDDEN_MODULES.globalBoard`) has no sidebar entry, and an event's task tab is the Checkliste without kanban columns. |
 | Übertrag (↻) | Carry-over | `rollover_count` | Unfinished overdue task moved to "today". |
 | Schicht | Shift | `shift` | A staff member working an event in a role, with planned/actual times. |
 | Stundenzettel / Arbeitszeit | Timesheet / working time | `shift.actual_*` | §17 MiLoG: record within 7 days. |

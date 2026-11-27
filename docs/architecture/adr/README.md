@@ -24,8 +24,8 @@ consequences. Statuses: *proposed*, *accepted*, *superseded by NNNN*, *open* (a 
 | [0017](0017-development-hosting.md) | Development hosting on free tiers (Vercel + Supabase) | accepted |
 | [0018](0018-workspace-architecture.md) | Customisable workspace: docking shell, view registry, server-side layouts | superseded by 0019 |
 | [0019](0019-classic-screens.md) | Classic screens instead of a customisable workspace | accepted |
-| [0020](0020-board-drag-and-drop.md) | Board drag and drop with dnd-kit (pointer/touch); keyboard mode stays our own | accepted |
+| [0020](0020-board-drag-and-drop.md) | Board drag and drop with dnd-kit (pointer/touch); keyboard mode stays our own | accepted (dormant: board UI hidden since 2026-11-03) |
 | [0021](0021-subtasks.md) | Subtasks (one level) replace task checklists and task dependencies | accepted |
 | [0022](0022-zeitplan.md) | A market's times are a Zeitplan of windows (team / vendors / visitors) | accepted |
 | [0023](0023-test-environments.md) | Test environments: deployed dev app + Neon branch environments; mail fence; no staging/simulation for now | accepted |
-| [0024](0024-recurring-work-three-levels.md) | Recurring work on three levels (per date, per season from the Ort, per year as Pflichten); no Saison record | accepted |
+| [0024](0024-recurring-work-three-levels.md) | Recurring work on three levels (per date, per season from the Ort, per year as Pflichten); no Saison record | accepted, amended 2026-11-26 (SAI8) |

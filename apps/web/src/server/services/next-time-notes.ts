@@ -82,8 +82,8 @@ async function resolveTarget(tx: Tx, actor: Actor, target: NextTimeNoteTarget): 
 }
 
 /**
- * "Fürs nächste Mal notieren" (Fahrplan R25): a short note against the market of a date, a task's date (or its
- * Saison) or the market itself. Permission `nextTimeNote:write` → transaction → audit `next_time_note.create`.
+ * "Fürs nächste Mal notieren" (Fahrplan R25): a short note against the market of a date, a task's date or the
+ * market itself. Permission `nextTimeNote:write` → transaction → audit `next_time_note.create`.
  * The undo of the toast is `deleteNextTimeNote` (its author may always take it back).
  */
 export async function addNextTimeNote(

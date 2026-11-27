@@ -3,7 +3,7 @@
 **Status:** accepted (2026-10-21, product owner, session 2). Supersedes [ADR 0018](0018-workspace-architecture.md).
 
 ## Context
-Two UI directions were designed in Claude Design from the same research ([research 09](../../research/09-ui-ux-workspace.md))
+Two UI directions were designed in Claude Design from the same research ([research 09](../../archive/research/09-ui-ux-workspace.md))
 and the same client input ([research 05](../../research/05-client-meeting-2026-10.md)):
 
 | Direction | What it is |

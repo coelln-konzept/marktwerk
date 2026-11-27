@@ -1,7 +1,8 @@
 # Conventions
 
 ## Language
-- Code, identifiers, commits, code comments: **English**. UI strings: in `apps/web/messages/{de,en}.json`, never inline.
+- Code, identifiers, commits, code comments: **English**. UI strings: in `apps/web/messages/{de,en}/<area>.json`
+  (both locales), never inline.
 - Domain terms map through the [glossary](../product/glossary.md). Add a row before introducing a new term.
 
 ## Structure & layering
@@ -26,15 +27,17 @@
   `Europe/Berlin`. Never use `new Date(y, m, d)` for business dates.
 
 ## UI
-- shadcn/ui components in `src/components/ui` (generated, don't hand-edit except for theming).
+- UI primitives in `src/components/ui` are hand-written to the design tokens; `shadcn add` must not overwrite them
+  ([setup.md](setup.md#adding-shadcnui-components)).
 - Feature components live next to their route or in `src/components/<feature>/`.
 - Status colours: use the `status-ok / status-warn / status-critical / status-info` theme tokens.
 - Dense, keyboard-friendly back office. Field screens: min 48 px touch targets, high contrast.
 
 ## Testing
 - `packages/core`: unit tests for every rule (Vitest). Test DST and edge dates for anything date-related.
-- Services: integration tests against a real Postgres (test database, from M1).
-- E2E (Playwright, from M2): login, create event from preset, complete a task, permit reminder.
+- Services: integration tests against a real Postgres (own test database).
+- E2E (Playwright): a browser smoke suite over the main pages and flows.
+- Details and commands: [testing.md](testing.md).
 
 ## Git
 - Branches: `feat/…`, `fix/…`, `chore/…`, `docs/…`. Small PRs. Conventional commit messages
