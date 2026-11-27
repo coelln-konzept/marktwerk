@@ -53,6 +53,7 @@ export * from "./permits/status";
 export * from "./permits/venue-needs";
 export * from "./staff/hours";
 export * from "./staff/minijob";
+export * from "./staff/planning";
 export * from "./staff/worktime";
 export * from "./tasks/due";
 export * from "./tasks/index";
