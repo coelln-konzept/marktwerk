@@ -85,6 +85,7 @@ erDiagram
 ### Access & people
 - **user / session / account / verification**: Better Auth *(exists)*. `user.role` = permission role.
 - **settings** *(exists)*: company data, IBAN, time zone, Bundesland (`NW`), default due time, reminder policy, `email_enabled` (master switch for outgoing email, default `false`: while off the jobs queue no email and `send-emails` delivers none, in-app notifications are unaffected) and `daily_digest_enabled` (the 07:00 digest additionally needs this on) and `permit_horizon_days` (integer 7–180, default 30, check constraint: how many days before the apply-by date, or the expected decision once filed, permits appear in the Übersicht; beyond 7 days they form the group "Genehmigungen demnächst"; tasks and other due items keep 7 days).
+  Also **`default_monthly_hour_budget`** (numeric(5,2), not null, default 40, check 0–200, migration 0025): the monthly planning budget in hours of everyone whose contract sets no `monthly_hour_budget` of its own.
 - **staff_member**: `display_name`, `first_name`, `last_name`, `phone_e164`, `email?`, `user_id?` (unique),
   `preferred_duty_role_ids`, `active`, notes. (The synthetic dataset marks future login users with
   `permissionRole`; the seed creates their Better Auth users.) Phase 2 (M7) adds `whatsapp_opt_in_at`, `whatsapp_opt_in_method`,
@@ -122,6 +123,10 @@ erDiagram
   rules later doesn't touch them. The event page shows the preset's rules; events without a preset show
   their type's rules read-only. A preset is a real market ("Flohmarkt Nippes") with its venue built in
   (decision 2026-10-22).
+- **event_preset.`staffing`** (Personalbedarf, shift allocator, migration 0025): jsonb list of rows
+  `{dutyRoleKey, count, scheduleKind: setup|open|teardown}`, not null, default `[]` (shape `StaffingRow` in
+  `@marktwerk/core`). "How many people of which role this market needs per Zeitplan part"; edited on the Vorlage
+  under "Personalbedarf". It is a blueprint: events get their needs from it (see `shift_need`).
 - **location_agreement**: `venue_id`, counterparty contact, `valid_from`, `valid_until`, `fixed_dates` (date[]),
   terms, documents. Generates events. Doesn't replace permits.
 
@@ -203,6 +208,12 @@ erDiagram
   contact) **or** inline `contact_name?`/`contact_phone_e164?`/`contact_email?` (a typed contact can be saved as a
   `contact` of kind `other` on creation, then only `contact_id` is set), `archived_at?`. Rules in `checkAppointment`
   (`packages/core/src/appointments`), CHECK constraints mirror them. Service audit: `appointment.create|update|archive|restore`. Gated by the own `appointment` permission resource (read/write/delete; field has none).
+
+- **event.`staffing`** (Personalbedarf of this event, migration 0025): jsonb, same shape as `event_preset.staffing`,
+  not null, default `[]`. Copied from the preset when the event is created and editable per event; "Personalbedarf
+  aus Vorlage übernehmen" rebuilds the event's `shift_need` rows from it. A length change rebuilds the needs for
+  the new length: needs that still fit keep their people, the rest become "Weitere Schichten" (shifts without a
+  need).
 
 ### Templates, tasks, kanban
 - **checklist_template**, **template_version** (`draft | published | retired`, immutable when published),
@@ -378,6 +389,23 @@ erDiagram
   `actual_start/end?`, `break_minutes`, `status` (`requested | confirmed | declined | worked | no_show |
   cancelled`), `recorded_by`, `recorded_at`, `approved_by?`, `approved_at?`, `version` (changes versioned with
   reason in `shift_revision`). Non-event work (office hours) = shift without event.
+- **employment_contract.`monthly_hour_budget`** (shift allocator, migration 0025): numeric(5,2), nullable,
+  check ≥ 0. The person's planning budget in hours per month; null = `settings.default_monthly_hour_budget`.
+  Hours planned (requested, confirmed) and worked count against it; going over warns and asks, never blocks.
+- **shift_need** (Bedarf, shift allocator, migration 0025): what one event day needs for one role and Zeitplan
+  part. `event_id` (cascade), `work_date`, `duty_role_id` (restrict), **`schedule_kind`** (enum `schedule_kind`:
+  `setup | open | teardown`, so the same role can be needed for Aufbau and for Abbau), `headcount` (check 0–30;
+  0 = not needed that day), `planned_start/end` (`time`, nullable, both or neither, check `shift_need_times`).
+  **Unique `(event_id, work_date, duty_role_id, schedule_kind)`**, index on `work_date`. Times come from the
+  team row of that kind that day, or else from any row of that kind that day (default Zeitplans have no team
+  rows). Gaps are computed (headcount minus requested/confirmed shifts), never stored.
+- **shift.`need_id`** (migration 0025): nullable uuid → `shift_need`, `on delete set null`. The need a shift
+  fills; null = entered without one (office hours, an extra helper, "Weitere Schichten"). Time recording
+  (`actual_*`, `EventShifts`, §17 MiLoG, payroll) is unchanged.
+- **staff_unavailability** (Nicht verfügbar, shift allocator, migration 0025): `staff_member_id` (cascade),
+  `date`, `note?`, `created_by_staff_member_id?`, timestamps. Unique `(staff_member_id, date)`, index on `date`;
+  a from–to entry writes one row per day. Entered by the office (from WhatsApp); the planner warns and asks
+  "Trotzdem einplanen?", it never blocks.
 - **payroll_period**: `month`, `status` (`open | locked | approved | exported`), `locked_at`, `exported_at`,
   export files. Computed per person: hours, gross, remaining allowance, YTD, overrun months.
 - **overrun_justification**: staff member, month, reason (needed for the "unforeseeable" exception).

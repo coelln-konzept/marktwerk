@@ -101,6 +101,10 @@ Product owner decision 2026-11-13 (Fahrplan 22, `docs/open-questions.md`). Appli
 | Board / Kanban | Board | board view | Drag tasks onto people to assign. |
 | Übertrag (↻) | Carry-over | `rollover_count` | Unfinished overdue task moved to "today". |
 | Schicht | Shift | `shift` | A staff member working an event in a role, with planned/actual times. |
+| Personalbedarf | Staffing | `event_preset.staffing`, `event.staffing` | How many people of which role a market (Vorlage) or event needs per Zeitplan part (Aufbau, Markt, Abbau). |
+| Bedarf | Shift need | `shift_need` | One open slot to fill: an event day, a role and a Zeitplan part with a headcount. The gap ("2 offen") is the headcount minus the people planned. |
+| Stundenbudget | Monthly hour budget | `employment_contract.monthly_hour_budget`, `settings.default_monthly_hour_budget` | Hours per month a person may be planned for; the company default applies without a contract value. Going over warns, never blocks. |
+| Nicht verfügbar | Unavailability | `staff_unavailability` | A day on which a person can't work (from WhatsApp, entered by the office). Planning them anyway asks "Trotzdem einplanen?". |
 | Stundenzettel / Arbeitszeit | Timesheet / working time | `shift.actual_*` | §17 MiLoG: record within 7 days. |
 | Monatsabschluss Stunden | Monthly hours close | `payroll_period` | Hours to the payroll office by the 15th. |
 | Standgespräch | Vendor talk | `vendor_note.kind = talk` | 1–2 h per event talking to vendors; their strong suit. |
