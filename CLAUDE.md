@@ -35,7 +35,7 @@ settled in the docs/ADRs. Log answers in `docs/open-questions.md` (Decided table
 - Business mutations go through services: permission check → transaction → `audit_log` → jobs/notifications.
 - Pure domain rules live in `packages/core` with Vitest tests (dates: test DST + edge cases).
 - Event instantiation, anchor shifts and template propagation each have exactly **one** service path.
-- No inline UI strings: add keys to **both** `apps/web/messages/de.json` and `en.json`.
+- No inline UI strings: add keys to **both** `apps/web/messages/de/<area>.json` and `en/<area>.json`.
 - Use the [glossary](docs/product/glossary.md) for domain naming (code in English, UI German-first).
   The core record is `event` (Veranstaltung), never `market` in new code. Say vendor/visitor, never customer.
 - Assignees are `staff_member`s (may have no login), not `user`s (ADR 0012).

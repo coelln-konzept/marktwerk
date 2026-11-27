@@ -453,6 +453,10 @@ export async function copyMasterForMarket(
   if (!source) return null;
 
   const name = `${market.name} – Aufgaben`.slice(0, TEMPLATE_NAME_MAX);
+  // Stored on the version and written to the audit entry, so the Verlauf names the real source.
+  const changeNote = sourceTemplateId
+    ? `Kopie von „${master.name}“ (Version ${source.version})`
+    : `Kopie der Grundvorlage (Version ${source.version})`;
   const [template] = await tx
     .insert(checklistTemplate)
     .values({
@@ -471,9 +475,7 @@ export async function copyMasterForMarket(
       status: "published",
       publishedAt: new Date(),
       publishedById: actor.staffMemberId,
-      changeNote: sourceTemplateId
-        ? `Kopie von „${master.name}“ (Version ${source.version})`
-        : `Kopie der Grundvorlage (Version ${source.version})`,
+      changeNote,
     })
     .returning({ id: templateVersion.id });
   if (!version) throw new Error("insert failed");
@@ -503,7 +505,7 @@ export async function copyMasterForMarket(
         version: 1,
         items,
         retiredVersion: null,
-        changeNote: `Kopie der Grundvorlage (Version ${source.version})`,
+        changeNote,
       },
     },
     {

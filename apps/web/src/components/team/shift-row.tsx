@@ -138,7 +138,7 @@ export function ShiftRowEditor({
     save({
       actualStart: shift.plannedStart,
       actualEnd: shift.plannedEnd,
-      breakMinutes: shift.breakMinutes,
+      breakMinutes: pause,
     });
   }
 

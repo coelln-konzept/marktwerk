@@ -43,7 +43,7 @@ import { Input } from "@/components/ui/input";
 import { OptionalMark } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { callAction } from "@/lib/call-action";
-import { formatDate, formatDateWeekdayDay } from "@/lib/format";
+import { formatDate, formatDateWeekdayDay, todayIn } from "@/lib/format";
 import { isModuleVisible } from "@/lib/modules";
 import { formatEstimate, REASON_STATUSES, TASK_STATUS_UI } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
@@ -933,7 +933,7 @@ export function TaskDrawer({
             <>
               <dt className="text-muted-foreground text-small">{t("fields.completed")}</dt>
               <dd className="m-0 text-small">
-                {formatDate(task.completedAt.slice(0, 10), locale)}
+                {formatDate(todayIn("Europe/Berlin", new Date(task.completedAt)), locale)}
                 {task.completedByName && ` · ${task.completedByName}`}
               </dd>
             </>

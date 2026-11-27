@@ -21,3 +21,6 @@ test-results/
 
 # generated synthetic dataset (deterministic, regenerate with `pnpm synth`)
 packages/synthetic/out/
+
+# editor/tool caches
+.impeccable/

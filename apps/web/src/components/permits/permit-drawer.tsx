@@ -320,7 +320,9 @@ export async function PermitDrawer({ id, closeHref }: { id: string; closeHref: s
                 <span className="tabular text-muted-foreground text-tiny">
                   {t(`taskStatus.${task.status}` as never)} ·{" "}
                   {task.dueAt
-                    ? t("taskDue", { date: formatDate(task.dueAt.slice(0, 10), locale) })
+                    ? t("taskDue", {
+                        date: formatDate(todayIn("Europe/Berlin", new Date(task.dueAt)), locale),
+                      })
                     : t("taskNoDue")}
                   {task.assigneeName ? ` · ${task.assigneeName}` : ""}
                 </span>

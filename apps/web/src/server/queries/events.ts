@@ -73,7 +73,7 @@ export type EventSearchMode = "wordStarts" | "words" | "typos";
 
 /** Folds umlauts and accents like the palette: "koln" finds Köln. */
 function fold(column: SQL): SQL {
-  return sql`translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aousseeeaaaoooiiiuuuc')`;
+  return sql`translate(lower(${column}), 'äöüßéèêáàâóòôíìîúùûç', 'aouseeeaaaoooiiiuuuc')`;
 }
 
 function searchWhere(tokens: string[], mode: EventSearchMode): SQL {

@@ -122,7 +122,6 @@ function HitStatus({ status }: { status: SearchStatus }) {
  */
 export function CommandPalette({ actions }: { actions: SearchHit[] }) {
   const t = useTranslations("palette");
-  const _tTasks = useTranslations("tasks");
   const tEvents = useTranslations("events");
   // A permit names its season, so the same permit of two years differs.
   const subtitleOf = (hit: SearchHit) =>

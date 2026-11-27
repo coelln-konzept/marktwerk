@@ -171,10 +171,13 @@ export function LayerPanel({
     return {
       types: typeKeys.filter((k) => data.getAll("typ").includes(k)),
       // Layers this person cannot see are not in the form; keep whatever was saved for them.
-      deadlines: [
-        ...layers.deadlines.filter((l) => !available.includes(l)),
-        ...available.filter((l) => data.getAll("frist").includes(l)),
-      ],
+      // The Jahr view renders no Fristen checkboxes at all, so there the saved selection stays.
+      deadlines: eventsOnly
+        ? layers.deadlines
+        : [
+            ...layers.deadlines.filter((l) => !available.includes(l)),
+            ...available.filter((l) => data.getAll("frist").includes(l)),
+          ],
       holidays: data.has("feiertage"),
       critical: data.has("kritisch"),
       mine: canMine && data.has("meine"),

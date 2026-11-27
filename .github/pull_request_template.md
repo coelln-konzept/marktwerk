@@ -5,7 +5,7 @@
 
 ## Checklist
 - [ ] `pnpm check` passes
-- [ ] New UI strings added to both `de.json` and `en.json`
+- [ ] New UI strings added to both `messages/de/<area>.json` and `messages/en/<area>.json`
 - [ ] Permission checks on new actions/routes
 - [ ] Migration generated and committed (if schema changed)
 - [ ] Docs/ADR updated (if behaviour or architecture changed)

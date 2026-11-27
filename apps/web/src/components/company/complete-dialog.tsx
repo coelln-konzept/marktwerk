@@ -93,7 +93,7 @@ export function CompleteButton({
 
   function openDialog() {
     setDoneOn(today);
-    setKm(target.currentKm === null ? "" : formatNumber(target.currentKm, locale, 0));
+    setKm(target.currentKm === null ? "" : String(target.currentKm));
     setCost("");
     setChecker("");
     setNotes("");
