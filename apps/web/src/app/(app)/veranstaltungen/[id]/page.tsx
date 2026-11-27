@@ -23,6 +23,7 @@ import { getActor } from "@/server/actor";
 import { getEventOverview } from "@/server/queries/event-overview";
 import { getEvent } from "@/server/queries/events";
 import { getEventNextTimeNotes } from "@/server/queries/next-time-notes";
+import { getEventPlanning } from "@/server/queries/planning";
 import { getTaskDetail, listStaffOptions } from "@/server/queries/tasks";
 import { requirePermission } from "@/server/session";
 
@@ -47,6 +48,12 @@ export default async function EventOverviewPage({
     getEventOverview(actor, event, today),
     getEventNextTimeNotes(actor, event, today),
   ]);
+
+  // "N offene Schichten" in the team summary: only for team:read and only when the event has needs.
+  const showTeam = isModuleVisible("staffPlanning");
+  const plan =
+    showTeam && can(actor.role, "team", "read") ? await getEventPlanning(event.id) : null;
+  const openShifts = plan && plan.days.length > 0 ? plan.openTotal : null;
 
   const sp = await searchParams;
   const taskId = param(sp.aufgabe);
@@ -97,7 +104,7 @@ export default async function EventOverviewPage({
         <FactsPanel event={event} canWrite={canWrite} />
         <RulesPanel event={event} canEditMarket={can(actor.role, "template", "write")} />
       </div>
-      {isModuleVisible("staffPlanning") && <TeamSummaryPanel event={event} />}
+      {showTeam && <TeamSummaryPanel event={event} openShifts={openShifts} />}
       {drawer}
     </KeyboardRows>
   );

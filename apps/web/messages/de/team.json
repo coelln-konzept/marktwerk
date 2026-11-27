@@ -110,6 +110,44 @@
       "action": "Trotzdem einplanen",
       "cancel": "Abbrechen"
     },
-    "error": "Das hat nicht geklappt. Bitte neu laden und noch einmal versuchen."
+    "error": "Das hat nicht geklappt. Bitte neu laden und noch einmal versuchen.",
+    "event": {
+      "title": "Schichtplanung",
+      "need": "{role} · {from}–{to} · {count} benötigt",
+      "needNoTimes": "{role} · {count} benötigt",
+      "addPerson": "+ Person",
+      "addPersonLabel": "Person für {role} am {date} einplanen",
+      "edit": "Bedarf ändern",
+      "headcount": "Anzahl",
+      "from": "von",
+      "to": "bis",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "saved": "Bedarf {role} gespeichert",
+      "invalid": "Bitte Anzahl (0–{max}) und Zeiten als HH:MM angeben.",
+      "loose": "Weitere Schichten",
+      "applyPreset": "Personalbedarf aus Vorlage übernehmen",
+      "applied": "{count} Bedarfe angelegt",
+      "none": "Für diese Veranstaltung ist kein Personalbedarf hinterlegt.",
+      "openTotal": "{count, plural, =0 {Alle Schichten besetzt} one {# offene Schicht} other {# offene Schichten}}",
+      "search": "Person suchen",
+      "loading": "Lädt …",
+      "empty": "Niemand gefunden",
+      "noTimesHint": "Ohne Zeiten gibt es keine Vorschläge. Lege zuerst die Zeiten fest.",
+      "shiftMenu": "Schicht von {name}",
+      "group": {
+        "usual": "Üblich",
+        "other": "Weitere",
+        "unavailable": "Nicht verfügbar"
+      },
+      "left": "noch {before} h → {after} h",
+      "flag": {
+        "already_scheduled": "schon eingeplant",
+        "overlap": "Überschneidung",
+        "over_budget_after": "danach über Budget",
+        "worktime": "ArbZG",
+        "unavailable": "nicht verfügbar"
+      }
+    }
   }
 }

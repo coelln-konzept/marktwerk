@@ -1,19 +1,28 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { CalendarCheck, CalendarOff, Check, RotateCcw, Trash2, UserPlus, X } from "lucide-react";
+import {
+  CalendarCheck,
+  CalendarOff,
+  Check,
+  Clock,
+  RotateCcw,
+  Trash2,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import type { PlanningNeed, PlanningPerson } from "@/server/queries/planning";
+import type { PlanningNeed, PlanningPerson, PlanningShift } from "@/server/queries/planning";
 import type { usePlanningActions } from "./planning-toasts";
 import { shortSpan } from "./shift-chip";
 
 /** What a cell hands the shared menu when it opens it. */
 export type CellPayload = { staffMemberId: string; day: string };
 
-const item =
+export const menuItemClass =
   "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[highlighted]:bg-hover [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
 const ANSWERABLE = new Set(["requested", "confirmed", "declined"]);
-const groupLabel =
+export const menuGroupLabelClass =
   "px-2 pt-2 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider";
 
 /**
@@ -42,18 +51,16 @@ export function CellMenuItems({
   const away = day in person.unavailable;
   const note = person.unavailable[day] ?? null;
   const shifts = (person.shiftsByDay[day] ?? []).filter((s) => s.status !== "cancelled");
-  // Recorded shifts (gearbeitet, nicht erschienen) are shown but not changed here (Stunden does that).
-  const answerable = (status: string) => ANSWERABLE.has(status);
 
   return (
     <>
       {open.length > 0 && (
         <Menu.Group>
-          <Menu.GroupLabel className={groupLabel}>{tTeam("planning")}</Menu.GroupLabel>
+          <Menu.GroupLabel className={menuGroupLabelClass}>{tTeam("planning")}</Menu.GroupLabel>
           {open.map((need) => (
             <Menu.Item
               key={need.id}
-              className={item}
+              className={menuItemClass}
               onClick={() => actions.assign(need.id, person.staffMemberId, day, name, note)}
             >
               <UserPlus aria-hidden />
@@ -71,7 +78,7 @@ export function CellMenuItems({
       )}
       {away ? (
         <Menu.Item
-          className={item}
+          className={menuItemClass}
           onClick={() => actions.clearUnavailable(person.staffMemberId, day, note, name)}
         >
           <CalendarCheck aria-hidden />
@@ -79,7 +86,7 @@ export function CellMenuItems({
         </Menu.Item>
       ) : (
         <Menu.Item
-          className={item}
+          className={menuItemClass}
           onClick={() => actions.markUnavailable(person.staffMemberId, day, name)}
         >
           <CalendarOff aria-hidden />
@@ -89,7 +96,7 @@ export function CellMenuItems({
       {shifts.map((s) => (
         <Menu.Group key={s.id}>
           <Menu.Separator className="my-1 h-px bg-border" />
-          <Menu.GroupLabel className={groupLabel}>
+          <Menu.GroupLabel className={menuGroupLabelClass}>
             {[
               s.marketShortCode,
               en ? (s.roleNameEn ?? s.roleName) : s.roleName,
@@ -99,32 +106,76 @@ export function CellMenuItems({
               .filter(Boolean)
               .join(" · ")}
           </Menu.GroupLabel>
-          {answerable(s.status) && s.status !== "confirmed" && (
-            <Menu.Item className={item} onClick={() => actions.setStatus(s, "confirmed", name)}>
-              <Check aria-hidden />
-              {t("menu.confirm")}
-            </Menu.Item>
-          )}
-          {answerable(s.status) && s.status !== "declined" && (
-            <Menu.Item className={item} onClick={() => actions.setStatus(s, "declined", name)}>
-              <X aria-hidden />
-              {t("menu.decline")}
-            </Menu.Item>
-          )}
-          {(s.status === "confirmed" || s.status === "declined") && (
-            <Menu.Item className={item} onClick={() => actions.setStatus(s, "requested", name)}>
-              <RotateCcw aria-hidden />
-              {t("menu.request")}
-            </Menu.Item>
-          )}
-          {answerable(s.status) && (
-            <Menu.Item className={item} onClick={() => actions.setStatus(s, "cancelled", name)}>
-              <Trash2 aria-hidden />
-              {t("menu.remove")}
-            </Menu.Item>
-          )}
+          <ShiftStatusItems shift={s} name={name} actions={actions} />
         </Menu.Group>
       ))}
+    </>
+  );
+}
+
+/**
+ * The answers for one shift: bestätigt / abgesagt / wieder angefragt / Entfernen (each with an undo toast),
+ * plus "Zeiten ändern" where the caller can open the shift dialog. Recorded shifts (gearbeitet, nicht
+ * erschienen) are shown but not changed here (Stunden does that). Shared by the planning cell menu and the
+ * event's day blocks.
+ */
+export function ShiftStatusItems({
+  shift,
+  name,
+  actions,
+  onEditTimes,
+}: {
+  shift: Pick<PlanningShift, "id" | "version" | "status">;
+  name: string;
+  actions: ReturnType<typeof usePlanningActions>;
+  onEditTimes?: () => void;
+}) {
+  const t = useTranslations("planning");
+  const answerable = ANSWERABLE.has(shift.status);
+  return (
+    <>
+      {answerable && shift.status !== "confirmed" && (
+        <Menu.Item
+          className={menuItemClass}
+          onClick={() => actions.setStatus(shift, "confirmed", name)}
+        >
+          <Check aria-hidden />
+          {t("menu.confirm")}
+        </Menu.Item>
+      )}
+      {answerable && shift.status !== "declined" && (
+        <Menu.Item
+          className={menuItemClass}
+          onClick={() => actions.setStatus(shift, "declined", name)}
+        >
+          <X aria-hidden />
+          {t("menu.decline")}
+        </Menu.Item>
+      )}
+      {(shift.status === "confirmed" || shift.status === "declined") && (
+        <Menu.Item
+          className={menuItemClass}
+          onClick={() => actions.setStatus(shift, "requested", name)}
+        >
+          <RotateCcw aria-hidden />
+          {t("menu.request")}
+        </Menu.Item>
+      )}
+      {answerable && (
+        <Menu.Item
+          className={menuItemClass}
+          onClick={() => actions.setStatus(shift, "cancelled", name)}
+        >
+          <Trash2 aria-hidden />
+          {t("menu.remove")}
+        </Menu.Item>
+      )}
+      {onEditTimes && (
+        <Menu.Item className={menuItemClass} onClick={onEditTimes}>
+          <Clock aria-hidden />
+          {t("menu.editTimes")}
+        </Menu.Item>
+      )}
     </>
   );
 }

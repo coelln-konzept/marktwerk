@@ -10,6 +10,7 @@ import {
   CalendarClock,
   ChevronRight,
   CircleCheck,
+  CircleDot,
   ListChecks,
   NotebookText,
   ShieldCheck,
@@ -602,8 +603,16 @@ export async function RulesPanel({
 }
 
 /** "Team" summary: duties filled x/y with health, the open ones named, link to the Team tab. */
-export async function TeamSummaryPanel({ event }: { event: EventDetail }) {
+export async function TeamSummaryPanel({
+  event,
+  openShifts = null,
+}: {
+  event: EventDetail;
+  /** Open slots over all needs of the event (team:read); null when it has no needs or isn't shown. */
+  openShifts?: number | null;
+}) {
   const t = await getTranslations("eventDetail.overview.team");
+  const tPlanning = await getTranslations("planning.event");
   const tHealth = await getTranslations("health");
   const locale = await getLocale();
   const total = event.duties.length;
@@ -628,6 +637,21 @@ export async function TeamSummaryPanel({ event }: { event: EventDetail }) {
             ? t("allSet")
             : t("open", { roles: open.map((d) => roleName(d, locale)).join(", ") })}
         </p>
+        {openShifts !== null && (
+          <p
+            className={cn(
+              "inline-flex items-center gap-1.5 text-small",
+              openShifts > 0 ? "font-medium text-status-warn" : "text-status-ok",
+            )}
+          >
+            {openShifts > 0 ? (
+              <CircleDot aria-hidden className="size-4 shrink-0" />
+            ) : (
+              <CircleCheck aria-hidden className="size-4 shrink-0" />
+            )}
+            {tPlanning("openTotal", { count: openShifts })}
+          </p>
+        )}
       </PanelBody>
     </Panel>
   );
