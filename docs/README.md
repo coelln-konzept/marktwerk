@@ -24,6 +24,9 @@ Historical documents (finished plans, early prompts, wireframes, component inven
 - [09 UI/UX: standards and references](research/09-ui-ux-workspace.md) (its workspace half is superseded by ADR 0019)
 - [10 UX/UI review and industry comparison (October 2026)](research/10-ux-review-2026-10.md)
 - **[11 User test, November 2026: findings, tasks (UT-xx), open decisions](research/11-user-test-2026-11.md)**
+- [12 User test 2, 13 November 2026](research/12-user-test-2026-11-13.md)
+- **[13 The client's own checklists and wall calendar (gaps G1–G13)](research/13-client-checklists-and-wall-calendar.md)**
+- [14 Plan for the remaining gaps G8, G11, G12, G13 (Fahrplan R26)](research/14-remaining-gaps-plan.md)
 
 ## Architecture
 - [Overview](architecture/overview.md): system context, code layout, cross-cutting concerns, M365 integration, hosting options
