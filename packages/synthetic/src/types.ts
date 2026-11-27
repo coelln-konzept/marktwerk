@@ -1,4 +1,4 @@
-import type { MarketColor, ScheduleRow } from "@marktwerk/core";
+import type { MarketColor, ScheduleKind, ScheduleRow, StaffingRow } from "@marktwerk/core";
 
 export type { ScheduleRow } from "@marktwerk/core";
 
@@ -270,6 +270,8 @@ export interface EmploymentContract {
   otherMinijobDeclared: boolean;
   validFrom: DateString;
   validUntil: DateString | null;
+  /** Company policy in hours per month (Minijob cap with margin); null = the default of 40 h. */
+  monthlyHourBudget: number | null;
 }
 
 export interface EventPreset {
@@ -298,6 +300,8 @@ export interface EventPreset {
   rrule: string | null;
   durationDays: number;
   defaultDuties: Record<DutyRoleKey, string>;
+  /** "Personalbedarf": how many people per duty role and schedule kind. */
+  staffing: StaffingRow[];
   active: boolean;
 }
 
@@ -321,6 +325,8 @@ export interface Event {
   cancelledReason: string | null;
   notes: string | null;
   duties: Record<DutyRoleKey, string>;
+  /** Copied from the market's Personalbedarf. */
+  staffing: StaffingRow[];
 }
 
 export interface EventAnchor {
@@ -559,6 +565,8 @@ export interface Obligation {
 export interface Shift {
   id: string;
   eventId: string;
+  /** The need this shift fills; null for shifts recorded without planning. */
+  needId: string | null;
   staffMemberId: string;
   dutyRoleId: string;
   workDate: DateString;
@@ -570,6 +578,27 @@ export interface Shift {
   status: ShiftStatus;
   recordedById: string | null;
   recordedAt: Instant | null;
+}
+
+/** One slot group of an event: how many people a duty role needs on a day for a schedule kind. */
+export interface ShiftNeed {
+  id: string;
+  eventId: string;
+  workDate: DateString;
+  dutyRoleId: string;
+  scheduleKind: ScheduleKind;
+  headcount: number;
+  plannedStart: TimeString | null;
+  plannedEnd: TimeString | null;
+}
+
+/** A day a person cannot work ("nicht verfügbar"). */
+export interface StaffUnavailability {
+  id: string;
+  staffMemberId: string;
+  date: DateString;
+  note: string | null;
+  createdByStaffMemberId: string | null;
 }
 
 export interface Vendor {
@@ -659,6 +688,8 @@ export interface Dataset {
   vehicles: Vehicle[];
   obligations: Obligation[];
   shifts: Shift[];
+  shiftNeeds: ShiftNeed[];
+  staffUnavailability: StaffUnavailability[];
   vendors: Vendor[];
   bookingRequests: BookingRequest[];
   bookingDates: BookingDate[];

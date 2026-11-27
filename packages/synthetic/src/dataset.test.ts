@@ -5,6 +5,7 @@ import {
   isMarketShortCode,
   itemPermitType,
   seasonAnchors,
+  slotMinutes,
   validateSchedule,
 } from "@marktwerk/core";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -1579,14 +1580,16 @@ describe("shifts and Minijob earnings", () => {
     expect(values.filter((v) => v > MINIJOB_LIMIT_CENTS).length).toBeLessThanOrEqual(2);
   });
 
-  it("has shifts only on past events of the current season, and some recent shifts without actual times", () => {
+  it("has recorded shifts only on past events of the current season, and some recent shifts without actual times", () => {
     const eventById = new Map(data.events.map((e) => [e.id, e]));
-    for (const shift of data.shifts) {
+    // Planned shifts (linked to a need) lie ahead; this is about the recorded ones.
+    const recorded = data.shifts.filter((s) => s.needId === null);
+    for (const shift of recorded) {
       const event = eventById.get(shift.eventId);
       expect(event?.season).toBe(SEASON);
       expect(event !== undefined && event.endsOn < REFERENCE_DATE).toBe(true);
     }
-    const recent = data.shifts.filter(
+    const recent = recorded.filter(
       (s) => s.workDate >= isoDay(Date.parse(`${REFERENCE_DATE}T00:00:00Z`) - 7 * DAY_MS),
     );
     expect(recent.some((s) => s.actualStart === null)).toBe(true);
@@ -1859,5 +1862,71 @@ describe.each(REFERENCE_DATES)("as of %s", (today) => {
       expect(Number(i.dueOn.slice(0, 4))).toBeGreaterThanOrEqual(season - 1);
       expect(Number(i.dueOn.slice(0, 4))).toBeLessThanOrEqual(season + 1);
     }
+  });
+});
+
+describe("shift planning seed (reference date 2026-11-25, window to 2027-04-30)", () => {
+  // Built with its own reference date so the window holds events whatever the package default is.
+  const today = "2026-11-25";
+  const windowEnd = "2027-04-30";
+  let planning: Dataset;
+  beforeAll(() => {
+    planning = generateDataset({ referenceDate: today });
+  }, TIMEOUT);
+  const inWindow = (date: string) => date >= today && date <= windowEnd;
+  const needs = () => planning.shiftNeeds.filter((n) => inWindow(n.workDate));
+  const plannedShifts = () => planning.shifts.filter((s) => s.needId && inWindow(s.workDate));
+
+  it("every preset has staffing; the window has needs, mixed statuses and open gaps", () => {
+    expect(planning.eventPresets.every((p) => p.staffing.length > 0)).toBe(true);
+    expect(needs().length).toBeGreaterThan(10);
+    const planned = plannedShifts();
+    expect(new Set(planned.map((s) => s.status))).toEqual(
+      new Set(["requested", "confirmed", "declined"]),
+    );
+    const open = needs().filter(
+      (n) =>
+        planned.filter((s) => s.needId === n.id && s.status !== "declined").length < n.headcount,
+    );
+    expect(open.length).toBeGreaterThan(0);
+  });
+
+  it("3-4 unavailable days, one 16 EUR/h person with 35 h, a declined shift whose slot is open", () => {
+    expect(planning.staffUnavailability.length).toBeGreaterThanOrEqual(3);
+    expect(planning.staffUnavailability.length).toBeLessThanOrEqual(4);
+    expect(planning.staffUnavailability.map((u) => u.note)).toEqual(
+      expect.arrayContaining(["nur bis 15 Uhr", "Urlaub"]),
+    );
+    expect(
+      planning.employmentContracts.filter(
+        (c) => c.hourlyRateCents === 1600 && c.monthlyHourBudget === 35,
+      ),
+    ).toHaveLength(1);
+    const declined = planning.shifts.filter((s) => s.needId && s.status === "declined");
+    expect(declined).toHaveLength(1);
+    const need = planning.shiftNeeds.find((n) => n.id === declined[0]?.needId);
+    expect(need).toBeDefined();
+    const active = planning.shifts.filter(
+      (s) => s.needId === need?.id && s.status !== "declined",
+    ).length;
+    expect(active).toBeLessThan(need?.headcount ?? 0);
+  });
+
+  it("planned shifts keep every person within their budget per month and off unavailable days", () => {
+    const contractByStaff = new Map(planning.employmentContracts.map((c) => [c.staffMemberId, c]));
+    const minutes = new Map<string, number>();
+    for (const s of plannedShifts()) {
+      if (s.status !== "requested" && s.status !== "confirmed") continue;
+      const key = `${s.staffMemberId}|${s.workDate.slice(0, 7)}`;
+      minutes.set(key, (minutes.get(key) ?? 0) + slotMinutes(s).net);
+    }
+    expect(minutes.size).toBeGreaterThan(0);
+    for (const [key, total] of minutes) {
+      const budget = contractByStaff.get(key.split("|")[0] ?? "")?.monthlyHourBudget ?? 40;
+      expect(total).toBeLessThanOrEqual(budget * 60);
+    }
+    const off = new Set(planning.staffUnavailability.map((u) => `${u.staffMemberId}|${u.date}`));
+    for (const s of plannedShifts())
+      expect(off.has(`${s.staffMemberId}|${s.workDate}`)).toBe(false);
   });
 });

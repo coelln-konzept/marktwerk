@@ -21,6 +21,7 @@ import {
   withMarketStewards,
 } from "./generators/people";
 import { buildPermitRequirements, buildPermits, linkedPermit } from "./generators/permits";
+import { buildPlanning } from "./generators/planning";
 import { buildSeasons } from "./generators/seasons";
 import { buildShifts } from "./generators/shifts";
 import { buildMarketTemplates, buildMasterTemplate, buildTasks } from "./generators/tasks";
@@ -224,6 +225,16 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     setupDutyRoleId: dutyRoleIdByKey.get("setup_crew") ?? "",
   });
 
+  const planning = buildPlanning(rng, {
+    events: scheduledEvents,
+    today,
+    nextSeason: clock.nextSeason,
+    contracts: people.employmentContracts,
+    crewStaffIds,
+    recordedById: staffId("office_manager"),
+    dutyRoleIdByKey,
+  });
+
   const vendors = buildVendors(rng);
   const bookings = buildBookings(rng, {
     events: scheduledEvents,
@@ -246,7 +257,7 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     venues,
     contacts: contactBundle.contacts,
     staffMembers: people.staffMembers,
-    employmentContracts: people.employmentContracts,
+    employmentContracts: planning.contracts,
     dutyRoles: people.dutyRoles,
     eventPresets,
     events,
@@ -262,7 +273,9 @@ export function generateDataset(options: GenerateOptions = {}): Dataset {
     installments: money.installments,
     vehicles,
     obligations,
-    shifts,
+    shifts: [...shifts, ...planning.shifts],
+    shiftNeeds: planning.needs,
+    staffUnavailability: planning.unavailability,
     vendors,
     bookingRequests: bookings.bookingRequests,
     bookingDates: bookings.bookingDates,
