@@ -1,11 +1,13 @@
 import "server-only";
 import {
+  addDays,
   type BudgetLevel,
   budgetStatus,
   eachDay,
   hourBudget,
   isoWeek,
   type MonthUsage,
+  mondayOf,
   monthEnd,
   monthStart,
   monthUsage,
@@ -86,9 +88,10 @@ export type PlanningMonth = {
 };
 
 const hhmm = (t: string | null) => (t ? t.slice(0, 5) : null);
+const formatWeekKey = (year: number, week: number) => `${year}-W${String(week).padStart(2, "0")}`;
 const weekKey = (date: string) => {
   const { year, week } = isoWeek(date);
-  return `${year}-W${String(week).padStart(2, "0")}`;
+  return formatWeekKey(year, week);
 };
 const KIND_ORDER: Record<ScheduleKind, number> = { setup: 0, open: 1, teardown: 2 };
 
@@ -113,8 +116,7 @@ async function loadNeeds(where: SQL | undefined) {
     .innerJoin(event, eq(event.id, shiftNeed.eventId))
     .innerJoin(dutyRole, eq(dutyRole.id, shiftNeed.dutyRoleId))
     .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
-    .where(and(where, isNull(event.archivedAt)))
-    .orderBy(asc(shiftNeed.workDate), asc(event.name));
+    .where(and(where, isNull(event.archivedAt)));
   return rows.sort(
     (a, b) =>
       a.workDate.localeCompare(b.workDate) ||
@@ -202,7 +204,12 @@ export async function getPlanningMonth(
   const inMonth = (col: typeof shift.workDate | typeof shiftNeed.workDate) =>
     and(gte(col, month), lte(col, to));
   const needs = await loadNeeds(inMonth(shiftNeed.workDate));
-  const shifts = await loadShifts(inMonth(shift.workDate));
+  // Week totals cover whole ISO weeks (Mon–Sun), so load from the Monday of the
+  // first week to the Sunday of the last; grid and gaps stay month-only.
+  const weekFrom = mondayOf(month);
+  const weekTo = addDays(mondayOf(to), 6);
+  const loaded = await loadShifts(and(gte(shift.workDate, weekFrom), lte(shift.workDate, weekTo)));
+  const shifts = loaded.filter((s) => s.workDate >= month && s.workDate <= to);
   const people = await db
     .select({
       id: staffMember.id,
@@ -248,13 +255,14 @@ export async function getPlanningMonth(
   }
 
   const rows: PlanningPerson[] = people.map((p) => {
+    const ownWeeks = loaded.filter((s) => s.staffMemberId === p.id);
     const own = shifts.filter((s) => s.staffMemberId === p.id);
     const budget = hourBudget(
       contracts.filter((c) => c.staffMemberId === p.id),
       month,
       fallback,
     );
-    const usage = monthUsage(own.map(timesOf), month);
+    const usage = monthUsage(ownWeeks.map(timesOf), month);
     const status = budgetStatus(usage, budget.minutes);
     const shiftsByDay: Record<string, PlanningShift[]> = {};
     for (const s of own) {
@@ -272,10 +280,7 @@ export async function getPlanningMonth(
       leftMinutes: status.leftMinutes,
       level: status.level,
       weeks: Object.fromEntries(
-        weekTotals(own.map(timesOf)).map((w) => [
-          `${w.year}-W${String(w.week).padStart(2, "0")}`,
-          w.minutes,
-        ]),
+        weekTotals(ownWeeks.map(timesOf)).map((w) => [formatWeekKey(w.year, w.week), w.minutes]),
       ),
       shiftsByDay,
       unavailable,
@@ -321,7 +326,7 @@ export async function getEventPlanning(eventId: string): Promise<{
     .select({ staffing: eventPreset.staffing })
     .from(event)
     .innerJoin(eventPreset, eq(eventPreset.id, event.presetId))
-    .where(eq(event.id, eventId));
+    .where(and(eq(event.id, eventId), isNull(event.archivedAt)));
   return {
     days: [...byDay.values()],
     loose: shifts.filter((s) => s.needId === null && visible(s)).map(asEventShift),

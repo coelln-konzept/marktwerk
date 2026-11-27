@@ -387,3 +387,57 @@ describe("planning queries", () => {
     );
   });
 });
+
+describe("planning queries: edge cases", () => {
+  it("declined and cancelled shifts reopen the need and do not count as usage", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const needs = await needsOf(ev!.id);
+    const setup = needs.find((n) => n.scheduleKind === "setup")!;
+    const anna = await person("Anna");
+    const ben = await person("Ben");
+    const a = await assignToNeed(owner, setup.id, anna.id, { today: "2026-11-26" });
+    const b = await assignToNeed(owner, setup.id, ben.id, { today: "2026-11-26" });
+    const [rowA] = await db.select().from(shift).where(eq(shift.id, a.shiftId));
+    const [rowB] = await db.select().from(shift).where(eq(shift.id, b.shiftId));
+    await setShiftStatus(owner, a.shiftId, "declined", rowA!.version);
+    await setShiftStatus(owner, b.shiftId, "cancelled", rowB!.version);
+
+    const month = await getPlanningMonth("2026-12-01");
+    const need = month.needsByDay["2026-12-13"]?.find((n) => n.id === setup.id);
+    expect(need).toMatchObject({ headcount: 2, open: 2 });
+    for (const p of [anna, ben]) {
+      const usage = month.people.find((x) => x.staffMemberId === p.id)!.usage;
+      expect(usage.requestedMinutes).toBe(0);
+      expect(usage.confirmedMinutes).toBe(0);
+    }
+  });
+
+  it("a KW spanning two months shows the whole week, usage stays in the month", async () => {
+    const anna = await person("Anna");
+    const base = { staffMemberId: anna.id, plannedStart: "08:00", plannedEnd: "10:00" };
+    await db.insert(shift).values({ ...base, workDate: "2026-11-30", status: "confirmed" });
+    await db.insert(shift).values({ ...base, workDate: "2026-12-05", status: "requested" });
+
+    const month = await getPlanningMonth("2026-12-01", { allDays: true });
+    const row = month.people.find((p) => p.staffMemberId === anna.id)!;
+    expect(row.weeks["2026-W49"]).toBe(240);
+    expect(row.usage.confirmedMinutes).toBe(0);
+    expect(row.usage.requestedMinutes).toBe(120);
+    expect(Object.keys(row.shiftsByDay)).toEqual(["2026-12-05"]);
+  });
+
+  it("an archived event with preset staffing and no needs cannot apply the preset", async () => {
+    await db
+      .update(eventPreset)
+      .set({ staffing: [] })
+      .where(eq(eventPreset.id, cat.presets.flea.id));
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    await db
+      .update(eventPreset)
+      .set({ staffing: [{ dutyRoleKey: crewKey, count: 1, scheduleKind: "open" }] })
+      .where(eq(eventPreset.id, cat.presets.flea.id));
+    expect((await getEventPlanning(ev!.id)).canApplyPreset).toBe(true);
+    await db.update(event).set({ archivedAt: new Date() }).where(eq(event.id, ev!.id));
+    expect((await getEventPlanning(ev!.id)).canApplyPreset).toBe(false);
+  });
+});
