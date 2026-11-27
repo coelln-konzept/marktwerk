@@ -199,6 +199,9 @@ marktwerk while vendors still see the old website, email and phone.
   Step 2 (Cloud API, quick-reply buttons) in M15 or earlier if needed (ADR 0011)
 - **Shift planning per event:** roles → people (same people, same roles), suggestions ranked by remaining
   Minijob allowance; request/confirm by deadline (Deputy pattern)
+  *(v1 of the planner is built on branch `feat/shift-allocator`, not released: Team → Planung grid, Personalbedarf on
+  the Vorlage, Bedarf per event day, monthly hour budget, Nicht verfügbar; spec
+  `docs/superpowers/specs/2026-11-26-shift-allocator-design.md`. Magic links and WhatsApp stay in M7.)*
 
 ### M8: Legacy website bridge (≈ 3 weeks)
 - Preferred: read-only access to (a copy of) the PHP site's database, syncing bookings, presets, dates, vendors.

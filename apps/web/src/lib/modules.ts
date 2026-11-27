@@ -9,7 +9,14 @@ import type { HealthDimensions } from "@marktwerk/core";
  * `false` here (and nothing else): every hide in the UI is driven from this one object.
  */
 export const HIDDEN_MODULES = {
+  /**
+   * Task assignment (assignees on cards, the new-task dialog and the Ablauf list, "Nur meine" in the Kalender).
+   * Hidden since the one-main-user panel (client feedback 2026-10). The people and shift area is `staffPlanning`
+   * (decision 2026-11-26, shift allocator).
+   */
   team: true,
+  /** People, contracts, Planung, Stunden, Schichten, the event Team tab, Rechtliches (shift allocator, 2026-11-26). */
+  staffPlanning: false,
   finance: true,
   /** Time estimates on tasks and templates (hours per card, column and event). Data stays; needed again with team allocation. */
   estimates: true,
@@ -67,7 +74,7 @@ export function maskHealth(
 ): HealthDimensions {
   return {
     ...health,
-    team: hide.team ? null : health.team,
+    team: hide.staffPlanning ? null : health.team,
     money: hide.finance ? null : health.money,
   };
 }

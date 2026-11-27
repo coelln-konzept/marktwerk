@@ -82,10 +82,18 @@ const facts = {
   bookingFeeCents: 300,
 };
 
+const TODAY = { today: "2026-11-26" };
+
 describe("updateEventFacts", () => {
   it("updates the Zeitplan and prices of this event only and audits what changed", async () => {
     const id = await oneEvent();
-    const result = await updateEventFacts(owner, id, { ...facts, bookingFeeCents: 500 });
+    const result = await updateEventFacts(
+      owner,
+      id,
+      { ...facts, bookingFeeCents: 500 },
+      undefined,
+      TODAY,
+    );
     expect(result.changed).toBe(true);
     expect(result.previous).toEqual({
       schedule: cat.schedule,
@@ -124,7 +132,7 @@ describe("updateEventFacts", () => {
   it("normalises typed times and keeps only the row fields", async () => {
     const id = await oneEvent();
     const typed = [{ ...row("visitors", "open", "each", "9", "17.30"), note: "x" } as ScheduleRow];
-    await updateEventFacts(owner, id, { ...facts, schedule: typed });
+    await updateEventFacts(owner, id, { ...facts, schedule: typed }, undefined, TODAY);
     expect((await load(id)).schedule).toEqual([row("visitors", "open", "each", "09:00", "17:30")]);
   });
 
@@ -151,13 +159,15 @@ describe("updateEventFacts", () => {
     ).rejects.toMatchObject({ code: "invalid_price" });
 
     const festival = await oneEvent(cat.presets.festival.id, "2026-12-04");
-    expect((await updateEventFacts(owner, festival, earlyTeardown)).changed).toBe(true);
+    expect((await updateEventFacts(owner, festival, earlyTeardown, undefined, TODAY)).changed).toBe(
+      true,
+    );
   });
 
   it("undo applies only while the values are still the saved ones", async () => {
     const id = await oneEvent();
-    const { previous } = await updateEventFacts(owner, id, facts);
-    await updateEventFacts(owner, id, { ...facts, pricePerMCents: 9900 });
+    const { previous } = await updateEventFacts(owner, id, facts, undefined, TODAY);
+    await updateEventFacts(owner, id, { ...facts, pricePerMCents: 9900 }, undefined, TODAY);
     await expect(updateEventFacts(owner, id, previous, facts)).rejects.toMatchObject({
       code: "conflict",
     });
@@ -209,6 +219,8 @@ describe("moving an event", () => {
       to: "2027-01-08",
       tasksShifted: 0,
       seasonTasksShifted: 0,
+      confirmationsReset: 0,
+      resetShifts: [],
     });
     expect(await load(id)).toMatchObject({
       startsOn: "2027-01-08",
@@ -346,6 +358,8 @@ describe("updateEventBasics", () => {
         eventTypeId: cat.type.id,
       },
       tasksShifted: 0,
+      needsRemoved: 0,
+      shiftsUnlinked: 0,
     });
     expect(await load(id)).toMatchObject({
       name: "Herbstflohmarkt Test",

@@ -16,6 +16,8 @@ type StatusDiff = {
   restored?: boolean;
   cancelledTasks?: unknown[];
   reopenedTaskIds?: unknown[];
+  cancelledShifts?: unknown[];
+  reopenedShiftIds?: unknown[];
 };
 type CreateDiff = { source?: string };
 type DutyDiff = {
@@ -25,7 +27,13 @@ type DutyDiff = {
   toName?: string | null;
   undo?: boolean;
 };
-type UpdateDiff = { changes?: Record<string, unknown>; undo?: boolean };
+type UpdateDiff = {
+  changes?: Record<string, unknown>;
+  undo?: boolean;
+  tasksShifted?: number;
+  needsRemoved?: number;
+  shiftsUnlinked?: number;
+};
 type BookingDiff = { flag?: string; to?: boolean };
 type MoveDiff = {
   from?: { startsOn?: string };
@@ -33,6 +41,7 @@ type MoveDiff = {
   undo?: boolean;
   tasksShifted?: number;
   seasonTasksShifted?: number;
+  confirmationsReset?: number;
 };
 
 const countOf = (list: unknown) => (Array.isArray(list) ? list.length : 0);
@@ -73,10 +82,14 @@ export async function HistoryTable({
         // What happened to the tasks with it (UX-049): "12 Aufgaben mit abgesagt" / "… wieder offen".
         const cancelled = countOf(d.cancelledTasks);
         const reopened = countOf(d.reopenedTaskIds);
+        const shiftsCancelled = countOf(d.cancelledShifts);
+        const shiftsRestored = countOf(d.reopenedShiftIds);
         const details = [
           ...(d.reason ? [t("reason", { reason: d.reason })] : []),
           ...(cancelled > 0 ? [t("tasksCancelled", { count: cancelled })] : []),
           ...(reopened > 0 ? [t("tasksReopened", { count: reopened })] : []),
+          ...(shiftsCancelled > 0 ? [t("shiftsCancelled", { count: shiftsCancelled })] : []),
+          ...(shiftsRestored > 0 ? [t("shiftsRestored", { count: shiftsRestored })] : []),
         ];
         return {
           text: t(d.restored ? "statusRestored" : d.undo ? "statusUndone" : "statusChanged", {
@@ -114,7 +127,16 @@ export async function HistoryTable({
         const fields = Object.keys(d.changes ?? {})
           .map((key) => (t.has(`fields.${key}` as never) ? t(`fields.${key}` as never) : key))
           .join(", ");
-        return { text: t("updated", { fields }), reason: d.undo ? t("undone") : undefined };
+        const details = [
+          ...(d.undo ? [t("undone")] : []),
+          ...(d.tasksShifted ? [t("tasksShifted", { count: d.tasksShifted })] : []),
+          ...(d.needsRemoved ? [t("needsRemoved", { count: d.needsRemoved })] : []),
+          ...(d.shiftsUnlinked ? [t("shiftsUnlinked", { count: d.shiftsUnlinked })] : []),
+        ];
+        return {
+          text: t("updated", { fields }),
+          reason: details.length > 0 ? details.join(" · ") : undefined,
+        };
       }
       case "event.booking": {
         const d = asObject<BookingDiff>(entry.diff);
@@ -130,6 +152,9 @@ export async function HistoryTable({
           ...(d.tasksShifted ? [t("tasksShifted", { count: d.tasksShifted })] : []),
           ...(d.seasonTasksShifted
             ? [t("seasonTasksShifted", { count: d.seasonTasksShifted })]
+            : []),
+          ...(d.confirmationsReset
+            ? [t("confirmationsReset", { count: d.confirmationsReset })]
             : []),
         ];
         return {

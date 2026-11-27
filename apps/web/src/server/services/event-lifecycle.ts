@@ -31,7 +31,9 @@ import { todayIn } from "@/lib/format";
 import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
+import { PayrollInputError } from "./payroll";
 import { syncSeasonsTx } from "./seasons";
+import { reviseShiftTx } from "./staffing";
 
 export type EventLifecycleError =
   | "not_found"
@@ -41,7 +43,9 @@ export type EventLifecycleError =
   | "conflict"
   | "notes_too_long"
   | "name_mismatch"
-  | "blocked";
+  | "blocked"
+  /** A planned shift of the event lies in a locked payroll month. */
+  | "period_locked";
 
 export class EventLifecycleInputError extends Error {
   constructor(
@@ -143,8 +147,93 @@ async function reopenTasksOfEvent(tx: Tx, eventId: string): Promise<string[]> {
   return reopened;
 }
 
+type CancelledShift = { id: string; from: "requested" | "confirmed" };
+
 /**
- * The task side of a status change: cancel when entering "abgesagt", reopen when leaving it. Either way the
+ * Cancelling a market also cancels its angefragt/bestätigt shifts (product owner 2026-11-27), so the hour budgets
+ * free up at once. Each change is a shift record change (revision "Markt abgesagt", version + 1, audit). Returns
+ * `{id, from}` for the event's audit diff so leaving "abgesagt" can restore them.
+ */
+async function cancelShiftsOfEvent(tx: Tx, actor: Actor, eventId: string) {
+  const rows = await tx
+    .select()
+    .from(shift)
+    .where(and(eq(shift.eventId, eventId), inArray(shift.status, ["requested", "confirmed"])))
+    .orderBy(shift.id)
+    .for("update");
+  const cancelled: CancelledShift[] = [];
+  for (const current of rows) {
+    if (current.status !== "requested" && current.status !== "confirmed") continue;
+    await reviseShiftTx(
+      tx,
+      actor,
+      current,
+      { status: "cancelled" },
+      "Markt abgesagt",
+      "event_cancel",
+    );
+    cancelled.push({ id: current.id, from: current.status });
+  }
+  return cancelled;
+}
+
+/**
+ * Leaving "abgesagt": the shifts recorded by the newest entry with `cancelledShifts` go back to their status,
+ * unless a newer entry already restored them (`reopenedShiftIds`) or the shift was changed since (only those still
+ * "entfernt" are restored). Revision "Absage aufgehoben".
+ */
+async function restoreShiftsOfEvent(tx: Tx, actor: Actor, eventId: string) {
+  const [last] = await tx
+    .select({ diff: auditLog.diff })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.action, "event.status"),
+        eq(auditLog.entityId, eventId),
+        sql`(${auditLog.diff} ? 'cancelledShifts' or ${auditLog.diff} ? 'reopenedShiftIds')`,
+      ),
+    )
+    .orderBy(desc(auditLog.at), desc(auditLog.id))
+    .limit(1);
+  const recorded = (last?.diff as { cancelledShifts?: unknown } | null)?.cancelledShifts;
+  if (!Array.isArray(recorded)) return [];
+  const restored: string[] = [];
+  for (const entry of recorded as { id?: unknown; from?: unknown }[]) {
+    if (typeof entry?.id !== "string" || (entry.from !== "requested" && entry.from !== "confirmed"))
+      continue;
+    const [current] = await tx
+      .select()
+      .from(shift)
+      .where(and(eq(shift.id, entry.id), eq(shift.eventId, eventId), eq(shift.status, "cancelled")))
+      .for("update");
+    if (!current) continue;
+    await reviseShiftTx(
+      tx,
+      actor,
+      current,
+      { status: entry.from },
+      "Absage aufgehoben",
+      "event_restore",
+    );
+    restored.push(current.id);
+  }
+  return restored;
+}
+
+/** The payroll lock of a changed shift surfaces as this service's `period_locked`. */
+async function inOpenPayroll<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof PayrollInputError && error.code === "period_locked")
+      throw new EventLifecycleInputError("period_locked");
+    throw error;
+  }
+}
+
+/**
+ * The task side of a status change: cancel when entering "abgesagt", reopen when leaving it; the event's planned
+ * shifts follow the same way (`cancelledShifts` / `reopenedShiftIds`). Either way the
  * event's Saison record recomputes its dates (a cancelled date does not count, R10) and its open season tasks
  * follow.
  */
@@ -159,15 +248,32 @@ async function cascadeToTasks(
   const reopening = from === "cancelled" && to !== "cancelled";
   if (!cancelling && !reopening) return {};
   const cascade = cancelling
-    ? { cancelledTasks: await cancelOpenTasksOfEvent(tx, current.id) }
-    : { reopenedTaskIds: await reopenTasksOfEvent(tx, current.id) };
+    ? {
+        cancelledTasks: await cancelOpenTasksOfEvent(tx, current.id),
+        cancelledShifts: await inOpenPayroll(() => cancelShiftsOfEvent(tx, actor, current.id)),
+      }
+    : {
+        reopenedTaskIds: await reopenTasksOfEvent(tx, current.id),
+        reopenedShiftIds: await inOpenPayroll(() => restoreShiftsOfEvent(tx, actor, current.id)),
+      };
   await syncSeasonsTx(tx, actor, [current], "event_status");
   return cascade;
 }
 
+type Cascade = {
+  cancelledTasks?: unknown[];
+  reopenedTaskIds?: unknown[];
+  cancelledShifts?: unknown[];
+  reopenedShiftIds?: unknown[];
+};
+
 /** How many tasks a status change cancelled or reopened. */
-const cascadeCount = (cascade: { cancelledTasks?: unknown[]; reopenedTaskIds?: unknown[] }) =>
+const cascadeCount = (cascade: Cascade) =>
   (cascade.cancelledTasks?.length ?? 0) + (cascade.reopenedTaskIds?.length ?? 0);
+
+/** How many planned shifts it cancelled or restored. */
+const cascadeShifts = (cascade: Cascade) =>
+  (cascade.cancelledShifts?.length ?? 0) + (cascade.reopenedShiftIds?.length ?? 0);
 
 /**
  * Moves an event through its lifecycle (packages/core events/lifecycle). Cancelling needs a reason.
@@ -179,7 +285,13 @@ export async function changeEventStatus(
   id: string,
   to: string,
   reason?: string | null,
-): Promise<{ from: EventStatus; to: EventStatus; previousReason: string | null; tasks: number }> {
+): Promise<{
+  from: EventStatus;
+  to: EventStatus;
+  previousReason: string | null;
+  tasks: number;
+  shifts: number;
+}> {
   if (!can(actor.role, "event", "write")) forbidden();
   if (!isEventStatus(to)) throw new EventLifecycleInputError("invalid_status");
   const trimmed = reason?.trim().slice(0, MAX_REASON_LENGTH) || null;
@@ -212,6 +324,7 @@ export async function changeEventStatus(
       to,
       previousReason: current.cancelledReason,
       tasks: cascadeCount(cascade),
+      shifts: cascadeShifts(cascade),
     };
   });
 }
@@ -353,7 +466,12 @@ export async function revertEventStatus(
         diff: { from: expected, to: previous, undo: true, ...cascade },
       },
     ]);
-    return { from: expected, to: previous, tasks: cascadeCount(cascade) };
+    return {
+      from: expected,
+      to: previous,
+      tasks: cascadeCount(cascade),
+      shifts: cascadeShifts(cascade),
+    };
   });
 }
 
@@ -414,7 +532,13 @@ async function lastCancelledTaskCount(x: Pick<typeof db, "select">, eventId: str
 export async function restoreCancelledEvent(
   actor: Actor,
   id: string,
-): Promise<{ from: EventStatus; to: EventStatus; previousReason: string | null; tasks: number }> {
+): Promise<{
+  from: EventStatus;
+  to: EventStatus;
+  previousReason: string | null;
+  tasks: number;
+  shifts: number;
+}> {
   if (!can(actor.role, "event", "write")) forbidden();
   return db.transaction(async (tx) => {
     const current = await lockEvent(tx, id);
@@ -435,6 +559,7 @@ export async function restoreCancelledEvent(
       to,
       previousReason: current.cancelledReason,
       tasks: cascadeCount(cascade),
+      shifts: cascadeShifts(cascade),
     };
   });
 }

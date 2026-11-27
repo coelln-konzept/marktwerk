@@ -2,10 +2,15 @@
 
 import {
   checkPresetFields,
+  MAX_HEADCOUNT,
+  MAX_STAFFING_ROWS,
   marketShortCodes,
   normalizeMarketShortCode,
   parseEuroCents,
+  type ScheduleKind,
+  type StaffingRow,
 } from "@marktwerk/core";
+import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState, useTransition } from "react";
@@ -49,6 +54,7 @@ const FIELD_ORDER = [
   "publicTitle",
   "publicText",
   "schedule",
+  "staffing",
   "price",
   "fee",
   "rrule",
@@ -58,6 +64,22 @@ const FIELD_ORDER = [
 export type PresetFormValues = PresetInput;
 
 type Errors = Record<string, string>;
+
+/** Zeitplan parts a Personalbedarf row belongs to (Aufbau / Markt / Abbau). */
+const STAFFING_KINDS: readonly ScheduleKind[] = ["setup", "open", "teardown"];
+
+/** One Personalbedarf row as typed (the count stays text until it is checked). */
+type StaffingDraftRow = {
+  key: string;
+  dutyRoleKey: string;
+  count: string;
+  scheduleKind: ScheduleKind;
+};
+
+let staffingKeySeq = 0;
+const staffingKey = () => `s${++staffingKeySeq}`;
+const toStaffingDraft = (rows: StaffingRow[]): StaffingDraftRow[] =>
+  rows.map((row) => ({ ...row, key: staffingKey(), count: String(row.count) }));
 
 /**
  * "Neue Vorlage" / "Vorlage bearbeiten": one page (a preset has more than eight fields). Typed values
@@ -103,6 +125,9 @@ export function PresetForm({
   const [fee, setFee] = useState(centsToInput(initial.bookingFeeCents, locale));
   const [rhythm, setRhythm] = useState<Rhythm>(editing ? rhythmFromRule(initial.rrule) : NO_RHYTHM);
   const [duties, setDuties] = useState<Record<string, string>>(initial.defaultDuties);
+  const [staffing, setStaffing] = useState<StaffingDraftRow[]>(() =>
+    toStaffingDraft(initial.staffing ?? []),
+  );
   const [active, setActive] = useState(initial.active);
   const [color, setColor] = useState<string | null>(initial.color ?? null);
   const [shortCode, setShortCode] = useState(initial.shortCode ?? "");
@@ -158,6 +183,18 @@ export function PresetForm({
       otherMarkets.some((m) => m.id !== selfId && m.active && m.shortCode === code)
     )
       found.shortCode = "short_code_taken";
+    const staffingRows: StaffingRow[] = staffing.map((row) => ({
+      dutyRoleKey: row.dutyRoleKey,
+      count: /^\d{1,2}$/.test(row.count.trim()) ? Number(row.count) : Number.NaN,
+      scheduleKind: row.scheduleKind,
+    }));
+    if (staffingRows.some((row) => !(row.count >= 0 && row.count <= MAX_HEADCOUNT)))
+      found.staffing = "staffing_count";
+    else if (
+      new Set(staffingRows.map((row) => `${row.dutyRoleKey}|${row.scheduleKind}`)).size !==
+      staffingRows.length
+    )
+      found.staffing = "staffing_duplicate";
 
     const input: PresetInput = {
       name: name.trim(),
@@ -171,6 +208,7 @@ export function PresetForm({
       bookingFeeCents: bookingFeeCents ?? 0,
       rrule: rrule ?? null,
       defaultDuties: Object.fromEntries(Object.entries(duties).filter(([, id]) => id !== "")),
+      staffing: found.staffing ? [] : staffingRows,
       active,
       color,
       shortCode: code,
@@ -193,7 +231,11 @@ export function PresetForm({
       ? `preset-duty-${first.slice(5)}`
       : first === "schedule"
         ? scheduleFocusId()
-        : `preset-${first}`;
+        : first === "staffing"
+          ? staffing[0]
+            ? `preset-staffing-${staffing[0].key}-count`
+            : "preset-staffing-add"
+          : `preset-${first}`;
     document.getElementById(id)?.focus();
   }
 
@@ -537,6 +579,113 @@ export function PresetForm({
                   {fieldError(`duty.${role.key}`)}
                 </div>
               ))}
+            </div>
+          )}
+        </PanelBody>
+      </Panel>
+
+      <Panel title={t("staffing.title")} titleId="preset-staffing-title">
+        <PanelBody className="flex flex-col gap-3">
+          <p className="text-faint-foreground text-small">{t("staffing.help")}</p>
+          {staffing.length > 0 && (
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {staffing.map((row, index) => {
+                const update = (patch: Partial<StaffingDraftRow>) =>
+                  setStaffing(staffing.map((r) => (r.key === row.key ? { ...r, ...patch } : r)));
+                const id = `preset-staffing-${row.key}`;
+                return (
+                  <li key={row.key} className="flex flex-wrap items-end gap-2">
+                    <div className="flex min-w-40 flex-1 flex-col gap-1.5">
+                      <Label htmlFor={`${id}-role`} className={index > 0 ? "sr-only" : undefined}>
+                        {t("staffing.role")}
+                      </Label>
+                      <select
+                        id={`${id}-role`}
+                        className={SELECT_CLASS}
+                        value={row.dutyRoleKey}
+                        onChange={(e) => update({ dutyRoleKey: e.target.value })}
+                        {...fieldProps("staffing")}
+                      >
+                        {options.roles.map((role) => (
+                          <option key={role.key} value={role.key}>
+                            {roleName(role)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex w-24 flex-col gap-1.5">
+                      <Label htmlFor={`${id}-count`} className={index > 0 ? "sr-only" : undefined}>
+                        {t("staffing.count")}
+                      </Label>
+                      <Input
+                        id={`${id}-count`}
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={MAX_HEADCOUNT}
+                        value={row.count}
+                        onChange={(e) => update({ count: e.target.value })}
+                        className="tabular"
+                        {...fieldProps("staffing")}
+                      />
+                    </div>
+                    <div className="flex min-w-32 flex-col gap-1.5">
+                      <Label htmlFor={`${id}-kind`} className={index > 0 ? "sr-only" : undefined}>
+                        {t("staffing.part")}
+                      </Label>
+                      <select
+                        id={`${id}-kind`}
+                        className={SELECT_CLASS}
+                        value={row.scheduleKind}
+                        onChange={(e) => update({ scheduleKind: e.target.value as ScheduleKind })}
+                        {...fieldProps("staffing")}
+                      >
+                        {STAFFING_KINDS.map((kind) => (
+                          <option key={kind} value={kind}>
+                            {t(`staffing.kind.${kind}`)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={t("staffing.remove", { row: index + 1 })}
+                      onClick={() => setStaffing(staffing.filter((r) => r.key !== row.key))}
+                    >
+                      <Trash2 aria-hidden />
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {fieldError("staffing")}
+          {options.roles.length === 0 ? (
+            <p className="text-muted-foreground text-small">{t("team.noRoles")}</p>
+          ) : (
+            <div>
+              <Button
+                id="preset-staffing-add"
+                size="sm"
+                disabled={staffing.length >= MAX_STAFFING_ROWS}
+                onClick={() => {
+                  const first = options.roles[0];
+                  if (!first) return;
+                  setStaffing([
+                    ...staffing,
+                    {
+                      key: staffingKey(),
+                      dutyRoleKey: first.key,
+                      count: "1",
+                      scheduleKind: "open",
+                    },
+                  ]);
+                }}
+              >
+                <Plus aria-hidden />
+                {t("staffing.add")}
+              </Button>
             </div>
           )}
         </PanelBody>

@@ -4,6 +4,7 @@
     "subtitle": "{people, plural, one {# person} other {# people}} · {logins} with login",
     "tabsLabel": "Team sections",
     "tabs": {
+      "planning": "Planning",
       "people": "People",
       "hours": "Hours",
       "shifts": "Shifts",
@@ -48,5 +49,129 @@
       "upcomingCount": "{count, plural, =0 {no upcoming events} one {# upcoming event} other {# upcoming events}}"
     },
     "empty": "No people yet."
+  },
+  "planning": {
+    "title": "Planning",
+    "allDays": "All days",
+    "marketDays": "Market days only",
+    "daysLabel": "Days shown",
+    "noDays": "No staffing needs this month. Add them in the template under “Staffing”.",
+    "caption": "Planning {month}: people and market days",
+    "person": "Person",
+    "budget": "{used} / {budget} h · {left} h left",
+    "budgetOver": "{used} / {budget} h · {over} h over budget",
+    "requestedPart": "{hours} h of it requested",
+    "noContract": "no contract",
+    "level": {
+      "ok": "Within budget",
+      "tight": "Tight",
+      "over": "Over budget"
+    },
+    "weekTotal": "CW {week}",
+    "weekTotalLabel": "Total CW {week}",
+    "open": "{count} open",
+    "full": "Filled",
+    "overNeed": "+{count} over need",
+    "status": {
+      "requested": "requested",
+      "confirmed": "confirmed",
+      "declined": "declined",
+      "cancelled": "removed",
+      "worked": "worked",
+      "no_show": "no-show"
+    },
+    "unavailable": "unavailable",
+    "menu": {
+      "label": "Planning {name}, {date}",
+      "assign": "Schedule…",
+      "assignTo": "{market} · {role} · {from}–{to}",
+      "markUnavailable": "Unavailable",
+      "clearUnavailable": "Available again",
+      "confirm": "Confirmed",
+      "decline": "Declined",
+      "request": "Requested again",
+      "editTimes": "Change times",
+      "remove": "Remove"
+    },
+    "toast": {
+      "assigned": "{name} scheduled on {date} (requested)",
+      "shortNotice": "Short notice: only with consent (§ 12 TzBfG)",
+      "status": "{name}: {status}",
+      "unavailableSet": "{name} unavailable on {date}",
+      "unavailableCleared": "{name} available again on {date}",
+      "undo": "Undo"
+    },
+    "confirm": {
+      "title": "Schedule anyway?",
+      "unavailable": "{name} is unavailable that day{note}.",
+      "over_budget_after": "Over the hour budget afterwards.",
+      "overlap": "Overlaps with another shift.",
+      "worktime": "Working Hours Act: maximum hours, rest period or break violated.",
+      "action": "Schedule anyway",
+      "cancel": "Cancel"
+    },
+    "error": "That didn't work. Please reload and try again.",
+    "event": {
+      "title": "Shift planning",
+      "need": "{role} · {from}–{to} · {count} needed",
+      "needNoTimes": "{role} · {count} needed",
+      "addPerson": "+ Person",
+      "addPersonLabel": "Schedule a person for {role} on {date}",
+      "edit": "Change need",
+      "headcount": "Number",
+      "from": "from",
+      "to": "to",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Need {role} saved",
+      "invalid": "Please enter a number (0–{max}) and times as HH:MM.",
+      "loose": "Other shifts",
+      "applyPreset": "Apply staffing needs from template",
+      "applied": "{count} needs created",
+      "none": "No staffing needs are set for this event.",
+      "openTotal": "{count, plural, =0 {All shifts filled} one {# open shift} other {# open shifts}}",
+      "search": "Search person",
+      "loading": "Loading …",
+      "empty": "Nobody found",
+      "noTimesHint": "Without times there are no suggestions. Set the times first.",
+      "shiftMenu": "Shift of {name}",
+      "group": {
+        "usual": "Usual",
+        "other": "Others",
+        "unavailable": "Unavailable"
+      },
+      "left": "{before} h left → {after} h",
+      "flag": {
+        "already_scheduled": "already scheduled",
+        "overlap": "overlap",
+        "over_budget_after": "over budget after",
+        "worktime": "Working hours act",
+        "unavailable": "unavailable"
+      },
+      "headcountRequired": "Please enter a number."
+    },
+    "unavailability": {
+      "title": "Unavailable",
+      "add": "Add",
+      "addTitle": "Add unavailable days",
+      "addDescription": "Planning won't suggest the person on these days. Scheduling them asks first.",
+      "from": "From",
+      "to": "To",
+      "note": "Note",
+      "remove": "Remove",
+      "removeLabel": "Remove unavailable {range}",
+      "empty": "No days entered for the next 90 days.",
+      "invalid": "Please enter From and To (To not before From, at most 62 days).",
+      "saved": "{count, plural, one {# day marked unavailable} other {# days marked unavailable}}",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "errors": {
+      "period_locked": "The payroll month is locked. Shifts in it can no longer be changed.",
+      "conflict": "The shift was changed in the meantime. The page was refreshed.",
+      "invalid_input": "Please check the input.",
+      "duplicate": "This person is already scheduled at that time.",
+      "not_found": "This no longer exists. The page was refreshed."
+    }
   }
 }

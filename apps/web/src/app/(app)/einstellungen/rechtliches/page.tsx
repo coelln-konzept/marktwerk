@@ -1,16 +1,19 @@
+import { can } from "@marktwerk/core";
 import { CircleCheck, CircleDashed, Hourglass, Info, Scale } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
+import { HourBudgetForm } from "@/components/settings/hour-budget-form";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { Page } from "@/components/shell/page";
-import { Panel } from "@/components/ui/panel";
+import { Panel, PanelBody } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TD, TGroup, TH, THead, TR } from "@/components/ui/table";
-import { formatDate, todayIn } from "@/lib/format";
+import { formatDate, formatNumber, todayIn } from "@/lib/format";
 import { formatLegalAmount, legalUnit } from "@/lib/legal";
 import { isModuleHidden } from "@/lib/modules";
+import { defaultHourBudget } from "@/server/queries/planning-candidates";
 import { listLegalParameters } from "@/server/queries/settings";
 import { requirePermission } from "@/server/session";
 
@@ -20,15 +23,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function LegalSettingsPage() {
-  await requirePermission("settings", "read");
+  const user = await requirePermission("settings", "read");
   // Minijob and hours values: hidden together with Team (`lib/modules.ts`).
-  if (isModuleHidden("team")) notFound();
+  if (isModuleHidden("staffPlanning")) notFound();
   const [t, tNav, locale] = await Promise.all([
     getTranslations("settings"),
     getTranslations("nav"),
     getLocale(),
   ]);
-  const rows = await listLegalParameters(todayIn());
+  const [rows, budget] = await Promise.all([listLegalParameters(todayIn()), defaultHourBudget()]);
+  const canManage = can(user.role, "settings", "manage");
 
   const keyLabel = (key: string) =>
     t.has(`legal.keyLabels.${key}` as never) ? t(`legal.keyLabels.${key}` as never) : key;
@@ -107,6 +111,25 @@ export default async function LegalSettingsPage() {
             </tbody>
           </Table>
         )}
+      </Panel>
+
+      <Panel title={t("legal.planning.title")} titleId="legal-planning-title">
+        <PanelBody className="flex flex-col gap-3">
+          {canManage ? (
+            <HourBudgetForm current={budget} />
+          ) : (
+            <p className="m-0">
+              {t("legal.planning.budget")}:{" "}
+              <span className="tabular font-semibold">
+                {t("legal.planning.value", { hours: formatNumber(budget, locale, 2) })}
+              </span>
+            </p>
+          )}
+          <p className="m-0 flex items-center gap-2 text-muted-foreground text-small">
+            <Info aria-hidden className="size-4 shrink-0" />
+            {t("legal.planning.note")}
+          </p>
+        </PanelBody>
       </Panel>
     </Page>
   );

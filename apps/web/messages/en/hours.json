@@ -177,8 +177,16 @@
         "overlap": "The period overlaps the contract from {date}. End it first or pick other dates.",
         "period_locked": "An affected month is already locked. Unlock it first under Hours › Close.",
         "not_found": "The contract was not found.",
-        "invalid_person": "The person was not found."
-      }
+        "invalid_person": "The person was not found.",
+        "invalid_budget": "Hour budget: 0 to 200 hours in half hours, e.g. 37.5."
+      },
+      "budget": "Hour budget per month",
+      "budgetShort": "Hour budget",
+      "budgetHours": "{hours} h",
+      "budgetDefault": "{hours} h (default)",
+      "budgetHint": "≈ {hours} h × {rate} = {pay}",
+      "budgetEmpty": "Empty = default ({hours} h). Used for shift planning.",
+      "hoursUnit": "hrs"
     },
     "shift": {
       "pageTitle": "Shifts",

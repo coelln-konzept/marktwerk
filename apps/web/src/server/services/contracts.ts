@@ -51,7 +51,14 @@ export type ContractInput = {
   validFrom: string;
   validUntil: string | null;
   notes?: string | null;
+  /** Planning budget in hours per month (0–200, half hours); null = the company default. */
+  monthlyHourBudget: number | null;
 };
+
+/** Null, or a finite number of hours from 0 to 200 in half-hour steps. */
+const validBudget = (value: number | null): boolean =>
+  value === null ||
+  (Number.isFinite(value) && value >= 0 && value <= 200 && Math.round(value * 2) === value * 2);
 
 /** Types the statutory minimum wage applies to (not freelancers). */
 const MINIMUM_WAGE_TYPES: readonly EmploymentType[] = [
@@ -101,6 +108,7 @@ export async function saveContract(
   };
   const invalid = checkContractTerms(terms);
   if (invalid) throw new ContractInputError(invalid);
+  if (!validBudget(input.monthlyHourBudget)) throw new ContractInputError("invalid_amount");
   const notes = input.notes?.trim() ? input.notes.trim() : null;
 
   return db.transaction(async (tx) => {
@@ -201,6 +209,7 @@ export async function saveContract(
       validFrom: terms.validFrom,
       validUntil: terms.validUntil,
       notes,
+      monthlyHourBudget: input.monthlyHourBudget,
     };
     let id: string;
     if (previous) {
@@ -234,6 +243,7 @@ export async function saveContract(
                   validFrom: previous.validFrom,
                   validUntil: previous.validUntil,
                   notes: previous.notes,
+                  monthlyHourBudget: previous.monthlyHourBudget,
                 },
               }
             : {}),

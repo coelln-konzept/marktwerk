@@ -4,6 +4,7 @@
     "subtitle": "{people, plural, one {# Person} other {# Personen}} · davon {logins} Benutzer",
     "tabsLabel": "Team-Bereiche",
     "tabs": {
+      "planning": "Planung",
       "people": "Personen",
       "hours": "Stunden",
       "shifts": "Schichten",
@@ -48,5 +49,129 @@
       "upcomingCount": "{count, plural, =0 {keine kommenden Veranstaltungen} one {# kommende Veranstaltung} other {# kommende Veranstaltungen}}"
     },
     "empty": "Noch keine Personen angelegt."
+  },
+  "planning": {
+    "title": "Planung",
+    "allDays": "Alle Tage",
+    "marketDays": "Nur Markttage",
+    "daysLabel": "Angezeigte Tage",
+    "noDays": "In diesem Monat gibt es keinen Personalbedarf. Lege ihn in der Vorlage unter „Personalbedarf“ an.",
+    "caption": "Planung {month}: Personen und Markttage",
+    "person": "Person",
+    "budget": "{used} / {budget} h · {left} h frei",
+    "budgetOver": "{used} / {budget} h · {over} h über Budget",
+    "requestedPart": "davon {hours} h angefragt",
+    "noContract": "kein Vertrag",
+    "level": {
+      "ok": "Im Budget",
+      "tight": "Knapp",
+      "over": "Über Budget"
+    },
+    "weekTotal": "KW {week}",
+    "weekTotalLabel": "Summe KW {week}",
+    "open": "{count} offen",
+    "full": "Besetzt",
+    "overNeed": "+{count} über Bedarf",
+    "status": {
+      "requested": "angefragt",
+      "confirmed": "bestätigt",
+      "declined": "abgesagt",
+      "cancelled": "entfernt",
+      "worked": "gearbeitet",
+      "no_show": "nicht erschienen"
+    },
+    "unavailable": "nicht verfügbar",
+    "menu": {
+      "label": "Planung {name}, {date}",
+      "assign": "Einplanen…",
+      "assignTo": "{market} · {role} · {from}–{to}",
+      "markUnavailable": "Nicht verfügbar",
+      "clearUnavailable": "Wieder verfügbar",
+      "confirm": "Bestätigt",
+      "decline": "Abgesagt",
+      "request": "Wieder angefragt",
+      "editTimes": "Zeiten ändern",
+      "remove": "Entfernen"
+    },
+    "toast": {
+      "assigned": "{name} am {date} eingeplant (angefragt)",
+      "shortNotice": "Kurzfristig: nur mit Zustimmung (§ 12 TzBfG)",
+      "status": "{name}: {status}",
+      "unavailableSet": "{name} am {date} nicht verfügbar",
+      "unavailableCleared": "{name} am {date} wieder verfügbar",
+      "undo": "Rückgängig"
+    },
+    "confirm": {
+      "title": "Trotzdem einplanen?",
+      "unavailable": "{name} ist an dem Tag nicht verfügbar{note}.",
+      "over_budget_after": "Danach über dem Stundenbudget.",
+      "overlap": "Überschneidet sich mit einer anderen Schicht.",
+      "worktime": "Arbeitszeitgesetz: Höchstarbeitszeit, Ruhezeit oder Pause verletzt.",
+      "action": "Trotzdem einplanen",
+      "cancel": "Abbrechen"
+    },
+    "error": "Das hat nicht geklappt. Bitte neu laden und noch einmal versuchen.",
+    "event": {
+      "title": "Schichtplanung",
+      "need": "{role} · {from}–{to} · {count} benötigt",
+      "needNoTimes": "{role} · {count} benötigt",
+      "addPerson": "+ Person",
+      "addPersonLabel": "Person für {role} am {date} einplanen",
+      "edit": "Bedarf ändern",
+      "headcount": "Anzahl",
+      "from": "von",
+      "to": "bis",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "saved": "Bedarf {role} gespeichert",
+      "invalid": "Bitte Anzahl (0–{max}) und Zeiten als HH:MM angeben.",
+      "loose": "Weitere Schichten",
+      "applyPreset": "Personalbedarf aus Vorlage übernehmen",
+      "applied": "{count} Bedarfe angelegt",
+      "none": "Für diese Veranstaltung ist kein Personalbedarf hinterlegt.",
+      "openTotal": "{count, plural, =0 {Alle Schichten besetzt} one {# offene Schicht} other {# offene Schichten}}",
+      "search": "Person suchen",
+      "loading": "Lädt …",
+      "empty": "Niemand gefunden",
+      "noTimesHint": "Ohne Zeiten gibt es keine Vorschläge. Lege zuerst die Zeiten fest.",
+      "shiftMenu": "Schicht von {name}",
+      "group": {
+        "usual": "Üblich",
+        "other": "Weitere",
+        "unavailable": "Nicht verfügbar"
+      },
+      "left": "noch {before} h → {after} h",
+      "flag": {
+        "already_scheduled": "schon eingeplant",
+        "overlap": "Überschneidung",
+        "over_budget_after": "danach über Budget",
+        "worktime": "ArbZG",
+        "unavailable": "nicht verfügbar"
+      },
+      "headcountRequired": "Bitte eine Anzahl angeben."
+    },
+    "unavailability": {
+      "title": "Nicht verfügbar",
+      "add": "Hinzufügen",
+      "addTitle": "Nicht verfügbar eintragen",
+      "addDescription": "An diesen Tagen schlägt die Planung die Person nicht vor. Einplanen geht nur nach Rückfrage.",
+      "from": "Von",
+      "to": "Bis",
+      "note": "Notiz",
+      "remove": "Entfernen",
+      "removeLabel": "Nicht verfügbar {range} entfernen",
+      "empty": "In den nächsten 90 Tagen keine Tage eingetragen.",
+      "invalid": "Bitte Von und Bis angeben (Bis nicht vor Von, höchstens 62 Tage).",
+      "saved": "{count, plural, one {# Tag nicht verfügbar eingetragen} other {# Tage nicht verfügbar eingetragen}}",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
+    },
+    "errors": {
+      "period_locked": "Der Abrechnungsmonat ist gesperrt. Schichten darin lassen sich nicht mehr ändern.",
+      "conflict": "Die Schicht wurde zwischenzeitlich geändert. Die Seite wurde aktualisiert.",
+      "invalid_input": "Bitte die Eingaben prüfen.",
+      "duplicate": "Diese Person ist zu dieser Zeit schon eingeplant.",
+      "not_found": "Das gibt es nicht mehr. Die Seite wurde aktualisiert."
+    }
   }
 }

@@ -15,6 +15,8 @@ export type NavEntry = {
   badge?: number;
   /** Spoken explanation of the badge (what the number counts). */
   badgeLabel?: string;
+  /** The section the entry stands for, when it links deeper into it (Team → /team/planung); defaults to `href`. */
+  section?: string;
 };
 
 /** A collapsible group of less frequent entries (Stammdaten). */
@@ -68,7 +70,7 @@ function NavIcon({ icon }: { icon: React.ReactNode }) {
 }
 
 function NavLink({ item, pathname }: { item: NavEntry; pathname: string }) {
-  const active = isActive(pathname, item.href);
+  const active = isActive(pathname, item.section ?? item.href);
   return (
     <Link
       href={item.href as never}

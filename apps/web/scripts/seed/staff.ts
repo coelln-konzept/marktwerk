@@ -52,17 +52,21 @@ export async function seedStaff(tx: Tx, { data, officeStaffId }: SeedContext) {
       otherMinijobDeclared: c.otherMinijobDeclared,
       validFrom: c.validFrom,
       validUntil: c.validUntil,
+      monthlyHourBudget: c.monthlyHourBudget,
     })),
     "employment contracts",
   );
 
   const validDutyRoleIds = new Set(data.dutyRoles.map((r) => r.id));
+  // Needs before shifts (shift.need_id points at them).
+  await insertAll(tx, schema.shiftNeed, data.shiftNeeds, "shift needs");
   await insertAll(
     tx,
     schema.shift,
     data.shifts.map((s) => ({
       id: s.id,
       eventId: s.eventId,
+      needId: s.needId,
       staffMemberId: s.staffMemberId,
       // The generator falls back to "" when a person has no preferred duty role.
       dutyRoleId: validDutyRoleIds.has(s.dutyRoleId) ? s.dutyRoleId : null,
@@ -78,6 +82,8 @@ export async function seedStaff(tx: Tx, { data, officeStaffId }: SeedContext) {
     })),
     "shifts",
   );
+
+  await insertAll(tx, schema.staffUnavailability, data.staffUnavailability, "staff unavailability");
 
   // Payroll months: from the first shift's month up to the reference month.
   const months = [...new Set(data.shifts.map((s) => s.workDate.slice(0, 7)))].sort();

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, integer, jsonb, text, time } from "drizzle-orm/pg-core";
+import { boolean, check, integer, jsonb, numeric, text, time } from "drizzle-orm/pg-core";
 import { timestamps } from "./_columns";
 import { app } from "./_schema";
 
@@ -41,10 +41,15 @@ export const settings = app.table(
      * 7–180; tasks and other due items keep their fixed 7-day horizon.
      */
     permitHorizonDays: integer().notNull().default(30),
+    /** Shift planning: hours per month a person may be planned for when their contract sets none (company policy). */
+    defaultMonthlyHourBudget: numeric({ precision: 5, scale: 2, mode: "number" })
+      .notNull()
+      .default(40),
     ...timestamps,
   },
   (t) => [
     check("settings_singleton", sql`${t.id} = 1`),
     check("settings_permit_horizon_range", sql`${t.permitHorizonDays} between 7 and 180`),
+    check("settings_hour_budget_range", sql`${t.defaultMonthlyHourBudget} between 0 and 200`),
   ],
 );

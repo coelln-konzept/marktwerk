@@ -1,6 +1,13 @@
 import "server-only";
 import { can, isClockTime, isIsoDate, type ShiftStatus, shiftLength } from "@marktwerk/core";
-import { dutyRole, event, shift, shiftRevision, staffMember } from "@marktwerk/db/schema";
+import {
+  dutyRole,
+  event,
+  shift,
+  shiftNeed,
+  shiftRevision,
+  staffMember,
+} from "@marktwerk/db/schema";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
@@ -40,6 +47,8 @@ export type ShiftInput = {
   eventId: string | null;
   staffMemberId: string;
   dutyRoleId: string | null;
+  /** The need this shift fills (shift allocator); null = a further shift. */
+  needId?: string | null;
   workDate: string;
   plannedStart: string | null;
   plannedEnd: string | null;
@@ -131,6 +140,15 @@ async function checkReferences(tx: Tx, fields: Fields) {
       .where(eq(dutyRole.id, fields.dutyRoleId));
     if (!found) throw new ShiftInputError("invalid_role");
   }
+  // A need belongs to one event and day: a shift can only fill a need of its own event on its own day.
+  if (fields.needId != null) {
+    const [need] = await tx
+      .select({ eventId: shiftNeed.eventId, workDate: shiftNeed.workDate })
+      .from(shiftNeed)
+      .where(eq(shiftNeed.id, fields.needId));
+    if (!need || need.eventId !== fields.eventId || need.workDate !== fields.workDate)
+      throw new ShiftInputError("invalid_event");
+  }
 }
 
 function checkIds(fields: Fields) {
@@ -139,6 +157,8 @@ function checkIds(fields: Fields) {
     throw new ShiftInputError("invalid_event");
   if (fields.dutyRoleId !== null && !UUID.test(fields.dutyRoleId))
     throw new ShiftInputError("invalid_role");
+  if (fields.needId != null && !UUID.test(fields.needId))
+    throw new ShiftInputError("invalid_event");
 }
 
 /** Wraps `period_locked` from the payroll service in the shift error type. */
@@ -156,6 +176,7 @@ const fieldsOf = (row: typeof shift.$inferSelect): Fields => ({
   eventId: row.eventId,
   staffMemberId: row.staffMemberId,
   dutyRoleId: row.dutyRoleId,
+  needId: row.needId,
   workDate: row.workDate,
   plannedStart: row.plannedStart?.slice(0, 5) ?? null,
   plannedEnd: row.plannedEnd?.slice(0, 5) ?? null,
@@ -183,6 +204,7 @@ const toDbValues = (f: Fields) => ({
   eventId: f.eventId,
   staffMemberId: f.staffMemberId,
   dutyRoleId: f.dutyRoleId,
+  needId: f.needId ?? null,
   workDate: f.workDate,
   plannedStart: f.plannedStart,
   plannedEnd: f.plannedEnd,
@@ -293,6 +315,13 @@ export async function updateShift(
       const value = patch[key];
       if (value !== undefined) (merged as Record<string, unknown>)[key] = value;
     }
+    // Another day or event leaves the need it filled (the shift moves to "Weitere Schichten").
+    if (
+      patch.needId === undefined &&
+      merged.needId != null &&
+      (merged.workDate !== from.workDate || merged.eventId !== from.eventId)
+    )
+      merged.needId = null;
     if (merged.notes !== undefined && merged.notes !== null)
       merged.notes = merged.notes.trim() || null;
     // Clearing the actual times of a worked shift goes back to "confirmed" unless a status is given.

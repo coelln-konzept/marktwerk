@@ -38,7 +38,13 @@ export async function changeStatus(
   to: string,
   reason?: string,
 ): Promise<
-  ActionResult<{ from: string; to: string; previousReason: string | null; tasks: number }>
+  ActionResult<{
+    from: string;
+    to: string;
+    previousReason: string | null;
+    tasks: number;
+    shifts: number;
+  }>
 > {
   await requirePermission("event", "write");
   const actor = await getActor();
@@ -57,10 +63,14 @@ export async function changeStatus(
 }
 
 /** "Absage aufheben": back to the status before the cancellation, the cancelled tasks reopen. */
-export async function restoreCancelled(
-  eventId: string,
-): Promise<
-  ActionResult<{ from: string; to: string; previousReason: string | null; tasks: number }>
+export async function restoreCancelled(eventId: string): Promise<
+  ActionResult<{
+    from: string;
+    to: string;
+    previousReason: string | null;
+    tasks: number;
+    shifts: number;
+  }>
 > {
   await requirePermission("event", "write");
   const actor = await getActor();
@@ -83,13 +93,13 @@ export async function undoStatus(
   expected: string,
   previous: string,
   previousReason: string | null,
-): Promise<ActionResult<{ to: string; tasks: number }>> {
+): Promise<ActionResult<{ to: string; tasks: number; shifts: number }>> {
   await requirePermission("event", "write");
   const actor = await getActor();
   try {
     const data = await revertEventStatus(actor, eventId, expected, previous, previousReason);
     refresh();
-    return { ok: true, data: { to: data.to, tasks: data.tasks } };
+    return { ok: true, data: { to: data.to, tasks: data.tasks, shifts: data.shifts } };
   } catch (error) {
     if (error instanceof EventLifecycleInputError) {
       refresh();
@@ -235,9 +245,19 @@ export async function moveToDate(eventId: string, startsOn: string, expectedStar
   return detailsAction((actor) => moveEvent(actor, eventId, startsOn, expectedStartsOn));
 }
 
-/** Undo toast of moveToDate. */
-export async function undoMove(eventId: string, movedTo: string, back: string) {
-  return detailsAction((actor) => moveEvent(actor, eventId, back, movedTo, { undo: true }));
+/** Undo toast of moveToDate; `restoreConfirmed` = the move's `resetShifts` (confirmed again if untouched). */
+export async function undoMove(
+  eventId: string,
+  movedTo: string,
+  back: string,
+  restoreConfirmed: { id: string; version: number }[] = [],
+) {
+  return detailsAction((actor) =>
+    moveEvent(actor, eventId, back, movedTo, {
+      undo: true,
+      restoreConfirmed: Array.isArray(restoreConfirmed) ? restoreConfirmed : [],
+    }),
+  );
 }
 
 /** "Name, Dauer, Ort": warnings for a new length or venue (read only). */

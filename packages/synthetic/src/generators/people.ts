@@ -103,6 +103,7 @@ function buildStaffMember(
     otherMinijobDeclared: false,
     validFrom,
     validUntil: null,
+    monthlyHourBudget: null,
   };
   return { member, contract };
 }

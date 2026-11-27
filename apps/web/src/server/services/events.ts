@@ -11,6 +11,7 @@ import {
   parseSchedule,
   type Schedule,
   type ScheduledEvent,
+  type StaffingRow,
   validateSchedule,
 } from "@marktwerk/core";
 import {
@@ -37,6 +38,7 @@ import {
   seasonsWithoutDatesTx,
   syncSeasonsTx,
 } from "./seasons";
+import { createNeedsTx } from "./staffing";
 import { instantiateTemplatesForEvents } from "./task-instantiation";
 
 /** At most this many events per run (a full season of one preset is ~10). */
@@ -104,6 +106,8 @@ export type EventTemplate = {
   bookingFeeCents: number;
   /** duty_role.key → staff_member.id; empty for events without a preset. */
   defaultDuties: DefaultDuties;
+  /** Personalbedarf every new event gets a copy of (shift allocator); empty for events without a preset. */
+  staffing: StaffingRow[];
 };
 
 export type CreatedEvent = { id: string; startsOn: string };
@@ -170,6 +174,7 @@ export async function instantiateEvents(
         status: "planned",
         pricePerMCents: template.pricePerMCents,
         bookingFeeCents: template.bookingFeeCents,
+        staffing: template.staffing.map((row) => ({ ...row })),
       })
       .returning({ id: event.id });
     if (!row) throw new Error("insert failed");
@@ -184,6 +189,22 @@ export async function instantiateEvents(
     if (duties.length > 0) await tx.insert(eventDuty).values(duties);
     created.push({ id: row.id, startsOn });
   }
+  // Shift allocator: the needs of the new days (one service path, same transaction).
+  await createNeedsTx(
+    tx,
+    created.map((c, i) => {
+      const day = days[i];
+      const durationDays =
+        typeof day === "string" || day === undefined ? template.durationDays : day.durationDays;
+      return {
+        id: c.id,
+        startsOn: c.startsOn,
+        durationDays,
+        staffing: template.staffing,
+        schedule: template.schedule,
+      };
+    }),
+  );
   // M2: one checklist per template linked to the preset, with its tasks (one service path, same transaction).
   await instantiateTemplatesForEvents(
     tx,
@@ -247,6 +268,7 @@ export async function presetTemplate(presetId: string): Promise<EventTemplate> {
     pricePerMCents: preset.pricePerMCents,
     bookingFeeCents: preset.bookingFeeCents,
     defaultDuties: preset.defaultDuties,
+    staffing: preset.staffing,
   };
 }
 
@@ -309,6 +331,7 @@ export async function manualTemplate(input: ManualEventInput): Promise<EventTemp
     pricePerMCents: input.pricePerMCents,
     bookingFeeCents: input.bookingFeeCents,
     defaultDuties: {},
+    staffing: [],
   };
 }
 

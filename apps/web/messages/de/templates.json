@@ -145,12 +145,28 @@
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
         "invalid_schedule": "Bitte den Zeitplan prüfen (Hinweise an den Zeilen).",
         "invalid_short_code": "Bitte 1 bis 4 Buchstaben oder Ziffern angeben, z. B. ALT.",
-        "short_code_taken": "Dieses Kürzel hat schon ein anderer aktiver Markt. Bitte ein anderes wählen."
+        "short_code_taken": "Dieses Kürzel hat schon ein anderer aktiver Markt. Bitte ein anderes wählen.",
+        "staffing_count": "Personalbedarf: Anzahl als ganze Zahl von 0 bis 30.",
+        "staffing_duplicate": "Personalbedarf: jede Aufgabe nur einmal pro Zeitplan-Teil."
       },
       "tasksLink": "Aufgaben dieses Markts:",
       "tasksOwn": "Eigene Aufgabenvorlage",
       "schedule": {
         "title": "Zeitplan"
+      },
+      "staffing": {
+        "title": "Personalbedarf",
+        "help": "Gilt für neue Termine. Bestehende Termine übernehmen ihn auf dem Team-Tab.",
+        "role": "Aufgabe",
+        "count": "Anzahl",
+        "part": "Zeitplan",
+        "kind": {
+          "setup": "Aufbau",
+          "open": "Markt",
+          "teardown": "Abbau"
+        },
+        "add": "+ Zeile",
+        "remove": "Zeile {row} entfernen"
       }
     },
     "season": {

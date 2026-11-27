@@ -4,6 +4,7 @@ import { Facts } from "@/components/ui/vorschau";
 import { formatDate, formatMoney, formatNumber } from "@/lib/format";
 import type { Actor } from "@/server/actor";
 import { listContracts, minimumWageOn } from "@/server/queries/hours";
+import { defaultHourBudget } from "@/server/queries/planning-candidates";
 import { ContractButton, type ContractView } from "./contract-button";
 
 /** "Vertrag" in the person's Vorschau: the current contract, the history and (team:manage) editing. */
@@ -16,11 +17,12 @@ export async function ContractSection({
   actor: Actor;
   today: string;
 }) {
-  const [t, locale, rows, minimumWage] = await Promise.all([
+  const [t, locale, rows, minimumWage, defaultBudget] = await Promise.all([
     getTranslations("hours.contract"),
     getLocale(),
     listContracts(staffMemberId),
     minimumWageOn(today),
+    defaultHourBudget(),
   ]);
   const canManage = can(actor.role, "team", "manage");
   const contracts: ContractView[] = rows.map((c) => ({
@@ -33,6 +35,7 @@ export async function ContractSection({
     otherMinijobDeclared: c.otherMinijobDeclared,
     validFrom: c.validFrom,
     validUntil: c.validUntil,
+    monthlyHourBudget: c.monthlyHourBudget,
   }));
   const current = contractOn(contracts, today);
   // Shown when none is valid today: the newest one (ended) or the next one (not started yet).
@@ -60,6 +63,7 @@ export async function ContractSection({
                 openEnded={openEnded}
                 today={today}
                 minimumWageCents={minimumWage}
+                defaultBudget={defaultBudget}
               />
             )}
             <ContractButton
@@ -68,6 +72,7 @@ export async function ContractSection({
               openEnded={openEnded}
               today={today}
               minimumWageCents={minimumWage}
+              defaultBudget={defaultBudget}
             />
           </span>
         )}
@@ -103,6 +108,18 @@ export async function ContractSection({
                   ) : (
                     none
                   ),
+              },
+              {
+                label: t("budgetShort"),
+                value: (
+                  <span className="tabular">
+                    {shown.monthlyHourBudget !== null
+                      ? t("budgetHours", {
+                          hours: formatNumber(shown.monthlyHourBudget, locale, 2),
+                        })
+                      : t("budgetDefault", { hours: formatNumber(defaultBudget, locale, 2) })}
+                  </span>
+                ),
               },
               ...(shown.fixedMonthlyPayCents !== null
                 ? [
@@ -151,6 +168,7 @@ export async function ContractSection({
                     openEnded={openEnded}
                     today={today}
                     minimumWageCents={minimumWage}
+                    defaultBudget={defaultBudget}
                   />
                 )}
               </li>

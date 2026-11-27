@@ -37,7 +37,9 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { audit } from "./audit";
 import { scheduledEventsBetween } from "./events";
+import { PayrollInputError } from "./payroll";
 import { ensureSeasonsTx, planSeasonShiftForMove, syncSeasonsTx } from "./seasons";
+import { moveNeedsTx, rebuildNeedsTx } from "./staffing";
 import {
   notifyDatesShifted,
   planTaskShift,
@@ -61,6 +63,8 @@ export type EventDetailsError =
   | "invalid_venue"
   | "invalid_type"
   | "not_movable"
+  /** A planned shift that would change lies in a locked payroll month. */
+  | "period_locked"
   | "conflict";
 
 export class EventDetailsInputError extends Error {
@@ -72,6 +76,9 @@ export class EventDetailsInputError extends Error {
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const UUID = /^[0-9a-f-]{36}$/i;
+
+/** A shift a move set back to angefragt and the version it wrote; the undo restores it only at that version. */
+export type ResetShift = { id: string; version: number };
 
 async function lockEvent(tx: Tx, id: string) {
   if (!UUID.test(id)) throw new EventDetailsInputError("not_found");
@@ -108,7 +115,13 @@ export async function updateEventFacts(
   id: string,
   next: EventFacts,
   expected?: EventFacts,
-): Promise<{ changed: boolean; previous: EventFacts }> {
+  opts: { today?: string } = {},
+): Promise<{
+  changed: boolean;
+  previous: EventFacts;
+  needsRemoved: number;
+  shiftsUnlinked: number;
+}> {
   if (!can(actor.role, "event", "write")) forbidden();
   if (!validPrice(next.pricePerMCents) || !validPrice(next.bookingFeeCents))
     throw new EventDetailsInputError("invalid_price");
@@ -144,7 +157,8 @@ export async function updateEventFacts(
       changes.pricePerMCents = { from: previous.pricePerMCents, to: next.pricePerMCents };
     if (previous.bookingFeeCents !== next.bookingFeeCents)
       changes.bookingFeeCents = { from: previous.bookingFeeCents, to: next.bookingFeeCents };
-    if (Object.keys(changes).length === 0) return { changed: false, previous };
+    if (Object.keys(changes).length === 0)
+      return { changed: false, previous, needsRemoved: 0, shiftsUnlinked: 0 };
 
     await tx
       .update(event)
@@ -154,15 +168,31 @@ export async function updateEventFacts(
         bookingFeeCents: next.bookingFeeCents,
       })
       .where(eq(event.id, id));
+    // A new Zeitplan rebuilds the needs like a new length (decision 2026-11-27): fitting needs keep their
+    // people and per-day edits (also their times), new parts get needs, needs of a removed part go.
+    // A finished event gets no new open needs for its past days.
+    const rebuilt =
+      changes.schedule && current.endsOn >= (opts.today ?? todayIn())
+        ? await inOpenPayroll(() =>
+            rebuildNeedsTx(tx, actor, id, { startsOn: current.startsOn, durationDays }, "schedule"),
+          )
+        : undefined;
+    const needsRemoved = rebuilt?.removed ?? 0;
+    const shiftsUnlinked = rebuilt?.unlinked.length ?? 0;
     await audit(tx, actor.id, [
       {
         action: "event.update",
         entityType: "event",
         entityId: id,
-        diff: { changes, ...(expected ? { undo: true } : {}) },
+        diff: {
+          changes,
+          ...(needsRemoved > 0 ? { needsRemoved } : {}),
+          ...(shiftsUnlinked > 0 ? { shiftsUnlinked } : {}),
+          ...(expected ? { undo: true } : {}),
+        },
       },
     ]);
-    return { changed: true, previous };
+    return { changed: true, previous, needsRemoved, shiftsUnlinked };
   });
 }
 
@@ -452,10 +482,16 @@ async function applySchedule(
   current: EventRow,
   next: { startsOn: string; endsOn: string; durationDays: number },
   cause: "event_move" | "event_update",
+  opts: { restoreConfirmed?: readonly ResetShift[] } = {},
 ): Promise<{
   anchors: Record<string, { from: string | null; to: string }>;
   shifted: ShiftedTask[];
   seasonShifted: number;
+  confirmationsReset: number;
+  resetShifts: ResetShift[];
+  confirmationsRestored: number;
+  needsRemoved: number;
+  shiftsUnlinked: number;
 }> {
   await tx
     .update(event)
@@ -487,6 +523,21 @@ async function applySchedule(
     { eventId: current.id },
     new Map([...old, ...Object.entries(anchors)]),
   );
+  const staffingMove = await inOpenPayroll(() =>
+    moveNeedsTx(tx, actor, current.id, daysBetween(current.startsOn, next.startsOn), {
+      restoreConfirmed: opts.restoreConfirmed,
+    }),
+  );
+  // A new length recalculates the needs; fitting ones keep their people and edits.
+  const rebuilt =
+    next.durationDays !== durationOf(current)
+      ? await inOpenPayroll(() =>
+          rebuildNeedsTx(tx, actor, current.id, {
+            startsOn: next.startsOn,
+            durationDays: next.durationDays,
+          }),
+        )
+      : undefined;
   let seasonShifted = 0;
   if (current.presetId) {
     const nextSeason = Number(next.startsOn.slice(0, 4));
@@ -508,7 +559,27 @@ async function applySchedule(
     );
     seasonShifted = synced.reduce((n, s) => n + s.shifted.length, 0);
   }
-  return { anchors: diff, shifted, seasonShifted };
+  return {
+    anchors: diff,
+    shifted,
+    seasonShifted,
+    confirmationsReset: staffingMove.reset.length,
+    resetShifts: staffingMove.reset,
+    confirmationsRestored: staffingMove.restored.length,
+    needsRemoved: rebuilt?.removed ?? 0,
+    shiftsUnlinked: rebuilt?.unlinked.length ?? 0,
+  };
+}
+
+/** The payroll lock of a changed shift surfaces as this service's `period_locked`. */
+async function inOpenPayroll<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof PayrollInputError && error.code === "period_locked")
+      throw new EventDetailsInputError("period_locked");
+    throw error;
+  }
 }
 
 /**
@@ -522,13 +593,16 @@ export async function moveEvent(
   id: string,
   startsOn: string,
   expectedStartsOn: string,
-  options: { undo?: boolean } = {},
+  options: { undo?: boolean; restoreConfirmed?: readonly ResetShift[] } = {},
 ): Promise<{
   changed: boolean;
   from: string;
   to: string;
   tasksShifted: number;
   seasonTasksShifted: number;
+  confirmationsReset: number;
+  /** The shifts that went from bestätigt to angefragt; the undo passes them back as `restoreConfirmed`. */
+  resetShifts: ResetShift[];
 }> {
   if (!can(actor.role, "event", "write")) forbidden();
   if (options.undo) {
@@ -546,16 +620,26 @@ export async function moveEvent(
         to: startsOn,
         tasksShifted: 0,
         seasonTasksShifted: 0,
+        confirmationsReset: 0,
+        resetShifts: [],
       };
 
     const next = target(current, { startsOn });
-    const { anchors, shifted, seasonShifted } = await applySchedule(
-      tx,
-      actor,
-      current,
-      next,
-      "event_move",
-    );
+    const restoreConfirmed = options.undo
+      ? (options.restoreConfirmed ?? [])
+          .filter(
+            (x) => x && typeof x === "object" && UUID.test(x.id) && Number.isInteger(x.version),
+          )
+          .slice(0, 1000)
+      : [];
+    const {
+      anchors,
+      shifted,
+      seasonShifted,
+      confirmationsReset,
+      resetShifts,
+      confirmationsRestored,
+    } = await applySchedule(tx, actor, current, next, "event_move", { restoreConfirmed });
     const retracted = options.undo
       ? await retractDatesShifted(tx, { id, from: next.startsOn, to: current.startsOn })
       : new Set<string>();
@@ -571,6 +655,8 @@ export async function moveEvent(
           anchors,
           ...(shifted.length > 0 ? { tasksShifted: shifted.length } : {}),
           ...(seasonShifted > 0 ? { seasonTasksShifted: seasonShifted } : {}),
+          ...(confirmationsReset > 0 ? { confirmationsReset } : {}),
+          ...(confirmationsRestored > 0 ? { confirmationsRestored } : {}),
           ...(options.undo ? { undo: true } : {}),
         },
       },
@@ -581,6 +667,8 @@ export async function moveEvent(
       to: next.startsOn,
       tasksShifted: shifted.length,
       seasonTasksShifted: seasonShifted,
+      confirmationsReset,
+      resetShifts,
     };
   });
 }
@@ -610,7 +698,13 @@ export async function updateEventBasics(
   id: string,
   next: EventBasics,
   expected?: EventBasics,
-): Promise<{ changed: boolean; previous: EventBasics; tasksShifted: number }> {
+): Promise<{
+  changed: boolean;
+  previous: EventBasics;
+  tasksShifted: number;
+  needsRemoved: number;
+  shiftsUnlinked: number;
+}> {
   if (!can(actor.role, "event", "write")) forbidden();
   const name = next.name.trim().replace(/\s+/g, " ");
   if (name === "" || name.length > MAX_NAME_LENGTH)
@@ -670,7 +764,8 @@ export async function updateEventBasics(
         toName: newType.nameDe,
       };
     }
-    if (Object.keys(changes).length === 0) return { changed: false, previous, tasksShifted: 0 };
+    if (Object.keys(changes).length === 0)
+      return { changed: false, previous, tasksShifted: 0, needsRemoved: 0, shiftsUnlinked: 0 };
 
     await tx
       .update(event)
@@ -694,10 +789,20 @@ export async function updateEventBasics(
           ...(applied && applied.seasonShifted > 0
             ? { seasonTasksShifted: applied.seasonShifted }
             : {}),
+          ...(applied && applied.needsRemoved > 0 ? { needsRemoved: applied.needsRemoved } : {}),
+          ...(applied && applied.shiftsUnlinked > 0
+            ? { shiftsUnlinked: applied.shiftsUnlinked }
+            : {}),
           ...(expected ? { undo: true } : {}),
         },
       },
     ]);
-    return { changed: true, previous, tasksShifted: shifted.length };
+    return {
+      changed: true,
+      previous,
+      tasksShifted: shifted.length,
+      needsRemoved: applied?.needsRemoved ?? 0,
+      shiftsUnlinked: applied?.shiftsUnlinked ?? 0,
+    };
   });
 }

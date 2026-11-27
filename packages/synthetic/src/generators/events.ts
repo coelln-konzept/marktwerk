@@ -16,6 +16,7 @@ import type {
   EventType,
   Venue,
 } from "../types";
+import { presetStaffing } from "./planning";
 
 export interface PresetContext {
   eventTypes: EventType[];
@@ -84,6 +85,7 @@ export function buildEventPresets(
       rrule: blueprint.rrule,
       durationDays: blueprint.durationDays,
       defaultDuties: { ...ctx.dutyDefaults },
+      staffing: presetStaffing(blueprint.key),
       active: true,
     };
   });
@@ -254,6 +256,7 @@ export function buildEvents(
       cancelledReason: null,
       notes: rng.chance(0.15) ? rng.pick(EVENT_NOTES) : null,
       duties: { ...preset.defaultDuties },
+      staffing: structuredClone(preset.staffing),
     });
     for (const [coreKey, key] of Object.entries(ANCHOR_KEY_BY_CORE)) {
       const anchorDate = anchors[coreKey as keyof typeof ANCHOR_KEY_BY_CORE];

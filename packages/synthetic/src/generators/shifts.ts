@@ -92,6 +92,7 @@ export function buildShifts(rng: Rng, ctx: ShiftContext): Shift[] {
       shifts.push({
         id: rng.uuid(),
         eventId: event.id,
+        needId: null,
         staffMemberId: staffId,
         dutyRoleId: ctx.dutyRoleIdByStaffId.get(staffId) ?? ctx.setupDutyRoleId,
         workDate: event.startsOn,

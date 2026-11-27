@@ -42,6 +42,8 @@ export const employmentContract = app.table(
     type: employmentType().notNull(),
     hourlyRateCents: integer(),
     contractedHoursPerWeek: numeric({ precision: 5, scale: 2, mode: "number" }),
+    /** Planning budget in hours per month (shift allocator). Null = settings.default_monthly_hour_budget. */
+    monthlyHourBudget: numeric({ precision: 5, scale: 2, mode: "number" }),
     fixedMonthlyPayCents: integer(),
     /** Arbeitszeitkonto: fixed monthly pay, hours balanced over time. */
     workingTimeAccount: boolean().notNull().default(false),
@@ -62,7 +64,8 @@ export const employmentContract = app.table(
       "employment_contract_amounts",
       sql`(${t.hourlyRateCents} is null or ${t.hourlyRateCents} > 0)
         and (${t.fixedMonthlyPayCents} is null or ${t.fixedMonthlyPayCents} >= 0)
-        and (${t.contractedHoursPerWeek} is null or ${t.contractedHoursPerWeek} >= 0)`,
+        and (${t.contractedHoursPerWeek} is null or ${t.contractedHoursPerWeek} >= 0)
+        and (${t.monthlyHourBudget} is null or ${t.monthlyHourBudget} >= 0)`,
     ),
   ],
 );
@@ -75,6 +78,37 @@ export const shiftStatus = app.enum("shift_status", [
   "no_show",
   "cancelled",
 ]);
+
+export const scheduleKind = app.enum("schedule_kind", ["setup", "open", "teardown"]);
+
+/**
+ * What one event day needs for one role and Zeitplan part (shift allocator, spec §3): how many people, and the
+ * times new shifts for it start with. Gaps are computed (headcount − requested/confirmed shifts), never stored.
+ */
+export const shiftNeed = app.table(
+  "shift_need",
+  {
+    id: id(),
+    eventId: uuid()
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    workDate: date().notNull(),
+    dutyRoleId: uuid()
+      .notNull()
+      .references(() => dutyRole.id, { onDelete: "restrict" }),
+    scheduleKind: scheduleKind().notNull(),
+    headcount: integer().notNull(),
+    plannedStart: time(),
+    plannedEnd: time(),
+    ...timestamps,
+  },
+  (t) => [
+    unique().on(t.eventId, t.workDate, t.dutyRoleId, t.scheduleKind),
+    index().on(t.workDate),
+    check("shift_need_headcount", sql`${t.headcount} between 0 and 30`),
+    check("shift_need_times", sql`(${t.plannedStart} is null) = (${t.plannedEnd} is null)`),
+  ],
+);
 
 /**
  * A working time record (§17 MiLoG): planned and actual times of one person on one day. Without an event
@@ -90,6 +124,8 @@ export const shift = app.table(
       .notNull()
       .references(() => staffMember.id, { onDelete: "restrict" }),
     dutyRoleId: uuid().references(() => dutyRole.id, { onDelete: "set null" }),
+    /** The need (slot) this shift fills; null = entered without one (office hours, an extra helper). */
+    needId: uuid().references(() => shiftNeed.id, { onDelete: "set null" }),
     workDate: date().notNull(),
     plannedStart: time(),
     plannedEnd: time(),
@@ -109,6 +145,7 @@ export const shift = app.table(
   (t) => [
     index().on(t.staffMemberId, t.workDate),
     index().on(t.eventId),
+    index().on(t.needId),
     index().on(t.workDate, t.status),
     check("shift_break", sql`${t.breakMinutes} >= 0`),
     check("shift_version", sql`${t.version} >= 1`),
@@ -191,4 +228,20 @@ export const overrunJustification = app.table(
     unique().on(t.staffMemberId, t.month),
     check("overrun_justification_month", sql`extract(day from ${t.month}) = 1`),
   ],
+);
+
+/** "Nicht verfügbar" (shift allocator): entered by the office from WhatsApp. Warns in the planner, never blocks. */
+export const staffUnavailability = app.table(
+  "staff_unavailability",
+  {
+    id: id(),
+    staffMemberId: uuid()
+      .notNull()
+      .references(() => staffMember.id, { onDelete: "cascade" }),
+    date: date().notNull(),
+    note: text(),
+    createdByStaffMemberId: uuid().references(() => staffMember.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [unique().on(t.staffMemberId, t.date), index().on(t.date)],
 );

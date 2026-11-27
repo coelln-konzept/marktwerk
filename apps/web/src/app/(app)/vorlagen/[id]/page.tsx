@@ -87,6 +87,7 @@ export default async function EditPresetPage({
   const defaultDuties = Object.fromEntries(
     Object.entries(preset.defaultDuties).filter(([key]) => roleKeys.has(key)),
   );
+  const staffing = preset.staffing.filter((row) => roleKeys.has(row.dutyRoleKey));
 
   return (
     <Page
@@ -162,6 +163,7 @@ export default async function EditPresetPage({
           bookingFeeCents: preset.bookingFeeCents,
           rrule: preset.rrule,
           defaultDuties,
+          staffing,
           active: preset.active,
           color: preset.color,
           shortCode: preset.shortCode,

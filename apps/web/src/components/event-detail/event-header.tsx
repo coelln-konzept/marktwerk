@@ -189,7 +189,7 @@ export async function EventHeader({ event, actor }: { event: EventDetail; actor:
           } satisfies EventTab,
         ]
       : []),
-    ...(isModuleVisible("team")
+    ...(isModuleVisible("staffPlanning")
       ? [
           {
             key: "team",
