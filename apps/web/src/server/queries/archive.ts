@@ -48,8 +48,8 @@ const HIDDEN_LINKS: Partial<Record<DocumentLinkKey, () => boolean>> = {
   payableId: () => isModuleHidden("finance"),
   installmentId: () => isModuleHidden("finance"),
   expenseId: () => isModuleHidden("finance"),
-  employmentContractId: () => isModuleHidden("team"),
-  payrollPeriodId: () => isModuleHidden("team"),
+  employmentContractId: () => isModuleHidden("staffPlanning"),
+  payrollPeriodId: () => isModuleHidden("staffPlanning"),
 };
 
 const taskEvent = aliasedTable(event, "task_event");

@@ -54,7 +54,7 @@ export async function EventVorschau({
           },
           { label: t("facts.venue"), value: event.venue.name },
           { label: t("facts.times"), value: formatScheduleSummary(event.schedule, tSchedule) },
-          ...(isModuleVisible("team")
+          ...(isModuleVisible("staffPlanning")
             ? [
                 {
                   label: t("facts.team"),

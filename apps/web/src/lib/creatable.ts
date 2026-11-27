@@ -20,7 +20,7 @@ export function creatableFor(role: Role): Creatable[] {
     task: can(role, "task", "write"),
     payable: isModuleVisible("finance") && can(role, "finance", "write"),
     permit: can(role, "permit", "write"),
-    shift: isModuleVisible("team") && can(role, "team", "manage"),
+    shift: isModuleVisible("staffPlanning") && can(role, "team", "manage"),
     issue: can(role, "company", "write"),
     appointment: can(role, "appointment", "write"),
   };

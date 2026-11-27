@@ -100,7 +100,7 @@ export async function AppSidebar({
       href: "/team",
       label: t("team"),
       icon: <Users />,
-      visible: isModuleVisible("team") && can(r, "team", "read"),
+      visible: isModuleVisible("staffPlanning") && can(r, "team", "read"),
     },
     {
       href: "/finanzen",

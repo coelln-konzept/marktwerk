@@ -12,7 +12,7 @@ import { isModuleVisible, maskHealth } from "@/lib/modules";
 export const HEALTH_DIMS = [
   "permits",
   "tasks",
-  ...(isModuleVisible("team") ? (["team"] as const) : []),
+  ...(isModuleVisible("staffPlanning") ? (["team"] as const) : []),
   ...(isModuleVisible("finance") ? (["money"] as const) : []),
 ] as const;
 

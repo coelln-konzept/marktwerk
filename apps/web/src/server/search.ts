@@ -9,6 +9,6 @@ import { type SearchHit, type SearchResult, searchAs } from "./search-core";
 export async function searchEverything(query: string): Promise<SearchResult> {
   const exclude: SearchHit["kind"][] = [];
   if (isModuleHidden("finance")) exclude.push("payable");
-  if (isModuleHidden("team")) exclude.push("staff");
+  if (isModuleHidden("staffPlanning")) exclude.push("staff");
   return searchAs(await getActor(), await getLocale(), query, exclude);
 }

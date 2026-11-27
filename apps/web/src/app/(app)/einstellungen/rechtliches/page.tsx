@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LegalSettingsPage() {
   await requirePermission("settings", "read");
   // Minijob and hours values: hidden together with Team (`lib/modules.ts`).
-  if (isModuleHidden("team")) notFound();
+  if (isModuleHidden("staffPlanning")) notFound();
   const [t, tNav, locale] = await Promise.all([
     getTranslations("settings"),
     getTranslations("nav"),

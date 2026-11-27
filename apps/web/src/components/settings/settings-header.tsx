@@ -24,13 +24,13 @@ export async function SettingsHeader({ actions }: { actions?: React.ReactNode })
     <>
       <PageHeader
         title={t("title")}
-        subtitle={t(isModuleVisible("team") ? "subtitleWithLegal" : "subtitle")}
+        subtitle={t(isModuleVisible("staffPlanning") ? "subtitleWithLegal" : "subtitle")}
         actions={actions}
       />
       <SettingsTabs
         label={t("tabsLabel")}
         tabs={(["company", "users", "legal", "library", "mail", "bookings"] as const)
-          .filter((key) => key !== "legal" || isModuleVisible("team"))
+          .filter((key) => key !== "legal" || isModuleVisible("staffPlanning"))
           .filter(
             (key) =>
               (key !== "mail" && key !== "bookings") || isModuleVisible("standplanPrototype"),

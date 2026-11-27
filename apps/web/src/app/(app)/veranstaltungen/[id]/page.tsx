@@ -97,7 +97,7 @@ export default async function EventOverviewPage({
         <FactsPanel event={event} canWrite={canWrite} />
         <RulesPanel event={event} canEditMarket={can(actor.role, "template", "write")} />
       </div>
-      {isModuleVisible("team") && <TeamSummaryPanel event={event} />}
+      {isModuleVisible("staffPlanning") && <TeamSummaryPanel event={event} />}
       {drawer}
     </KeyboardRows>
   );
