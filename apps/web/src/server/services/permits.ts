@@ -1404,18 +1404,60 @@ export async function archivePermit(actor: Actor, id: string): Promise<{ title: 
   });
 }
 
+/**
+ * The "… beantragen" tasks that went with the permit's last archiving when nobody had touched it (a deleted date,
+ * SAI7, or migration 0027: `cancelledTasks` on that `permit.archive` entry) come back with it, in the status they
+ * had, while they are still cancelled. Returns their ids.
+ */
+async function reopenTasksOfArchive(tx: Tx, permitId: string): Promise<string[]> {
+  const [last] = await tx
+    .select({ diff: auditLog.diff })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.entityType, "permit"),
+        eq(auditLog.entityId, permitId),
+        eq(auditLog.action, "permit.archive"),
+      ),
+    )
+    .orderBy(desc(auditLog.at), desc(auditLog.id))
+    .limit(1);
+  const list = (last?.diff as { cancelledTasks?: unknown } | null)?.cancelledTasks;
+  if (!Array.isArray(list)) return [];
+  const reopened: string[] = [];
+  for (const item of list) {
+    const id = (item as { id?: unknown })?.id;
+    const from = (item as { from?: unknown })?.from;
+    if (typeof id !== "string" || !isUuid(id)) continue;
+    const status = (OPEN_TASK as readonly unknown[]).includes(from)
+      ? (from as (typeof OPEN_TASK)[number])
+      : "todo";
+    const rows = await tx
+      .update(task)
+      .set({ status })
+      .where(and(eq(task.id, id), eq(task.permitId, permitId), eq(task.status, "cancelled")))
+      .returning({ id: task.id });
+    if (rows.length > 0) reopened.push(id);
+  }
+  return reopened;
+}
+
 /** Undo of `archivePermit`. */
 export async function restorePermit(actor: Actor, id: string): Promise<{ title: string }> {
   if (!can(actor.role, "permit", "delete")) forbidden();
   return db.transaction(async (tx) => {
     const current = await lockPermit(tx, id, true);
     await tx.update(permit).set({ archivedAt: null }).where(eq(permit.id, id));
+    const reopened = await reopenTasksOfArchive(tx, id);
     await audit(tx, actor.id, [
       {
         action: "permit.restore",
         entityType: "permit",
         entityId: id,
-        diff: { title: current.title },
+        diff: {
+          title: current.title,
+          ...(reopened.length > 0 ? { reopenedTaskIds: reopened } : {}),
+        },
       },
     ]);
     return { title: current.title };

@@ -366,9 +366,10 @@
         "permitLinks": "{count, plural, one {# link to a permit} other {# links to permits}}",
         "duties": "{count, plural, one {# duty assignment} other {# duty assignments}}",
         "checklists": "{count, plural, one {# checklist} other {# checklists}}",
-        "notes": "the notes"
+        "notes": "the notes",
+        "permits": "{count, plural, one {# untouched permit no other date needs (archived, restorable in the logbook)} other {# untouched permits no other date needs (archived, restorable in the logbook)}}"
       },
-      "kept": "This cannot be undone. The permits themselves and “Next time” notes stay."
+      "kept": "This cannot be undone. The other permits and “Next time” notes stay."
     },
     "move": {
       "open": "Move",

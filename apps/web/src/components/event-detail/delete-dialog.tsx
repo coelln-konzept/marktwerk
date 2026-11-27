@@ -18,7 +18,7 @@ type Info = EventDeleteInfo;
 
 const BLOCKER_KEYS = ["payables", "expenses", "shifts", "documents"] as const;
 /** What goes with the event, in the order of the list (UX-061); a zero count is left out. */
-const LOSS_KEYS = ["tasks", "permitLinks", "duties", "checklists"] as const;
+const LOSS_KEYS = ["tasks", "permitLinks", "permits", "duties", "checklists"] as const;
 
 /**
  * "Veranstaltung löschen" (product owner 2026-11-04): permanent, so a deliberate exception to "undo toasts

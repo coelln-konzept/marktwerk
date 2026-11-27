@@ -8,14 +8,18 @@ import {
   expense,
   payable,
   permit,
+  permitRequirement,
   shift,
   task,
 } from "@marktwerk/db/schema";
-import { and, eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { and, eq, isNull } from "drizzle-orm";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
 import { deleteEvent, getEventDeleteInfo } from "@/server/services/event-lifecycle";
+import { createEventsFromPreset } from "@/server/services/events";
+import { restorePermit, setPermitStatus, updatePermit } from "@/server/services/permits";
+import { setTaskStatus } from "@/server/services/tasks";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 import { insertEvent, insertTask } from "../helpers/tasks";
 
@@ -175,7 +179,7 @@ describe("deleteEvent", () => {
       startsOn: "2026-11-14",
       endsOn: "2026-11-14",
       blockers: { payables: 0, expenses: 0, shifts: 0, documents: 0 },
-      losses: { tasks: 0, permitLinks: 0, duties: 0, checklists: 0, notes: false },
+      losses: { tasks: 0, permitLinks: 0, permits: 0, duties: 0, checklists: 0, notes: false },
     });
   });
 
@@ -205,6 +209,8 @@ describe("deleteEvent", () => {
     expect((await getEventDeleteInfo(owner, eventId)).losses).toEqual({
       tasks: 3,
       permitLinks: 1,
+      // A permit made by hand is never archived with a date (SAI7).
+      permits: 0,
       duties: 1,
       checklists: 1,
       notes: true,
@@ -223,4 +229,113 @@ describe("deleteEvent", () => {
     await deleteEvent(manager, eventId, NAME);
     expect(await exists(eventId)).toBe(false);
   });
+});
+
+describe("deleteEvent archives the permits only this date needed and nobody touched (SAI7)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-26T10:00:00+01:00"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function requirements() {
+    await db.insert(permitRequirement).values([
+      {
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "water",
+        title: "Standrohr",
+        cadence: "per_season",
+        leadTimeDays: 120,
+      },
+      {
+        venueId: cat.venue.id,
+        category: "city",
+        permitType: "no_parking",
+        title: "Halteverbot",
+        cadence: "per_event",
+        leadTimeDays: 21,
+      },
+    ]);
+  }
+  /** A date of 2031 made from the flea preset: the logbook fill gives it its permits and their tasks. */
+  async function dates(...days: string[]) {
+    const made = await createEventsFromPreset(owner, cat.presets.flea.id, days);
+    return made.map((m) => m.id);
+  }
+  const eventName = async (id: string) =>
+    (await db.select({ name: event.name }).from(event).where(eq(event.id, id)))[0]?.name as string;
+  const permitsByTitle = async () =>
+    Object.fromEntries((await db.select().from(permit)).map((p) => [p.title.split(" – ")[0], p]));
+  const seasonTask = async (permitId: string) =>
+    (
+      await db
+        .select()
+        .from(task)
+        .where(and(eq(task.permitId, permitId), eq(task.source, "permit")))
+    )[0];
+
+  it("archives the season and per-date permit of a lone date, cancels the season task, and a restore brings it back", async () => {
+    await requirements();
+    const [id] = (await dates("2031-05-18")) as [string];
+    expect((await getEventDeleteInfo(owner, id)).losses.permits).toBe(2);
+
+    await deleteEvent(owner, id, await eventName(id));
+    const after = await permitsByTitle();
+    expect(after.Standrohr?.archivedAt).not.toBeNull();
+    expect(after.Halteverbot?.archivedAt).not.toBeNull();
+    // The season permit's own task has no event: cancelled. The per-date one went with its date.
+    const own = await seasonTask(after.Standrohr?.id as string);
+    expect(own?.status).toBe("cancelled");
+    expect(await seasonTask(after.Halteverbot?.id as string)).toBeUndefined();
+    const [entry] = await db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "event.delete"), eq(auditLog.entityId, id)));
+    expect(
+      (entry?.diff as { archivedPermits?: string[] } | undefined)?.archivedPermits,
+    ).toHaveLength(2);
+
+    await restorePermit(owner, after.Standrohr?.id as string);
+    expect((await seasonTask(after.Standrohr?.id as string))?.status).toBe("todo");
+  });
+
+  it("keeps a season permit another date still needs", async () => {
+    await requirements();
+    const [first] = (await dates("2031-05-18", "2031-06-15")) as [string, string];
+    await deleteEvent(owner, first, await eventName(first));
+    const after = await permitsByTitle();
+    expect(after.Standrohr?.archivedAt).toBeNull();
+    expect((await seasonTask(after.Standrohr?.id as string))?.status).toBe("todo");
+  });
+
+  it("keeps permits someone worked on: filed, edited, or whose task was started", async () => {
+    await requirements();
+    const ids = await dates("2031-05-18", "2031-06-15", "2031-07-13");
+    const [a, b, c] = ids as [string, string, string];
+    const halteverbot = async (eventId: string) =>
+      (
+        await db
+          .select({ id: permit.id })
+          .from(permit)
+          .innerJoin(eventPermit, eq(eventPermit.permitId, permit.id))
+          .where(and(eq(eventPermit.eventId, eventId), eq(permit.permitType, "no_parking")))
+      )[0]?.id as string;
+    const [pa, pb, pc] = [await halteverbot(a), await halteverbot(b), await halteverbot(c)];
+    await setPermitStatus(owner, pa, "preparing");
+    await updatePermit(owner, pb, { notes: "Formular liegt bereit" });
+    await setTaskStatus(owner, (await seasonTaskOfEvent(pc)) as string, "in_progress");
+    for (const id of ids) expect((await getEventDeleteInfo(owner, id)).losses.permits).toBe(0);
+    for (const id of ids) await deleteEvent(owner, id, await eventName(id));
+    const live = await db.select().from(permit).where(isNull(permit.archivedAt));
+    // The three Halteverbote stay; the Standrohr, untouched, goes with the last of its dates.
+    expect(live.map((p) => p.id).sort()).toEqual([pa, pb, pc].sort());
+  });
+
+  /** The own "… beantragen" task of a per-date permit (it carries the date). */
+  async function seasonTaskOfEvent(permitId: string) {
+    return (await db.select().from(task).where(eq(task.permitId, permitId)))[0]?.id;
+  }
 });
