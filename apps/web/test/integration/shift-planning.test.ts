@@ -69,6 +69,8 @@ beforeEach(async () => {
     .where(eq(eventPreset.id, cat.presets.flea.id));
 });
 
+const TODAY = { today: "2026-11-26" };
+
 const needsOf = (eventId: string) =>
   db
     .select()
@@ -716,9 +718,17 @@ describe("final review: side effects and integrity", () => {
       owner,
       eventId,
       facts(all.filter((k) => k !== "setup" && k !== "teardown")),
+      undefined,
+      TODAY,
     );
     expect((await shiftRow(shiftId)).needId).toBeNull();
-    await updateEventFacts(owner, eventId, facts(all.filter((k) => k !== "setup")));
+    await updateEventFacts(
+      owner,
+      eventId,
+      facts(all.filter((k) => k !== "setup")),
+      undefined,
+      TODAY,
+    );
     const teardown = (await needsOf(eventId)).find((n) => n.scheduleKind === "teardown");
     expect(teardown).toBeDefined();
     expect((await shiftRow(shiftId)).needId).toBeNull();
@@ -750,7 +760,7 @@ describe("final review: side effects and integrity", () => {
     const b = await assignToNeed(owner, need!.id, ben.id, { today: "2026-11-26" });
     await db.update(shift).set({ needId: null }).where(eq(shift.eventId, eventId));
     await db.delete(shiftNeed).where(eq(shiftNeed.id, need!.id));
-    await updateEventFacts(owner, eventId, facts(all));
+    await updateEventFacts(owner, eventId, facts(all), undefined, TODAY);
     const rows = [await shiftRow(a.shiftId), await shiftRow(b.shiftId)];
     expect(rows.filter((r) => r.needId !== null)).toHaveLength(1);
   });
@@ -779,7 +789,7 @@ describe("final review: side effects and integrity", () => {
       .update(event)
       .set({ startsOn: "2026-11-20", endsOn: "2026-11-20" })
       .where(eq(event.id, eventId));
-    await updateEventFacts(owner, eventId, facts(all));
+    await updateEventFacts(owner, eventId, facts(all), undefined, TODAY);
     expect(await needsOf(eventId)).toHaveLength(0);
   });
 
@@ -948,7 +958,7 @@ describe("product owner 2026-11-27: cancel and Zeitplan", () => {
       bookingFeeCents: row!.bookingFeeCents,
     });
 
-    await updateEventFacts(owner, ev!.id, facts(schedule));
+    await updateEventFacts(owner, ev!.id, facts(schedule), undefined, TODAY);
     expect((await needsOf(ev!.id)).map((n) => n.scheduleKind).sort()).toEqual([
       "setup",
       "teardown",
@@ -961,6 +971,8 @@ describe("product owner 2026-11-27: cancel and Zeitplan", () => {
       owner,
       ev!.id,
       facts(schedule.filter((r) => r.kind !== "setup")),
+      undefined,
+      TODAY,
     );
     expect(result).toMatchObject({ needsRemoved: 1, shiftsUnlinked: 1 });
     expect((await needsOf(ev!.id)).map((n) => n.scheduleKind)).toEqual(["teardown"]);

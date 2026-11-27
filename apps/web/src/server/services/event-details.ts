@@ -115,6 +115,7 @@ export async function updateEventFacts(
   id: string,
   next: EventFacts,
   expected?: EventFacts,
+  opts: { today?: string } = {},
 ): Promise<{
   changed: boolean;
   previous: EventFacts;
@@ -171,7 +172,7 @@ export async function updateEventFacts(
     // people and per-day edits (also their times), new parts get needs, needs of a removed part go.
     // A finished event gets no new open needs for its past days.
     const rebuilt =
-      changes.schedule && current.endsOn >= todayIn()
+      changes.schedule && current.endsOn >= (opts.today ?? todayIn())
         ? await inOpenPayroll(() =>
             rebuildNeedsTx(tx, actor, id, { startsOn: current.startsOn, durationDays }, "schedule"),
           )
@@ -626,7 +627,9 @@ export async function moveEvent(
     const next = target(current, { startsOn });
     const restoreConfirmed = options.undo
       ? (options.restoreConfirmed ?? [])
-          .filter((x) => UUID.test(x.id) && Number.isInteger(x.version))
+          .filter(
+            (x) => x && typeof x === "object" && UUID.test(x.id) && Number.isInteger(x.version),
+          )
           .slice(0, 1000)
       : [];
     const {
