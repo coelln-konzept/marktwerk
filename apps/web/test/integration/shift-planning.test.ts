@@ -14,6 +14,7 @@ import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Actor } from "@/server/actor";
 import { db } from "@/server/db";
+import { getEventPlanning, getPlanningMonth, listCandidates } from "@/server/queries/planning";
 import { moveEvent, updateEventBasics } from "@/server/services/event-details";
 import { createEventsFromPreset } from "@/server/services/events";
 import {
@@ -349,5 +350,40 @@ describe("a new event length rebuilds the needs", () => {
     const after = await needsOf(ev.id);
     expect(after.map((n) => n.id).sort()).toEqual(ids);
     expect([...new Set(after.map((n) => n.workDate))].sort()).toEqual(["2026-12-20", "2026-12-21"]);
+  });
+});
+
+describe("planning queries", () => {
+  it("month: people with budget, week totals, needs with gaps; event: day blocks and candidates", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const needs = await needsOf(ev!.id);
+    const anna = await person("Anna");
+    await assignToNeed(owner, needs[0]!.id, anna.id, { today: "2026-11-26" }); // setup 06–08 = 120 min
+
+    const month = await getPlanningMonth("2026-12-01");
+    expect(month.days).toEqual(["2026-12-13"]);
+    expect(month.needsByDay["2026-12-13"]?.map((n) => [n.scheduleKind, n.open])).toEqual([
+      ["setup", 1],
+      ["open", 1],
+    ]);
+    const row = month.people.find((p) => p.staffMemberId === anna.id)!;
+    expect(row).toMatchObject({
+      budgetMinutes: 2400,
+      noContract: true,
+      leftMinutes: 2280,
+      level: "ok",
+    });
+    expect(row.usage.requestedMinutes).toBe(120);
+    expect(row.weeks["2026-W50"]).toBe(120);
+
+    const plan = await getEventPlanning(ev!.id);
+    expect(plan.openTotal).toBe(2);
+    expect(plan.days[0]?.needs[0]?.shifts[0]?.displayName).toBe("Anna");
+
+    const candidates = await listCandidates(needs[1]!.id);
+    // createActor may add a staff member for the owner, so look Anna up rather than taking the first row.
+    expect(candidates.find((c) => c.staffMemberId === anna.id)?.flags).toContain(
+      "already_scheduled",
+    );
   });
 });
