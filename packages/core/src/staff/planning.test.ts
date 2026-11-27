@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { budgetStatus, hourBudget, monthUsage, shortNotice, weekTotals } from "./planning";
+import type { ScheduleRow } from "../events/schedule";
+import {
+  budgetStatus,
+  hourBudget,
+  monthUsage,
+  needGaps,
+  needsConfirmation,
+  needsFromStaffing,
+  parseStaffing,
+  rankCandidates,
+  shortNotice,
+  slotMinutes,
+  weekTotals,
+} from "./planning";
 import type { ShiftTimesInput } from "./worktime";
 
 const s = (
@@ -113,5 +126,187 @@ describe("shortNotice", () => {
   it("counts calendar days across the DST change (29.03.2026)", () => {
     expect(shortNotice("2026-03-30", "2026-03-27")).toBe(true); // 3 days
     expect(shortNotice("2026-03-31", "2026-03-27")).toBe(false); // 4 days
+  });
+});
+
+describe("parseStaffing", () => {
+  it("accepts valid rows and rejects bad ones", () => {
+    expect(parseStaffing([{ dutyRoleKey: "setup", count: 2, scheduleKind: "setup" }])).toEqual([
+      { dutyRoleKey: "setup", count: 2, scheduleKind: "setup" },
+    ]);
+    expect(parseStaffing([])).toEqual([]);
+    expect(parseStaffing("x")).toBeNull();
+    expect(parseStaffing([{ dutyRoleKey: "", count: 1, scheduleKind: "open" }])).toBeNull();
+    expect(parseStaffing([{ dutyRoleKey: "a", count: -1, scheduleKind: "open" }])).toBeNull();
+    expect(parseStaffing([{ dutyRoleKey: "a", count: 1.5, scheduleKind: "open" }])).toBeNull();
+    expect(parseStaffing([{ dutyRoleKey: "a", count: 1, scheduleKind: "lunch" }])).toBeNull();
+  });
+  it("rejects the same role and kind twice, allows the same role for two kinds", () => {
+    const row = { dutyRoleKey: "crew", count: 1, scheduleKind: "setup" };
+    expect(parseStaffing([row, row])).toBeNull();
+    expect(parseStaffing([row, { ...row, scheduleKind: "teardown" }])).toHaveLength(2);
+  });
+});
+
+describe("needsFromStaffing", () => {
+  const schedule: ScheduleRow[] = [
+    { audience: "vendors", kind: "setup", day: "first", from: "06:00", to: "08:00" },
+    { audience: "team", kind: "setup", day: "before", from: "15:00", to: "19:00" },
+    { audience: "visitors", kind: "open", day: "each", from: "08:00", to: "16:00" },
+    { audience: "vendors", kind: "teardown", day: "last", from: "16:00", to: "18:00" },
+  ];
+  const staffing = [
+    { dutyRoleKey: "crew", count: 2, scheduleKind: "setup" as const },
+    { dutyRoleKey: "cash", count: 1, scheduleKind: "open" as const },
+    { dutyRoleKey: "crew", count: 2, scheduleKind: "teardown" as const },
+  ];
+  it("creates one need per day and kind; the team row wins over other audiences", () => {
+    expect(needsFromStaffing(staffing, schedule, "2026-12-12", 2)).toEqual([
+      // day before: the team setup row
+      {
+        workDate: "2026-12-11",
+        dutyRoleKey: "crew",
+        scheduleKind: "setup",
+        headcount: 2,
+        plannedStart: "15:00",
+        plannedEnd: "19:00",
+      },
+      // day 1: no team setup row that day → the vendors' setup window
+      {
+        workDate: "2026-12-12",
+        dutyRoleKey: "crew",
+        scheduleKind: "setup",
+        headcount: 2,
+        plannedStart: "06:00",
+        plannedEnd: "08:00",
+      },
+      {
+        workDate: "2026-12-12",
+        dutyRoleKey: "cash",
+        scheduleKind: "open",
+        headcount: 1,
+        plannedStart: "08:00",
+        plannedEnd: "16:00",
+      },
+      {
+        workDate: "2026-12-13",
+        dutyRoleKey: "cash",
+        scheduleKind: "open",
+        headcount: 1,
+        plannedStart: "08:00",
+        plannedEnd: "16:00",
+      },
+      {
+        workDate: "2026-12-13",
+        dutyRoleKey: "crew",
+        scheduleKind: "teardown",
+        headcount: 2,
+        plannedStart: "16:00",
+        plannedEnd: "18:00",
+      },
+    ]);
+  });
+  it("skips rows with count 0 and kinds without any row that day", () => {
+    expect(
+      needsFromStaffing(
+        [{ dutyRoleKey: "x", count: 0, scheduleKind: "open" }],
+        schedule,
+        "2026-12-12",
+        1,
+      ),
+    ).toEqual([]);
+    expect(needsFromStaffing(staffing, [], "2026-12-12", 1)).toEqual([]);
+  });
+});
+
+describe("needGaps", () => {
+  it("counts requested and confirmed as filled; declined/cancelled reopen", () => {
+    expect(needGaps(2, ["requested", "declined", "cancelled"])).toEqual({
+      filled: 1,
+      open: 1,
+      over: 0,
+    });
+    expect(needGaps(1, ["confirmed", "requested"])).toEqual({ filled: 2, open: 0, over: 1 });
+    expect(needGaps(0, [])).toEqual({ filled: 0, open: 0, over: 0 });
+  });
+});
+
+describe("rankCandidates", () => {
+  const slot = { workDate: "2026-12-12", plannedStart: "08:00", plannedEnd: "16:00" }; // 450 net (30 break)
+  const base = { dayShifts: [], recentShifts: [], unavailableNote: undefined };
+  it("orders usual → other → unavailable, then by hours left after, then name", () => {
+    const ranked = rankCandidates(slot, [
+      { ...base, staffMemberId: "a", displayName: "Anna", usual: false, leftMinutes: 1200 },
+      { ...base, staffMemberId: "b", displayName: "Ben", usual: true, leftMinutes: 600 },
+      { ...base, staffMemberId: "c", displayName: "Cem", usual: false, leftMinutes: 1200 },
+      {
+        ...base,
+        staffMemberId: "d",
+        displayName: "Dora",
+        usual: true,
+        leftMinutes: 2000,
+        unavailableNote: "nur bis 15 Uhr",
+      },
+      { ...base, staffMemberId: "e", displayName: "Eva", usual: false, leftMinutes: 1800 },
+    ]);
+    expect(ranked.map((c) => c.staffMemberId)).toEqual(["b", "e", "a", "c", "d"]);
+    expect(ranked[4]).toMatchObject({
+      group: "unavailable",
+      flags: ["unavailable"],
+      unavailableNote: "nur bis 15 Uhr",
+    });
+    expect(ranked[0]).toMatchObject({ leftBefore: 600, leftAfter: 150 });
+  });
+  it("flags over budget after, already scheduled, overlap and ArbZG", () => {
+    const [c] = rankCandidates(slot, [
+      {
+        ...base,
+        staffMemberId: "a",
+        displayName: "Anna",
+        usual: false,
+        leftMinutes: 300,
+        dayShifts: [
+          {
+            workDate: "2026-12-12",
+            status: "confirmed",
+            plannedStart: "14:00",
+            plannedEnd: "20:00",
+            actualStart: null,
+            actualEnd: null,
+            breakMinutes: 0,
+          },
+        ],
+        recentShifts: [
+          {
+            workDate: "2026-12-12",
+            status: "confirmed",
+            plannedStart: "14:00",
+            plannedEnd: "20:00",
+            actualStart: null,
+            actualEnd: null,
+            breakMinutes: 0,
+          },
+        ],
+      },
+    ]);
+    expect(c?.flags).toEqual(["already_scheduled", "overlap", "over_budget_after", "worktime"]);
+    expect(needsConfirmation(["already_scheduled"])).toBe(false);
+    expect(needsConfirmation(["already_scheduled", "overlap"])).toBe(true);
+  });
+  it("slotMinutes deducts the statutory break", () => {
+    expect(slotMinutes(slot)).toEqual({ net: 450, breakMinutes: 30 });
+    expect(
+      slotMinutes({ workDate: "2026-12-12", plannedStart: "08:00", plannedEnd: "12:00" }),
+    ).toEqual({ net: 240, breakMinutes: 0 });
+    // work excludes the break: 6 h 20 min gross still needs 30 min, 9 h 35 min gross needs 45
+    expect(
+      slotMinutes({ workDate: "2026-12-12", plannedStart: "08:00", plannedEnd: "14:20" }),
+    ).toEqual({ net: 350, breakMinutes: 30 });
+    expect(
+      slotMinutes({ workDate: "2026-12-12", plannedStart: "08:00", plannedEnd: "14:00" }),
+    ).toEqual({ net: 360, breakMinutes: 0 });
+    expect(
+      slotMinutes({ workDate: "2026-12-12", plannedStart: "08:00", plannedEnd: "17:35" }),
+    ).toEqual({ net: 530, breakMinutes: 45 });
   });
 });
