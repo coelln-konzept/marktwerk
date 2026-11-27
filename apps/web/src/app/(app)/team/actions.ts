@@ -61,11 +61,17 @@ export async function saveContractAction(
   });
 }
 
+/** A shift's need is set by the planning services only (Einplanen), never by the generic shift dialog. */
+function withoutNeed<T extends Partial<ShiftInput>>(input: T): Omit<T, "needId"> {
+  const { needId: _needId, ...rest } = input;
+  return rest;
+}
+
 /** A new shift record (with or without event). */
 export async function createShiftAction(input: ShiftInput) {
   return run(async () => {
     const actor = await getActor();
-    return createShift(actor, input);
+    return createShift(actor, withoutNeed(input));
   });
 }
 
@@ -78,7 +84,7 @@ export async function updateShiftAction(
 ) {
   return run(async () => {
     const actor = await getActor();
-    return updateShift(actor, shiftId, patch, reason, expectedVersion);
+    return updateShift(actor, shiftId, withoutNeed(patch), reason, expectedVersion);
   });
 }
 

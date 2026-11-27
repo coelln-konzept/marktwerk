@@ -5,6 +5,8 @@ import {
   employmentContract,
   event,
   eventPreset,
+  legalParameter,
+  payrollPeriod,
   shift,
   shiftNeed,
   shiftRevision,
@@ -22,7 +24,8 @@ import {
   listUnavailabilityRanges,
 } from "@/server/queries/planning";
 import { ContractInputError, saveContract } from "@/server/services/contracts";
-import { moveEvent, updateEventBasics } from "@/server/services/event-details";
+import { moveEvent, updateEventBasics, updateEventFacts } from "@/server/services/event-details";
+import { changeEventStatus, revertEventStatus } from "@/server/services/event-lifecycle";
 import { createEventsFromPreset } from "@/server/services/events";
 import {
   createPreset,
@@ -38,6 +41,7 @@ import {
   setUnavailability,
   updateNeed,
 } from "@/server/services/shift-planning";
+import { createShift, updateShift } from "@/server/services/shifts";
 import { createActor, resetDatabase, seedCatalogue } from "../helpers/fixtures";
 
 let cat: Awaited<ReturnType<typeof seedCatalogue>>;
@@ -561,5 +565,300 @@ describe("unavailability on the person", () => {
       ["2026-12-20", "2026-12-21", "Urlaub", 2],
     ]);
     expect(await listUnavailabilityRanges(anna.id, "2026-12-13", "2026-12-13")).toHaveLength(1);
+  });
+});
+
+describe("final review: side effects and integrity", () => {
+  async function setLength(eventId: string, durationDays: number) {
+    const [row] = await db.select().from(event).where(eq(event.id, eventId));
+    if (!row) throw new Error("no event");
+    return updateEventBasics(owner, eventId, {
+      name: row.name,
+      durationDays,
+      venueId: row.venueId,
+      eventTypeId: row.eventTypeId,
+    });
+  }
+  const shiftRow = async (id: string) => {
+    const [row] = await db.select().from(shift).where(eq(shift.id, id));
+    if (!row) throw new Error("no shift");
+    return row;
+  };
+  const reasonsOf = async (id: string) =>
+    (await db.select().from(shiftRevision).where(eq(shiftRevision.shiftId, id))).map(
+      (r) => r.reason,
+    );
+  async function confirmedShift(eventId: string) {
+    const [need] = await needsOf(eventId);
+    if (!need) throw new Error("no need");
+    const anna = await person("Anna");
+    const { shiftId } = await assignToNeed(owner, need.id, anna.id, { today: "2026-11-26" });
+    await setShiftStatus(owner, shiftId, "confirmed", 1);
+    return { need, shiftId, anna };
+  }
+
+  it("undo of a move restores the confirmations it reset", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const { need, shiftId } = await confirmedShift(ev!.id);
+    const moved = await moveEvent(owner, ev!.id, "2026-12-20", "2026-12-13");
+    expect(moved.resetShiftIds).toEqual([shiftId]);
+    expect(await shiftRow(shiftId)).toMatchObject({ status: "requested", workDate: "2026-12-20" });
+    await moveEvent(owner, ev!.id, "2026-12-13", "2026-12-20", {
+      undo: true,
+      restoreConfirmed: moved.resetShiftIds,
+    });
+    const back = await shiftRow(shiftId);
+    expect(back).toMatchObject({ status: "confirmed", workDate: "2026-12-13", needId: need.id });
+    expect(back.version).toBe(4);
+    expect(await reasonsOf(shiftId)).toContain("Verschieben rückgängig");
+  });
+
+  it("a move unlinks declined shifts of the moved needs instead of leaving them linked", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const [need] = await needsOf(ev!.id);
+    const ben = await person("Ben");
+    const { shiftId } = await assignToNeed(owner, need!.id, ben.id, { today: "2026-11-26" });
+    await setShiftStatus(owner, shiftId, "declined", 1);
+    await moveEvent(owner, ev!.id, "2026-12-20", "2026-12-13");
+    const row = await shiftRow(shiftId);
+    expect(row).toMatchObject({ needId: null, workDate: "2026-12-13", status: "declined" });
+    expect(row.version).toBe(3);
+    expect(await reasonsOf(shiftId)).toContain("Veranstaltung verschoben");
+  });
+
+  it("a move is refused when a planned shift lies in a locked payroll month", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    await confirmedShift(ev!.id);
+    await db
+      .insert(payrollPeriod)
+      .values({ month: "2026-12-01", status: "locked", lockedAt: new Date() })
+      .onConflictDoUpdate({
+        target: payrollPeriod.month,
+        set: { status: "locked", lockedAt: new Date() },
+      });
+    await expect(moveEvent(owner, ev!.id, "2026-12-20", "2026-12-13")).rejects.toMatchObject({
+      code: "period_locked",
+    });
+    const [row] = await db.select().from(event).where(eq(event.id, ev!.id));
+    expect(row?.startsOn).toBe("2026-12-13");
+  });
+
+  it("shorten unlinks a confirmed shift; lengthening back links it again", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    await setLength(ev!.id, 2);
+    const day2 = (await needsOf(ev!.id)).find(
+      (n) => n.workDate === "2026-12-14" && n.scheduleKind === "open",
+    );
+    const anna = await person("Anna");
+    const { shiftId } = await assignToNeed(owner, day2!.id, anna.id, { today: "2026-11-26" });
+    await setShiftStatus(owner, shiftId, "confirmed", 1);
+
+    expect(await setLength(ev!.id, 1)).toMatchObject({ shiftsUnlinked: 1 });
+    expect(await shiftRow(shiftId)).toMatchObject({
+      needId: null,
+      status: "confirmed",
+      version: 3,
+    });
+
+    await setLength(ev!.id, 2);
+    const again = (await needsOf(ev!.id)).find(
+      (n) => n.workDate === "2026-12-14" && n.scheduleKind === "open",
+    );
+    expect(await shiftRow(shiftId)).toMatchObject({
+      needId: again!.id,
+      status: "confirmed",
+      version: 4,
+    });
+    expect(await reasonsOf(shiftId)).toContain("Bedarf wieder da");
+  });
+
+  it("updateShift to another day unlinks the shift from its need", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const { shiftId } = await confirmedShift(ev!.id);
+    await updateShift(owner, shiftId, { workDate: "2026-12-14" }, "Tag getauscht", 2, {
+      today: "2026-11-26",
+    });
+    expect(await shiftRow(shiftId)).toMatchObject({ needId: null, workDate: "2026-12-14" });
+  });
+
+  it("a need of another event or day is refused", async () => {
+    const [a, b] = await createEventsFromPreset(owner, cat.presets.flea.id, [
+      "2026-12-13",
+      "2026-12-20",
+    ]);
+    const [needB] = await needsOf(b!.id);
+    const cem = await person("Cem");
+    await expect(
+      createShift(
+        owner,
+        {
+          eventId: a!.id,
+          staffMemberId: cem.id,
+          dutyRoleId: crewRoleId,
+          needId: needB!.id,
+          workDate: "2026-12-13",
+          plannedStart: "06:00",
+          plannedEnd: "08:00",
+          actualStart: null,
+          actualEnd: null,
+          breakMinutes: 0,
+          status: "requested",
+        },
+        { today: "2026-11-26" },
+      ),
+    ).rejects.toMatchObject({ code: "invalid_event" });
+  });
+
+  it("a cancelled event has no open slots and refuses planning", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const [need] = await needsOf(ev!.id);
+    await db.update(event).set({ status: "cancelled" }).where(eq(event.id, ev!.id));
+    const month = await getPlanningMonth("2026-12-01");
+    expect(month.needsByDay["2026-12-13"] ?? []).toEqual([]);
+    const plan = await getEventPlanning(ev!.id);
+    expect(plan).toMatchObject({ openTotal: 0, canApplyPreset: false, days: [] });
+    const dora = await person("Dora");
+    await expect(
+      assignToNeed(owner, need!.id, dora.id, { today: "2026-11-26" }),
+    ).rejects.toBeInstanceOf(PlanningInputError);
+    await expect(updateNeed(owner, need!.id, { headcount: 5 })).rejects.toBeInstanceOf(
+      PlanningInputError,
+    );
+    await expect(applyPresetStaffing(owner, ev!.id)).rejects.toBeInstanceOf(PlanningInputError);
+  });
+
+  it("the break of a new shift follows the ArbZG values in legal_parameter", async () => {
+    await db
+      .insert(legalParameter)
+      .values({ key: "arbzg_break_after_minutes", value: 60, validFrom: "2020-01-01" });
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const [need] = await needsOf(ev!.id);
+    const eva = await person("Eva");
+    const { shiftId } = await assignToNeed(owner, need!.id, eva.id, {
+      today: "2026-11-26",
+      confirm: true,
+    });
+    expect((await shiftRow(shiftId)).breakMinutes).toBe(30);
+  });
+
+  it("guards: bad status, recorded shifts, bad ids", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const { need, shiftId } = await confirmedShift(ev!.id);
+    await expect(setShiftStatus(owner, shiftId, "worked" as "confirmed", 2)).rejects.toMatchObject({
+      code: "invalid_input",
+    });
+    await db.update(shift).set({ status: "no_show" }).where(eq(shift.id, shiftId));
+    await expect(setShiftStatus(owner, shiftId, "cancelled", 2)).rejects.toMatchObject({
+      code: "invalid_input",
+    });
+    await expect(assignToNeed(owner, need.id, "nope")).rejects.toMatchObject({
+      code: "not_found",
+    });
+    expect(await listCandidates("nope")).toEqual([]);
+  });
+
+  it("setShiftStatus with a stale version is a conflict", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const { shiftId } = await confirmedShift(ev!.id);
+    await expect(setShiftStatus(owner, shiftId, "declined", 1)).rejects.toMatchObject({
+      code: "conflict",
+    });
+  });
+
+  it("undo of an assign (cancel at version 1) opens the need again; decline reopens the gap", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const open = await needsOf(ev!.id).then((n) => n.find((x) => x.scheduleKind === "open")!);
+    const openOf = async () =>
+      (await getEventPlanning(ev!.id)).days.flatMap((d) => d.needs).find((n) => n.id === open.id)!
+        .open;
+    const anna = await person("Anna");
+    const a = await assignToNeed(owner, open.id, anna.id, { today: "2026-11-26" });
+    expect(await openOf()).toBe(0);
+    await setShiftStatus(owner, a.shiftId, "cancelled", 1);
+    expect(await openOf()).toBe(1);
+
+    const ben = await person("Ben");
+    const b = await assignToNeed(owner, open.id, ben.id, { today: "2026-11-26" });
+    expect(await openOf()).toBe(0);
+    await setShiftStatus(owner, b.shiftId, "declined", 1);
+    expect(await openOf()).toBe(1);
+  });
+});
+
+describe("product owner 2026-11-27: cancel and Zeitplan", () => {
+  it("cancelling the market cancels its planned shifts; undo restores them", async () => {
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    const needs = await needsOf(ev!.id);
+    const anna = await person("Anna");
+    const ben = await person("Ben");
+    const a = await assignToNeed(owner, needs[0]!.id, anna.id, { today: "2026-11-26" });
+    const b = await assignToNeed(owner, needs[1]!.id, ben.id, { today: "2026-11-26" });
+    await setShiftStatus(owner, b.shiftId, "confirmed", 1);
+    const usageOf = async (id: string) =>
+      (await getPlanningMonth("2026-12-01")).people.find((p) => p.staffMemberId === id)!.usage;
+    expect((await usageOf(anna.id)).requestedMinutes).toBeGreaterThan(0);
+
+    await changeEventStatus(owner, ev!.id, "cancelled", "Regen");
+    const statusOf = async (id: string) =>
+      (await db.select().from(shift).where(eq(shift.id, id)))[0]?.status;
+    expect(await statusOf(a.shiftId)).toBe("cancelled");
+    expect(await statusOf(b.shiftId)).toBe("cancelled");
+    expect((await usageOf(anna.id)).requestedMinutes).toBe(0);
+    expect((await usageOf(ben.id)).confirmedMinutes).toBe(0);
+    const reasons = await db
+      .select()
+      .from(shiftRevision)
+      .where(eq(shiftRevision.shiftId, a.shiftId));
+    expect(reasons.map((r) => r.reason)).toContain("Markt abgesagt");
+
+    await revertEventStatus(owner, ev!.id, "cancelled", "draft");
+    expect(await statusOf(a.shiftId)).toBe("requested");
+    expect(await statusOf(b.shiftId)).toBe("confirmed");
+  });
+
+  it("Zeitplan edits rebuild the needs: a new part adds needs, a removed part unlinks its shifts", async () => {
+    const schedule = defaultSchedule();
+    await db
+      .update(eventPreset)
+      .set({
+        schedule: schedule.filter((r) => r.kind !== "teardown"),
+        staffing: [
+          { dutyRoleKey: crewKey, count: 1, scheduleKind: "setup" },
+          { dutyRoleKey: crewKey, count: 1, scheduleKind: "teardown" },
+        ],
+      })
+      .where(eq(eventPreset.id, cat.presets.flea.id));
+    const [ev] = await createEventsFromPreset(owner, cat.presets.flea.id, ["2026-12-13"]);
+    expect((await needsOf(ev!.id)).map((n) => n.scheduleKind)).toEqual(["setup"]);
+    const [row] = await db.select().from(event).where(eq(event.id, ev!.id));
+    const facts = (s: typeof schedule) => ({
+      schedule: s,
+      pricePerMCents: row!.pricePerMCents,
+      bookingFeeCents: row!.bookingFeeCents,
+    });
+
+    await updateEventFacts(owner, ev!.id, facts(schedule));
+    expect((await needsOf(ev!.id)).map((n) => n.scheduleKind).sort()).toEqual([
+      "setup",
+      "teardown",
+    ]);
+
+    const setup = (await needsOf(ev!.id)).find((n) => n.scheduleKind === "setup")!;
+    const anna = await person("Anna");
+    const { shiftId } = await assignToNeed(owner, setup.id, anna.id, { today: "2026-11-26" });
+    const result = await updateEventFacts(
+      owner,
+      ev!.id,
+      facts(schedule.filter((r) => r.kind !== "setup")),
+    );
+    expect(result).toMatchObject({ needsRemoved: 1, shiftsUnlinked: 1 });
+    expect((await needsOf(ev!.id)).map((n) => n.scheduleKind)).toEqual(["teardown"]);
+    const [after] = await db.select().from(shift).where(eq(shift.id, shiftId));
+    expect(after).toMatchObject({ needId: null, version: 2 });
+    const revisions = await db
+      .select()
+      .from(shiftRevision)
+      .where(eq(shiftRevision.shiftId, shiftId));
+    expect(revisions.map((r) => r.reason)).toContain("Bedarf entfällt (Zeitplan geändert)");
   });
 });

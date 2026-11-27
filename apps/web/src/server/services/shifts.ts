@@ -1,6 +1,13 @@
 import "server-only";
 import { can, isClockTime, isIsoDate, type ShiftStatus, shiftLength } from "@marktwerk/core";
-import { dutyRole, event, shift, shiftRevision, staffMember } from "@marktwerk/db/schema";
+import {
+  dutyRole,
+  event,
+  shift,
+  shiftNeed,
+  shiftRevision,
+  staffMember,
+} from "@marktwerk/db/schema";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
@@ -132,6 +139,15 @@ async function checkReferences(tx: Tx, fields: Fields) {
       .from(dutyRole)
       .where(eq(dutyRole.id, fields.dutyRoleId));
     if (!found) throw new ShiftInputError("invalid_role");
+  }
+  // A need belongs to one event and day: a shift can only fill a need of its own event on its own day.
+  if (fields.needId != null) {
+    const [need] = await tx
+      .select({ eventId: shiftNeed.eventId, workDate: shiftNeed.workDate })
+      .from(shiftNeed)
+      .where(eq(shiftNeed.id, fields.needId));
+    if (!need || need.eventId !== fields.eventId || need.workDate !== fields.workDate)
+      throw new ShiftInputError("invalid_event");
   }
 }
 
@@ -299,6 +315,13 @@ export async function updateShift(
       const value = patch[key];
       if (value !== undefined) (merged as Record<string, unknown>)[key] = value;
     }
+    // Another day or event leaves the need it filled (the shift moves to "Weitere Schichten").
+    if (
+      patch.needId === undefined &&
+      merged.needId != null &&
+      (merged.workDate !== from.workDate || merged.eventId !== from.eventId)
+    )
+      merged.needId = null;
     if (merged.notes !== undefined && merged.notes !== null)
       merged.notes = merged.notes.trim() || null;
     // Clearing the actual times of a worked shift goes back to "confirmed" unless a status is given.

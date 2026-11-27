@@ -28,8 +28,9 @@ import {
   staffMember,
   staffUnavailability,
 } from "@marktwerk/db/schema";
-import { and, asc, eq, gte, isNull, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, ne, or, type SQL } from "drizzle-orm";
 import { db } from "../db";
+import { loadLegalRows, workingTimeLimitsAt } from "../legal-params";
 import { defaultHourBudget, loadCandidateInputs } from "./planning-candidates";
 
 export type PlanningShift = {
@@ -87,6 +88,7 @@ export type PlanningMonth = {
   people: PlanningPerson[];
 };
 
+const UUID = /^[0-9a-f-]{36}$/i;
 const hhmm = (t: string | null) => (t ? t.slice(0, 5) : null);
 const formatWeekKey = (year: number, week: number) => `${year}-W${String(week).padStart(2, "0")}`;
 const weekKey = (date: string) => {
@@ -116,7 +118,8 @@ async function loadNeeds(where: SQL | undefined) {
     .innerJoin(event, eq(event.id, shiftNeed.eventId))
     .innerJoin(dutyRole, eq(dutyRole.id, shiftNeed.dutyRoleId))
     .leftJoin(eventPreset, eq(eventPreset.id, event.presetId))
-    .where(and(where, isNull(event.archivedAt)));
+    // Abgesagt events have no open slots any more (decision 2026-11-27); their shifts stay visible.
+    .where(and(where, isNull(event.archivedAt), ne(event.status, "cancelled")));
   return rows.sort(
     (a, b) =>
       a.workDate.localeCompare(b.workDate) ||
@@ -326,10 +329,14 @@ export async function getEventPlanning(eventId: string): Promise<{
     .select({ staffing: eventPreset.staffing })
     .from(event)
     .innerJoin(eventPreset, eq(eventPreset.id, event.presetId))
-    .where(and(eq(event.id, eventId), isNull(event.archivedAt)));
+    .where(and(eq(event.id, eventId), isNull(event.archivedAt), ne(event.status, "cancelled")));
+  const shown = new Set(planningNeeds.map((n) => n.id));
   return {
     days: [...byDay.values()],
-    loose: shifts.filter((s) => s.needId === null && visible(s)).map(asEventShift),
+    // Shifts without a shown need (none, or a need of an abgesagt event) are "Weitere Schichten".
+    loose: shifts
+      .filter((s) => (s.needId === null || !shown.has(s.needId)) && visible(s))
+      .map(asEventShift),
     canApplyPreset: needs.length === 0 && (preset?.staffing.length ?? 0) > 0,
     openTotal: planningNeeds.reduce((sum, n) => sum + n.open, 0),
   };
@@ -337,7 +344,13 @@ export async function getEventPlanning(eventId: string): Promise<{
 
 /** The picker for one need: ranked candidates with flags (spec §4.5). */
 export async function listCandidates(needId: string): Promise<ShiftCandidate[]> {
-  const [need] = await db.select().from(shiftNeed).where(eq(shiftNeed.id, needId));
+  if (!UUID.test(needId)) return [];
+  const [row] = await db
+    .select({ need: shiftNeed })
+    .from(shiftNeed)
+    .innerJoin(event, eq(event.id, shiftNeed.eventId))
+    .where(and(eq(shiftNeed.id, needId), isNull(event.archivedAt), ne(event.status, "cancelled")));
+  const need = row?.need;
   if (!need?.plannedStart || !need.plannedEnd) return [];
   const slot = {
     workDate: need.workDate,
@@ -349,7 +362,7 @@ export async function listCandidates(needId: string): Promise<ShiftCandidate[]> 
     eventId: need.eventId,
     dutyRoleId: need.dutyRoleId,
   });
-  return rankCandidates(slot, inputs);
+  return rankCandidates(slot, inputs, workingTimeLimitsAt(await loadLegalRows(db), need.workDate));
 }
 
 /** Consecutive "nicht verfügbar" days of one person with the same note. */

@@ -24,10 +24,11 @@ import {
   staffMember,
   staffUnavailability,
 } from "@marktwerk/db/schema";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { forbidden } from "next/navigation";
 import type { Actor } from "../actor";
 import { db } from "../db";
+import { loadLegalRows, workingTimeLimitsAt } from "../legal-params";
 import { loadCandidateInputs } from "../queries/planning-candidates";
 import { audit } from "./audit";
 import { createShift, updateShift } from "./shifts";
@@ -59,12 +60,19 @@ function assertManage(actor: Actor) {
   if (!can(actor.role, "team", "manage")) forbidden();
 }
 
+/** A need of a live event: archived and cancelled (abgesagt) events are not planned any more. */
 async function loadNeed(needId: string) {
   if (!UUID.test(needId)) throw new PlanningInputError("not_found");
-  const [need] = await db.select().from(shiftNeed).where(eq(shiftNeed.id, needId));
-  if (!need) throw new PlanningInputError("not_found");
-  return need;
+  const [row] = await db
+    .select({ need: shiftNeed })
+    .from(shiftNeed)
+    .innerJoin(event, eq(event.id, shiftNeed.eventId))
+    .where(and(eq(shiftNeed.id, needId), isNull(event.archivedAt), ne(event.status, "cancelled")));
+  if (!row) throw new PlanningInputError("not_found");
+  return row.need;
 }
+
+const PLANNING_STATUSES = new Set<ShiftStatus>(["requested", "confirmed", "declined", "cancelled"]);
 
 /**
  * "Einplanen" (spec §5): a new shift for this need, angefragt, with the need's times and the statutory break.
@@ -78,8 +86,10 @@ export async function assignToNeed(
   opts: { confirm?: boolean; today?: string } = {},
 ): Promise<{ shiftId: string; shortNotice: boolean }> {
   assertManage(actor);
+  if (!UUID.test(staffMemberId)) throw new PlanningInputError("not_found");
   const need = await loadNeed(needId);
   if (!need.plannedStart || !need.plannedEnd) throw new PlanningInputError("invalid_input");
+  const limits = workingTimeLimitsAt(await loadLegalRows(db), need.workDate);
   const slot = {
     workDate: need.workDate,
     plannedStart: need.plannedStart.slice(0, 5),
@@ -89,7 +99,7 @@ export async function assignToNeed(
     { ...slot, eventId: need.eventId, dutyRoleId: need.dutyRoleId },
     [staffMemberId],
   );
-  const [candidate] = rankCandidates(slot, inputs);
+  const [candidate] = rankCandidates(slot, inputs, limits);
   if (!candidate) throw new PlanningInputError("not_found");
   if (needsConfirmation(candidate.flags) && !opts.confirm)
     throw new PlanningInputError("needs_confirmation", candidate.flags);
@@ -106,7 +116,7 @@ export async function assignToNeed(
       plannedEnd: slot.plannedEnd,
       actualStart: null,
       actualEnd: null,
-      breakMinutes: slotMinutes(slot).breakMinutes,
+      breakMinutes: slotMinutes(slot, limits).breakMinutes,
       status: "requested",
     },
     { today: opts.today },
@@ -126,11 +136,14 @@ export async function setShiftStatus(
 ): Promise<{ previous: ShiftStatus; version: number }> {
   assertManage(actor);
   if (!UUID.test(shiftId)) throw new PlanningInputError("not_found");
+  if (!PLANNING_STATUSES.has(status)) throw new PlanningInputError("invalid_input");
   const [current] = await db
     .select({ status: shift.status })
     .from(shift)
     .where(eq(shift.id, shiftId));
   if (!current) throw new PlanningInputError("not_found");
+  // Recorded shifts (gearbeitet, nicht erschienen) are changed in Stunden with a reason, not here.
+  if (!PLANNING_STATUSES.has(current.status)) throw new PlanningInputError("invalid_input");
   const result = await updateShift(
     actor,
     shiftId,
@@ -282,7 +295,7 @@ export async function applyPresetStaffing(
       })
       .from(event)
       .innerJoin(eventPreset, eq(eventPreset.id, event.presetId))
-      .where(and(eq(event.id, eventId), isNull(event.archivedAt)));
+      .where(and(eq(event.id, eventId), isNull(event.archivedAt), ne(event.status, "cancelled")));
     if (!row) throw new PlanningInputError("not_found");
     const staffing = parseStaffing(row.presetStaffing) ?? [];
     await tx.update(event).set({ staffing }).where(eq(event.id, eventId));
