@@ -42,7 +42,8 @@
         "invalid_transition": "This change is not possible from the current status. The page was refreshed.",
         "reason_required": "Please give a reason for the cancellation.",
         "conflict": "The status was changed in the meantime. Nothing was reverted.",
-        "generic": "That didn't work. Please try again."
+        "generic": "That didn't work. Please try again.",
+        "period_locked": "A planned shift lies in a locked payroll month. Unlock the month in Hours first."
       },
       "restored": "Cancellation lifted: {to} again",
       "tasksCancelled": "{count, plural, one {# task cancelled with it} other {# tasks cancelled with it}}",
@@ -269,7 +270,10 @@
       "tasksCancelled": "{count, plural, one {# task cancelled with it} other {# tasks cancelled with it}}",
       "tasksReopened": "{count, plural, one {# task open again} other {# tasks open again}}",
       "tasksShifted": "{count, plural, one {# task moved} other {# tasks moved}}",
-      "seasonTasksShifted": "{count, plural, one {# season task moved} other {# season tasks moved}}"
+      "seasonTasksShifted": "{count, plural, one {# season task moved} other {# season tasks moved}}",
+      "confirmationsReset": "{count, plural, one {# confirmation reset} other {# confirmations reset}}",
+      "shiftsUnlinked": "{count, plural, one {# shift without a need} other {# shifts without a need}}",
+      "needsRemoved": "{count, plural, one {# need removed} other {# needs removed}}"
     },
     "facts": {
       "edit": "Edit",
@@ -290,9 +294,11 @@
         "not_found": "This event no longer exists.",
         "conflict": "The key facts were changed in the meantime. Nothing was reverted.",
         "generic": "That didn't work. Please try again.",
-        "invalid_schedule": "Please check the schedule (see the notes at the rows)."
+        "invalid_schedule": "Please check the schedule (see the notes at the rows).",
+        "period_locked": "A planned shift lies in a locked payroll month. Unlock the month in Hours first."
       },
-      "schedule": "Schedule"
+      "schedule": "Schedule",
+      "unlinkedShifts": "{count, plural, one {# shift without a need (Further shifts)} other {# shifts without a need (Further shifts)}}"
     },
     "rules": {
       "edit": "Edit",
@@ -395,7 +401,8 @@
         "conflict": "The event was moved in the meantime. The page was refreshed.",
         "not_found": "This event no longer exists.",
         "generic": "That didn't work. Please try again.",
-        "out_of_range": "Please pick a date between {from} and {to}."
+        "out_of_range": "Please pick a date between {from} and {to}.",
+        "period_locked": "A planned shift lies in a locked payroll month. Unlock the month in Hours first."
       },
       "tasksShifting": "{count, plural, =0 {No task moves.} one {1 task moves.} other {# tasks move.}}",
       "tasksShiftingNote": "Done tasks and due dates set by hand stay.",
@@ -417,7 +424,8 @@
       "notified": "Notified: {names}.",
       "notifiedNobody": "Nobody is notified: the tasks are not assigned to anyone else.",
       "permitsKept": "{count, plural, one {“Apply by” does not move:} other {“Apply by” does not move for # permits:}}",
-      "permitKept": "{title} ({date})"
+      "permitKept": "{title} ({date})",
+      "movedConfirmations": "{count, plural, one {# confirmation to ask again} other {# confirmations to ask again}}"
     },
     "happening": {
       "title": "This event is happening now",
@@ -461,12 +469,14 @@
         "conflict": "The event was changed in the meantime. Nothing was reverted.",
         "not_found": "This event no longer exists.",
         "generic": "That didn't work. Please try again.",
-        "invalid_type": "This type no longer exists."
+        "invalid_type": "This type no longer exists.",
+        "period_locked": "A planned shift lies in a locked payroll month. Unlock the month in Hours first."
       },
       "openLabel": "Edit name, length and venue",
       "tasksShifting": "{count, plural, =0 {No task moves.} one {1 task moves.} other {# tasks move.}}",
       "tasksShiftingNote": "Done tasks and due dates set by hand stay.",
-      "movedTasks": "{count, plural, one {1 task moved} other {# tasks moved}}"
+      "movedTasks": "{count, plural, one {1 task moved} other {# tasks moved}}",
+      "unlinkedShifts": "{count, plural, one {# shift without a need (Further shifts)} other {# shifts without a need (Further shifts)}}"
     },
     "documents": {
       "title": "Documents",

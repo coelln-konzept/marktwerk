@@ -142,16 +142,20 @@ export function MoveDialog({
         return;
       }
       onOpenChange(false);
-      const { tasksShifted, seasonTasksShifted } = result.data;
+      const { tasksShifted, seasonTasksShifted, confirmationsReset, resetShiftIds } = result.data;
       showToast({
         message: [
           t("moved", { date: formatDateShort(to, locale) }),
           ...(tasksShifted > 0 ? [t("movedTasks", { count: tasksShifted })] : []),
           ...(seasonTasksShifted > 0 ? [t("movedSeasonTasks", { count: seasonTasksShifted })] : []),
+          ...(confirmationsReset > 0
+            ? [t("movedConfirmations", { count: confirmationsReset })]
+            : []),
         ].join(" · "),
         actionLabel: t("undo"),
         onAction: async () => {
-          const undone = await undoMove(eventId, to, startsOn);
+          // The undo also confirms again the shifts this move set back to angefragt.
+          const undone = await undoMove(eventId, to, startsOn, resetShiftIds);
           if (undone.ok)
             showToast({ message: t("reverted", { date: formatDateShort(startsOn, locale) }) });
           else showError(errorText(undone.error));

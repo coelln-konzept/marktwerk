@@ -147,6 +147,9 @@ export function BasicsDialog({
           t("saved") +
           (result.data.tasksShifted > 0
             ? ` · ${t("movedTasks", { count: result.data.tasksShifted })}`
+            : "") +
+          (result.data.shiftsUnlinked > 0
+            ? ` · ${t("unlinkedShifts", { count: result.data.shiftsUnlinked })}`
             : ""),
         actionLabel: t("undo"),
         onAction: async () => {

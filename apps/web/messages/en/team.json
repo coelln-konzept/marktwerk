@@ -147,7 +147,8 @@
         "over_budget_after": "over budget after",
         "worktime": "Working hours act",
         "unavailable": "unavailable"
-      }
+      },
+      "headcountRequired": "Please enter a number."
     },
     "unavailability": {
       "title": "Unavailable",
@@ -164,6 +165,13 @@
       "saved": "{count, plural, one {# day marked unavailable} other {# days marked unavailable}}",
       "cancel": "Cancel",
       "save": "Save"
+    },
+    "errors": {
+      "period_locked": "The payroll month is locked. Shifts in it can no longer be changed.",
+      "conflict": "The shift was changed in the meantime. The page was refreshed.",
+      "invalid_input": "Please check the input.",
+      "duplicate": "This person is already scheduled at that time.",
+      "not_found": "This no longer exists. The page was refreshed."
     }
   }
 }

@@ -42,7 +42,8 @@
         "invalid_transition": "Dieser Wechsel ist von hier aus nicht möglich. Die Seite wurde aktualisiert.",
         "reason_required": "Bitte einen Grund für die Absage angeben.",
         "conflict": "Der Status wurde zwischenzeitlich geändert. Nichts zurückgesetzt.",
-        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen."
+        "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
+        "period_locked": "Eine eingeplante Schicht liegt in einem gesperrten Abrechnungsmonat. Bitte den Monat erst in Stunden entsperren."
       },
       "restored": "Absage aufgehoben: wieder {to}",
       "tasksCancelled": "{count, plural, one {# Aufgabe mit abgesagt} other {# Aufgaben mit abgesagt}}",
@@ -269,7 +270,10 @@
       "tasksCancelled": "{count, plural, one {# Aufgabe mit abgesagt} other {# Aufgaben mit abgesagt}}",
       "tasksReopened": "{count, plural, one {# Aufgabe wieder offen} other {# Aufgaben wieder offen}}",
       "tasksShifted": "{count, plural, one {# Aufgabe verschoben} other {# Aufgaben verschoben}}",
-      "seasonTasksShifted": "{count, plural, one {# Saisonaufgabe verschoben} other {# Saisonaufgaben verschoben}}"
+      "seasonTasksShifted": "{count, plural, one {# Saisonaufgabe verschoben} other {# Saisonaufgaben verschoben}}",
+      "confirmationsReset": "{count, plural, one {# Zusage zurückgesetzt} other {# Zusagen zurückgesetzt}}",
+      "shiftsUnlinked": "{count, plural, one {# Schicht ohne Bedarf} other {# Schichten ohne Bedarf}}",
+      "needsRemoved": "{count, plural, one {# Bedarf entfallen} other {# Bedarfe entfallen}}"
     },
     "facts": {
       "edit": "Bearbeiten",
@@ -290,9 +294,11 @@
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
         "conflict": "Die Eckdaten wurden zwischenzeitlich geändert. Nichts zurückgesetzt.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
-        "invalid_schedule": "Bitte den Zeitplan prüfen (Hinweise an den Zeilen)."
+        "invalid_schedule": "Bitte den Zeitplan prüfen (Hinweise an den Zeilen).",
+        "period_locked": "Eine eingeplante Schicht liegt in einem gesperrten Abrechnungsmonat. Bitte den Monat erst in Stunden entsperren."
       },
-      "schedule": "Zeitplan"
+      "schedule": "Zeitplan",
+      "unlinkedShifts": "{count, plural, one {# Schicht ohne Bedarf (Weitere Schichten)} other {# Schichten ohne Bedarf (Weitere Schichten)}}"
     },
     "rules": {
       "edit": "Bearbeiten",
@@ -395,7 +401,8 @@
         "conflict": "Die Veranstaltung wurde zwischenzeitlich verschoben. Die Seite wurde aktualisiert.",
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
-        "out_of_range": "Bitte ein Datum zwischen {from} und {to} wählen."
+        "out_of_range": "Bitte ein Datum zwischen {from} und {to} wählen.",
+        "period_locked": "Eine eingeplante Schicht liegt in einem gesperrten Abrechnungsmonat. Bitte den Monat erst in Stunden entsperren."
       },
       "tasksShifting": "{count, plural, =0 {Keine Aufgabe verschiebt sich.} one {1 Aufgabe verschiebt sich.} other {# Aufgaben verschieben sich.}}",
       "tasksShiftingNote": "Erledigte Aufgaben und von Hand gesetzte Fälligkeiten bleiben.",
@@ -417,7 +424,8 @@
       "notified": "Benachrichtigt {count, plural, one {wird} other {werden}}: {names}.",
       "notifiedNobody": "Niemand wird benachrichtigt: die Aufgaben sind niemand anderem zugewiesen.",
       "permitsKept": "{count, plural, one {„Antrag bis“ verschiebt sich nicht:} other {„Antrag bis“ verschiebt sich bei # Genehmigungen nicht:}}",
-      "permitKept": "{title} ({date})"
+      "permitKept": "{title} ({date})",
+      "movedConfirmations": "{count, plural, one {# Zusage neu einholen} other {# Zusagen neu einholen}}"
     },
     "happening": {
       "title": "Die Veranstaltung läuft gerade",
@@ -461,12 +469,14 @@
         "conflict": "Die Veranstaltung wurde zwischenzeitlich geändert. Nichts zurückgesetzt.",
         "not_found": "Die Veranstaltung gibt es nicht mehr.",
         "generic": "Das hat nicht geklappt. Bitte noch einmal versuchen.",
-        "invalid_type": "Diese Art gibt es nicht mehr."
+        "invalid_type": "Diese Art gibt es nicht mehr.",
+        "period_locked": "Eine eingeplante Schicht liegt in einem gesperrten Abrechnungsmonat. Bitte den Monat erst in Stunden entsperren."
       },
       "openLabel": "Name, Dauer und Ort bearbeiten",
       "tasksShifting": "{count, plural, =0 {Keine Aufgabe verschiebt sich.} one {1 Aufgabe verschiebt sich.} other {# Aufgaben verschieben sich.}}",
       "tasksShiftingNote": "Erledigte Aufgaben und von Hand gesetzte Fälligkeiten bleiben.",
-      "movedTasks": "{count, plural, one {1 Aufgabe verschoben} other {# Aufgaben verschoben}}"
+      "movedTasks": "{count, plural, one {1 Aufgabe verschoben} other {# Aufgaben verschoben}}",
+      "unlinkedShifts": "{count, plural, one {# Schicht ohne Bedarf (Weitere Schichten)} other {# Schichten ohne Bedarf (Weitere Schichten)}}"
     },
     "documents": {
       "title": "Dokumente",

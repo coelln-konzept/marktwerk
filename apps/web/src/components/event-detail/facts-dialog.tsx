@@ -108,7 +108,11 @@ export function FactsDialog({
       }
       const { previous } = result.data;
       showToast({
-        message: t("saved"),
+        message:
+          t("saved") +
+          (result.data.shiftsUnlinked > 0
+            ? ` · ${t("unlinkedShifts", { count: result.data.shiftsUnlinked })}`
+            : ""),
         actionLabel: t("undo"),
         onAction: async () => {
           const undone = await undoFacts(eventId, previous, next);

@@ -22,6 +22,9 @@ export type CellPayload = { staffMemberId: string; day: string };
 export const menuItemClass =
   "flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-small outline-hidden data-[disabled]:cursor-default data-[highlighted]:bg-hover [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
 const ANSWERABLE = new Set(["requested", "confirmed", "declined"]);
+/** Whether {@link ShiftStatusItems} has anything to offer (else the menu trigger is hidden). */
+export const hasShiftItems = (status: string, canEditTimes: boolean) =>
+  ANSWERABLE.has(status) || canEditTimes;
 export const menuGroupLabelClass =
   "px-2 pt-2 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider";
 
@@ -57,23 +60,40 @@ export function CellMenuItems({
       {open.length > 0 && (
         <Menu.Group>
           <Menu.GroupLabel className={menuGroupLabelClass}>{tTeam("planning")}</Menu.GroupLabel>
-          {open.map((need) => (
-            <Menu.Item
-              key={need.id}
-              className={menuItemClass}
-              onClick={() => actions.assign(need.id, person.staffMemberId, day, name, note)}
-            >
-              <UserPlus aria-hidden />
-              {open.length === 1
-                ? t("menu.assign")
-                : t("menu.assignTo", {
-                    market: need.marketShortCode ?? need.eventName,
-                    role: en ? need.roleNameEn : need.roleName,
-                    from: need.plannedStart ?? "",
-                    to: need.plannedEnd ?? "",
-                  })}
-            </Menu.Item>
-          ))}
+          {open.map((need) => {
+            const market = need.marketShortCode ?? need.eventName;
+            const role = en ? need.roleNameEn : need.roleName;
+            // A need without times can't be planned (no shift times, no suggestions): shown, not offered.
+            if (!need.plannedStart || !need.plannedEnd)
+              return (
+                <Menu.Item key={need.id} className={menuItemClass} disabled>
+                  <UserPlus aria-hidden />
+                  <span className="flex min-w-0 flex-col">
+                    <span>{open.length === 1 ? t("menu.assign") : `${market} · ${role}`}</span>
+                    <span className="text-faint-foreground text-tiny">
+                      {t("event.noTimesHint")}
+                    </span>
+                  </span>
+                </Menu.Item>
+              );
+            return (
+              <Menu.Item
+                key={need.id}
+                className={menuItemClass}
+                onClick={() => actions.assign(need.id, person.staffMemberId, day, name, note)}
+              >
+                <UserPlus aria-hidden />
+                {open.length === 1
+                  ? t("menu.assign")
+                  : t("menu.assignTo", {
+                      market,
+                      role,
+                      from: need.plannedStart,
+                      to: need.plannedEnd,
+                    })}
+              </Menu.Item>
+            );
+          })}
         </Menu.Group>
       )}
       {away ? (

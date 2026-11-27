@@ -20,9 +20,9 @@ import type {
   getEventPlanning,
 } from "@/server/queries/planning";
 import { CandidatePicker } from "./candidate-picker";
-import { ShiftStatusItems } from "./cell-menu";
+import { hasShiftItems, ShiftStatusItems } from "./cell-menu";
 import { GapStatus } from "./day-header";
-import { usePlanningActions } from "./planning-toasts";
+import { usePlanningActions, usePlanningErrorText } from "./planning-toasts";
 import { ShiftChip } from "./shift-chip";
 
 type Plan = Awaited<ReturnType<typeof getEventPlanning>>;
@@ -221,7 +221,7 @@ function ShiftLine({
       <span className="text-muted-foreground text-tiny" aria-hidden>
         {t(`status.${shift.status}`)}
       </span>
-      {canManage && (
+      {canManage && hasShiftItems(shift.status, onEditTimes !== undefined) && (
         <Menu.Root>
           <Menu.Trigger
             aria-label={tEvent("shiftMenu", { name: shift.displayName })}
@@ -258,10 +258,16 @@ function NeedEdit({ need, role, onDone }: { need: Need; role: string; onDone: ()
   const [headcount, setHeadcount] = useState(String(need.headcount));
   const [from, setFrom] = useState(need.plannedStart ?? "");
   const [to, setTo] = useState(need.plannedEnd ?? "");
-  const [invalid, setInvalid] = useState(false);
+  const [invalid, setInvalid] = useState<string | null>(null);
+  const errorText = usePlanningErrorText();
   const norm = (value: string) => (value.trim() === "" ? "" : (normalizeClockTime(value) ?? value));
 
   const save = () => {
+    // An empty field is not "0" (that would close the need by accident).
+    if (headcount.trim() === "") {
+      setInvalid(t("headcountRequired"));
+      return;
+    }
     const count = Number(headcount);
     const start_ = norm(from);
     const end = norm(to);
@@ -269,7 +275,7 @@ function NeedEdit({ need, role, onDone }: { need: Need; role: string; onDone: ()
       (start_ === "" && end === "") ||
       (normalizeClockTime(start_) !== null && normalizeClockTime(end) !== null);
     if (!Number.isInteger(count) || count < 0 || count > MAX_HEADCOUNT || !timesOk) {
-      setInvalid(true);
+      setInvalid(t("invalid", { max: MAX_HEADCOUNT }));
       return;
     }
     const previous = {
@@ -284,7 +290,8 @@ function NeedEdit({ need, role, onDone }: { need: Need; role: string; onDone: ()
         plannedEnd: end || null,
       });
       if (!result.ok) {
-        showError(tPlanning("error"));
+        if (result.error === "invalid_input") setInvalid(t("invalid", { max: MAX_HEADCOUNT }));
+        else showError(errorText(result.error));
         return;
       }
       onDone();
@@ -293,7 +300,7 @@ function NeedEdit({ need, role, onDone }: { need: Need; role: string; onDone: ()
         actionLabel: tPlanning("toast.undo"),
         onAction: async () => {
           const undone = await updateNeedAction(need.id, previous);
-          if (!undone.ok) showError(tPlanning("error"));
+          if (!undone.ok) showError(errorText(undone.error));
         },
       });
     });
@@ -328,7 +335,7 @@ function NeedEdit({ need, role, onDone }: { need: Need; role: string; onDone: ()
           max={MAX_HEADCOUNT}
           value={headcount}
           onChange={(e) => setHeadcount(e.target.value)}
-          aria-invalid={invalid || undefined}
+          aria-invalid={invalid !== null || undefined}
           className="tabular"
         />
       </div>
@@ -351,7 +358,7 @@ function NeedEdit({ need, role, onDone }: { need: Need; role: string; onDone: ()
             value={value}
             onChange={(e) => set(e.target.value)}
             onBlur={(e) => set(norm(e.target.value))}
-            aria-invalid={invalid || undefined}
+            aria-invalid={invalid !== null || undefined}
             className="tabular"
           />
         </div>
@@ -366,7 +373,7 @@ function NeedEdit({ need, role, onDone }: { need: Need; role: string; onDone: ()
       </div>
       {invalid && (
         <p role="alert" className="m-0 w-full text-small text-status-critical">
-          {t("invalid", { max: MAX_HEADCOUNT })}
+          {invalid}
         </p>
       )}
     </form>
@@ -376,7 +383,7 @@ function NeedEdit({ need, role, onDone }: { need: Need; role: string; onDone: ()
 /** No needs yet: the hint, and for older events "Personalbedarf aus Vorlage übernehmen" (no undo: needs can be set to 0). */
 function NoNeeds({ eventId, canApply }: { eventId: string; canApply: boolean }) {
   const t = useTranslations("planning.event");
-  const tPlanning = useTranslations("planning");
+  const errorText = usePlanningErrorText();
   const { showToast, showError } = useShell();
   const [pending, start] = useTransition();
   return (
@@ -390,7 +397,7 @@ function NoNeeds({ eventId, canApply }: { eventId: string; canApply: boolean }) 
           onClick={() =>
             start(async () => {
               const result = await applyPresetStaffingAction(eventId);
-              if (!result.ok) return showError(tPlanning("error"));
+              if (!result.ok) return showError(errorText(result.error));
               showToast({ message: t("applied", { count: result.data.created }) });
             })
           }

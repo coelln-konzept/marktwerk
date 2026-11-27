@@ -36,6 +36,8 @@ there is no self-service.
 | 13 | Date moves | Needs and linked shifts move with the event; confirmed shifts go back to angefragt |
 | 14 | Existing events | No backfill. The event Team tab offers "Personalbedarf aus Vorlage übernehmen" (a deliberate click) |
 | 15 | Length changes | Needs are rebuilt for the new length; fitting needs keep their people, the rest go to "Weitere Schichten" (2026-11-27) |
+| 16 | Cancelled events | Cancelling a market cancels its angefragt/bestätigt shifts (budgets free up); undoing the cancel restores their status (2026-11-27) |
+| 17 | Zeitplan edits | Rebuild the needs like a length change: fitting needs keep their people and per-day edits (and times), new parts get needs, removed parts' shifts go to "Weitere Schichten" (2026-11-27) |
 
 ## 3. Data model
 

@@ -235,9 +235,19 @@ export async function moveToDate(eventId: string, startsOn: string, expectedStar
   return detailsAction((actor) => moveEvent(actor, eventId, startsOn, expectedStartsOn));
 }
 
-/** Undo toast of moveToDate. */
-export async function undoMove(eventId: string, movedTo: string, back: string) {
-  return detailsAction((actor) => moveEvent(actor, eventId, back, movedTo, { undo: true }));
+/** Undo toast of moveToDate; `restoreConfirmed` = the move's `resetShiftIds` (confirmed again). */
+export async function undoMove(
+  eventId: string,
+  movedTo: string,
+  back: string,
+  restoreConfirmed: string[] = [],
+) {
+  return detailsAction((actor) =>
+    moveEvent(actor, eventId, back, movedTo, {
+      undo: true,
+      restoreConfirmed: Array.isArray(restoreConfirmed) ? restoreConfirmed : [],
+    }),
+  );
 }
 
 /** "Name, Dauer, Ort": warnings for a new length or venue (read only). */

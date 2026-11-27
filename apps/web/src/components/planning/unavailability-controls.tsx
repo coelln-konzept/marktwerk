@@ -13,6 +13,7 @@ import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { usePlanningErrorText } from "./planning-toasts";
 
 const NOTE_MAX = 200;
 
@@ -32,12 +33,13 @@ export function RemoveUnavailabilityButton({
   const t = useTranslations("planning");
   const { showToast, showError } = useShell();
   const [pending, start] = useTransition();
-  const fail = () => showError(t("error"));
+  const errorText = usePlanningErrorText();
+  const fail = (code?: string) => showError(errorText(code));
 
   const remove = () =>
     start(async () => {
       const result = await clearUnavailabilityAction(staffMemberId, range.dates);
-      if (!result.ok) return fail();
+      if (!result.ok) return fail(result.error);
       showToast({
         message: t("toast.unavailableCleared", { name, date: label }),
         actionLabel: t("toast.undo"),
@@ -48,7 +50,7 @@ export function RemoveUnavailabilityButton({
             range.to,
             range.note,
           );
-          if (!undone.ok) fail();
+          if (!undone.ok) fail(undone.error);
         },
       });
     });
@@ -77,7 +79,7 @@ export function AddUnavailabilityButton({
   today: string;
 }) {
   const t = useTranslations("planning.unavailability");
-  const tPlanning = useTranslations("planning");
+  const errorText = usePlanningErrorText();
   const { showToast } = useShell();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -105,7 +107,8 @@ export function AddUnavailabilityButton({
         until,
         note.trim() === "" ? null : note.trim(),
       );
-      if (!result.ok) return setError(tPlanning("error"));
+      if (!result.ok)
+        return setError(result.error === "invalid_input" ? t("invalid") : errorText(result.error));
       setOpen(false);
       showToast({ message: t("saved", { count: result.data.dates.length }) });
     });

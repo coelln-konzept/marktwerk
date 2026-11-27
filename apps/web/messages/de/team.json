@@ -147,7 +147,8 @@
         "over_budget_after": "danach über Budget",
         "worktime": "ArbZG",
         "unavailable": "nicht verfügbar"
-      }
+      },
+      "headcountRequired": "Bitte eine Anzahl angeben."
     },
     "unavailability": {
       "title": "Nicht verfügbar",
@@ -164,6 +165,13 @@
       "saved": "{count, plural, one {# Tag nicht verfügbar eingetragen} other {# Tage nicht verfügbar eingetragen}}",
       "cancel": "Abbrechen",
       "save": "Speichern"
+    },
+    "errors": {
+      "period_locked": "Der Abrechnungsmonat ist gesperrt. Schichten darin lassen sich nicht mehr ändern.",
+      "conflict": "Die Schicht wurde zwischenzeitlich geändert. Die Seite wurde aktualisiert.",
+      "invalid_input": "Bitte die Eingaben prüfen.",
+      "duplicate": "Diese Person ist zu dieser Zeit schon eingeplant.",
+      "not_found": "Das gibt es nicht mehr. Die Seite wurde aktualisiert."
     }
   }
 }
