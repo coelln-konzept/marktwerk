@@ -33,6 +33,13 @@ export type ScheduleRowValue = {
 /** duty_role.key → staff_member.id */
 export type DefaultDuties = Record<string, string>;
 
+/** "Personalbedarf" (shift allocator, 2026-11-26): same shape as `StaffingRow` in @marktwerk/core. */
+export type StaffingRowValue = {
+  dutyRoleKey: string;
+  count: number;
+  scheduleKind: "setup" | "open" | "teardown";
+};
+
 /** "Vorlage": the old website's preset, extended. Events are generated from it. */
 export const eventPreset = app.table(
   "event_preset",
@@ -56,6 +63,8 @@ export const eventPreset = app.table(
     rrule: text(),
     durationDays: integer().notNull().default(1),
     defaultDuties: jsonb().$type<DefaultDuties>().notNull().default({}),
+    /** Personalbedarf per role and Zeitplan part; copied into every new event of this market (like the Zeitplan). */
+    staffing: jsonb().$type<StaffingRowValue[]>().notNull().default([]),
     active: boolean().notNull().default(true),
     /**
      * The market's colour label ("Marktfarbe", decision 2026-10-22): a key of the market palette in
@@ -120,6 +129,8 @@ export const event = app.table(
     endsOn: date().notNull(),
     /** The event's Zeitplan (ADR 0022): copied from the market at instantiation, editable per event. */
     schedule: jsonb().$type<ScheduleRowValue[]>().notNull(),
+    /** The event's Personalbedarf: copied from the market at instantiation; its needs are `shift_need` rows. */
+    staffing: jsonb().$type<StaffingRowValue[]>().notNull().default([]),
     status: eventStatus().notNull().default("draft"),
     bookingOpen: boolean().notNull().default(false),
     fullyBooked: boolean().notNull().default(false),
