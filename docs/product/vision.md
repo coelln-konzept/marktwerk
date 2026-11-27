@@ -1,8 +1,8 @@
 # Vision & scope
 
 ## One sentence
-marktwerk is the internal operating system of one German event company (flea, antique/design, design,
-food & wine markets and new event formats). Every event, task, deadline, permit, shift, payment and
+marktwerk is the internal operating system of one German event company (flea and antique markets, plus
+Stadtfeste and Food & Wine markets; new formats much later). Every event, task, deadline, permit, shift, payment and
 booking lives in one place, so nothing slips and the team can take on more events without more stress.
 
 ## Context

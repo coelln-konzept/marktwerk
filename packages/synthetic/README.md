@@ -7,7 +7,7 @@ it uses Coelln Konzept's **real market and place names** (Köln, Kerpen, Rösrat
 flea markets (Flohmarkt) and antique markets (Antikmarkt), plus Stadtfeste and Food & Wine markets, for the current
 season (the reference date's year) and the planned next season. Nothing else is generated.
 
-The output follows `docs/architecture/data-model.md` (v0.3): camelCase fields, money in integer cents, lengths
+The output follows `docs/architecture/data-model.md` (v0.6): camelCase fields, money in integer cents, lengths
 in integer centimetres, business dates as `YYYY-MM-DD` (Europe/Berlin), times as `HH:mm`, instants as UTC ISO strings.
 
 ## Run
@@ -148,7 +148,8 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
   people need a Better Auth user. The seed script creates those users.
 - **Shifts** are one per crew member per event day. Multi-day events get one shift for the first day.
   Shifts in the last seven days that have no recorded times are `confirmed`, not `worked`.
-- **Payables for location fees** carry `venueId` and `season` (not in data-model v0.3). They are company-scope payables.
+- **Payables for location fees** carry `venueId` and `season` as company-scope payables; the seed stores them as
+  `payable.scope = venue_season` (data-model, `apps/web/scripts/seed/money.ts`).
 - **HU intervals** are 24 months up to 3.5 t and 12 months above (see `legalParameters`). Verify the 12-month rule
   against current traffic-law guidance before relying on it.
 - **Car grants are rare** (about one in five car requests). Most stalls are shorter than a 6 m Transit, which is the
@@ -161,12 +162,12 @@ counts). The seed script (M1) loads these files in dependency order: `settings`,
 ```
 src/
   constants.ts        SEED, REFERENCE_DATE, company name, season list, weekend cap
-  types.ts            entity types (mirror data-model.md v0.3)
+  types.ts            entity types (mirror data-model.md)
   dataset.ts          generateDataset(): fixed generator order
   manifest.ts         counts for out/manifest.json
   generate.ts         CLI: writes out/
   index.ts            public exports
   dictionaries/       curated German lists (event types, venues, contacts, staff, presets, checklist items, permits, texts)
-  generators/         one module per entity group (catalogue, people, events, seasons, tasks, permits, money, shifts, vendors, bookings)
+  generators/         one module per entity group (catalogue, people, events, tasks, permits, money, shifts, vendors, bookings)
   lib/                dates (UTC + Berlin time), RRULE subset, seeded RNG, fiction phone and example email helpers
 ```

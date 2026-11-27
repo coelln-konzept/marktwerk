@@ -377,7 +377,7 @@ async function escalate(
   );
   for (const t of tasks) {
     const { dueAt } = flaggedDueAt(t.dueAt, escalationSubDues.get(t.id) ?? [], now);
-    // The event or "<Markt> · Saison <Jahr>" tells the many "Termine planen" apart.
+    // The event's name tells same-titled tasks of different markets apart.
     const name = t.eventName;
     if (dueAt)
       targets.push({

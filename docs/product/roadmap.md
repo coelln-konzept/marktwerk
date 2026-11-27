@@ -1,29 +1,34 @@
 # Roadmap: MVP to full platform
 
-**Revision 3.2 (2026-11-10)**, rebuilt after the client meeting ([research 05](../research/05-client-meeting-2026-10.md)),
+**Revision 3.2**, rebuilt after the client meeting ([research 05](../research/05-client-meeting-2026-10.md)),
 the follow-up research ([06](../research/06-staff-whatsapp-shifts-kanban.md), [07](../research/07-inventory-finance-fleet.md),
 [08](../research/08-bookings-comms-newsletter.md)) and the product owner's decisions of 2026-10-21.
 *Rev. 3.1 (session 2):* classic screens instead of the customisable workspace (ADR 0019), the company-wide **Kalender**
-module, start screen **Übersicht**. *Rev. 3.2:* status after Phase 1 was built (below).
+module, start screen **Übersicht**. *Rev. 3.2 (2026-11-10):* status after Phase 1 was built (below).
 
-## Status (2026-11-10)
-**Phase 1 (M1–M6) is built in code**, then reshaped by the UX review ([research 10](../archive/research/10-ux-review-2026-10.md),
-PR #20), the user test and handwritten notes ([research 11](../archive/research/11-user-test-2026-11.md), PR #21), client
-feedback 9 (PR #22: Besprechungen, Übersicht layout, task notification setting, market colours, A–Z) and PR #23
-(cancelled events cancel their tasks, Veranstaltung löschen). Decisions: [open-questions.md](../open-questions.md).
+## Status
+**Progress and the next steps are tracked in the [Marktwerk Fahrplan](https://claude.ai/artifact/Ei3Xy9VGSDWr5WsEujn639)**
+(≤30-minute steps with done-checks), not here. This document holds the milestones and their scope.
+
+**Phase 1 (M1–M6) is built in code**, then reshaped by the UX review ([research 10](../archive/research/10-ux-review-2026-10.md)),
+the user test and handwritten notes ([research 11](../archive/research/11-user-test-2026-11.md)), client feedback 9
+(Besprechungen, Übersicht layout, task notification setting, market colours, A–Z), user test 2
+([research 12](../archive/research/12-user-test-2026-11-13.md): subtasks ADR 0021, Zeitplan ADR 0022), the client's own
+checklists and wall calendar ([research 13](../research/13-client-checklists-and-wall-calendar.md)), UX audit round 1
+([archive/ux-audit/round-1.md](../archive/ux-audit/round-1.md)) and the recurring-work model on three levels
+([ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md)). Decisions: [open-questions.md](../open-questions.md).
 
 **Hidden for now** (UI only; data, services and tests stay; one switch `HIDDEN_MODULES` in
-`apps/web/src/lib/modules.ts`):
+`apps/web/src/lib/modules.ts`, the source of truth for this list):
 - **Team** and **Finanzen**, plus time **estimates**: client feedback 2026-10-22, marktwerk is a task monitoring panel
   for one main user. Team allocation returns in Phase 4, finance later.
 - **Buchung** (vendor booking): Phase 2.
 - **Kernaufgaben**, the **global Board**, the **notification bell** and the Kalender's **Aufgaben** layer: user test
   2026-11-03 (less complexity; every task belongs to an event, so the Übersicht and the event's Checkliste cover it).
+  The Benachrichtigungen page itself stays reachable.
+- **Wissen** (knowledge base): its sidebar entry, cleanup 2026-11-10 (the page is still a placeholder).
 
 The milestone text below still describes the full scope; *(UI hidden for now)* marks the parts above.
-
-**Step by step:** the [Marktwerk Fahrplan](https://claude.ai/artifact/Ei3Xy9VGSDWr5WsEujn639) breaks everything
-below into ≤30-minute steps with done-checks and tracks progress.
 
 **Left for the M6 exit (pilot):** production hosting (Scalingo candidate) with backups; S3 file storage and phone photo
 uploads; user invitations / magic link; "Passwort vergessen" (needs SMTP); the DATEV export format; real client data
@@ -106,7 +111,7 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
   base components from the Claude Design output ([`docs/archive/claude-design/a-classic/`](../archive/claude-design/a-classic/INDEX.md))
 - **Übersicht** (start screen, `/`): KPI strip and Dieses Wochenende from events; Heute fällig and the season strip
   fill up as M2–M5 add tasks, permits, hours and payables *(KPI and season strip removed 2026-10-22/29; the Übersicht
-  is now Heute & überfällig, Dieses Wochenende, Genehmigungen demnächst, Diese Woche)*
+  is now Heute & nächste Tage, a Dieses Wochenende info box and Genehmigungen (Saison-Anträge, Demnächst); see the UX concept)*
 - **Kalender** module (`/kalender`): month view with KW + "Liste · 6 Wochen", layer panel saved per person; M1 ships the
   **events + NRW holidays** layers, the other layers arrive with their modules (tasks M2, permits M3, hours/shifts M4,
   instalments M5, vehicles & obligations M6, rental returns M12)
@@ -167,8 +172,8 @@ office tracks field crew tasks and hours on their behalf (staff messaging comes 
 - **Exit:** the monthly hours document is retired.
 
 ### M5: Payables, instalments & the complete Übersicht (≈ 3 weeks)
-*(Finance screens, the event Geld tab and the Geld filter/KPI: UI hidden for now. Only "Bezahlt" on a permit
-requirement is planned without them, decision 2026-11-03.)*
+*(Finance screens, the event Geld tab and the Geld filter/KPI: UI hidden for now. The "Bezahlt" toggle on a permit
+requirement planned on 2026-11-03 was dropped on 2026-11-10: a granted permit is enough.)*
 - **Payables** with **instalment plans**, reminders (14 d / 3 d / due / overdue), mark paid (= the expense),
   linked from tasks/permits (single entry)
 - **Receipts** (photo/PDF) on payables/expenses; "missing receipt" counter; monthly bundle for the tax advisor

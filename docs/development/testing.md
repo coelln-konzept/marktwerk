@@ -25,13 +25,15 @@ Vitest, node environment, config in `apps/web/vitest.config.ts`.
   `__NEXT_EXPERIMENTAL_AUTH_INTERRUPTS` is set so that `forbidden()` throws its 403 error (as with
   `experimental.authInterrupts` in `next.config.ts`). Only import modules that do not call `next/headers`
   (services take an `Actor`; build one by hand, never via `getActor()`).
-- Currently covered: `createEventsFromPreset` and `undoGeneratedEvents` (`events.test.ts`).
+- One file per service area or rule (events, tasks, templates, permits, appointments, the cron route …); the file
+  list in `apps/web/test/integration/` shows what is covered.
 - Test files and `vitest.config.ts` are type-checked by `pnpm typecheck` via `apps/web/test/tsconfig.json`.
 
 ## Browser smoke test (Playwright)
 `@playwright/test` is pinned to the same version as the Chromium in the sandbox image. Tests log in as the seeded
-owner, then check: Übersicht heading, Veranstaltungen list → Space opens the Vorschau → Öffnen / Enter opens the event
-page → back, and the command palette (`Ctrl+K`, “koln” finds Köln). The app is **not** started by Playwright.
+owner (`e2e/auth.setup.ts`), then `e2e/smoke.spec.ts` walks the main pages and flows: Übersicht, Veranstaltungen,
+the event page and its Checkliste, task drawer, Kalender, Genehmigungen, Archiv, Markt planen, Besprechungen,
+Kontakte, Benachrichtigungen, the hidden modules and the command palette. The app is **not** started by Playwright.
 
 ```bash
 pnpm db:up && pnpm db:migrate && pnpm db:seed   # once (the seed also runs one deadline sweep: the notification center needs its notifications)

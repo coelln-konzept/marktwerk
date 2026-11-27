@@ -2,6 +2,9 @@
 
 **Status:** accepted (2026-10-21, product owner, session 3). Builds on [ADR 0019](0019-classic-screens.md) ("every drag has a
 menu/keyboard alternative"); resolves open question 17 of the handoff.
+*Dormant since 2026-11-03:* the boards it serves are hidden (Spalten left the event tab, which is now the Checkliste;
+the global `/board` is hidden, `HIDDEN_MODULES.globalBoard`). `board-dnd.tsx` and `@dnd-kit/core` stay for when the
+board returns.
 
 ## Context
 The M2 board moves cards through the "⋯" menu (*Verschieben nach…*, *Zuweisen an…*) and a keyboard mode on the grip

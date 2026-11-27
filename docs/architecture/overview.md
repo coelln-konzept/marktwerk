@@ -42,8 +42,8 @@ flowchart LR
 | Unit | Tech | Responsibility |
 |---|---|---|
 | `apps/web` | Next.js 16 (App Router, React 19, Server Actions), Better Auth, next-intl, Tailwind 4 + shadcn/ui (Base UI) | Back office UI, staff magic-link pages, field PWA (P3), webhooks (Graph, WhatsApp), new public booking form (P4) |
-| `apps/worker` | Node 22+/24, pg-boss 12 | Cron jobs (deadline sweep, nightly carry-over, digests, payroll reminders; all email paths are gated by `settings.email_enabled`, off by default), async jobs (event generation, messages, PDFs, legacy-site/mailbox sync, bank import) |
-| PostgreSQL | v17 (Scalingo addon in prod, Docker in dev) | Single source of truth incl. job queue (`pgboss` schema) |
+| `apps/worker` | Node 22+/24, pg-boss 12 | Schedules the job handlers of `packages/jobs` (`JOBS`: deadline sweep, task rollover, daily digest, obligation, installment and payroll reminders, sending queued email; all email paths are gated by `settings.email_enabled`, off by default). On the deployed dev app the same handlers run through `/api/cron/<job>` (ADR 0017). Later: async jobs (messages, PDFs, legacy-site/mailbox sync, bank import) |
+| PostgreSQL | v17 (Docker locally, Supabase for the deployed dev app, Neon for branch environments; production host deferred, ADR 0006) | Single source of truth incl. job queue (`pgboss` schema) |
 
 Both units import the same internal packages, so domain rules exist exactly once.
 
@@ -55,15 +55,12 @@ marktwerk/
 │   ├── web/                     Next.js app
 │   │   ├── src/app/(auth)/      login (public)
 │   │   ├── src/app/(app)/       back office (requires session)
-│   │   ├── src/app/(staff)/     P1: magic-link pages for staff without login
-│   │   ├── src/app/(field)/     P3: field PWA routes
-│   │   ├── src/app/(public)/    P4: new booking form, vendor portal
-│   │   ├── src/app/api/         auth, webhooks (Graph), file download
+│   │   ├── src/app/api/         auth, cron (/api/cron/<job>), document and receipt downloads, health
 │   │   ├── src/server/          server-only: env, db, auth, session/permissions, services
 │   │   ├── src/components/      ui/ (shadcn), shell/, feature components
 │   │   ├── src/i18n/            next-intl config
-│   │   └── messages/            de.json, en.json
-│   └── worker/                  pg-boss process; src/jobs/*
+│   │   └── messages/            de/<area>.json, en/<area>.json
+│   └── worker/                  pg-boss process (src/index.ts) that schedules the handlers in packages/jobs
 ├── packages/
 │   ├── core/                    pure domain logic (no I/O): permissions, relative dates,
 │   │                            reminders, holidays, pricing (P2), health computation
@@ -72,6 +69,9 @@ marktwerk/
 │                                with the web app: template instantiation
 └── docs/                        research, product, architecture, ADRs, development
 ```
+
+Route groups for later milestones (staff magic-link pages in M7, the field PWA, a public booking form) are added
+with those milestones; they don't exist yet.
 
 **Layering rule:** UI (pages/components) → server actions/route handlers → **services**
 (`apps/web/src/server/services/*`, transactional, audited, permission-checked) → db. Pure
@@ -88,7 +88,7 @@ and core functions, never duplicates them. The first service path a job needs, t
 | **AuthN** | Better Auth, email + password, sessions in Postgres, no self-signup; owner creates users (admin plugin). Staff without login: HMAC-signed magic links scoped to one staff member, revocable. Later: passkeys/2FA for owner. |
 | **AuthZ** | `can(role, resource, action)` in `@marktwerk/core`; `requirePermission()` at the top of every page/action/handler; row-level scoping in queries (field users → only events with their shift/duty). |
 | **Audit** | `audit_log` row in the same transaction for every business mutation (service layer helper). |
-| **i18n** | next-intl; locale from user profile → cookie; messages in `apps/web/messages/{de,en}.json`; typed keys. Emails and PDFs use the recipient's locale (vendors default `de`). |
+| **i18n** | next-intl; locale from user profile → cookie; messages in `apps/web/messages/{de,en}/<area>.json`; typed keys. Emails and PDFs use the recipient's locale (vendors default `de`). |
 | **Time** | All instants UTC; market days as dates; company TZ `Europe/Berlin`; `resolveRelativeDue()` handles DST. |
 | **Files** | Storage adapter (`local` in dev, S3-compatible EU bucket in prod); downloads only through an authorised route; virus scan optional later. |
 | **Jobs** | pg-boss: cron + queues; idempotent handlers (dedupe keys); jobs carry IDs, not payload copies. |
@@ -119,24 +119,13 @@ Decisions from research 03, recorded as ADR 0008 (proposed):
 
 | Env | Where | Notes |
 |---|---|---|
-| local | Docker Compose: Postgres 17 (= production major), Mailpit | `pnpm dev` runs web + worker; data from `packages/synthetic` |
-| staging | Scalingo `marktwerk-staging` (osc-fr1) | Synthetic data (ADR 0016) |
-| production | EU only | Backups (PITR) + **nightly encrypted copy to the company server**, restore test, monitoring, separate secrets |
+| local | Docker Compose: Postgres 17, Mailpit | `pnpm dev` runs web + worker; data from `packages/synthetic` |
+| dev | Vercel + Supabase `marktwerk-dev` (ADR 0017) | The deployed app on `main`, the shared test system; synthetic data (ADR 0016); jobs via GitHub Actions cron |
+| branch environments | Vercel preview + Neon (ADR 0023) | Set up by hand for a branch that needs its own schema and data; no cron |
+| production | Later, EU only | Backups (PITR) + **nightly encrypted copy to the company server**, restore test, monitoring, separate secrets |
 
-## Hosting: Scalingo (ADR 0006, decided 2026-10-21)
-
-One Scalingo app per environment in `osc-fr1` (Paris) with `web` and `worker` processes and the PostgreSQL 17
-addon; nightly backup copy to the company's server. Details: [deployment.md](../development/deployment.md).
-
-<details><summary>Options that were considered</summary>
-
-
-| Option | Pros | Cons |
-|---|---|---|
-| **A. Vercel (fra1) + Neon/Supabase Frankfurt + worker container (Hetzner/Fly fra)** | Least ops for web, preview deploys | 3 vendors, US parent companies, worker still needs a host |
-| **B. Hetzner (DE) + Coolify/Docker Compose: web + worker + Postgres** | Cheapest, all in German jurisdiction, one place | We run backups, patching and monitoring ourselves |
-| **C. Hetzner app servers + managed Postgres (e.g. Hetzner/Ionos/Neon EU)** | Middle ground | Two providers |
-
-</details>
+There is no staging deployment (ADR 0023). Production hosting is **deferred** (ADR 0006): Scalingo (`osc-fr1`, Paris)
+is the documented candidate, revisited before the pilot with real data. Details, the production plan and the options
+that were considered: [deployment.md](../development/deployment.md) and [ADR 0006](adr/0006-hosting.md).
 
 The app is built with `output: "standalone"` and a stateless web tier, so moving providers later stays cheap.

@@ -35,15 +35,19 @@ flowchart TD
     E --> T[Timeline tasks<br/>with estimates, duty roles → people]
     E --> L{Logbook check per permit requirement}
     L -->|valid permit held| OK[✔ ticked, linked to document]
-    L -->|missing| NP[New permit · apply-by from lead time / window<br/>+ prep tasks, sorted by urgency]
+    L -->|missing, covers several dates| SP[Season permit, once per Ort and season<br/>own '… beantragen' task, made by the first date · ADR 0024]
+    SP --> SA[Übersicht · Saison-Anträge]
+    L -->|missing, per date| NP[New permit · apply-by from lead time / window<br/>+ prep tasks, sorted by urgency]
     NP --> PAY[Fee → payable with instalments]
-    T & NP --> B[Event board]
+    T & NP --> B[Event Checkliste]
 ```
 
-## 3. Kanban: assign by drag (P1); WhatsApp notification (P2, M7)
+## 3. Kanban: assign by drag (hidden for now); WhatsApp notification (P2, M7)
 
-In Phase 1 the drop assigns the task and notifies office users in-app/by email; field crew tasks are
-tracked by the office. The WhatsApp part below starts in Phase 2.
+The kanban columns and Team are hidden since 2026-11-03 (`HIDDEN_MODULES`: the event tab is the Checkliste, the
+global Board and Team have no entry), so this flow is not in use; it returns with team allocation. When it does,
+the drop assigns the task and notifies office users in-app/by email; field crew tasks are tracked by the office.
+The WhatsApp part below starts in Phase 2.
 
 ```mermaid
 sequenceDiagram
@@ -86,7 +90,7 @@ flowchart LR
     PUB -.->|optional, separate action| AP["Apply to events…"<br/>nothing pre-selected]
     AP --> PV[Preview per event]
     PV --> GO[Apply: done tasks, comments, evidence untouched]
-    EV[Event with learned extra tasks] -->|"update template from this event"| DR
+    EV[Event with learned extra tasks] -.->|"update template from this event · not built"| DR
 ```
 
 ## 6. Deadlines, carry-over, escalation (P1)
@@ -101,7 +105,7 @@ flowchart TD
     E1 -->|yes| MG[Escalate → office manager]
     N[Nightly 00:05] --> RO[Overdue tasks roll into 'Heute' ↻n]
     RO -->|n ≥ 3| MG
-    R & O & MG --> DG[07:00 digest · Übersicht 'Heute fällig']
+    R & O & MG --> DG[07:00 digest · Übersicht 'Heute & nächste Tage']
 ```
 
 ## 7. Staff hours & Minijob month (P1)

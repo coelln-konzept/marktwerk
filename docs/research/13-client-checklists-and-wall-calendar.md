@@ -124,7 +124,7 @@ Rheinauhafen ×2, Flora, Gürzenich, Rodenkirchen (Antik & Design). Flora and G�
 
 | # | Gap | Evidence | Size |
 |---|---|---|---|
-| G1 | **Season-level tasks** (once per series and season, relative to the first date, existing before the dates do) | Terminplanen −8 months, Genehmigung −6/−7 months in every sheet; research 10 "one apply task per season permit" | **Architecture** |
+| G1 | **Season-level tasks** (once per series and season, relative to the first date, existing before the dates do) → *superseded by [ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md): no Saison record; a permit covering several dates has its own apply task, yearly company work is a Pflicht* | Terminplanen −8 months, Genehmigung −6/−7 months in every sheet; research 10 "one apply task per season permit" | **Architecture** |
 | G2 | **Jahresübersicht** in the Kalender: 12 months at a glance, one dot per market in its colour and code | The wall calendar is the tool they actually plan with; we have Monat + Liste only | Medium |
 | G3 | **Kürzel** (short code, 1–2 chars) on a market, shown in the dot and in a legend | N, RL, RF, F, G, M, S, A, W, B, T, LS, P6 | Small |
 | ~~G4~~ | ~~Two brands on markets~~ — dropped: Antik & Design is a separate company, out of scope (2026-11-13) | Legend has two sections | — |
@@ -142,6 +142,10 @@ Already covered: per-market template copies of the master (0007, `owner_preset_i
 `teardown_day` anchor for the last day of multi-day markets (exists in core, the seed does not create it yet);
 planned → confirmed status; season permits (`cadence = per_season`); Termine (appointments).
 
+Built since (2026-11): G2 Jahresübersicht (Fahrplan R22), G3 Kürzel (R15), G5 Stille Feiertage and the holiday
+weekends in Markt planen and the Kalender (R23), G7 contact on a task (R24), G9 "Fürs nächste Mal" (R25). G1 is
+superseded by ADR 0024. The rest: the Fahrplan.
+
 ## 4. Scope of the new synthetic dataset
 
 Builds on PR #32 (every date relative to the reference date). Dates therefore become **rules that reproduce the 2027
@@ -156,7 +160,7 @@ season.
 | Presets (markets) | 14 | **~17** (16 Coelln Konzept + Hoffnungsthal), each with colour and Kürzel; markets without a date on the wall get plausible dates |
 | Events / season | 74, Apr–Oct, ≤4 per weekend | **~60–70** (49 identified Coelln Konzept dates + the unplaced series), Jan–Nov, mostly Sundays, 1–3 per day, multi-day Fr–So / Sa–Mo / Do–So |
 | Templates | 4 per-type templates (39–40 items) + derived master | **Grundvorlage** = the core of 1.3; **own templates** for Altstadt, Riehler Gürtel, Nippes, Hoffnungsthal verbatim from the client; every other market gets a master copy plus marked assumptions until the client sends its sheet |
-| Season tasks | none (one apply task per covered event) | Termine planen and Genehmigung once per series and season (needs G1, or an interim) |
+| Season tasks | none (one apply task per covered event) | Termine planen and Genehmigung once per series and season (needs G1, or an interim) *(superseded by ADR 0024: season permits have their own apply task, Termine planen is a Pflicht)* |
 | Tasks | 5,774 | ≈ 15–25 per event → **~1,300–1,800** plus ~2 season tasks per series |
 | Permits | 6 types, per venue | Genehmigung/Sondernutzung per series and season, **Festsetzung as its own type `market_fixing`** (§ 69 GewO, research 12 D2-8) with its fee → payable, Plakatierung, PVBT per event (96 h), Standrohr, Schaustellerliste (Hoffnungsthal) |
 | Venue fields (Ort) | — | `kind` = `municipal` / `private`; `name` may be empty (derived from the address) — research 12 §5 |
@@ -165,21 +169,15 @@ season.
 | Duty roles | 7 | Add Ordner/Tageswache, Nachtwache, Verkehr, Einweisung, Nachkassieren (or map them onto existing roles) |
 | Vendors/bookings | 1,500 / 6,411 | Out of scope here (UT-12b already plans ≈5 per market) |
 
-### Order of work (to be split into Fahrplan steps of ≤ 30 min once agreed)
-1. Agree the open questions below with Arda (and Jerome where marked).
-2. New dictionaries: venues, presets with date rules, brands, Kürzel.
-3. Template dictionaries: Grundvorlage + four client templates with child items (`parent_key`); seed creates the master and the
-   owned copies (instead of per-type templates).
-4. Season tasks: interim (first event of the series per season carries them) or G1 proper.
-5. Permits, contacts, duty roles, payables (Festsetzung) to match.
-6. Tests: wall-calendar rules reproduce 2027; load per day ≤ 3; season Jan–Nov; counts.
-7. Reseed local and dev; check Kalender, Übersicht, Genehmigungen against the photo.
-8. Product gaps G2–G13 as their own steps (G1 decides the architecture and comes first).
+### Order of work
+Done: the new dataset was built and loaded into the local and the deployed dev database on 2026-11-13 (decisions of
+that day in `docs/open-questions.md`; counts in `packages/synthetic/README.md`). The step list is in git history.
 
 ## 5. Open questions
 
 **For Arda (product decisions)**
-1. ~~Season-level tasks (G1).~~ **Decided 2026-11-13: a Saison record per market and year** (see section 6).
+1. ~~Season-level tasks (G1).~~ **Decided 2026-11-13: a Saison record per market and year** (see section 6)
+   → *superseded by [ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md) (2026-11-25): no Saison record*.
 2. ~~Market-day block.~~ **Decided 2026-11-13: each market-day line is its own task** (phase `live`, anchored on
    that market day, with its own duty role); sub-lines everywhere else become subtasks (ADR 0021).
 3. ~~Real names in synthetic data.~~ **Decided 2026-11-13: real market and place names** (Nippes Wilhelmplatz,
@@ -199,115 +197,5 @@ every series will get dates. Fahrplan R4:
 > **Superseded by [ADR 0024](../architecture/adr/0024-recurring-work-three-levels.md) (2026-11-25).** The Saison record
 > was built (Fahrplan R6–R14, R18, R27) and removed again (Fahrplan SAI3, migration `0025_remove_saison`): recurring
 > work lives per date (event + template), per Ort and season (the Genehmigungen logbook, one permit with its own
-> "… beantragen" task) and company per year (Pflichten). This section is kept as the record of the earlier design.
-
-### 6.1 Data
-- **`event_season`** (UI "Saison"): `id`, `preset_id` → event_preset, `season` (integer, the calendar year), unique
-  `(preset_id, season)`; `expected_start` (`date`, the first date we expect before any event exists), `status`
-  (`planning | dates_set | closed`), `notes`, `archived_at`. Audit like every business record.
-- **Anchor `season_start`** = the earliest non-cancelled event of that market in that season; while there is none, the
-  `expected_start`. Optional `season_end` (last event day) for close-out items. Stored as anchors of the season
-  (`event_season_anchor (season_id, key) → date`), the same shape as `event_anchor`.
-- **Template items get `scope`** (`event | season`, default `event`). Season items use only season anchors. The
-  Grundvorlage and every market's own copy can hold both kinds, so one template still describes one market.
-- **Checklist and task point at the season**: `checklist.season_id?` (check: exactly one of event / permit / season),
-  `task.season_id?`. The idempotency index on `(checklist_id, template_stable_key)` covers season checklists unchanged.
-- **Season permits link to the season**: `permit.season_id?` next to the existing `venue_id`/`season`. An item with
-  `permit_type` on season scope links to that permit through `linkPermitTasks`, so a season permit gets **one** apply
-  task instead of one per covered market (research 10, Fahrplan 18).
-
-### 6.2 Behaviour
-- **Creation**: a nightly, idempotent job makes sure every active market has a record for the current and the next
-  year and instantiates its season items. `expected_start` = last season's first date moved to the same weekday and
-  week of next year (or 1 January when there is no history); editable on the market page. "Markt planen" also creates
-  the record if missing (one service path: `ensureEventSeason`).
-- **Instantiation**: the same path as events (`task-instantiation.ts`), with a season context instead of an event
-  context. Holidays and due defaults as today.
-- **Moving dates**: when the first event of a season is created, moved, cancelled or deleted, `season_start` is
-  recomputed and open, not overridden season tasks follow through the existing `planTaskShift` / `shiftTasks` path
-  (preview when the change comes from Verschieben). Done tasks never move.
-- **Template propagation**: season items propagate like event items (deliberate, preview, nothing pre-selected);
-  the target list shows seasons next to events.
-- **Status**: `planning` → `dates_set` when the Termine planen task is done or the season has its dates (manual
-  switch, undo toast); `closed` after the last day plus the close-out items. No auto-confirm here; event status rules
-  stay as they are.
-
-### 6.3 Where it shows
-- **Market page** (`/vorlagen/<id>`): a "Saison 2027" panel with its anchor, status and tasks; the next season
-  underneath once it exists.
-- **Übersicht, Kalender (Aufgaben layer), notification center, digest, deadline sweep, carry-over, snooze**: season
-  tasks behave like event tasks and are labelled "<Markt> · Saison 2027".
-- **Genehmigungen**: the season permit's drawer shows its one apply task.
-
-### 6.4 Sub-questions — decided 2026-11-13
-1. UI name: **"Saison"** ("Saison 2027").
-2. Records are created **automatically**: a nightly job keeps one for the current and the next year per active market.
-3. A market with no history gets **`expected_start` = 1 January** of that season (editable on the market page).
-4. Season Kernaufgaben show in the **due lists only** (Übersicht, Kalender, digest, market page), not in the
-   Bereitschaft/Matrix views.
-
-### 6.5 Build order (each becomes Fahrplan steps of ≤ 30 min)
-Core rule `seasonStart` + tests → schema + migration (`event_season`, anchors, `scope`, `season_id` columns) →
-`ensureEventSeason` + nightly job → season instantiation → anchor recompute on event changes → permit link (one apply
-task) → market-page panel → season tasks in Übersicht/Kalender/digest → propagation → synthetic data and seed.
-
-Progress (branch `feat/saison-backend`, 2026-11-13):
-
-| Fahrplan | Step | State |
-|---|---|---|
-| R6 | Core rules `seasonStart`, `seasonEnd`, `expectedStartFromLastSeason`, status rules (`packages/core/src/events/season.ts`) | done |
-| R7 | Schema + migration `0022_saison` (`event_season`, `event_season_anchor`, `template_item.scope`, `season_id` on checklist/task/permit) | done |
-| R8 | `ensureEventSeason` + nightly job `event-seasons` (00:20 Berlin) + "Markt planen" hook | done |
-| R9 | Season instantiation through the one instantiation path (season context); events skip season items | done |
-| R10 | Anchors recomputed on create/move/cancel/reopen/delete/undo; season tasks follow through `planTaskShift`/`shiftTasks` | done |
-| R11 | Season permits get `permit.season_id`; the season item with a `permit_type` is the one apply task (`linkPermitTasks`, core `seasonApplyDuplicates`); first-event rule kept as fallback; drawer lists "<Markt> · Saison 2027" (branch `feat/r11-season-permits`) | done |
-| R12 | Market-page Saison panel (`/vorlagen/<id>`): start / "Erwartet ab" (editable without dates), status switch with undo, season tasks, "Saison anlegen" (ux-concept §5 "Market page and its Saison panel") | done (branch `feat/r12-season-panel`) |
-| R13 | Season tasks in the lists (branch `feat/r13-season-in-lists`): Übersicht (one market bar per Saison), Kalender Aufgaben layer, board cards, task drawer (header links to `/vorlagen/<presetId>`), search, assignment, carry-over, reminders, escalations, notification center and digest name "<Markt> · Saison <Jahr>"; season Kernaufgaben stay out of Bereitschaft/Matrix | done |
-| R14 | Season rows in the template editor ("Gilt für", Saison section) and in "Auf Veranstaltungen anwenden…" (seasons next to events, same `applyTemplateVersion` path; branch `feat/r14-season-templates`) | done |
-| R18 | Synthetic data and seed: a Saison record per market and year with anchors (core rules), season items with `scope = 'season'` on `season_start`, season tasks on the record (no "Saison:" prefix, keys `saison_…` kept), season permits with `season_id`; the interim first-event carrier is gone (branch `feat/r18-season-data`) | done |
-| R27 | Permit per market at shared places: a permit with a record covers only its market (`permitServesMarket` in `permitCovers`, fill + Markt planen preview); title names the market where a place has several; drawer offers only that market's dates | done |
-
-Choices made while building R6–R10 that this section left open (to confirm with the product owner):
-1. **Week of next year** = the same ISO week and weekday; a date whose week position falls outside the season (KW 53,
-   early-January days of the previous ISO year) moves by one week so `expected_start` stays inside the season.
-2. **History** for `expected_start` = the market's first non-cancelled, not archived event of the previous year;
-   a previous record's (edited) `expected_start` is not carried forward.
-3. **`season_end`** has no anchor row while the season has no date; close-out tasks on it have no due date (or keep
-   theirs).
-4. **Initial status**: `planning` without dates, `dates_set` with dates, `closed` when the season's last date has
-   already passed. A record created `closed` gets **no season tasks** (the current year's record made in November
-   would otherwise start with a year of overdue work). Later changes are manual only.
-5. **Archived events** do not count for the season (like cancelled ones); undoing a generation run recomputes too.
-6. Season tasks are assigned through the market's **default duties** (`event_preset.default_duties`).
-7. **No automatic propagation**: an existing record is never re-instantiated; a new template version reaches it only
-   through propagation (R14). A market without season items gets no (empty) season checklist.
-8. Moving an event into another year **creates that year's record** (`ensureEventSeason`, source `event_move`).
-9. A season date change does **not** send the `dates_shifted` notification yet (it links to an event); the audit
-   entry `season.anchors` records it. Still open after R13 (the labels exist now; the notification itself is not
-   built).
-
-Choices made while building R13:
-1. The link to the market page (`/vorlagen/<presetId>`, which needs `template:write`) is shown to owners and managers
-   only; staff and field users see the label "<Markt> · Saison <Jahr>" without a link.
-2. Escalation titles name the task's event or Saison too ("Eskaliert: Termine planen · Flohmarkt Bilk · Saison 2027
-   ist seit 2 Tagen überfällig"), event tasks included, so the many "Termine planen" can be told apart.
-3. In "Überfällig" a Saison bar ranks like an item without a market (it has no first day yet).
-
-Choices made while building R11 and R27 (to confirm with the product owner):
-10. **Multi-year and standing permits** also get `season_id` = the record of the season they were made for. The
-    record fixes the **market** for every cadence, the **year** only for season and year permits; a multi-year /
-    standing permit covers its market's later years within its validity. A later season's "Genehmigung beantragen"
-    links to it and, being a second apply task, is deleted (restorable) like any duplicate.
-11. **When the season task arrives later** (e.g. the permit already had its own "beantragen" task or an event's
-    template task under the interim rule), the untouched ones are deleted and the season task stays the one. Tasks
-    somebody worked on or finished always stay, even next to the season task.
-12. The logbook fill **makes a missing Saison record** (through `ensureEventSeasonTx`, audit source `logbook_fill`)
-    when it needs one for a season permit, instead of falling back to a permit without a record. "Markt planen" now
-    makes the records before the fill.
-13. **Permits without a record** (older data, events without a market, permits made by hand) keep the place + season
-    rule and can still serve several markets; there is **no backfill** of `season_id` for existing permits (the dev
-    data is reseeded with R18). A permit of the market's own record wins over one without.
-14. "Several markets at a place" = more than one **not archived** market (preset) with that place, inactive ones
-    included. The market name goes into the title of single-event permits too ("Halteverbot – P6 – 01.05.2027").
-15. **Linking by hand** (permit drawer, "Genehmigung anlegen") is not restricted; the drawer only offers the
-    permit's own market's dates when it has a record.
+> "… beantragen" task) and company per year (Pflichten). The design (data, behaviour, sub-questions, build order
+> R6–R27) is in git history: `git show 0b12619:docs/research/13-client-checklists-and-wall-calendar.md`.

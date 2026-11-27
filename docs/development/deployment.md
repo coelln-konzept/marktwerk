@@ -99,7 +99,7 @@ Because the default is `local`, a deployment without `APP_ENV` is fenced, never 
 | Vercel **Production** (today the deployed dev app with synthetic data) | `preview` while it holds synthetic data; `production` only for the real system | Catch-all mailbox; allowlist the team's own addresses if they should get the mails |
 | Vercel **Preview** (shared, all branches) | `preview` | Same catch-all; branch-scoped values override them like the database variables |
 | Local `.env` | `local` (or unset) | Any address, e.g. `catch-all@marktwerk.test`: Mailpit catches everything anyway |
-| Production host (Scalingo, later) | `production` | Not needed |
+| Production host (later, ADR 0006) | `production` | Not needed |
 
 `settings.email_enabled` stays the company's master switch on top of this: the fence decides *where* mail goes, the
 switch *whether* the jobs queue and send any.
@@ -111,7 +111,8 @@ address shows its own message on the login page ("Von dieser Adresse aus ist kei
 
 ### Seeding the dev database (GitHub Actions)
 The sandbox and most laptops cannot reach the Supabase pooler directly, so the synthetic development dataset
-([ADR 0016](../architecture/adr/0016-synthetic-development-data.md): 148 events, 12 venues, 14 presets, 1,500 vendors, …)
+([ADR 0016](../architecture/adr/0016-synthetic-development-data.md): 134 events, 10 venues, 17 presets, 1,500 vendors, …; counts in
+[`packages/synthetic/README.md`](../../packages/synthetic/README.md))
 is loaded by the manual workflow `.github/workflows/seed-dev.yml`.
 
 1. Repository secret **`DATABASE_MIGRATION_URL`**: the Supabase *session* pooler URL (port 5432) of the role that owns
@@ -124,7 +125,7 @@ is loaded by the manual workflow `.github/workflows/seed-dev.yml`.
    skips the job.
 4. Leave `reference_date` empty on an empty database: the data is generated as of today. Some ids depend on that
    day, so the seed **refuses a database that already holds synthetic data** ("The database already holds synthetic
-   data…"). To run it again, enter the original seed day as `reference_date` (the deployed DB: `2026-10-26`); then
+   data…"). To run it again, enter the original seed day as `reference_date` (the deployed DB: `2026-11-13`, its last wipe and reseed); then
    the run is idempotent (`ON CONFLICT DO NOTHING`, fixed ids) and changes nothing that exists. Fresh data as of
    today needs the `app` data wiped first: type `wipe` in the `wipe` field (leave `reference_date` empty). That
    empties **every app table except the sign-in tables** (`user`, `session`, `account`, `verification`,
@@ -222,15 +223,26 @@ branch migration.
 3. Delete the local `.env.neon-*<env>` and `.env.vercel-<env>` files and remove the row from the table above.
 
 ## Production (later): Scalingo candidate, ADR 0006
-Status: **plan, to be verified before the pilot.**
+Status: **plan, to be verified before the pilot.** ADR 0006 is deferred: Scalingo is the documented candidate, revisited
+before the pilot with real data. There is **no staging deployment** ([ADR 0023](../architecture/adr/0023-test-environments.md)):
+the deployed dev app above is the shared test system, branch environments cover the rest.
 
-## Topology
+<details><summary>Hosting options that were considered (2026-10-21)</summary>
+
+| Option | Pros | Cons |
+|---|---|---|
+| **A. Vercel (fra1) + Neon/Supabase Frankfurt + worker container (Hetzner/Fly fra)** | Least ops for web, preview deploys | 3 vendors, US parent companies, worker still needs a host |
+| **B. Hetzner (DE) + Coolify/Docker Compose: web + worker + Postgres** | Cheapest, all in German jurisdiction, one place | We run backups, patching and monitoring ourselves |
+| **C. Hetzner app servers + managed Postgres (e.g. Hetzner/Ionos/Neon EU)** | Middle ground | Two providers |
+
+</details>
+
+### Topology
 | Scalingo app | Region | Processes | Addons |
 |---|---|---|---|
-| `marktwerk-staging` | osc-fr1 | `web` ×1, `worker` ×1 | PostgreSQL 17 (Starter/Business) |
 | `marktwerk-prod` | osc-fr1 | `web` ×1–2, `worker` ×1 | PostgreSQL 17 (Business, PITR) |
 
-## Planned files (added during the spike)
+### Planned files (added during the spike)
 `Procfile` at the repo root:
 ```
 web: node apps/web/.next/standalone/apps/web/server.js
@@ -243,27 +255,26 @@ postdeploy: pnpm db:migrate
   `corepack enable` in a build hook or a multi-buildpack setup).
 - Next.js listens on `$PORT` (set `HOSTNAME=0.0.0.0`).
 
-## Environment variables
+### Environment variables
 `DATABASE_URL` (from the addon: `SCALINGO_POSTGRESQL_URL`), `APP_URL`, `APP_TIMEZONE=Europe/Berlin`,
-`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `SMTP_*` (EU transactional mail provider), `APP_ENV=production` (only the
-real production app; staging gets `preview` + `MAIL_CATCH_ALL`), `STORAGE_DRIVER=s3` + `S3_*` (EU bucket), later
-`M365_*`.
+`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `SMTP_*` (EU transactional mail provider), `APP_ENV=production`,
+`STORAGE_DRIVER=s3` + `S3_*` (EU bucket), later `M365_*`.
 
-## Backups
+### Backups
 1. Scalingo PITR (7 days shared / longer on dedicated plans) + daily backups.
 2. **Nightly encrypted `pg_dump` + file sync to the company's server** (worker job; target and credentials
    decided with the client).
 3. Restore test every quarter, documented in this file.
 
-## Data
-Staging is seeded from `packages/synthetic` ([ADR 0016](../architecture/adr/0016-synthetic-development-data.md)).
-Production starts empty and receives real data during the pilot.
+### Data
+Production starts empty and receives real data during the pilot. Synthetic data
+([ADR 0016](../architecture/adr/0016-synthetic-development-data.md)) stays on the dev app and branch environments.
 
-## Scalingo spike checklist (before the pilot)
-- [ ] Create staging app + PostgreSQL 17 addon in osc-fr1
+### Scalingo spike checklist (before the pilot)
+- [ ] Create the app + PostgreSQL 17 addon in osc-fr1
 - [ ] Monorepo build with pnpm succeeds on the Node.js buildpack
 - [ ] `web` serves login; `worker` logs scheduled jobs
 - [ ] `postdeploy` migrations run
-- [ ] Seed synthetic data
+- [ ] Seed synthetic data (spike only; production starts empty)
 - [ ] PITR visible; manual backup download works
 - [ ] Record monthly cost estimate here
