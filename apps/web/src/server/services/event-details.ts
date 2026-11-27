@@ -38,6 +38,7 @@ import { db } from "../db";
 import { audit } from "./audit";
 import { scheduledEventsBetween } from "./events";
 import { ensureSeasonsTx, planSeasonShiftForMove, syncSeasonsTx } from "./seasons";
+import { moveNeedsTx } from "./staffing";
 import {
   notifyDatesShifted,
   planTaskShift,
@@ -456,6 +457,7 @@ async function applySchedule(
   anchors: Record<string, { from: string | null; to: string }>;
   shifted: ShiftedTask[];
   seasonShifted: number;
+  confirmationsReset: number;
 }> {
   await tx
     .update(event)
@@ -487,6 +489,13 @@ async function applySchedule(
     { eventId: current.id },
     new Map([...old, ...Object.entries(anchors)]),
   );
+  const staffingMove = await moveNeedsTx(
+    tx,
+    actor,
+    current.id,
+    daysBetween(current.startsOn, next.startsOn),
+    { startsOn: next.startsOn, endsOn: next.endsOn },
+  );
   let seasonShifted = 0;
   if (current.presetId) {
     const nextSeason = Number(next.startsOn.slice(0, 4));
@@ -508,7 +517,12 @@ async function applySchedule(
     );
     seasonShifted = synced.reduce((n, s) => n + s.shifted.length, 0);
   }
-  return { anchors: diff, shifted, seasonShifted };
+  return {
+    anchors: diff,
+    shifted,
+    seasonShifted,
+    confirmationsReset: staffingMove.reset.length,
+  };
 }
 
 /**
@@ -529,6 +543,7 @@ export async function moveEvent(
   to: string;
   tasksShifted: number;
   seasonTasksShifted: number;
+  confirmationsReset: number;
 }> {
   if (!can(actor.role, "event", "write")) forbidden();
   if (options.undo) {
@@ -546,10 +561,11 @@ export async function moveEvent(
         to: startsOn,
         tasksShifted: 0,
         seasonTasksShifted: 0,
+        confirmationsReset: 0,
       };
 
     const next = target(current, { startsOn });
-    const { anchors, shifted, seasonShifted } = await applySchedule(
+    const { anchors, shifted, seasonShifted, confirmationsReset } = await applySchedule(
       tx,
       actor,
       current,
@@ -571,6 +587,7 @@ export async function moveEvent(
           anchors,
           ...(shifted.length > 0 ? { tasksShifted: shifted.length } : {}),
           ...(seasonShifted > 0 ? { seasonTasksShifted: seasonShifted } : {}),
+          ...(confirmationsReset > 0 ? { confirmationsReset } : {}),
           ...(options.undo ? { undo: true } : {}),
         },
       },
@@ -581,6 +598,7 @@ export async function moveEvent(
       to: next.startsOn,
       tasksShifted: shifted.length,
       seasonTasksShifted: seasonShifted,
+      confirmationsReset,
     };
   });
 }

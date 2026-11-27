@@ -40,6 +40,8 @@ export type ShiftInput = {
   eventId: string | null;
   staffMemberId: string;
   dutyRoleId: string | null;
+  /** The need this shift fills (shift allocator); null = a further shift. */
+  needId?: string | null;
   workDate: string;
   plannedStart: string | null;
   plannedEnd: string | null;
@@ -139,6 +141,8 @@ function checkIds(fields: Fields) {
     throw new ShiftInputError("invalid_event");
   if (fields.dutyRoleId !== null && !UUID.test(fields.dutyRoleId))
     throw new ShiftInputError("invalid_role");
+  if (fields.needId != null && !UUID.test(fields.needId))
+    throw new ShiftInputError("invalid_event");
 }
 
 /** Wraps `period_locked` from the payroll service in the shift error type. */
@@ -156,6 +160,7 @@ const fieldsOf = (row: typeof shift.$inferSelect): Fields => ({
   eventId: row.eventId,
   staffMemberId: row.staffMemberId,
   dutyRoleId: row.dutyRoleId,
+  needId: row.needId,
   workDate: row.workDate,
   plannedStart: row.plannedStart?.slice(0, 5) ?? null,
   plannedEnd: row.plannedEnd?.slice(0, 5) ?? null,
@@ -183,6 +188,7 @@ const toDbValues = (f: Fields) => ({
   eventId: f.eventId,
   staffMemberId: f.staffMemberId,
   dutyRoleId: f.dutyRoleId,
+  needId: f.needId ?? null,
   workDate: f.workDate,
   plannedStart: f.plannedStart,
   plannedEnd: f.plannedEnd,

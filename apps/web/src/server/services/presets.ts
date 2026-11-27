@@ -13,9 +13,11 @@ import {
   type PresetFieldsInput,
   type PresetIssueCode,
   parseSchedule,
+  parseStaffing,
   presetKeyBase,
   type Schedule,
   type ScheduleRow,
+  type StaffingRow,
   sameMarketRules,
 } from "@marktwerk/core";
 import {
@@ -72,6 +74,8 @@ export type PresetInput = PresetFieldsInput & {
   venueId: string;
   /** duty_role.key → staff_member.id; roles that are not listed have no default person. */
   defaultDuties: Record<string, string>;
+  /** Personalbedarf (shift allocator). Left out: a new preset gets none, an edit keeps the stored one. */
+  staffing?: StaffingRow[];
   active: boolean;
   /**
    * Marktfarbe (`MARKET_COLORS` key) or null (= the event type's colour). Left out: a new preset gets
@@ -104,6 +108,7 @@ function normalize(input: PresetInput): PresetInput {
     publicTitle: blankToNull(input.publicTitle),
     publicText: blankToNull(input.publicText),
     schedule: parseSchedule(input.schedule) ?? [],
+    staffing: input.staffing === undefined ? undefined : (parseStaffing(input.staffing) ?? []),
     rrule: input.rrule === null || input.rrule === "" ? null : input.rrule,
     shortCode:
       input.shortCode === undefined ? undefined : normalizeMarketShortCode(input.shortCode),
@@ -124,6 +129,7 @@ function assertShape(input: PresetInput) {
       input.shortCode === null ||
       typeof input.shortCode === "string") &&
     parseSchedule(input.schedule) !== null &&
+    (input.staffing === undefined || parseStaffing(input.staffing) !== null) &&
     typeof input.defaultDuties === "object" &&
     input.defaultDuties !== null &&
     !Array.isArray(input.defaultDuties) &&
@@ -162,6 +168,16 @@ async function checkReferences(
     .where(eq(venue.id, input.venueId));
   if (!place || (place.archivedAt && current?.venueId !== place.id))
     throw new PresetInputError("invalid_venue", "venue");
+
+  if (input.staffing !== undefined && input.staffing.length > 0) {
+    const keys = [...new Set(input.staffing.map((row) => row.dutyRoleKey))];
+    const roles = await tx
+      .select({ key: dutyRole.key })
+      .from(dutyRole)
+      .where(inArray(dutyRole.key, keys));
+    const knownKeys = new Set(roles.map((r) => r.key));
+    if (keys.some((key) => !knownKeys.has(key))) throw new PresetInputError("invalid_input");
+  }
 
   const entries = Object.entries(input.defaultDuties);
   if (entries.length === 0) return;
@@ -226,6 +242,7 @@ type Fields = {
   bookingFeeCents: number;
   rrule: string | null;
   defaultDuties: Record<string, string>;
+  staffing: StaffingRow[];
   active: boolean;
   color: string | null;
   shortCode: string | null;
@@ -244,6 +261,7 @@ const storedFields = (row: typeof eventPreset.$inferSelect): Fields => ({
   bookingFeeCents: row.bookingFeeCents,
   rrule: row.rrule,
   defaultDuties: row.defaultDuties,
+  staffing: row.staffing,
   active: row.active,
   color: row.color,
   shortCode: row.shortCode,
@@ -254,6 +272,7 @@ const inputFields = (
   input: PresetInput,
   color: string | null,
   shortCode: string | null,
+  staffing: StaffingRow[],
 ): Fields => ({
   name: input.name,
   eventTypeId: input.eventTypeId,
@@ -266,6 +285,7 @@ const inputFields = (
   bookingFeeCents: input.bookingFeeCents,
   rrule: input.rrule,
   defaultDuties: input.defaultDuties,
+  staffing,
   active: input.active,
   color,
   shortCode,
@@ -372,6 +392,7 @@ async function insertPreset(
       rrule: input.rrule,
       durationDays: input.durationDays,
       defaultDuties: input.defaultDuties,
+      staffing: input.staffing ?? [],
       active: input.active,
       color,
       shortCode,
@@ -384,7 +405,11 @@ async function insertPreset(
       action: "preset.create",
       entityType: "event_preset",
       entityId: row.id,
-      diff: { key, changes: diffOf(null, inputFields(input, color, shortCode)), ...extraDiff },
+      diff: {
+        key,
+        changes: diffOf(null, inputFields(input, color, shortCode, input.staffing ?? [])),
+        ...extraDiff,
+      },
     },
   ]);
   return { id: row.id, key };
@@ -551,7 +576,8 @@ export async function updatePreset(
       await checkReferences(tx, input, current);
       const color = input.color === undefined ? current.color : input.color;
       const shortCode = input.shortCode === undefined ? current.shortCode : input.shortCode;
-      const changes = diffOf(storedFields(current), inputFields(input, color, shortCode));
+      const staffing = input.staffing ?? current.staffing;
+      const changes = diffOf(storedFields(current), inputFields(input, color, shortCode, staffing));
       if (Object.keys(changes).length === 0)
         return { changed: false, updatedAt: current.updatedAt };
       // A new Kürzel, or a market made active again, must not clash with another active market.
@@ -574,6 +600,7 @@ export async function updatePreset(
           rrule: input.rrule,
           durationDays: input.durationDays,
           defaultDuties: input.defaultDuties,
+          ...(input.staffing !== undefined ? { staffing: input.staffing } : {}),
           active: input.active,
           color,
           shortCode,
